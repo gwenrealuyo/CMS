@@ -5,9 +5,9 @@
 @layer base {
   :root {
     --background: 220 33% 98%;
-    --primary: 263 60% 59%;
+    --primary: 220 80% 56%;
     --secondary: 215 16% 35%;
-    --accent: 38 97% 51%;
+    --accent: 48 97% 51%;
     --text: 218 27% 23%;
   }
 
@@ -34,7 +34,7 @@
 
 @layer components {
   .input-field {
-    @apply w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#805AD5] focus:border-transparent;
+    @apply w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-transparent;
   }
 
   .card-shadow {
@@ -43,6 +43,10 @@
 
   .transition-default {
     @apply transition-all duration-200 ease-in-out;
+  }
+
+  .btn-accent {
+    @apply bg-yellow-400 text-black hover:bg-yellow-500;
   }
 }
 

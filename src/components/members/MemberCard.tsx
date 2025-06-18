@@ -1,9 +1,9 @@
-import { Member } from "@/src/types/member";
+import { Person } from "@/src/types/person";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 
 interface MemberCardProps {
-  member: Member;
+  member: Person;
   onEdit?: () => void;
   onDelete?: () => void;
 }

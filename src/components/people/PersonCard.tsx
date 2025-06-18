@@ -17,11 +17,12 @@ export default function PersonCard({
       <div className="flex justify-between items-start">
         <div>
           <h3 className="text-lg font-semibold">
-            {person.firstName} {person.lastName}
+            {/* {person.firstName} {person.lastName} */}
+            {person.name}
           </h3>
           <p className="text-gray-600">{person.email}</p>
           <p className="text-gray-600">{person.phone}</p>
-          <p className="text-gray-600">{person.address}</p>
+          {/* <p className="text-gray-600">{person.address}</p> */}
         </div>
         <div className="flex space-x-2">
           <button

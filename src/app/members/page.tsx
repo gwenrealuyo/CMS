@@ -8,22 +8,22 @@ import FamilyCard from "@/src/components/families/FamilyCard";
 import FamilyForm from "@/src/components/families/FamilyForm";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
-import { Member, Family } from "@/src/types/member";
+import { Person, Family } from "@/src/types/person";
 
 export default function MembersPage() {
   const [activeTab, setActiveTab] = useState<"members" | "families">("members");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"member" | "family">("member");
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<Person[]>([]);
   const [families, setFamilies] = useState<Family[]>([]);
 
-  const handleCreateMember = (memberData: Partial<Member>) => {
+  const handleCreateMember = (memberData: Partial<Person>) => {
     const newMember = {
       ...memberData,
       id: Date.now().toString(),
       joinDate: new Date(),
       milestones: [],
-    } as Member;
+    } as Person;
     setMembers([...members, newMember]);
     setIsModalOpen(false);
   };
@@ -73,7 +73,7 @@ export default function MembersPage() {
               setIsModalOpen(true);
             }}
           >
-            Add {activeTab === "members" ? "Member" : "Family"}
+            Add {activeTab === "members" ? "Person" : "Family"}
           </Button>
         </div>
 
@@ -109,7 +109,7 @@ export default function MembersPage() {
         <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          title={`Add New ${modalType === "member" ? "Member" : "Family"}`}
+          title={`Add New ${modalType === "member" ? "Person" : "Family"}`}
         >
           {modalType === "member" ? (
             <MemberForm onSubmit={handleCreateMember} />

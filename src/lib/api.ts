@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Member, Family, Cluster } from "@/src/types/member";
+import { Person, Family, Cluster } from "@/src/types/person";
 import { Event } from "@/src/types/event";
 
 const api = axios.create({
@@ -10,11 +10,11 @@ const api = axios.create({
 });
 
 export const membersApi = {
-  getAll: () => api.get<Member[]>("/members/"),
-  getById: (id: string) => api.get<Member>(`/members/${id}/`),
-  create: (data: Partial<Member>) => api.post<Member>("/members/", data),
-  update: (id: string, data: Partial<Member>) =>
-    api.put<Member>(`/members/${id}/`, data),
+  getAll: () => api.get<Person[]>("/members/"),
+  getById: (id: string) => api.get<Person>(`/members/${id}/`),
+  create: (data: Partial<Person>) => api.post<Person>("/members/", data),
+  update: (id: string, data: Partial<Person>) =>
+    api.put<Person>(`/members/${id}/`, data),
   delete: (id: string) => api.delete(`/members/${id}/`),
 };
 

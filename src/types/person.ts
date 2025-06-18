@@ -1,4 +1,9 @@
-export type PersonRole = "Member" | "Visitor" | "Pastor" | "Admin";
+export type PersonRole =
+  | "Member"
+  | "Visitor"
+  | "Coordinator"
+  | "Pastor"
+  | "Admin";
 
 export interface Person {
   id: string;

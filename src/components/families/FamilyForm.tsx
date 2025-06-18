@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Family, Member } from "@/src/types/member";
+import { Family, Person } from "@/src/types/person";
 import Button from "../ui/Button";
 
 interface FamilyFormProps {
   onSubmit: (family: Partial<Family>) => void;
   initialData?: Family;
-  availableMembers: Member[];
+  availableMembers: Person[];
 }
 
 export default function FamilyForm({

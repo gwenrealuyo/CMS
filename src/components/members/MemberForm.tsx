@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Member, MemberRole } from "@/src/types/member";
+import { Person, PersonRole } from "@/src/types/person";
 import Button from "../ui/Button";
 
 interface MemberFormProps {
-  onSubmit: (member: Partial<Member>) => void;
-  initialData?: Member;
+  onSubmit: (member: Partial<Person>) => void;
+  initialData?: Person;
 }
 
 export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
@@ -12,14 +12,14 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
     name: initialData?.name || "",
     email: initialData?.email || "",
     phone: initialData?.phone || "",
-    role: initialData?.role || ("Member" as MemberRole),
+    role: initialData?.role || ("Person" as PersonRole),
     photo: initialData?.photo || "",
   });
 
-  const roles: MemberRole[] = [
+  const roles: PersonRole[] = [
     "Member",
     "Visitor",
-    "Leader",
+    "Coordinator",
     "Pastor",
     "Admin",
   ];
@@ -69,7 +69,7 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
         <select
           value={formData.role}
           onChange={(e) =>
-            setFormData({ ...formData, role: e.target.value as MemberRole })
+            setFormData({ ...formData, role: e.target.value as PersonRole })
           }
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
         >
@@ -93,7 +93,7 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
         />
       </div>
 
-      <Button>{initialData ? "Update Member" : "Create Member"}</Button>
+      <Button>{initialData ? "Update Person" : "Create Person"}</Button>
     </form>
   );
 }

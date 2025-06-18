@@ -46,7 +46,7 @@ export default function DonationForm({
             onChange={(e) =>
               setFormData({ ...formData, amount: parseFloat(e.target.value) })
             }
-            className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+            className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
             required
           />
         </div>
@@ -64,7 +64,7 @@ export default function DonationForm({
               purpose: e.target.value as Donation["purpose"],
             })
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
         >
           <option value="Tithe">Tithe</option>
           <option value="Offering">Offering</option>
@@ -85,7 +85,7 @@ export default function DonationForm({
               paymentMethod: e.target.value as Donation["paymentMethod"],
             })
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
         >
           <option value="Cash">Cash</option>
           <option value="Check">Check</option>
@@ -101,7 +101,7 @@ export default function DonationForm({
           onChange={(e) =>
             setFormData({ ...formData, isAnonymous: e.target.checked })
           }
-          className="h-4 w-4 text-[#805AD5] focus:ring-[#805AD5] border-gray-300 rounded"
+          className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded"
         />
         <label className="ml-2 block text-sm text-gray-700">
           Anonymous Donation
@@ -119,7 +119,7 @@ export default function DonationForm({
             onChange={(e) =>
               setFormData({ ...formData, donorName: e.target.value })
             }
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           />
         </div>
       )}
@@ -129,7 +129,7 @@ export default function DonationForm({
         <textarea
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           rows={3}
         />
       </div>

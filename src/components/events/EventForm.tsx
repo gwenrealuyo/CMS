@@ -40,7 +40,7 @@ export default function EventForm({ onSubmit, initialData }: EventFormProps) {
           type="text"
           value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           required
         />
       </div>
@@ -52,7 +52,7 @@ export default function EventForm({ onSubmit, initialData }: EventFormProps) {
           onChange={(e) =>
             setFormData({ ...formData, type: e.target.value as EventType })
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
         >
           {eventTypes.map((type) => (
             <option key={type} value={type}>
@@ -71,7 +71,7 @@ export default function EventForm({ onSubmit, initialData }: EventFormProps) {
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           rows={3}
         />
       </div>
@@ -87,7 +87,7 @@ export default function EventForm({ onSubmit, initialData }: EventFormProps) {
             onChange={(e) =>
               setFormData({ ...formData, startDate: new Date(e.target.value) })
             }
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
             required
           />
         </div>
@@ -101,7 +101,7 @@ export default function EventForm({ onSubmit, initialData }: EventFormProps) {
             onChange={(e) =>
               setFormData({ ...formData, endDate: new Date(e.target.value) })
             }
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
             required
           />
         </div>
@@ -114,7 +114,7 @@ export default function EventForm({ onSubmit, initialData }: EventFormProps) {
           onChange={(e) =>
             setFormData({ ...formData, isRecurring: e.target.checked })
           }
-          className="h-4 w-4 text-[#805AD5] focus:ring-[#805AD5] border-gray-300 rounded"
+          className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded"
         />
         <label className="ml-2 block text-sm text-gray-700">
           Recurring Event

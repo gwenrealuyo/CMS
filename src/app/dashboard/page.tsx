@@ -12,7 +12,7 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-[#2D3748]">
             Dashboard Overview
           </h1>
-          <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Generate Report
           </button>
         </div>
@@ -22,7 +22,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Members</p>
-                <p className="text-3xl font-bold text-[#805AD5] mt-1">156</p>
+                <p className="text-3xl font-bold text-[#2563EB] mt-1">156</p>
               </div>
               <div className="flex items-center text-green-500">
                 <ArrowUpIcon className="h-4 w-4" />
@@ -35,7 +35,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Upcoming Events</p>
-                <p className="text-3xl font-bold text-[#805AD5] mt-1">3</p>
+                <p className="text-3xl font-bold text-[#2563EB] mt-1">3</p>
               </div>
               <div className="flex items-center text-green-500">
                 <ArrowUpIcon className="h-4 w-4" />
@@ -48,7 +48,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Today's Attendance</p>
-                <p className="text-3xl font-bold text-[#805AD5] mt-1">42</p>
+                <p className="text-3xl font-bold text-[#2563EB] mt-1">42</p>
               </div>
               <div className="flex items-center text-red-500">
                 <ArrowDownIcon className="h-4 w-4" />
@@ -61,7 +61,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Monthly Donations</p>
-                <p className="text-3xl font-bold text-[#805AD5] mt-1">$3,250</p>
+                <p className="text-3xl font-bold text-[#2563EB] mt-1">$3,250</p>
               </div>
               <div className="flex items-center text-green-500">
                 <ArrowUpIcon className="h-4 w-4" />
@@ -77,7 +77,7 @@ export default function Dashboard() {
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center space-x-3">
-                  <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                     {i}
                   </div>
                   <div>
@@ -109,7 +109,7 @@ export default function Dashboard() {
           <Card>
             <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-4">
-              <button className="p-3 text-sm text-center rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100">
+              <button className="p-3 text-sm text-center rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100">
                 Add Person
               </button>
               <button className="p-3 text-sm text-center rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100">

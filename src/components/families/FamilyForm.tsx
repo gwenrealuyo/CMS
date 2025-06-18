@@ -33,7 +33,7 @@ export default function FamilyForm({
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           required
         />
       </div>
@@ -57,7 +57,7 @@ export default function FamilyForm({
                     : formData.members.filter((id) => id !== member.id);
                   setFormData({ ...formData, members: newMembers });
                 }}
-                className="rounded border-gray-300 text-[#805AD5] focus:ring-[#805AD5]"
+                className="rounded border-gray-300 text-[#2563EB] focus:ring-[#2563EB]"
               />
               <div className="flex items-center space-x-3">
                 <img

@@ -37,7 +37,7 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           required
         />
       </div>
@@ -48,7 +48,7 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
           type="email"
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           required
         />
       </div>
@@ -59,7 +59,7 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
           type="tel"
           value={formData.phone}
           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           required
         />
       </div>
@@ -71,7 +71,7 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
           onChange={(e) =>
             setFormData({ ...formData, role: e.target.value as PersonRole })
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
         >
           {roles.map((role) => (
             <option key={role} value={role}>
@@ -89,7 +89,7 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
           type="url"
           value={formData.photo}
           onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#805AD5] focus:ring-[#805AD5]"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
         />
       </div>
 

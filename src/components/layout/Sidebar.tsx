@@ -50,7 +50,7 @@ export default function Sidebar() {
             onClick={() => toggleSection(item.name)}
             className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors ${
               isExpanded
-                ? "bg-purple-50 text-purple-700"
+                ? "bg-blue-50 text-blue-700"
                 : "text-gray-700 hover:bg-gray-50"
             }`}
           >
@@ -69,13 +69,13 @@ export default function Sidebar() {
             href={item.href}
             className={`flex items-center px-3 py-3 rounded-lg transition-colors ${
               isActive
-                ? "bg-purple-50 text-purple-700"
+                ? "bg-blue-50 text-blue-700"
                 : "text-gray-700 hover:bg-gray-50"
             }`}
           >
             <item.icon
               className={`h-5 w-5 mr-3 ${
-                isActive ? "text-purple-700" : "text-gray-400"
+                isActive ? "text-blue-700" : "text-gray-400"
               }`}
             />
             <span className="font-medium">{item.name}</span>
@@ -90,7 +90,7 @@ export default function Sidebar() {
                 href={child.href}
                 className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
                   pathname === child.href
-                    ? "bg-purple-50 text-purple-700"
+                    ? "bg-blue-50 text-blue-700"
                     : "text-gray-600 hover:bg-gray-50"
                 }`}
               >
@@ -114,9 +114,9 @@ export default function Sidebar() {
       </nav>
 
       <div className="absolute bottom-0 left-0 right-0 p-6">
-        <div className="bg-purple-50 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-purple-800">Need Help?</h3>
-          <p className="text-sm text-purple-600 mt-1">
+        <div className="bg-blue-50 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-blue-800">Need Help?</h3>
+          <p className="text-sm text-blue-600 mt-1">
             Check our documentation or contact support
           </p>
         </div>

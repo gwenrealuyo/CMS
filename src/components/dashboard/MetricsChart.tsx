@@ -34,7 +34,7 @@ export default function MetricsChart() {
               yAxisId="left"
               type="monotone"
               dataKey="attendance"
-              stroke="#805AD5"
+              stroke="#2563EB"
             />
             <Line
               yAxisId="right"

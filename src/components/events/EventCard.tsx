@@ -26,7 +26,7 @@ export default function EventCard({ event, onEdit, onDelete }: EventCardProps) {
           <h3 className="text-lg font-semibold text-[#2D3748]">
             {event.title}
           </h3>
-          <span className="inline-block px-2 py-1 text-sm rounded-full bg-[#805AD5] text-white mt-2">
+          <span className="inline-block px-2 py-1 text-sm rounded-full bg-[#2563EB] text-white mt-2">
             {event.type}
           </span>
           <p className="mt-2 text-gray-600">{event.description}</p>

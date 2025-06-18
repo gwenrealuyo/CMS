@@ -27,7 +27,7 @@ export default function MemberCard({
               <h3 className="text-lg font-semibold text-[#2D3748]">
                 {member.name}
               </h3>
-              <span className="inline-block px-2 py-1 text-sm rounded-full bg-[#805AD5] text-white mt-1">
+              <span className="inline-block px-2 py-1 text-sm rounded-full bg-[#2563EB] text-white mt-1">
                 {member.role}
               </span>
             </div>

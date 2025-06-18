@@ -92,7 +92,7 @@ export default function PeoplePage() {
             <button
               className={`px-4 py-2 font-medium rounded-md ${
                 activeTab === "people"
-                  ? "bg-[#805AD5] text-white"
+                  ? "bg-[#2563EB] text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
               onClick={() => setActiveTab("people")}
@@ -102,7 +102,7 @@ export default function PeoplePage() {
             <button
               className={`px-4 py-2 font-medium rounded-md ${
                 activeTab === "families"
-                  ? "bg-[#805AD5] text-white"
+                  ? "bg-[#2563EB] text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
               onClick={() => setActiveTab("families")}

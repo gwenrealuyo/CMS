@@ -28,7 +28,7 @@ export default function StatCard({ title, value, icon, trend }: StatCardProps) {
             </p>
           )}
         </div>
-        <div className="text-[#805AD5] text-2xl">{icon}</div>
+        <div className="text-[#2563EB] text-2xl">{icon}</div>
       </div>
     </Card>
   );

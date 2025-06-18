@@ -27,7 +27,7 @@ export default function PersonCard({
         <div className="flex space-x-2">
           <button
             onClick={() => onEdit(person)}
-            className="p-2 text-gray-600 hover:text-purple-600"
+            className="p-2 text-gray-600 hover:text-blue-600"
           >
             <FiEdit2 className="w-5 h-5" />
           </button>

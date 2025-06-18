@@ -11,7 +11,7 @@ export default function DonationStats({ stats }: DonationStatsProps) {
       <Card>
         <div className="text-center">
           <h3 className="text-lg font-medium text-gray-900">Total Donations</h3>
-          <p className="mt-2 text-3xl font-bold text-[#805AD5]">
+          <p className="mt-2 text-3xl font-bold text-[#2563EB]">
             ${stats.totalAmount.toLocaleString()}
           </p>
         </div>
@@ -22,7 +22,7 @@ export default function DonationStats({ stats }: DonationStatsProps) {
           <h3 className="text-lg font-medium text-gray-900">
             Number of Donations
           </h3>
-          <p className="mt-2 text-3xl font-bold text-[#805AD5]">
+          <p className="mt-2 text-3xl font-bold text-[#2563EB]">
             {stats.donationCount}
           </p>
         </div>
@@ -33,7 +33,7 @@ export default function DonationStats({ stats }: DonationStatsProps) {
           <h3 className="text-lg font-medium text-gray-900">
             Average Donation
           </h3>
-          <p className="mt-2 text-3xl font-bold text-[#805AD5]">
+          <p className="mt-2 text-3xl font-bold text-[#2563EB]">
             ${stats.averageDonation.toLocaleString()}
           </p>
         </div>

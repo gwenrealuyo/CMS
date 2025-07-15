@@ -9,6 +9,9 @@ class Ministry(models.Model):
 
     def __str__(self):
         return self.name
+    
+    class Meta:
+        verbose_name_plural = "Ministries"
 
 class MinistryMember(models.Model):
     ministry = models.ForeignKey(Ministry, on_delete=models.CASCADE)

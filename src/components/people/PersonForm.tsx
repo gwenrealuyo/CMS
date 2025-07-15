@@ -1,14 +1,18 @@
-// BEGIN EDIT: Update form to match Person type definition
 import { useState } from "react";
 import { Person, PersonRole } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
 
 interface PersonFormProps {
   onSubmit: (data: Partial<Person>) => void;
+  onClose: () => void;
   initialData?: Partial<Person>;
 }
 
-export default function PersonForm({ onSubmit, initialData }: PersonFormProps) {
+export default function PersonForm({
+  onSubmit,
+  onClose,
+  initialData,
+}: PersonFormProps) {
   const [formData, setFormData] = useState<Partial<Person>>(
     initialData || {
       name: "",
@@ -16,14 +20,14 @@ export default function PersonForm({ onSubmit, initialData }: PersonFormProps) {
       phone: "",
       photo: "",
       role: "Member",
-      joinDate: new Date(),
+      dateFirstAttended: new Date(),
       milestones: [],
     }
   );
 
   const [newMilestone, setNewMilestone] = useState<{
     date: Date;
-    type: "Lesson" | "Baptism" | "Membership";
+    type: "Lesson" | "Baptism" | "Spirit";
     description: string;
   }>({
     date: new Date(),
@@ -122,6 +126,7 @@ export default function PersonForm({ onSubmit, initialData }: PersonFormProps) {
         >
           <option value="Member">Member</option>
           <option value="Visitor">Visitor</option>
+          <option value="Coordinator">Coordinator</option>
           <option value="Pastor">Pastor</option>
           <option value="Admin">Admin</option>
         </select>
@@ -139,14 +144,14 @@ export default function PersonForm({ onSubmit, initialData }: PersonFormProps) {
 
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          Join Date
+          First Attended
         </label>
         <input
           type="date"
-          name="joinDate"
+          name="dateFirstAttended"
           value={
-            formData.joinDate
-              ? new Date(formData.joinDate).toISOString().split("T")[0]
+            formData.dateFirstAttended
+              ? new Date(formData.dateFirstAttended).toISOString().split("T")[0]
               : ""
           }
           onChange={handleChange}
@@ -174,14 +179,15 @@ export default function PersonForm({ onSubmit, initialData }: PersonFormProps) {
             onChange={(e) =>
               setNewMilestone((prev) => ({
                 ...prev,
-                type: e.target.value as "Lesson" | "Baptism" | "Membership",
+                type: e.target.value as "Lesson" | "Baptism" | "Spirit",
               }))
             }
             className="flex-1 rounded-md border-gray-300"
           >
             <option value="Lesson">Lesson</option>
             <option value="Baptism">Baptism</option>
-            <option value="Membership">Membership</option>
+            <option value="Spirit">Received HG</option>
+            <option value="Cluster">Joined a cluster</option>
           </select>
           <input
             type="text"
@@ -230,8 +236,12 @@ export default function PersonForm({ onSubmit, initialData }: PersonFormProps) {
         </div>
       </div>
 
-      <Button>Save Person</Button>
+      <div className="flex gap-4">
+        <Button className="w-1/2">Save Person</Button>
+        <Button className="w-1/2" variant="tertiary" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
-// END EDIT

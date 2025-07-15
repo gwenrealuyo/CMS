@@ -21,7 +21,8 @@ export default function FilterOptions({
       >
         <option value="">All Roles</option>
         <option value="member">Member</option>
-        <option value="leader">Leader</option>
+        <option value="visitor">Visitor</option>
+        <option value="coordinator">Coordinator</option>
         <option value="pastor">Pastor</option>
       </select>
 

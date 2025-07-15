@@ -2,19 +2,20 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 
 class User(AbstractUser):
+    middle_name = models.CharField(blank=True, max_length=150, verbose_name='last middle_name')
     photo = models.ImageField(upload_to='profiles/', null=True, blank=True)
     role = models.CharField(max_length=20, choices=[
         ('MEMBER', 'Member'),
         ('VISITOR', 'Visitor'),
-        ('LEADER', 'Leader'),
+        ('COORDINATOR', 'Coordinator'),
         ('PASTOR', 'Pastor'),
         ('ADMIN', 'Admin'),
     ])
     phone = models.CharField(max_length=20, blank=True)
     address = models.TextField(blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
+    date_first_attended = models.DateField(null=True, blank=True)
 
-     # Fixing the reverse accessor clashes
     groups = models.ManyToManyField(
         Group,
         related_name="members_user_set",  # Custom related_name for reverse relation
@@ -52,7 +53,8 @@ class Milestone(models.Model):
     type = models.CharField(max_length=20, choices=[
         ('LESSON', 'Lesson'),
         ('BAPTISM', 'Baptism'),
-        ('MEMBERSHIP', 'Membership'),
+        ('SPIRIT', 'Spirit'),
+        ('CLUSTER', 'Cluster'),
     ])
     description = models.TextField()
     verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='verified_milestones')

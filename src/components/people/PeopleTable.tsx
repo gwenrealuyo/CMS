@@ -41,7 +41,7 @@ export default function PeopleTable({ people }: PeopleTableProps) {
         Email: person.email,
         Phone: person.phone,
         Role: person.role,
-        "Join Date": new Date(person.joinDate).toLocaleDateString(),
+        "Join Date": new Date(person.dateFirstAttended).toLocaleDateString(),
       }))
     );
 
@@ -59,7 +59,7 @@ export default function PeopleTable({ people }: PeopleTableProps) {
       person.email,
       person.phone,
       person.role,
-      new Date(person.joinDate).toLocaleDateString(),
+      new Date(person.dateFirstAttended).toLocaleDateString(),
     ]);
 
     autoTable(doc, {
@@ -81,7 +81,7 @@ export default function PeopleTable({ people }: PeopleTableProps) {
           person.email,
           person.phone,
           person.role,
-          new Date(person.joinDate).toLocaleDateString(),
+          new Date(person.dateFirstAttended).toLocaleDateString(),
         ].join(",")
       )
       .join("\n");
@@ -157,16 +157,18 @@ export default function PeopleTable({ people }: PeopleTableProps) {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {["name", "email", "phone", "role", "joinDate"].map((field) => (
-                <th
-                  key={field}
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort(field as keyof Person)}
-                >
-                  {field.charAt(0).toUpperCase() + field.slice(1)}{" "}
-                  <SortIcon field={field as keyof Person} />
-                </th>
-              ))}
+              {["name", "email", "phone", "role", "dateFirstAttended"].map(
+                (field) => (
+                  <th
+                    key={field}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort(field as keyof Person)}
+                  >
+                    {field.charAt(0).toUpperCase() + field.slice(1)}{" "}
+                    <SortIcon field={field as keyof Person} />
+                  </th>
+                )
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -177,7 +179,7 @@ export default function PeopleTable({ people }: PeopleTableProps) {
                 <td className="px-6 py-4 whitespace-nowrap">{person.phone}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{person.role}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {new Date(person.joinDate).toLocaleDateString()}
+                  {new Date(person.dateFirstAttended).toLocaleDateString()}
                 </td>
               </tr>
             ))}

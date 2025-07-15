@@ -21,7 +21,7 @@ export default function MembersPage() {
     const newMember = {
       ...memberData,
       id: Date.now().toString(),
-      joinDate: new Date(),
+      dateFirstAttended: new Date(),
       milestones: [],
     } as Person;
     setMembers([...members, newMember]);

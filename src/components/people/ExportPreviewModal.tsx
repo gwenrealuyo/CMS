@@ -61,7 +61,7 @@ export default function ExportPreviewModal({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">{person.role}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {new Date(person.joinDate).toLocaleDateString()}
+                    {new Date(person.dateFirstAttended).toLocaleDateString()}
                   </td>
                 </tr>
               ))}

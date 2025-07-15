@@ -12,13 +12,13 @@ export interface Person {
   phone: string;
   photo: string;
   role: PersonRole;
-  joinDate: Date;
+  dateFirstAttended: Date;
   familyId?: string;
   clusterId?: string;
   milestones: {
     id: string;
     date: Date;
-    type: "Lesson" | "Baptism" | "Membership";
+    type: "Lesson" | "Baptism" | "Spirit" | "Cluster";
     description: string;
   }[];
 }

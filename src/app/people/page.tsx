@@ -39,8 +39,8 @@ export default function PeoplePage() {
       let dateMatch = true;
       if (filters.dateRange) {
         const now = new Date();
-        const joinDate = new Date(person.joinDate);
-        const diffTime = Math.abs(now.getTime() - joinDate.getTime());
+        const dateFirstAttended = new Date(person.dateFirstAttended);
+        const diffTime = Math.abs(now.getTime() - dateFirstAttended.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         switch (filters.dateRange) {
@@ -64,7 +64,7 @@ export default function PeoplePage() {
     const newPerson = {
       ...personData,
       id: Date.now().toString(),
-      joinDate: new Date(),
+      dateFirstAttended: new Date(),
       milestones: [],
     } as Person;
     setPeople([...people, newPerson]);
@@ -152,7 +152,10 @@ export default function PeoplePage() {
           title={`Add New ${modalType === "person" ? "Person" : "Family"}`}
         >
           {modalType === "person" ? (
-            <PersonForm onSubmit={handleCreatePerson} />
+            <PersonForm
+              onSubmit={handleCreatePerson}
+              onClose={() => setIsModalOpen(false)}
+            />
           ) : (
             <FamilyForm
               onSubmit={handleCreateFamily}

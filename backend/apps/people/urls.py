@@ -1,11 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserViewSet, FamilyViewSet, ClusterViewSet
+from .views import PersonViewSet, FamilyViewSet, ClusterViewSet
 
-app_name = "members"
+app_name = "people"
 
 router = DefaultRouter()
-router.register(r'members', UserViewSet, basename='member')
+router.register(r'', PersonViewSet, basename='person')
 router.register(r'families', FamilyViewSet, basename='family')
 router.register(r'clusters', ClusterViewSet, basename='cluster')
 

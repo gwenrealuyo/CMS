@@ -38,7 +38,9 @@ class PersonSerializer(serializers.ModelSerializer):
         last_name = validated_data.get("last_name", "")
 
         if first_name and last_name:
-            username = f"{first_name[0].lower()}{last_name.lower()}"
+            # Get first two letters of first_name (or the whole first_name if shorter)
+            first_two_letters = first_name[:2].lower()
+            username = f"{first_two_letters}{last_name.lower()}"
         else:
             raise serializers.ValidationError(
                 "Both first name and last name are required to generate username."

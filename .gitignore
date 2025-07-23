@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+frontend/node_modules
 /.pnp
 .pnp.js
 package-lock.json
@@ -10,8 +10,10 @@ package-lock.json
 /coverage
 
 # next.js
-/.next/
+frontend/.next/
+.next/
 /out/
+frontend/out/
 
 # production
 /build
@@ -40,3 +42,4 @@ db.sqlite3
 
 # venv
 backend/venv/
+frontend/.next/server/vendor-chunks/axios.js

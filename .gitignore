@@ -37,3 +37,6 @@ next-env.d.ts
 
 # database
 db.sqlite3
+
+# venv
+backend/venv/

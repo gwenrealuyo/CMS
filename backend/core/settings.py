@@ -23,13 +23,13 @@ INSTALLED_APPS = [
     'corsheaders',
     
     # Local apps
-    'members.apps.MembersConfig',
-    'events.apps.EventsConfig',
-    'attendance.apps.AttendanceConfig',
-    'donations.apps.DonationsConfig',
-    'volunteers.apps.VolunteersConfig',
-    'lessons.apps.LessonsConfig',
-    'admin_dashboard.apps.AdminDashboardConfig',
+    'apps.people',
+    # 'events.apps.EventsConfig',
+    # 'attendance.apps.AttendanceConfig',
+    # 'donations.apps.DonationsConfig',
+    # 'volunteers.apps.VolunteersConfig',
+    # 'lessons.apps.LessonsConfig',
+    # 'admin_dashboard.apps.AdminDashboardConfig',
 ]
 
 MIDDLEWARE = [
@@ -109,3 +109,5 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
     ],
 }
+
+AUTH_USER_MODEL = "people.Person"

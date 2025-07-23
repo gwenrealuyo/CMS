@@ -1,15 +1,13 @@
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
-from django.contrib.auth import get_user_model
-from .models import Family, Cluster
-from .serializers import UserSerializer, FamilySerializer, ClusterSerializer
+from .models import Person, Family, Cluster
+from .serializers import PersonSerializer, FamilySerializer, ClusterSerializer
 from rest_framework.permissions import IsAuthenticated
 
-User = get_user_model()
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+    queryset = Person.objects.all()
+    serializer_class = PersonSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ['username', 'email', 'first_name', 'last_name']

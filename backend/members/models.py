@@ -33,12 +33,12 @@ class User(AbstractUser):
 
     groups = models.ManyToManyField(
         Group,
-        related_name="members_user_set",  # Custom related_name for reverse relation
+        related_name="members_user_set",  
         blank=True
     )
     user_permissions = models.ManyToManyField(
         Permission,
-        related_name="members_user_permissions",  # Custom related_name for reverse relation
+        related_name="members_user_permissions",  
         blank=True
     )
 
@@ -56,8 +56,9 @@ class Family(models.Model):
         verbose_name_plural = "Families"
 
 class Cluster(models.Model):
-    name = models.CharField(max_length=100)
-    leader = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    code = models.CharField(max_length=100, unique=True, null=True)
+    name = models.CharField(max_length=100, null=True)
+    coordinator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     families = models.ManyToManyField(Family)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -66,7 +67,7 @@ class Cluster(models.Model):
         return self.name
 
 class Milestone(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='milestones')
     title = models.CharField(blank=True, max_length=100)
     date = models.DateField()
     type = models.CharField(max_length=20, choices=[

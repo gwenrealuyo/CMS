@@ -13,12 +13,13 @@ import FilterOptions, {
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import { Person, Family } from "@/src/types/person";
+import { usePeople } from "@/src/hooks/usePeople";
 
 export default function PeoplePage() {
   const [activeTab, setActiveTab] = useState<"people" | "families">("people");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"person" | "family">("person");
-  const [people, setPeople] = useState<Person[]>([]);
+  // const [people, setPeople] = useState<Person[]>([]);
   const [families, setFamilies] = useState<Family[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>({
@@ -26,49 +27,62 @@ export default function PeoplePage() {
     dateRange: "",
   });
 
-  const filteredPeople = useMemo(() => {
-    return people.filter((person) => {
-      const searchMatch =
-        searchQuery === "" ||
-        person.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        person.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        person.phone?.includes(searchQuery);
+  const { people, createPerson, deletePerson, updatePerson, refreshPeople } =
+    usePeople();
 
-      const roleMatch = !filters.role || person.role === filters.role;
+  // const filteredPeople = useMemo(() => {
+  //   return people.filter((person) => {
+  //     const searchMatch =
+  //       searchQuery === "" ||
+  //       person.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //       person.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //       person.phone?.includes(searchQuery);
 
-      let dateMatch = true;
-      if (filters.dateRange) {
-        const now = new Date();
-        const dateFirstAttended = new Date(person.dateFirstAttended);
-        const diffTime = Math.abs(now.getTime() - dateFirstAttended.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  //     const roleMatch = !filters.role || person.role === filters.role;
 
-        switch (filters.dateRange) {
-          case "week":
-            dateMatch = diffDays <= 7;
-            break;
-          case "month":
-            dateMatch = diffDays <= 30;
-            break;
-          case "year":
-            dateMatch = diffDays <= 365;
-            break;
-        }
-      }
+  //     let dateMatch = true;
+  //     if (filters.dateRange) {
+  //       const now = new Date();
+  //       const dateFirstAttended = new Date(person.date_first_attended);
+  //       const diffTime = Math.abs(now.getTime() - dateFirstAttended.getTime());
+  //       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      return searchMatch && roleMatch && dateMatch;
-    });
-  }, [people, searchQuery, filters]);
+  //       switch (filters.dateRange) {
+  //         case "week":
+  //           dateMatch = diffDays <= 7;
+  //           break;
+  //         case "month":
+  //           dateMatch = diffDays <= 30;
+  //           break;
+  //         case "year":
+  //           dateMatch = diffDays <= 365;
+  //           break;
+  //       }
+  //     }
 
-  const handleCreatePerson = (personData: Partial<Person>) => {
-    const newPerson = {
-      ...personData,
-      id: Date.now().toString(),
-      dateFirstAttended: new Date(),
-      milestones: [],
-    } as Person;
-    setPeople([...people, newPerson]);
-    setIsModalOpen(false);
+  //     return searchMatch && roleMatch && dateMatch;
+  //   });
+  // }, [people, searchQuery, filters]);
+
+  // const handleCreatePerson = (personData: Partial<Person>) => {
+  //   const newPerson = {
+  //     ...personData,
+  //     id: Date.now().toString(),
+  //     dateFirstAttended: new Date(),
+  //     milestones: [],
+  //   } as Person;
+  //   setPeople([...people, newPerson]);
+  //   setIsModalOpen(false);
+  // };
+
+  const handleCreatePerson = async (personData: Partial<Person>) => {
+    try {
+      await createPerson(personData);
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save person.");
+    }
   };
 
   const handleCreateFamily = (familyData: Partial<Family>) => {
@@ -126,7 +140,7 @@ export default function PeoplePage() {
               <SearchBar value={searchQuery} onChange={setSearchQuery} />
               <FilterOptions filters={filters} onFilterChange={setFilters} />
             </div>
-            <PeopleTable people={filteredPeople} />
+            <PeopleTable people={people} />
           </div>
         )}
 
@@ -145,25 +159,21 @@ export default function PeoplePage() {
             ))}
           </div>
         )}
-
-        <Modal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          title={`Add New ${modalType === "person" ? "Person" : "Family"}`}
-        >
-          {modalType === "person" ? (
-            <PersonForm
-              onSubmit={handleCreatePerson}
-              onClose={() => setIsModalOpen(false)}
-            />
-          ) : (
-            <FamilyForm
-              onSubmit={handleCreateFamily}
-              availableMembers={people}
-            />
-          )}
-        </Modal>
       </div>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={`Add New ${modalType === "person" ? "Person" : "Family"}`}
+      >
+        {modalType === "person" ? (
+          <PersonForm
+            onSubmit={handleCreatePerson}
+            onClose={() => setIsModalOpen(false)}
+          />
+        ) : (
+          <FamilyForm onSubmit={handleCreateFamily} availableMembers={people} />
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }

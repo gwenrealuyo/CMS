@@ -18,7 +18,7 @@ export default function PersonCard({
         <div>
           <h3 className="text-lg font-semibold">
             {/* {person.firstName} {person.lastName} */}
-            {person.name}
+            {/* {person.name} */}
           </h3>
           <p className="text-gray-600">{person.email}</p>
           <p className="text-gray-600">{person.phone}</p>

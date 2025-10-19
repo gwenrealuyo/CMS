@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Person, Family, Cluster } from "@/src/types/person";
+import { Person, Family, Cluster, Milestone } from "@/src/types/person";
 import { Event } from "@/src/types/event";
 
 const api = axios.create({
@@ -10,38 +10,40 @@ const api = axios.create({
 });
 
 export const peopleApi = {
-  getAll: () => api.get<Person[]>("/people"),
-  getById: (id: string) => api.get<Person>(`/people/${id}/`),
-  create: (data: Partial<Person>) => api.post<Person>("/people/", data),
+  getAll: () => api.get<Person[]>("/people/people"),
+  getById: (id: string) => api.get<Person>(`/people/people/${id}/`),
+  create: (data: Partial<Person>) => api.post<Person>("/people/people/", data),
   update: (id: string, data: Partial<Person>) =>
-    api.put<Person>(`/people/${id}/`, data),
-  delete: (id: string) => api.delete(`/people/${id}/`),
+    api.put<Person>(`/people/people/${id}/`, data),
+  delete: (id: string) => api.delete(`/people/people/${id}/`),
 };
 
 export const familiesApi = {
-  getAll: () => api.get<Family[]>("/families/"),
-  getById: (id: string) => api.get<Family>(`/families/${id}/`),
-  create: (data: Partial<Family>) => api.post<Family>("/families/", data),
+  getAll: () => api.get<Family[]>("/people/families/"),
+  getById: (id: string) => api.get<Family>(`/people/families/${id}/`),
+  create: (data: Partial<Family>) =>
+    api.post<Family>("/people/families/", data),
   update: (id: string, data: Partial<Family>) =>
-    api.put<Family>(`/families/${id}/`, data),
-  delete: (id: string) => api.delete(`/families/${id}/`),
+    api.put<Family>(`/people/families/${id}/`, data),
+  delete: (id: string) => api.delete(`/people/families/${id}/`),
   addMember: (familyId: string, memberId: string) =>
-    api.post(`/families/${familyId}/members/`, { memberId }),
+    api.post(`/people/families/${familyId}/members/`, { memberId }),
   removeMember: (familyId: string, memberId: string) =>
-    api.delete(`/families/${familyId}/members/${memberId}/`),
+    api.delete(`/people/families/${familyId}/members/${memberId}/`),
 };
 
 export const clustersApi = {
-  getAll: () => api.get<Cluster[]>("/clusters/"),
-  getById: (id: string) => api.get<Cluster>(`/clusters/${id}/`),
-  create: (data: Partial<Cluster>) => api.post<Cluster>("/clusters/", data),
+  getAll: () => api.get<Cluster[]>("/people/clusters/"),
+  getById: (id: string) => api.get<Cluster>(`/people/clusters/${id}/`),
+  create: (data: Partial<Cluster>) =>
+    api.post<Cluster>("/people/clusters/", data),
   update: (id: string, data: Partial<Cluster>) =>
-    api.put<Cluster>(`/clusters/${id}/`, data),
-  delete: (id: string) => api.delete(`/clusters/${id}/`),
+    api.put<Cluster>(`/people/clusters/${id}/`, data),
+  delete: (id: string) => api.delete(`/people/clusters/${id}/`),
   addFamily: (clusterId: string, familyId: string) =>
-    api.post(`/clusters/${clusterId}/families/`, { familyId }),
+    api.post(`/people/clusters/${clusterId}/families/`, { familyId }),
   removeFamily: (clusterId: string, familyId: string) =>
-    api.delete(`/clusters/${clusterId}/families/${familyId}/`),
+    api.delete(`/people/clusters/${clusterId}/families/${familyId}/`),
 };
 
 export const eventsApi = {
@@ -59,6 +61,18 @@ export const eventsApi = {
     api.post(`/events/${eventId}/attendance/`, { memberId }),
   removeAttendance: (eventId: string, memberId: string) =>
     api.delete(`/events/${eventId}/attendance/${memberId}/`),
+};
+
+export const milestonesApi = {
+  getAll: () => api.get<Milestone[]>("/people/milestones/"),
+  getById: (id: string) => api.get<Milestone>(`/people/milestones/${id}/`),
+  create: (data: Partial<Milestone>) =>
+    api.post<Milestone>("/people/milestones/", data),
+  update: (id: string, data: Partial<Milestone>) =>
+    api.put<Milestone>(`/people/milestones/${id}/`, data),
+  delete: (id: string) => api.delete(`/people/milestones/${id}/`),
+  getByUser: (userId: string) =>
+    api.get<Milestone[]>(`/people/milestones/?user=${userId}`),
 };
 
 export default api;

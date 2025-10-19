@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
-import { Person } from "@/src/types/person";
+import { Person, PersonUI } from "@/src/types/person";
 import { peopleApi } from "@/src/lib/api";
 
 export const usePeople = () => {
   const [people, setPeople] = useState<Person[]>([]);
+  const peopleUI: PersonUI[] = people.map((p) => ({
+    ...p,
+    name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+    dateFirstAttended: p.date_first_attended,
+  }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +60,7 @@ export const usePeople = () => {
 
   return {
     people,
+    peopleUI,
     loading,
     error,
     createPerson,

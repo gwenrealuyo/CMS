@@ -9,23 +9,23 @@ from lessons.views import LessonViewSet, LessonCompletionViewSet
 
 router = DefaultRouter()
 # Members
-router.register(r'users', UserViewSet)
-router.register(r'families', FamilyViewSet)
-router.register(r'clusters', ClusterViewSet)
+# router.register(r'members', UserViewSet)
+router.register(r"families", FamilyViewSet)
+router.register(r"clusters", ClusterViewSet)
 # Events
-router.register(r'events', EventViewSet)
-router.register(r'attendance', AttendanceViewSet)
+router.register(r"events", EventViewSet)
+router.register(r"attendance", AttendanceViewSet)
 # Donations
-router.register(r'donations', DonationViewSet)
+router.register(r"donations", DonationViewSet)
 # Volunteers
-router.register(r'ministries', MinistryViewSet)
-router.register(r'ministry-members', MinistryMemberViewSet)
+router.register(r"ministries", MinistryViewSet)
+router.register(r"ministry-members", MinistryMemberViewSet)
 # Lessons
-router.register(r'lessons', LessonViewSet)
-router.register(r'lesson-completions', LessonCompletionViewSet)
+router.register(r"lessons", LessonViewSet)
+router.register(r"lesson-completions", LessonCompletionViewSet)
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
-    path('api-auth/', include('rest_framework.urls')),
+    path("admin/", admin.site.urls),
+    path("api/", include(router.urls)),
+    path("api-auth/", include("rest_framework.urls")),
 ]

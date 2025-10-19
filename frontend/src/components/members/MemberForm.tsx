@@ -9,7 +9,7 @@ interface MemberFormProps {
 
 export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
   const [formData, setFormData] = useState({
-    name: initialData?.name || "",
+    // name: initialData?.name || "",
     email: initialData?.email || "",
     phone: initialData?.phone || "",
     role: initialData?.role || ("Person" as PersonRole),
@@ -17,11 +17,11 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
   });
 
   const roles: PersonRole[] = [
-    "Member",
-    "Visitor",
-    "Coordinator",
-    "Pastor",
-    "Admin",
+    "MEMBER",
+    "VISITOR",
+    "COORDINATOR",
+    "PASTOR",
+    "ADMIN",
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -33,13 +33,13 @@ export default function MemberForm({ onSubmit, initialData }: MemberFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-700">Name</label>
-        <input
+        {/* <input
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#2563EB] focus:ring-[#2563EB]"
           required
-        />
+        /> */}
       </div>
 
       <div>

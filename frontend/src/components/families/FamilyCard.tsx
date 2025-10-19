@@ -46,11 +46,11 @@ export default function FamilyCard({
             >
               <img
                 src={member.photo || "https://via.placeholder.com/40"}
-                alt={member.name}
+                // alt={member.name}
                 className="w-10 h-10 rounded-full object-cover"
               />
               <div>
-                <p className="font-medium text-sm">{member.name}</p>
+                {/* <p className="font-medium text-sm">{member.name}</p> */}
                 <p className="text-xs text-gray-600">{member.role}</p>
               </div>
             </div>

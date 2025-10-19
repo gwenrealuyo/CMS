@@ -18,14 +18,14 @@ export default function MemberCard({
       <div className="flex items-start space-x-4">
         <img
           src={member.photo || "https://via.placeholder.com/100"}
-          alt={member.name}
+          // alt={member.name}
           className="w-20 h-20 rounded-full object-cover"
         />
         <div className="flex-1">
           <div className="flex justify-between">
             <div>
               <h3 className="text-lg font-semibold text-[#2D3748]">
-                {member.name}
+                {/* {member.name} */}
               </h3>
               <span className="inline-block px-2 py-1 text-sm rounded-full bg-[#2563EB] text-white mt-1">
                 {member.role}

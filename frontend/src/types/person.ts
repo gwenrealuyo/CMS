@@ -54,12 +54,19 @@ export interface Person {
   user_permissions?: string[]; // Permission IDs
 }
 
+// UI-normalized view of a person for components
+export interface PersonUI extends Person {
+  name: string;
+  dateFirstAttended?: string;
+}
+
 export interface Family {
   id: string;
   name: string;
   leader?: string; // Person ID
   members: string[]; // List of Person IDs
-  address?: string;
+  address?: string; // Physical address/location
+  notes?: string; // Family notes/description
 }
 
 export interface Cluster {

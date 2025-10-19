@@ -2,11 +2,33 @@ from rest_framework import serializers
 from .models import Family, Cluster, Milestone, Person
 
 
+class MilestoneSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=Person.objects.all())
+    verified_by = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.all(), allow_null=True, required=False
+    )
+
+    class Meta:
+        model = Milestone
+        fields = [
+            "id",
+            "user",
+            "title",
+            "date",
+            "type",
+            "description",
+            "verified_by",
+            "created_at",
+        ]
+        read_only_fields = ["created_at"]
+
+
 class PersonSerializer(serializers.ModelSerializer):
     inviter = serializers.PrimaryKeyRelatedField(
         queryset=Person.objects.all(), allow_null=True, required=False
     )
     photo = serializers.ImageField(required=False, allow_null=True)
+    milestones = MilestoneSerializer(many=True, read_only=True)
 
     class Meta:
         model = Person
@@ -29,7 +51,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "inviter",
             "member_id",
             "status",
-            "username",
+            "milestones",
         ]
         read_only_fields = ["username"]
 
@@ -57,27 +79,6 @@ class PersonSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class MilestoneSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=Person.objects.all())
-    verified_by = serializers.PrimaryKeyRelatedField(
-        queryset=Person.objects.all(), allow_null=True
-    )
-
-    class Meta:
-        model = Milestone
-        fields = [
-            "id",
-            "user",
-            "title",
-            "date",
-            "type",
-            "description",
-            "verified_by",
-            "created_at",
-        ]
-        read_only_fields = ["created_at"]
-
-
 class FamilySerializer(serializers.ModelSerializer):
     leader = serializers.PrimaryKeyRelatedField(
         queryset=Person.objects.all(), allow_null=True
@@ -88,7 +89,7 @@ class FamilySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "name", "leader", "members", "address", "created_at"]
+        fields = ["id", "name", "leader", "members", "address", "notes", "created_at"]
         read_only_fields = ["created_at"]
 
 

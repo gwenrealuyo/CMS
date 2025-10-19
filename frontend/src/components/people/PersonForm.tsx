@@ -1,19 +1,28 @@
 import { useState } from "react";
 import { Person, MilestoneType } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
+import { milestonesApi } from "@/src/lib/api";
 
 interface PersonFormProps {
-  onSubmit: (data: Partial<Person>) => void;
+  onSubmit: (data: Partial<Person>) => Promise<Person | void>;
   onClose: () => void;
+  onBackToProfile?: () => void;
   initialData?: Partial<Person>;
+  isEditingFromProfile?: boolean;
+  startOnTimelineTab?: boolean;
 }
 
 export default function PersonForm({
   onSubmit,
   onClose,
+  onBackToProfile,
   initialData,
+  isEditingFromProfile = false,
+  startOnTimelineTab = false,
 }: PersonFormProps) {
-  const [activeTab, setActiveTab] = useState<"basic" | "timeline">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "timeline">(
+    startOnTimelineTab ? "timeline" : "basic"
+  );
 
   const [formData, setFormData] = useState<Partial<Person>>({
     role: "MEMBER",
@@ -74,9 +83,39 @@ export default function PersonForm({
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+
+    // Extract milestones from formData before submitting person
+    const milestones = formData.milestones || [];
+    const personData = { ...formData };
+    delete personData.milestones; // Remove milestones from person data
+
+    // Submit person data first
+    const result = await onSubmit(personData);
+
+    // If person was created/updated successfully and we have milestones, save them
+    if (
+      milestones.length > 0 &&
+      result &&
+      typeof result === "object" &&
+      "id" in result
+    ) {
+      try {
+        for (const milestone of milestones) {
+          await milestonesApi.create({
+            user: (result as { id: string }).id,
+            title: milestone.title,
+            date: milestone.date,
+            type: milestone.type,
+            description: milestone.description,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to save milestones:", error);
+        alert("Person saved but failed to save some milestones");
+      }
+    }
   };
 
   return (
@@ -424,7 +463,13 @@ export default function PersonForm({
       {/* Footer */}
       <div className="flex gap-4">
         <Button className="flex-1">Add Member</Button>
-        <Button variant="tertiary" className="flex-1" onClick={onClose}>
+        <Button
+          variant="tertiary"
+          className="flex-1"
+          onClick={
+            isEditingFromProfile && onBackToProfile ? onBackToProfile : onClose
+          }
+        >
           Cancel
         </Button>
       </div>

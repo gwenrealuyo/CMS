@@ -16,16 +16,39 @@ import {
 
 interface PeopleTableProps {
   people: Person[];
+  onView?: (person: Person) => void;
+  onEdit?: (person: Person) => void;
+  onDelete?: (person: Person) => void;
 }
 
-export default function PeopleTable({ people }: PeopleTableProps) {
-  const [sortField, setSortField] = useState<keyof Person>("name");
+export default function PeopleTable({
+  people,
+  onView,
+  onEdit,
+  onDelete,
+}: PeopleTableProps) {
+  type DisplayPerson = Person & { name: string; dateFirstAttended?: string };
+
+  // Normalize backend fields and hide admin/blank-name entries from the table
+  const displayPeople: DisplayPerson[] = people
+    .filter(
+      (p) =>
+        p.username !== "admin" &&
+        ((p.first_name ?? "") !== "" || (p.last_name ?? "") !== "")
+    )
+    .map((p) => ({
+      ...p,
+      name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+      dateFirstAttended: p.date_first_attended,
+    }));
+
+  const [sortField, setSortField] = useState<keyof DisplayPerson>("last_name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [showExportModal, setShowExportModal] = useState(false);
   const itemsPerPage = 10;
 
-  const handleSort = (field: keyof Person) => {
+  const handleSort = (field: keyof DisplayPerson) => {
     if (field === sortField) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
@@ -36,12 +59,15 @@ export default function PeopleTable({ people }: PeopleTableProps) {
 
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(
-      people.map((person) => ({
+      displayPeople.map((person) => ({
         Name: person.name,
         Email: person.email,
         Phone: person.phone,
         Role: person.role,
-        "Join Date": new Date(person.dateFirstAttended).toLocaleDateString(),
+        Status: person.status,
+        "Join Date": person.dateFirstAttended
+          ? new Date(person.dateFirstAttended).toLocaleDateString()
+          : "",
       }))
     );
 
@@ -53,13 +79,23 @@ export default function PeopleTable({ people }: PeopleTableProps) {
   const exportToPDF = () => {
     const doc = new jsPDF();
 
-    const tableColumn = ["Name", "Email", "Phone", "Role", "Join Date"];
-    const tableRows = people.map((person) => [
+    const tableColumn = [
+      "Name",
+      "Email",
+      "Phone",
+      "Role",
+      "Status",
+      "Join Date",
+    ];
+    const tableRows = displayPeople.map((person) => [
       person.name,
       person.email,
-      person.phone,
+      person.phone ?? "",
       person.role,
-      new Date(person.dateFirstAttended).toLocaleDateString(),
+      person.status,
+      person.dateFirstAttended
+        ? new Date(person.dateFirstAttended).toLocaleDateString()
+        : "",
     ]);
 
     autoTable(doc, {
@@ -74,21 +110,27 @@ export default function PeopleTable({ people }: PeopleTableProps) {
   };
 
   const exportToCSV = () => {
-    const csvContent = people
+    const csvContent = displayPeople
       .map((person) =>
         [
           person.name,
           person.email,
-          person.phone,
+          person.phone ?? "",
           person.role,
-          new Date(person.dateFirstAttended).toLocaleDateString(),
+          person.status,
+          person.dateFirstAttended
+            ? new Date(person.dateFirstAttended).toLocaleDateString()
+            : "",
         ].join(",")
       )
       .join("\n");
 
-    const blob = new Blob([`Name,Email,Phone,Role,Join Date\n${csvContent}`], {
-      type: "text/csv;charset=utf-8;",
-    });
+    const blob = new Blob(
+      [`Name,Email,Phone,Role,Status,Join Date\n${csvContent}`],
+      {
+        type: "text/csv;charset=utf-8;",
+      }
+    );
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "people_data.csv";
@@ -110,7 +152,7 @@ export default function PeopleTable({ people }: PeopleTableProps) {
     }
   };
 
-  const SortIcon = ({ field }: { field: keyof Person }) => {
+  const SortIcon = ({ field }: { field: keyof DisplayPerson }) => {
     if (field !== sortField) return null;
     return sortDirection === "asc" ? (
       <ChevronUpIcon className="w-4 h-4 inline-block" />
@@ -119,7 +161,7 @@ export default function PeopleTable({ people }: PeopleTableProps) {
     );
   };
 
-  const sortedPeople = [...people].sort((a, b) => {
+  const sortedPeople = [...displayPeople].sort((a, b) => {
     const aValue = a[sortField];
     const bValue = b[sortField];
 
@@ -157,18 +199,26 @@ export default function PeopleTable({ people }: PeopleTableProps) {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {["name", "email", "phone", "role", "dateFirstAttended"].map(
-                (field) => (
-                  <th
-                    key={field}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort(field as keyof Person)}
-                  >
-                    {field.charAt(0).toUpperCase() + field.slice(1)}{" "}
-                    <SortIcon field={field as keyof Person} />
-                  </th>
-                )
-              )}
+              {[
+                "name",
+                "email",
+                "phone",
+                "role",
+                "status",
+                "dateFirstAttended",
+              ].map((field) => (
+                <th
+                  key={field}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort(field as keyof DisplayPerson)}
+                >
+                  {field.charAt(0).toUpperCase() + field.slice(1)}{" "}
+                  <SortIcon field={field as keyof DisplayPerson} />
+                </th>
+              ))}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -178,8 +228,39 @@ export default function PeopleTable({ people }: PeopleTableProps) {
                 <td className="px-6 py-4 whitespace-nowrap">{person.email}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{person.phone}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{person.role}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{person.status}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {new Date(person.dateFirstAttended).toLocaleDateString()}
+                  {person.dateFirstAttended
+                    ? new Date(person.dateFirstAttended).toLocaleDateString()
+                    : ""}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex gap-2">
+                    {onView && (
+                      <button
+                        className="px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        onClick={() => onView(person as Person)}
+                      >
+                        View
+                      </button>
+                    )}
+                    {onEdit && (
+                      <button
+                        className="px-2 py-1 text-xs rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200"
+                        onClick={() => onEdit(person as Person)}
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        className="px-2 py-1 text-xs rounded-md bg-red-100 text-red-700 hover:bg-red-200"
+                        onClick={() => onDelete(person as Person)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

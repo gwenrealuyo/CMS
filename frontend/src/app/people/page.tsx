@@ -4,18 +4,17 @@ import { useState, useMemo } from "react";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import PersonForm from "@/src/components/people/PersonForm";
 import PersonProfile from "@/src/components/people/PersonProfile";
-import PeopleTable from "@/src/components/people/PeopleTable";
 import FamilyCard from "@/src/components/families/FamilyCard";
 import FamilyForm from "@/src/components/families/FamilyForm";
 import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
-import SearchBar from "@/src/components/people/SearchBar";
-import FilterOptions, {
-  FilterState,
-} from "@/src/components/people/FilterOptions";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import FamilyView from "@/src/components/families/FamilyView";
+import FilterBar, { FilterCondition } from "@/src/components/people/FilterBar";
+import FilterDropdown from "@/src/components/people/FilterDropdown";
+import FilterCard from "@/src/components/people/FilterCard";
+import DataTable from "@/src/components/people/DataTable";
 import { Person, PersonUI, Family } from "@/src/types/person";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
@@ -39,11 +38,28 @@ export default function PeoplePage() {
     family: null,
     loading: false,
   });
+  const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    people: Person[];
+    loading: boolean;
+  }>({
+    isOpen: false,
+    people: [],
+    loading: false,
+  });
   // const [people, setPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<FilterState>({
-    role: "",
-    dateRange: "",
+  const [activeFilters, setActiveFilters] = useState<FilterCondition[]>([]);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showFilterCard, setShowFilterCard] = useState(false);
+  const [selectedField, setSelectedField] = useState<any>(null);
+  const [filterDropdownPosition, setFilterDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+  const [filterCardPosition, setFilterCardPosition] = useState({
+    top: 0,
+    left: 0,
   });
 
   const {
@@ -63,39 +79,96 @@ export default function PeoplePage() {
     refreshFamilies,
   } = useFamilies();
 
-  // const filteredPeople = useMemo(() => {
-  //   return people.filter((person) => {
-  //     const searchMatch =
-  //       searchQuery === "" ||
-  //       person.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //       person.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //       person.phone?.includes(searchQuery);
+  const filteredPeopleUI = useMemo(() => {
+    let filtered = peopleUI;
 
-  //     const roleMatch = !filters.role || person.role === filters.role;
+    // Apply active filters
+    activeFilters.forEach((filter) => {
+      filtered = filtered.filter((person) => {
+        const fieldValue = person[filter.field as keyof PersonUI];
 
-  //     let dateMatch = true;
-  //     if (filters.dateRange) {
-  //       const now = new Date();
-  //       const dateFirstAttended = new Date(person.date_first_attended);
-  //       const diffTime = Math.abs(now.getTime() - dateFirstAttended.getTime());
-  //       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        switch (filter.operator) {
+          case "is":
+            return fieldValue === filter.value;
+          case "is_not":
+            return fieldValue !== filter.value;
+          case "contains":
+            return fieldValue
+              ?.toString()
+              .toLowerCase()
+              .includes(filter.value.toString().toLowerCase());
+          case "starts_with":
+            return fieldValue
+              ?.toString()
+              .toLowerCase()
+              .startsWith(filter.value.toString().toLowerCase());
+          case "ends_with":
+            return fieldValue
+              ?.toString()
+              .toLowerCase()
+              .endsWith(filter.value.toString().toLowerCase());
+          case "before":
+            if (
+              filter.field === "date_first_attended" ||
+              filter.field === "birth_date"
+            ) {
+              return (
+                new Date(fieldValue as string) <
+                new Date(filter.value as string)
+              );
+            }
+            return false;
+          case "after":
+            if (
+              filter.field === "date_first_attended" ||
+              filter.field === "birth_date"
+            ) {
+              return (
+                new Date(fieldValue as string) >
+                new Date(filter.value as string)
+              );
+            }
+            return false;
+          case "between":
+            if (Array.isArray(filter.value)) {
+              const [start, end] = filter.value;
+              if (
+                filter.field === "date_first_attended" ||
+                filter.field === "birth_date"
+              ) {
+                const date = new Date(fieldValue as string);
+                return date >= new Date(start) && date <= new Date(end);
+              }
+            }
+            return false;
+          case "greater_than":
+            return Number(fieldValue) > Number(filter.value);
+          case "less_than":
+            return Number(fieldValue) < Number(filter.value);
+          default:
+            return true;
+        }
+      });
+    });
 
-  //       switch (filters.dateRange) {
-  //         case "week":
-  //           dateMatch = diffDays <= 7;
-  //           break;
-  //         case "month":
-  //           dateMatch = diffDays <= 30;
-  //           break;
-  //         case "year":
-  //           dateMatch = diffDays <= 365;
-  //           break;
-  //       }
-  //     }
+    // Search query filter
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (person) =>
+          person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          person.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          person.phone?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
 
-  //     return searchMatch && roleMatch && dateMatch;
-  //   });
-  // }, [people, searchQuery, filters]);
+    // Filter out admin users and users without a name
+    filtered = filtered.filter(
+      (person) =>
+        person.username !== "admin" && (person.first_name || person.last_name)
+    );
+
+    return filtered;
+  }, [peopleUI, searchQuery, activeFilters]);
 
   // const handleCreatePerson = (personData: Partial<Person>) => {
   //   const newPerson = {
@@ -173,6 +246,103 @@ export default function PeoplePage() {
     return people.filter((person) => family.members.includes(person.id));
   };
 
+  const handleBulkDelete = async (people: Person[]) => {
+    setBulkDeleteConfirmation({
+      isOpen: true,
+      people,
+      loading: false,
+    });
+  };
+
+  const confirmBulkDelete = async () => {
+    if (!bulkDeleteConfirmation.people.length) return;
+
+    try {
+      setBulkDeleteConfirmation((prev) => ({ ...prev, loading: true }));
+      await Promise.all(
+        bulkDeleteConfirmation.people.map((person) => deletePerson(person.id))
+      );
+      setBulkDeleteConfirmation({
+        isOpen: false,
+        people: [],
+        loading: false,
+      });
+    } catch (error) {
+      console.error("Error deleting people:", error);
+      alert("Failed to delete some people. Please try again.");
+      setBulkDeleteConfirmation((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const closeBulkDeleteConfirmation = () => {
+    setBulkDeleteConfirmation({
+      isOpen: false,
+      people: [],
+      loading: false,
+    });
+  };
+
+  const handleBulkExport = (
+    people: Person[],
+    format: "excel" | "pdf" | "csv"
+  ) => {
+    // The export functionality is handled within DataTable component
+    console.log(`Exporting ${people.length} people to ${format}`);
+  };
+
+  // Filter handlers
+  const handleAddFilter = (anchorRect?: DOMRect) => {
+    if (anchorRect) {
+      const dropdownWidth = 256; // w-64 in FilterDropdown
+      const viewportWidth = window.innerWidth + window.scrollX;
+      const desiredLeft = Math.round(anchorRect.left + window.scrollX);
+      const clampedLeft = Math.max(
+        8,
+        Math.min(desiredLeft, viewportWidth - dropdownWidth - 8)
+      );
+      setFilterDropdownPosition({
+        top: Math.round(anchorRect.bottom + window.scrollY + 8),
+        left: clampedLeft,
+      });
+    } else {
+      setFilterDropdownPosition({ top: 200, left: 100 });
+    }
+    setShowFilterDropdown(true);
+  };
+
+  const handleSelectField = (field: any) => {
+    setSelectedField(field);
+    setShowFilterDropdown(false);
+
+    // Position filter card
+    const cardWidth = 320; // w-80 in FilterCard
+    const viewportWidth = window.innerWidth + window.scrollX;
+    const desiredLeft = filterDropdownPosition.left;
+    const clampedLeft = Math.max(
+      8,
+      Math.min(desiredLeft, viewportWidth - cardWidth - 8)
+    );
+    setFilterCardPosition({
+      top: filterDropdownPosition.top + 8,
+      left: clampedLeft,
+    });
+    setShowFilterCard(true);
+  };
+
+  const handleApplyFilter = (filter: FilterCondition) => {
+    setActiveFilters([...activeFilters, filter]);
+    setShowFilterCard(false);
+    setSelectedField(null);
+  };
+
+  const handleRemoveFilter = (filterId: string) => {
+    setActiveFilters(activeFilters.filter((f) => f.id !== filterId));
+  };
+
+  const handleClearAllFilters = () => {
+    setActiveFilters([]);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -210,13 +380,18 @@ export default function PeoplePage() {
         </div>
 
         {activeTab === "people" && (
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <SearchBar value={searchQuery} onChange={setSearchQuery} />
-              <FilterOptions filters={filters} onFilterChange={setFilters} />
-            </div>
-            <PeopleTable
-              people={peopleUI as unknown as Person[]}
+          <div className="space-y-6">
+            <FilterBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              activeFilters={activeFilters}
+              onRemoveFilter={handleRemoveFilter}
+              onClearAllFilters={handleClearAllFilters}
+              onAddFilter={handleAddFilter}
+            />
+
+            <DataTable
+              people={filteredPeopleUI as unknown as Person[]}
               onView={(p) => {
                 setViewEditPerson(p);
                 setViewMode("view");
@@ -234,6 +409,8 @@ export default function PeoplePage() {
                   await deletePerson(p.id);
                 }
               }}
+              onBulkDelete={handleBulkDelete}
+              onBulkExport={handleBulkExport}
             />
           </div>
         )}
@@ -434,6 +611,40 @@ export default function PeoplePage() {
         variant="danger"
         loading={deleteConfirmation.loading}
       />
+
+      <ConfirmationModal
+        isOpen={bulkDeleteConfirmation.isOpen}
+        onClose={closeBulkDeleteConfirmation}
+        onConfirm={confirmBulkDelete}
+        title="Delete Selected People"
+        message={`Are you sure you want to delete ${bulkDeleteConfirmation.people.length} selected people? This action cannot be undone and will permanently remove all selected people from the system.`}
+        confirmText="Delete People"
+        cancelText="Cancel"
+        variant="danger"
+        loading={bulkDeleteConfirmation.loading}
+      />
+
+      {/* Filter Dropdown */}
+      <FilterDropdown
+        isOpen={showFilterDropdown}
+        onClose={() => setShowFilterDropdown(false)}
+        onSelectField={handleSelectField}
+        position={filterDropdownPosition}
+      />
+
+      {/* Filter Card */}
+      {selectedField && (
+        <FilterCard
+          field={selectedField}
+          isOpen={showFilterCard}
+          onClose={() => {
+            setShowFilterCard(false);
+            setSelectedField(null);
+          }}
+          onApplyFilter={handleApplyFilter}
+          position={filterCardPosition}
+        />
+      )}
     </DashboardLayout>
   );
 }

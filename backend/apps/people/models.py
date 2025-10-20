@@ -30,6 +30,26 @@ class Person(AbstractUser):
     country = models.CharField(max_length=20, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     date_first_attended = models.DateField(null=True, blank=True)
+    water_baptism_date = models.DateField(null=True, blank=True)
+    spirit_baptism_date = models.DateField(null=True, blank=True)
+    first_activity_attended = models.CharField(
+        blank=True,
+        max_length=50,
+        choices=[
+            ("CLUSTER_BS_EVANGELISM", "Cluster/BS Evangelism"),
+            ("CLUSTERING", "Clustering"),
+            ("SUNDAY_SERVICE", "Sunday Service"),
+            ("DOCTRINAL_CLASS", "Doctrinal Class"),
+            ("PRAYER_MEETING", "Prayer Meeting"),
+            ("CYM_CLASS", "CYM Class"),
+            ("MINI_WORSHIP", "Mini Worship"),
+            ("GOLDEN_WARRIORS", "Golden Warriors"),
+            ("CAMPING", "Camping"),
+            ("AWTA", "AWTA"),
+            ("CONFERENCE", "Conference"),
+            ("CONCERT_CRUSADE", "Concert/Crusade"),
+        ],
+    )
     inviter = models.ForeignKey(
         "self",
         null=True,
@@ -46,6 +66,9 @@ class Person(AbstractUser):
             ("SEMIACTIVE", "Semiactive"),
             ("INACTIVE", "Inactive"),
             ("DECEASED", "Deceased"),
+            # For VISITOR role specialized states; UI can restrict selection conditionally
+            ("INVITED", "Invited"),
+            ("ATTENDED", "Attended"),
         ],
     )
 

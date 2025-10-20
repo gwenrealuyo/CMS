@@ -7,7 +7,13 @@ export type PersonRole =
   | "PASTOR"
   | "ADMIN";
 
-export type PersonStatus = "ACTIVE" | "SEMIACTIVE" | "INACTIVE" | "DECEASED";
+export type PersonStatus =
+  | "ACTIVE"
+  | "SEMIACTIVE"
+  | "INACTIVE"
+  | "DECEASED"
+  | "INVITED"
+  | "ATTENDED";
 
 export type Gender = "MALE" | "FEMALE" | "";
 
@@ -46,6 +52,21 @@ export interface Person {
   country?: string;
   date_of_birth?: string; // ISO date string
   date_first_attended?: string; // ISO date string
+  water_baptism_date?: string; // ISO date string
+  spirit_baptism_date?: string; // ISO date string
+  first_activity_attended?:
+    | "CLUSTER_BS_EVANGELISM"
+    | "CLUSTERING"
+    | "SUNDAY_SERVICE"
+    | "DOCTRINAL_CLASS"
+    | "PRAYER_MEETING"
+    | "CYM_CLASS"
+    | "MINI_WORSHIP"
+    | "GOLDEN_WARRIORS"
+    | "CAMPING"
+    | "AWTA"
+    | "CONFERENCE"
+    | "CONCERT_CRUSADE";
   inviter?: string; // ID of another Person
   member_id?: string;
   status: PersonStatus;

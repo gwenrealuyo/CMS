@@ -6,6 +6,8 @@ import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExportPreviewModal from "./ExportPreviewModal";
+import BulkActionsMenu from "./BulkActionsMenu";
+import SelectedPeoplePreview from "./SelectedPeoplePreview";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
@@ -19,6 +21,8 @@ interface PeopleTableProps {
   onView?: (person: Person) => void;
   onEdit?: (person: Person) => void;
   onDelete?: (person: Person) => void;
+  onBulkDelete?: (people: Person[]) => void;
+  onBulkExport?: (people: Person[], format: "excel" | "pdf" | "csv") => void;
 }
 
 export default function PeopleTable({
@@ -26,6 +30,8 @@ export default function PeopleTable({
   onView,
   onEdit,
   onDelete,
+  onBulkDelete,
+  onBulkExport,
 }: PeopleTableProps) {
   type DisplayPerson = Person & { name: string; dateFirstAttended?: string };
 
@@ -46,6 +52,7 @@ export default function PeopleTable({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
   const itemsPerPage = 10;
 
   const handleSort = (field: keyof DisplayPerson) => {
@@ -57,9 +64,31 @@ export default function PeopleTable({
     }
   };
 
-  const exportToExcel = () => {
+  const handleSelectAll = () => {
+    if (selectedPeople.size === paginatedPeople.length) {
+      setSelectedPeople(new Set());
+    } else {
+      setSelectedPeople(new Set(paginatedPeople.map((p) => p.id)));
+    }
+  };
+
+  const handleSelectPerson = (personId: string) => {
+    const newSelected = new Set(selectedPeople);
+    if (newSelected.has(personId)) {
+      newSelected.delete(personId);
+    } else {
+      newSelected.add(personId);
+    }
+    setSelectedPeople(newSelected);
+  };
+
+  const getSelectedPeopleObjects = (): Person[] => {
+    return displayPeople.filter((p) => selectedPeople.has(p.id));
+  };
+
+  const exportToExcel = (peopleToExport: DisplayPerson[] = displayPeople) => {
     const worksheet = XLSX.utils.json_to_sheet(
-      displayPeople.map((person) => ({
+      peopleToExport.map((person) => ({
         Name: person.name,
         Email: person.email,
         Phone: person.phone,
@@ -76,7 +105,7 @@ export default function PeopleTable({
     XLSX.writeFile(workbook, "people_data.xlsx");
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = (peopleToExport: DisplayPerson[] = displayPeople) => {
     const doc = new jsPDF();
 
     const tableColumn = [
@@ -87,7 +116,7 @@ export default function PeopleTable({
       "Status",
       "Join Date",
     ];
-    const tableRows = displayPeople.map((person) => [
+    const tableRows = peopleToExport.map((person) => [
       person.name,
       person.email,
       person.phone ?? "",
@@ -109,8 +138,8 @@ export default function PeopleTable({
     doc.save("people_data.pdf");
   };
 
-  const exportToCSV = () => {
-    const csvContent = displayPeople
+  const exportToCSV = (peopleToExport: DisplayPerson[] = displayPeople) => {
+    const csvContent = peopleToExport
       .map((person) =>
         [
           person.name,
@@ -152,6 +181,66 @@ export default function PeopleTable({
     }
   };
 
+  const handleBulkExport = (format: "excel" | "pdf" | "csv") => {
+    const selectedPeopleObjects = getSelectedPeopleObjects();
+    if (onBulkExport) {
+      onBulkExport(selectedPeopleObjects, format);
+    } else {
+      switch (format) {
+        case "excel":
+          exportToExcel(selectedPeopleObjects as DisplayPerson[]);
+          break;
+        case "pdf":
+          exportToPDF(selectedPeopleObjects as DisplayPerson[]);
+          break;
+        case "csv":
+          exportToCSV(selectedPeopleObjects as DisplayPerson[]);
+          break;
+      }
+    }
+    setSelectedPeople(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    const selectedPeopleObjects = getSelectedPeopleObjects();
+    if (onBulkDelete) {
+      onBulkDelete(selectedPeopleObjects);
+    }
+    setSelectedPeople(new Set());
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "ACTIVE":
+        return "bg-green-100 text-green-800";
+      case "SEMIACTIVE":
+        return "bg-yellow-100 text-yellow-800";
+      case "INACTIVE":
+        return "bg-gray-100 text-gray-800";
+      case "DECEASED":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case "PASTOR":
+        return "bg-purple-100 text-purple-800";
+      case "COORDINATOR":
+        return "bg-blue-100 text-blue-800";
+      case "MEMBER":
+        return "bg-green-100 text-green-800";
+      case "VISITOR":
+        return "bg-orange-100 text-orange-800";
+      case "ADMIN":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   const SortIcon = ({ field }: { field: keyof DisplayPerson }) => {
     if (field !== sortField) return null;
     return sortDirection === "asc" ? (
@@ -183,14 +272,33 @@ export default function PeopleTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <SelectedPeoplePreview
+        selectedPeople={getSelectedPeopleObjects()}
+        onClearSelection={() => setSelectedPeople(new Set())}
+      />
+
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          {selectedPeople.size > 0 && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">
+                {selectedPeople.size} selected
+              </span>
+              <BulkActionsMenu
+                onBulkDelete={handleBulkDelete}
+                onBulkExport={handleBulkExport}
+                selectedCount={selectedPeople.size}
+              />
+            </div>
+          )}
+        </div>
         <div className="relative group">
           <button
             onClick={() => setShowExportModal(true)}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
           >
             <DocumentArrowDownIcon className="w-4 h-4" />
-            Export
+            Export All
           </button>
         </div>
       </div>
@@ -199,6 +307,17 @@ export default function PeopleTable({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-6 py-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={
+                    selectedPeople.size === paginatedPeople.length &&
+                    paginatedPeople.length > 0
+                  }
+                  onChange={handleSelectAll}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </th>
               {[
                 "name",
                 "email",
@@ -224,11 +343,35 @@ export default function PeopleTable({
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedPeople.map((person) => (
               <tr key={person.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={selectedPeople.has(person.id)}
+                    onChange={() => handleSelectPerson(person.id)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">{person.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{person.email}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{person.phone}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{person.role}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{person.status}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+                      person.role
+                    )}`}
+                  >
+                    {person.role.toLowerCase()}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                      person.status
+                    )}`}
+                  >
+                    {person.status.toLowerCase()}
+                  </span>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {person.dateFirstAttended
                     ? new Date(person.dateFirstAttended).toLocaleDateString()

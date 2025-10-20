@@ -31,6 +31,3 @@
 ### Notes
 
 - Permissions are currently permissive (`AllowAny`); toggle to `IsAuthenticated` when auth is in place.
-
-
-

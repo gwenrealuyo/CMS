@@ -1,6 +1,7 @@
-import { Person } from "@/src/types/person";
+import { Person, Milestone } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { milestonesApi } from "@/src/lib/api";
 
 interface PersonProfileProps {
   person: Person;
@@ -18,6 +19,111 @@ export default function PersonProfile({
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(
     "overview"
   );
+  const [milestones, setMilestones] = useState<Milestone[]>(
+    (person.milestones as Milestone[]) || []
+  );
+  useEffect(() => {
+    setMilestones(((person.milestones as Milestone[]) || []).slice());
+  }, [person.id]);
+
+  const renderTypeIcon = (type: string) => {
+    // Small icons inspired by the header style, per event type
+    switch (type) {
+      case "BAPTISM":
+        return (
+          <div className="w-7 h-7 rounded-lg bg-blue-100 border border-blue-200 flex items-center justify-center">
+            <svg
+              className="w-4 h-4 text-blue-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 7l9-4 9 4-9 4-9-4zm0 6l9 4 9-4"
+              />
+            </svg>
+          </div>
+        );
+      case "SPIRIT":
+        return (
+          <div className="w-5 h-5 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center">
+            <svg
+              className="w-3.5 h-3.5 text-purple-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+        );
+      case "CLUSTER":
+        return (
+          <div className="w-5 h-5 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center">
+            <svg
+              className="w-3.5 h-3.5 text-amber-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6v6l4 2"
+              />
+            </svg>
+          </div>
+        );
+      case "LESSON":
+        return (
+          <div className="w-5 h-5 rounded-lg bg-green-100 border border-green-200 flex items-center justify-center">
+            <svg
+              className="w-3.5 h-3.5 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 20l9-5-9-5-9 5 9 5z"
+              />
+            </svg>
+          </div>
+        );
+      case "NOTE":
+      default:
+        return (
+          <div className="w-5 h-5 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+            <svg
+              className="w-3.5 h-3.5 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 6h8M8 10h8M8 14h5"
+              />
+            </svg>
+          </div>
+        );
+    }
+  };
+
+  // removed duplicate renderTypeIcon
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -50,7 +156,7 @@ export default function PersonProfile({
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 max-h-[80vh] overflow-y-auto pr-1">
       {/* Header Card */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
         <div className="flex items-center space-x-4">
@@ -114,7 +220,7 @@ export default function PersonProfile({
         {activeTab === "overview" && (
           <div className="space-y-6">
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Contact Information Card */}
               <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                 <div className="flex items-center space-x-2 mb-4">
@@ -253,6 +359,24 @@ export default function PersonProfile({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
+                    <span className="text-sm text-gray-600">
+                      Gender: {person.gender || "Not specified"}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
                         d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                       />
                     </svg>
@@ -290,11 +414,60 @@ export default function PersonProfile({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        d="M3 7h18M3 12h12M3 17h18"
                       />
                     </svg>
                     <span className="text-sm text-gray-600">
-                      Gender: {person.gender || "Not specified"}
+                      First activity attended:{" "}
+                      {(() => {
+                        const raw = (
+                          (person as any).first_activity_attended ||
+                          "Not specified"
+                        ).toString();
+                        const pretty = raw
+                          .replace(/_/g, " ")
+                          .toLowerCase()
+                          .replace(/\b\w/g, (ch: string) => ch.toUpperCase());
+                        return pretty;
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span className="text-sm text-gray-600">
+                      Water baptism:{" "}
+                      {(person as any).water_baptism_date || "Not specified"}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span className="text-sm text-gray-600">
+                      Spirit baptism:{" "}
+                      {(person as any).spirit_baptism_date || "Not specified"}
                     </span>
                   </div>
                   {person.facebook_name && (
@@ -348,14 +521,16 @@ export default function PersonProfile({
                 </h3>
               </div>
 
-              {person.milestones && person.milestones.length > 0 ? (
-                <div className="relative pl-6">
-                  <div className="absolute left-2 top-0 bottom-0 w-px bg-gray-200" />
-                  <div className="space-y-4">
-                    {person.milestones.map((milestone, index) => (
-                      <div key={milestone.id} className="relative">
-                        <div className="absolute -left-3 top-1.5 w-2.5 h-2.5 rounded-full bg-blue-500" />
-                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+              {milestones && milestones.length > 0 ? (
+                <div className="relative pl-3 pt-4 pb-4">
+                  <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
+                  <div className="space-y-6">
+                    {milestones.map((milestone, index) => (
+                      <div key={milestone.id} className="relative group">
+                        <div className="absolute left-1.5 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                          {renderTypeIcon(milestone.type)}
+                        </div>
+                        <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-100">
                           <div className="flex items-center justify-between">
                             <div className="font-medium text-gray-900">
                               {milestone.title}

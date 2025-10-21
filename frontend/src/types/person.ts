@@ -96,5 +96,8 @@ export interface Cluster {
   name?: string;
   coordinator?: string; // Person ID
   families: string[]; // List of Family IDs
+  members?: string[]; // List of Person IDs (not necessarily in a family)
+  location?: string;
+  meeting_schedule?: string;
   description?: string;
 }

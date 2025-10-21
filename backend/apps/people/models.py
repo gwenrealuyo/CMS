@@ -113,7 +113,11 @@ class Cluster(models.Model):
         null=True,
         related_name="coordinated_clusters",
     )
-    families = models.ManyToManyField(Family)
+    # A cluster can include families and/or individual people
+    families = models.ManyToManyField(Family, blank=True)
+    members = models.ManyToManyField(Person, related_name="clusters", blank=True)
+    location = models.CharField(max_length=150, blank=True)
+    meeting_schedule = models.CharField(max_length=200, blank=True)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

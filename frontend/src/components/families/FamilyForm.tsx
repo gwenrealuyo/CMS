@@ -313,13 +313,6 @@ export default function FamilyForm({
       </div>
 
       <div className="flex gap-4 pt-4">
-        <Button className="flex-1" disabled={loading}>
-          {loading
-            ? "Saving..."
-            : initialData
-            ? "Update Family"
-            : "Create Family"}
-        </Button>
         <Button
           variant="tertiary"
           className="flex-1"
@@ -328,6 +321,14 @@ export default function FamilyForm({
         >
           Cancel
         </Button>
+        <Button className="flex-1" disabled={loading}>
+          {loading
+            ? "Saving..."
+            : initialData
+            ? "Update Family"
+            : "Create Family"}
+        </Button>
+
         {initialData && onDelete && showDeleteButton && (
           <Button
             variant="tertiary"

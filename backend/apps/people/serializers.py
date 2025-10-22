@@ -94,11 +94,18 @@ class FamilySerializer(serializers.ModelSerializer):
 
 
 class ClusterSerializer(serializers.ModelSerializer):
-    coordinator = serializers.PrimaryKeyRelatedField(
-        queryset=Person.objects.all(), allow_null=True
+    coordinator = PersonSerializer(read_only=True)
+    coordinator_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.all(),
+        source="coordinator",
+        write_only=True,
+        allow_null=True,
     )
     families = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Family.objects.all()
+    )
+    members = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Person.objects.all()
     )
 
     class Meta:
@@ -108,7 +115,11 @@ class ClusterSerializer(serializers.ModelSerializer):
             "code",
             "name",
             "coordinator",
+            "coordinator_id",
             "families",
+            "members",
+            "location",
+            "meeting_schedule",
             "description",
             "created_at",
         ]

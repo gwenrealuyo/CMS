@@ -3,79 +3,61 @@ import React, { useState, useRef, useEffect } from "react";
 interface FilterField {
   key: string;
   label: string;
-  type: "text" | "select" | "date" | "number";
+  type: "text" | "select" | "date" | "number" | "range";
   options?: { value: string; label: string }[];
 }
 
-interface FilterDropdownProps {
+interface ClusterFilterDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectField: (field: FilterField) => void;
   position: { top: number; left: number };
 }
 
-const FILTER_FIELDS: FilterField[] = [
+const CLUSTER_FILTER_FIELDS: FilterField[] = [
   {
-    key: "first_name",
-    label: "First Name",
+    key: "name",
+    label: "Cluster Name",
     type: "text",
   },
   {
-    key: "last_name",
-    label: "Last Name",
+    key: "code",
+    label: "Cluster Code",
     type: "text",
   },
   {
-    key: "email",
-    label: "Email",
+    key: "coordinator",
+    label: "Coordinator",
     type: "text",
   },
   {
-    key: "phone",
-    label: "Phone",
+    key: "location",
+    label: "Location",
     type: "text",
   },
   {
-    key: "role",
-    label: "Role",
-    type: "select",
-    options: [
-      { value: "PASTOR", label: "Pastor" },
-      { value: "COORDINATOR", label: "Coordinator" },
-      { value: "MEMBER", label: "Member" },
-      { value: "VISITOR", label: "Visitor" },
-      { value: "ADMIN", label: "Admin" },
-    ],
+    key: "meeting_schedule",
+    label: "Meeting Schedule",
+    type: "text",
   },
   {
-    key: "status",
-    label: "Status",
-    type: "select",
-    options: [
-      { value: "ACTIVE", label: "Active" },
-      { value: "SEMIACTIVE", label: "Semi-active" },
-      { value: "INACTIVE", label: "Inactive" },
-      { value: "DECEASED", label: "Deceased" },
-    ],
+    key: "member_count",
+    label: "Member Count",
+    type: "range",
   },
   {
-    key: "date_first_attended",
-    label: "Join Date",
-    type: "date",
-  },
-  {
-    key: "birth_date",
-    label: "Birth Date",
-    type: "date",
+    key: "family_count",
+    label: "Family Count",
+    type: "range",
   },
 ];
 
-export default function FilterDropdown({
+export default function ClusterFilterDropdown({
   isOpen,
   onClose,
   onSelectField,
   position,
-}: FilterDropdownProps) {
+}: ClusterFilterDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -113,7 +95,7 @@ export default function FilterDropdown({
       </div>
 
       <div className="max-h-64 overflow-y-auto">
-        {FILTER_FIELDS.map((field) => (
+        {CLUSTER_FILTER_FIELDS.map((field) => (
           <button
             key={field.key}
             onClick={() => {

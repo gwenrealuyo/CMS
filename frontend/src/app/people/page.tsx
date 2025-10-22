@@ -14,11 +14,16 @@ import FamilyView from "@/src/components/families/FamilyView";
 import FilterBar, { FilterCondition } from "@/src/components/people/FilterBar";
 import FilterDropdown from "@/src/components/people/FilterDropdown";
 import FilterCard from "@/src/components/people/FilterCard";
+import ClusterFilterDropdown from "@/src/components/clusters/ClusterFilterDropdown";
+import ClusterFilterCard from "@/src/components/clusters/ClusterFilterCard";
+import ClusterSortDropdown from "@/src/components/clusters/ClusterSortDropdown";
+import ClusterCard from "@/src/components/clusters/ClusterCard";
+import Pagination from "@/src/components/ui/Pagination";
 import DataTable from "@/src/components/people/DataTable";
 import { Person, PersonUI, Family, Cluster } from "@/src/types/person";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
-import { clustersApi } from "@/src/lib/api";
+import { clustersApi, peopleApi } from "@/src/lib/api";
 import ClusterForm from "@/src/components/clusters/ClusterForm";
 import ClusterView from "@/src/components/clusters/ClusterView";
 import ActionMenu from "@/src/components/families/ActionMenu";
@@ -95,6 +100,35 @@ export default function PeoplePage() {
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [clustersLoading, setClustersLoading] = useState<boolean>(false);
   const [clusterSearchQuery, setClusterSearchQuery] = useState<string>("");
+  const [clusterActiveFilters, setClusterActiveFilters] = useState<
+    FilterCondition[]
+  >([]);
+  const [clusterSortBy, setClusterSortBy] = useState<string>("name");
+  const [clusterSortOrder, setClusterSortOrder] = useState<"asc" | "desc">(
+    "asc"
+  );
+  const [showClusterFilterDropdown, setShowClusterFilterDropdown] =
+    useState(false);
+  const [clusterFilterDropdownPosition, setClusterFilterDropdownPosition] =
+    useState({
+      top: 0,
+      left: 0,
+    });
+  const [showClusterFilterCard, setShowClusterFilterCard] = useState(false);
+  const [clusterFilterCardPosition, setClusterFilterCardPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+  const [selectedClusterField, setSelectedClusterField] = useState<any>(null);
+  const [showClusterSortDropdown, setShowClusterSortDropdown] = useState(false);
+  const [clusterSortDropdownPosition, setClusterSortDropdownPosition] =
+    useState({
+      top: 0,
+      left: 0,
+    });
+  const [clusterCurrentPage, setClusterCurrentPage] = useState(1);
+  const [clusterItemsPerPage, setClusterItemsPerPage] = useState(12);
+  const [clusterFiltering, setClusterFiltering] = useState(false);
   const [viewCluster, setViewCluster] = useState<Cluster | null>(null);
   const [editCluster, setEditCluster] = useState<Cluster | null>(null);
   const [clusterViewMode, setClusterViewMode] = useState<"view" | "edit">(
@@ -107,6 +141,15 @@ export default function PeoplePage() {
   }>({
     isOpen: false,
     cluster: null,
+    loading: false,
+  });
+  const [personDeleteConfirmation, setPersonDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    person: Person | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    person: null,
     loading: false,
   });
 
@@ -150,18 +193,297 @@ export default function PeoplePage() {
     }
   };
 
+  // Cluster filter and sort functions
+  const applyClusterFilters = useCallback(() => {
+    setClusterFiltering(true);
+
+    // Use setTimeout to allow UI to update before heavy computation
+    setTimeout(() => {
+      let filtered = [...allClusters];
+
+      // Apply search filter
+      if (clusterSearchQuery) {
+        const q = clusterSearchQuery.toLowerCase();
+        filtered = filtered.filter((c) => {
+          const name = (c.name || "").toLowerCase();
+          const code = (c.code || "").toLowerCase();
+          const desc = (c.description || "").toLowerCase();
+          const loc = (c as any).location?.toLowerCase() || "";
+          const schedule = (c as any).meeting_schedule?.toLowerCase() || "";
+          return (
+            name.includes(q) ||
+            code.includes(q) ||
+            desc.includes(q) ||
+            loc.includes(q) ||
+            schedule.includes(q)
+          );
+        });
+      }
+
+      // Apply active filters
+      clusterActiveFilters.forEach((filter) => {
+        filtered = filtered.filter((cluster) => {
+          switch (filter.field) {
+            case "coordinator":
+              const coordinator = peopleUI.find(
+                (person) => person.id === (cluster as any).coordinator
+              );
+              const coordinatorName = coordinator
+                ? `${coordinator.first_name} ${coordinator.last_name}`.toLowerCase()
+                : "";
+              return coordinatorName.includes(
+                (filter.value as string).toLowerCase()
+              );
+
+            case "location":
+              const location = (cluster as any).location?.toLowerCase() || "";
+              return location.includes((filter.value as string).toLowerCase());
+
+            case "meeting_schedule":
+              const schedule =
+                (cluster as any).meeting_schedule?.toLowerCase() || "";
+              return schedule.includes((filter.value as string).toLowerCase());
+
+            case "member_count":
+              const memberCount = (cluster as any).members?.length || 0;
+              const [min, max] = Array.isArray(filter.value)
+                ? filter.value
+                : [0, 1000];
+              return (
+                memberCount >= parseInt(min.toString()) &&
+                memberCount <= parseInt(max.toString())
+              );
+
+            case "family_count":
+              const familyCount = (cluster as any).families?.length || 0;
+              const [minFam, maxFam] = Array.isArray(filter.value)
+                ? filter.value
+                : [0, 1000];
+              return (
+                familyCount >= parseInt(minFam.toString()) &&
+                familyCount <= parseInt(maxFam.toString())
+              );
+
+            default:
+              return true;
+          }
+        });
+      });
+
+      // Apply sorting
+      filtered.sort((a, b) => {
+        let aValue: any, bValue: any;
+
+        switch (clusterSortBy) {
+          case "name":
+            aValue = (a.name || "").toLowerCase();
+            bValue = (b.name || "").toLowerCase();
+            break;
+          case "member_count":
+            aValue = (a as any).members?.length || 0;
+            bValue = (b as any).members?.length || 0;
+            break;
+          case "family_count":
+            aValue = (a as any).families?.length || 0;
+            bValue = (b as any).families?.length || 0;
+            break;
+          case "created_at":
+            aValue = new Date((a as any).created_at || 0);
+            bValue = new Date((b as any).created_at || 0);
+            break;
+          default:
+            aValue = (a.name || "").toLowerCase();
+            bValue = (b.name || "").toLowerCase();
+        }
+
+        if (aValue < bValue) return clusterSortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return clusterSortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      setClusters(filtered);
+      setClusterFiltering(false);
+    }, 0);
+  }, [
+    allClusters,
+    clusterSearchQuery,
+    clusterActiveFilters,
+    clusterSortBy,
+    clusterSortOrder,
+    peopleUI,
+  ]);
+
+  // Pagination logic
+  const clusterTotalPages = Math.ceil(clusters.length / clusterItemsPerPage);
+  const clusterStartIndex = (clusterCurrentPage - 1) * clusterItemsPerPage;
+  const clusterEndIndex = clusterStartIndex + clusterItemsPerPage;
+  const clusterPaginatedData = clusters.slice(
+    clusterStartIndex,
+    clusterEndIndex
+  );
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setClusterCurrentPage(1);
+  }, [
+    clusterSearchQuery,
+    clusterActiveFilters,
+    clusterSortBy,
+    clusterSortOrder,
+  ]);
+
+  const handleClusterFilterChange = (filters: FilterCondition[]) => {
+    setClusterActiveFilters(filters);
+  };
+
+  const handleClusterSortChange = (
+    sortBy: string,
+    sortOrder: "asc" | "desc"
+  ) => {
+    setClusterSortBy(sortBy);
+    setClusterSortOrder(sortOrder);
+  };
+
+  // Cluster filter handlers
+  const handleClusterAddFilter = (anchorRect: DOMRect) => {
+    const dropdownWidth = 256; // w-64 in ClusterFilterDropdown
+    const viewportWidth = window.innerWidth;
+    const rightEdge = anchorRect.left + dropdownWidth;
+
+    let left = anchorRect.left;
+    if (rightEdge > viewportWidth) {
+      left = viewportWidth - dropdownWidth - 16; // 16px margin
+    }
+
+    setClusterFilterDropdownPosition({
+      top: anchorRect.bottom + 8,
+      left: Math.max(16, left), // 16px minimum margin
+    });
+    setShowClusterFilterDropdown(true);
+  };
+
+  const handleClusterSelectField = (field: any) => {
+    setSelectedClusterField(field);
+    setShowClusterFilterDropdown(false);
+
+    // Position the filter card
+    const cardWidth = 320; // w-80 in ClusterFilterCard
+    const viewportWidth = window.innerWidth;
+    const rightEdge = clusterFilterDropdownPosition.left + cardWidth;
+
+    let left = clusterFilterDropdownPosition.left;
+    if (rightEdge > viewportWidth) {
+      left = viewportWidth - cardWidth - 16;
+    }
+
+    setClusterFilterCardPosition({
+      top: clusterFilterDropdownPosition.top + 8,
+      left: Math.max(16, left),
+    });
+    setShowClusterFilterCard(true);
+  };
+
+  const handleClusterApplyFilter = (filter: FilterCondition) => {
+    setClusterActiveFilters((prev) => [...prev, filter]);
+    setShowClusterFilterCard(false);
+    setSelectedClusterField(null);
+  };
+
+  // Cluster sort handler
+  const handleClusterSortDropdown = (anchorRect: DOMRect) => {
+    const dropdownWidth = 256; // w-64 in ClusterSortDropdown
+    const viewportWidth = window.innerWidth;
+    const rightEdge = anchorRect.left + dropdownWidth;
+
+    let left = anchorRect.left;
+    if (rightEdge > viewportWidth) {
+      left = viewportWidth - dropdownWidth - 16; // 16px margin
+    }
+
+    setClusterSortDropdownPosition({
+      top: anchorRect.bottom + 8,
+      left: Math.max(16, left), // 16px minimum margin
+    });
+    setShowClusterSortDropdown(true);
+  };
+
+  const handleClusterSelectSort = (
+    sortBy: string,
+    sortOrder: "asc" | "desc"
+  ) => {
+    setClusterSortBy(sortBy);
+    setClusterSortOrder(sortOrder);
+    setShowClusterSortDropdown(false);
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowClusterFilterDropdown(false);
+      setShowClusterFilterCard(false);
+      setShowClusterSortDropdown(false);
+    };
+
+    if (
+      showClusterFilterDropdown ||
+      showClusterFilterCard ||
+      showClusterSortDropdown
+    ) {
+      document.addEventListener("click", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [
+    showClusterFilterDropdown,
+    showClusterFilterCard,
+    showClusterSortDropdown,
+  ]);
+
+  // Apply cluster filters when dependencies change
+  useEffect(() => {
+    applyClusterFilters();
+  }, [applyClusterFilters]);
+
   const handleCreateCluster = async (data: Partial<Cluster>) => {
-    await clustersApi.create(data as any);
-    await fetchClusters();
-    setIsModalOpen(false);
+    try {
+      await clustersApi.create(data as any);
+      await fetchClusters();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Error creating cluster:", error);
+      alert("Failed to create cluster. Please try again.");
+      throw error;
+    }
   };
 
   const handleUpdateCluster = async (data: Partial<Cluster>) => {
     if (editCluster) {
-      await clustersApi.update(editCluster.id, data as any);
-      await fetchClusters();
-      setIsModalOpen(false);
-      setEditCluster(null);
+      try {
+        const updatedCluster = await clustersApi.update(
+          editCluster.id,
+          data as any
+        );
+        await fetchClusters();
+
+        if (viewCluster) {
+          // If editing from view, update the viewCluster with new data and return to view mode
+          setViewCluster(updatedCluster.data);
+          setEditCluster(null);
+          setClusterViewMode("view");
+        } else {
+          // If editing directly, close the modal
+          setIsModalOpen(false);
+          setEditCluster(null);
+          setViewCluster(null);
+          setClusterViewMode("view");
+        }
+      } catch (error) {
+        console.error("Error updating cluster:", error);
+        alert("Failed to update cluster. Please try again.");
+        throw error;
+      }
     }
   };
 
@@ -177,7 +499,8 @@ export default function PeoplePage() {
           loading: false,
         });
       } catch (error) {
-        console.error("Failed to delete cluster:", error);
+        console.error("Error deleting cluster:", error);
+        alert("Failed to delete cluster. Please try again.");
         setClusterDeleteConfirmation((prev) => ({ ...prev, loading: false }));
       }
     }
@@ -195,6 +518,34 @@ export default function PeoplePage() {
     setClusterDeleteConfirmation({
       isOpen: false,
       cluster: null,
+      loading: false,
+    });
+  };
+
+  const handleDeletePerson = async () => {
+    if (personDeleteConfirmation.person) {
+      setPersonDeleteConfirmation((prev) => ({ ...prev, loading: true }));
+      try {
+        await peopleApi.delete(personDeleteConfirmation.person.id);
+        await refreshPeople();
+        setPersonDeleteConfirmation({
+          isOpen: false,
+          person: null,
+          loading: false,
+        });
+        setIsModalOpen(false);
+        setViewEditPerson(null);
+      } catch (error) {
+        console.error("Failed to delete person:", error);
+        setPersonDeleteConfirmation((prev) => ({ ...prev, loading: false }));
+      }
+    }
+  };
+
+  const closePersonDeleteConfirmation = () => {
+    setPersonDeleteConfirmation({
+      isOpen: false,
+      person: null,
       loading: false,
     });
   };
@@ -783,35 +1134,9 @@ export default function PeoplePage() {
                           type="text"
                           placeholder="Search clusters…"
                           value={clusterSearchQuery}
-                          onChange={(e) => {
-                            const q = e.target.value.toLowerCase();
-                            setClusterSearchQuery(e.target.value);
-                            if (q === "") {
-                              // If search is empty, show all clusters
-                              setClusters(allClusters);
-                            } else {
-                              const filtered = allClusters.filter((c) => {
-                                const name = (c.name || "").toLowerCase();
-                                const code = (c.code || "").toLowerCase();
-                                const desc = (
-                                  c.description || ""
-                                ).toLowerCase();
-                                const loc =
-                                  (c as any).location?.toLowerCase() || "";
-                                const schedule =
-                                  (c as any).meeting_schedule?.toLowerCase() ||
-                                  "";
-                                return (
-                                  name.includes(q) ||
-                                  code.includes(q) ||
-                                  desc.includes(q) ||
-                                  loc.includes(q) ||
-                                  schedule.includes(q)
-                                );
-                              });
-                              setClusters(filtered);
-                            }
-                          }}
+                          onChange={(e) =>
+                            setClusterSearchQuery(e.target.value)
+                          }
                           className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
                             clusterSearchQuery ? "pr-10" : "pr-4"
                           }`}
@@ -819,10 +1144,7 @@ export default function PeoplePage() {
                         {clusterSearchQuery && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setClusterSearchQuery("");
-                              setClusters(allClusters);
-                            }}
+                            onClick={() => setClusterSearchQuery("")}
                             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                           >
                             <svg
@@ -842,6 +1164,111 @@ export default function PeoplePage() {
                         )}
                       </div>
                     </div>
+
+                    {/* Filter and Sort Buttons */}
+                    <div className="flex items-center gap-3 ml-4">
+                      {/* Active Filters Display */}
+                      {clusterActiveFilters.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          {clusterActiveFilters.map((filter) => (
+                            <span
+                              key={filter.id}
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                            >
+                              {filter.label}
+                              <button
+                                onClick={() => {
+                                  const newFilters =
+                                    clusterActiveFilters.filter(
+                                      (f) => f.id !== filter.id
+                                    );
+                                  setClusterActiveFilters(newFilters);
+                                }}
+                                className="ml-1 text-blue-600 hover:text-blue-800"
+                              >
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
+                          ))}
+                          <button
+                            onClick={() => setClusterActiveFilters([])}
+                            className="text-xs text-gray-500 hover:text-gray-700"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Sort Button */}
+                      <button
+                        onClick={(e) =>
+                          handleClusterSortDropdown(
+                            (
+                              e.currentTarget as HTMLButtonElement
+                            ).getBoundingClientRect()
+                          )
+                        }
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d={
+                              clusterSortOrder === "asc"
+                                ? "M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                                : "M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                            }
+                          />
+                        </svg>
+                        Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
+                      </button>
+
+                      {/* Filter Button */}
+                      <button
+                        onClick={(e) =>
+                          handleClusterAddFilter(
+                            (
+                              e.currentTarget as HTMLButtonElement
+                            ).getBoundingClientRect()
+                          )
+                        }
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                        Filter
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -851,108 +1278,70 @@ export default function PeoplePage() {
                 {clusters.length === 0 ? (
                   <p className="text-sm text-gray-500">No clusters found.</p>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {clusters.map((c) => (
-                      <div
-                        key={c.id}
-                        className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-semibold text-gray-900 truncate">
-                              {c.name || "Untitled Cluster"}
-                            </h4>
-                            <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                                {c.code || "—"}
-                              </span>
-                              {(c as any).location && (
-                                <span className="inline-flex items-center gap-1 text-gray-600">
-                                  <svg
-                                    className="w-3.5 h-3.5 text-gray-500"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={2}
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M12 11a3 3 0 100-6 3 3 0 000 6z"
-                                    />
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M19.5 10.5c0 7.5-7.5 11.25-7.5 11.25S4.5 18 4.5 10.5a7.5 7.5 0 1115 0z"
-                                    />
-                                  </svg>
-                                  <span className="truncate max-w-[12rem]">
-                                    {(c as any).location}
-                                  </span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="ml-3 flex items-center gap-2">
-                            <div className="flex items-center gap-1 text-gray-600">
-                              <svg
-                                className="w-4 h-4 text-gray-500"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M16 14a4 4 0 10-8 0m8 0v1a2 2 0 002 2h1m-11-3v1a2 2 0 01-2 2H5m11-10a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                              </svg>
-                              <span className="text-xs font-medium">
-                                {(c as any).members?.length ?? 0}
-                              </span>
-                            </div>
-                            <ActionMenu
-                              onView={() => {
-                                setViewCluster(c);
-                                setClusterViewMode("view");
-                                setIsModalOpen(true);
-                                setModalType("cluster");
-                              }}
-                              onEdit={() => {
-                                setEditCluster(c);
-                                setClusterViewMode("edit");
-                                setIsModalOpen(true);
-                                setModalType("cluster");
-                              }}
-                              onDelete={() => confirmClusterDelete(c)}
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-2 text-sm text-gray-700">
-                          {c.description || "No description"}
-                        </div>
-                        {(c as any).meeting_schedule && (
-                          <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
-                            <svg
-                              className="w-4 h-4 text-gray-500"
-                              fill="none"
-                              viewBox="0 0 24 24"
+                  <>
+                    {clusterFiltering ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <svg
+                            className="animate-spin h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
                               stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                              />
-                            </svg>
-                            <span>{(c as any).meeting_schedule}</span>
-                          </div>
-                        )}
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          <span>Filtering clusters...</span>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {clusterPaginatedData.map((c) => (
+                          <ClusterCard
+                            key={c.id}
+                            cluster={c}
+                            peopleUI={peopleUI}
+                            onView={() => {
+                              setViewCluster(c);
+                              setClusterViewMode("view");
+                              setIsModalOpen(true);
+                              setModalType("cluster");
+                            }}
+                            onEdit={() => {
+                              setEditCluster(c);
+                              setClusterViewMode("edit");
+                              setIsModalOpen(true);
+                              setModalType("cluster");
+                            }}
+                            onDelete={() => confirmClusterDelete(c)}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Pagination */}
+                    <Pagination
+                      currentPage={clusterCurrentPage}
+                      totalPages={clusterTotalPages}
+                      onPageChange={setClusterCurrentPage}
+                      itemsPerPage={clusterItemsPerPage}
+                      totalItems={clusters.length}
+                      onItemsPerPageChange={(newItemsPerPage) => {
+                        setClusterItemsPerPage(newItemsPerPage);
+                        setClusterCurrentPage(1);
+                      }}
+                    />
+                  </>
                 )}
               </div>
             )}
@@ -971,6 +1360,11 @@ export default function PeoplePage() {
           setViewCluster(null);
           setEditCluster(null);
           setClusterViewMode("view");
+          setPersonDeleteConfirmation({
+            isOpen: false,
+            person: null,
+            loading: false,
+          });
         }}
         title={
           viewEditPerson
@@ -1002,6 +1396,17 @@ export default function PeoplePage() {
                   person={viewEditPerson}
                   onEdit={() => {
                     setViewMode("edit");
+                  }}
+                  onDelete={() => {
+                    setPersonDeleteConfirmation({
+                      isOpen: true,
+                      person: viewEditPerson,
+                      loading: false,
+                    });
+                  }}
+                  onCancel={() => {
+                    setIsModalOpen(false);
+                    setViewEditPerson(null);
                   }}
                   onAddTimeline={() => {
                     setViewMode("edit");
@@ -1062,6 +1467,11 @@ export default function PeoplePage() {
                       loading: false,
                     });
                   }}
+                  onCancel={() => {
+                    setIsModalOpen(false);
+                    setViewFamily(null);
+                    setFamilyViewMode("view");
+                  }}
                   onClose={() => {
                     setIsModalOpen(false);
                     setViewFamily(null);
@@ -1118,42 +1528,54 @@ export default function PeoplePage() {
           </>
         ) : modalType === "cluster" ? (
           <>
-            {viewCluster ? (
-              clusterViewMode === "view" ? (
-                <ClusterView
-                  cluster={viewCluster}
-                  clusterMembers={peopleUI.filter((person) =>
-                    (viewCluster as any).members?.includes(person.id)
-                  )}
-                  clusterFamilies={families.filter((family) =>
-                    (viewCluster as any).families?.includes(family.id)
-                  )}
-                  coordinator={peopleUI.find(
-                    (person) => person.id === (viewCluster as any).coordinator
-                  )}
-                  onEdit={() => {
-                    setEditCluster(viewCluster);
-                    setClusterViewMode("edit");
-                  }}
-                  onDelete={() => {
-                    setClusterDeleteConfirmation({
-                      isOpen: true,
-                      cluster: viewCluster,
-                      loading: false,
-                    });
-                  }}
-                  onClose={() => {
-                    setIsModalOpen(false);
-                    setViewCluster(null);
-                  }}
-                />
-              ) : null
+            {viewCluster && clusterViewMode === "view" ? (
+              <ClusterView
+                cluster={viewCluster}
+                clusterMembers={peopleUI.filter((person) =>
+                  (viewCluster as any).members?.includes(person.id)
+                )}
+                clusterFamilies={families.filter((family) =>
+                  (viewCluster as any).families?.includes(family.id)
+                )}
+                coordinator={peopleUI.find(
+                  (person) => person.id === (viewCluster as any).coordinator
+                )}
+                onEdit={() => {
+                  setEditCluster(viewCluster);
+                  setClusterViewMode("edit");
+                }}
+                onDelete={() => {
+                  setClusterDeleteConfirmation({
+                    isOpen: true,
+                    cluster: viewCluster,
+                    loading: false,
+                  });
+                }}
+                onCancel={() => {
+                  setIsModalOpen(false);
+                  setViewCluster(null);
+                  setClusterViewMode("view");
+                }}
+                onClose={() => {
+                  setIsModalOpen(false);
+                  setViewCluster(null);
+                }}
+              />
             ) : editCluster ? (
               <ClusterForm
                 onSubmit={handleUpdateCluster}
                 onClose={() => {
-                  setIsModalOpen(false);
-                  setEditCluster(null);
+                  if (viewCluster) {
+                    // If editing from view, return to view mode
+                    setEditCluster(null);
+                    setClusterViewMode("view");
+                  } else {
+                    // If editing directly, close the modal
+                    setIsModalOpen(false);
+                    setEditCluster(null);
+                    setViewCluster(null);
+                    setClusterViewMode("view");
+                  }
                 }}
                 initialData={editCluster || undefined}
                 availableFamilies={families}
@@ -1215,6 +1637,18 @@ export default function PeoplePage() {
         loading={clusterDeleteConfirmation.loading}
       />
 
+      <ConfirmationModal
+        isOpen={personDeleteConfirmation.isOpen}
+        onClose={closePersonDeleteConfirmation}
+        onConfirm={handleDeletePerson}
+        title="Delete Person"
+        message={`Are you sure you want to delete "${personDeleteConfirmation.person?.first_name} ${personDeleteConfirmation.person?.last_name}"? This action cannot be undone and will permanently remove this person from the system.`}
+        confirmText="Delete Person"
+        cancelText="Cancel"
+        variant="danger"
+        loading={personDeleteConfirmation.loading}
+      />
+
       {/* Filter Dropdown */}
       <FilterDropdown
         isOpen={showFilterDropdown}
@@ -1236,6 +1670,38 @@ export default function PeoplePage() {
           position={filterCardPosition}
         />
       )}
+
+      {/* Cluster Filter Dropdown */}
+      <ClusterFilterDropdown
+        isOpen={showClusterFilterDropdown}
+        onClose={() => setShowClusterFilterDropdown(false)}
+        onSelectField={handleClusterSelectField}
+        position={clusterFilterDropdownPosition}
+      />
+
+      {/* Cluster Filter Card */}
+      {selectedClusterField && (
+        <ClusterFilterCard
+          field={selectedClusterField}
+          isOpen={showClusterFilterCard}
+          onClose={() => {
+            setShowClusterFilterCard(false);
+            setSelectedClusterField(null);
+          }}
+          onApplyFilter={handleClusterApplyFilter}
+          position={clusterFilterCardPosition}
+        />
+      )}
+
+      {/* Cluster Sort Dropdown */}
+      <ClusterSortDropdown
+        isOpen={showClusterSortDropdown}
+        onClose={() => setShowClusterSortDropdown(false)}
+        onSelectSort={handleClusterSelectSort}
+        position={clusterSortDropdownPosition}
+        currentSortBy={clusterSortBy}
+        currentSortOrder={clusterSortOrder}
+      />
     </DashboardLayout>
   );
 }

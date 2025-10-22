@@ -891,13 +891,6 @@ export default function PersonForm({
 
         {/* Footer */}
         <div className="flex gap-4 pt-4">
-          <Button className="flex-1" disabled={loading}>
-            {loading
-              ? "Saving..."
-              : initialData?.id
-              ? "Update Person"
-              : "Create Person"}
-          </Button>
           <Button
             variant="tertiary"
             className="flex-1"
@@ -909,6 +902,13 @@ export default function PersonForm({
             disabled={loading}
           >
             Cancel
+          </Button>
+          <Button className="flex-1" disabled={loading}>
+            {loading
+              ? "Saving..."
+              : initialData?.id
+              ? "Update Person"
+              : "Create Person"}
           </Button>
         </div>
       </form>

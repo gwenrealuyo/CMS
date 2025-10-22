@@ -141,7 +141,7 @@ export default function FilterCard({
 
   return (
     <div
-      className="absolute z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+      className="fixed z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
       style={{
         top: position.top,
         left: position.left,

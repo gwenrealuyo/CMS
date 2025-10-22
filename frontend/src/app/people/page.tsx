@@ -26,6 +26,7 @@ import { useFamilies } from "@/src/hooks/useFamilies";
 import { clustersApi, peopleApi } from "@/src/lib/api";
 import ClusterForm from "@/src/components/clusters/ClusterForm";
 import ClusterView from "@/src/components/clusters/ClusterView";
+import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import ActionMenu from "@/src/components/families/ActionMenu";
 
 export default function PeoplePage() {
@@ -151,6 +152,13 @@ export default function PeoplePage() {
     isOpen: false,
     person: null,
     loading: false,
+  });
+  const [assignMembersModal, setAssignMembersModal] = useState<{
+    isOpen: boolean;
+    cluster: Cluster | null;
+  }>({
+    isOpen: false,
+    cluster: null,
   });
 
   // Debounced search for better performance
@@ -482,6 +490,29 @@ export default function PeoplePage() {
       } catch (error) {
         console.error("Error updating cluster:", error);
         alert("Failed to update cluster. Please try again.");
+        throw error;
+      }
+    }
+  };
+
+  const handleAssignMembers = async (memberIds: string[]) => {
+    if (assignMembersModal.cluster) {
+      try {
+        await clustersApi.update(assignMembersModal.cluster.id, {
+          members: memberIds,
+        } as any);
+        await fetchClusters();
+
+        // Update viewCluster if it's the same cluster
+        if (viewCluster && viewCluster.id === assignMembersModal.cluster.id) {
+          const updatedCluster = await clustersApi.getById(viewCluster.id);
+          setViewCluster(updatedCluster.data);
+        }
+
+        setAssignMembersModal({ isOpen: false, cluster: null });
+      } catch (error) {
+        console.error("Error assigning members:", error);
+        alert("Failed to assign members. Please try again.");
         throw error;
       }
     }
@@ -1560,6 +1591,12 @@ export default function PeoplePage() {
                   setIsModalOpen(false);
                   setViewCluster(null);
                 }}
+                onAssignMembers={() => {
+                  setAssignMembersModal({
+                    isOpen: true,
+                    cluster: viewCluster,
+                  });
+                }}
               />
             ) : editCluster ? (
               <ClusterForm
@@ -1647,6 +1684,14 @@ export default function PeoplePage() {
         cancelText="Cancel"
         variant="danger"
         loading={personDeleteConfirmation.loading}
+      />
+
+      <AssignMembersModal
+        cluster={assignMembersModal.cluster!}
+        peopleUI={peopleUI}
+        isOpen={assignMembersModal.isOpen}
+        onClose={() => setAssignMembersModal({ isOpen: false, cluster: null })}
+        onAssignMembers={handleAssignMembers}
       />
 
       {/* Filter Dropdown */}

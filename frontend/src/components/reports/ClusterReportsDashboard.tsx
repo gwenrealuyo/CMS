@@ -10,6 +10,7 @@ import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 
 interface ClusterReportsDashboardProps {
@@ -175,6 +176,18 @@ export default function ClusterReportsDashboard({
       <ChevronDownIcon className="w-4 h-4 inline-block" />
     );
   };
+
+  // Memoized cluster options for scalable select
+  const clusterOptions = useMemo(
+    () => [
+      { value: "", label: "All Clusters" },
+      ...clusters.map((cluster) => ({
+        value: cluster.id,
+        label: cluster.name || "Unnamed Cluster",
+      })),
+    ],
+    [clusters]
+  );
 
   const handleCreateReport = (cluster: Cluster) => {
     setSelectedCluster(cluster);
@@ -454,18 +467,18 @@ export default function ClusterReportsDashboard({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cluster
             </label>
-            <select
+            <ScalableSelect
+              options={clusterOptions}
               value={selectedClusterFilter}
-              onChange={(e) => setSelectedClusterFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">All Clusters</option>
-              {clusters.map((cluster) => (
-                <option key={cluster.id} value={cluster.id}>
-                  {cluster.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedClusterFilter}
+              placeholder="Select a cluster"
+              searchPlaceholder="Search clusters..."
+              className="w-full"
+              showSearch={true}
+              maxHeight={200}
+              emptyMessage="No clusters found"
+              virtualizeThreshold={50}
+            />
           </div>
 
           <div>
@@ -568,9 +581,18 @@ export default function ClusterReportsDashboard({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredReports.map((report) => (
-                  <tr key={report.id}>
+                  <tr
+                    key={report.id}
+                    className="hover:bg-gray-50 transition-colors duration-150"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {report.cluster_name}
+                      <button
+                        onClick={() => handleViewReport(report)}
+                        className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150"
+                        title="Click to view report details"
+                      >
+                        {report.cluster_name}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {report.year} W{report.week_number}

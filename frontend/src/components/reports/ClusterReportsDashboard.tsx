@@ -6,8 +6,10 @@ import {
 } from "@/src/types/person";
 import { clusterWeeklyReportsApi } from "@/src/lib/api";
 import ClusterWeeklyReportForm from "./ClusterWeeklyReportForm";
+import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import { ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 
 interface ClusterReportsDashboardProps {
@@ -24,6 +26,18 @@ export default function ClusterReportsDashboard({
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
   const [editingReport, setEditingReport] =
     useState<ClusterWeeklyReport | null>(null);
+  const [viewingReport, setViewingReport] =
+    useState<ClusterWeeklyReport | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    report: ClusterWeeklyReport | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    report: null,
+    loading: false,
+  });
 
   // Filters
   const [selectedClusterFilter, setSelectedClusterFilter] =
@@ -195,16 +209,49 @@ export default function ClusterReportsDashboard({
     }
   };
 
-  const handleDeleteReport = async (reportId: string) => {
-    if (window.confirm("Are you sure you want to delete this report?")) {
+  const handleDeleteReport = async (report: ClusterWeeklyReport) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      report: report,
+      loading: false,
+    });
+  };
+
+  const confirmDeleteReport = async () => {
+    if (deleteConfirmation.report) {
+      setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
       try {
-        await clusterWeeklyReportsApi.delete(reportId);
+        await clusterWeeklyReportsApi.delete(deleteConfirmation.report.id);
         await fetchReports();
         await fetchAnalytics();
+        setDeleteConfirmation({
+          isOpen: false,
+          report: null,
+          loading: false,
+        });
+        // Close view modal if it's open
+        if (viewingReport?.id === deleteConfirmation.report.id) {
+          setShowViewModal(false);
+          setViewingReport(null);
+        }
       } catch (error) {
         console.error("Error deleting report:", error);
+        setDeleteConfirmation((prev) => ({ ...prev, loading: false }));
       }
     }
+  };
+
+  const closeDeleteConfirmation = () => {
+    setDeleteConfirmation({
+      isOpen: false,
+      report: null,
+      loading: false,
+    });
+  };
+
+  const handleViewReport = (report: ClusterWeeklyReport) => {
+    setViewingReport(report);
+    setShowViewModal(true);
   };
 
   const getGatheringTypeColor = (type: string) => {
@@ -554,6 +601,32 @@ export default function ClusterReportsDashboard({
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         <button
+                          onClick={() => handleViewReport(report)}
+                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
+                          title="View Report"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
+                          </svg>
+                        </button>
+                        <button
                           onClick={() => handleEditReport(report)}
                           className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                           title="Edit Report"
@@ -574,7 +647,7 @@ export default function ClusterReportsDashboard({
                           </svg>
                         </button>
                         <button
-                          onClick={() => handleDeleteReport(report.id)}
+                          onClick={() => handleDeleteReport(report)}
                           className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                           title="Delete Report"
                         >
@@ -627,6 +700,46 @@ export default function ClusterReportsDashboard({
           initialData={editingReport || undefined}
         />
       </Modal>
+
+      {/* View Report Modal */}
+      {viewingReport && (
+        <ViewWeeklyReportModal
+          report={viewingReport}
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false);
+            setViewingReport(null);
+          }}
+          onEdit={() => {
+            setShowViewModal(false);
+            handleEditReport(viewingReport);
+          }}
+          onDelete={() => {
+            handleDeleteReport(viewingReport);
+          }}
+          onCancel={() => {
+            setShowViewModal(false);
+            setViewingReport(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteConfirmation.isOpen}
+        onClose={closeDeleteConfirmation}
+        onConfirm={confirmDeleteReport}
+        title="Delete Weekly Report"
+        message={
+          deleteConfirmation.report
+            ? `Are you sure you want to delete the weekly report for ${deleteConfirmation.report.cluster_name} - ${deleteConfirmation.report.year} Week ${deleteConfirmation.report.week_number}? This action cannot be undone.`
+            : "Are you sure you want to delete this report?"
+        }
+        confirmText="Delete Report"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleteConfirmation.loading}
+      />
     </div>
   );
 }

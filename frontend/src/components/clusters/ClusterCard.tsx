@@ -62,10 +62,13 @@ const ClusterCard = memo(
     }, [coordinator, cluster]);
 
     return (
-      <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm relative">
+      <div
+        className="p-4 bg-white rounded-lg border-2 border-transparent shadow-sm relative transition-all hover:shadow-lg hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
+        onClick={onView}
+      >
         <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-gray-900 truncate">
+            <h4 className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-all truncate">
               {cluster.name || "Untitled Cluster"}
             </h4>
             <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
@@ -144,7 +147,10 @@ const ClusterCard = memo(
             </div>
           </div>
           {/* Top Right Corner: Counts and Actions */}
-          <div className="ml-3 flex items-center gap-2">
+          <div
+            className="ml-3 flex items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-1 text-gray-600">
               <svg
                 className="w-4 h-4 text-gray-500"

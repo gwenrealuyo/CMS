@@ -27,6 +27,7 @@ import { clustersApi, peopleApi } from "@/src/lib/api";
 import ClusterForm from "@/src/components/clusters/ClusterForm";
 import ClusterView from "@/src/components/clusters/ClusterView";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
+import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
 import ClusterReportsDashboard from "@/src/components/reports/ClusterReportsDashboard";
 import ActionMenu from "@/src/components/families/ActionMenu";
 
@@ -160,6 +161,13 @@ export default function PeoplePage() {
   }>({
     isOpen: false,
     cluster: null,
+  });
+  const [addFamilyMemberModal, setAddFamilyMemberModal] = useState<{
+    isOpen: boolean;
+    family: Family | null;
+  }>({
+    isOpen: false,
+    family: null,
   });
 
   // Debounced search for better performance
@@ -513,6 +521,33 @@ export default function PeoplePage() {
       } catch (error) {
         console.error("Error assigning members:", error);
         alert("Failed to assign members. Please try again.");
+        throw error;
+      }
+    }
+  };
+
+  const handleAddFamilyMembers = async (memberIds: string[]) => {
+    if (addFamilyMemberModal.family) {
+      try {
+        await updateFamily(addFamilyMemberModal.family.id, {
+          members: memberIds,
+        });
+
+        // Refresh families and update viewFamily if it's the same family
+        await refreshFamilies();
+        if (viewFamily && viewFamily.id === addFamilyMemberModal.family.id) {
+          const updatedFamily = families.find(
+            (f: Family) => f.id === viewFamily.id
+          );
+          if (updatedFamily) {
+            setViewFamily(updatedFamily);
+          }
+        }
+
+        setAddFamilyMemberModal({ isOpen: false, family: null });
+      } catch (error) {
+        console.error("Error adding family members:", error);
+        alert("Failed to add family members. Please try again.");
         throw error;
       }
     }
@@ -1418,17 +1453,21 @@ export default function PeoplePage() {
         }}
         title={
           viewEditPerson
-            ? `${viewMode === "view" ? "View Profile" : "Edit Profile"} (${
-                viewEditPerson.first_name
-              } ${viewEditPerson.last_name})`
+            ? viewMode === "view"
+              ? ""
+              : `Edit Profile`
             : viewFamily
-            ? `View Family (${viewFamily.name})`
+            ? familyViewMode === "view"
+              ? ""
+              : "Edit Family"
             : editFamily
-            ? `Edit Family (${editFamily.name})`
+            ? `Edit Family`
             : viewCluster
-            ? `View Cluster (${viewCluster.name})`
+            ? clusterViewMode === "view"
+              ? ""
+              : "Edit Cluster"
             : editCluster
-            ? `Edit Cluster (${editCluster.name})`
+            ? `Edit Cluster`
             : `Add New ${
                 modalType === "person"
                   ? "Person"
@@ -1436,6 +1475,11 @@ export default function PeoplePage() {
                   ? "Family"
                   : "Cluster"
               }`
+        }
+        hideHeader={
+          !!(viewEditPerson && viewMode === "view") ||
+          (!!viewFamily && familyViewMode === "view") ||
+          (!!viewCluster && clusterViewMode === "view")
         }
       >
         {modalType === "person" ? (
@@ -1527,15 +1571,19 @@ export default function PeoplePage() {
                     setViewFamily(null);
                     setFamilyViewMode("view");
                   }}
+                  onAddMember={() => {
+                    setAddFamilyMemberModal({
+                      isOpen: true,
+                      family: viewFamily,
+                    });
+                  }}
                 />
               ) : (
                 <FamilyForm
                   onSubmit={handleUpdateFamily}
                   onClose={() => {
-                    setIsModalOpen(false);
-                    setEditFamily(null);
-                    setViewFamily(null);
                     setFamilyViewMode("view");
+                    setEditFamily(null);
                   }}
                   onDelete={(family) => {
                     setDeleteConfirmation({
@@ -1719,6 +1767,18 @@ export default function PeoplePage() {
         onClose={() => setAssignMembersModal({ isOpen: false, cluster: null })}
         onAssignMembers={handleAssignMembers}
       />
+
+      {addFamilyMemberModal.family && (
+        <AddFamilyMemberModal
+          family={addFamilyMemberModal.family}
+          peopleUI={peopleUI}
+          isOpen={addFamilyMemberModal.isOpen}
+          onClose={() =>
+            setAddFamilyMemberModal({ isOpen: false, family: null })
+          }
+          onAddMembers={handleAddFamilyMembers}
+        />
+      )}
 
       {/* Filter Dropdown */}
       <FilterDropdown

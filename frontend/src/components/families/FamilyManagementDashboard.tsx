@@ -416,16 +416,17 @@ export default function FamilyManagementDashboard({
             return (
               <div
                 key={family.id}
-                className="bg-white rounded-lg shadow-md p-6"
+                className="bg-white rounded-lg shadow-md p-6 transition-all hover:shadow-lg hover:border-blue-200 hover:bg-blue-50/30 border-2 border-transparent cursor-pointer"
+                onClick={() => onViewFamily(family)}
               >
                 <div className="space-y-4">
                   {/* Family Header */}
                   <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-all">
                         The {family.name} Family
                       </h3>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 mt-1">
                         {familyMembers.length} members • Since{" "}
                         {familyMembers[0]?.dateFirstAttended
                           ? new Date(
@@ -434,11 +435,16 @@ export default function FamilyManagementDashboard({
                           : "Unknown"}
                       </p>
                     </div>
-                    <ActionMenu
-                      onView={() => onViewFamily(family)}
-                      onEdit={() => onEditFamily(family)}
-                      onDelete={() => onDeleteFamily(family)}
-                    />
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="relative z-10"
+                    >
+                      <ActionMenu
+                        onView={() => onViewFamily(family)}
+                        onEdit={() => onEditFamily(family)}
+                        onDelete={() => onDeleteFamily(family)}
+                      />
+                    </div>
                   </div>
 
                   {/* Core Family */}

@@ -124,39 +124,43 @@ export default function FamilyForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Family Name *
-        </label>
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Enter family name (e.g., Johnson)"
-          required
-        />
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Family Name *
+          </label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Enter family name (e.g., Johnson)"
+            required
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Family Leader (Optional)
-        </label>
-        <select
-          value={formData.leader}
-          onChange={(e) => setFormData({ ...formData, leader: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">Select a family leader (optional)</option>
-          {getSelectedMembers().map((member) => (
-            <option key={member.id} value={member.id}>
-              {member.first_name} {member.last_name}
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-gray-500 mt-1">
-          You can assign a leader after adding members to the family
-        </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Family Leader (Optional)
+          </label>
+          <select
+            value={formData.leader}
+            onChange={(e) =>
+              setFormData({ ...formData, leader: e.target.value })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">Select a family leader (optional)</option>
+            {getSelectedMembers().map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.first_name} {member.last_name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            You can assign a leader after adding members to the family
+          </p>
+        </div>
       </div>
 
       <div>
@@ -321,7 +325,7 @@ export default function FamilyForm({
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={loading}>
+        <Button className="flex-1" disabled={loading} type="submit">
           {loading
             ? "Saving..."
             : initialData

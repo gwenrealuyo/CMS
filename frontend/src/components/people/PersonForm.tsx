@@ -903,7 +903,7 @@ export default function PersonForm({
           >
             Cancel
           </Button>
-          <Button className="flex-1" disabled={loading}>
+          <Button className="flex-1" disabled={loading} type="submit">
             {loading
               ? "Saving..."
               : initialData?.id

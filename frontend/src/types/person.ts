@@ -101,3 +101,44 @@ export interface Cluster {
   meeting_schedule?: string;
   description?: string;
 }
+
+export type GatheringType = "PHYSICAL" | "ONLINE" | "HYBRID";
+
+export interface ClusterWeeklyReport {
+  id: string;
+  cluster: string; // Cluster ID
+  cluster_name?: string;
+  year: number;
+  week_number: number;
+  meeting_date: string; // ISO date string
+  members_present: number;
+  visitors_present: number;
+  gathering_type: GatheringType;
+  activities_held?: string;
+  prayer_requests?: string;
+  testimonies?: string;
+  offerings: number;
+  highlights?: string;
+  lowlights?: string;
+  submitted_by: string; // Person ID
+  submitted_by_details?: PersonUI;
+  submitted_at: string; // ISO datetime
+  updated_at: string; // ISO datetime
+}
+
+export interface ReportAnalytics {
+  total_reports: number;
+  total_attendance: {
+    members: number;
+    visitors: number;
+  };
+  average_attendance: {
+    avg_members: number;
+    avg_visitors: number;
+  };
+  total_offerings: number;
+  gathering_type_distribution: Array<{
+    gathering_type: string;
+    count: number;
+  }>;
+}

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Family, Cluster, Milestone, Person
+from .models import Family, Cluster, Milestone, Person, ClusterWeeklyReport
 
 
 class MilestoneSerializer(serializers.ModelSerializer):
@@ -100,6 +100,7 @@ class ClusterSerializer(serializers.ModelSerializer):
         source="coordinator",
         write_only=True,
         allow_null=True,
+        required=False,
     )
     families = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Family.objects.all()
@@ -124,3 +125,33 @@ class ClusterSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["created_at"]
+
+
+class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
+    submitted_by_details = PersonSerializer(source="submitted_by", read_only=True)
+    cluster_name = serializers.CharField(source="cluster.name", read_only=True)
+
+    class Meta:
+        model = ClusterWeeklyReport
+        fields = [
+            "id",
+            "cluster",
+            "cluster_name",
+            "year",
+            "week_number",
+            "meeting_date",
+            "members_present",
+            "visitors_present",
+            "gathering_type",
+            "activities_held",
+            "prayer_requests",
+            "testimonies",
+            "offerings",
+            "highlights",
+            "lowlights",
+            "submitted_by",
+            "submitted_by_details",
+            "submitted_at",
+            "updated_at",
+        ]
+        read_only_fields = ["submitted_at", "updated_at"]

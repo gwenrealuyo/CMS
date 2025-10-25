@@ -62,7 +62,7 @@ const ClusterCard = memo(
     }, [coordinator, cluster]);
 
     return (
-      <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+      <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm relative">
         <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
             <h4 className="font-semibold text-gray-900 truncate">
@@ -206,4 +206,3 @@ const ClusterCard = memo(
 ClusterCard.displayName = "ClusterCard";
 
 export default ClusterCard;
-

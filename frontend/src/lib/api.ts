@@ -1,5 +1,12 @@
 import axios from "axios";
-import { Person, Family, Cluster, Milestone } from "@/src/types/person";
+import {
+  Person,
+  Family,
+  Cluster,
+  Milestone,
+  ClusterWeeklyReport,
+  ReportAnalytics,
+} from "@/src/types/person";
 import { Event } from "@/src/types/event";
 
 const api = axios.create({
@@ -73,6 +80,23 @@ export const milestonesApi = {
   delete: (id: string) => api.delete(`/people/milestones/${id}/`),
   getByUser: (userId: string) =>
     api.get<Milestone[]>(`/people/milestones/?user=${userId}`),
+};
+
+export const clusterWeeklyReportsApi = {
+  getAll: () =>
+    api.get<ClusterWeeklyReport[]>("/people/cluster-weekly-reports/"),
+  getById: (id: string) =>
+    api.get<ClusterWeeklyReport>(`/people/cluster-weekly-reports/${id}/`),
+  create: (data: Partial<ClusterWeeklyReport>) =>
+    api.post<ClusterWeeklyReport>("/people/cluster-weekly-reports/", data),
+  update: (id: string, data: Partial<ClusterWeeklyReport>) =>
+    api.put<ClusterWeeklyReport>(`/people/cluster-weekly-reports/${id}/`, data),
+  delete: (id: string) => api.delete(`/people/cluster-weekly-reports/${id}/`),
+  getAnalytics: (params?: { cluster?: string; year?: number }) =>
+    api.get<ReportAnalytics>("/people/cluster-weekly-reports/analytics/", {
+      params,
+    }),
+  getOverdue: () => api.get("/people/cluster-weekly-reports/overdue/"),
 };
 
 export default api;

@@ -29,15 +29,21 @@ export default function ActionMenu({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        // Add a small delay to prevent immediate closing
+        setTimeout(() => {
+          setIsOpen(false);
+        }, 100);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [isOpen]);
 
   const handleAction = (action: () => void) => {
     action();
@@ -67,7 +73,7 @@ export default function ActionMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[9999]">
           <button
             onClick={() => handleAction(onView)}
             className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-3"

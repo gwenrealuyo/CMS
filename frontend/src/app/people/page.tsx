@@ -27,11 +27,12 @@ import { clustersApi, peopleApi } from "@/src/lib/api";
 import ClusterForm from "@/src/components/clusters/ClusterForm";
 import ClusterView from "@/src/components/clusters/ClusterView";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
+import ClusterReportsDashboard from "@/src/components/reports/ClusterReportsDashboard";
 import ActionMenu from "@/src/components/families/ActionMenu";
 
 export default function PeoplePage() {
   const [activeTab, setActiveTab] = useState<
-    "people" | "families" | "clusters"
+    "people" | "families" | "clusters" | "reports"
   >("people");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"person" | "family" | "cluster">(
@@ -202,7 +203,7 @@ export default function PeoplePage() {
   };
 
   // Cluster filter and sort functions
-  const applyClusterFilters = useCallback(() => {
+  const applyClusterFilters = () => {
     setClusterFiltering(true);
 
     // Use setTimeout to allow UI to update before heavy computation
@@ -312,14 +313,7 @@ export default function PeoplePage() {
       setClusters(filtered);
       setClusterFiltering(false);
     }, 0);
-  }, [
-    allClusters,
-    clusterSearchQuery,
-    clusterActiveFilters,
-    clusterSortBy,
-    clusterSortOrder,
-    peopleUI,
-  ]);
+  };
 
   // Pagination logic
   const clusterTotalPages = Math.ceil(clusters.length / clusterItemsPerPage);
@@ -452,7 +446,13 @@ export default function PeoplePage() {
   // Apply cluster filters when dependencies change
   useEffect(() => {
     applyClusterFilters();
-  }, [applyClusterFilters]);
+  }, [
+    allClusters,
+    clusterSearchQuery,
+    clusterActiveFilters,
+    clusterSortBy,
+    clusterSortOrder,
+  ]);
 
   const handleCreateCluster = async (data: Partial<Cluster>) => {
     try {
@@ -906,26 +906,41 @@ export default function PeoplePage() {
             >
               Clusters
             </button>
+            <button
+              className={`px-4 py-2 font-medium rounded-md ${
+                activeTab === "reports"
+                  ? "bg-[#2563EB] text-white"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+              onClick={() => {
+                setActiveTab("reports");
+                if (clusters.length === 0 && !clustersLoading) fetchClusters();
+              }}
+            >
+              Reports
+            </button>
           </div>
-          <Button
-            onClick={() => {
-              setModalType(
-                activeTab === "people"
-                  ? "person"
-                  : activeTab === "families"
-                  ? "family"
-                  : "cluster"
-              );
-              setIsModalOpen(true);
-            }}
-          >
-            Add{" "}
-            {activeTab === "people"
-              ? "Person"
-              : activeTab === "families"
-              ? "Family"
-              : "Cluster"}
-          </Button>
+          {activeTab !== "reports" && (
+            <Button
+              onClick={() => {
+                setModalType(
+                  activeTab === "people"
+                    ? "person"
+                    : activeTab === "families"
+                    ? "family"
+                    : "cluster"
+                );
+                setIsModalOpen(true);
+              }}
+            >
+              Add{" "}
+              {activeTab === "people"
+                ? "Person"
+                : activeTab === "families"
+                ? "Family"
+                : "Cluster"}
+            </Button>
+          )}
         </div>
 
         {activeTab === "people" && (
@@ -1378,6 +1393,10 @@ export default function PeoplePage() {
             )}
           </div>
         )}
+
+        {activeTab === "reports" && (
+          <ClusterReportsDashboard clusters={clusters} />
+        )}
       </div>
       <Modal
         isOpen={isModalOpen}
@@ -1596,6 +1615,13 @@ export default function PeoplePage() {
                     isOpen: true,
                     cluster: viewCluster,
                   });
+                }}
+                onSubmitReport={() => {
+                  // Switch to reports tab and open the form for this cluster
+                  setActiveTab("reports");
+                  setIsModalOpen(false);
+                  setViewCluster(null);
+                  setClusterViewMode("view");
                 }}
               />
             ) : editCluster ? (

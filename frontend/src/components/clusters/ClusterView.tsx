@@ -11,6 +11,7 @@ interface ClusterViewProps {
   onCancel: () => void;
   onClose: () => void;
   onAssignMembers: () => void;
+  onSubmitReport: () => void;
 }
 
 export default function ClusterView({
@@ -23,6 +24,7 @@ export default function ClusterView({
   onCancel,
   onClose,
   onAssignMembers,
+  onSubmitReport,
 }: ClusterViewProps) {
   // Calculate member counts including coordinator
   const totalMemberCount = clusterMembers.length + (coordinator ? 1 : 0);
@@ -174,26 +176,48 @@ export default function ClusterView({
             <h3 className="text-lg font-semibold text-gray-900">
               Members ({totalMemberCount})
             </h3>
-            <Button
-              onClick={onAssignMembers}
-              variant="secondary"
-              className="!text-green-600 py-2 px-4 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex gap-2">
+              <Button
+                onClick={onAssignMembers}
+                variant="secondary"
+                className="!text-green-600 py-2 px-4 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-              <span>Assign Members</span>
-            </Button>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                <span>Assign Members</span>
+              </Button>
+              <Button
+                onClick={onSubmitReport}
+                variant="secondary"
+                className="!text-blue-600 py-2 px-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <span>Submit Report</span>
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Show coordinator first if exists */}

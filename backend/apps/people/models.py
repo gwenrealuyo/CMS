@@ -125,6 +125,68 @@ class Cluster(models.Model):
         return self.name
 
 
+class ClusterWeeklyReport(models.Model):
+    cluster = models.ForeignKey(
+        Cluster, on_delete=models.CASCADE, related_name="weekly_reports"
+    )
+    year = models.IntegerField(help_text="Year of the report (e.g., 2025)")
+    week_number = models.IntegerField(help_text="ISO week number (1-53)")
+
+    # Cluster Meeting Information
+    meeting_date = models.DateField(
+        help_text="Actual date the cluster meeting was held this week"
+    )
+
+    # Attendance
+    members_present = models.IntegerField(default=0)
+    visitors_present = models.IntegerField(default=0)
+
+    # Gathering Information
+    gathering_type = models.CharField(
+        max_length=20,
+        choices=[
+            ("PHYSICAL", "Physical"),
+            ("ONLINE", "Online"),
+            ("HYBRID", "Hybrid"),
+        ],
+    )
+
+    # Activities and Events
+    activities_held = models.TextField(
+        blank=True, help_text="Activities/events held during the cluster meeting"
+    )
+
+    # Prayer and Testimonies
+    prayer_requests = models.TextField(blank=True)
+    testimonies = models.TextField(blank=True)
+
+    # Financial
+    offerings = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+    # Highlights and Lowlights
+    highlights = models.TextField(
+        blank=True, help_text="Positive events or achievements"
+    )
+    lowlights = models.TextField(blank=True, help_text="Challenges or concerns")
+
+    # Submission Info
+    submitted_by = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="submitted_cluster_reports",
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["cluster", "year", "week_number"]
+        ordering = ["-year", "-week_number"]
+
+    def __str__(self):
+        return f"{self.cluster.name} - {self.year} Week {self.week_number}"
+
+
 class Milestone(models.Model):
     user = models.ForeignKey(
         Person, on_delete=models.CASCADE, related_name="milestones"

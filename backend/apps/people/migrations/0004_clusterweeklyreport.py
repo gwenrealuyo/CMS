@@ -38,8 +38,6 @@ class Migration(migrations.Migration):
                         help_text="Actual date the cluster meeting was held this week"
                     ),
                 ),
-                ("members_present", models.IntegerField(default=0)),
-                ("visitors_present", models.IntegerField(default=0)),
                 (
                     "gathering_type",
                     models.CharField(
@@ -98,5 +96,25 @@ class Migration(migrations.Migration):
                 "ordering": ["-year", "-week_number"],
                 "unique_together": {("cluster", "year", "week_number")},
             },
+        ),
+        migrations.AddField(
+            model_name="clusterweeklyreport",
+            name="members_attended",
+            field=models.ManyToManyField(
+                blank=True,
+                limit_choices_to={"role": "MEMBER"},
+                related_name="cluster_reports_as_member",
+                to=settings.AUTH_USER_MODEL,
+            ),
+        ),
+        migrations.AddField(
+            model_name="clusterweeklyreport",
+            name="visitors_attended",
+            field=models.ManyToManyField(
+                blank=True,
+                limit_choices_to={"role": "VISITOR"},
+                related_name="cluster_reports_as_visitor",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

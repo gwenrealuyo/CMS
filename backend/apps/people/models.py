@@ -138,8 +138,18 @@ class ClusterWeeklyReport(models.Model):
     )
 
     # Attendance
-    members_present = models.IntegerField(default=0)
-    visitors_present = models.IntegerField(default=0)
+    members_attended = models.ManyToManyField(
+        Person,
+        blank=True,
+        related_name="cluster_reports_as_member",
+        limit_choices_to={"role": "MEMBER"},
+    )
+    visitors_attended = models.ManyToManyField(
+        Person,
+        blank=True,
+        related_name="cluster_reports_as_visitor",
+        limit_choices_to={"role": "VISITOR"},
+    )
 
     # Gathering Information
     gathering_type = models.CharField(
@@ -178,6 +188,14 @@ class ClusterWeeklyReport(models.Model):
     )
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def members_present(self):
+        return self.members_attended.count()
+
+    @property
+    def visitors_present(self):
+        return self.visitors_attended.count()
 
     class Meta:
         unique_together = ["cluster", "year", "week_number"]

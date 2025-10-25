@@ -111,8 +111,10 @@ export interface ClusterWeeklyReport {
   year: number;
   week_number: number;
   meeting_date: string; // ISO date string
-  members_present: number;
-  visitors_present: number;
+  members_attended: string[]; // List of Person IDs (MEMBER role)
+  visitors_attended: string[]; // List of Person IDs (VISITOR role)
+  members_present: number; // Computed: count of members_attended
+  visitors_present: number; // Computed: count of visitors_attended
   gathering_type: GatheringType;
   activities_held?: string;
   prayer_requests?: string;

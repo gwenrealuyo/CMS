@@ -70,14 +70,25 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         if year:
             queryset = queryset.filter(year=year)
 
+        # Calculate total attendance by counting ManyToMany relationships
+        total_members = sum(report.members_attended.count() for report in queryset)
+        total_visitors = sum(report.visitors_attended.count() for report in queryset)
+
+        # Calculate average attendance
+        report_count = queryset.count()
+        avg_members = total_members / report_count if report_count > 0 else 0
+        avg_visitors = total_visitors / report_count if report_count > 0 else 0
+
         analytics_data = {
-            "total_reports": queryset.count(),
-            "total_attendance": queryset.aggregate(
-                members=Sum("members_present"), visitors=Sum("visitors_present")
-            ),
-            "average_attendance": queryset.aggregate(
-                avg_members=Avg("members_present"), avg_visitors=Avg("visitors_present")
-            ),
+            "total_reports": report_count,
+            "total_attendance": {
+                "members": total_members,
+                "visitors": total_visitors,
+            },
+            "average_attendance": {
+                "avg_members": round(avg_members, 2),
+                "avg_visitors": round(avg_visitors, 2),
+            },
             "total_offerings": queryset.aggregate(total=Sum("offerings"))["total"] or 0,
             "gathering_type_distribution": queryset.values("gathering_type").annotate(
                 count=Count("id")

@@ -3,8 +3,13 @@ import {
   ClusterWeeklyReport,
   Cluster,
   GatheringType,
+  PersonUI,
+  Person,
 } from "@/src/types/person";
+import { peopleApi } from "@/src/lib/api";
 import Button from "@/src/components/ui/Button";
+import AttendanceSelector from "./AttendanceSelector";
+import AddVisitorModal from "./AddVisitorModal";
 
 interface ClusterWeeklyReportFormProps {
   isOpen: boolean;
@@ -28,6 +33,8 @@ export default function ClusterWeeklyReportForm({
     year: new Date().getFullYear(),
     week_number: getWeekNumber(new Date()),
     meeting_date: new Date().toISOString().split("T")[0],
+    members_attended: [],
+    visitors_attended: [],
     members_present: 0,
     visitors_present: 0,
     gathering_type: "PHYSICAL" as GatheringType,
@@ -44,6 +51,30 @@ export default function ClusterWeeklyReportForm({
   const [clusterSearchTerm, setClusterSearchTerm] = useState("");
   const [showClusterDropdown, setShowClusterDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [people, setPeople] = useState<PersonUI[]>([]);
+  const [loadingPeople, setLoadingPeople] = useState(true);
+  const [showAddVisitorModal, setShowAddVisitorModal] = useState(false);
+
+  // Fetch people data
+  useEffect(() => {
+    const fetchPeople = async () => {
+      try {
+        setLoadingPeople(true);
+        const response = await peopleApi.getAll();
+        const peopleUI: PersonUI[] = response.data.map((p) => ({
+          ...p,
+          name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+          dateFirstAttended: p.date_first_attended,
+        }));
+        setPeople(peopleUI);
+      } catch (error) {
+        console.error("Error fetching people:", error);
+      } finally {
+        setLoadingPeople(false);
+      }
+    };
+    fetchPeople();
+  }, []);
 
   // Filter clusters based on search term
   const filteredClusters = clusters.filter((cluster) => {
@@ -111,6 +142,41 @@ export default function ClusterWeeklyReportForm({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showClusterDropdown]);
+
+  const handleCreateVisitor = async (visitorData: Partial<Person>) => {
+    try {
+      const response = await peopleApi.create(visitorData);
+      const newVisitor: PersonUI = {
+        ...response.data,
+        name: `${response.data.first_name ?? ""} ${
+          response.data.last_name ?? ""
+        }`.trim(),
+        dateFirstAttended: response.data.date_first_attended,
+      };
+      setPeople((prev) => [...prev, newVisitor]);
+
+      // Automatically add to visitors_attended
+      setFormData((prev) => ({
+        ...prev,
+        visitors_attended: [
+          ...(prev.visitors_attended || []),
+          response.data.id,
+        ],
+      }));
+
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleMembersChange = (ids: string[]) => {
+    setFormData((prev) => ({ ...prev, members_attended: ids }));
+  };
+
+  const handleVisitorsChange = (ids: string[]) => {
+    setFormData((prev) => ({ ...prev, visitors_attended: ids }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,7 +246,7 @@ export default function ClusterWeeklyReportForm({
       </div>
 
       {/* Basic Information Grid */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Year *
@@ -225,75 +291,92 @@ export default function ClusterWeeklyReportForm({
             required
           />
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Gathering Type *
+          </label>
+          <select
+            value={formData.gathering_type || "PHYSICAL"}
+            onChange={(e) =>
+              handleChange("gathering_type", e.target.value as GatheringType)
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          >
+            <option value="PHYSICAL">Physical</option>
+            <option value="ONLINE">Online</option>
+            <option value="HYBRID">Hybrid</option>
+          </select>
+        </div>
       </div>
 
-      {/* Gathering Type */}
+      {/* Attendance Selection */}
+      {loadingPeople ? (
+        <div className="mb-6 text-center py-8 text-gray-500">
+          Loading people data...
+        </div>
+      ) : (
+        <>
+          <AttendanceSelector
+            label="Members Attended"
+            selectedIds={formData.members_attended || []}
+            availablePeople={people}
+            filterRole="MEMBER"
+            onSelectionChange={handleMembersChange}
+          />
+
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Visitors Attended
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowAddVisitorModal(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium border border-blue-300 hover:border-blue-500 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                + Add New Visitor
+              </button>
+            </div>
+            <AttendanceSelector
+              label=""
+              selectedIds={formData.visitors_attended || []}
+              availablePeople={people}
+              filterRole="VISITOR"
+              onSelectionChange={handleVisitorsChange}
+              className="mb-0"
+            />
+          </div>
+        </>
+      )}
+
+      {/* Offerings */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Gathering Type *
+          Offerings (₱)
         </label>
-        <select
-          value={formData.gathering_type || "PHYSICAL"}
+        <input
+          type="number"
+          step="0.01"
+          value={formData.offerings === 0 ? "" : formData.offerings}
           onChange={(e) =>
-            handleChange("gathering_type", e.target.value as GatheringType)
+            handleChange(
+              "offerings",
+              e.target.value === "" ? 0 : parseFloat(e.target.value)
+            )
           }
+          min="0"
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          required
-        >
-          <option value="PHYSICAL">Physical</option>
-          <option value="ONLINE">Online</option>
-          <option value="HYBRID">Hybrid</option>
-        </select>
+        />
       </div>
 
-      {/* Attendance Grid */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Members Present
-          </label>
-          <input
-            type="number"
-            value={formData.members_present || 0}
-            onChange={(e) =>
-              handleChange("members_present", parseInt(e.target.value) || 0)
-            }
-            min="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Visitors Present
-          </label>
-          <input
-            type="number"
-            value={formData.visitors_present || 0}
-            onChange={(e) =>
-              handleChange("visitors_present", parseInt(e.target.value) || 0)
-            }
-            min="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Offerings (₱)
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.offerings || 0}
-            onChange={(e) =>
-              handleChange("offerings", parseFloat(e.target.value) || 0)
-            }
-            min="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-      </div>
+      {/* Add Visitor Modal */}
+      <AddVisitorModal
+        isOpen={showAddVisitorModal}
+        onClose={() => setShowAddVisitorModal(false)}
+        onAdd={handleCreateVisitor}
+      />
 
       {/* Activities and Content */}
       <div className="mb-6">

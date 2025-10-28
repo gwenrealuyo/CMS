@@ -17,6 +17,7 @@ interface ClusterSortDropdownProps {
 const SORT_OPTIONS: SortOption[] = [
   { key: "name", label: "Cluster Name" },
   { key: "member_count", label: "Member Count" },
+  { key: "visitor_count", label: "Visitor Count" },
   { key: "family_count", label: "Family Count" },
   { key: "created_at", label: "Created Date" },
 ];

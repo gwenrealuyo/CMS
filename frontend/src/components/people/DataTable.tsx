@@ -61,6 +61,7 @@ export default function DataTable({
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const itemsPerPage = 10;
 
   const handleSort = (field: keyof DisplayPerson) => {
@@ -311,136 +312,109 @@ export default function DataTable({
   };
 
   // Action Menu Component for each row
-  const ActionMenu = ({ person }: { person: DisplayPerson }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [dropdownPosition, setDropdownPosition] = useState<"below" | "above">(
-      "below"
-    );
+  const ActionMenu = ({
+    person,
+    isOpen,
+    onOpen,
+    onClose,
+  }: {
+    person: DisplayPerson;
+    isOpen: boolean;
+    onOpen: () => void;
+    onClose: () => void;
+  }) => {
     const menuRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
     const portalMenuRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
-    const [coords, setCoords] = useState<{ top: number; left: number }>({
-      top: 0,
-      left: 0,
-    });
+    const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+      null
+    );
+    const [dropdownPosition, setDropdownPosition] = useState<"below" | "above">(
+      "below"
+    );
 
     useEffect(() => {
       setMounted(true);
     }, []);
 
     useEffect(() => {
+      if (!isOpen) return;
+
       const handleClickOutside = (event: MouseEvent) => {
         const target = event.target as Node;
         const clickedInsideAnchor = menuRef.current?.contains(target);
         const clickedInsidePortal = portalMenuRef.current?.contains(target);
         if (!clickedInsideAnchor && !clickedInsidePortal) {
-          setIsOpen(false);
-        }
-      };
-
-      const recalc = () => {
-        // Recalculate position on window resize
-        if (isOpen && buttonRef.current) {
-          const buttonRect = buttonRef.current.getBoundingClientRect();
-          const viewportHeight = window.innerHeight;
-          const dropdownHeight = 200;
-
-          const spaceBelow = viewportHeight - buttonRect.bottom;
-          const spaceAbove = buttonRect.top;
-
-          let verticalPosition: "below" | "above" = "below";
-
-          // Use the same improved logic
-          if (spaceBelow < dropdownHeight) {
-            if (spaceAbove > 30) {
-              verticalPosition = "above";
-            }
-          }
-
-          const viewportBottom60 = viewportHeight * 0.6;
-          if (buttonRect.top > viewportBottom60 && spaceAbove > 30) {
-            verticalPosition = "above";
-          }
-
-          if (spaceBelow < 150 && spaceAbove > 30) {
-            verticalPosition = "above";
-          }
-
-          setDropdownPosition(verticalPosition);
-
-          const dropdownWidth = 192; // w-48
-          const top =
-            verticalPosition === "above"
-              ? window.scrollY + buttonRect.top - dropdownHeight - 8
-              : window.scrollY + buttonRect.bottom + 8;
-          const left = window.scrollX + buttonRect.right - dropdownWidth;
-          setCoords({ top, left });
+          onClose();
+          setCoords(null);
         }
       };
 
       document.addEventListener("mousedown", handleClickOutside);
-      window.addEventListener("resize", recalc);
-      window.addEventListener("scroll", recalc, { passive: true });
 
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
-        window.removeEventListener("resize", recalc);
-        window.removeEventListener("scroll", recalc as any);
       };
-    }, [isOpen]);
+    }, [isOpen, onClose]);
 
-    const handleToggle = () => {
-      if (!isOpen && buttonRef.current) {
-        // Calculate position when opening
+    // Ensure coordinates are computed immediately after menu opens
+    useEffect(() => {
+      if (isOpen && !coords && buttonRef.current) {
         const buttonRect = buttonRef.current.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-        const dropdownHeight = 200; // Approximate height of dropdown
-        const dropdownWidth = 192; // w-48 = 12rem = 192px
+        const dropdownHeight = 200;
+        const dropdownWidth = 192;
 
-        // Check if there's enough space below
-        const spaceBelow = viewportHeight - buttonRect.bottom;
-        const spaceAbove = buttonRect.top;
+        const minTop = 8;
+        const maxTop = Math.max(minTop, viewportHeight - dropdownHeight - 8);
+        const proposedTop = buttonRect.bottom + 4;
+        const top = Math.max(minTop, Math.min(maxTop, proposedTop));
 
-        // Check horizontal space (for right alignment)
-        const spaceRight = viewportWidth - buttonRect.right;
-        const spaceLeft = buttonRect.left;
+        const minLeft = 8;
+        const maxLeft = Math.max(
+          minLeft,
+          window.innerWidth - dropdownWidth - 8
+        );
+        const proposedLeft = buttonRect.right - dropdownWidth;
+        const left = Math.max(minLeft, Math.min(maxLeft, proposedLeft));
 
-        // Determine vertical position
-        let verticalPosition: "below" | "above" = "below";
-
-        // More aggressive positioning logic
-        // If there's not enough space below (less than dropdown height), prefer above
-        if (spaceBelow < dropdownHeight) {
-          // Position above if there's any reasonable space above
-          if (spaceAbove > 30) {
-            // Reduced threshold to 30px
-            verticalPosition = "above";
-          }
-        }
-
-        // Additional check: if we're in the bottom 60% of the viewport, prefer above
-        const viewportBottom60 = viewportHeight * 0.6;
-        if (buttonRect.top > viewportBottom60 && spaceAbove > 30) {
-          verticalPosition = "above";
-        }
-
-        // Even more aggressive: if space below is less than 150px, prefer above
-        if (spaceBelow < 150 && spaceAbove > 30) {
-          verticalPosition = "above";
-        }
-
-        setDropdownPosition(verticalPosition);
-
-        const top =
-          verticalPosition === "above"
-            ? window.scrollY + buttonRect.top - dropdownHeight - 8
-            : window.scrollY + buttonRect.bottom + 8;
-        const left = window.scrollX + buttonRect.right - dropdownWidth;
         setCoords({ top, left });
       }
-      setIsOpen(!isOpen);
+    }, [isOpen, coords]);
+
+    const handleToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (!isOpen && buttonRef.current) {
+        // Calculate position when opening - only once
+        const buttonRect = (
+          e.currentTarget as HTMLButtonElement
+        ).getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const dropdownHeight = 200;
+        const dropdownWidth = 192;
+
+        // Always position below with minimal gap; clamp within viewport
+        const minTop = 8;
+        const maxTop = Math.max(minTop, viewportHeight - dropdownHeight - 8);
+        const proposedTop = buttonRect.bottom + 4;
+        const top = Math.max(minTop, Math.min(maxTop, proposedTop));
+        // Align to right edge; clamp within viewport
+        const minLeft = 8;
+        const maxLeft = Math.max(
+          minLeft,
+          window.innerWidth - dropdownWidth - 8
+        );
+        const proposedLeft = buttonRect.right - dropdownWidth;
+        const left = Math.max(minLeft, Math.min(maxLeft, proposedLeft));
+        setCoords({ top, left });
+
+        // Open this menu
+        onOpen();
+      } else {
+        // Close this menu
+        onClose();
+        setCoords(null);
+      }
     };
 
     return (
@@ -468,6 +442,7 @@ export default function DataTable({
 
         {isOpen &&
           mounted &&
+          coords &&
           ReactDOM.createPortal(
             <div
               ref={portalMenuRef}
@@ -479,7 +454,7 @@ export default function DataTable({
                   <button
                     onClick={() => {
                       onView(person as Person);
-                      setIsOpen(false);
+                      onClose();
                     }}
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   >
@@ -509,7 +484,7 @@ export default function DataTable({
                   <button
                     onClick={() => {
                       onEdit(person as Person);
-                      setIsOpen(false);
+                      onClose();
                     }}
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   >
@@ -533,7 +508,7 @@ export default function DataTable({
                   <button
                     onClick={() => {
                       onDelete(person as Person);
-                      setIsOpen(false);
+                      onClose();
                     }}
                     className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
                   >
@@ -685,7 +660,7 @@ export default function DataTable({
                     </div>
                   </th>
                 ))}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -767,8 +742,13 @@ export default function DataTable({
                       ? new Date(person.spiritBaptismDate).toLocaleDateString()
                       : "-"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <ActionMenu person={person} />
+                  <td className="px-2 py-4 whitespace-nowrap text-sm font-medium w-12">
+                    <ActionMenu
+                      person={person}
+                      isOpen={openActionMenuId === person.id}
+                      onOpen={() => setOpenActionMenuId(person.id)}
+                      onClose={() => setOpenActionMenuId(null)}
+                    />
                   </td>
                 </tr>
               ))}

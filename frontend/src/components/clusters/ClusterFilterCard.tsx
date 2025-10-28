@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { FilterCondition } from "../people/FilterBar";
 
 // Local definition to align with ClusterFilterDropdown's FilterField
@@ -61,6 +61,9 @@ export default function ClusterFilterCard({
   const [value, setValue] = useState("");
   const [value2, setValue2] = useState("");
   const [selectedOption, setSelectedOption] = useState("");
+  const firstInputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(
+    null
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -69,6 +72,10 @@ export default function ClusterFilterCard({
       setValue("");
       setValue2("");
       setSelectedOption("");
+      // Defer focus to next tick to ensure elements are rendered
+      setTimeout(() => {
+        firstInputRef.current?.focus();
+      }, 0);
     }
   }, [isOpen]);
 
@@ -111,6 +118,12 @@ export default function ClusterFilterCard({
 
     onApplyFilter(filter);
     onClose();
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleApply();
+    }
   };
 
   if (!isOpen) return null;
@@ -170,8 +183,12 @@ export default function ClusterFilterCard({
               Value
             </label>
             <select
+              ref={
+                firstInputRef as React.MutableRefObject<HTMLSelectElement | null>
+              }
               value={selectedOption}
               onChange={(e) => setSelectedOption(e.target.value)}
+              onKeyPress={handleKeyPress}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Select {field.label}</option>
@@ -189,9 +206,13 @@ export default function ClusterFilterCard({
                 {operator === "between" ? "Minimum" : "Value"}
               </label>
               <input
+                ref={
+                  firstInputRef as React.MutableRefObject<HTMLInputElement | null>
+                }
                 type="number"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder={
                   operator === "between" ? "Min value" : "Enter value"
                 }
@@ -220,9 +241,13 @@ export default function ClusterFilterCard({
                 {operator === "between" ? "Start Date" : "Date"}
               </label>
               <input
+                ref={
+                  firstInputRef as React.MutableRefObject<HTMLInputElement | null>
+                }
                 type="date"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
+                onKeyPress={handleKeyPress}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -247,9 +272,13 @@ export default function ClusterFilterCard({
                 {operator === "between" ? "First Value" : "Value"}
               </label>
               <input
+                ref={
+                  firstInputRef as React.MutableRefObject<HTMLInputElement | null>
+                }
                 type={field.type === "number" ? "number" : "text"}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder={`Enter ${field.label.toLowerCase()}`}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />

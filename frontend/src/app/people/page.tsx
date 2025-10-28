@@ -300,6 +300,23 @@ export default function PeoplePage() {
             aValue = (a as any).members?.length || 0;
             bValue = (b as any).members?.length || 0;
             break;
+          case "visitor_count":
+            // Count visitors in cluster members
+            const aVisitors = ((a as any).members || []).filter(
+              (memberId: string) => {
+                const person = peopleUI.find((p) => p.id === memberId);
+                return person?.role === "VISITOR";
+              }
+            ).length;
+            const bVisitors = ((b as any).members || []).filter(
+              (memberId: string) => {
+                const person = peopleUI.find((p) => p.id === memberId);
+                return person?.role === "VISITOR";
+              }
+            ).length;
+            aValue = aVisitors;
+            bValue = bVisitors;
+            break;
           case "family_count":
             aValue = (a as any).families?.length || 0;
             bValue = (b as any).families?.length || 0;
@@ -653,9 +670,15 @@ export default function PeoplePage() {
 
           switch (filter.operator) {
             case "is":
-              return fieldValue === filter.value;
+              return (
+                fieldValue?.toString().toLowerCase() ===
+                filter.value.toString().toLowerCase()
+              );
             case "is_not":
-              return fieldValue !== filter.value;
+              return (
+                fieldValue?.toString().toLowerCase() !==
+                filter.value.toString().toLowerCase()
+              );
             case "contains":
               return fieldValue
                 ?.toString()
@@ -1007,18 +1030,6 @@ export default function PeoplePage() {
                     </span>
                   )}
                 </div>
-                {(searchQuery || activeFilters.length > 0) && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery("");
-                      setDebouncedSearchQuery("");
-                      setActiveFilters([]);
-                    }}
-                    className="text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    Clear all filters
-                  </button>
-                )}
               </div>
             )}
 
@@ -1073,6 +1084,12 @@ export default function PeoplePage() {
                 family,
                 loading: false,
               });
+            }}
+            onViewPerson={(p) => {
+              setViewEditPerson(p as unknown as Person);
+              setViewMode("view");
+              setIsModalOpen(true);
+              setModalType("person");
             }}
             onAssignMember={(personId, familyId) => {
               // TODO: Implement assign member functionality

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { FilterCondition } from "./FilterBar";
 
 // Local definition to align with FilterDropdown's FilterField
@@ -52,10 +52,13 @@ export default function FilterCard({
   onApplyFilter,
   position,
 }: FilterCardProps) {
-  const [operator, setOperator] = useState("is");
+  const [operator, setOperator] = useState("contains");
   const [value, setValue] = useState("");
   const [value2, setValue2] = useState("");
   const [isBetween, setIsBetween] = useState(false);
+  const firstInputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(
+    null
+  );
 
   useEffect(() => {
     if (operator === "between") {
@@ -64,6 +67,19 @@ export default function FilterCard({
       setIsBetween(false);
     }
   }, [operator]);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Focus first input/select when opened
+      setTimeout(() => {
+        firstInputRef.current?.focus();
+      }, 0);
+      // Reset operator to default when opening
+      setOperator("contains");
+      setValue("");
+      setValue2("");
+    }
+  }, [isOpen]);
 
   const handleApply = () => {
     if (!value.trim()) return;
@@ -86,12 +102,22 @@ export default function FilterCard({
     setValue2("");
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleApply();
+    }
+  };
+
   const renderInput = () => {
     if (field.type === "select" && field.options) {
       return (
         <select
+          ref={
+            firstInputRef as React.MutableRefObject<HTMLSelectElement | null>
+          }
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          onKeyPress={handleKeyPress}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="">Select {field.label}</option>
@@ -107,9 +133,11 @@ export default function FilterCard({
     if (field.type === "date") {
       return (
         <input
+          ref={firstInputRef as React.MutableRefObject<HTMLInputElement | null>}
           type="date"
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          onKeyPress={handleKeyPress}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       );
@@ -118,9 +146,11 @@ export default function FilterCard({
     if (field.type === "number") {
       return (
         <input
+          ref={firstInputRef as React.MutableRefObject<HTMLInputElement | null>}
           type="number"
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          onKeyPress={handleKeyPress}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       );
@@ -128,9 +158,11 @@ export default function FilterCard({
 
     return (
       <input
+        ref={firstInputRef as React.MutableRefObject<HTMLInputElement | null>}
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        onKeyPress={handleKeyPress}
         placeholder={`Enter ${field.label.toLowerCase()}`}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />

@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import PersonForm from "@/src/components/people/PersonForm";
 import PersonProfile from "@/src/components/people/PersonProfile";
-import FamilyCard from "@/src/components/families/FamilyCard";
 import FamilyForm from "@/src/components/families/FamilyForm";
-import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
@@ -14,22 +13,63 @@ import FamilyView from "@/src/components/families/FamilyView";
 import FilterBar, { FilterCondition } from "@/src/components/people/FilterBar";
 import FilterDropdown from "@/src/components/people/FilterDropdown";
 import FilterCard from "@/src/components/people/FilterCard";
-import ClusterFilterDropdown from "@/src/components/clusters/ClusterFilterDropdown";
-import ClusterFilterCard from "@/src/components/clusters/ClusterFilterCard";
-import ClusterSortDropdown from "@/src/components/clusters/ClusterSortDropdown";
-import ClusterCard from "@/src/components/clusters/ClusterCard";
 import Pagination from "@/src/components/ui/Pagination";
 import DataTable from "@/src/components/people/DataTable";
 import { Person, PersonUI, Family, Cluster } from "@/src/types/person";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { clustersApi, peopleApi } from "@/src/lib/api";
-import ClusterForm from "@/src/components/clusters/ClusterForm";
-import ClusterView from "@/src/components/clusters/ClusterView";
-import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
-import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
-import ClusterReportsDashboard from "@/src/components/reports/ClusterReportsDashboard";
-import ActionMenu from "@/src/components/families/ActionMenu";
+
+// Lazy load cluster and reports components since they're not used on initial load
+const FamilyManagementDashboard = dynamic(
+  () => import("@/src/components/families/FamilyManagementDashboard"),
+  { ssr: false }
+);
+
+const ClusterFilterDropdown = dynamic(
+  () => import("@/src/components/clusters/ClusterFilterDropdown"),
+  { ssr: false }
+);
+
+const ClusterFilterCard = dynamic(
+  () => import("@/src/components/clusters/ClusterFilterCard"),
+  { ssr: false }
+);
+
+const ClusterSortDropdown = dynamic(
+  () => import("@/src/components/clusters/ClusterSortDropdown"),
+  { ssr: false }
+);
+
+const ClusterCard = dynamic(
+  () => import("@/src/components/clusters/ClusterCard"),
+  { ssr: false }
+);
+
+const ClusterForm = dynamic(
+  () => import("@/src/components/clusters/ClusterForm"),
+  { ssr: false }
+);
+
+const ClusterView = dynamic(
+  () => import("@/src/components/clusters/ClusterView"),
+  { ssr: false }
+);
+
+const AssignMembersModal = dynamic(
+  () => import("@/src/components/clusters/AssignMembersModal"),
+  { ssr: false }
+);
+
+const AddFamilyMemberModal = dynamic(
+  () => import("@/src/components/families/AddFamilyMemberModal"),
+  { ssr: false }
+);
+
+const ClusterReportsDashboard = dynamic(
+  () => import("@/src/components/reports/ClusterReportsDashboard"),
+  { ssr: false }
+);
 
 export default function PeoplePage() {
   const [activeTab, setActiveTab] = useState<

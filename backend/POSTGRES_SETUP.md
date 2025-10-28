@@ -111,4 +111,3 @@ If port 5432 is already in use, update the `DB_PORT` in your `.env` file.
 
 - The old SQLite database (`db.sqlite3`) will be ignored by git
 - If you need to migrate data from SQLite to PostgreSQL, use Django's `dumpdata` and `loaddata` commands
-

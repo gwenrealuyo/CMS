@@ -8,7 +8,7 @@ export default function Navbar() {
   const [showProfile, setShowProfile] = useState(false);
 
   return (
-    <nav className="bg-white shadow-sm fixed top-0 right-0 left-64 h-16 z-10">
+    <nav className="bg-white shadow-sm fixed top-0 right-0 left-64 h-16 z-30">
       <div className="h-full px-6 flex items-center justify-between">
         <div className="flex-1">
           <input

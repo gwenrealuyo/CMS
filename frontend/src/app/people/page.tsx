@@ -905,79 +905,79 @@ export default function PeoplePage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div className="flex space-x-4">
-            <button
-              className={`px-4 py-2 font-medium rounded-md ${
-                activeTab === "people"
-                  ? "bg-[#2563EB] text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              onClick={() => setActiveTab("people")}
-            >
-              People
-            </button>
-            <button
-              className={`px-4 py-2 font-medium rounded-md ${
-                activeTab === "families"
-                  ? "bg-[#2563EB] text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              onClick={() => setActiveTab("families")}
-            >
-              Families
-            </button>
-            <button
-              className={`px-4 py-2 font-medium rounded-md ${
-                activeTab === "clusters"
-                  ? "bg-[#2563EB] text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              onClick={() => {
-                setActiveTab("clusters");
-                if (clusters.length === 0 && !clustersLoading) fetchClusters();
-              }}
-            >
-              Clusters
-            </button>
-            <button
-              className={`px-4 py-2 font-medium rounded-md ${
-                activeTab === "reports"
-                  ? "bg-[#2563EB] text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              onClick={() => {
-                setActiveTab("reports");
-                if (clusters.length === 0 && !clustersLoading) fetchClusters();
-              }}
-            >
-              Reports
-            </button>
-          </div>
-          {activeTab !== "reports" && (
-            <Button
-              onClick={() => {
-                setModalType(
-                  activeTab === "people"
-                    ? "person"
-                    : activeTab === "families"
-                    ? "family"
-                    : "cluster"
-                );
-                setIsModalOpen(true);
-              }}
-            >
-              Add{" "}
-              {activeTab === "people"
-                ? "Person"
-                : activeTab === "families"
-                ? "Family"
-                : "Cluster"}
-            </Button>
-          )}
+      <div className="fixed top-16 left-64 right-0 z-20 bg-white py-4 px-6 flex justify-between items-center border-b border-gray-200">
+        <div className="flex space-x-4">
+          <button
+            className={`px-4 py-2 font-medium rounded-md ${
+              activeTab === "people"
+                ? "bg-[#2563EB] text-white"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+            onClick={() => setActiveTab("people")}
+          >
+            People
+          </button>
+          <button
+            className={`px-4 py-2 font-medium rounded-md ${
+              activeTab === "families"
+                ? "bg-[#2563EB] text-white"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+            onClick={() => setActiveTab("families")}
+          >
+            Families
+          </button>
+          <button
+            className={`px-4 py-2 font-medium rounded-md ${
+              activeTab === "clusters"
+                ? "bg-[#2563EB] text-white"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+            onClick={() => {
+              setActiveTab("clusters");
+              if (clusters.length === 0 && !clustersLoading) fetchClusters();
+            }}
+          >
+            Clusters
+          </button>
+          <button
+            className={`px-4 py-2 font-medium rounded-md ${
+              activeTab === "reports"
+                ? "bg-[#2563EB] text-white"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+            onClick={() => {
+              setActiveTab("reports");
+              if (clusters.length === 0 && !clustersLoading) fetchClusters();
+            }}
+          >
+            Reports
+          </button>
         </div>
+        {activeTab !== "reports" && (
+          <Button
+            onClick={() => {
+              setModalType(
+                activeTab === "people"
+                  ? "person"
+                  : activeTab === "families"
+                  ? "family"
+                  : "cluster"
+              );
+              setIsModalOpen(true);
+            }}
+          >
+            Add{" "}
+            {activeTab === "people"
+              ? "Person"
+              : activeTab === "families"
+              ? "Family"
+              : "Cluster"}
+          </Button>
+        )}
+      </div>
 
+      <div className="pt-20">
         {activeTab === "people" && (
           <div className="space-y-6">
             <FilterBar

@@ -48,6 +48,8 @@ class PersonSerializer(serializers.ModelSerializer):
             "country",
             "date_of_birth",
             "date_first_attended",
+            "water_baptism_date",
+            "spirit_baptism_date",
             "inviter",
             "member_id",
             "status",

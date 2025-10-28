@@ -654,7 +654,8 @@ export default function DataTable({
                   />
                 </th>
                 {[
-                  "name",
+                  "first_name",
+                  "last_name",
                   "role",
                   "status",
                   "dateFirstAttended",
@@ -675,6 +676,8 @@ export default function DataTable({
                             return "WATER BAPTISM";
                           if (field === "spiritBaptismDate")
                             return "SPIRIT BAPTISM";
+                          if (field === "first_name") return "FIRST NAME";
+                          if (field === "last_name") return "LAST NAME";
                           return field.charAt(0).toUpperCase() + field.slice(1);
                         })()}
                       </span>
@@ -713,10 +716,22 @@ export default function DataTable({
                         title="View profile"
                       >
                         <div className="text-sm font-medium text-blue-700 hover:underline">
-                          {person.name}
+                          {person.first_name || "-"}
                         </div>
                       </button>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => onView && onView(person as Person)}
+                      className="text-left"
+                      title="View profile"
+                    >
+                      <div className="text-sm font-medium text-blue-700 hover:underline">
+                        {person.last_name || "-"}
+                      </div>
+                    </button>
                   </td>
 
                   <td className="px-6 py-4 whitespace-nowrap">

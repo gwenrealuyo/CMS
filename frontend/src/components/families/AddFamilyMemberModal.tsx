@@ -3,7 +3,7 @@ import { Family, PersonUI } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
 
 interface AddFamilyMemberModalProps {
-  family: Family;
+  family: Family | null;
   peopleUI: PersonUI[];
   isOpen: boolean;
   onClose: () => void;
@@ -29,6 +29,9 @@ export default function AddFamilyMemberModal({
       setSelectedMembers(family.members || []);
     }
   }, [isOpen, family]);
+
+  // Don't render if no family data
+  if (!isOpen || !family) return null;
 
   // Filter members based on search
   const filteredMembers = useMemo(() => {
@@ -170,7 +173,7 @@ export default function AddFamilyMemberModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           {/* Member Search */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -379,4 +382,3 @@ export default function AddFamilyMemberModal({
     </div>
   );
 }
-

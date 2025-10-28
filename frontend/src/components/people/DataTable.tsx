@@ -38,6 +38,7 @@ export default function DataTable({
     dateFirstAttended?: string;
     waterBaptismDate?: string;
     spiritBaptismDate?: string;
+    dateOfBirth?: string;
   };
 
   // Normalize backend fields and hide admin/blank-name entries from the table
@@ -53,16 +54,45 @@ export default function DataTable({
       dateFirstAttended: p.date_first_attended,
       waterBaptismDate: (p as any).water_baptism_date,
       spiritBaptismDate: (p as any).spirit_baptism_date,
+      dateOfBirth: p.date_of_birth,
     }));
 
   const [sortField, setSortField] = useState<keyof DisplayPerson>("last_name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
-  const itemsPerPage = 10;
+
+  // Available columns with their config
+  const availableColumns = [
+    { key: "first_name", label: "First Name", default: true },
+    { key: "middle_name", label: "Middle Name", default: false },
+    { key: "last_name", label: "Last Name", default: true },
+    { key: "suffix", label: "Suffix", default: false },
+    { key: "username", label: "Username", default: false },
+    { key: "email", label: "Email", default: false },
+    { key: "phone", label: "Phone", default: false },
+    { key: "gender", label: "Gender", default: false },
+    { key: "address", label: "Address", default: false },
+    { key: "country", label: "Country", default: false },
+    { key: "role", label: "Role", default: true },
+    { key: "status", label: "Status", default: true },
+    { key: "dateOfBirth", label: "Date of Birth", default: false },
+    { key: "dateFirstAttended", label: "First Attended", default: true },
+    { key: "waterBaptismDate", label: "Water Baptism", default: false },
+    { key: "spiritBaptismDate", label: "Spirit Baptism", default: false },
+    { key: "first_activity_attended", label: "First Activity", default: false },
+    { key: "member_id", label: "LAMP ID", default: false },
+    { key: "facebook_name", label: "Facebook Name", default: false },
+  ];
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    new Set(availableColumns.filter((col) => col.default).map((col) => col.key))
+  );
 
   const handleSort = (field: keyof DisplayPerson) => {
     if (field === sortField) {
@@ -582,6 +612,25 @@ export default function DataTable({
             <div className="flex items-center space-x-2">
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => setShowColumnsModal(true)}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                    />
+                  </svg>
+                  Columns
+                </button>
+                <button
                   onClick={() => setShowExportModal(true)}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
@@ -628,38 +677,22 @@ export default function DataTable({
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </th>
-                {[
-                  "first_name",
-                  "last_name",
-                  "role",
-                  "status",
-                  "dateFirstAttended",
-                  "waterBaptismDate",
-                  "spiritBaptismDate",
-                ].map((field) => (
-                  <th
-                    key={field}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort(field as keyof DisplayPerson)}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>
-                        {(() => {
-                          if (field === "dateFirstAttended")
-                            return "FIRST ATTENDED";
-                          if (field === "waterBaptismDate")
-                            return "WATER BAPTISM";
-                          if (field === "spiritBaptismDate")
-                            return "SPIRIT BAPTISM";
-                          if (field === "first_name") return "FIRST NAME";
-                          if (field === "last_name") return "LAST NAME";
-                          return field.charAt(0).toUpperCase() + field.slice(1);
-                        })()}
-                      </span>
-                      <SortIcon field={field as keyof DisplayPerson} />
-                    </div>
-                  </th>
-                ))}
+                {availableColumns.map((col) => {
+                  if (!visibleColumns.has(col.key)) return null;
+                  const field = col.key;
+                  return (
+                    <th
+                      key={field}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort(field as keyof DisplayPerson)}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>{col.label.toUpperCase()}</span>
+                        <SortIcon field={field as keyof DisplayPerson} />
+                      </div>
+                    </th>
+                  );
+                })}
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
               </tr>
             </thead>
@@ -677,71 +710,154 @@ export default function DataTable({
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-3">
-                        {`${person.first_name?.[0] || ""}${
-                          person.last_name?.[0] || ""
-                        }`.toUpperCase()}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onView && onView(person as Person)}
-                        className="text-left"
-                        title="View profile"
-                      >
-                        <div className="text-sm font-medium text-blue-700 hover:underline">
-                          {person.first_name || "-"}
-                        </div>
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => onView && onView(person as Person)}
-                      className="text-left"
-                      title="View profile"
-                    >
-                      <div className="text-sm font-medium text-blue-700 hover:underline">
-                        {person.last_name || "-"}
-                      </div>
-                    </button>
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
-                        person.role
-                      )}`}
-                    >
-                      {person.role.toLowerCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                        person.status
-                      )}`}
-                    >
-                      {person.status.toLowerCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {person.dateFirstAttended
-                      ? new Date(person.dateFirstAttended).toLocaleDateString()
-                      : "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {person.waterBaptismDate
-                      ? new Date(person.waterBaptismDate).toLocaleDateString()
-                      : "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {person.spiritBaptismDate
-                      ? new Date(person.spiritBaptismDate).toLocaleDateString()
-                      : "-"}
-                  </td>
+                  {availableColumns.map((col) => {
+                    if (!visibleColumns.has(col.key)) return null;
+                    const field = col.key;
+                    return (
+                      <td key={field} className="px-6 py-4 whitespace-nowrap">
+                        {field === "first_name" && (
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-3">
+                              {`${person.first_name?.[0] || ""}${
+                                person.last_name?.[0] || ""
+                              }`.toUpperCase()}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onView && onView(person as Person)}
+                              className="text-left"
+                              title="View profile"
+                            >
+                              <div className="text-sm font-medium text-blue-700 hover:underline">
+                                {person.first_name || "-"}
+                              </div>
+                            </button>
+                          </div>
+                        )}
+                        {field === "last_name" && (
+                          <button
+                            type="button"
+                            onClick={() => onView && onView(person as Person)}
+                            className="text-left"
+                            title="View profile"
+                          >
+                            <div className="text-sm font-medium text-blue-700 hover:underline">
+                              {person.last_name || "-"}
+                            </div>
+                          </button>
+                        )}
+                        {field === "middle_name" && (
+                          <div className="text-sm text-gray-900">
+                            {person.middle_name || "-"}
+                          </div>
+                        )}
+                        {field === "suffix" && (
+                          <div className="text-sm text-gray-900">
+                            {person.suffix || "-"}
+                          </div>
+                        )}
+                        {field === "username" && (
+                          <div className="text-sm text-gray-900">
+                            {person.username || "-"}
+                          </div>
+                        )}
+                        {field === "email" && (
+                          <div className="text-sm text-gray-900">
+                            {person.email || "-"}
+                          </div>
+                        )}
+                        {field === "phone" && (
+                          <div className="text-sm text-gray-900">
+                            {person.phone || "-"}
+                          </div>
+                        )}
+                        {field === "gender" && (
+                          <div className="text-sm text-gray-900">
+                            {person.gender || "-"}
+                          </div>
+                        )}
+                        {field === "address" && (
+                          <div className="text-sm text-gray-900">
+                            {person.address || "-"}
+                          </div>
+                        )}
+                        {field === "country" && (
+                          <div className="text-sm text-gray-900">
+                            {person.country || "-"}
+                          </div>
+                        )}
+                        {field === "member_id" && (
+                          <div className="text-sm text-gray-900">
+                            {person.member_id || "-"}
+                          </div>
+                        )}
+                        {field === "facebook_name" && (
+                          <div className="text-sm text-gray-900">
+                            {person.facebook_name || "-"}
+                          </div>
+                        )}
+                        {field === "dateOfBirth" && (
+                          <div className="text-sm text-gray-900">
+                            {person.dateOfBirth
+                              ? new Date(
+                                  person.dateOfBirth
+                                ).toLocaleDateString()
+                              : "-"}
+                          </div>
+                        )}
+                        {field === "first_activity_attended" && (
+                          <div className="text-sm text-gray-900">
+                            {(person as any).first_activity_attended || "-"}
+                          </div>
+                        )}
+                        {field === "role" && (
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+                              person.role
+                            )}`}
+                          >
+                            {person.role.toLowerCase()}
+                          </span>
+                        )}
+                        {field === "status" && (
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                              person.status
+                            )}`}
+                          >
+                            {person.status.toLowerCase()}
+                          </span>
+                        )}
+                        {field === "dateFirstAttended" && (
+                          <div className="text-sm text-gray-900">
+                            {person.dateFirstAttended
+                              ? new Date(
+                                  person.dateFirstAttended
+                                ).toLocaleDateString()
+                              : "-"}
+                          </div>
+                        )}
+                        {field === "waterBaptismDate" && (
+                          <div className="text-sm text-gray-900">
+                            {person.waterBaptismDate
+                              ? new Date(
+                                  person.waterBaptismDate
+                                ).toLocaleDateString()
+                              : "-"}
+                          </div>
+                        )}
+                        {field === "spiritBaptismDate" && (
+                          <div className="text-sm text-gray-900">
+                            {person.spiritBaptismDate
+                              ? new Date(
+                                  person.spiritBaptismDate
+                                ).toLocaleDateString()
+                              : "-"}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
                   <td className="px-2 py-4 whitespace-nowrap text-sm font-medium w-12">
                     <ActionMenu
                       person={person}
@@ -758,32 +874,51 @@ export default function DataTable({
 
         {/* Pagination */}
         <div className="bg-white px-6 py-3 border-t border-gray-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="text-sm text-gray-700">
               Showing {startIndex + 1} to{" "}
               {Math.min(endIndex, sortedPeople.length)} of {sortedPeople.length}{" "}
               results
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeftIcon className="w-4 h-4" />
-              </button>
-              <span className="px-3 py-1 text-sm text-gray-700">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={() =>
-                  setCurrentPage(Math.min(totalPages, currentPage + 1))
-                }
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRightIcon className="w-4 h-4" />
-              </button>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-700">Show:</label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={30}>30</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeftIcon className="w-4 h-4" />
+                </button>
+                <span className="px-3 py-1 text-sm text-gray-700">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() =>
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -804,6 +939,70 @@ export default function DataTable({
           console.log("Import rows:", rows.length);
         }}
       />
+
+      {/* Columns Configuration Modal */}
+      {showColumnsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Configure Columns
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Select which columns to display in the table
+              </p>
+            </div>
+            <div className="px-6 py-4 max-h-96 overflow-y-auto">
+              <div className="space-y-2">
+                {availableColumns.map((col) => (
+                  <label
+                    key={col.key}
+                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.has(col.key)}
+                      onChange={(e) => {
+                        const newVisible = new Set(visibleColumns);
+                        if (e.target.checked) {
+                          newVisible.add(col.key);
+                        } else {
+                          newVisible.delete(col.key);
+                        }
+                        setVisibleColumns(newVisible);
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{col.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setVisibleColumns(
+                    new Set(
+                      availableColumns
+                        .filter((col) => col.default)
+                        .map((col) => col.key)
+                    )
+                  );
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                Reset to Default
+              </button>
+              <button
+                onClick={() => setShowColumnsModal(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

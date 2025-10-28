@@ -24,9 +24,9 @@ interface FamilyManagementDashboardProps {
   onViewFamily: (family: Family) => void;
   onEditFamily: (family: Family) => void;
   onDeleteFamily: (family: Family) => void;
-  onViewPerson: (person: PersonUI) => void;
-  onAssignMember: (personId: string, familyId: string) => void;
-  onRemoveMember: (personId: string, familyId: string) => void;
+  onViewPerson?: (person: PersonUI) => void;
+  onAssignMember?: (personId: string, familyId: string) => void;
+  onRemoveMember?: (personId: string, familyId: string) => void;
 }
 
 export default function FamilyManagementDashboard({
@@ -744,7 +744,7 @@ export default function FamilyManagementDashboard({
                   <div
                     key={member.id}
                     className="bg-white rounded-lg shadow-sm p-2 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => onViewPerson(member)}
+                    onClick={() => onViewPerson?.(member)}
                   >
                     <div className="flex flex-col items-center space-y-1">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
@@ -841,17 +841,6 @@ export default function FamilyManagementDashboard({
               .map((id) => getPersonById(id))
               .filter(Boolean) as PersonUI[];
 
-            // Separate core family (parents/adults) and connected family (children)
-            const coreFamily = familyMembers.filter(
-              (member) =>
-                member.role === "PASTOR" ||
-                member.role === "COORDINATOR" ||
-                member.role === "MEMBER"
-            );
-            const connectedFamily = familyMembers.filter(
-              (member) => member.role === "VISITOR"
-            );
-
             return (
               <div
                 key={family.id}
@@ -886,14 +875,14 @@ export default function FamilyManagementDashboard({
                     </div>
                   </div>
 
-                  {/* Core Family */}
-                  {coreFamily.length > 0 && (
+                  {/* Family Members */}
+                  {familyMembers.length > 0 && (
                     <div>
                       <h4 className="text-xs font-medium text-gray-700 mb-2">
-                        Core Family ({coreFamily.length})
+                        Members ({familyMembers.length})
                       </h4>
                       <div className="space-y-1.5">
-                        {coreFamily.map((member) => (
+                        {familyMembers.slice(0, 5).map((member) => (
                           <div
                             key={member.id}
                             className="flex items-center space-x-3"
@@ -911,35 +900,11 @@ export default function FamilyManagementDashboard({
                             </div>
                           </div>
                         ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Connected Family */}
-                  {connectedFamily.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-medium text-gray-700 mb-2">
-                        Connected Family ({connectedFamily.length})
-                      </h4>
-                      <div className="space-y-1.5">
-                        {connectedFamily.map((member) => (
-                          <div
-                            key={member.id}
-                            className="flex items-center space-x-3"
-                          >
-                            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                              {getInitials(member)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 text-sm truncate">
-                                {member.first_name} {member.last_name}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">
-                                {member.role}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                        {familyMembers.length > 5 && (
+                          <p className="text-xs text-gray-400 text-center py-1">
+                            +{familyMembers.length - 5} more
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}

@@ -586,8 +586,13 @@ export default function PeoplePage() {
   const handleAddFamilyMembers = async (memberIds: string[]) => {
     if (addFamilyMemberModal.family) {
       try {
+        // Include the existing family data (name, leader) when updating members
         await updateFamily(addFamilyMemberModal.family.id, {
+          name: addFamilyMemberModal.family.name,
+          leader: addFamilyMemberModal.family.leader || undefined,
           members: memberIds,
+          address: addFamilyMemberModal.family.address,
+          notes: addFamilyMemberModal.family.notes,
         });
 
         // Refresh families and update viewFamily if it's the same family

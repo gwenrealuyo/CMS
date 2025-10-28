@@ -12,8 +12,26 @@ export default function SelectedPeoplePreview({
 }: SelectedPeoplePreviewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 10;
 
+  // Summary statistics - hooks must be called before any conditional returns
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    selectedPeople.forEach((person) => {
+      counts[person.status] = (counts[person.status] || 0) + 1;
+    });
+    return counts;
+  }, [selectedPeople]);
+
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    selectedPeople.forEach((person) => {
+      counts[person.role] = (counts[person.role] || 0) + 1;
+    });
+    return counts;
+  }, [selectedPeople]);
+
+  // Early return after all hooks have been called
   if (selectedPeople.length === 0) return null;
 
   const getInitials = (person: Person) => {
@@ -60,28 +78,11 @@ export default function SelectedPeoplePreview({
   const endIndex = startIndex + itemsPerPage;
   const displayedPeople = selectedPeople.slice(startIndex, endIndex);
 
-  // Summary statistics
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    selectedPeople.forEach((person) => {
-      counts[person.status] = (counts[person.status] || 0) + 1;
-    });
-    return counts;
-  }, [selectedPeople]);
-
-  const roleCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    selectedPeople.forEach((person) => {
-      counts[person.role] = (counts[person.role] || 0) + 1;
-    });
-    return counts;
-  }, [selectedPeople]);
-
   const shouldShowPagination = selectedPeople.length > itemsPerPage;
   const shouldShowSummary = selectedPeople.length > 3;
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
@@ -99,7 +100,7 @@ export default function SelectedPeoplePreview({
               />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-blue-900">
+          <h3 className="text-base font-semibold text-blue-900">
             Selected People ({selectedPeople.length})
           </h3>
         </div>
@@ -151,8 +152,8 @@ export default function SelectedPeoplePreview({
 
       {/* Summary Statistics */}
       {shouldShowSummary && isExpanded && (
-        <div className="mb-4 p-3 bg-white rounded-lg border border-blue-100">
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">
+        <div className="mb-3 p-2 bg-white rounded-lg border border-blue-100">
+          <h4 className="text-xs font-semibold text-gray-700 mb-1.5">
             Selection Summary
           </h4>
           <div className="grid grid-cols-2 gap-4">
@@ -205,21 +206,21 @@ export default function SelectedPeoplePreview({
       )}
 
       {/* People Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {displayedPeople.map((person) => (
           <div
             key={person.id}
-            className="bg-white rounded-lg p-3 border border-blue-100 shadow-sm"
+            className="bg-white rounded-lg p-2.5 border border-blue-100 shadow-sm"
           >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
                 {getInitials(person)}
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-gray-900 truncate">
+                <h4 className="text-xs font-medium text-gray-900 truncate">
                   {person.first_name} {person.last_name}
                 </h4>
-                <p className="text-sm text-gray-500 truncate">{person.email}</p>
+                <p className="text-xs text-gray-500 truncate">{person.email}</p>
                 <div className="flex items-center space-x-1 mt-1">
                   <span
                     className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(

@@ -70,6 +70,10 @@ const ClusterReportsDashboard = dynamic(
   () => import("@/src/components/reports/ClusterReportsDashboard"),
   { ssr: false }
 );
+const ClusterWeeklyReportForm = dynamic(
+  () => import("@/src/components/reports/ClusterWeeklyReportForm"),
+  { ssr: false }
+);
 
 export default function PeoplePage() {
   const [activeTab, setActiveTab] = useState<
@@ -141,6 +145,29 @@ export default function PeoplePage() {
   // Clusters
   const [allClusters, setAllClusters] = useState<Cluster[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportSelectedCluster, setReportSelectedCluster] =
+    useState<Cluster | null>(null);
+  const [showPersonOverCluster, setShowPersonOverCluster] = useState(false);
+  const [personOverCluster, setPersonOverCluster] = useState<Person | null>(
+    null
+  );
+  const [showFamilyOverCluster, setShowFamilyOverCluster] = useState(false);
+  const [familyOverCluster, setFamilyOverCluster] = useState<Family | null>(
+    null
+  );
+  const [showClusterOverPerson, setShowClusterOverPerson] = useState(false);
+  const [clusterOverPerson, setClusterOverPerson] = useState<Cluster | null>(
+    null
+  );
+  const [showEditClusterOverlay, setShowEditClusterOverlay] = useState(false);
+  const [editClusterOverlay, setEditClusterOverlay] = useState<Cluster | null>(
+    null
+  );
+  const [showEditFamilyOverlay, setShowEditFamilyOverlay] = useState(false);
+  const [editFamilyOverlay, setEditFamilyOverlay] = useState<Family | null>(
+    null
+  );
   const [clustersLoading, setClustersLoading] = useState<boolean>(false);
   const [clusterSearchQuery, setClusterSearchQuery] = useState<string>("");
   const [clusterActiveFilters, setClusterActiveFilters] = useState<
@@ -186,6 +213,41 @@ export default function PeoplePage() {
     cluster: null,
     loading: false,
   });
+
+  // Helper: open Assign-to-Cluster modal ensuring clusters are loaded
+  const openSelectClusterForPerson = async (p: Person) => {
+    if (!clusters || clusters.length === 0) {
+      await fetchClusters();
+    }
+    setSelectClusterModal({ isOpen: true, person: p });
+  };
+
+  const [selectFamilyModal, setSelectFamilyModal] = useState<{
+    isOpen: boolean;
+    person: Person | null;
+  }>({ isOpen: false, person: null });
+
+  // Scalability controls for Assign-to-Family modal
+  const [familySelectSearch, setFamilySelectSearch] = useState("");
+  const [familySelectPage, setFamilySelectPage] = useState(1);
+  const FAMILY_SELECT_PAGE_SIZE = 20;
+
+  const [selectClusterModal, setSelectClusterModal] = useState<{
+    isOpen: boolean;
+    person: Person | null;
+  }>({ isOpen: false, person: null });
+
+  // Overlay for creating a new family without closing other modals
+  const [showCreateFamilyOverlay, setShowCreateFamilyOverlay] = useState(false);
+
+  // Scalability controls for Assign-to-Cluster modal
+  const [clusterSelectSearch, setClusterSelectSearch] = useState("");
+  const [clusterSelectPage, setClusterSelectPage] = useState(1);
+  const CLUSTER_SELECT_PAGE_SIZE = 20;
+  const [showCreateClusterOverlay, setShowCreateClusterOverlay] =
+    useState(false);
+  const [clusterCreateContextPerson, setClusterCreateContextPerson] =
+    useState<Person | null>(null);
   const [personDeleteConfirmation, setPersonDeleteConfirmation] = useState<{
     isOpen: boolean;
     person: Person | null;
@@ -563,8 +625,10 @@ export default function PeoplePage() {
   const handleAssignMembers = async (memberIds: string[]) => {
     if (assignMembersModal.cluster) {
       try {
+        // Include existing families so backend validators that require it won't fail
         await clustersApi.update(assignMembersModal.cluster.id, {
           members: memberIds,
+          families: (assignMembersModal.cluster as any).families || [],
         } as any);
         await fetchClusters();
 
@@ -1514,34 +1578,28 @@ export default function PeoplePage() {
           });
         }}
         title={
-          viewEditPerson
+          modalType === "person"
             ? viewMode === "view"
               ? ""
-              : `Edit Profile`
-            : viewFamily
+              : "Edit Profile"
+            : modalType === "family"
             ? familyViewMode === "view"
               ? ""
               : "Edit Family"
-            : editFamily
-            ? `Edit Family`
-            : viewCluster
+            : modalType === "cluster"
             ? clusterViewMode === "view"
               ? ""
               : "Edit Cluster"
-            : editCluster
-            ? `Edit Cluster`
-            : `Add New ${
-                modalType === "person"
-                  ? "Person"
-                  : modalType === "family"
-                  ? "Family"
-                  : "Cluster"
-              }`
+            : ""
         }
         hideHeader={
-          !!(viewEditPerson && viewMode === "view") ||
-          (!!viewFamily && familyViewMode === "view") ||
-          (!!viewCluster && clusterViewMode === "view")
+          (modalType === "person" && !!viewEditPerson && viewMode === "view") ||
+          (modalType === "family" &&
+            !!viewFamily &&
+            familyViewMode === "view") ||
+          (modalType === "cluster" &&
+            !!viewCluster &&
+            clusterViewMode === "view")
         }
       >
         {modalType === "person" ? (
@@ -1550,6 +1608,22 @@ export default function PeoplePage() {
               viewMode === "view" ? (
                 <PersonProfile
                   person={viewEditPerson}
+                  clusters={clusters}
+                  families={families}
+                  onViewFamily={(f) => {
+                    setFamilyOverCluster(f);
+                    setShowFamilyOverCluster(true);
+                  }}
+                  onViewCluster={(c) => {
+                    setClusterOverPerson(c);
+                    setShowClusterOverPerson(true);
+                  }}
+                  onNoFamilyClick={(p) => {
+                    setSelectFamilyModal({ isOpen: true, person: p });
+                  }}
+                  onNoClusterClick={(p) => {
+                    openSelectClusterForPerson(p);
+                  }}
                   onEdit={() => {
                     setViewMode("edit");
                   }}
@@ -1561,8 +1635,16 @@ export default function PeoplePage() {
                     });
                   }}
                   onCancel={() => {
-                    setIsModalOpen(false);
-                    setViewEditPerson(null);
+                    // If a cluster is being viewed, return to that view instead of closing all modals
+                    if (viewCluster) {
+                      setViewEditPerson(null);
+                      setModalType("cluster");
+                      setClusterViewMode("view");
+                      setIsModalOpen(true);
+                    } else {
+                      setIsModalOpen(false);
+                      setViewEditPerson(null);
+                    }
                   }}
                   onAddTimeline={() => {
                     setViewMode("edit");
@@ -1612,6 +1694,11 @@ export default function PeoplePage() {
                   familyMembers={peopleUI.filter((person) =>
                     viewFamily.members.includes(person.id)
                   )}
+                  clusters={clusters}
+                  onViewPerson={(p) => {
+                    setPersonOverCluster(p as Person);
+                    setShowPersonOverCluster(true);
+                  }}
                   onEdit={() => {
                     setEditFamily(viewFamily);
                     setFamilyViewMode("edit");
@@ -1727,11 +1814,20 @@ export default function PeoplePage() {
                   });
                 }}
                 onSubmitReport={() => {
-                  // Switch to reports tab and open the form for this cluster
-                  setActiveTab("reports");
-                  setIsModalOpen(false);
-                  setViewCluster(null);
-                  setClusterViewMode("view");
+                  // Open the weekly report form on top of the current modal
+                  if (viewCluster) {
+                    setReportSelectedCluster(viewCluster);
+                  }
+                  setShowReportForm(true);
+                }}
+                onViewPerson={(p) => {
+                  // Open person profile above the cluster view
+                  setPersonOverCluster(p as Person);
+                  setShowPersonOverCluster(true);
+                }}
+                onViewFamily={(f) => {
+                  setFamilyOverCluster(f);
+                  setShowFamilyOverCluster(true);
                 }}
               />
             ) : editCluster ? (
@@ -1842,6 +1938,291 @@ export default function PeoplePage() {
         />
       )}
 
+      {/* Submit Weekly Report Modal (overlays View Cluster modal) */}
+      {showReportForm && (
+        <Modal
+          isOpen={showReportForm}
+          onClose={() => {
+            setShowReportForm(false);
+            setReportSelectedCluster(null);
+          }}
+          title="Submit Weekly Report"
+          className="!mt-0"
+        >
+          <ClusterWeeklyReportForm
+            cluster={reportSelectedCluster}
+            clusters={clusters}
+            isOpen={showReportForm}
+            onClose={() => {
+              setShowReportForm(false);
+              setReportSelectedCluster(null);
+            }}
+            onSubmit={async (data) => {
+              const { clusterWeeklyReportsApi } = await import("@/src/lib/api");
+              await clusterWeeklyReportsApi.create(data);
+              setShowReportForm(false);
+              setReportSelectedCluster(null);
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* Person Profile Modal (overlays View Cluster modal) */}
+      {showPersonOverCluster && personOverCluster && (
+        <Modal
+          isOpen={showPersonOverCluster}
+          onClose={() => {
+            setShowPersonOverCluster(false);
+            setPersonOverCluster(null);
+          }}
+          title=""
+          hideHeader
+          className="!mt-0 z-[50]"
+        >
+          <PersonProfile
+            person={personOverCluster}
+            clusters={clusters}
+            families={families}
+            onViewFamily={(f) => {
+              setFamilyOverCluster(f);
+              setShowFamilyOverCluster(true);
+            }}
+            onViewCluster={(c) => {
+              setClusterOverPerson(c);
+              setShowClusterOverPerson(true);
+            }}
+            onNoFamilyClick={(p) => {
+              setSelectFamilyModal({ isOpen: true, person: p });
+            }}
+            onNoClusterClick={(p) => {
+              openSelectClusterForPerson(p);
+            }}
+            onEdit={() => {
+              // Switch to edit within this overlay
+              setIsModalOpen(false);
+              setShowPersonOverCluster(false);
+              setViewEditPerson(personOverCluster);
+              setViewMode("edit");
+              setStartOnTimelineTab(false);
+              setModalType("person");
+              setIsModalOpen(true);
+            }}
+            onDelete={() => {
+              setPersonDeleteConfirmation({
+                isOpen: true,
+                person: personOverCluster,
+                loading: false,
+              });
+            }}
+            onCancel={() => {
+              setShowPersonOverCluster(false);
+              setPersonOverCluster(null);
+            }}
+            onAddTimeline={() => {
+              setIsModalOpen(false);
+              setShowPersonOverCluster(false);
+              setViewEditPerson(personOverCluster);
+              setViewMode("edit");
+              setStartOnTimelineTab(true);
+              setModalType("person");
+              setIsModalOpen(true);
+            }}
+            onClose={() => {
+              setShowPersonOverCluster(false);
+              setPersonOverCluster(null);
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* Family View Modal (overlays View Cluster modal) */}
+      {showFamilyOverCluster && familyOverCluster && (
+        <Modal
+          isOpen={showFamilyOverCluster}
+          onClose={() => {
+            setShowFamilyOverCluster(false);
+            setFamilyOverCluster(null);
+          }}
+          title=""
+          hideHeader
+          className="!mt-0 z-[50]"
+        >
+          <FamilyView
+            family={familyOverCluster}
+            familyMembers={peopleUI.filter((p) =>
+              familyOverCluster.members.includes(p.id)
+            )}
+            clusters={clusters}
+            onEdit={() => {
+              setEditFamilyOverlay(familyOverCluster);
+              setShowEditFamilyOverlay(true);
+            }}
+            onDelete={() => {
+              setDeleteConfirmation({
+                isOpen: true,
+                family: familyOverCluster,
+                loading: false,
+              });
+            }}
+            onCancel={() => {
+              setShowFamilyOverCluster(false);
+              setFamilyOverCluster(null);
+            }}
+            onClose={() => {
+              setShowFamilyOverCluster(false);
+              setFamilyOverCluster(null);
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* Cluster View Modal (overlays Person/Family modals) */}
+      {showClusterOverPerson && clusterOverPerson && (
+        <Modal
+          isOpen={showClusterOverPerson}
+          onClose={() => {
+            setShowClusterOverPerson(false);
+            setClusterOverPerson(null);
+          }}
+          title=""
+          hideHeader
+          className="!mt-0 z-[50]"
+        >
+          <ClusterView
+            cluster={clusterOverPerson}
+            clusterMembers={peopleUI.filter((p) =>
+              ((clusterOverPerson as any).members || []).includes(p.id)
+            )}
+            clusterFamilies={families.filter((f) =>
+              ((clusterOverPerson as any).families || []).includes(f.id)
+            )}
+            coordinator={peopleUI.find(
+              (p) => p.id === (clusterOverPerson as any).coordinator
+            )}
+            onEdit={() => {
+              setEditClusterOverlay(clusterOverPerson);
+              setShowEditClusterOverlay(true);
+            }}
+            onDelete={() => {}}
+            onCancel={() => {
+              setShowClusterOverPerson(false);
+              setClusterOverPerson(null);
+            }}
+            onClose={() => {
+              setShowClusterOverPerson(false);
+              setClusterOverPerson(null);
+            }}
+            onAssignMembers={() => {
+              setAssignMembersModal({
+                isOpen: true,
+                cluster: clusterOverPerson,
+              });
+            }}
+            onSubmitReport={() => {
+              setReportSelectedCluster(clusterOverPerson);
+              setShowReportForm(true);
+            }}
+            onViewFamily={(f) => {
+              setFamilyOverCluster(f);
+              setShowFamilyOverCluster(true);
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* Edit Cluster Overlay Modal (top-most) */}
+      {showEditClusterOverlay && editClusterOverlay && (
+        <Modal
+          isOpen={showEditClusterOverlay}
+          onClose={() => {
+            setShowEditClusterOverlay(false);
+            setEditClusterOverlay(null);
+          }}
+          title="Edit Cluster"
+          className="!mt-0 z-[50]"
+        >
+          <ClusterForm
+            onSubmit={async (data) => {
+              // Directly update the cluster in overlay context
+              if (editClusterOverlay) {
+                await clustersApi.update(editClusterOverlay.id, data as any);
+                await fetchClusters();
+                try {
+                  const refreshed = await clustersApi.getById(
+                    editClusterOverlay.id
+                  );
+                  setClusterOverPerson(refreshed.data);
+                } catch (e) {
+                  // noop
+                }
+              }
+              setShowEditClusterOverlay(false);
+              setEditClusterOverlay(null);
+            }}
+            onClose={() => {
+              setShowEditClusterOverlay(false);
+              setEditClusterOverlay(null);
+            }}
+            initialData={editClusterOverlay}
+            availableFamilies={families}
+            availablePeople={people}
+          />
+        </Modal>
+      )}
+
+      {/* Edit Family Overlay Modal (top-most) */}
+      {showEditFamilyOverlay && editFamilyOverlay && (
+        <Modal
+          isOpen={showEditFamilyOverlay}
+          onClose={() => {
+            setShowEditFamilyOverlay(false);
+            setEditFamilyOverlay(null);
+          }}
+          title="Edit Family"
+          className="!mt-0 z-[50]"
+        >
+          <FamilyForm
+            onSubmit={async (data) => {
+              await handleUpdateFamily(data as any);
+              await refreshFamilies();
+              setShowEditFamilyOverlay(false);
+              setEditFamilyOverlay(null);
+            }}
+            onClose={() => {
+              setShowEditFamilyOverlay(false);
+              setEditFamilyOverlay(null);
+            }}
+            onDelete={(family) => {
+              setDeleteConfirmation({ isOpen: true, family, loading: false });
+            }}
+            initialData={editFamilyOverlay}
+            availableMembers={peopleUI}
+            showDeleteButton={false}
+          />
+        </Modal>
+      )}
+
+      {/* Create Family Overlay Modal */}
+      {showCreateFamilyOverlay && (
+        <Modal
+          isOpen={showCreateFamilyOverlay}
+          onClose={() => setShowCreateFamilyOverlay(false)}
+          title="Create Family"
+          className="!mt-0 z-[50]"
+        >
+          <FamilyForm
+            onSubmit={async (data) => {
+              await createFamily(data as any);
+              await refreshFamilies();
+              setShowCreateFamilyOverlay(false);
+            }}
+            onClose={() => setShowCreateFamilyOverlay(false)}
+            initialData={undefined}
+            availableMembers={peopleUI}
+          />
+        </Modal>
+      )}
+
       {/* Filter Dropdown */}
       <FilterDropdown
         isOpen={showFilterDropdown}
@@ -1895,6 +2276,391 @@ export default function PeoplePage() {
         currentSortBy={clusterSortBy}
         currentSortOrder={clusterSortOrder}
       />
+
+      {/* Select Existing Family or Create */}
+      {selectFamilyModal.isOpen && selectFamilyModal.person && (
+        <Modal
+          isOpen={selectFamilyModal.isOpen}
+          onClose={() => setSelectFamilyModal({ isOpen: false, person: null })}
+          title="Assign to Family"
+          className="!mt-0 z-[50]"
+        >
+          <div className="space-y-3 p-1">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">
+                Select an existing family
+              </span>
+              <button
+                className="text-sm text-blue-600 hover:text-blue-700"
+                onClick={() => {
+                  setShowCreateFamilyOverlay(true);
+                }}
+              >
+                + Create New Family
+              </button>
+            </div>
+
+            {/* Search and pagination */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Search families..."
+                value={familySelectSearch}
+                onChange={(e) => {
+                  setFamilySelectSearch(e.target.value);
+                  setFamilySelectPage(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <span className="text-xs text-gray-500 whitespace-nowrap">
+                {families.length} total
+              </span>
+            </div>
+
+            {(() => {
+              const term = familySelectSearch.toLowerCase();
+              const filtered = (
+                term
+                  ? families.filter((f) => f.name.toLowerCase().includes(term))
+                  : families
+              )
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name));
+              const totalPages = Math.max(
+                1,
+                Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE)
+              );
+              const start = (familySelectPage - 1) * FAMILY_SELECT_PAGE_SIZE;
+              const pageItems = filtered.slice(
+                start,
+                start + FAMILY_SELECT_PAGE_SIZE
+              );
+
+              return (
+                <>
+                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
+                    {pageItems.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={async () => {
+                          const target = f;
+                          const updatedMembers = Array.from(
+                            new Set([
+                              ...target.members,
+                              selectFamilyModal.person!.id,
+                            ])
+                          );
+                          await updateFamily(target.id, {
+                            name: target.name,
+                            leader: target.leader || undefined,
+                            members: updatedMembers,
+                            address: target.address,
+                            notes: target.notes,
+                          });
+                          await refreshFamilies();
+                          setSelectFamilyModal({ isOpen: false, person: null });
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
+                      >
+                        {f.name}{" "}
+                        <span className="text-gray-500">
+                          ({f.members.length})
+                        </span>
+                      </button>
+                    ))}
+                    {pageItems.length === 0 && (
+                      <div className="px-3 py-6 text-sm text-gray-500 text-center">
+                        No families found
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <span>
+                      Page {familySelectPage} of{" "}
+                      {Math.max(
+                        1,
+                        Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE)
+                      )}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() =>
+                          setFamilySelectPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={familySelectPage === 1}
+                        className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                      >
+                        ‹ Prev
+                      </button>
+                      <button
+                        onClick={() =>
+                          setFamilySelectPage((p) =>
+                            Math.min(
+                              Math.max(
+                                1,
+                                Math.ceil(
+                                  filtered.length / FAMILY_SELECT_PAGE_SIZE
+                                )
+                              ),
+                              p + 1
+                            )
+                          )
+                        }
+                        disabled={
+                          familySelectPage ===
+                          Math.max(
+                            1,
+                            Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE)
+                          )
+                        }
+                        className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                      >
+                        Next ›
+                      </button>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </Modal>
+      )}
+
+      {/* Select Existing Cluster or Create */}
+      {selectClusterModal.isOpen && selectClusterModal.person && (
+        <Modal
+          isOpen={selectClusterModal.isOpen}
+          onClose={() => setSelectClusterModal({ isOpen: false, person: null })}
+          title="Assign to Cluster"
+          className="!mt-0 z-[50]"
+        >
+          <div className="space-y-3 p-1">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">
+                Select an existing cluster
+              </span>
+              <button
+                className="text-sm text-blue-600 hover:text-blue-700"
+                onClick={() => {
+                  setClusterCreateContextPerson(selectClusterModal.person!);
+                  setShowCreateClusterOverlay(true);
+                }}
+              >
+                + Create New Cluster
+              </button>
+            </div>
+
+            {/* Search and pagination */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Search clusters..."
+                value={clusterSelectSearch}
+                onChange={(e) => {
+                  setClusterSelectSearch(e.target.value);
+                  setClusterSelectPage(1);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <span className="text-xs text-gray-500 whitespace-nowrap">
+                {clusters.length} total
+              </span>
+            </div>
+
+            {clustersLoading && (
+              <div className="px-3 py-6 text-sm text-gray-500 text-center">
+                Loading clusters...
+              </div>
+            )}
+            {!clustersLoading &&
+              (() => {
+                const term = clusterSelectSearch.toLowerCase();
+                const filtered = term
+                  ? clusters.filter(
+                      (c) =>
+                        (c.name || "").toLowerCase().includes(term) ||
+                        ((c as any).code || "").toLowerCase().includes(term)
+                    )
+                  : clusters;
+                const totalPages = Math.max(
+                  1,
+                  Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE)
+                );
+                const start =
+                  (clusterSelectPage - 1) * CLUSTER_SELECT_PAGE_SIZE;
+                const pageItems = filtered.slice(
+                  start,
+                  start + CLUSTER_SELECT_PAGE_SIZE
+                );
+
+                return (
+                  <>
+                    <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
+                      {pageItems.map((c) => (
+                        <button
+                          type="button"
+                          key={c.id}
+                          onClick={async () => {
+                            const target = c as any;
+                            const members = Array.isArray(target.members)
+                              ? target.members
+                              : [];
+                            const updatedMembers = Array.from(
+                              new Set([
+                                ...members,
+                                selectClusterModal.person!.id,
+                              ])
+                            );
+                            await clustersApi.update(c.id, {
+                              name: c.name,
+                              code: (c as any).code,
+                              coordinator: (c as any).coordinator,
+                              families: (c as any).families || [],
+                              members: updatedMembers,
+                              location: (c as any).location,
+                              meeting_schedule: (c as any).meeting_schedule,
+                              description: c.description,
+                            } as any);
+                            await fetchClusters();
+                            setSelectClusterModal({
+                              isOpen: false,
+                              person: null,
+                            });
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
+                        >
+                          {(() => {
+                            const code = (c as any).code as string | undefined;
+                            const name = c.name || "Cluster";
+                            return code ? (
+                              <>
+                                <span className="font-semibold">{code}</span>
+                                {` - ${name}`}
+                              </>
+                            ) : (
+                              name
+                            );
+                          })()}
+                        </button>
+                      ))}
+                      {pageItems.length === 0 && (
+                        <div className="px-3 py-6 text-sm text-gray-500 text-center">
+                          No clusters found
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span>
+                        Page {clusterSelectPage} of{" "}
+                        {Math.max(
+                          1,
+                          Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE)
+                        )}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() =>
+                            setClusterSelectPage((p) => Math.max(1, p - 1))
+                          }
+                          disabled={clusterSelectPage === 1}
+                          className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                        >
+                          ‹ Prev
+                        </button>
+                        <button
+                          onClick={() =>
+                            setClusterSelectPage((p) =>
+                              Math.min(
+                                Math.max(
+                                  1,
+                                  Math.ceil(
+                                    filtered.length / CLUSTER_SELECT_PAGE_SIZE
+                                  )
+                                ),
+                                p + 1
+                              )
+                            )
+                          }
+                          disabled={
+                            clusterSelectPage ===
+                            Math.max(
+                              1,
+                              Math.ceil(
+                                filtered.length / CLUSTER_SELECT_PAGE_SIZE
+                              )
+                            )
+                          }
+                          className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                        >
+                          Next ›
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+          </div>
+        </Modal>
+      )}
+
+      {/* Create Cluster Overlay Modal */}
+      {showCreateClusterOverlay && (
+        <Modal
+          isOpen={showCreateClusterOverlay}
+          onClose={() => setShowCreateClusterOverlay(false)}
+          title="Create Cluster"
+          className="!mt-0 z-[50]"
+        >
+          <ClusterForm
+            onSubmit={async (data) => {
+              await handleCreateCluster(data as any);
+              setShowCreateClusterOverlay(false);
+              // clear context
+              setClusterCreateContextPerson(null);
+            }}
+            onClose={() => setShowCreateClusterOverlay(false)}
+            initialData={(() => {
+              const p = clusterCreateContextPerson || selectClusterModal.person;
+              if (!p) return undefined;
+              const base: any = {
+                members: [p.id],
+                coordinator: p.id,
+              };
+              const personFamilies = families.filter((f) =>
+                f.members.includes(p.id)
+              );
+              const unattachedFamilyIds = personFamilies
+                .filter((f) => {
+                  // A family is considered attached if:
+                  // 1) It is directly associated via cluster.families, or
+                  // 2) Any of its members appear in any cluster's members
+                  const isDirectlyAttached = clusters.some((c) =>
+                    ((c as any).families || []).includes(f.id)
+                  );
+                  if (isDirectlyAttached) return false;
+                  const anyMemberInAnyCluster = clusters.some((c) => {
+                    const cm: string[] = ((c as any).members || []) as string[];
+                    return f.members?.some((mid) => cm.includes(mid));
+                  });
+                  return !anyMemberInAnyCluster;
+                })
+                .map((f) => f.id);
+              if (unattachedFamilyIds.length > 0) {
+                base.families = unattachedFamilyIds;
+              }
+              return base;
+            })()}
+            availableFamilies={families}
+            availablePeople={people}
+          />
+        </Modal>
+      )}
     </DashboardLayout>
   );
 }

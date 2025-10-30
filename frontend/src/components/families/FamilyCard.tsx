@@ -1,6 +1,7 @@
 import { Family, Person } from "@/src/types/person";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
+import { formatPersonName } from "@/src/lib/name";
 
 interface FamilyCardProps {
   family: Family;
@@ -50,7 +51,9 @@ export default function FamilyCard({
                 className="w-10 h-10 rounded-full object-cover"
               />
               <div>
-                {/* <p className="font-medium text-sm">{member.name}</p> */}
+                <p className="font-medium text-sm text-gray-900">
+                  {formatPersonName(member)}
+                </p>
                 <p className="text-xs text-gray-600">{member.role}</p>
               </div>
             </div>

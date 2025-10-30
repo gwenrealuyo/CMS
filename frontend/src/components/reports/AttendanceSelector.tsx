@@ -24,11 +24,11 @@ export default function AttendanceSelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Filter people by role and search term
-  const filteredPeople = availablePeople.filter(
-    (person) =>
-      person.role === filterRole &&
-      person.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPeople = availablePeople.filter((person) => {
+    if (person.role !== filterRole) return false;
+    if (searchTerm.trim().length === 0) return false;
+    return person.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   // Get selected people objects
   const selectedPeople = availablePeople.filter((p) =>
@@ -106,15 +106,18 @@ export default function AttendanceSelector({
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value);
-            setIsDropdownOpen(true);
+            setIsDropdownOpen(e.target.value.trim().length >= 1);
           }}
-          onFocus={() => setIsDropdownOpen(true)}
+          onFocus={() => {
+            // Do not open on focus; only open after user types at least one character
+            if (searchTerm.trim().length >= 1) setIsDropdownOpen(true);
+          }}
           placeholder={`Search ${filterRole.toLowerCase()}s...`}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
 
         {/* Dropdown */}
-        {isDropdownOpen && (
+        {isDropdownOpen && searchTerm.trim().length >= 1 && (
           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
             {filteredPeople.length > 0 ? (
               filteredPeople.map((person) => {
@@ -131,10 +134,29 @@ export default function AttendanceSelector({
                     <div className="font-medium text-gray-900">
                       {person.name}
                     </div>
-                    {person.phone && (
+                    {filterRole === "VISITOR" ? (
                       <div className="text-sm text-gray-500">
-                        {person.phone}
+                        {(() => {
+                          const inviter = person.inviter
+                            ? availablePeople.find(
+                                (p) => p.id === person.inviter
+                              )
+                            : undefined;
+                          const inviterName = inviter
+                            ? inviter.name
+                            : "Unknown";
+                          const statusLabel = person.status
+                            ? person.status.toLowerCase()
+                            : "";
+                          return `invited by ${inviterName} • ${statusLabel}`;
+                        })()}
                       </div>
+                    ) : (
+                      person.phone && (
+                        <div className="text-sm text-gray-500">
+                          {person.phone}
+                        </div>
+                      )
                     )}
                   </button>
                 );

@@ -1,15 +1,18 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Family, PersonUI } from "@/src/types/person";
+import { Family, PersonUI, Cluster } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 
 interface FamilyViewProps {
   family: Family;
   familyMembers: PersonUI[];
+  clusters?: Cluster[];
   onEdit: () => void;
   onDelete: () => void;
   onCancel: () => void;
   onClose: () => void;
   onAddMember?: () => void;
+  onViewPerson?: (person: PersonUI) => void;
 }
 
 type SortField =
@@ -21,11 +24,13 @@ type SortField =
 export default function FamilyView({
   family,
   familyMembers,
+  clusters,
   onEdit,
   onDelete,
   onCancel,
   onClose,
   onAddMember,
+  onViewPerson,
 }: FamilyViewProps) {
   const [sortBy, setSortBy] = useState<SortField>("last_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -122,6 +127,8 @@ export default function FamilyView({
     }`.toUpperCase();
   };
 
+  const formatFullName = (person: PersonUI) => formatPersonName(person);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "ACTIVE":
@@ -166,12 +173,10 @@ export default function FamilyView({
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-3 border-b border-gray-200">
         <div>
-          <h2 className="text-base font-medium text-gray-900">
-            Family Details
-          </h2>
-          <p className="text-xs text-gray-600 mt-0.5">
+          <h2 className="text-sm font-medium text-gray-900">Family Details</h2>
+          <p className="text-[11px] text-gray-600 mt-0.5">
             The {family.name} Family
           </p>
         </div>
@@ -196,12 +201,12 @@ export default function FamilyView({
       </div>
 
       {/* Content */}
-      <div className="p-6 overflow-y-auto flex-1">
+      <div className="p-5 overflow-y-auto flex-1">
         <div className="space-y-4">
           {/* Family Header Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-100">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-lg font-bold text-gray-900">
                 The {family.name} Family
               </h2>
               <p className="text-sm text-gray-600 mt-0.5">
@@ -213,8 +218,8 @@ export default function FamilyView({
                   : "Unknown"}
               </p>
               {leader && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Family Leader: {leader.first_name} {leader.last_name}
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Family Leader: {formatFullName(leader)}
                 </p>
               )}
             </div>
@@ -353,36 +358,60 @@ export default function FamilyView({
                 </div>
               </div>
               {familyMembers.length > 0 ? (
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-2">
                   {sortedMembers.map((member) => (
                     <div
                       key={member.id}
-                      className="flex items-center space-x-3 p-2 bg-gray-50 rounded-md"
+                      className="flex items-center space-x-2 p-2 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100"
+                      onClick={() => onViewPerson && onViewPerson(member)}
                     >
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                         {getInitials(member)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-medium text-gray-900 truncate">
-                          {member.first_name} {member.last_name}
+                          {formatFullName(member)}
                         </h4>
                         <div className="flex items-center space-x-1.5 mt-0.5 flex-wrap">
                           <span
-                            className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
                               member.status
                             )}`}
                           >
                             {member.status.toLowerCase()}
                           </span>
                           <span
-                            className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getRoleColor(
                               member.role
                             )}`}
                           >
                             {member.role.toLowerCase()}
                           </span>
+                          {/* Cluster badge */}
+                          <span
+                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                              clusters &&
+                              clusters.some((c) =>
+                                (c as any).members?.includes(member.id)
+                              )
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {(() => {
+                              if (!clusters) return "";
+                              const c = clusters.find((c) =>
+                                (c as any).members?.includes(member.id)
+                              );
+                              return c
+                                ? c.code
+                                  ? c.code
+                                  : c.name ?? "Cluster"
+                                : "No cluster";
+                            })()}
+                          </span>
                           {member.id === family.leader && (
-                            <span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
                               Leader
                             </span>
                           )}

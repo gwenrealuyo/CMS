@@ -1,10 +1,16 @@
-import { Person, Milestone } from "@/src/types/person";
+import { Person, Milestone, Cluster, Family } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
 import { useEffect, useState } from "react";
 import { milestonesApi } from "@/src/lib/api";
 
 interface PersonProfileProps {
   person: Person;
+  clusters?: Cluster[];
+  families?: Family[];
+  onViewCluster?: (cluster: Cluster) => void;
+  onViewFamily?: (family: Family) => void;
+  onNoFamilyClick?: (person: Person) => void;
+  onNoClusterClick?: (person: Person) => void;
   onEdit: () => void;
   onDelete: () => void;
   onCancel: () => void;
@@ -14,6 +20,12 @@ interface PersonProfileProps {
 
 export default function PersonProfile({
   person,
+  clusters,
+  families,
+  onViewCluster,
+  onViewFamily,
+  onNoFamilyClick,
+  onNoClusterClick,
   onEdit,
   onDelete,
   onCancel,
@@ -168,7 +180,12 @@ export default function PersonProfile({
             Person Details
           </h2>
           <p className="text-xs text-gray-600 mt-0.5">
-            {person.first_name} {person.last_name}
+            {person.first_name}{" "}
+            {person.middle_name
+              ? `${person.middle_name[0].toUpperCase()}. `
+              : ""}
+            {person.last_name}
+            {person.suffix ? ` ${person.suffix}` : ""}
           </p>
         </div>
         <button
@@ -203,7 +220,12 @@ export default function PersonProfile({
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {person.first_name} {person.last_name}
+                  {person.first_name}{" "}
+                  {person.middle_name
+                    ? `${person.middle_name[0].toUpperCase()}. `
+                    : ""}
+                  {person.last_name}
+                  {person.suffix ? ` ${person.suffix}` : ""}
                 </h2>
                 <p className="text-gray-600">@{person.username}</p>
                 <div className="flex items-center space-x-2 mt-2">
@@ -221,6 +243,68 @@ export default function PersonProfile({
                   >
                     {person.status}
                   </span>
+                  {families &&
+                    (() => {
+                      const f = families.find((ff) =>
+                        ff.members.includes(person.id)
+                      );
+                      const label = f ? `Family: ${f.name}` : "No family";
+                      const badgeClass = f
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-red-100 text-red-800";
+                      return (
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${badgeClass} ${
+                            f && onViewFamily
+                              ? "cursor-pointer hover:bg-emerald-200 hover:text-emerald-900"
+                              : onNoFamilyClick
+                              ? "cursor-pointer hover:bg-red-200 hover:text-red-900"
+                              : ""
+                          }`}
+                          title="Family membership"
+                          onClick={() => {
+                            if (f && onViewFamily) onViewFamily(f);
+                            else if (!f && onNoFamilyClick)
+                              onNoFamilyClick(person);
+                          }}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })()}
+                  {clusters &&
+                    (() => {
+                      const c = clusters.find((cc) =>
+                        (cc as any).members?.includes(person.id)
+                      );
+                      const label = c
+                        ? c.code
+                          ? c.code
+                          : c.name ?? "Cluster"
+                        : "No cluster";
+                      const badgeClass = c
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-red-100 text-red-800";
+                      return (
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${badgeClass} ${
+                            c && onViewCluster
+                              ? "cursor-pointer hover:bg-blue-200 hover:text-blue-900"
+                              : onNoClusterClick
+                              ? "cursor-pointer hover:bg-red-200 hover:text-red-900"
+                              : ""
+                          }`}
+                          title="Cluster membership"
+                          onClick={() => {
+                            if (c && onViewCluster) onViewCluster(c);
+                            else if (!c && onNoClusterClick)
+                              onNoClusterClick(person);
+                          }}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })()}
                 </div>
               </div>
             </div>

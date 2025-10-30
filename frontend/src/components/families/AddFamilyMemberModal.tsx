@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Family, PersonUI } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 
 interface AddFamilyMemberModalProps {
@@ -39,7 +40,7 @@ export default function AddFamilyMemberModal({
 
     const searchLower = memberSearch.toLowerCase();
     return peopleUI.filter((person) => {
-      const fullName = `${person.first_name} ${person.last_name}`.toLowerCase();
+      const fullName = formatFullName(person).toLowerCase();
       const email = person.email?.toLowerCase() || "";
       const memberId = person.member_id?.toLowerCase() || "";
 
@@ -102,6 +103,8 @@ export default function AddFamilyMemberModal({
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
+
+  const formatFullName = (person: PersonUI) => formatPersonName(person);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -211,7 +214,7 @@ export default function AddFamilyMemberModal({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate">
-                          {person.first_name} {person.last_name}
+                          {formatFullName(person)}
                         </p>
                         <p className="text-xs text-gray-600 truncate">
                           {person.email}
@@ -274,7 +277,7 @@ export default function AddFamilyMemberModal({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">
-                        {member.first_name} {member.last_name}
+                        {formatFullName(member)}
                       </p>
                       <p className="text-sm text-gray-600 truncate">
                         {member.email}

@@ -61,11 +61,21 @@ export default function ClusterWeeklyReportForm({
       try {
         setLoadingPeople(true);
         const response = await peopleApi.getAll();
-        const peopleUI: PersonUI[] = response.data.map((p) => ({
-          ...p,
-          name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-          dateFirstAttended: p.date_first_attended,
-        }));
+        const peopleUI: PersonUI[] = response.data.map((p) => {
+          const middleInitial = p.middle_name
+            ? ` ${p.middle_name.trim().charAt(0)}.`
+            : "";
+          const suffixPart =
+            p.suffix && p.suffix.trim().length > 0 ? ` ${p.suffix.trim()}` : "";
+          const name = `${p.first_name ?? ""}${middleInitial} ${
+            p.last_name ?? ""
+          }${suffixPart}`.trim();
+          return {
+            ...p,
+            name,
+            dateFirstAttended: p.date_first_attended,
+          };
+        });
         setPeople(peopleUI);
       } catch (error) {
         console.error("Error fetching people:", error);
@@ -206,15 +216,24 @@ export default function ClusterWeeklyReportForm({
         <div className="relative" ref={dropdownRef}>
           <input
             type="text"
-            value={clusterSearchTerm || selectedClusterDisplay}
-            onChange={(e) => handleClusterSearchChange(e.target.value)}
-            onFocus={() => setShowClusterDropdown(true)}
-            placeholder="Search clusters..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={selectedClusterDisplay}
+            onClick={() => setShowClusterDropdown(true)}
+            readOnly
+            placeholder="Select cluster..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
             required
           />
           {showClusterDropdown && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+                <input
+                  type="text"
+                  value={clusterSearchTerm}
+                  onChange={(e) => handleClusterSearchChange(e.target.value)}
+                  placeholder="Search clusters..."
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
               {filteredClusters.length > 0 ? (
                 filteredClusters.map((cluster) => (
                   <button

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Cluster, Person, PersonUI } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 
 interface AssignMembersModalProps {
@@ -36,7 +37,7 @@ export default function AssignMembersModal({
 
     const searchLower = memberSearch.toLowerCase();
     return peopleUI.filter((person) => {
-      const fullName = `${person.first_name} ${person.last_name}`.toLowerCase();
+      const fullName = formatPersonName(person).toLowerCase();
       const email = person.email?.toLowerCase() || "";
       const memberId = person.member_id?.toLowerCase() || "";
 
@@ -170,7 +171,7 @@ export default function AssignMembersModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           {/* Member Search */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -208,7 +209,7 @@ export default function AssignMembersModal({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate">
-                          {person.first_name} {person.last_name}
+                          {formatPersonName(person)}
                         </p>
                         <p className="text-xs text-gray-600 truncate">
                           {person.email}
@@ -271,7 +272,7 @@ export default function AssignMembersModal({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">
-                        {member.first_name} {member.last_name}
+                        {formatPersonName(member)}
                       </p>
                       <p className="text-sm text-gray-600 truncate">
                         {member.email}

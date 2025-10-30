@@ -18,6 +18,7 @@ export default function AddVisitorModal({
   const [formData, setFormData] = useState({
     first_name: "",
     middle_name: "",
+    suffix: "",
     last_name: "",
     facebook_name: "",
     inviter: "",
@@ -37,11 +38,21 @@ export default function AddVisitorModal({
     const fetchPeople = async () => {
       try {
         const response = await peopleApi.getAll();
-        const peopleUI: PersonUI[] = response.data.map((p) => ({
-          ...p,
-          name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-          dateFirstAttended: p.date_first_attended,
-        }));
+        const peopleUI: PersonUI[] = response.data.map((p) => {
+          const middleInitial = p.middle_name
+            ? ` ${p.middle_name.trim().charAt(0)}.`
+            : "";
+          const suffixPart =
+            p.suffix && p.suffix.trim().length > 0 ? ` ${p.suffix.trim()}` : "";
+          const name = `${p.first_name ?? ""}${middleInitial} ${
+            p.last_name ?? ""
+          }${suffixPart}`.trim();
+          return {
+            ...p,
+            name,
+            dateFirstAttended: p.date_first_attended,
+          };
+        });
         setPeople(peopleUI);
       } catch (error) {
         console.error("Error fetching people:", error);
@@ -74,6 +85,7 @@ export default function AddVisitorModal({
       setFormData({
         first_name: "",
         middle_name: "",
+        suffix: "",
         last_name: "",
         facebook_name: "",
         inviter: "",
@@ -94,6 +106,7 @@ export default function AddVisitorModal({
       setFormData({
         first_name: "",
         middle_name: "",
+        suffix: "",
         last_name: "",
         facebook_name: "",
         inviter: "",
@@ -150,8 +163,8 @@ export default function AddVisitorModal({
           </div>
         )}
 
-        {/* Name Fields - 3 columns */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Name Fields - 4 columns including Suffix */}
+        <div className="grid grid-cols-4 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               First Name *
@@ -193,6 +206,21 @@ export default function AddVisitorModal({
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Suffix
+            </label>
+            <input
+              type="text"
+              value={formData.suffix}
+              onChange={(e) =>
+                setFormData({ ...formData, suffix: e.target.value })
+              }
+              placeholder="Jr., Sr., III, etc."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>

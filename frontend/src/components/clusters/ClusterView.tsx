@@ -1,4 +1,5 @@
 import { Cluster, Person, Family } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 
 interface ClusterViewProps {
@@ -12,6 +13,8 @@ interface ClusterViewProps {
   onClose: () => void;
   onAssignMembers: () => void;
   onSubmitReport: () => void;
+  onViewPerson?: (person: Person) => void;
+  onViewFamily?: (family: Family) => void;
 }
 
 export default function ClusterView({
@@ -25,6 +28,8 @@ export default function ClusterView({
   onClose,
   onAssignMembers,
   onSubmitReport,
+  onViewPerson,
+  onViewFamily,
 }: ClusterViewProps) {
   // Calculate member counts including coordinator
   const totalMemberCount = clusterMembers.length + (coordinator ? 1 : 0);
@@ -35,15 +40,15 @@ export default function ClusterView({
     clusterMembers.filter((member) => member.role === "VISITOR").length +
     (coordinator && coordinator.role === "VISITOR" ? 1 : 0);
 
+  const formatFullName = (person: Person) => formatPersonName(person);
+
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-3 border-b border-gray-200">
         <div>
-          <h2 className="text-base font-medium text-gray-900">
-            Cluster Details
-          </h2>
-          <p className="text-xs text-gray-600 mt-0.5">
+          <h2 className="text-sm font-medium text-gray-900">Cluster Details</h2>
+          <p className="text-[11px] text-gray-600 mt-0.5">
             {cluster.name || "Untitled Cluster"}
           </p>
         </div>
@@ -68,13 +73,13 @@ export default function ClusterView({
       </div>
 
       {/* Content */}
-      <div className="p-6 overflow-y-auto flex-1">
-        <div className="space-y-6">
+      <div className="p-5 overflow-y-auto flex-1">
+        <div className="space-y-5">
           {/* Cluster Info Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-xl font-bold text-gray-900">
                   {cluster.name || "Untitled Cluster"}
                 </h2>
                 {cluster.code && (
@@ -187,7 +192,7 @@ export default function ClusterView({
                     />
                   </svg>
                   <span className="font-normal">
-                    {coordinator.first_name} {coordinator.last_name}
+                    {formatFullName(coordinator)}
                   </span>
                 </div>
               )}
@@ -254,28 +259,31 @@ export default function ClusterView({
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {/* Show coordinator first if exists */}
                 {coordinator && (
-                  <div className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                  <div
+                    className="flex items-center space-x-2 p-2 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
+                    onClick={() => onViewPerson && onViewPerson(coordinator)}
+                  >
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                       {coordinator.first_name?.[0] || ""}
                       {coordinator.last_name?.[0] || ""}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">
-                        {coordinator.first_name} {coordinator.last_name}
+                      <p className="font-medium text-gray-900 truncate text-sm">
+                        {formatFullName(coordinator)}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs text-gray-600">
                         {coordinator.email}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-800">
                         Coordinator
                       </span>
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                           coordinator.role === "MEMBER"
                             ? "bg-green-100 text-green-800"
                             : coordinator.role === "VISITOR"
@@ -298,20 +306,21 @@ export default function ClusterView({
                 {clusterMembers.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg"
+                    className="flex items-center space-x-2 p-2 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
+                    onClick={() => onViewPerson && onViewPerson(member)}
                   >
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                    <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                       {member.first_name?.[0] || ""}
                       {member.last_name?.[0] || ""}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">
-                        {member.first_name} {member.last_name}
+                      <p className="font-medium text-gray-900 truncate text-sm">
+                        {formatFullName(member)}
                       </p>
-                      <p className="text-sm text-gray-600">{member.email}</p>
+                      <p className="text-xs text-gray-600">{member.email}</p>
                     </div>
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                         member.role === "MEMBER"
                           ? "bg-green-100 text-green-800"
                           : member.role === "VISITOR"
@@ -339,18 +348,21 @@ export default function ClusterView({
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Families ({clusterFamilies.length})
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {clusterFamilies.map((family) => (
                   <div
                     key={family.id}
-                    className="p-3 bg-white border border-gray-200 rounded-lg"
+                    className="p-2 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
+                    onClick={() => onViewFamily && onViewFamily(family)}
                   >
-                    <h4 className="font-medium text-gray-900">{family.name}</h4>
-                    <p className="text-sm text-gray-600">
+                    <h4 className="font-medium text-gray-900 text-sm">
+                      {family.name}
+                    </h4>
+                    <p className="text-xs text-gray-600">
                       {family.members.length} members
                     </p>
                     {family.address && (
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         {family.address}
                       </p>
                     )}

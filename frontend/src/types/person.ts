@@ -114,6 +114,8 @@ export interface ClusterWeeklyReport {
   meeting_date: string; // ISO date string
   members_attended: string[]; // List of Person IDs (MEMBER role)
   visitors_attended: string[]; // List of Person IDs (VISITOR role)
+  members_attended_details?: PersonUI[]; // Full person details for members who attended
+  visitors_attended_details?: PersonUI[]; // Full person details for visitors who attended
   members_present: number; // Computed: count of members_attended
   visitors_present: number; // Computed: count of visitors_attended
   member_attendance_rate?: number; // Computed: percentage of cluster members who attended

@@ -1,4 +1,5 @@
 from rest_framework import viewsets, filters
+from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -45,9 +46,16 @@ class MilestoneViewSet(viewsets.ModelViewSet):
     filterset_fields = ["user", "type"]
 
 
+class ClusterWeeklyReportPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
     queryset = ClusterWeeklyReport.objects.all()
     serializer_class = ClusterWeeklyReportSerializer
+    pagination_class = ClusterWeeklyReportPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
         "cluster",
@@ -56,6 +64,18 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         "gathering_type",
         "submitted_by",
     ]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        month = self.request.query_params.get("month")
+        if month:
+            try:
+                month_int = int(month)
+                if 1 <= month_int <= 12:
+                    queryset = queryset.filter(meeting_date__month=month_int)
+            except ValueError:
+                pass
+        return queryset
 
     @action(detail=False, methods=["get"])
     def analytics(self, request):

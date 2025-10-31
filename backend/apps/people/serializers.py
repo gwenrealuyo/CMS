@@ -141,6 +141,13 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     visitors_attended = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Person.objects.filter(role="VISITOR"), required=False
     )
+    # Read-only fields with full person details
+    members_attended_details = PersonSerializer(
+        source="members_attended", many=True, read_only=True
+    )
+    visitors_attended_details = PersonSerializer(
+        source="visitors_attended", many=True, read_only=True
+    )
     # Computed properties for backward compatibility
     members_present = serializers.IntegerField(read_only=True)
     visitors_present = serializers.IntegerField(read_only=True)
@@ -158,6 +165,8 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "meeting_date",
             "members_attended",
             "visitors_attended",
+            "members_attended_details",
+            "visitors_attended_details",
             "members_present",
             "visitors_present",
             "member_attendance_rate",

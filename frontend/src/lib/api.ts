@@ -86,9 +86,28 @@ export const milestonesApi = {
     api.get<Milestone[]>(`/people/milestones/?user=${userId}`),
 };
 
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 export const clusterWeeklyReportsApi = {
-  getAll: () =>
-    api.get<ClusterWeeklyReport[]>("/people/cluster-weekly-reports/"),
+  getAll: (params?: {
+    page?: number;
+    page_size?: number;
+    cluster?: string;
+    year?: number;
+    week_number?: number;
+    gathering_type?: string;
+    submitted_by?: string;
+    month?: string;
+  }) =>
+    api.get<PaginatedResponse<ClusterWeeklyReport>>(
+      "/people/cluster-weekly-reports/",
+      { params }
+    ),
   getById: (id: string) =>
     api.get<ClusterWeeklyReport>(`/people/cluster-weekly-reports/${id}/`),
   create: (data: Partial<ClusterWeeklyReport>) =>

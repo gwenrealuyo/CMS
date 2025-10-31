@@ -1,4 +1,6 @@
+"use client";
 import React, { ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalProps {
   isOpen: boolean;
@@ -34,9 +36,9 @@ export default function Modal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
-      className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className}`}
+      className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className} !mt-0`}
     >
       <div className="bg-white rounded-lg max-w-3xl w-full mx-4 max-h-[95vh] overflow-hidden flex flex-col">
         {!hideHeader && (
@@ -70,6 +72,7 @@ export default function Modal({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

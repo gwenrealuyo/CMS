@@ -79,6 +79,10 @@ export default function PeoplePage() {
   const [activeTab, setActiveTab] = useState<
     "people" | "families" | "clusters" | "reports"
   >("people");
+  const SHOW_TABS = false;
+  useEffect(() => {
+    setActiveTab("people");
+  }, []);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"person" | "family" | "cluster">(
     "person"
@@ -1037,79 +1041,95 @@ export default function PeoplePage() {
 
   return (
     <DashboardLayout>
-      <div className="fixed top-16 left-64 right-0 z-20 bg-white py-4 px-6 flex justify-between items-center border-b border-gray-200">
-        <div className="flex space-x-4">
-          <button
-            className={`px-4 py-2 font-medium rounded-md ${
-              activeTab === "people"
-                ? "bg-[#2563EB] text-white"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            onClick={() => setActiveTab("people")}
-          >
-            People
-          </button>
-          <button
-            className={`px-4 py-2 font-medium rounded-md ${
-              activeTab === "families"
-                ? "bg-[#2563EB] text-white"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            onClick={() => setActiveTab("families")}
-          >
-            Families
-          </button>
-          <button
-            className={`px-4 py-2 font-medium rounded-md ${
-              activeTab === "clusters"
-                ? "bg-[#2563EB] text-white"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            onClick={() => {
-              setActiveTab("clusters");
-              if (clusters.length === 0 && !clustersLoading) fetchClusters();
-            }}
-          >
-            Clusters
-          </button>
-          <button
-            className={`px-4 py-2 font-medium rounded-md ${
-              activeTab === "reports"
-                ? "bg-[#2563EB] text-white"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-            onClick={() => {
-              setActiveTab("reports");
-              if (clusters.length === 0 && !clustersLoading) fetchClusters();
-            }}
-          >
-            Reports
-          </button>
-        </div>
-        {activeTab !== "reports" && (
-          <Button
-            onClick={() => {
-              setModalType(
-                activeTab === "people"
-                  ? "person"
-                  : activeTab === "families"
-                  ? "family"
-                  : "cluster"
-              );
-              setIsModalOpen(true);
-            }}
-          >
-            Add{" "}
-            {activeTab === "people"
-              ? "Person"
-              : activeTab === "families"
-              ? "Family"
-              : "Cluster"}
-          </Button>
-        )}
+      {/* Page header with Add Person */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-[#2D3748]">People</h1>
+        <Button
+          onClick={() => {
+            setModalType("person");
+            setViewEditPerson(null);
+            setViewMode("view");
+            setIsModalOpen(true);
+          }}
+        >
+          Add Person
+        </Button>
       </div>
+      {SHOW_TABS && (
+        <div className="fixed top-16 left-64 right-0 z-20 bg-white py-4 px-6 flex justify-between items-center border-b border-gray-200">
+          <div className="flex space-x-4">
+            <button
+              className={`px-4 py-2 font-medium rounded-md ${
+                activeTab === "people"
+                  ? "bg-[#2563EB] text-white"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+              onClick={() => setActiveTab("people")}
+            >
+              People
+            </button>
+            <button
+              className={`px-4 py-2 font-medium rounded-md ${
+                activeTab === "families"
+                  ? "bg-[#2563EB] text-white"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+              onClick={() => setActiveTab("families")}
+            >
+              Families
+            </button>
+            <button
+              className={`px-4 py-2 font-medium rounded-md ${
+                activeTab === "clusters"
+                  ? "bg-[#2563EB] text-white"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+              onClick={() => {
+                setActiveTab("clusters");
+                if (clusters.length === 0 && !clustersLoading) fetchClusters();
+              }}
+            >
+              Clusters
+            </button>
+            <button
+              className={`px-4 py-2 font-medium rounded-md ${
+                activeTab === "reports"
+                  ? "bg-[#2563EB] text-white"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+              onClick={() => {
+                setActiveTab("reports");
+                if (clusters.length === 0 && !clustersLoading) fetchClusters();
+              }}
+            >
+              Reports
+            </button>
+          </div>
+          {activeTab !== "reports" && (
+            <Button
+              onClick={() => {
+                setModalType(
+                  activeTab === "people"
+                    ? "person"
+                    : activeTab === "families"
+                    ? "family"
+                    : "cluster"
+                );
+                setIsModalOpen(true);
+              }}
+            >
+              Add{" "}
+              {activeTab === "people"
+                ? "Person"
+                : activeTab === "families"
+                ? "Family"
+                : "Cluster"}
+            </Button>
+          )}
+        </div>
+      )}
 
-      <div className="pt-20">
+      <div className={SHOW_TABS ? "pt-20" : "pt-6"}>
         {activeTab === "people" && (
           <div className="space-y-6">
             <FilterBar
@@ -1662,9 +1682,12 @@ export default function PeoplePage() {
                   startOnTimelineTab={startOnTimelineTab}
                   onSubmit={async (data) => {
                     const result = await updatePerson(viewEditPerson.id, data);
-                    setIsModalOpen(false);
-                    setViewEditPerson(null);
+                    // Switch back to profile view with updated data, keep modal open
+                    setViewEditPerson(result);
+                    setViewMode("view");
                     setStartOnTimelineTab(false);
+                    // Optionally refresh list data
+                    await refreshPeople();
                     return result; // Return for milestone handling
                   }}
                   onClose={() => {

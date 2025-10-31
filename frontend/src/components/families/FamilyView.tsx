@@ -388,28 +388,33 @@ export default function FamilyView({
                             {member.role.toLowerCase()}
                           </span>
                           {/* Cluster badge */}
-                          <span
-                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                              clusters &&
-                              clusters.some((c) =>
-                                (c as any).members?.includes(member.id)
-                              )
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {(() => {
-                              if (!clusters) return "";
-                              const c = clusters.find((c) =>
-                                (c as any).members?.includes(member.id)
+                          {(() => {
+                            if (!clusters || clusters.length === 0) {
+                              return (
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
+                                  No cluster
+                                </span>
                               );
-                              return c
-                                ? c.code
+                            }
+                            const c = clusters.find((c) =>
+                              (c as any).members?.includes(member.id)
+                            );
+                            return (
+                              <span
+                                className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                  c
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {c
                                   ? c.code
-                                  : c.name ?? "Cluster"
-                                : "No cluster";
-                            })()}
-                          </span>
+                                    ? c.code
+                                    : c.name ?? "Cluster"
+                                  : "No cluster"}
+                              </span>
+                            );
+                          })()}
                           {member.id === family.leader && (
                             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
                               Leader

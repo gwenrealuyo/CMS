@@ -108,6 +108,7 @@ export interface ClusterWeeklyReport {
   id: string;
   cluster: string; // Cluster ID
   cluster_name?: string;
+  cluster_code?: string | null;
   year: number;
   week_number: number;
   meeting_date: string; // ISO date string
@@ -115,6 +116,7 @@ export interface ClusterWeeklyReport {
   visitors_attended: string[]; // List of Person IDs (VISITOR role)
   members_present: number; // Computed: count of members_attended
   visitors_present: number; // Computed: count of visitors_attended
+  member_attendance_rate?: number; // Computed: percentage of cluster members who attended
   gathering_type: GatheringType;
   activities_held?: string;
   prayer_requests?: string;

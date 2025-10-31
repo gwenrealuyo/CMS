@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import FamilyForm from "@/src/components/families/FamilyForm";
 import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
 import FamilyView from "@/src/components/families/FamilyView";
@@ -17,6 +17,7 @@ interface FamiliesTabContentProps {
   updateFamily: (id: string, data: any) => Promise<any>;
   deleteFamily: (id: string) => Promise<void>;
   refreshFamilies: () => Promise<void>;
+  createTrigger?: number; // when incremented, open create modal
 }
 
 export default function FamiliesTabContent({
@@ -27,6 +28,7 @@ export default function FamiliesTabContent({
   updateFamily,
   deleteFamily,
   refreshFamilies,
+  createTrigger,
 }: FamiliesTabContentProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editFamily, setEditFamily] = useState<Family | null>(null);
@@ -49,6 +51,16 @@ export default function FamiliesTabContent({
     family: null,
   });
 
+  // Open create modal when parent triggers
+  React.useEffect(() => {
+    if (createTrigger && createTrigger > 0) {
+      setViewFamily(null);
+      setEditFamily(null);
+      setFamilyViewMode("view");
+      setIsModalOpen(true);
+    }
+  }, [createTrigger]);
+
   const handleCreateFamily = async (familyData: Partial<Family>) => {
     try {
       await createFamily(familyData);
@@ -64,8 +76,19 @@ export default function FamiliesTabContent({
     if (!editFamily) return;
     try {
       await updateFamily(editFamily.id, familyData);
-      setIsModalOpen(false);
-      setEditFamily(null);
+      await refreshFamilies();
+      // If we are editing from view mode, return to view with updated data
+      const updated = families.find((f: Family) => f.id === editFamily.id);
+      if (updated) {
+        setViewFamily(updated);
+        setFamilyViewMode("view");
+        setEditFamily(null);
+        setIsModalOpen(true);
+      } else {
+        // Fallback: keep modal open in view mode
+        setFamilyViewMode("view");
+        setEditFamily(null);
+      }
     } catch (error) {
       console.error("Error updating family:", error);
       throw error;

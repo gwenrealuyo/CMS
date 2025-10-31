@@ -272,39 +272,55 @@ export default function PersonProfile({
                         </span>
                       );
                     })()}
-                  {clusters &&
-                    (() => {
-                      const c = clusters.find((cc) =>
-                        (cc as any).members?.includes(person.id)
-                      );
-                      const label = c
-                        ? c.code
-                          ? c.code
-                          : c.name ?? "Cluster"
-                        : "No cluster";
-                      const badgeClass = c
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-red-100 text-red-800";
+                  {(() => {
+                    if (!clusters || clusters.length === 0) {
                       return (
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${badgeClass} ${
-                            c && onViewCluster
-                              ? "cursor-pointer hover:bg-blue-200 hover:text-blue-900"
-                              : onNoClusterClick
+                          className={`px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ${
+                            onNoClusterClick
                               ? "cursor-pointer hover:bg-red-200 hover:text-red-900"
                               : ""
                           }`}
                           title="Cluster membership"
                           onClick={() => {
-                            if (c && onViewCluster) onViewCluster(c);
-                            else if (!c && onNoClusterClick)
-                              onNoClusterClick(person);
+                            if (onNoClusterClick) onNoClusterClick(person);
                           }}
                         >
-                          {label}
+                          No cluster
                         </span>
                       );
-                    })()}
+                    }
+                    const c = clusters.find((cc) =>
+                      (cc as any).members?.includes(person.id)
+                    );
+                    const label = c
+                      ? c.code
+                        ? c.code
+                        : c.name ?? "Cluster"
+                      : "No cluster";
+                    const badgeClass = c
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-red-100 text-red-800";
+                    return (
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${badgeClass} ${
+                          c && onViewCluster
+                            ? "cursor-pointer hover:bg-blue-200 hover:text-blue-900"
+                            : onNoClusterClick
+                            ? "cursor-pointer hover:bg-red-200 hover:text-red-900"
+                            : ""
+                        }`}
+                        title="Cluster membership"
+                        onClick={() => {
+                          if (c && onViewCluster) onViewCluster(c);
+                          else if (!c && onNoClusterClick)
+                            onNoClusterClick(person);
+                        }}
+                      >
+                        {label}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

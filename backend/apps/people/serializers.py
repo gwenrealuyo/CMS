@@ -132,6 +132,9 @@ class ClusterSerializer(serializers.ModelSerializer):
 class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     submitted_by_details = PersonSerializer(source="submitted_by", read_only=True)
     cluster_name = serializers.CharField(source="cluster.name", read_only=True)
+    cluster_code = serializers.CharField(
+        source="cluster.code", read_only=True, allow_null=True
+    )
     members_attended = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Person.objects.filter(role="MEMBER"), required=False
     )
@@ -141,6 +144,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     # Computed properties for backward compatibility
     members_present = serializers.IntegerField(read_only=True)
     visitors_present = serializers.IntegerField(read_only=True)
+    member_attendance_rate = serializers.FloatField(read_only=True)
 
     class Meta:
         model = ClusterWeeklyReport
@@ -148,6 +152,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "id",
             "cluster",
             "cluster_name",
+            "cluster_code",
             "year",
             "week_number",
             "meeting_date",
@@ -155,6 +160,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "visitors_attended",
             "members_present",
             "visitors_present",
+            "member_attendance_rate",
             "gathering_type",
             "activities_held",
             "prayer_requests",
@@ -172,4 +178,5 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "updated_at",
             "members_present",
             "visitors_present",
+            "member_attendance_rate",
         ]

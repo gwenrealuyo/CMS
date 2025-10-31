@@ -197,6 +197,15 @@ class ClusterWeeklyReport(models.Model):
     def visitors_present(self):
         return self.visitors_attended.count()
 
+    @property
+    def member_attendance_rate(self):
+        """Returns the percentage of cluster members who attended the meeting."""
+        total_members = self.cluster.members.count()
+        if total_members == 0:
+            return 0.0  # Avoid division by zero
+        members_attended_count = self.members_attended.count()
+        return round((members_attended_count / total_members) * 100, 2)
+
     class Meta:
         unique_together = ["cluster", "year", "week_number"]
         ordering = ["-year", "-week_number"]

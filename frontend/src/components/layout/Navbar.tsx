@@ -2,15 +2,21 @@
 
 import { useState } from "react";
 import { BellIcon, UserCircleIcon } from "@heroicons/react/24/outline";
+import { useSidebar } from "./SidebarContext";
 
 export default function Navbar() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const { collapsed } = useSidebar();
 
   return (
-    <nav className="bg-white shadow-sm fixed top-0 right-0 left-64 h-16 z-30">
+    <nav
+      className={`bg-white shadow-sm fixed top-0 right-0 ${
+        collapsed ? "left-16" : "left-64"
+      } h-16 z-30 transition-all`}
+    >
       <div className="h-full px-6 flex items-center justify-between">
-        <div className="flex-1">
+        <div className="flex items-center gap-3 flex-1">
           <input
             type="search"
             placeholder="Search..."

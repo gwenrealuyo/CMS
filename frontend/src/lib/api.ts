@@ -32,6 +32,8 @@ export const familiesApi = {
     api.post<Family>("/people/families/", data),
   update: (id: string, data: Partial<Family>) =>
     api.put<Family>(`/people/families/${id}/`, data),
+  patch: (id: string, data: Partial<Family>) =>
+    api.patch<Family>(`/people/families/${id}/`, data),
   delete: (id: string) => api.delete(`/people/families/${id}/`),
   addMember: (familyId: string, memberId: string) =>
     api.post(`/people/families/${familyId}/members/`, { memberId }),
@@ -46,6 +48,8 @@ export const clustersApi = {
     api.post<Cluster>("/people/clusters/", data),
   update: (id: string, data: Partial<Cluster>) =>
     api.put<Cluster>(`/people/clusters/${id}/`, data),
+  patch: (id: string, data: Partial<Cluster>) =>
+    api.patch<Cluster>(`/people/clusters/${id}/`, data),
   delete: (id: string) => api.delete(`/people/clusters/${id}/`),
   addFamily: (clusterId: string, familyId: string) =>
     api.post(`/people/clusters/${clusterId}/families/`, { familyId }),

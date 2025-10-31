@@ -156,13 +156,24 @@ export default function ClusterWeeklyReportForm({
   const handleCreateVisitor = async (visitorData: Partial<Person>) => {
     try {
       const response = await peopleApi.create(visitorData);
+      const middleInitial = response.data.middle_name
+        ? ` ${response.data.middle_name.trim().charAt(0)}.`
+        : "";
+      const suffixPart =
+        response.data.suffix && response.data.suffix.trim().length > 0
+          ? ` ${response.data.suffix.trim()}`
+          : "";
+      const name = `${response.data.first_name ?? ""}${middleInitial} ${
+        response.data.last_name ?? ""
+      }${suffixPart}`.trim();
+
       const newVisitor: PersonUI = {
         ...response.data,
-        name: `${response.data.first_name ?? ""} ${
-          response.data.last_name ?? ""
-        }`.trim(),
+        name,
         dateFirstAttended: response.data.date_first_attended,
       };
+
+      // Update people list with the new visitor
       setPeople((prev) => [...prev, newVisitor]);
 
       // Automatically add to visitors_attended
@@ -190,6 +201,11 @@ export default function ClusterWeeklyReportForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    // Don't submit if the add visitor modal is open
+    if (showAddVisitorModal) {
+      return;
+    }
     setLoading(true);
     try {
       await onSubmit(formData);
@@ -206,6 +222,13 @@ export default function ClusterWeeklyReportForm({
   return (
     <form
       onSubmit={handleSubmit}
+      onKeyDown={(e) => {
+        // Prevent Enter key from submitting form when modal is open
+        if (e.key === "Enter" && showAddVisitorModal) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
       className="max-h-[85vh] overflow-y-auto text-sm max-w-3xl"
     >
       {/* Cluster Selection */}
@@ -352,7 +375,17 @@ export default function ClusterWeeklyReportForm({
               </label>
               <button
                 type="button"
-                onClick={() => setShowAddVisitorModal(true)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation();
+                  setShowAddVisitorModal(true);
+                  return false;
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium border border-blue-300 hover:border-blue-500 rounded-lg px-3 py-1.5 transition-colors"
               >
                 + Add New Visitor

@@ -63,6 +63,7 @@ export default function AddVisitorModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!formData.first_name || !formData.last_name) {
       setError("First name and last name are required");
       return;
@@ -81,7 +82,7 @@ export default function AddVisitorModal({
 
       await onAdd(visitorData);
 
-      // Reset form
+      // Reset form and close modal - user can reopen to add another visitor
       setFormData({
         first_name: "",
         middle_name: "",

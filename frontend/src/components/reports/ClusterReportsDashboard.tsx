@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
+import Button from "@/src/components/ui/Button";
 import {
   ClusterWeeklyReport,
   Cluster,
   ReportAnalytics,
 } from "@/src/types/person";
 import { clusterWeeklyReportsApi } from "@/src/lib/api";
+import { formatPersonName } from "@/src/lib/name";
 import ClusterWeeklyReportForm from "./ClusterWeeklyReportForm";
 import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
 import Modal from "@/src/components/ui/Modal";
@@ -51,6 +53,26 @@ export default function ClusterReportsDashboard({
   // Sorting
   const [sortField, setSortField] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Column selection
+  const [showColumnsModal, setShowColumnsModal] = useState(false);
+  const availableColumns = [
+    { key: "cluster", label: "Cluster", default: true },
+    { key: "week", label: "Week", default: true },
+    { key: "meeting_date", label: "Meeting Date", default: true },
+    { key: "attendance", label: "Attendance", default: true },
+    {
+      key: "member_attendance_rate",
+      label: "Member Rate",
+      default: true,
+    },
+    { key: "type", label: "Type", default: true },
+    { key: "offerings", label: "Offerings", default: false },
+    { key: "submitted_by", label: "Submitted By", default: false },
+  ];
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    new Set(availableColumns.filter((col) => col.default).map((col) => col.key))
+  );
 
   // Handle sorting
   const handleSort = (field: string) => {
@@ -133,6 +155,10 @@ export default function ClusterReportsDashboard({
           case "attendance":
             aValue = a.members_present + a.visitors_present;
             bValue = b.members_present + b.visitors_present;
+            break;
+          case "member_attendance_rate":
+            aValue = a.member_attendance_rate ?? 0;
+            bValue = b.member_attendance_rate ?? 0;
             break;
           case "type":
             aValue = a.gathering_type;
@@ -315,26 +341,19 @@ export default function ClusterReportsDashboard({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Cluster Weekly Reports
-          </h2>
-          <p className="text-gray-600">
-            Manage and view weekly cluster reports
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold text-[#2D3748]">
+          Cluster Weekly Reports
+        </h1>
         <div className="flex gap-3">
-          <button
+          <Button
             onClick={() => {
-              // Open form without pre-selecting a cluster
               setSelectedCluster(null);
               setEditingReport(null);
               setShowForm(true);
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
           >
             Submit Report
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -520,12 +539,27 @@ export default function ClusterReportsDashboard({
 
       {/* Reports Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">
-            Reports ({filteredReports.length})
-          </h3>
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-end">
+          <button
+            onClick={() => setShowColumnsModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <svg
+              className="w-4 h-4 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+              />
+            </svg>
+            Columns
+          </button>
         </div>
-
         {filteredReports.length === 0 ? (
           <div className="text-center py-8">
             <svg
@@ -553,26 +587,21 @@ export default function ClusterReportsDashboard({
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {[
-                    { field: "cluster", label: "Cluster" },
-                    { field: "week", label: "Week" },
-                    { field: "meeting_date", label: "Meeting Date" },
-                    { field: "attendance", label: "Attendance" },
-                    { field: "type", label: "Type" },
-                    { field: "offerings", label: "Offerings" },
-                    { field: "submitted_by", label: "Submitted By" },
-                  ].map(({ field, label }) => (
-                    <th
-                      key={field}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort(field)}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>{label}</span>
-                        <SortIcon field={field} />
-                      </div>
-                    </th>
-                  ))}
+                  {availableColumns.map((col) => {
+                    if (!visibleColumns.has(col.key)) return null;
+                    return (
+                      <th
+                        key={col.key}
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort(col.key)}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>{col.label}</span>
+                          <SortIcon field={col.key} />
+                        </div>
+                      </th>
+                    );
+                  })}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -584,41 +613,107 @@ export default function ClusterReportsDashboard({
                     key={report.id}
                     className="hover:bg-gray-50 transition-colors duration-150"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      <button
-                        onClick={() => handleViewReport(report)}
-                        className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150"
-                        title="Click to view report details"
-                      >
-                        {report.cluster_name}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {report.year} W{report.week_number}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(report.meeting_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {report.members_present}M / {report.visitors_present}V
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
-                          report.gathering_type
-                        )}`}
-                      >
-                        {report.gathering_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(report.offerings)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {report.submitted_by_details
-                        ? `${report.submitted_by_details.first_name} ${report.submitted_by_details.last_name}`
-                        : "Unknown"}
-                    </td>
+                    {availableColumns.map((col) => {
+                      if (!visibleColumns.has(col.key)) return null;
+                      let cellContent;
+                      switch (col.key) {
+                        case "cluster":
+                          cellContent = (
+                            <button
+                              onClick={() => handleViewReport(report)}
+                              className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150"
+                              title="Click to view report details"
+                            >
+                              {report.cluster_code
+                                ? `${report.cluster_code} - ${report.cluster_name}`
+                                : report.cluster_name}
+                            </button>
+                          );
+                          break;
+                        case "week":
+                          cellContent = (
+                            <span className="text-sm text-gray-900">
+                              {report.year} W{report.week_number}
+                            </span>
+                          );
+                          break;
+                        case "meeting_date":
+                          cellContent = (
+                            <span className="text-sm text-gray-900">
+                              {new Date(
+                                report.meeting_date
+                              ).toLocaleDateString()}
+                            </span>
+                          );
+                          break;
+                        case "attendance":
+                          cellContent = (
+                            <span className="text-sm text-gray-900">
+                              {report.members_present}M /{" "}
+                              {report.visitors_present}V
+                            </span>
+                          );
+                          break;
+                        case "member_attendance_rate":
+                          const rate = report.member_attendance_rate ?? 0;
+                          const isLowAttendance = rate < 50;
+                          cellContent = (
+                            <span
+                              className={`text-sm ${
+                                isLowAttendance
+                                  ? "text-red-600 font-medium"
+                                  : "text-gray-900"
+                              }`}
+                            >
+                              {report.member_attendance_rate !== undefined
+                                ? `${report.member_attendance_rate.toFixed(1)}%`
+                                : "N/A"}
+                            </span>
+                          );
+                          break;
+                        case "type":
+                          cellContent = (
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
+                                report.gathering_type
+                              )}`}
+                            >
+                              {report.gathering_type}
+                            </span>
+                          );
+                          break;
+                        case "offerings":
+                          cellContent = (
+                            <span className="text-sm text-gray-900">
+                              {formatCurrency(report.offerings)}
+                            </span>
+                          );
+                          break;
+                        case "submitted_by":
+                          cellContent = (
+                            <span className="text-sm text-gray-900">
+                              {report.submitted_by_details
+                                ? formatPersonName(report.submitted_by_details)
+                                : "Unknown"}
+                            </span>
+                          );
+                          break;
+                        default:
+                          cellContent = null;
+                      }
+                      return (
+                        <td
+                          key={col.key}
+                          className={`px-6 py-4 whitespace-nowrap ${
+                            col.key === "cluster"
+                              ? "text-sm font-medium text-gray-900"
+                              : ""
+                          }`}
+                        >
+                          {cellContent}
+                        </td>
+                      );
+                    })}
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         <button
@@ -761,6 +856,70 @@ export default function ClusterReportsDashboard({
         variant="danger"
         loading={deleteConfirmation.loading}
       />
+
+      {/* Columns Configuration Modal */}
+      {showColumnsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Configure Columns
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Select which columns to display in the table
+              </p>
+            </div>
+            <div className="px-6 py-4 max-h-96 overflow-y-auto">
+              <div className="space-y-2">
+                {availableColumns.map((col) => (
+                  <label
+                    key={col.key}
+                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.has(col.key)}
+                      onChange={(e) => {
+                        const newVisible = new Set(visibleColumns);
+                        if (e.target.checked) {
+                          newVisible.add(col.key);
+                        } else {
+                          newVisible.delete(col.key);
+                        }
+                        setVisibleColumns(newVisible);
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{col.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setVisibleColumns(
+                    new Set(
+                      availableColumns
+                        .filter((col) => col.default)
+                        .map((col) => col.key)
+                    )
+                  );
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                Reset to Default
+              </button>
+              <button
+                onClick={() => setShowColumnsModal(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

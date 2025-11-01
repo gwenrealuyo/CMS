@@ -178,7 +178,7 @@ export default function PersonProfile({
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0 bg-white">
         <div>
           <h2 className="text-base font-medium text-gray-900">
             Person Details

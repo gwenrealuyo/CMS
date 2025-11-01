@@ -1,8 +1,14 @@
-import React, { useState } from "react";
-import { ClusterWeeklyReport, PersonUI, Person } from "@/src/types/person";
+import React, { useState, useEffect } from "react";
+import {
+  ClusterWeeklyReport,
+  PersonUI,
+  Person,
+  Family,
+} from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import PersonProfile from "@/src/components/people/PersonProfile";
+import { familiesApi } from "@/src/lib/api";
 
 interface ViewWeeklyReportModalProps {
   report: ClusterWeeklyReport;
@@ -25,9 +31,25 @@ export default function ViewWeeklyReportModal({
   const [visitorsExpanded, setVisitorsExpanded] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<PersonUI | null>(null);
   const [showPersonModal, setShowPersonModal] = useState(false);
+  const [families, setFamilies] = useState<Family[]>([]);
 
   // Show 6 items initially (2 rows on lg screens with 3 columns)
   const INITIAL_DISPLAY_COUNT = 6;
+
+  // Fetch families when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      familiesApi
+        .getAll()
+        .then((response) => {
+          setFamilies(response.data || []);
+        })
+        .catch((error) => {
+          console.error("Error fetching families:", error);
+          setFamilies([]);
+        });
+    }
+  }, [isOpen]);
 
   const handlePersonClick = (person: PersonUI) => {
     setSelectedPerson(person);
@@ -565,6 +587,7 @@ export default function ViewWeeklyReportModal({
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[95vh] overflow-hidden flex flex-col h-full">
             <PersonProfile
               person={selectedPerson as Person}
+              families={families}
               onEdit={() => {}}
               onDelete={() => {}}
               onCancel={handlePersonModalCancel}

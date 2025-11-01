@@ -208,6 +208,10 @@ class Command(BaseCommand):
 
         roles = ["MEMBER", "VISITOR", "COORDINATOR", "PASTOR"]
         statuses = ["ACTIVE", "SEMIACTIVE", "INACTIVE"]
+        visitor_statuses = [
+            "INVITED",
+            "ATTENDED",
+        ]  # Visitors can only be INVITED or ATTENDED
         genders = ["MALE", "FEMALE"]
         activities = [
             "SUNDAY_SERVICE",
@@ -311,6 +315,12 @@ class Command(BaseCommand):
                 if water_date and random.random() > 0.5:
                     spirit_date = water_date + timedelta(days=random.randint(30, 240))
 
+            # Set status based on role: visitors can only be INVITED or ATTENDED
+            if role_choice == "VISITOR":
+                person_status = random.choice(visitor_statuses)
+            else:
+                person_status = random.choice(statuses)
+
             person = Person(
                 username=username,
                 first_name=first_name,
@@ -318,7 +328,7 @@ class Command(BaseCommand):
                 middle_name=middle_name,
                 email=f"{username}@example.com",
                 role=role_choice,
-                status=random.choice(statuses),
+                status=person_status,
                 gender=random.choice(genders),
                 phone=phone,
                 address=address,

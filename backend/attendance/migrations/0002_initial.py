@@ -9,29 +9,38 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('events', '0001_initial'),
-        ('members', '0001_initial'),
-        ('attendance', '0001_initial'),
+        ("events", "0001_initial"),
+        ("people", "0001_initial"),
+        ("attendance", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='attendance',
-            name='checked_by',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='checked_in_attendances', to='members.user'),
+            model_name="attendance",
+            name="checked_by",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="checked_in_attendances",
+                to="people.person",
+            ),
         ),
         migrations.AddField(
-            model_name='attendance',
-            name='event',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='events.event'),
+            model_name="attendance",
+            name="event",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to="events.event"
+            ),
         ),
         migrations.AddField(
-            model_name='attendance',
-            name='user',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='members.user'),
+            model_name="attendance",
+            name="user",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to="people.person"
+            ),
         ),
         migrations.AlterUniqueTogether(
-            name='attendance',
-            unique_together={('event', 'user')},
+            name="attendance",
+            unique_together={("event", "user")},
         ),
     ]

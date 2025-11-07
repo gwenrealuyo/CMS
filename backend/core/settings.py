@@ -24,10 +24,11 @@ INSTALLED_APPS = [
     # Third-party apps
     "rest_framework",
     "corsheaders",
+    "django_filters",
     # Local apps
     # 'apps.people',
     "apps.people.apps.PeopleConfig",
-    # 'events.apps.EventsConfig',
+    "apps.events.apps.EventsConfig",
     # 'attendance.apps.AttendanceConfig',
     # 'donations.apps.DonationsConfig',
     # 'volunteers.apps.VolunteersConfig',
@@ -70,7 +71,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("DB_NAME", "church_management"),
-        "USER": os.getenv("DB_USER", "postgres"),
+        "USER": os.getenv("DB_USER", "gwenvrhernandez"),
         "PASSWORD": os.getenv("DB_PASSWORD", ""),
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),

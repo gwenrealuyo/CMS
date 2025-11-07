@@ -64,14 +64,8 @@ export const eventsApi = {
   update: (id: string, data: Partial<Event>) =>
     api.put<Event>(`/events/${id}/`, data),
   delete: (id: string) => api.delete(`/events/${id}/`),
-  addVolunteer: (eventId: string, memberId: string) =>
-    api.post(`/events/${eventId}/volunteers/`, { memberId }),
-  removeVolunteer: (eventId: string, memberId: string) =>
-    api.delete(`/events/${eventId}/volunteers/${memberId}/`),
-  markAttendance: (eventId: string, memberId: string) =>
-    api.post(`/events/${eventId}/attendance/`, { memberId }),
-  removeAttendance: (eventId: string, memberId: string) =>
-    api.delete(`/events/${eventId}/attendance/${memberId}/`),
+  excludeOccurrence: (id: string, payload: { date: string }) =>
+    api.post<Event>(`/events/${id}/exclude-occurrence/`, payload),
 };
 
 export const milestonesApi = {

@@ -1,17 +1,11 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import dynamic from "next/dynamic";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
-
-// Lazy load the families tab content
-const FamiliesTabContent = dynamic(
-  () => import("@/src/components/families/FamiliesTabContent"),
-  { ssr: false }
-);
+import FamiliesTabContent from "@/src/components/families/FamiliesTabContent";
 
 export default function FamiliesPage() {
   const { people, peopleUI } = usePeople();

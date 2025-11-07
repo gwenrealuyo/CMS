@@ -1,15 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import { clustersApi } from "@/src/lib/api";
 import { Cluster } from "@/src/types/person";
-
-const ClusterReportsDashboard = dynamic(
-  () => import("@/src/components/reports/ClusterReportsDashboard"),
-  { ssr: false }
-);
+import ClusterReportsDashboard from "@/src/components/reports/ClusterReportsDashboard";
 
 export default function ClusterReportsPage() {
   const [clusters, setClusters] = useState<Cluster[]>([]);

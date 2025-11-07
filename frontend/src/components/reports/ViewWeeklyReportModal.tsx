@@ -583,7 +583,7 @@ export default function ViewWeeklyReportModal({
 
       {/* Person Profile Modal */}
       {showPersonModal && selectedPerson && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] !mt-0">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50] !mt-0">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[95vh] overflow-hidden flex flex-col h-full">
             <PersonProfile
               person={selectedPerson as Person}

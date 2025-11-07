@@ -40,7 +40,7 @@ const navigation = [
     ],
   },
   { name: "Events", href: "/events", icon: CalendarIcon },
-  { name: "Attendance", href: "/attendance", icon: ClipboardDocumentCheckIcon },
+  // { name: "Attendance", href: "/attendance", icon: ClipboardDocumentCheckIcon },
   { name: "Donations", href: "/donations", icon: CurrencyDollarIcon },
   { name: "Volunteers", href: "/volunteers", icon: UserIcon },
   { name: "Lessons", href: "/lessons", icon: BookOpenIcon },

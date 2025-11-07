@@ -18,7 +18,7 @@ from rest_framework.permissions import IsAuthenticated
 
 
 class PersonViewSet(viewsets.ModelViewSet):
-    queryset = Person.objects.all()
+    queryset = Person.objects.all().prefetch_related("clusters", "families")
     serializer_class = PersonSerializer
     # permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]

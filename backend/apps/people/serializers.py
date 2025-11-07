@@ -3,6 +3,7 @@ from .models import Family, Cluster, Milestone, Person, ClusterWeeklyReport
 
 
 class MilestoneSerializer(serializers.ModelSerializer):
+    type_display = serializers.CharField(source="get_type_display", read_only=True)
     user = serializers.PrimaryKeyRelatedField(queryset=Person.objects.all())
     verified_by = serializers.PrimaryKeyRelatedField(
         queryset=Person.objects.all(), allow_null=True, required=False
@@ -17,6 +18,7 @@ class MilestoneSerializer(serializers.ModelSerializer):
             "date",
             "type",
             "description",
+            "type_display",
             "verified_by",
             "created_at",
         ]
@@ -29,6 +31,8 @@ class PersonSerializer(serializers.ModelSerializer):
     )
     photo = serializers.ImageField(required=False, allow_null=True)
     milestones = MilestoneSerializer(many=True, read_only=True)
+    cluster_codes = serializers.SerializerMethodField()
+    family_names = serializers.SerializerMethodField()
 
     class Meta:
         model = Person
@@ -54,6 +58,8 @@ class PersonSerializer(serializers.ModelSerializer):
             "member_id",
             "status",
             "milestones",
+            "cluster_codes",
+            "family_names",
         ]
         read_only_fields = ["username"]
 
@@ -79,6 +85,12 @@ class PersonSerializer(serializers.ModelSerializer):
 
         validated_data["username"] = username
         return super().create(validated_data)
+
+    def get_cluster_codes(self, obj: Person):
+        return [code for code in obj.clusters.values_list("code", flat=True) if code]
+
+    def get_family_names(self, obj: Person):
+        return list(obj.families.values_list("name", flat=True))
 
 
 class FamilySerializer(serializers.ModelSerializer):

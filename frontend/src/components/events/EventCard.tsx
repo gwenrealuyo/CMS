@@ -139,7 +139,7 @@ export default function EventCard({
             </div>
           )}
 
-          {event.volunteer_count !== undefined && event.volunteer_count > 0 && (
+          {event.attendance_count !== undefined && event.attendance_count > 0 && (
             <div className="flex items-center gap-4 text-xs text-gray-500">
               <span className="flex items-center">
                 <svg
@@ -155,8 +155,8 @@ export default function EventCard({
                     d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                   />
                 </svg>
-                {event.volunteer_count} volunteer
-                {event.volunteer_count !== 1 ? "s" : ""}
+                {event.attendance_count} attendee
+                {event.attendance_count !== 1 ? "s" : ""}
               </span>
             </div>
           )}

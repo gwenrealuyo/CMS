@@ -7,7 +7,11 @@ import {
   ClusterWeeklyReport,
   ReportAnalytics,
 } from "@/src/types/person";
-import { Event } from "@/src/types/event";
+import {
+  Event,
+  EventAttendanceRecord,
+  AttendanceStatus,
+} from "@/src/types/event";
 
 const api = axios.create({
   baseURL: "http://localhost:8000/api",
@@ -58,14 +62,85 @@ export const clustersApi = {
 };
 
 export const eventsApi = {
-  getAll: () => api.get<Event[]>("/events/"),
-  getById: (id: string) => api.get<Event>(`/events/${id}/`),
+  getAll: (params?: {
+    include_attendance?: boolean;
+    attendance_date?: string;
+    start?: string;
+    end?: string;
+  }) =>
+    api.get<Event[]>("/events/", {
+      params,
+    }),
+  getById: (
+    id: string,
+    params?: { include_attendance?: boolean; attendance_date?: string }
+  ) =>
+    api.get<Event>(`/events/${id}/`, {
+      params,
+    }),
   create: (data: Partial<Event>) => api.post<Event>("/events/", data),
   update: (id: string, data: Partial<Event>) =>
     api.put<Event>(`/events/${id}/`, data),
   delete: (id: string) => api.delete(`/events/${id}/`),
   excludeOccurrence: (id: string, payload: { date: string }) =>
     api.post<Event>(`/events/${id}/exclude-occurrence/`, payload),
+  listAttendance: (
+    id: string,
+    params?: { occurrence_date?: string }
+  ) =>
+    api.get<EventAttendanceRecord[]>(`/events/${id}/attendance/`, {
+      params,
+    }),
+  addAttendance: (
+    id: string,
+    payload: {
+      person_id: string;
+      occurrence_date: string;
+      status?: AttendanceStatus;
+      notes?: string;
+    }
+  ) =>
+    api.post<{
+      attendance_record: EventAttendanceRecord;
+      event: Event;
+    }>(`/events/${id}/attendance/`, payload),
+  removeAttendance: (id: string, attendanceId: number | string) =>
+    api.delete<{ event: Event }>(
+      `/events/${id}/attendance/${attendanceId}/`
+    ),
+};
+
+export const attendanceApi = {
+  getAll: (params?: {
+    event?: string;
+    person?: string;
+    occurrence_date?: string;
+    status?: AttendanceStatus;
+  }) =>
+    api.get<EventAttendanceRecord[]>("/attendance/", {
+      params,
+    }),
+  byEvent: (eventId: string, params?: { occurrence_date?: string }) =>
+    api.get<EventAttendanceRecord[]>(
+      `/attendance/by-event/${eventId}/`,
+      { params }
+    ),
+  create: (data: {
+    event_id: string;
+    person_id: string;
+    occurrence_date: string;
+    status?: AttendanceStatus;
+    notes?: string;
+  }) => api.post<EventAttendanceRecord>("/attendance/", data),
+  update: (
+    id: string | number,
+    data: Partial<{
+      status: AttendanceStatus;
+      notes: string;
+      occurrence_date: string;
+    }>
+  ) => api.put<EventAttendanceRecord>(`/attendance/${id}/`, data),
+  delete: (id: string | number) => api.delete(`/attendance/${id}/`),
 };
 
 export const milestonesApi = {

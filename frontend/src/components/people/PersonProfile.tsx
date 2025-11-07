@@ -46,6 +46,32 @@ export default function PersonProfile({
     setMilestones(((person.milestones as Milestone[]) || []).slice());
   }, [person.id]);
 
+  const formatMilestoneType = (type: string) => {
+    if (!type) return "";
+    return type
+      .split("_")
+      .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
+  const getMilestoneBadgeClasses = (type: string) => {
+    switch (type) {
+      case "BAPTISM":
+        return "bg-blue-100 text-blue-800";
+      case "SPIRIT":
+        return "bg-orange-100 text-orange-800";
+      case "CLUSTER":
+        return "bg-purple-100 text-purple-800";
+      case "LESSON":
+        return "bg-green-100 text-green-800";
+      case "EVENT_ATTENDANCE":
+        return "bg-sky-100 text-sky-800";
+      case "NOTE":
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   const renderTypeIcon = (type: string) => {
     // Small icons inspired by the header style, per event type
     switch (type) {
@@ -115,9 +141,9 @@ export default function PersonProfile({
         );
       case "LESSON":
         return (
-          <div className="w-5 h-5 rounded-lg bg-green-100 border border-green-200 flex items-center justify-center">
+          <div className="w-6 h-6 rounded-lg bg-green-100 border border-green-200 flex items-center justify-center">
             <svg
-              className="w-3.5 h-3.5 text-green-600"
+              className="w-4 h-4 text-green-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -126,7 +152,31 @@ export default function PersonProfile({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 20l9-5-9-5-9 5 9 5z"
+                d="M12 6.75c-2.5-1.5-4.238-2.25-6-2.25v12c1.762 0 3.5.75 6 2.25m0-12c2.5-1.5 4.238-2.25 6-2.25v12c-1.762 0-3.5.75-6 2.25m0-12v12"
+              />
+            </svg>
+          </div>
+        );
+      case "EVENT_ATTENDANCE":
+        return (
+          <div className="w-6 h-6 rounded-lg bg-sky-100 border border-sky-200 flex items-center justify-center">
+            <svg
+              className="w-4 h-4 text-sky-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 14h.01M14 14h.01M10 18h.01M14 18h.01"
               />
             </svg>
           </div>
@@ -134,9 +184,9 @@ export default function PersonProfile({
       case "NOTE":
       default:
         return (
-          <div className="w-5 h-5 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
             <svg
-              className="w-3.5 h-3.5 text-gray-600"
+              className="w-5 h-5 text-gray-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -145,7 +195,25 @@ export default function PersonProfile({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M8 6h8M8 10h8M8 14h5"
+                d="M8 4h8a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2V6a2 2 0 012-2z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 4.5h8M8 6.5h8"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.5 10h5M9.5 13h5M9.5 16h5"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 6l-1 1.2v9.6L7 18"
               />
             </svg>
           </div>
@@ -702,8 +770,13 @@ export default function PersonProfile({
                                 <div className="font-medium text-gray-900">
                                   {milestone.title}
                                 </div>
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                  {milestone.type}
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${getMilestoneBadgeClasses(
+                                    milestone.type
+                                  )}`}
+                                >
+                                  {milestone.type_display ||
+                                    formatMilestoneType(milestone.type)}
                                 </span>
                               </div>
                               <div className="text-xs text-gray-500 mt-1">

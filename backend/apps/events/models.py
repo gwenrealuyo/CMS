@@ -32,7 +32,6 @@ class Event(models.Model):
     volunteers = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="volunteered_events"
     )
-    # attendees will be handled through attendance app via Attendance model
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
     )

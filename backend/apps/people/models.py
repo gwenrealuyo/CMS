@@ -228,6 +228,7 @@ class Milestone(models.Model):
             ("SPIRIT", "Spirit"),
             ("CLUSTER", "Cluster"),
             ("NOTE", "Note"),
+            ("EVENT_ATTENDANCE", "Event Attendance"),
         ],
     )
     description = models.TextField(blank=True)

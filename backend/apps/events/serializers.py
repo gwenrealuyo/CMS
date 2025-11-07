@@ -1,18 +1,22 @@
+from datetime import date
 from typing import Optional
 
 from django.utils import dateparse, timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
+from apps.attendance.serializers import AttendanceRecordSerializer
 from .models import Event
 from .services.recurrence import clean_weekly_pattern, generate_occurrences
 
 
 class EventSerializer(serializers.ModelSerializer):
-    volunteer_count = serializers.SerializerMethodField()
     type_display = serializers.CharField(source="get_type_display", read_only=True)
     occurrences = serializers.SerializerMethodField()
     next_occurrence = serializers.SerializerMethodField()
+    attendance_count = serializers.SerializerMethodField()
+    attendance_records = serializers.SerializerMethodField()
+    attendee_badges = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
@@ -29,14 +33,16 @@ class EventSerializer(serializers.ModelSerializer):
             "recurrence_pattern",
             "occurrences",
             "next_occurrence",
-            "volunteers",
-            "volunteer_count",
+            "attendee_badges",
+            "attendance_count",
+            "attendance_records",
             "created_at",
         ]
-        read_only_fields = ["volunteers"]
-
-    def get_volunteer_count(self, obj):
-        return obj.volunteers.count()
+        read_only_fields = [
+            "attendee_badges",
+            "attendance_count",
+            "attendance_records",
+        ]
 
     def _parse_dt(self, value: Optional[str]):
         if not value:
@@ -112,3 +118,70 @@ class EventSerializer(serializers.ModelSerializer):
             attrs["recurrence_pattern"] = None
 
         return super().validate(attrs)
+
+    def _should_include_attendance_records(self) -> bool:
+        request = self.context.get("request") if self.context else None
+        if not request:
+            return True
+        flag = request.query_params.get("include_attendance", "")
+        return flag.lower() in {"1", "true", "yes", "on"}
+
+    def _filter_attendance_queryset(self, obj):
+        queryset = obj.attendance_records.all()
+        request = self.context.get("request") if self.context else None
+        if not request:
+            return queryset
+
+        occurrence_date = request.query_params.get("attendance_date")
+        if occurrence_date:
+            try:
+                target_date = date.fromisoformat(occurrence_date)
+                queryset = queryset.filter(occurrence_date=target_date)
+            except ValueError:
+                # Invalid date filters yield empty results
+                queryset = queryset.none()
+        return queryset
+
+    def get_attendance_count(self, obj):
+        return self._filter_attendance_queryset(obj).count()
+
+    def get_attendance_records(self, obj):
+        queryset = self._filter_attendance_queryset(obj)
+        if not self._should_include_attendance_records():
+            return []
+        serializer = AttendanceRecordSerializer(
+            queryset, many=True, context=self.context
+        )
+        return serializer.data
+
+    def get_attendee_badges(self, obj):
+        queryset = self._filter_attendance_queryset(obj)
+        badges = []
+        for record in queryset.select_related("person"):
+            person = record.person
+            cluster_code = (
+                person.clusters.values_list("code", flat=True)
+                .exclude(code__isnull=True)
+                .exclude(code__exact="")
+                .first()
+            )
+            family_name = person.families.values_list("name", flat=True).first()
+            badges.append(
+                {
+                    "id": str(person.pk),
+                    "full_name": " ".join(
+                        filter(
+                            None,
+                            [
+                                person.first_name,
+                                person.middle_name,
+                                person.last_name,
+                                person.suffix,
+                            ],
+                        )
+                    ),
+                    "cluster_code": cluster_code,
+                    "family_name": family_name,
+                }
+            )
+        return badges

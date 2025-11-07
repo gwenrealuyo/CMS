@@ -26,10 +26,9 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_filters",
     # Local apps
-    # 'apps.people',
     "apps.people.apps.PeopleConfig",
     "apps.events.apps.EventsConfig",
-    # 'attendance.apps.AttendanceConfig',
+    "apps.attendance.apps.AttendanceConfig",
     # 'donations.apps.DonationsConfig',
     # 'volunteers.apps.VolunteersConfig',
     # 'lessons.apps.LessonsConfig',

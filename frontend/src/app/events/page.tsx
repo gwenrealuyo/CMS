@@ -51,6 +51,10 @@ export default function EventsPage() {
     updateEvent,
     deleteEvent,
     refreshEvents,
+    getEvent,
+    listAttendance,
+    addAttendance,
+    removeAttendance,
   } = useEvents();
 
   // Debounced search for better performance
@@ -168,6 +172,14 @@ export default function EventsPage() {
     });
   }, [events, debouncedSearchQuery, filterType, filterYear, selectedDate]);
 
+  useEffect(() => {
+    if (!viewEditEvent) return;
+    const updated = events.find((evt) => evt.id === viewEditEvent.id);
+    if (updated && updated !== viewEditEvent) {
+      setViewEditEvent(updated);
+    }
+  }, [events, viewEditEvent]);
+
   const handleCreateEvent = async (eventData: Partial<Event>) => {
     try {
       const result = await createEvent(eventData);
@@ -223,6 +235,20 @@ export default function EventsPage() {
       loading: false,
     });
   };
+
+  const handleViewEvent = useCallback(
+    async (selected: Event) => {
+      setViewEditEvent(selected);
+      setViewMode("view");
+      setIsModalOpen(true);
+      try {
+        await getEvent(selected.id, { include_attendance: true });
+      } catch (error) {
+        console.error("Failed to load event details", error);
+      }
+    },
+    [getEvent]
+  );
 
   const handleDateClick = (date: Date) => {
     if (
@@ -668,11 +694,7 @@ export default function EventsPage() {
             <EventCard
               key={event.id}
               event={event}
-              onView={() => {
-                setViewEditEvent(event);
-                setViewMode("view");
-                setIsModalOpen(true);
-              }}
+              onView={() => handleViewEvent(event)}
               onEdit={() => {
                 setViewEditEvent(event);
                 setViewMode("edit");
@@ -728,6 +750,9 @@ export default function EventsPage() {
               setViewEditEvent(null);
               setViewMode("edit");
             }}
+            listAttendance={listAttendance}
+            addAttendance={addAttendance}
+            removeAttendance={removeAttendance}
           />
         ) : (
           <EventForm

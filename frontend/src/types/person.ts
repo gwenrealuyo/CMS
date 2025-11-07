@@ -22,7 +22,8 @@ export type MilestoneType =
   | "BAPTISM"
   | "SPIRIT"
   | "CLUSTER"
-  | "NOTE";
+  | "NOTE"
+  | "EVENT_ATTENDANCE";
 
 export interface Milestone {
   id: string;
@@ -30,6 +31,7 @@ export interface Milestone {
   title?: string;
   date: string; // ISO date string (YYYY-MM-DD)
   type: MilestoneType;
+  type_display?: string;
   description?: string;
   verified_by?: string; // Person ID
   created_at?: string; // ISO datetime
@@ -73,6 +75,8 @@ export interface Person {
   milestones?: Milestone[];
   groups?: string[]; // Group IDs
   user_permissions?: string[]; // Permission IDs
+  cluster_codes?: string[];
+  family_names?: string[];
 }
 
 // UI-normalized view of a person for components

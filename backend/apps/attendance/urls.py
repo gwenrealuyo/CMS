@@ -1,9 +1,13 @@
-from django.urls import path
-# from . import views
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
-app_name = 'attendance'
+from .views import AttendanceRecordViewSet
+
+app_name = "attendance"
+
+router = DefaultRouter()
+router.register(r"", AttendanceRecordViewSet, basename="attendance-record")
 
 urlpatterns = [
-    # path('', views.AttendanceListCreate.as_view(), name='attendance-list-create'),
-    # path('<int:pk>/', views.AttendanceRetrieveUpdateDestroy.as_view(), name='attendance-detail'),
+    path("", include(router.urls)),
 ]

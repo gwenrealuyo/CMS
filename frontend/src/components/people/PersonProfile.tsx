@@ -62,16 +62,16 @@ export default function PersonProfile({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M3 7l9-4 9 4-9 4-9-4zm0 6l9 4 9-4"
+                d="M12 3.75s5.25 5.148 5.25 9.072A5.25 5.25 0 0112 18.75a5.25 5.25 0 01-5.25-5.928C6.75 8.898 12 3.75 12 3.75z"
               />
             </svg>
           </div>
         );
       case "SPIRIT":
         return (
-          <div className="w-5 h-5 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-orange-100 border border-orange-200 flex items-center justify-center">
             <svg
-              className="w-3.5 h-3.5 text-purple-600"
+              className="w-5 h-5 text-orange-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -80,25 +80,35 @@ export default function PersonProfile({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M5 13l4 4L19 7"
+                d="M12 3c2.4 2.1 4.2 4.4 4.2 6.9 0 3-2.2 5.4-4.2 7.2-2-1.8-4.2-4.2-4.2-7.2C7.8 7.4 9.6 5.1 12 3z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 7.5c1.3 1.2 2.3 2.5 2.3 4.1 0 1.9-1.29 3.3-2.3 4.2-1.01-.9-2.3-2.3-2.3-4.2 0-1.6 1-2.9 2.3-4.1z"
               />
             </svg>
           </div>
         );
       case "CLUSTER":
         return (
-          <div className="w-5 h-5 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center">
             <svg
-              className="w-3.5 h-3.5 text-amber-600"
+              className="w-5 h-5 text-purple-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
+              <circle cx="12" cy="8" r="2.3" strokeWidth={1.5} />
+              <circle cx="9.1" cy="11.4" r="2.3" strokeWidth={1.5} />
+              <circle cx="14.9" cy="11.4" r="2.3" strokeWidth={1.5} />
+              <circle cx="12" cy="15" r="2.3" strokeWidth={1.5} />
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 6v6l4 2"
+                strokeWidth={1.5}
+                d="M12 6.2V4.2m0 0c1.4-.6 2.6-.1 3.5 1"
               />
             </svg>
           </div>

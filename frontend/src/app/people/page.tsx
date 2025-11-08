@@ -1131,10 +1131,12 @@ export default function PeoplePage() {
                 setIsModalOpen(true);
                 setModalType("person");
               }}
-              onDelete={async (p) => {
-                if (confirm(`Delete ${p.username}?`)) {
-                  await deletePerson(p.id);
-                }
+              onDelete={(p) => {
+                setPersonDeleteConfirmation({
+                  isOpen: true,
+                  person: p,
+                  loading: false,
+                });
               }}
               onBulkDelete={handleBulkDelete}
               onBulkExport={handleBulkExport}

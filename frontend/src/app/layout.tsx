@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+
+export const metadata: Metadata = {
+  title: {
+    default: "CMS",
+    template: "%s | CMS",
+  },
+  description: "Church Management System admin dashboard",
+};
 
 const inter = Inter({
   subsets: ["latin"],

@@ -8,6 +8,14 @@ import {
   ReportAnalytics,
 } from "@/src/types/person";
 import {
+  Lesson,
+  LessonCommitmentSettings,
+  LessonProgressSummary,
+  LessonSessionReport,
+  LessonSessionReportInput,
+  PersonLessonProgress,
+} from "@/src/types/lesson";
+import {
   Event,
   EventAttendanceRecord,
   AttendanceStatus,
@@ -84,10 +92,7 @@ export const eventsApi = {
   delete: (id: string) => api.delete(`/events/${id}/`),
   excludeOccurrence: (id: string, payload: { date: string }) =>
     api.post<Event>(`/events/${id}/exclude-occurrence/`, payload),
-  listAttendance: (
-    id: string,
-    params?: { occurrence_date?: string }
-  ) =>
+  listAttendance: (id: string, params?: { occurrence_date?: string }) =>
     api.get<EventAttendanceRecord[]>(`/events/${id}/attendance/`, {
       params,
     }),
@@ -105,9 +110,7 @@ export const eventsApi = {
       event: Event;
     }>(`/events/${id}/attendance/`, payload),
   removeAttendance: (id: string, attendanceId: number | string) =>
-    api.delete<{ event: Event }>(
-      `/events/${id}/attendance/${attendanceId}/`
-    ),
+    api.delete<{ event: Event }>(`/events/${id}/attendance/${attendanceId}/`),
 };
 
 export const attendanceApi = {
@@ -121,10 +124,9 @@ export const attendanceApi = {
       params,
     }),
   byEvent: (eventId: string, params?: { occurrence_date?: string }) =>
-    api.get<EventAttendanceRecord[]>(
-      `/attendance/by-event/${eventId}/`,
-      { params }
-    ),
+    api.get<EventAttendanceRecord[]>(`/attendance/by-event/${eventId}/`, {
+      params,
+    }),
   create: (data: {
     event_id: string;
     person_id: string;
@@ -153,6 +155,76 @@ export const milestonesApi = {
   delete: (id: string) => api.delete(`/people/milestones/${id}/`),
   getByUser: (userId: string) =>
     api.get<Milestone[]>(`/people/milestones/?user=${userId}`),
+};
+
+export const lessonsApi = {
+  getAll: (params?: { include_superseded?: boolean }) =>
+    api.get<Lesson[]>("/lessons/lessons/", { params }),
+  create: (data: Partial<Lesson>) =>
+    api.post<Lesson>("/lessons/lessons/", data),
+  update: (id: number | string, data: Partial<Lesson>) =>
+    api.put<Lesson>(`/lessons/lessons/${id}/`, data),
+  delete: (id: number | string) => api.delete(`/lessons/lessons/${id}/`),
+  getProgress: (params?: {
+    person?: string | number;
+    lesson?: string | number;
+    status?: string;
+  }) =>
+    api.get<PersonLessonProgress[]>("/lessons/progress/", {
+      params,
+    }),
+  updateProgress: (id: number | string, data: Partial<PersonLessonProgress>) =>
+    api.patch<PersonLessonProgress>(`/lessons/progress/${id}/`, data),
+  assign: (payload: {
+    lesson_id: number | string;
+    person_ids: Array<number | string>;
+  }) => api.post<{ created: number }>("/lessons/progress/assign/", payload),
+  complete: (
+    id: number | string,
+    payload: {
+      note?: string;
+      completed_at?: string;
+      completed_by?: number | string;
+    }
+  ) =>
+    api.post<PersonLessonProgress>(
+      `/lessons/progress/${id}/complete/`,
+      payload
+    ),
+  summary: (params?: {
+    lesson?: string | number;
+    version_label?: string;
+    include_superseded?: boolean;
+  }) =>
+    api.get<LessonProgressSummary>("/lessons/progress/summary/", { params }),
+  listSessionReports: (params?: {
+    lesson?: string | number;
+    student?: string | number;
+    teacher?: string | number;
+    date_from?: string;
+    date_to?: string;
+  }) =>
+    api.get<LessonSessionReport[]>("/lessons/session-reports/", { params }),
+  getSessionReport: (id: number | string) =>
+    api.get<LessonSessionReport>(`/lessons/session-reports/${id}/`),
+  createSessionReport: (payload: LessonSessionReportInput) =>
+    api.post<LessonSessionReport>("/lessons/session-reports/", payload),
+  updateSessionReport: (
+    id: number | string,
+    payload: Partial<LessonSessionReportInput>
+  ) => api.put<LessonSessionReport>(`/lessons/session-reports/${id}/`, payload),
+  deleteSessionReport: (id: number | string) =>
+    api.delete(`/lessons/session-reports/${id}/`),
+  getCommitmentForm: () =>
+    api.get<LessonCommitmentSettings>("/lessons/lessons/commitment-form/"),
+  uploadCommitmentForm: (formData: FormData) =>
+    api.post<LessonCommitmentSettings>(
+      "/lessons/lessons/commitment-form/",
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    ),
 };
 
 export interface PaginatedResponse<T> {

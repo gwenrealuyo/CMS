@@ -10,5 +10,5 @@ urlpatterns = [
     path("api/attendance/", include("apps.attendance.urls", namespace="attendance")),
     # path('api/donations/', include('apps.donations.urls')),
     # path('api/volunteers/', include('apps.volunteers.urls')),
-    # path('api/lessons/', include('apps.lessons.urls')),
+    path("api/lessons/", include("apps.lessons.urls", namespace="lessons")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

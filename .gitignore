@@ -44,3 +44,6 @@ db.sqlite3
 # venv
 backend/venv/
 frontend/.next/server/vendor-chunks/axios.js
+
+# lesson commitment form uploads
+backend/media/lessons/commitment_forms/

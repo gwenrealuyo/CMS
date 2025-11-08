@@ -1,9 +1,23 @@
-from django.urls import path
-# from . import views
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
-app_name = 'lessons'
+from .views import (
+    LessonSessionReportViewSet,
+    LessonViewSet,
+    PersonLessonProgressViewSet,
+)
+
+app_name = "lessons"
+
+router = DefaultRouter()
+router.register(r"lessons", LessonViewSet, basename="lesson")
+router.register(r"progress", PersonLessonProgressViewSet, basename="lesson-progress")
+router.register(
+    r"session-reports",
+    LessonSessionReportViewSet,
+    basename="lesson-session-report",
+)
 
 urlpatterns = [
-    # path('', views.LessonListCreate.as_view(), name='lesson-list-create'),
-    # path('<int:pk>/', views.LessonRetrieveUpdateDestroy.as_view(), name='lesson-detail'),
+    path("", include(router.urls)),
 ]

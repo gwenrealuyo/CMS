@@ -113,7 +113,7 @@ export default function ConfirmationModal({
   const styles = getVariantStyles();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
       {/* Background overlay */}
       <div
         className="fixed inset-0 bg-gray-500 bg-opacity-75"

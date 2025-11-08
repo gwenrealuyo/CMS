@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "apps.people.apps.PeopleConfig",
     "apps.events.apps.EventsConfig",
     "apps.attendance.apps.AttendanceConfig",
+    "apps.lessons.apps.LessonsConfig",
     # 'donations.apps.DonationsConfig',
     # 'volunteers.apps.VolunteersConfig',
     # 'lessons.apps.LessonsConfig',

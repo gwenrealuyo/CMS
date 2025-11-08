@@ -1,12 +1,14 @@
 import { ReactNode } from "react";
 
+interface TableColumn<T> {
+  header: string;
+  accessor: keyof T;
+  render?: (value: any, row: T) => ReactNode;
+}
+
 interface TableProps<T> {
   data: T[];
-  columns: {
-    header: string;
-    accessor: keyof T;
-    render?: (value: any) => ReactNode;
-  }[];
+  columns: TableColumn<T>[];
 }
 
 export default function Table<T>({ data, columns }: TableProps<T>) {
@@ -31,7 +33,7 @@ export default function Table<T>({ data, columns }: TableProps<T>) {
               {columns.map((column, j) => (
                 <td key={j} className="px-6 py-4 whitespace-nowrap">
                   {column.render
-                    ? column.render(row[column.accessor])
+                    ? column.render(row[column.accessor], row)
                     : String(row[column.accessor])}
                 </td>
               ))}

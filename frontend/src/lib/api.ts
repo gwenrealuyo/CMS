@@ -20,6 +20,7 @@ import {
   EventAttendanceRecord,
   AttendanceStatus,
 } from "@/src/types/event";
+import { Ministry, MinistryMember, MinistryCreateInput } from "@/src/types/ministry";
 
 const api = axios.create({
   baseURL: "http://localhost:8000/api",
@@ -225,6 +226,32 @@ export const lessonsApi = {
         headers: { "Content-Type": "multipart/form-data" },
       }
     ),
+};
+
+export const ministriesApi = {
+  list: (params?: {
+    search?: string;
+    activity_cadence?: string;
+    category?: string;
+    is_active?: boolean;
+  }) => api.get<Ministry[]>("/ministries/", { params }),
+  retrieve: (id: number | string) => api.get<Ministry>(`/ministries/${id}/`),
+  create: (data: MinistryCreateInput) => api.post<Ministry>("/ministries/", data),
+  update: (id: number | string, data: Partial<Ministry>) =>
+    api.put<Ministry>(`/ministries/${id}/`, data),
+  patch: (id: number | string, data: Partial<Ministry>) =>
+    api.patch<Ministry>(`/ministries/${id}/`, data),
+  delete: (id: number | string) => api.delete(`/ministries/${id}/`),
+};
+
+export const ministryMembersApi = {
+  list: (params?: { ministry?: number | string; role?: string; is_active?: boolean }) =>
+    api.get<MinistryMember[]>("/ministries/members/", { params }),
+  create: (data: Partial<MinistryMember>) =>
+    api.post<MinistryMember>("/ministries/members/", data),
+  update: (id: number | string, data: Partial<MinistryMember>) =>
+    api.put<MinistryMember>(`/ministries/members/${id}/`, data),
+  delete: (id: number | string) => api.delete(`/ministries/members/${id}/`),
 };
 
 export interface PaginatedResponse<T> {

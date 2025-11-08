@@ -12,8 +12,8 @@
 - `backend/`: Django project with local apps under `apps/`
   - `core/`: project settings, ASGI/WSGI, root URLs
   - `apps/people`: active app providing `Person`, `Family`, `Cluster`, `Milestone` and CRUD APIs
-  - other domain apps exist (`events`, `donations`, `lessons`, `volunteers`, `attendance`) but are not wired in settings/urls yet
-- `frontend/`: Next.js app using App Router with pages like `people/`, `dashboard/`, `donations/`, `members/`
+  - other domain apps exist (`events`, `donations`, `lessons`, `ministries`, `attendance`) but are not wired in settings/urls yet
+- `frontend/`: Next.js app using App Router with pages like `people/`, `dashboard/`, `donations/`, `ministries/`
 
 ### Data Flow
 

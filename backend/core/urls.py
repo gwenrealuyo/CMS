@@ -8,7 +8,6 @@ urlpatterns = [
     path("api/people/", include("apps.people.urls", namespace="people")),
     path("api/events/", include("apps.events.urls")),
     path("api/attendance/", include("apps.attendance.urls", namespace="attendance")),
-    # path('api/donations/', include('apps.donations.urls')),
-    # path('api/volunteers/', include('apps.volunteers.urls')),
+    path("api/ministries/", include("apps.ministries.urls", namespace="ministries")),
     path("api/lessons/", include("apps.lessons.urls", namespace="lessons")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

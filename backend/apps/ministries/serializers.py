@@ -1,0 +1,119 @@
+import json
+
+from django.contrib.auth import get_user_model
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+
+from .models import Ministry, MinistryMember
+
+User = get_user_model()
+
+
+class UserSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "username", "first_name", "last_name", "email")
+
+
+class MinistryMemberSerializer(serializers.ModelSerializer):
+    member = UserSummarySerializer(read_only=True)
+    member_id = serializers.PrimaryKeyRelatedField(
+        source="member",
+        queryset=User.objects.all(),
+        write_only=True,
+    )
+
+    class Meta:
+        model = MinistryMember
+        fields = (
+            "id",
+            "ministry",
+            "member",
+            "member_id",
+            "role",
+            "join_date",
+            "is_active",
+            "availability",
+            "skills",
+            "notes",
+        )
+        read_only_fields = ("join_date",)
+
+
+class MinistrySerializer(serializers.ModelSerializer):
+    primary_coordinator = UserSummarySerializer(read_only=True)
+    primary_coordinator_id = serializers.PrimaryKeyRelatedField(
+        source="primary_coordinator",
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    support_coordinators = UserSummarySerializer(many=True, read_only=True)
+    support_coordinator_ids = serializers.PrimaryKeyRelatedField(
+        source="support_coordinators",
+        queryset=User.objects.all(),
+        many=True,
+        required=False,
+        write_only=True,
+    )
+    memberships = MinistryMemberSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Ministry
+        fields = (
+            "id",
+            "name",
+            "description",
+            "category",
+            "activity_cadence",
+            "primary_coordinator",
+            "primary_coordinator_id",
+            "support_coordinators",
+            "support_coordinator_ids",
+            "meeting_location",
+            "meeting_schedule",
+            "communication_channel",
+            "is_active",
+            "created_at",
+            "updated_at",
+            "memberships",
+        )
+        read_only_fields = ("created_at", "updated_at")
+
+    def validate_meeting_schedule(self, value):
+        if value in (None, "", {}):
+            return None
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValidationError("Meeting schedule must be valid JSON.") from exc
+            if not isinstance(parsed, dict):
+                raise ValidationError("Meeting schedule must be a JSON object.")
+            return parsed
+
+        if isinstance(value, dict):
+            return value
+
+        raise ValidationError("Meeting schedule must be a JSON object.")
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        primary = attrs.get("primary_coordinator")
+
+        if "support_coordinators" in attrs and attrs["support_coordinators"]:
+            unique = []
+            seen_ids = set()
+            for coordinator in attrs["support_coordinators"]:
+                if coordinator is None:
+                    continue
+                if primary and coordinator.pk == primary.pk:
+                    continue
+                if coordinator.pk not in seen_ids:
+                    unique.append(coordinator)
+                    seen_ids.add(coordinator.pk)
+            attrs["support_coordinators"] = unique
+
+        return attrs

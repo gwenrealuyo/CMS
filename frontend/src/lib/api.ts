@@ -20,7 +20,23 @@ import {
   EventAttendanceRecord,
   AttendanceStatus,
 } from "@/src/types/event";
-import { Ministry, MinistryMember, MinistryCreateInput } from "@/src/types/ministry";
+import {
+  Ministry,
+  MinistryMember,
+  MinistryCreateInput,
+} from "@/src/types/ministry";
+import {
+  Donation,
+  DonationPurpose,
+  Offering,
+  OfferingWeeklySummary,
+  PaymentMethod,
+  Pledge,
+  PledgeStatus,
+  PledgeSummary,
+  PledgeContribution,
+  PledgeContributionInput,
+} from "@/src/types/finance";
 
 const api = axios.create({
   baseURL: "http://localhost:8000/api",
@@ -204,8 +220,7 @@ export const lessonsApi = {
     teacher?: string | number;
     date_from?: string;
     date_to?: string;
-  }) =>
-    api.get<LessonSessionReport[]>("/lessons/session-reports/", { params }),
+  }) => api.get<LessonSessionReport[]>("/lessons/session-reports/", { params }),
   getSessionReport: (id: number | string) =>
     api.get<LessonSessionReport>(`/lessons/session-reports/${id}/`),
   createSessionReport: (payload: LessonSessionReportInput) =>
@@ -236,7 +251,8 @@ export const ministriesApi = {
     is_active?: boolean;
   }) => api.get<Ministry[]>("/ministries/", { params }),
   retrieve: (id: number | string) => api.get<Ministry>(`/ministries/${id}/`),
-  create: (data: MinistryCreateInput) => api.post<Ministry>("/ministries/", data),
+  create: (data: MinistryCreateInput) =>
+    api.post<Ministry>("/ministries/", data),
   update: (id: number | string, data: Partial<Ministry>) =>
     api.put<Ministry>(`/ministries/${id}/`, data),
   patch: (id: number | string, data: Partial<Ministry>) =>
@@ -245,8 +261,11 @@ export const ministriesApi = {
 };
 
 export const ministryMembersApi = {
-  list: (params?: { ministry?: number | string; role?: string; is_active?: boolean }) =>
-    api.get<MinistryMember[]>("/ministries/members/", { params }),
+  list: (params?: {
+    ministry?: number | string;
+    role?: string;
+    is_active?: boolean;
+  }) => api.get<MinistryMember[]>("/ministries/members/", { params }),
   create: (data: Partial<MinistryMember>) =>
     api.post<MinistryMember>("/ministries/members/", data),
   update: (id: number | string, data: Partial<MinistryMember>) =>
@@ -288,6 +307,270 @@ export const clusterWeeklyReportsApi = {
       params,
     }),
   getOverdue: () => api.get("/people/cluster-weekly-reports/overdue/"),
+};
+
+const mapDonation = (payload: any): Donation => ({
+  id: payload.id,
+  amount: Number(payload.amount ?? 0),
+  date: payload.date,
+  purpose: payload.purpose as DonationPurpose,
+  donorId: payload.donor ?? null,
+  donorName: payload.donor_name ?? payload.donorName ?? null,
+  notes: payload.notes ?? null,
+  paymentMethod: payload.payment_method as PaymentMethod,
+  isAnonymous: Boolean(payload.is_anonymous),
+  receiptNumber: payload.receipt_number,
+  recordedById: payload.recorded_by ?? null,
+  recordedByName: payload.recorded_by_name ?? null,
+  createdAt: payload.created_at,
+});
+
+const mapOffering = (payload: any): Offering => ({
+  id: payload.id,
+  serviceDate: payload.service_date,
+  serviceName: payload.service_name,
+  fund: payload.fund ?? null,
+  amount: Number(payload.amount ?? 0),
+  notes: payload.notes ?? null,
+  recordedByName: payload.recorded_by_name ?? null,
+  createdAt: payload.created_at,
+});
+
+const mapPledgeContribution = (payload: any): PledgeContribution => ({
+  id: payload.id,
+  pledgeId: payload.pledge,
+  contributorId: payload.contributor ?? null,
+  contributorName: payload.contributor_name ?? null,
+  amount: Number(payload.amount ?? 0),
+  contributionDate: payload.contribution_date,
+  note: payload.note ?? null,
+  recordedById: payload.recorded_by ?? null,
+  recordedByName: payload.recorded_by_name ?? null,
+  createdAt: payload.created_at,
+  updatedAt: payload.updated_at,
+});
+
+const mapPledge = (payload: any): Pledge => {
+  const pledgeAmount = Number(payload.pledge_amount ?? 0);
+  const contributionsTotal = Number(
+    payload.contributions_total ?? payload.amount_received ?? 0
+  );
+  const amountReceived = contributionsTotal;
+  const balance =
+    payload.balance !== undefined && payload.balance !== null
+      ? Number(payload.balance)
+      : pledgeAmount - amountReceived;
+  const contributions = Array.isArray(payload.contributions)
+    ? payload.contributions.map(mapPledgeContribution)
+    : [];
+  const progressPercent =
+    payload.progress_percent !== undefined && payload.progress_percent !== null
+      ? Number(payload.progress_percent)
+      : pledgeAmount
+      ? (amountReceived / pledgeAmount) * 100
+      : 0;
+
+  return {
+    id: payload.id,
+    pledgeTitle: payload.pledge_title,
+    pledgeAmount,
+    amountReceived,
+    contributionsTotal,
+    balance,
+    progressPercent,
+    startDate: payload.start_date,
+    targetDate: payload.target_date ?? null,
+    purpose: payload.purpose ?? null,
+    status: payload.status as PledgeStatus,
+    notes: payload.notes ?? null,
+    pledgerId: payload.pledger ?? null,
+    pledgerName: payload.pledger_name ?? null,
+    recordedByName: payload.recorded_by_name ?? null,
+    createdAt: payload.created_at,
+    updatedAt: payload.updated_at,
+    contributions,
+  };
+};
+
+const toDonationPayload = (donation: Partial<Donation>) => ({
+  donor: donation.donorId ?? null,
+  amount: donation.amount,
+  date: donation.date,
+  purpose: donation.purpose,
+  is_anonymous: donation.isAnonymous,
+  payment_method: donation.paymentMethod,
+  receipt_number: donation.receiptNumber,
+  notes: donation.notes,
+});
+
+const toOfferingPayload = (offering: Partial<Offering>) => ({
+  service_date: offering.serviceDate,
+  service_name: offering.serviceName,
+  fund: offering.fund,
+  amount: offering.amount,
+  notes: offering.notes,
+});
+
+const toPledgePayload = (pledge: Partial<Pledge>) => ({
+  pledger: pledge.pledgerId ?? null,
+  pledge_title: pledge.pledgeTitle,
+  pledge_amount: pledge.pledgeAmount,
+  amount_received: pledge.amountReceived ?? pledge.contributionsTotal ?? 0,
+  start_date: pledge.startDate,
+  target_date: pledge.targetDate,
+  purpose: pledge.purpose,
+  status: pledge.status,
+  notes: pledge.notes,
+});
+
+const toPledgeContributionPayload = (
+  pledgeId: number | string,
+  payload: PledgeContributionInput
+) => ({
+  pledge: pledgeId,
+  contributor: payload.contributorId ?? null,
+  amount: payload.amount,
+  contribution_date: payload.contributionDate,
+  note: payload.note,
+});
+
+export const financeApi = {
+  listDonations: (params?: { start?: string; end?: string }) =>
+    api
+      .get("/finance/donations/", { params })
+      .then(
+        (response) => (response.data as any[]).map(mapDonation) as Donation[]
+      ),
+  createDonation: (payload: Partial<Donation>) =>
+    api
+      .post("/finance/donations/", toDonationPayload(payload))
+      .then((response) => mapDonation(response.data)),
+  updateDonation: (id: number | string, payload: Partial<Donation>) =>
+    api
+      .put(`/finance/donations/${id}/`, toDonationPayload(payload))
+      .then((response) => mapDonation(response.data)),
+  deleteDonation: (id: number | string) =>
+    api.delete(`/finance/donations/${id}/`),
+  donationStats: (params?: { start?: string; end?: string }) =>
+    api.get("/finance/donations/stats/", { params }).then((response) => ({
+      totalAmount: Number(response.data.total_amount ?? 0),
+      donationCount: Number(response.data.donation_count ?? 0),
+      averageDonation: Number(response.data.average_donation ?? 0),
+      purposeBreakdown: response.data.purpose_breakdown ?? {},
+    })),
+  listOfferings: (params?: { start?: string; end?: string }) =>
+    api
+      .get("/finance/offerings/", { params })
+      .then(
+        (response) => (response.data as any[]).map(mapOffering) as Offering[]
+      ),
+  createOffering: (payload: Partial<Offering>) =>
+    api
+      .post("/finance/offerings/", toOfferingPayload(payload))
+      .then((response) => mapOffering(response.data)),
+  updateOffering: (id: number | string, payload: Partial<Offering>) =>
+    api
+      .put(`/finance/offerings/${id}/`, toOfferingPayload(payload))
+      .then((response) => mapOffering(response.data)),
+  deleteOffering: (id: number | string) =>
+    api.delete(`/finance/offerings/${id}/`),
+  weeklyOfferingSummary: (params?: { start?: string; end?: string }) =>
+    api.get("/finance/offerings/weekly_summary/", { params }).then((response) =>
+      (response.data as any[]).map(
+        (row) =>
+          ({
+            weekStart: row.week_start ?? row.weekStart ?? null,
+            totalAmount: Number(row.total_amount ?? row.totalAmount ?? 0),
+          } as OfferingWeeklySummary)
+      )
+    ),
+  listPledges: (params?: { status?: PledgeStatus | PledgeStatus[] }) =>
+    api
+      .get("/finance/pledges/", {
+        params: Array.isArray(params?.status)
+          ? { status: params?.status }
+          : params?.status
+          ? { status: [params.status] }
+          : undefined,
+      })
+      .then((response) => (response.data as any[]).map(mapPledge) as Pledge[]),
+  createPledge: (payload: Partial<Pledge>) =>
+    api
+      .post("/finance/pledges/", toPledgePayload(payload))
+      .then((response) => mapPledge(response.data)),
+  updatePledge: (id: number | string, payload: Partial<Pledge>) =>
+    api
+      .put(`/finance/pledges/${id}/`, toPledgePayload(payload))
+      .then((response) => mapPledge(response.data)),
+  deletePledge: (id: number | string) => api.delete(`/finance/pledges/${id}/`),
+  listPledgeContributions: (pledgeId: number | string) =>
+    api
+      .get("/finance/pledge-contributions/", {
+        params: { pledge: pledgeId },
+      })
+      .then((response) => {
+        const data = response.data;
+        if (!Array.isArray(data)) {
+          console.error("Expected array but got:", data);
+          return [];
+        }
+        return data.map(mapPledgeContribution) as PledgeContribution[];
+      }),
+  listAllPledgeContributions: (params?: { start?: string; end?: string }) =>
+    api
+      .get("/finance/pledge-contributions/", { params })
+      .then(
+        (response) =>
+          (response.data as any[]).map(
+            mapPledgeContribution
+          ) as PledgeContribution[]
+      ),
+  createPledgeContribution: (
+    pledgeId: number | string,
+    payload: PledgeContributionInput
+  ) =>
+    api
+      .post(
+        "/finance/pledge-contributions/",
+        toPledgeContributionPayload(pledgeId, payload)
+      )
+      .then((response) => mapPledgeContribution(response.data)),
+  updatePledgeContribution: (
+    id: number | string,
+    pledgeId: number | string,
+    payload: PledgeContributionInput
+  ) =>
+    api
+      .put(
+        `/finance/pledge-contributions/${id}/`,
+        toPledgeContributionPayload(pledgeId, payload)
+      )
+      .then((response) => mapPledgeContribution(response.data)),
+  deletePledgeContribution: (id: number | string) =>
+    api.delete(`/finance/pledge-contributions/${id}/`),
+  pledgeSummary: (params?: { status?: PledgeStatus[] }) =>
+    api
+      .get("/finance/pledges/summary/", {
+        params: params?.status ? { status: params.status } : undefined,
+      })
+      .then((response) =>
+        (response.data as any[]).map(
+          (row) =>
+            ({
+              id: row.id,
+              pledgeTitle: row.pledge_title ?? row.pledgeTitle,
+              pledgeAmount: Number(row.pledge_amount ?? row.pledgeAmount ?? 0),
+              amountReceived: Number(
+                row.amount_received ?? row.amountReceived ?? 0
+              ),
+              balance: Number(row.balance ?? 0),
+              progressPercent: Number(
+                row.progress_percent ?? row.progressPercent ?? 0
+              ),
+              status: (row.status ?? row.status) as PledgeStatus,
+            } as PledgeSummary)
+        )
+      ),
 };
 
 export default api;

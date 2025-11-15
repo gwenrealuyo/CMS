@@ -373,7 +373,7 @@ export default function ClusterForm({
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {filteredFamilies.length === 0 ? (
                   <div className="px-3 py-2 text-gray-500 text-sm">
-                    No families found matching "{familySearch}"
+                    No families found matching &ldquo;{familySearch}&rdquo;
                   </div>
                 ) : (
                   filteredFamilies.map((family) => (
@@ -490,7 +490,7 @@ export default function ClusterForm({
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {filteredMembers.length === 0 ? (
                   <div className="px-3 py-2 text-gray-500 text-sm">
-                    No members found matching "{memberSearch}"
+                    No members found matching &ldquo;{memberSearch}&rdquo;
                   </div>
                 ) : (
                   filteredMembers.map((member) => (

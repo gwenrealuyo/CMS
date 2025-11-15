@@ -31,9 +31,6 @@ export default function AddFamilyMemberModal({
     }
   }, [isOpen, family]);
 
-  // Don't render if no family data
-  if (!isOpen || !family) return null;
-
   // Filter members based on search
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return peopleUI;
@@ -139,6 +136,9 @@ export default function AddFamilyMemberModal({
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  // Don't render if no family data
+  if (!isOpen || !family) return null;
 
   if (!isOpen) return null;
 

@@ -41,7 +41,7 @@ const navigation = [
   },
   { name: "Events", href: "/events", icon: CalendarIcon },
   // { name: "Attendance", href: "/attendance", icon: ClipboardDocumentCheckIcon },
-  { name: "Donations", href: "/donations", icon: CurrencyDollarIcon },
+  { name: "Finance", href: "/finance", icon: CurrencyDollarIcon },
   { name: "Ministries", href: "/ministries", icon: UserGroupIcon },
   { name: "Lessons", href: "/lessons", icon: BookOpenIcon },
 ];

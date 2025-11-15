@@ -394,8 +394,8 @@ export default function ClusterView({
                   No members or families
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  This cluster doesn't have any members or families assigned
-                  yet.
+                  This cluster doesn&rsquo;t have any members or families
+                  assigned yet.
                 </p>
                 <div className="mt-4">
                   <Button

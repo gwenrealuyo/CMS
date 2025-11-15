@@ -191,7 +191,7 @@ export default function Dashboard() {
     },
   ];
 
-  const monthlyDonations = [
+  const monthlyGiving = [
     { label: "September 2025", amount: "₱120,500", change: "+8%" },
     { label: "October 2025", amount: "₱128,300", change: "+6%" },
     { label: "November 2025", amount: "₱54,900", change: "Month-to-date" },
@@ -387,13 +387,13 @@ export default function Dashboard() {
 
           <Card>
             <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
-              Monthly Donations
+              Monthly Giving Snapshot
             </h3>
             <p className="text-xs text-gray-500 mb-3">
               Placeholder giving snapshot for quick reference.
             </p>
             <div className="space-y-3">
-              {monthlyDonations.map((entry) => (
+              {monthlyGiving.map((entry) => (
                 <div
                   key={entry.label}
                   className="border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600"

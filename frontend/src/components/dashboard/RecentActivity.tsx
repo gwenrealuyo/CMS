@@ -23,8 +23,8 @@ export default function RecentActivity() {
     },
     {
       id: "3",
-      type: "donation",
-      description: "New donation received",
+      type: "finance",
+      description: "Finance entry recorded for Building Fund",
       timestamp: "1 day ago",
     },
   ];

@@ -20,10 +20,10 @@ const ACTIONS = [
     blurb: "Schedule services, clusters, or special gatherings.",
   },
   {
-    label: "Record Donation",
-    href: "/donations/new",
+    label: "Open Finance",
+    href: "/finance",
     icon: HandCoins,
-    blurb: "Log offerings, tithes, and faith pledges.",
+    blurb: "Track donations, offerings, and pledges.",
   },
   {
     label: "Take Attendance",

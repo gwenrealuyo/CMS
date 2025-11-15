@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
-class DonationsConfig(AppConfig):
+class FinanceConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'donations'
-    verbose_name = 'Donations'
+    name = 'apps.finance'
+    verbose_name = 'Finance'

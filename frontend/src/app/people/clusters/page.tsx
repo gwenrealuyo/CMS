@@ -969,8 +969,9 @@ export default function ClustersPage() {
           >
             <div className="space-y-4">
               <p className="text-sm text-gray-700">
-                Are you sure you want to delete "{familyDelete.family?.name}"
-                family? This action cannot be undone.
+                Are you sure you want to delete &ldquo;
+                {familyDelete.family?.name}&rdquo; family? This action cannot be
+                undone.
               </p>
               <div className="flex justify-end gap-2">
                 <Button

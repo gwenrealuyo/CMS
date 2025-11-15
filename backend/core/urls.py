@@ -10,4 +10,7 @@ urlpatterns = [
     path("api/attendance/", include("apps.attendance.urls", namespace="attendance")),
     path("api/ministries/", include("apps.ministries.urls", namespace="ministries")),
     path("api/lessons/", include("apps.lessons.urls", namespace="lessons")),
+    path(
+        "api/finance/", include(("apps.finance.urls", "finance"), namespace="finance")
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

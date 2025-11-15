@@ -9,7 +9,7 @@
   - People: search, filter (role, date range), table listing via `PeopleTable`
   - Create person via `PersonForm` (uses `usePeople` hook → backend)
   - Families: cards via `FamilyCard`; local state create/delete (UI stub)
-- `src/app/donations/page.tsx`: Placeholder/section for donations
+- `src/app/finance/page.tsx`: Finance hub for donations, offerings, and pledges
 - `src/app/members/page.tsx`: Members listing placeholder
 
 ### Hooks & Components (referenced)

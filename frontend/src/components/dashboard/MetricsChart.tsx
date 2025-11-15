@@ -10,10 +10,10 @@ import {
 } from "recharts";
 
 const data = [
-  { name: "Week 1", attendance: 150, donations: 2500 },
-  { name: "Week 2", attendance: 165, donations: 3000 },
-  { name: "Week 3", attendance: 180, donations: 2800 },
-  { name: "Week 4", attendance: 172, donations: 3200 },
+  { name: "Week 1", attendance: 150, giving: 2500 },
+  { name: "Week 2", attendance: 165, giving: 3000 },
+  { name: "Week 3", attendance: 180, giving: 2800 },
+  { name: "Week 4", attendance: 172, giving: 3200 },
 ];
 
 export default function MetricsChart() {
@@ -36,12 +36,7 @@ export default function MetricsChart() {
               dataKey="attendance"
               stroke="#2563EB"
             />
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="donations"
-              stroke="#4A5568"
-            />
+            <Line yAxisId="right" type="monotone" dataKey="giving" stroke="#4A5568" />
           </LineChart>
         </ResponsiveContainer>
       </div>

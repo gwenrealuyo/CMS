@@ -298,7 +298,7 @@ export default function MinistryForm({
             </ul>
           ) : (
             <p className="mt-2 text-xs text-gray-500">
-              Add as many coordinating team members as needed. They'll appear here once added.
+              Add as many coordinating team members as needed. They&rsquo;ll appear here once added.
             </p>
           )}
         </div>
@@ -429,4 +429,7 @@ export default function MinistryForm({
     </form>
   );
 }
+
+
+
 

@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
-import { Lesson, LessonSessionReport, LessonSessionReportInput } from "@/src/types/lesson";
+import {
+  Lesson,
+  LessonSessionReport,
+  LessonSessionReportInput,
+} from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 
 export interface LessonSessionReportFormProps {
   report?: LessonSessionReport | null;
@@ -66,24 +71,39 @@ export default function LessonSessionReportForm({
     [people]
   );
 
-  const defaultState: FormState = {
-    teacherId:
-      report?.teacher?.id?.toString() ?? defaultTeacherId?.toString() ?? "",
-    studentId:
-      report?.student?.id?.toString() ?? defaultStudentId?.toString() ?? "",
-    lessonId:
-      report?.lesson?.id?.toString() ?? defaultLessonId?.toString() ?? "",
-    sessionDate: report?.session_date ?? new Date().toISOString().slice(0, 10),
-    sessionStart:
-      toLocalDateTimeValue(report?.session_start) ||
-      new Date().toISOString().slice(0, 16),
-    score: report?.score ?? "",
-    nextSessionDate: report?.next_session_date ?? "",
-    remarks: report?.remarks ?? "",
-  };
+  const studentOptions = useMemo(() => {
+    return [...people].sort((first, second) => {
+      const nameA = formatPersonName(first);
+      const nameB = formatPersonName(second);
+      return nameA.localeCompare(nameB);
+    });
+  }, [people]);
+
+  const defaultState = useMemo(
+    (): FormState => ({
+      teacherId:
+        report?.teacher?.id?.toString() ?? defaultTeacherId?.toString() ?? "",
+      studentId:
+        report?.student?.id?.toString() ?? defaultStudentId?.toString() ?? "",
+      lessonId:
+        report?.lesson?.id?.toString() ?? defaultLessonId?.toString() ?? "",
+      sessionDate:
+        report?.session_date ?? new Date().toISOString().slice(0, 10),
+      sessionStart:
+        toLocalDateTimeValue(report?.session_start) ||
+        new Date().toISOString().slice(0, 16),
+      score: report?.score ?? "",
+      nextSessionDate: report?.next_session_date ?? "",
+      remarks: report?.remarks ?? "",
+    }),
+    [report, defaultTeacherId, defaultStudentId, defaultLessonId]
+  );
 
   const [formState, setFormState] = useState<FormState>(defaultState);
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof FormState, string>>
+  >({});
   const [teacherQuery, setTeacherQuery] = useState("");
   const [studentQuery, setStudentQuery] = useState("");
   const [isTeacherDropdownOpen, setTeacherDropdownOpen] = useState(false);
@@ -94,20 +114,13 @@ export default function LessonSessionReportForm({
     const teacherMatch = teacherOptions.find(
       (person) => person.id?.toString() === defaultState.teacherId
     );
-    setTeacherQuery(teacherMatch ? buildPersonName(teacherMatch) : "");
+    setTeacherQuery(teacherMatch ? formatPersonName(teacherMatch) : "");
 
     const studentMatch = studentOptions.find(
       (person) => person.id?.toString() === defaultState.studentId
     );
-    setStudentQuery(studentMatch ? buildPersonName(studentMatch) : "");
-  }, [
-    report,
-    defaultLessonId,
-    defaultTeacherId,
-    defaultStudentId,
-    teacherOptions,
-    studentOptions,
-  ]);
+    setStudentQuery(studentMatch ? formatPersonName(studentMatch) : "");
+  }, [defaultState, teacherOptions, studentOptions]);
 
   const lessonOptions = useMemo(() => {
     if (!lessons.length) {
@@ -127,19 +140,11 @@ export default function LessonSessionReportForm({
       return teacherOptions;
     }
     return teacherOptions.filter((person) => {
-      const name = buildPersonName(person).toLowerCase();
+      const name = formatPersonName(person).toLowerCase();
       const username = person.username?.toLowerCase() ?? "";
       return name.includes(query) || username.includes(query);
     });
   }, [teacherOptions, teacherQuery]);
-
-  const studentOptions = useMemo(() => {
-    return [...people].sort((first, second) => {
-      const nameA = buildPersonName(first);
-      const nameB = buildPersonName(second);
-      return nameA.localeCompare(nameB);
-    });
-  }, [people]);
 
   const filteredStudentOptions = useMemo(() => {
     const query = studentQuery.trim().toLowerCase();
@@ -147,17 +152,31 @@ export default function LessonSessionReportForm({
       return studentOptions;
     }
     return studentOptions.filter((person) => {
-      const name = buildPersonName(person).toLowerCase();
+      const name = formatPersonName(person).toLowerCase();
       const username = person.username?.toLowerCase() ?? "";
       const memberId = person.member_id?.toLowerCase() ?? "";
       return (
-        name.includes(query) || username.includes(query) || memberId.includes(query)
+        name.includes(query) ||
+        username.includes(query) ||
+        memberId.includes(query)
       );
     });
   }, [studentOptions, studentQuery]);
 
   const handleChange = (field: keyof FormState, value: string) => {
     setFormState((previous) => ({ ...previous, [field]: value }));
+    // Clear field error when user starts typing
+    if (fieldErrors[field]) {
+      setFieldErrors((previous) => {
+        const updated = { ...previous };
+        delete updated[field];
+        return updated;
+      });
+    }
+    // Clear general form error
+    if (formError) {
+      setFormError(null);
+    }
   };
 
   const teacherDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -188,35 +207,62 @@ export default function LessonSessionReportForm({
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const { teacherId, studentId, lessonId, sessionDate, sessionStart } =
-      formState;
+    const {
+      teacherId,
+      studentId,
+      lessonId,
+      sessionDate,
+      sessionStart,
+      nextSessionDate,
+    } = formState;
+
+    const errors: Partial<Record<keyof FormState, string>> = {};
 
     if (!studentId) {
-      setFormError("Select a student for this session.");
-      return;
+      errors.studentId = "Select a student for this session.";
     }
 
     if (!lessonId) {
-      setFormError("Select the lesson covered in this session.");
-      return;
+      errors.lessonId = "Select the lesson covered in this session.";
     }
 
     if (!sessionDate) {
-      setFormError("Provide the date when the session happened.");
-      return;
+      errors.sessionDate = "Provide the date when the session happened.";
     }
 
     if (!sessionStart) {
-      setFormError("Provide the start time for the session.");
+      errors.sessionStart = "Provide the start time for the session.";
+    } else {
+      const sessionStartDate = new Date(sessionStart);
+      if (Number.isNaN(sessionStartDate.getTime())) {
+        errors.sessionStart = "The session start time is invalid.";
+      }
+    }
+
+    // Validate next_session_date is after session_date
+    if (nextSessionDate && sessionDate) {
+      const nextDate = new Date(nextSessionDate);
+      const sessionDateObj = new Date(sessionDate);
+      if (
+        !Number.isNaN(nextDate.getTime()) &&
+        !Number.isNaN(sessionDateObj.getTime())
+      ) {
+        if (nextDate <= sessionDateObj) {
+          errors.nextSessionDate =
+            "Next session date must be after the session date.";
+        }
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setFormError("Please fix the errors below.");
       return;
     }
+
+    setFieldErrors({});
 
     const sessionStartDate = new Date(sessionStart);
-    if (Number.isNaN(sessionStartDate.getTime())) {
-      setFormError("The session start time is invalid.");
-      return;
-    }
-
     const payload: LessonSessionReportInput = {
       teacher_id: teacherId ? Number(teacherId) : undefined,
       student_id: Number(studentId),
@@ -240,11 +286,15 @@ export default function LessonSessionReportForm({
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2" ref={teacherDropdownRef}>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="teacher-search"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Teacher
           </label>
           <div className="relative">
             <input
+              id="teacher-search"
               type="text"
               value={teacherQuery}
               onChange={(event) => {
@@ -252,13 +302,30 @@ export default function LessonSessionReportForm({
                 setTeacherDropdownOpen(true);
               }}
               onFocus={() => setTeacherDropdownOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setTeacherDropdownOpen(false);
+                }
+              }}
               placeholder="Search teacher by name or username..."
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              aria-label="Search for teacher"
+              aria-expanded={isTeacherDropdownOpen}
+              aria-haspopup="listbox"
+              aria-controls="teacher-options"
             />
             {isTeacherDropdownOpen && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+              <div
+                id="teacher-options"
+                role="listbox"
+                className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto"
+                aria-label="Teacher options"
+              >
                 {filteredTeacherOptions.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-gray-500">
+                  <div
+                    className="px-3 py-2 text-sm text-gray-500"
+                    role="option"
+                  >
                     No teachers match your search.
                   </div>
                 ) : (
@@ -266,16 +333,20 @@ export default function LessonSessionReportForm({
                     <button
                       key={person.id}
                       type="button"
+                      role="option"
+                      aria-selected={
+                        formState.teacherId === person.id?.toString()
+                      }
                       onClick={() => {
                         handleChange("teacherId", person.id.toString());
-                        setTeacherQuery(buildPersonName(person));
+                        setTeacherQuery(formatPersonName(person));
                         setTeacherDropdownOpen(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
                     >
                       <div className="flex flex-col">
                         <span className="font-medium text-gray-800">
-                          {buildPersonName(person)}
+                          {formatPersonName(person)}
                         </span>
                         <span className="text-xs text-gray-500">
                           {person.username}
@@ -293,11 +364,18 @@ export default function LessonSessionReportForm({
         </div>
 
         <div className="space-y-2" ref={studentDropdownRef}>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Student
+          <label
+            htmlFor="student-search"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Student{" "}
+            <span className="text-red-500" aria-label="required">
+              *
+            </span>
           </label>
           <div className="relative">
             <input
+              id="student-search"
               type="text"
               value={studentQuery}
               onChange={(event) => {
@@ -305,14 +383,39 @@ export default function LessonSessionReportForm({
                 setStudentDropdownOpen(true);
               }}
               onFocus={() => setStudentDropdownOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setStudentDropdownOpen(false);
+                }
+              }}
               placeholder="Search student by name, username, or member ID..."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                fieldErrors.studentId
+                  ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              }`}
               required
+              aria-invalid={!!fieldErrors.studentId}
+              aria-describedby={
+                fieldErrors.studentId ? "student-error" : undefined
+              }
+              aria-label="Search for student"
+              aria-expanded={isStudentDropdownOpen}
+              aria-haspopup="listbox"
+              aria-controls="student-options"
             />
             {isStudentDropdownOpen && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+              <div
+                id="student-options"
+                role="listbox"
+                className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto"
+                aria-label="Student options"
+              >
                 {filteredStudentOptions.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-gray-500">
+                  <div
+                    className="px-3 py-2 text-sm text-gray-500"
+                    role="option"
+                  >
                     No students match your search.
                   </div>
                 ) : (
@@ -320,16 +423,20 @@ export default function LessonSessionReportForm({
                     <button
                       key={person.id}
                       type="button"
+                      role="option"
+                      aria-selected={
+                        formState.studentId === person.id?.toString()
+                      }
                       onClick={() => {
                         handleChange("studentId", person.id.toString());
-                        setStudentQuery(buildPersonName(person));
+                        setStudentQuery(formatPersonName(person));
                         setStudentDropdownOpen(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
                     >
                       <div className="flex flex-col">
                         <span className="font-medium text-gray-800">
-                          {buildPersonName(person)}
+                          {formatPersonName(person)}
                         </span>
                         <span className="text-xs text-gray-500">
                           {person.member_id || person.username}
@@ -341,18 +448,40 @@ export default function LessonSessionReportForm({
               </div>
             )}
           </div>
+          {fieldErrors.studentId && (
+            <p
+              id="student-error"
+              className="text-xs text-red-600 mt-1"
+              role="alert"
+            >
+              {fieldErrors.studentId}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Lesson
+        <label
+          htmlFor="lesson-select"
+          className="block text-sm font-medium text-gray-700"
+        >
+          Lesson{" "}
+          <span className="text-red-500" aria-label="required">
+            *
+          </span>
         </label>
         <select
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          id="lesson-select"
+          className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+            fieldErrors.lessonId
+              ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+              : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+          }`}
           value={formState.lessonId}
           onChange={(event) => handleChange("lessonId", event.target.value)}
           required
+          aria-invalid={!!fieldErrors.lessonId}
+          aria-describedby={fieldErrors.lessonId ? "lesson-error" : undefined}
         >
           <option value="">Select lesson</option>
           {lessonOptions.map((lesson) => (
@@ -361,33 +490,94 @@ export default function LessonSessionReportForm({
             </option>
           ))}
         </select>
+        {fieldErrors.lessonId && (
+          <p
+            id="lesson-error"
+            className="text-xs text-red-600 mt-1"
+            role="alert"
+          >
+            {fieldErrors.lessonId}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Session Date
+          <label
+            htmlFor="session-date"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Session Date{" "}
+            <span className="text-red-500" aria-label="required">
+              *
+            </span>
           </label>
           <input
+            id="session-date"
             type="date"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+              fieldErrors.sessionDate
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+            }`}
             value={formState.sessionDate}
-            onChange={(event) => handleChange("sessionDate", event.target.value)}
+            onChange={(event) =>
+              handleChange("sessionDate", event.target.value)
+            }
             required
+            aria-invalid={!!fieldErrors.sessionDate}
+            aria-describedby={
+              fieldErrors.sessionDate ? "session-date-error" : undefined
+            }
           />
+          {fieldErrors.sessionDate && (
+            <p
+              id="session-date-error"
+              className="text-xs text-red-600 mt-1"
+              role="alert"
+            >
+              {fieldErrors.sessionDate}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Session Start
+          <label
+            htmlFor="session-start"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Session Start{" "}
+            <span className="text-red-500" aria-label="required">
+              *
+            </span>
           </label>
           <input
+            id="session-start"
             type="datetime-local"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+              fieldErrors.sessionStart
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+            }`}
             value={formState.sessionStart}
-            onChange={(event) => handleChange("sessionStart", event.target.value)}
+            onChange={(event) =>
+              handleChange("sessionStart", event.target.value)
+            }
             required
+            aria-invalid={!!fieldErrors.sessionStart}
+            aria-describedby={
+              fieldErrors.sessionStart ? "session-start-error" : undefined
+            }
           />
+          {fieldErrors.sessionStart && (
+            <p
+              id="session-start-error"
+              className="text-xs text-red-600 mt-1"
+              role="alert"
+            >
+              {fieldErrors.sessionStart}
+            </p>
+          )}
         </div>
       </div>
 
@@ -406,17 +596,39 @@ export default function LessonSessionReportForm({
         </div>
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="next-session-date"
+            className="block text-sm font-medium text-gray-700"
+          >
             Next Session Date (optional)
           </label>
           <input
+            id="next-session-date"
             type="date"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+              fieldErrors.nextSessionDate
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+            }`}
             value={formState.nextSessionDate}
             onChange={(event) =>
               handleChange("nextSessionDate", event.target.value)
             }
+            min={formState.sessionDate || undefined}
+            aria-invalid={!!fieldErrors.nextSessionDate}
+            aria-describedby={
+              fieldErrors.nextSessionDate ? "next-session-error" : undefined
+            }
           />
+          {fieldErrors.nextSessionDate && (
+            <p
+              id="next-session-error"
+              className="text-xs text-red-600 mt-1"
+              role="alert"
+            >
+              {fieldErrors.nextSessionDate}
+            </p>
+          )}
         </div>
       </div>
 
@@ -446,39 +658,4 @@ export default function LessonSessionReportForm({
       </div>
     </form>
   );
-}
-
-function buildPersonName(person: Person): string {
-  const pieces: string[] = [];
-
-  if (person.first_name) {
-    pieces.push(person.first_name.trim());
-  }
-
-  if (person.middle_name) {
-    const initial = person.middle_name.trim().charAt(0);
-    if (initial) {
-      pieces.push(`${initial.toUpperCase()}.`);
-    }
-  }
-
-  if (person.last_name) {
-    pieces.push(person.last_name.trim());
-  }
-
-  if (person.suffix) {
-    pieces.push(person.suffix.trim());
-  }
-
-  const name = pieces.join(" ").trim();
-
-  if (name) {
-    return name;
-  }
-
-  if (person.username) {
-    return person.username;
-  }
-
-  return `Person #${person.id}`;
 }

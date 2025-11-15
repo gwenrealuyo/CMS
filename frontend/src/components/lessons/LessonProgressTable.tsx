@@ -1,7 +1,10 @@
+import { useState, useMemo, useEffect } from "react";
 import { LessonProgressStatus, PersonLessonProgress } from "@/src/types/lesson";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Button from "@/src/components/ui/Button";
+import Pagination from "@/src/components/ui/Pagination";
+import { formatPersonName } from "@/src/lib/name";
 
 const STATUS_LABELS: Record<LessonProgressStatus, string> = {
   ASSIGNED: "Assigned",
@@ -31,6 +34,9 @@ interface LessonProgressTableProps {
   onLogSession?: (progress: PersonLessonProgress) => void;
 }
 
+const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
+const DEFAULT_ITEMS_PER_PAGE = 25;
+
 export default function LessonProgressTable({
   progress,
   loading,
@@ -41,39 +47,24 @@ export default function LessonProgressTable({
   isUpdating = false,
   onLogSession,
 }: LessonProgressTableProps) {
-  const formatPersonName = (record: PersonLessonProgress) => {
-    const person = record.person;
-    if (!person) return "Unknown person";
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
 
-    const pieces: string[] = [];
+  const paginatedProgress = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return progress.slice(startIndex, endIndex);
+  }, [progress, currentPage, itemsPerPage]);
 
-    if (person.first_name) {
-      pieces.push(person.first_name);
+  const totalPages = Math.ceil(progress.length / itemsPerPage);
+
+  // Reset to page 1 if current page is out of bounds
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
     }
+  }, [currentPage, totalPages]);
 
-    if (person.middle_name) {
-      const middleInitial = person.middle_name.trim().charAt(0);
-      if (middleInitial) {
-        pieces.push(`${middleInitial.toUpperCase()}.`);
-      }
-    }
-
-    if (person.last_name) {
-      pieces.push(person.last_name);
-    }
-
-    let name = pieces.join(" ").trim();
-
-    if (person.suffix) {
-      name = `${name} ${person.suffix}`.trim();
-    }
-
-    if (!name) {
-      name = person.username;
-    }
-
-    return name;
-  };
   if (loading) {
     return (
       <div className="border rounded-lg">
@@ -99,36 +90,37 @@ export default function LessonProgressTable({
   }
 
   return (
-    <div className="overflow-x-auto border rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Person
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Status
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Assigned
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Completed
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Notes
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Commitment
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {progress.map((record) => {
-            const personName = formatPersonName(record);
+    <div className="space-y-4">
+      <div className="overflow-x-auto border rounded-lg">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Person
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Assigned
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Completed
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Notes
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Commitment
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {paginatedProgress.map((record) => {
+            const personName = formatPersonName(record.person);
             const statusLabel = STATUS_LABELS[record.status];
             const badgeClass = STATUS_COLORS[record.status];
 
@@ -239,5 +231,17 @@ export default function LessonProgressTable({
         </tbody>
       </table>
     </div>
+    {totalPages > 1 && (
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={progress.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={setItemsPerPage}
+        showItemsPerPage={true}
+      />
+    )}
+  </div>
   );
 }

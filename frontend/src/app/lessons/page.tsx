@@ -16,6 +16,8 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Card from "@/src/components/ui/Card";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import NoteInputModal from "@/src/components/ui/NoteInputModal";
+import Pagination from "@/src/components/ui/Pagination";
 import { lessonsApi } from "@/src/lib/api";
 import {
   Lesson,
@@ -27,6 +29,7 @@ import {
   PersonLessonProgress,
 } from "@/src/types/lesson";
 import { usePeople } from "@/src/hooks/usePeople";
+import { formatPersonName } from "@/src/lib/name";
 
 type LessonPersonLike = {
   id?: string | number;
@@ -69,39 +72,22 @@ function escapeCsvValue(value: string | number | null | undefined): string {
   return needsEscaping ? `"${sanitized}"` : sanitized;
 }
 
-function formatLessonPersonName(person?: LessonPersonLike | null): string {
-  if (!person) {
-    return "Unknown person";
-  }
-
-  const pieces: string[] = [];
-
-  if (person.first_name) {
-    pieces.push(person.first_name.trim());
-  }
-
-  if (person.middle_name) {
-    const initial = person.middle_name.trim().charAt(0);
-    if (initial) {
-      pieces.push(`${initial.toUpperCase()}.`);
+function extractErrorMessage(error: unknown, defaultMessage: string): string {
+  if (error && typeof error === "object") {
+    if ("response" in error && error.response) {
+      const response = error.response as { data?: { detail?: string; message?: string } };
+      if (response.data?.detail) {
+        return response.data.detail;
+      }
+      if (response.data?.message) {
+        return response.data.message;
+      }
+    }
+    if ("message" in error && typeof error.message === "string") {
+      return error.message;
     }
   }
-
-  if (person.last_name) {
-    pieces.push(person.last_name.trim());
-  }
-
-  if (person.suffix) {
-    pieces.push(person.suffix.trim());
-  }
-
-  const name = pieces.join(" ").replace(/\s+/g, " ").trim();
-
-  if (name) {
-    return name;
-  }
-
-  return person.username;
+  return defaultMessage;
 }
 
 export default function LessonsPage() {
@@ -137,6 +123,21 @@ export default function LessonsPage() {
     record: PersonLessonProgress;
     nextValue: boolean;
   } | null>(null);
+  const [noteInputModal, setNoteInputModal] = useState<{
+    isOpen: boolean;
+    record: PersonLessonProgress | null;
+  }>({
+    isOpen: false,
+    record: null,
+  });
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    message: string;
+    title?: string;
+  }>({
+    isOpen: false,
+    message: "",
+  });
 
   const [isLessonFormOpen, setLessonFormOpen] = useState(false);
   const [lessonFormSubmitting, setLessonFormSubmitting] = useState(false);
@@ -256,16 +257,16 @@ export default function LessonsPage() {
     return [...people]
       .filter((person) => person.role !== "VISITOR")
       .sort((first, second) =>
-        formatLessonPersonName(first).localeCompare(
-          formatLessonPersonName(second)
+        formatPersonName(first).localeCompare(
+          formatPersonName(second)
         )
       );
   }, [people]);
 
   const studentChoices = useMemo(() => {
     return [...people].sort((first, second) =>
-      formatLessonPersonName(first).localeCompare(
-        formatLessonPersonName(second)
+      formatPersonName(first).localeCompare(
+        formatPersonName(second)
       )
     );
   }, [people]);
@@ -321,7 +322,7 @@ export default function LessonsPage() {
         setSelectedLessonId(null);
       }
     } catch (error) {
-      setLessonsError("Failed to load lessons.");
+      setLessonsError(extractErrorMessage(error, "Failed to load lessons."));
     } finally {
       setLessonsLoading(false);
     }
@@ -334,7 +335,7 @@ export default function LessonsPage() {
       setSummary(response.data);
       setSummaryError(null);
     } catch (error) {
-      setSummaryError("Failed to load lesson summary.");
+      setSummaryError(extractErrorMessage(error, "Failed to load lesson summary."));
     } finally {
       setSummaryLoading(false);
     }
@@ -389,7 +390,7 @@ export default function LessonsPage() {
       setSessionReports(sorted);
       setSessionReportsError(null);
     } catch (error) {
-      setSessionReportsError("Failed to load session reports.");
+      setSessionReportsError(extractErrorMessage(error, "Failed to load session reports."));
     } finally {
       setSessionReportsLoading(false);
     }
@@ -402,7 +403,7 @@ export default function LessonsPage() {
       setCommitmentSettings(response.data);
       setCommitmentError(null);
     } catch (error) {
-      setCommitmentError("Failed to load commitment form.");
+      setCommitmentError(extractErrorMessage(error, "Failed to load commitment form."));
     } finally {
       setCommitmentLoading(false);
     }
@@ -415,7 +416,7 @@ export default function LessonsPage() {
       setProgress(response.data);
       setProgressError(null);
     } catch (error) {
-      setProgressError("Failed to load lesson progress.");
+      setProgressError(extractErrorMessage(error, "Failed to load lesson progress."));
     } finally {
       setProgressLoading(false);
       setIsProgressUpdating(false);
@@ -457,7 +458,7 @@ export default function LessonsPage() {
       setEditingLesson(null);
       setLessonDeleteTarget(null);
     } catch (error) {
-      setLessonDeleteError("Failed to delete the lesson.");
+      setLessonDeleteError(extractErrorMessage(error, "Failed to delete the lesson."));
     } finally {
       setLessonDeleteLoading(false);
     }
@@ -484,11 +485,8 @@ export default function LessonsPage() {
 
       await fetchLessons();
       closeLessonForm();
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.detail ||
-        "There was a problem saving the lesson.";
-      setLessonFormError(message);
+    } catch (error) {
+      setLessonFormError(extractErrorMessage(error, "There was a problem saving the lesson."));
     } finally {
       setLessonFormSubmitting(false);
     }
@@ -500,23 +498,28 @@ export default function LessonsPage() {
     );
   };
 
-  const handleMarkCompleted = async (record: PersonLessonProgress) => {
+  const handleMarkCompleted = (record: PersonLessonProgress) => {
     if (isProgressUpdating) return;
-    const note = window.prompt(
-      "Add a note for this milestone (optional):",
-      record.notes ?? ""
-    );
+    setNoteInputModal({
+      isOpen: true,
+      record,
+    });
+  };
+
+  const handleNoteInputConfirm = async (note: string) => {
+    if (!noteInputModal.record) return;
     try {
       setIsProgressUpdating(true);
       setProgressActionError(null);
-      const response = await lessonsApi.complete(record.id, {
-        note: note ?? undefined,
+      const response = await lessonsApi.complete(noteInputModal.record.id, {
+        note: note || undefined,
       });
       updateProgressRecord(response.data);
       setProgressError(null);
       fetchSummary();
+      setNoteInputModal({ isOpen: false, record: null });
     } catch (error) {
-      setProgressActionError("Failed to mark the lesson as completed.");
+      setProgressActionError(extractErrorMessage(error, "Failed to mark the lesson as completed."));
     } finally {
       setIsProgressUpdating(false);
     }
@@ -535,7 +538,7 @@ export default function LessonsPage() {
       setProgressError(null);
       fetchSummary();
     } catch (error) {
-      setProgressActionError("Failed to update the lesson status.");
+      setProgressActionError(extractErrorMessage(error, "Failed to update the lesson status."));
     } finally {
       setIsProgressUpdating(false);
     }
@@ -549,20 +552,6 @@ export default function LessonsPage() {
     });
   };
 
-  const formatPersonName = (record: PersonLessonProgress) => {
-    const person = record.person;
-    if (!person) return "this participant";
-    const parts = [
-      person.first_name ?? "",
-      person.middle_name ? `${person.middle_name[0]?.toUpperCase()}.` : "",
-      person.last_name ?? "",
-      person.suffix ?? "",
-    ]
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    return parts || person.username;
-  };
 
   const confirmCommitmentToggle = async () => {
     if (!commitmentConfirm) return;
@@ -577,7 +566,7 @@ export default function LessonsPage() {
       setProgressError(null);
       fetchSummary();
     } catch (error) {
-      setProgressActionError("Failed to update commitment status.");
+      setProgressActionError(extractErrorMessage(error, "Failed to update commitment status."));
     } finally {
       setIsProgressUpdating(false);
       setCommitmentConfirm(null);
@@ -601,7 +590,7 @@ export default function LessonsPage() {
       setCommitmentModalOpen(false);
       setCommitmentFile(null);
     } catch (error) {
-      setCommitmentUploadError("Failed to upload the commitment form.");
+      setCommitmentUploadError(extractErrorMessage(error, "Failed to upload the commitment form."));
     } finally {
       setCommitmentUploading(false);
     }
@@ -659,7 +648,7 @@ export default function LessonsPage() {
       await fetchProgress(selectedLesson.id);
       fetchSummary();
     } catch (error) {
-      setAssignError("Failed to assign the lesson.");
+      setAssignError(extractErrorMessage(error, "Failed to assign the lesson."));
     } finally {
       setAssigning(false);
     }
@@ -691,7 +680,11 @@ export default function LessonsPage() {
 
   const handleExportSessionReports = () => {
     if (sessionReports.length === 0) {
-      window.alert("No session reports to export.");
+      setAlertModal({
+        isOpen: true,
+        message: "No session reports to export.",
+        title: "Export Error",
+      });
       return;
     }
 
@@ -709,8 +702,8 @@ export default function LessonsPage() {
 
     const rows = sessionReports.map((report) => [
       report.lesson?.title ?? "",
-      formatLessonPersonName(report.student),
-      formatLessonPersonName(report.teacher),
+      formatPersonName(report.student),
+      formatPersonName(report.teacher),
       formatDateOnly(report.session_date),
       formatDateTime(report.session_start),
       report.score ?? "",
@@ -846,7 +839,7 @@ export default function LessonsPage() {
       await fetchProgress(lessonIdForRefresh);
       fetchSummary();
     } catch (error) {
-      setSessionFormError("Failed to save the session report.");
+      setSessionFormError(extractErrorMessage(error, "Failed to save the session report."));
     } finally {
       setSessionFormSubmitting(false);
     }
@@ -854,9 +847,12 @@ export default function LessonsPage() {
 
   const handleLogSessionFromProgress = (record: PersonLessonProgress) => {
     if (!record.person) {
-      window.alert(
-        "This participant record is missing person details. Please refresh and try again."
-      );
+      setAlertModal({
+        isOpen: true,
+        message:
+          "This participant record is missing person details. Please refresh and try again.",
+        title: "Missing Information",
+      });
       return;
     }
     openSessionReportModal({
@@ -885,7 +881,7 @@ export default function LessonsPage() {
       }
       setSessionDeleteTarget(null);
     } catch (error) {
-      setSessionDeleteError("Failed to delete the session report.");
+      setSessionDeleteError(extractErrorMessage(error, "Failed to delete the session report."));
     } finally {
       setSessionDeleteLoading(false);
     }
@@ -1002,7 +998,7 @@ export default function LessonsPage() {
                 onOpenSessionModal={() => openSessionReportModal()}
                 onEditSession={openSessionReportForEdit}
                 onRequestDelete={requestDeleteSessionReport}
-                formatLessonPersonName={formatLessonPersonName}
+                formatPersonName={formatPersonName}
                 formatDateOnly={formatDateOnly}
                 formatDateTime={formatDateTime}
                 canLogSession={Boolean(selectedLesson)}
@@ -1058,18 +1054,13 @@ export default function LessonsPage() {
         }
       >
         <div className="space-y-4">
-          {(() => {
-            const participantName = commitmentConfirm
-              ? formatPersonName(commitmentConfirm.record)
-              : "this participant";
-            return (
-              <p className="text-sm text-gray-600">
-                {commitmentConfirm?.nextValue
-                  ? `Mark ${participantName} as having signed the commitment form? This will add a milestone to the conversion timeline.`
-                  : `Remove the commitment signature for ${participantName}? This will clear the milestone entry.`}
-              </p>
-            );
-          })()}
+          <p className="text-sm text-gray-600">
+            {commitmentConfirm?.nextValue
+              ? `Mark ${formatPersonName(commitmentConfirm.record.person)} as having signed the commitment form? This will add a milestone to the conversion timeline.`
+              : commitmentConfirm
+              ? `Remove the commitment signature for ${formatPersonName(commitmentConfirm.record.person)}? This will clear the milestone entry.`
+              : ""}
+          </p>
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <Button
@@ -1087,6 +1078,26 @@ export default function LessonsPage() {
           </Button>
         </div>
       </Modal>
+
+      <NoteInputModal
+        isOpen={noteInputModal.isOpen}
+        onClose={() => setNoteInputModal({ isOpen: false, record: null })}
+        onConfirm={handleNoteInputConfirm}
+        title="Add Note for Milestone"
+        message="Add a note for this milestone (optional):"
+        initialValue={noteInputModal.record?.notes ?? ""}
+        loading={isProgressUpdating}
+      />
+
+      <ConfirmationModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ isOpen: false, message: "" })}
+        onConfirm={() => setAlertModal({ isOpen: false, message: "" })}
+        title={alertModal.title || "Information"}
+        message={alertModal.message}
+        confirmText="OK"
+        variant="info"
+      />
 
       <Modal
         isOpen={isCommitmentModalOpen}
@@ -1188,7 +1199,7 @@ export default function LessonsPage() {
           <p className="text-sm text-gray-600">
             Delete the session report for{" "}
             <span className="font-semibold text-gray-800">
-              {formatLessonPersonName(sessionDeleteTarget?.student)}
+              {formatPersonName(sessionDeleteTarget?.student)}
             </span>{" "}
             recorded on {formatDateTime(sessionDeleteTarget?.session_start)}?
             This action cannot be undone.
@@ -1484,12 +1495,14 @@ interface SessionReportsSectionProps {
   onOpenSessionModal: () => void;
   onEditSession: (report: LessonSessionReport) => void;
   onRequestDelete: (report: LessonSessionReport) => void;
-  formatLessonPersonName: (person?: LessonPersonLike | null) => string;
+  formatPersonName: (person?: LessonPersonLike | null) => string;
   formatDateOnly: (value?: string | null) => string;
   formatDateTime: (value?: string | null) => string;
   canLogSession: boolean;
   canExport: boolean;
 }
+
+const DEFAULT_SESSION_ITEMS_PER_PAGE = 10;
 
 function SessionReportsSection({
   selectedLesson,
@@ -1506,12 +1519,29 @@ function SessionReportsSection({
   onOpenSessionModal,
   onEditSession,
   onRequestDelete,
-  formatLessonPersonName,
+  formatPersonName,
   formatDateOnly,
   formatDateTime,
   canLogSession,
   canExport,
 }: SessionReportsSectionProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_SESSION_ITEMS_PER_PAGE);
+
+  const paginatedReports = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return sessionReports.slice(startIndex, endIndex);
+  }, [sessionReports, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(sessionReports.length / itemsPerPage);
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
   if (!selectedLesson) {
     return (
       <Card title="Session Reports">
@@ -1566,7 +1596,7 @@ function SessionReportsSection({
                 <option value="">All teachers</option>
                 {teacherChoices.map((person) => (
                   <option key={person.id} value={person.id}>
-                    {formatLessonPersonName(person)}
+                    {formatPersonName(person)}
                   </option>
                 ))}
               </select>
@@ -1585,7 +1615,7 @@ function SessionReportsSection({
                 <option value="">All students</option>
                 {studentChoices.map((person) => (
                   <option key={person.id} value={person.id}>
-                    {formatLessonPersonName(person)}
+                    {formatPersonName(person)}
                   </option>
                 ))}
               </select>
@@ -1640,7 +1670,7 @@ function SessionReportsSection({
           </div>
         ) : (
           <div className="space-y-3">
-            {sessionReports.map((report) => (
+            {paginatedReports.map((report) => (
               <div
                 key={report.id}
                 className="rounded-lg border border-gray-200 bg-white p-4"
@@ -1648,10 +1678,10 @@ function SessionReportsSection({
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-[#2D3748]">
-                      {formatLessonPersonName(report.student)}
+                      {formatPersonName(report.student)}
                     </p>
                     <p className="text-xs text-gray-500">
-                      Teacher: {formatLessonPersonName(report.teacher)}
+                      Teacher: {formatPersonName(report.teacher)}
                     </p>
                     <p className="text-xs text-gray-500">
                       Lesson:{" "}
@@ -1718,6 +1748,17 @@ function SessionReportsSection({
               </div>
             ))}
           </div>
+        )}
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={sessionReports.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+            showItemsPerPage={true}
+          />
         )}
       </div>
     </Card>

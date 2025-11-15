@@ -1,74 +1,118 @@
 import React from "react";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import Button from "./Button";
 
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
-  onPageChange: (page: number) => void;
-  itemsPerPage: number;
   totalItems: number;
-  onItemsPerPageChange: (itemsPerPage: number) => void;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+  onItemsPerPageChange?: (itemsPerPage: number) => void;
+  showItemsPerPage?: boolean;
+  className?: string;
 }
 
 export default function Pagination({
   currentPage,
   totalPages,
-  onPageChange,
-  itemsPerPage,
   totalItems,
+  itemsPerPage,
+  onPageChange,
   onItemsPerPageChange,
+  showItemsPerPage = false,
+  className = "",
 }: PaginationProps) {
-  if (totalPages <= 1) return null;
-
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+
+  if (totalPages <= 1 && !showItemsPerPage) {
+    return null;
+  }
 
   return (
-    <div className="bg-white px-6 py-3 border-t border-gray-200">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-gray-700">
-          Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of{" "}
-          {totalItems} results
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <label className="text-sm text-gray-700">Show:</label>
+    <div
+      className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${className}`}
+      role="navigation"
+      aria-label="Pagination"
+    >
+      <div className="text-sm text-gray-600">
+        Showing <span className="font-medium">{startIndex + 1}</span> to{" "}
+        <span className="font-medium">{endIndex}</span> of{" "}
+        <span className="font-medium">{totalItems}</span> results
+      </div>
+
+      <div className="flex items-center gap-2">
+        {showItemsPerPage && onItemsPerPageChange && (
+          <div className="flex items-center gap-2 mr-4">
+            <label htmlFor="items-per-page" className="text-sm text-gray-600">
+              Items per page:
+            </label>
             <select
+              id="items-per-page"
               value={itemsPerPage}
-              onChange={(e) => {
-                onItemsPerPageChange(Number(e.target.value));
-                onPageChange(1);
-              }}
-              className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+              className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              aria-label="Items per page"
             >
               <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={30}>30</option>
+              <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeftIcon className="w-4 h-4" />
-            </button>
-            <span className="px-3 py-1 text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() =>
-                onPageChange(Math.min(totalPages, currentPage + 1))
-              }
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRightIcon className="w-4 h-4" />
-            </button>
+        )}
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant="tertiary"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 text-sm"
+            aria-label="Previous page"
+          >
+            Previous
+          </Button>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((page) => {
+                // Show first page, last page, current page, and pages around current
+                if (page === 1 || page === totalPages) return true;
+                if (Math.abs(page - currentPage) <= 1) return true;
+                return false;
+              })
+              .map((page, index, array) => {
+                const prevPage = array[index - 1];
+                const showEllipsis = prevPage && page - prevPage > 1;
+
+                return (
+                  <React.Fragment key={page}>
+                    {showEllipsis && (
+                      <span className="px-2 text-gray-500">...</span>
+                    )}
+                    <Button
+                      variant={currentPage === page ? "primary" : "tertiary"}
+                      onClick={() => onPageChange(page)}
+                      className="px-3 py-1 text-sm min-w-[2.5rem]"
+                      aria-label={`Page ${page}`}
+                      aria-current={currentPage === page ? "page" : undefined}
+                    >
+                      {page}
+                    </Button>
+                  </React.Fragment>
+                );
+              })}
           </div>
+
+          <Button
+            variant="tertiary"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 text-sm"
+            aria-label="Next page"
+          >
+            Next
+          </Button>
         </div>
       </div>
     </div>

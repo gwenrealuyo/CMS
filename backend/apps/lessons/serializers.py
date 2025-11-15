@@ -225,6 +225,25 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def validate_teacher_id(self, value):
+        """Ensure teacher is not a VISITOR."""
+        if value and value.role == "VISITOR":
+            raise serializers.ValidationError("Teacher cannot be a visitor.")
+        return value
+
+    def validate(self, attrs):
+        """Validate that next_session_date is after session_date."""
+        session_date = attrs.get("session_date")
+        next_session_date = attrs.get("next_session_date")
+        
+        if session_date and next_session_date:
+            if next_session_date <= session_date:
+                raise serializers.ValidationError({
+                    "next_session_date": "Next session date must be after the session date."
+                })
+        
+        return attrs
+
 
 
 class LessonSettingsSerializer(serializers.ModelSerializer):

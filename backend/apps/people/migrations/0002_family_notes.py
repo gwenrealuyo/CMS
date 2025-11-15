@@ -47,6 +47,16 @@ class Migration(migrations.Migration):
                 ],
             ),
         ),
+        migrations.AddField(
+            model_name="person",
+            name="nickname",
+            field=models.CharField(blank=True, max_length=150),
+        ),
+        migrations.AddField(
+            model_name="person",
+            name="has_finished_lessons",
+            field=models.BooleanField(default=False),
+        ),
         migrations.AlterField(
             model_name="person",
             name="status",

@@ -45,6 +45,7 @@ export interface Person {
   middle_name?: string;
   last_name: string;
   suffix?: string;
+  nickname?: string;
   phone?: string;
   photo?: string; // URL to profile image
   gender?: Gender;
@@ -56,6 +57,7 @@ export interface Person {
   date_first_attended?: string; // ISO date string
   water_baptism_date?: string; // ISO date string
   spirit_baptism_date?: string; // ISO date string
+  has_finished_lessons?: boolean;
   first_activity_attended?:
     | "CLUSTER_BS_EVANGELISM"
     | "CLUSTERING"

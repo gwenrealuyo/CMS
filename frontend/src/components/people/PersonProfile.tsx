@@ -262,7 +262,10 @@ export default function PersonProfile({
             Person Details
           </h2>
           <p className="text-xs text-gray-600 mt-0.5">
-            {person.first_name}{" "}
+            {person.first_name}
+            {(person as any).nickname
+              ? ` "${(person as any).nickname}"`
+              : ""}{" "}
             {person.middle_name
               ? `${person.middle_name[0].toUpperCase()}. `
               : ""}
@@ -302,7 +305,10 @@ export default function PersonProfile({
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {person.first_name}{" "}
+                  {person.first_name}
+                  {(person as any).nickname
+                    ? ` "${(person as any).nickname}"`
+                    : ""}{" "}
                   {person.middle_name
                     ? `${person.middle_name[0].toUpperCase()}. `
                     : ""}
@@ -705,6 +711,51 @@ export default function PersonProfile({
                             "Not specified"}
                         </span>
                       </div>
+                      {(person as any).nickname && (
+                        <div className="flex items-center space-x-3">
+                          <svg
+                            className="w-4 h-4 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                            />
+                          </svg>
+                          <span className="text-sm text-gray-600">
+                            Nickname: {(person as any).nickname}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center space-x-3">
+                        <svg
+                          className="w-4 h-4 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                          />
+                        </svg>
+                        <span className="text-sm text-gray-600">
+                          Has Finished NC Lessons:{" "}
+                          {(person as any).has_finished_lessons ? (
+                            <span className="text-green-600 font-medium">
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="text-red-500">Not yet</span>
+                          )}
+                        </span>
+                      </div>
                       {person.facebook_name && (
                         <div className="flex items-center space-x-3">
                           <svg
@@ -721,7 +772,7 @@ export default function PersonProfile({
                             />
                           </svg>
                           <span className="text-sm text-gray-600">
-                            {person.facebook_name}
+                            FB Name: {person.facebook_name}
                           </span>
                         </div>
                       )}

@@ -385,6 +385,18 @@ export default function PersonForm({
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nickname
+                      </label>
+                      <input
+                        type="text"
+                        name="nickname"
+                        value={(formData as any).nickname || ""}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Gender
                       </label>
                       <select
@@ -555,6 +567,27 @@ export default function PersonForm({
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="has_finished_lessons"
+                      id="has_finished_lessons"
+                      checked={(formData as any).has_finished_lessons || false}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          has_finished_lessons: e.target.checked,
+                        }));
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label
+                      htmlFor="has_finished_lessons"
+                      className="ml-2 block text-sm font-medium text-gray-700"
+                    >
+                      Has Finished NC Lessons
+                    </label>
                   </div>
                 </div>
               </div>

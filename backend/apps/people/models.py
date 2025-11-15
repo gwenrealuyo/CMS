@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 class Person(AbstractUser):
     middle_name = models.CharField(blank=True, max_length=150)
     suffix = models.CharField(blank=True, max_length=150)
+    nickname = models.CharField(blank=True, max_length=150)
     gender = models.CharField(
         blank=True,
         max_length=20,
@@ -32,6 +33,7 @@ class Person(AbstractUser):
     date_first_attended = models.DateField(null=True, blank=True)
     water_baptism_date = models.DateField(null=True, blank=True)
     spirit_baptism_date = models.DateField(null=True, blank=True)
+    has_finished_lessons = models.BooleanField(default=False)
     first_activity_attended = models.CharField(
         blank=True,
         max_length=50,

@@ -111,3 +111,13 @@ export interface LessonSessionReportInput {
   next_session_date?: string | null;
   remarks?: string;
 }
+
+export interface PersonProgressSummary {
+  person: LessonPersonSummary;
+  currentLesson: Lesson | null;
+  completedCount: number;
+  totalLessons: number;
+  nextLesson: Lesson | null;
+  progressPercentage: number;
+  allProgress: PersonLessonProgress[];
+}

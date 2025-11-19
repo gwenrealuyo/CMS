@@ -178,12 +178,39 @@ export default function ClusterWeeklyReportForm({
     }
   }, [cluster]);
 
+  // Update formData when initialData changes (when editing)
+  useEffect(() => {
+    if (initialData) {
+      setFormData((prev) => ({
+        ...prev,
+        year: initialData.year ?? prev.year,
+        week_number: initialData.week_number ?? prev.week_number,
+        cluster: initialData.cluster ?? prev.cluster,
+      }));
+    }
+  }, [initialData?.id, initialData?.year, initialData?.week_number]);
+
   // Fetch previously attended visitors and members when cluster is selected
   useEffect(() => {
     const fetchPreviousAttendance = async () => {
-      if (selectedCluster && !initialData) {
+      if (selectedCluster) {
         try {
-          // Fetch all previous reports for this cluster to get all visitors/members who have attended
+          // Get current report's year and week to filter previous reports
+          // When editing (initialData exists), ALWAYS use initialData's week/year
+          // When creating new, use formData or defaults
+          // This ensures we get the correct previous reports even when dashboard filters are active
+          const currentYear = Number(
+            initialData?.year ?? formData.year ?? new Date().getFullYear()
+          );
+          const currentWeek = Number(
+            initialData?.week_number ??
+              formData.week_number ??
+              getWeekNumber(new Date())
+          );
+          const currentReportId = initialData?.id?.toString();
+
+          // Fetch all previous reports for this cluster
+          // We'll filter client-side to only get reports from earlier weeks/years
           const response = await clusterReportsApi.getAll({
             cluster: selectedCluster.id.toString(),
             page_size: 100, // Get all reports to collect all unique visitors/members
@@ -194,12 +221,35 @@ export default function ClusterWeeklyReportForm({
           // Collect all unique member IDs from all previous reports of this cluster
           const memberIds = new Set<string>();
 
+          // Track the most recent report (before current week)
+          let mostRecentReport: any = null;
+
           if (response.data.results && response.data.results.length > 0) {
             response.data.results.forEach((report) => {
-              // Only include visitors/members from reports that match this cluster
+              // Skip the current report if editing
               if (
-                report.cluster?.toString() === selectedCluster.id.toString()
+                currentReportId &&
+                report.id?.toString() === currentReportId
               ) {
+                return;
+              }
+
+              // Only include reports from earlier weeks/years
+              // Ensure week_number and year are numbers for proper comparison
+              const reportYear = Number(report.year || 0);
+              const reportWeek = Number(report.week_number || 0);
+
+              // Include if: earlier year (any week), OR same year but earlier week
+              // This ensures we get all historical data from before the current report
+              const isPreviousReport =
+                reportYear < currentYear ||
+                (reportYear === currentYear && reportWeek < currentWeek);
+
+              if (
+                report.cluster?.toString() === selectedCluster.id.toString() &&
+                isPreviousReport
+              ) {
+                // Collect all unique visitors/members from previous reports
                 if (report.visitors_attended) {
                   report.visitors_attended.forEach((id: number) => {
                     visitorIds.add(id.toString());
@@ -210,15 +260,28 @@ export default function ClusterWeeklyReportForm({
                     memberIds.add(id.toString());
                   });
                 }
+
+                // Track the most recent report (highest week in same year, or latest year)
+                if (!mostRecentReport) {
+                  mostRecentReport = report;
+                } else {
+                  const mostRecentYear = mostRecentReport.year || 0;
+                  const mostRecentWeek = mostRecentReport.week_number || 0;
+
+                  if (
+                    reportYear > mostRecentYear ||
+                    (reportYear === mostRecentYear &&
+                      reportWeek > mostRecentWeek)
+                  ) {
+                    mostRecentReport = report;
+                  }
+                }
               }
             });
           }
 
           // For auto-selection, use only the most recent report's visitors/members
-          const mostRecentReport = response.data.results?.[0];
-          const mostRecentVisitorIds =
-            mostRecentReport?.cluster?.toString() ===
-              selectedCluster.id.toString() &&
+          const mostRecentVisitorIds: string[] =
             mostRecentReport?.visitors_attended
               ? Array.from(
                   new Set(
@@ -228,9 +291,7 @@ export default function ClusterWeeklyReportForm({
                   )
                 )
               : [];
-          const mostRecentMemberIds =
-            mostRecentReport?.cluster?.toString() ===
-              selectedCluster.id.toString() &&
+          const mostRecentMemberIds: string[] =
             mostRecentReport?.members_attended
               ? Array.from(
                   new Set(
@@ -264,7 +325,14 @@ export default function ClusterWeeklyReportForm({
     };
 
     fetchPreviousAttendance();
-  }, [selectedCluster?.id, initialData]);
+  }, [
+    selectedCluster?.id,
+    initialData?.year,
+    initialData?.week_number,
+    initialData?.id,
+    formData.year,
+    formData.week_number,
+  ]);
 
   const handleChange = (field: keyof ClusterWeeklyReport, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

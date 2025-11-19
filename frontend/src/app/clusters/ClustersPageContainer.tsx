@@ -24,6 +24,8 @@ export default function ClustersPageContainer() {
   const [clusterSortOrder, setClusterSortOrder] = useState<"asc" | "desc">("asc");
   const [clusterCurrentPage, setClusterCurrentPage] = useState(1);
   const [clusterItemsPerPage, setClusterItemsPerPage] = useState(12);
+  const [selectedClusters, setSelectedClusters] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   
   // Cluster modals
   const [viewCluster, setViewCluster] = useState<Cluster | null>(null);
@@ -401,6 +403,183 @@ export default function ClustersPageContainer() {
       }
     }
   };
+
+  // Selection mode handlers
+  const handleToggleSelectionMode = () => {
+    setIsSelectionMode((prev) => {
+      const newMode = !prev;
+      // Clear selection when exiting selection mode
+      if (!newMode) {
+        setSelectedClusters(new Set());
+      }
+      return newMode;
+    });
+  };
+
+  // Bulk selection handlers
+  const handleSelectCluster = (clusterId: string) => {
+    if (!isSelectionMode) return;
+    setSelectedClusters((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(clusterId)) {
+        newSet.delete(clusterId);
+      } else {
+        newSet.add(clusterId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllClusters = () => {
+    if (!isSelectionMode) return;
+    if (selectedClusters.size === clusterPaginatedData.length) {
+      setSelectedClusters(new Set());
+    } else {
+      setSelectedClusters(new Set(clusterPaginatedData.map((c) => c.id.toString())));
+    }
+  };
+
+  // Bulk delete handler
+  const handleBulkDelete = async () => {
+    if (selectedClusters.size === 0) return;
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedClusters.size} cluster(s)? This action cannot be undone.`;
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const deletePromises = Array.from(selectedClusters).map((clusterId) =>
+        clustersApi.delete(Number(clusterId))
+      );
+      await Promise.all(deletePromises);
+      await fetchClusters();
+      setSelectedClusters(new Set());
+    } catch (error) {
+      console.error("Error deleting clusters:", error);
+      alert("Failed to delete some clusters. Please try again.");
+    }
+  };
+
+  // Bulk export handlers
+  const handleBulkExport = async (format: "excel" | "pdf" | "csv") => {
+    const clustersToExport = clusters.filter((c) =>
+      selectedClusters.has(c.id.toString())
+    );
+
+    if (clustersToExport.length === 0) {
+      alert("Please select at least one cluster to export.");
+      return;
+    }
+
+    // Import export libraries dynamically
+    const XLSX = await import("xlsx");
+    const { jsPDF } = await import("jspdf");
+    const autoTable = (await import("jspdf-autotable")).default;
+
+    // Prepare data
+    const exportData = clustersToExport.map((cluster) => {
+      const coordinator = peopleUI.find(
+        (p) =>
+          p.id === (cluster as any).coordinator?.id?.toString() ||
+          p.id === (cluster as any).coordinator_id?.toString()
+      );
+      const coordinatorName = coordinator
+        ? `${coordinator.first_name} ${coordinator.last_name}`
+        : "N/A";
+
+      const members = peopleUI.filter((person) =>
+        (cluster as any).members?.includes(Number(person.id))
+      );
+      const memberCount = members.filter((m) => m.role === "MEMBER").length;
+      const visitorCount = members.filter((m) => m.role === "VISITOR").length;
+
+      return {
+        Code: cluster.code || "",
+        Name: cluster.name || "",
+        Location: (cluster as any).location || "",
+        "Meeting Schedule": (cluster as any).meeting_schedule || "",
+        Coordinator: coordinatorName,
+        "Member Count": memberCount,
+        "Visitor Count": visitorCount,
+        "Family Count": (cluster as any).families?.length || 0,
+        Description: cluster.description || "",
+      };
+    });
+
+    switch (format) {
+      case "excel": {
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Clusters");
+        XLSX.writeFile(workbook, "clusters_data.xlsx");
+        break;
+      }
+      case "pdf": {
+        const doc = new jsPDF();
+        const tableColumn = [
+          "Code",
+          "Name",
+          "Location",
+          "Meeting Schedule",
+          "Coordinator",
+          "Member Count",
+          "Visitor Count",
+          "Family Count",
+        ];
+        const tableRows = exportData.map((row) => [
+          row.Code,
+          row.Name,
+          row.Location,
+          row["Meeting Schedule"],
+          row.Coordinator,
+          row["Member Count"].toString(),
+          row["Visitor Count"].toString(),
+          row["Family Count"].toString(),
+        ]);
+
+        autoTable(doc, {
+          head: [tableColumn],
+          body: tableRows,
+          startY: 20,
+          theme: "grid",
+          styles: { fontSize: 8 },
+        });
+
+        doc.save("clusters_data.pdf");
+        break;
+      }
+      case "csv": {
+        const csvContent = exportData
+          .map((row) =>
+            [
+              row.Code,
+              row.Name,
+              row.Location,
+              row["Meeting Schedule"],
+              row.Coordinator,
+              row["Member Count"],
+              row["Visitor Count"],
+              row["Family Count"],
+              row.Description,
+            ].join(",")
+          )
+          .join("\n");
+
+        const blob = new Blob(
+          [
+            `Code,Name,Location,Meeting Schedule,Coordinator,Member Count,Visitor Count,Family Count,Description\n${csvContent}`,
+          ],
+          {
+            type: "text/csv;charset=utf-8;",
+          }
+        );
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "clusters_data.csv";
+        link.click();
+        break;
+      }
+    }
+  };
   
   const confirmClusterDelete = (cluster: Cluster) => {
     setClusterDeleteConfirmation({
@@ -751,6 +930,14 @@ export default function ClustersPageContainer() {
       people={people}
       peopleUI={peopleUI}
       families={families}
+      // Bulk selection
+      selectedClusters={selectedClusters}
+      isSelectionMode={isSelectionMode}
+      onToggleSelectionMode={handleToggleSelectionMode}
+      onSelectCluster={handleSelectCluster}
+      onSelectAllClusters={handleSelectAllClusters}
+      onBulkDelete={handleBulkDelete}
+      onBulkExport={handleBulkExport}
     />
   );
 }

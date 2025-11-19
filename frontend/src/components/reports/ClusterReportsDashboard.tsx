@@ -22,6 +22,21 @@ import {
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface ClusterReportsDashboardProps {
   clusters: Cluster[];
@@ -87,6 +102,64 @@ export default function ClusterReportsDashboard({
   const [selectedGatheringType, setSelectedGatheringType] =
     useState<string>("");
 
+  // Helper function to get ISO week number
+  const getISOWeekNumber = (date: Date): number => {
+    const d = new Date(
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+    );
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  };
+
+  // Helper function to get date range for ISO week
+  const getWeekDateRange = (
+    year: number,
+    weekNumber: number
+  ): { start: Date; end: Date } => {
+    // ISO week: Week 1 contains Jan 4, and weeks start on Monday
+    // Get Jan 4 of the year
+    const jan4 = new Date(year, 0, 4);
+    const jan4Day = jan4.getDay() || 7; // Convert Sunday (0) to 7
+
+    // Find the Monday of week 1
+    // Jan 4 is in week 1, so we need to find the Monday of that week
+    const daysToMonday = jan4Day === 1 ? 0 : 8 - jan4Day; // Days to go back to Monday
+    const week1Monday = new Date(jan4);
+    week1Monday.setDate(jan4.getDate() - daysToMonday);
+
+    // Calculate the start date of the requested week (Monday)
+    const weekStart = new Date(week1Monday);
+    weekStart.setDate(week1Monday.getDate() + (weekNumber - 1) * 7);
+
+    // Calculate the end date of the week (Sunday)
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    return { start: weekStart, end: weekEnd };
+  };
+
+  // Helper function to format date range
+  const formatWeekDateRange = (year: number, weekNumber: number): string => {
+    const { start, end } = getWeekDateRange(year, weekNumber);
+    const startMonth = start.toLocaleDateString("en-US", { month: "short" });
+    const startDay = start.getDate();
+    const endMonth = end.toLocaleDateString("en-US", { month: "short" });
+    const endDay = end.getDate();
+
+    if (startMonth === endMonth) {
+      return `${startMonth} ${startDay}-${endDay}`;
+    } else {
+      return `${startMonth} ${startDay}-${endMonth} ${endDay}`;
+    }
+  };
+
+  const [selectedWeek, setSelectedWeek] = useState<string>(() => {
+    const currentWeek = getISOWeekNumber(new Date());
+    return currentWeek.toString();
+  });
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -100,6 +173,9 @@ export default function ClusterReportsDashboard({
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
   const exportDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Charts visibility
+  const [showCharts, setShowCharts] = useState(true);
   const availableColumns = [
     { key: "cluster", label: "Cluster", default: true },
     { key: "week", label: "Week", default: true },
@@ -141,6 +217,7 @@ export default function ClusterReportsDashboard({
       if (selectedYear) params.year = selectedYear;
       if (selectedGatheringType) params.gathering_type = selectedGatheringType;
       if (selectedMonth) params.month = selectedMonth;
+      if (selectedWeek) params.week_number = selectedWeek;
 
       const response = await clusterReportsApi.getAll(params);
       const data = response.data as PaginatedResponse<ClusterWeeklyReport>;
@@ -162,6 +239,7 @@ export default function ClusterReportsDashboard({
       if (selectedYear) params.year = selectedYear;
       if (selectedMonth) params.month = selectedMonth;
       if (selectedGatheringType) params.gathering_type = selectedGatheringType;
+      if (selectedWeek) params.week_number = selectedWeek;
 
       const response = await clusterReportsApi.analytics(params);
       setAnalytics(response.data);
@@ -179,6 +257,7 @@ export default function ClusterReportsDashboard({
     selectedMonth,
     selectedYear,
     selectedGatheringType,
+    selectedWeek,
   ]);
 
   useEffect(() => {
@@ -188,6 +267,7 @@ export default function ClusterReportsDashboard({
     selectedMonth,
     selectedYear,
     selectedGatheringType,
+    selectedWeek,
   ]);
 
   // Reset to first page when filters change
@@ -198,6 +278,7 @@ export default function ClusterReportsDashboard({
     selectedMonth,
     selectedYear,
     selectedGatheringType,
+    selectedWeek,
   ]);
 
   // Handle click outside export dropdown
@@ -876,9 +957,354 @@ export default function ClusterReportsDashboard({
           );
         })()}
 
+      {/* Charts Section */}
+      {analytics && reports.length > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Analytics Charts
+            </h2>
+            <button
+              onClick={() => setShowCharts(!showCharts)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              {showCharts ? (
+                <>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                    />
+                  </svg>
+                  Hide Charts
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                  Show Charts
+                </>
+              )}
+            </button>
+          </div>
+          {showCharts && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Chart 1: Attendance Trend Over Time */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Attendance Trend
+                </h3>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={(() => {
+                        // Group reports by month and calculate attendance
+                        const monthlyData: Record<
+                          string,
+                          { month: string; members: number; visitors: number }
+                        > = {};
+
+                        reports.forEach((report) => {
+                          const date = new Date(report.meeting_date);
+                          const monthKey = `${date.getFullYear()}-${String(
+                            date.getMonth() + 1
+                          ).padStart(2, "0")}`;
+                          const monthLabel = date.toLocaleDateString("en-US", {
+                            month: "short",
+                            year: "numeric",
+                          });
+
+                          if (!monthlyData[monthKey]) {
+                            monthlyData[monthKey] = {
+                              month: monthLabel,
+                              members: 0,
+                              visitors: 0,
+                            };
+                          }
+
+                          monthlyData[monthKey].members +=
+                            report.members_attended?.length || 0;
+                          monthlyData[monthKey].visitors +=
+                            report.visitors_attended?.length || 0;
+                        });
+
+                        return Object.values(monthlyData).sort((a, b) => {
+                          const dateA = new Date(a.month);
+                          const dateB = new Date(b.month);
+                          return dateA.getTime() - dateB.getTime();
+                        });
+                      })()}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="members"
+                        stroke="#2563EB"
+                        strokeWidth={2}
+                        name="Members"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="visitors"
+                        stroke="#F59E0B"
+                        strokeWidth={2}
+                        name="Visitors"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Chart 2: Cluster Comparison */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Cluster Comparison
+                </h3>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={(() => {
+                        // Calculate attendance rate per cluster
+                        const clusterData: Record<
+                          string,
+                          {
+                            cluster: string;
+                            attendanceRate: number;
+                            avgAttendance: number;
+                          }
+                        > = {};
+
+                        reports.forEach((report) => {
+                          const clusterId = report.cluster?.toString() || "";
+                          const cluster = clusters.find(
+                            (c) => c.id.toString() === clusterId
+                          );
+                          const clusterName =
+                            cluster?.name ||
+                            cluster?.code ||
+                            `Cluster ${clusterId}`;
+
+                          if (!clusterData[clusterId]) {
+                            clusterData[clusterId] = {
+                              cluster: clusterName,
+                              attendanceRate: 0,
+                              avgAttendance: 0,
+                            };
+                          }
+
+                          const memberCount =
+                            report.members_attended?.length || 0;
+                          const totalMembers = cluster?.members?.length || 1;
+                          const rate =
+                            totalMembers > 0
+                              ? (memberCount / totalMembers) * 100
+                              : 0;
+
+                          clusterData[clusterId].avgAttendance += memberCount;
+                        });
+
+                        // Calculate averages
+                        Object.keys(clusterData).forEach((clusterId) => {
+                          const clusterReports = reports.filter(
+                            (r) => r.cluster?.toString() === clusterId
+                          );
+                          if (clusterReports.length > 0) {
+                            clusterData[clusterId].avgAttendance = Math.round(
+                              clusterData[clusterId].avgAttendance /
+                                clusterReports.length
+                            );
+
+                            const cluster = clusters.find(
+                              (c) => c.id.toString() === clusterId
+                            );
+                            const totalMembers = cluster?.members?.length || 1;
+                            const totalAttendance =
+                              clusterData[clusterId].avgAttendance *
+                              clusterReports.length;
+                            clusterData[clusterId].attendanceRate =
+                              totalMembers > 0
+                                ? Math.round(
+                                    (totalAttendance /
+                                      (totalMembers * clusterReports.length)) *
+                                      100
+                                  )
+                                : 0;
+                          }
+                        });
+
+                        return Object.values(clusterData)
+                          .sort((a, b) => b.attendanceRate - a.attendanceRate)
+                          .slice(0, 10); // Top 10 clusters
+                      })()}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="cluster"
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                      />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="attendanceRate"
+                        fill="#2563EB"
+                        name="Attendance Rate (%)"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Chart 3: Gathering Type Distribution */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Gathering Type Distribution
+                </h3>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={(() => {
+                          const typeCounts: Record<string, number> = {};
+                          reports.forEach((report) => {
+                            const type = report.gathering_type || "UNKNOWN";
+                            typeCounts[type] = (typeCounts[type] || 0) + 1;
+                          });
+
+                          return Object.entries(typeCounts).map(
+                            ([type, count]) => ({
+                              name: type,
+                              value: count,
+                            })
+                          );
+                        })()}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) =>
+                          `${name}: ${(percent * 100).toFixed(0)}%`
+                        }
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {(() => {
+                          const COLORS = ["#2563EB", "#F59E0B", "#10B981"];
+                          const typeCounts: Record<string, number> = {};
+                          reports.forEach((report) => {
+                            const type = report.gathering_type || "UNKNOWN";
+                            typeCounts[type] = (typeCounts[type] || 0) + 1;
+                          });
+
+                          return Object.keys(typeCounts).map((_, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={COLORS[index % COLORS.length]}
+                            />
+                          ));
+                        })()}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Chart 4: Attendance by Month */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Attendance by Month
+                </h3>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={(() => {
+                        const monthlyData: Record<
+                          string,
+                          { month: string; members: number; visitors: number }
+                        > = {};
+
+                        reports.forEach((report) => {
+                          const date = new Date(report.meeting_date);
+                          const monthKey = `${date.getFullYear()}-${String(
+                            date.getMonth() + 1
+                          ).padStart(2, "0")}`;
+                          const monthLabel = date.toLocaleDateString("en-US", {
+                            month: "short",
+                            year: "numeric",
+                          });
+
+                          if (!monthlyData[monthKey]) {
+                            monthlyData[monthKey] = {
+                              month: monthLabel,
+                              members: 0,
+                              visitors: 0,
+                            };
+                          }
+
+                          monthlyData[monthKey].members +=
+                            report.members_attended?.length || 0;
+                          monthlyData[monthKey].visitors +=
+                            report.visitors_attended?.length || 0;
+                        });
+
+                        return Object.values(monthlyData).sort((a, b) => {
+                          const dateA = new Date(a.month);
+                          const dateB = new Date(b.month);
+                          return dateA.getTime() - dateB.getTime();
+                        });
+                      })()}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="members" fill="#2563EB" name="Members" />
+                      <Bar dataKey="visitors" fill="#F59E0B" name="Visitors" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cluster
@@ -919,6 +1345,32 @@ export default function ClusterReportsDashboard({
               <option value="10">October</option>
               <option value="11">November</option>
               <option value="12">December</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Week
+            </label>
+            <select
+              value={selectedWeek}
+              onChange={(e) => setSelectedWeek(e.target.value)}
+              className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Weeks</option>
+              {Array.from({ length: 53 }, (_, i) => {
+                const weekNum = i + 1;
+                const currentWeek = getISOWeekNumber(new Date());
+                const isCurrentWeek =
+                  weekNum === currentWeek &&
+                  selectedYear === new Date().getFullYear();
+                const dateRange = formatWeekDateRange(selectedYear, weekNum);
+                return (
+                  <option key={weekNum} value={weekNum.toString()}>
+                    W{weekNum} ({dateRange}){isCurrentWeek ? " - Current" : ""}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

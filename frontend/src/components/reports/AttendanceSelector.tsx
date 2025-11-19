@@ -128,8 +128,11 @@ export default function AttendanceSelector({
   const selectAllClusterMembers = () => {
     let idsToSelect: string[];
     if (filterRole === "MEMBER") {
-      // For members: use most recent report's members only
-      idsToSelect = mostRecentAttendedIds;
+      // For members: use most recent report's members if available, otherwise use all previously attended
+      idsToSelect =
+        mostRecentAttendedIds.length > 0
+          ? mostRecentAttendedIds
+          : previouslyAttendedPeople.map((p) => p.id);
     } else {
       // For visitors: use all previously attended
       idsToSelect = previouslyAttendedPeople.map((p) => p.id);
@@ -256,14 +259,30 @@ export default function AttendanceSelector({
       }
 
       // Check if selection matches "Select All Previously Attended"
-      if (filterRole === "MEMBER" && mostRecentAttendedIds.length > 0) {
-        const mostRecentSet = new Set(mostRecentAttendedIds);
-        if (
-          selectedIds.length === mostRecentAttendedIds.length &&
-          selectedIds.every((id) => mostRecentSet.has(id))
-        ) {
-          setLastClickedButton("selectAllClusterMembers");
-          return;
+      if (filterRole === "MEMBER") {
+        // First check if it matches most recent attended members
+        if (mostRecentAttendedIds.length > 0) {
+          const mostRecentSet = new Set(mostRecentAttendedIds);
+          if (
+            selectedIds.length === mostRecentAttendedIds.length &&
+            selectedIds.every((id) => mostRecentSet.has(id))
+          ) {
+            setLastClickedButton("selectAllClusterMembers");
+            return;
+          }
+        }
+        // If not, check if it matches all previously attended members
+        if (previouslyAttendedPeople.length > 0) {
+          const previouslyAttendedIdsSet = new Set(
+            previouslyAttendedPeople.map((p) => p.id)
+          );
+          if (
+            selectedIds.length === previouslyAttendedPeople.length &&
+            selectedIds.every((id) => previouslyAttendedIdsSet.has(id))
+          ) {
+            setLastClickedButton("selectAllClusterMembers");
+            return;
+          }
         }
       } else if (
         filterRole === "VISITOR" &&
@@ -290,6 +309,7 @@ export default function AttendanceSelector({
     filterRole,
     mostRecentAttendedIds.join(","),
     previouslyAttendedPeople.length,
+    previouslyAttendedPeople.map((p) => p.id).join(","),
   ]);
 
   // Close dropdown on outside click
@@ -378,7 +398,8 @@ export default function AttendanceSelector({
               ((filterRole === "VISITOR" &&
                 previouslyAttendedPeople.length > 0) ||
                 (filterRole === "MEMBER" &&
-                  mostRecentAttendedIds.length > 0)) && (
+                  (mostRecentAttendedIds.length > 0 ||
+                    previouslyAttendedPeople.length > 0))) && (
                 <button
                   type="button"
                   onClick={selectAllClusterMembers}

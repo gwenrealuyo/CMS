@@ -5,13 +5,16 @@ import ActionMenu from "@/src/components/families/ActionMenu";
 interface ClusterCardProps {
   cluster: Cluster;
   peopleUI: PersonUI[];
+  isSelected?: boolean;
+  isSelectionMode?: boolean;
+  onSelect?: () => void;
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
 const ClusterCard = memo(
-  ({ cluster, peopleUI, onView, onEdit, onDelete }: ClusterCardProps) => {
+  ({ cluster, peopleUI, isSelected = false, isSelectionMode = false, onSelect, onView, onEdit, onDelete }: ClusterCardProps) => {
     // Memoize expensive calculations
     const coordinator = React.useMemo(
       () =>
@@ -66,10 +69,33 @@ const ClusterCard = memo(
 
     return (
       <div
-        className="p-4 bg-white rounded-lg border-2 border-transparent shadow-md relative transition-all hover:shadow-md hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
+        className={`p-4 bg-white rounded-lg border-2 ${
+          isSelected ? "border-blue-500 bg-blue-50/50" : "border-transparent"
+        } shadow-md relative transition-all hover:shadow-md hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer`}
         onClick={onView}
       >
         <div className="flex items-start justify-between">
+          {/* Checkbox - Only show in selection mode */}
+          {isSelectionMode && onSelect && (
+            <div
+              className="mr-2 mt-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onSelect();
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <h4 className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-all truncate">
               {cluster.name || "Untitled Cluster"}

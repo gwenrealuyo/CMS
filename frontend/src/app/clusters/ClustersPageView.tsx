@@ -14,6 +14,7 @@ import ClusterSortDropdown from "@/src/components/clusters/ClusterSortDropdown";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import FamilyView from "@/src/components/families/FamilyView";
+import BulkActionsMenu from "@/src/components/people/BulkActionsMenu";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import Pagination from "@/src/components/ui/Pagination";
@@ -130,6 +131,14 @@ interface ClustersPageViewProps {
   people: Person[];
   peopleUI: PersonUI[];
   families: Family[];
+  // Bulk selection
+  selectedClusters: Set<string>;
+  isSelectionMode: boolean;
+  onToggleSelectionMode: () => void;
+  onSelectCluster: (clusterId: string) => void;
+  onSelectAllClusters: () => void;
+  onBulkDelete: () => void;
+  onBulkExport: (format: "excel" | "pdf" | "csv") => void;
 }
 
 export default function ClustersPageView({
@@ -219,6 +228,13 @@ export default function ClustersPageView({
   people,
   peopleUI,
   families,
+  selectedClusters,
+  isSelectionMode,
+  onToggleSelectionMode,
+  onSelectCluster,
+  onSelectAllClusters,
+  onBulkDelete,
+  onBulkExport,
 }: ClustersPageViewProps) {
   // Calculate stats
   const totalMembers = allClusters.reduce(
@@ -455,8 +471,42 @@ export default function ClustersPageView({
                   </div>
                 </div>
 
-                {/* Filter and Sort Buttons */}
+                {/* Bulk Actions and Filter/Sort Buttons */}
                 <div className="flex items-center gap-3 ml-4">
+                  {/* Selection Mode Toggle */}
+                  <button
+                    onClick={onToggleSelectionMode}
+                    className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                      isSelectionMode
+                        ? "bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
+                        : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <svg
+                      className={`w-4 h-4 mr-2 ${
+                        isSelectionMode ? "text-blue-600" : "text-gray-500"
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {isSelectionMode ? "Cancel Selection" : "Select"}
+                  </button>
+                  {/* Bulk Actions Menu */}
+                  {isSelectionMode && selectedClusters.size > 0 && (
+                    <BulkActionsMenu
+                      onBulkDelete={onBulkDelete}
+                      onBulkExport={onBulkExport}
+                      selectedCount={selectedClusters.size}
+                    />
+                  )}
                   {/* Active Filters Display */}
                   {clusterActiveFilters.length > 0 && (
                     <div className="flex items-center gap-2">
@@ -592,17 +642,40 @@ export default function ClustersPageView({
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {clusterPaginatedData.map((c) => (
-                  <ClusterCard
-                    key={c.id}
-                    cluster={c as any}
-                    peopleUI={peopleUI}
-                    onView={() => onViewCluster(c)}
-                    onEdit={() => onEditCluster(c)}
-                    onDelete={() => onDeleteCluster(c)}
-                  />
-                ))}
+              <div>
+                {/* Select All Checkbox - Only show in selection mode */}
+                {isSelectionMode && clusterPaginatedData.length > 0 && (
+                  <div className="mb-4 flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedClusters.size ===
+                            clusterPaginatedData.length &&
+                          clusterPaginatedData.length > 0
+                        }
+                        onChange={onSelectAllClusters}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      Select All ({selectedClusters.size} selected)
+                    </label>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {clusterPaginatedData.map((c) => (
+                    <ClusterCard
+                      key={c.id}
+                      cluster={c as any}
+                      peopleUI={peopleUI}
+                      isSelected={selectedClusters.has(c.id.toString())}
+                      isSelectionMode={isSelectionMode}
+                      onSelect={() => onSelectCluster(c.id.toString())}
+                      onView={() => onViewCluster(c)}
+                      onEdit={() => onEditCluster(c)}
+                      onDelete={() => onDeleteCluster(c)}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 

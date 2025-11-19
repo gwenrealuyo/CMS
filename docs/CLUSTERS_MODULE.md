@@ -1,5 +1,16 @@
 # Clusters Module Guide
 
+## Overview
+
+The Clusters module manages church clusters (small groups) and their weekly meeting reports. Key features include:
+
+- **Cluster Management**: Create, edit, delete, and manage clusters with coordinators, members, and families
+- **Weekly Reports**: Submit and track weekly cluster meeting reports with attendance, activities, and offerings
+- **Attendance Logging**: Efficient attendance selection with bulk options and previous attendance tracking
+- **Analytics Dashboard**: Visual charts and analytics showing attendance trends, cluster comparisons, and gathering type distribution
+- **Smart Pre-filling**: Automatically pre-fills attendance based on previous reports and active members
+- **Filter Independence**: Report forms work correctly regardless of dashboard filter settings
+
 ## Data Model & Storage
 
 ### Cluster Model
@@ -99,7 +110,8 @@ All routes live under `/api/clusters/` (namespaced in `core.urls`):
   - `PATCH /{id}/` – Partial update
   - `DELETE /{id}/` – Delete a report
 - `/api/clusters/cluster-weekly-reports/analytics/` – `GET` action returning analytics:
-    - Optional query params: `?cluster={cluster_id}`, `?year={year}`
+    - Optional query params: `?cluster={cluster_id}`, `?year={year}`, `?month={1-12}`, `?gathering_type={type}`, `?week_number={week}`
+    - All filters are applied to the analytics calculation for dynamic results
   - Returns: `total_reports`, `total_attendance` (members/visitors), `average_attendance`, `total_offerings`, `gathering_type_distribution`
 - `/api/clusters/cluster-weekly-reports/overdue/` – `GET` action returning clusters with overdue reports:
   - Returns: `current_year`, `current_week`, `overdue_count`, `overdue_clusters` (list of Cluster objects)
@@ -116,8 +128,8 @@ Serializers (`apps.clusters.serializers`) expose:
 - `ClusterWeeklyReportSerializer`:
   - `cluster_name` – read-only cluster name
   - `cluster_code` – read-only cluster code
-  - `members_attended_details` – read-only full person details for members
-  - `visitors_attended_details` – read-only full person details for visitors
+  - `members_attended_details` – read-only full person details for members (includes `role` and `status` fields)
+  - `visitors_attended_details` – read-only full person details for visitors (includes `role` and `status` fields)
   - `submitted_by_details` – read-only full person details for submitter
   - `members_present`, `visitors_present`, `member_attendance_rate` – computed properties (read-only)
 
@@ -156,6 +168,33 @@ The page uses tabs similar to the Lessons page:
   - Gathering type
     - Edit/Delete actions
   - "Add Report" button to create new reports
+  - **Week Filter**: Filter reports by ISO week number with date range display
+  - **Month Filter**: Filter reports by month (defaults to current month)
+  - **Analytics Dashboard**: Visual charts and analytics cards showing attendance trends, cluster comparisons, and gathering type distribution
+  - **Charts Toggle**: Option to hide/show visual analytics charts
+- **`ClusterWeeklyReportForm`**: Form component for creating/editing weekly reports
+  - **Week/Year Independence**: When editing a report, the form uses the report's actual `week_number` and `year` from `initialData`, independent of dashboard filters
+  - **Previous Attendance Fetching**: Automatically fetches all previous reports for the selected cluster to determine previously attended members/visitors
+  - **Week-Based Filtering**: Previous reports are filtered to only include reports from earlier weeks/years than the current report being edited
+  - **Current Report Exclusion**: When editing, the current report is excluded from the "previous reports" list
+  - **Form Data Sync**: `formData` is automatically synced with `initialData` when editing to ensure correct week/year values
+- **`AttendanceSelector`**: Component for selecting members/visitors who attended
+  - **Bulk Selection Options**:
+    - "Select All": Selects all available members/visitors
+    - "Deselect All": Clears all selections
+    - "Select All Active": Selects all active members (for members field only)
+    - "Select All Previously Attended": Selects members/visitors from previous reports
+  - **Auto-Selection Logic**:
+    - **For Members**: When a cluster is selected, automatically selects all `ACTIVE` members by default
+    - **For Visitors**: When a cluster is selected, automatically selects visitors from the most recent previous report (if available)
+  - **Previously Attended Display**:
+    - **For Members**: Shows members who attended in previous reports, separated from other members
+    - **For Visitors**: Shows visitors who attended in all previous reports of that cluster, separated from other visitors
+  - **Button Highlighting**: The active bulk selection button is highlighted to show which selection method is currently active
+  - **Edit Mode Highlighting**: When editing a report, the button that matches the current selection is automatically highlighted
+  - **List Mode**: Toggle between "Search Mode" and "List Mode" for easier multi-selection
+  - **Status Display**: Shows member status (ACTIVE, SEMIACTIVE, etc.) instead of phone numbers in the dropdown
+  - **Cluster-Aware Filtering**: Separates cluster members/previously attended visitors from others in the list view
 
 ### Data Loading & Updates
 
@@ -163,6 +202,10 @@ The page uses tabs similar to the Lessons page:
 - Successful form submissions prepend new records to local state
 - Errors surface via error messages
 - Loading states are managed per data type
+- **Optimistic UI Updates**: When editing cluster names or assigning members, the UI updates immediately without a full page reload
+- **Previous Attendance Fetching**: When creating/editing a weekly report, the form fetches all previous reports for the selected cluster to populate "previously attended" lists
+- **Week-Based Filtering**: Previous reports are filtered client-side to only include reports from earlier weeks/years than the current report
+- **Dashboard Filter Independence**: The weekly report form's logic is independent of dashboard filters, ensuring correct previous attendance data regardless of active filters
 
 ## Sample Data
 

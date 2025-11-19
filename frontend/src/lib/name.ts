@@ -1,11 +1,11 @@
 import { Person, PersonUI } from "@/src/types/person";
 import { LessonPersonSummary } from "@/src/types/lesson";
 
-type PersonLike = 
-  | Partial<Person> 
-  | PersonUI 
-  | LessonPersonSummary 
-  | { 
+type PersonLike =
+  | Partial<Person>
+  | PersonUI
+  | LessonPersonSummary
+  | {
       id?: string | number;
       first_name?: string;
       middle_name?: string;
@@ -13,7 +13,7 @@ type PersonLike =
       suffix?: string;
       username?: string;
     }
-  | null 
+  | null
   | undefined;
 
 interface PersonNameFields {
@@ -21,6 +21,7 @@ interface PersonNameFields {
   middle_name?: string;
   last_name?: string;
   suffix?: string;
+  nickname?: string;
   username?: string;
   id?: string | number;
 }
@@ -31,9 +32,9 @@ function hasNameFields(obj: unknown): obj is PersonNameFields {
 
 /**
  * Formats a person's name consistently across the application.
- * Handles first name, middle name (as initial), last name, and suffix.
+ * Handles first name, nickname (in quotes), middle name (as initial), last name, and suffix.
  * Falls back to username if no name parts are available.
- * 
+ *
  * @param person - Person object with name fields
  * @returns Formatted name string
  */
@@ -43,6 +44,7 @@ export function formatPersonName(person: PersonLike): string {
   }
 
   const first = person.first_name ?? "";
+  const nickname = (person as any).nickname;
   const middle = person.middle_name;
   const last = person.last_name ?? "";
   const suffix = person.suffix;
@@ -52,6 +54,11 @@ export function formatPersonName(person: PersonLike): string {
 
   if (first) {
     pieces.push(first.trim());
+  }
+
+  // Nickname in quotes (after first name)
+  if (nickname) {
+    pieces.push(`"${String(nickname).trim()}"`);
   }
 
   if (middle) {

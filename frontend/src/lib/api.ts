@@ -1,9 +1,5 @@
 import axios from "axios";
-import {
-  Person,
-  Family,
-  Milestone,
-} from "@/src/types/person";
+import { Person, Family, Milestone } from "@/src/types/person";
 import {
   Cluster,
   ClusterWeeklyReport,
@@ -31,6 +27,16 @@ import {
   MinistryCreateInput,
 } from "@/src/types/ministry";
 import {
+  SundaySchoolCategory,
+  SundaySchoolClass,
+  SundaySchoolClassMember,
+  SundaySchoolSession,
+  SundaySchoolSummary,
+  UnenrolledByCategory,
+  AttendanceReport,
+  RecurringSessionData,
+} from "@/src/types/sundaySchool";
+import {
   Donation,
   DonationPurpose,
   Offering,
@@ -52,6 +58,8 @@ const api = axios.create({
 
 export const peopleApi = {
   getAll: () => api.get<Person[]>("/people/people"),
+  search: (params?: { search?: string; role?: string }) =>
+    api.get<Person[]>("/people/people/", { params }),
   getById: (id: string) => api.get<Person>(`/people/people/${id}/`),
   create: (data: Partial<Person>) => api.post<Person>("/people/people/", data),
   update: (id: string, data: Partial<Person>) =>
@@ -77,7 +85,8 @@ export const familiesApi = {
 
 export const clustersApi = {
   getAll: () => api.get<Cluster[]>("/clusters/clusters/"),
-  getById: (id: string | number) => api.get<Cluster>(`/clusters/clusters/${id}/`),
+  getById: (id: string | number) =>
+    api.get<Cluster>(`/clusters/clusters/${id}/`),
   create: (data: ClusterInput) =>
     api.post<Cluster>("/clusters/clusters/", data),
   update: (id: string | number, data: Partial<ClusterInput>) =>
@@ -98,22 +107,31 @@ export const clusterReportsApi = {
     page?: number;
     page_size?: number;
   }) =>
-    api.get<{ results: ClusterWeeklyReport[]; count: number; next?: string; previous?: string }>(
-      "/clusters/cluster-weekly-reports/",
-      { params }
-    ),
+    api.get<{
+      results: ClusterWeeklyReport[];
+      count: number;
+      next?: string;
+      previous?: string;
+    }>("/clusters/cluster-weekly-reports/", { params }),
   getById: (id: string) =>
     api.get<ClusterWeeklyReport>(`/clusters/cluster-weekly-reports/${id}/`),
   create: (data: ClusterWeeklyReportInput) =>
     api.post<ClusterWeeklyReport>("/clusters/cluster-weekly-reports/", data),
   update: (id: string, data: Partial<ClusterWeeklyReportInput>) =>
-    api.put<ClusterWeeklyReport>(`/clusters/cluster-weekly-reports/${id}/`, data),
+    api.put<ClusterWeeklyReport>(
+      `/clusters/cluster-weekly-reports/${id}/`,
+      data
+    ),
   patch: (id: string, data: Partial<ClusterWeeklyReportInput>) =>
-    api.patch<ClusterWeeklyReport>(`/clusters/cluster-weekly-reports/${id}/`, data),
-  delete: (id: string) =>
-    api.delete(`/clusters/cluster-weekly-reports/${id}/`),
+    api.patch<ClusterWeeklyReport>(
+      `/clusters/cluster-weekly-reports/${id}/`,
+      data
+    ),
+  delete: (id: string) => api.delete(`/clusters/cluster-weekly-reports/${id}/`),
   analytics: (params?: { cluster?: string; year?: number }) =>
-    api.get<ClusterAnalytics>("/clusters/cluster-weekly-reports/analytics/", { params }),
+    api.get<ClusterAnalytics>("/clusters/cluster-weekly-reports/analytics/", {
+      params,
+    }),
   overdue: () =>
     api.get<OverdueClusters>("/clusters/cluster-weekly-reports/overdue/"),
 };
@@ -311,7 +329,6 @@ export interface PaginatedResponse<T> {
   previous: string | null;
   results: T[];
 }
-
 
 const mapDonation = (payload: any): Donation => ({
   id: payload.id,
@@ -575,6 +592,105 @@ export const financeApi = {
             } as PledgeSummary)
         )
       ),
+};
+
+export const sundaySchoolApi = {
+  // Categories
+  listCategories: (params?: { is_active?: boolean }) =>
+    api.get<SundaySchoolCategory[]>("/sunday-school/categories/", { params }),
+  getCategory: (id: number | string) =>
+    api.get<SundaySchoolCategory>(`/sunday-school/categories/${id}/`),
+  createCategory: (data: Partial<SundaySchoolCategory>) =>
+    api.post<SundaySchoolCategory>("/sunday-school/categories/", data),
+  updateCategory: (id: number | string, data: Partial<SundaySchoolCategory>) =>
+    api.put<SundaySchoolCategory>(`/sunday-school/categories/${id}/`, data),
+  deleteCategory: (id: number | string) =>
+    api.delete(`/sunday-school/categories/${id}/`),
+
+  // Classes
+  listClasses: (params?: {
+    category?: number | string;
+    is_active?: boolean;
+    search?: string;
+  }) => api.get<SundaySchoolClass[]>("/sunday-school/classes/", { params }),
+  getClass: (id: number | string) =>
+    api.get<SundaySchoolClass>(`/sunday-school/classes/${id}/`),
+  createClass: (data: Partial<SundaySchoolClass>) =>
+    api.post<SundaySchoolClass>("/sunday-school/classes/", data),
+  updateClass: (id: number | string, data: Partial<SundaySchoolClass>) =>
+    api.put<SundaySchoolClass>(`/sunday-school/classes/${id}/`, data),
+  deleteClass: (id: number | string) =>
+    api.delete(`/sunday-school/classes/${id}/`),
+  enroll: (
+    classId: number | string,
+    payload: { person_ids: number[]; role: string }
+  ) =>
+    api.post<{ created: number; message: string }>(
+      `/sunday-school/classes/${classId}/enroll/`,
+      payload
+    ),
+  getClassSessions: (
+    classId: number | string,
+    params?: { date_from?: string; date_to?: string }
+  ) =>
+    api.get<SundaySchoolSession[]>(
+      `/sunday-school/classes/${classId}/sessions/`,
+      { params }
+    ),
+  getClassAttendance: (
+    classId: number | string,
+    params?: { occurrence_date?: string }
+  ) =>
+    api.get<any[]>(`/sunday-school/classes/${classId}/attendance/`, {
+      params,
+    }),
+  summary: () =>
+    api.get<SundaySchoolSummary>("/sunday-school/classes/summary/"),
+  unenrolledByCategory: (params?: { status?: string; role?: string }) =>
+    api.get<UnenrolledByCategory[]>(
+      "/sunday-school/classes/unenrolled_by_category/",
+      { params }
+    ),
+
+  // Members
+  listMembers: (params?: {
+    sunday_school_class?: number | string;
+    role?: string;
+    is_active?: boolean;
+  }) =>
+    api.get<SundaySchoolClassMember[]>("/sunday-school/members/", { params }),
+  getMember: (id: number | string) =>
+    api.get<SundaySchoolClassMember>(`/sunday-school/members/${id}/`),
+  createMember: (data: Partial<SundaySchoolClassMember>) =>
+    api.post<SundaySchoolClassMember>("/sunday-school/members/", data),
+  updateMember: (id: number | string, data: Partial<SundaySchoolClassMember>) =>
+    api.put<SundaySchoolClassMember>(`/sunday-school/members/${id}/`, data),
+  deleteMember: (id: number | string) =>
+    api.delete(`/sunday-school/members/${id}/`),
+
+  // Sessions
+  listSessions: (params?: {
+    sunday_school_class?: number | string;
+    session_date?: string;
+    search?: string;
+  }) => api.get<SundaySchoolSession[]>("/sunday-school/sessions/", { params }),
+  getSession: (id: number | string) =>
+    api.get<SundaySchoolSession>(`/sunday-school/sessions/${id}/`),
+  createSession: (data: Partial<SundaySchoolSession>) =>
+    api.post<SundaySchoolSession>("/sunday-school/sessions/", data),
+  updateSession: (id: number | string, data: Partial<SundaySchoolSession>) =>
+    api.put<SundaySchoolSession>(`/sunday-school/sessions/${id}/`, data),
+  deleteSession: (id: number | string) =>
+    api.delete(`/sunday-school/sessions/${id}/`),
+  getSessionAttendanceReport: (id: number | string) =>
+    api.get<AttendanceReport>(
+      `/sunday-school/sessions/${id}/attendance_report/`
+    ),
+  createRecurringSessions: (payload: RecurringSessionData) =>
+    api.post<{ created: number; sessions: SundaySchoolSession[] }>(
+      "/sunday-school/sessions/create_recurring/",
+      payload
+    ),
 };
 
 export default api;

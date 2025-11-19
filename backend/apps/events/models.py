@@ -22,6 +22,7 @@ class Event(models.Model):
             ("CAMPING", "Camping"),
             ("AWTA", "AWTA"),
             ("CONFERENCE", "Conference"),
+            ("SUNDAY_SCHOOL", "Sunday School"),
             ("OTHER", "Others"),
         ],
         default="SUNDAY_SERVICE",

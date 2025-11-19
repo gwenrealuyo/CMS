@@ -20,6 +20,7 @@ import {
   RectangleStackIcon,
   Squares2X2Icon,
   DocumentChartBarIcon,
+  AcademicCapIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -39,6 +40,7 @@ const navigation = [
   { name: "Finance", href: "/finance", icon: CurrencyDollarIcon },
   { name: "Ministries", href: "/ministries", icon: UserGroupIcon },
   { name: "Lessons", href: "/lessons", icon: BookOpenIcon },
+  { name: "Sunday School", href: "/sunday-school", icon: AcademicCapIcon },
 ];
 
 export default function Sidebar() {

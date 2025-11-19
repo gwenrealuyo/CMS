@@ -14,4 +14,5 @@ urlpatterns = [
     path(
         "api/finance/", include(("apps.finance.urls", "finance"), namespace="finance")
     ),
+    path("api/sunday-school/", include("apps.sunday_school.urls", namespace="sunday_school")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

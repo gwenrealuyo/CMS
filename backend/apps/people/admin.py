@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Person, Family, Cluster, Milestone
+from .models import Person, Family, Milestone
 
 
 class PersonAdmin(UserAdmin):
@@ -90,5 +90,4 @@ class PersonAdmin(UserAdmin):
 # Register with custom admin
 admin.site.register(Person, PersonAdmin)
 admin.site.register(Family)
-admin.site.register(Cluster)
 admin.site.register(Milestone)

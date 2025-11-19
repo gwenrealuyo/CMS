@@ -31,14 +31,9 @@ const navigation = [
     children: [
       { name: "Directory", href: "/people", icon: UserIcon },
       { name: "Families", href: "/people/families", icon: RectangleStackIcon },
-      { name: "Clusters", href: "/people/clusters", icon: Squares2X2Icon },
-      {
-        name: "Cluster Reports",
-        href: "/people/clusters/reports",
-        icon: DocumentChartBarIcon,
-      },
     ],
   },
+  { name: "Clusters", href: "/clusters", icon: Squares2X2Icon },
   { name: "Events", href: "/events", icon: CalendarIcon },
   // { name: "Attendance", href: "/attendance", icon: ClipboardDocumentCheckIcon },
   { name: "Finance", href: "/finance", icon: CurrencyDollarIcon },

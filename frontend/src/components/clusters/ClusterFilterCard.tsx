@@ -64,6 +64,7 @@ export default function ClusterFilterCard({
   const firstInputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(
     null
   );
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -78,6 +79,46 @@ export default function ClusterFilterCard({
       }, 0);
     }
   }, [isOpen]);
+
+  // Handle click outside to close the filter card
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        cardRef.current &&
+        !cardRef.current.contains(target as Node)
+      ) {
+        // Don't close if clicking on the filter dropdown or filter button
+        const clickedButton = target.closest('button');
+        if (clickedButton) {
+          const buttonText = clickedButton.textContent || '';
+          if (buttonText.includes('Filter')) {
+            const svgPath = clickedButton.querySelector('path[d*="M12 6v6"]');
+            if (svgPath) {
+              return; // This is the filter button, don't close
+            }
+          }
+        }
+        // Don't close if clicking on the filter dropdown
+        const filterDropdown = target.closest('[class*="fixed z-50"]');
+        if (filterDropdown) {
+          return;
+        }
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      const timeoutId = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [isOpen, onClose]);
 
   const handleApply = () => {
     if (!operator) return;
@@ -130,6 +171,7 @@ export default function ClusterFilterCard({
 
   return (
     <div
+      ref={cardRef}
       className="fixed z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
       style={{
         top: position.top,

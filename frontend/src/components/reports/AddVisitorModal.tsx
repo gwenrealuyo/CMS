@@ -351,21 +351,17 @@ export default function AddVisitorModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex gap-4 pt-4">
           <Button
-            type="button"
+            variant="tertiary"
+            className="flex-1"
             onClick={handleClose}
-            variant="secondary"
-            className="!text-black py-2 px-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50"
+            disabled={loading}
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            disabled={loading}
-            className="!text-white py-2 px-4 text-sm font-normal bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Adding..." : "Add Visitor"}
+          <Button className="flex-1" disabled={loading} type="submit">
+            {loading ? "Saving..." : "Add Visitor"}
           </Button>
         </div>
       </form>

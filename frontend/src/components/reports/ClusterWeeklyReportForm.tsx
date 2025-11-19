@@ -6,7 +6,7 @@ import {
   PersonUI,
   Person,
 } from "@/src/types/person";
-import { peopleApi } from "@/src/lib/api";
+import { peopleApi, clusterReportsApi } from "@/src/lib/api";
 import Button from "@/src/components/ui/Button";
 import AttendanceSelector from "./AttendanceSelector";
 import AddVisitorModal from "./AddVisitorModal";
@@ -28,13 +28,17 @@ export default function ClusterWeeklyReportForm({
   cluster,
   clusters,
 }: ClusterWeeklyReportFormProps) {
+  // Normalize IDs to strings for consistency
+  const normalizeIds = (ids: any[]): string[] => {
+    if (!ids || !Array.isArray(ids)) return [];
+    return ids.map((id) => id?.toString() || "").filter((id) => id !== "");
+  };
+
   const [formData, setFormData] = useState<Partial<ClusterWeeklyReport>>({
     cluster: cluster?.id || "",
     year: new Date().getFullYear(),
     week_number: getWeekNumber(new Date()),
     meeting_date: new Date().toISOString().split("T")[0],
-    members_attended: [],
-    visitors_attended: [],
     members_present: 0,
     visitors_present: 0,
     gathering_type: "PHYSICAL" as GatheringType,
@@ -45,6 +49,9 @@ export default function ClusterWeeklyReportForm({
     highlights: "",
     lowlights: "",
     ...initialData,
+    // Normalize IDs to strings (override initialData if present)
+    members_attended: normalizeIds(initialData?.members_attended || []),
+    visitors_attended: normalizeIds(initialData?.visitors_attended || []),
   });
 
   const [loading, setLoading] = useState(false);
@@ -54,6 +61,18 @@ export default function ClusterWeeklyReportForm({
   const [people, setPeople] = useState<PersonUI[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(true);
   const [showAddVisitorModal, setShowAddVisitorModal] = useState(false);
+  const [previouslyAttendedVisitors, setPreviouslyAttendedVisitors] = useState<
+    string[]
+  >([]);
+  const [mostRecentAttendedVisitors, setMostRecentAttendedVisitors] = useState<
+    string[]
+  >([]);
+  const [previouslyAttendedMembers, setPreviouslyAttendedMembers] = useState<
+    string[]
+  >([]);
+  const [mostRecentAttendedMembers, setMostRecentAttendedMembers] = useState<
+    string[]
+  >([]);
 
   // Fetch people data
   useEffect(() => {
@@ -76,7 +95,48 @@ export default function ClusterWeeklyReportForm({
             dateFirstAttended: p.date_first_attended,
           };
         });
-        setPeople(peopleUI);
+        // Normalize people IDs to strings
+        const normalizedPeopleUI = peopleUI.map((p) => ({
+          ...p,
+          id: p.id?.toString() || "",
+        }));
+        setPeople(normalizedPeopleUI);
+
+        // Filter out invalid IDs from formData (visitors/members that were deleted)
+        setFormData((prev) => {
+          const validPeopleIds = new Set(normalizedPeopleUI.map((p) => p.id));
+          // Normalize formData IDs to strings for comparison
+          const normalizedMembers = (prev.members_attended || []).map(
+            (id) => id?.toString() || ""
+          );
+          const normalizedVisitors = (prev.visitors_attended || []).map(
+            (id) => id?.toString() || ""
+          );
+
+          const validMembers = normalizedMembers.filter(
+            (id) => validPeopleIds.has(id) && id !== ""
+          );
+          const validVisitors = normalizedVisitors.filter(
+            (id) => validPeopleIds.has(id) && id !== ""
+          );
+
+          // Only update if there were invalid IDs removed or IDs needed normalization
+          if (
+            validMembers.length !== normalizedMembers.length ||
+            validVisitors.length !== normalizedVisitors.length ||
+            JSON.stringify(validMembers) !==
+              JSON.stringify(prev.members_attended) ||
+            JSON.stringify(validVisitors) !==
+              JSON.stringify(prev.visitors_attended)
+          ) {
+            return {
+              ...prev,
+              members_attended: validMembers,
+              visitors_attended: validVisitors,
+            };
+          }
+          return prev;
+        });
       } catch (error) {
         console.error("Error fetching people:", error);
       } finally {
@@ -117,6 +177,94 @@ export default function ClusterWeeklyReportForm({
       setFormData((prev) => ({ ...prev, cluster: cluster.id }));
     }
   }, [cluster]);
+
+  // Fetch previously attended visitors and members when cluster is selected
+  useEffect(() => {
+    const fetchPreviousAttendance = async () => {
+      if (selectedCluster && !initialData) {
+        try {
+          // Fetch all previous reports for this cluster to get all visitors/members who have attended
+          const response = await clusterReportsApi.getAll({
+            cluster: selectedCluster.id.toString(),
+            page_size: 100, // Get all reports to collect all unique visitors/members
+          });
+
+          // Collect all unique visitor IDs from all previous reports of this cluster
+          const visitorIds = new Set<string>();
+          // Collect all unique member IDs from all previous reports of this cluster
+          const memberIds = new Set<string>();
+
+          if (response.data.results && response.data.results.length > 0) {
+            response.data.results.forEach((report) => {
+              // Only include visitors/members from reports that match this cluster
+              if (
+                report.cluster?.toString() === selectedCluster.id.toString()
+              ) {
+                if (report.visitors_attended) {
+                  report.visitors_attended.forEach((id: number) => {
+                    visitorIds.add(id.toString());
+                  });
+                }
+                if (report.members_attended) {
+                  report.members_attended.forEach((id: number) => {
+                    memberIds.add(id.toString());
+                  });
+                }
+              }
+            });
+          }
+
+          // For auto-selection, use only the most recent report's visitors/members
+          const mostRecentReport = response.data.results?.[0];
+          const mostRecentVisitorIds =
+            mostRecentReport?.cluster?.toString() ===
+              selectedCluster.id.toString() &&
+            mostRecentReport?.visitors_attended
+              ? Array.from(
+                  new Set(
+                    mostRecentReport.visitors_attended.map((id: number) =>
+                      id.toString()
+                    )
+                  )
+                )
+              : [];
+          const mostRecentMemberIds =
+            mostRecentReport?.cluster?.toString() ===
+              selectedCluster.id.toString() &&
+            mostRecentReport?.members_attended
+              ? Array.from(
+                  new Set(
+                    mostRecentReport.members_attended.map((id: number) =>
+                      id.toString()
+                    )
+                  )
+                )
+              : [];
+
+          // Store all previously attended visitors/members for filtering the list
+          setPreviouslyAttendedVisitors(Array.from(visitorIds));
+          setPreviouslyAttendedMembers(Array.from(memberIds));
+
+          // Store most recent visitors/members for auto-selection
+          setMostRecentAttendedVisitors(mostRecentVisitorIds);
+          setMostRecentAttendedMembers(mostRecentMemberIds);
+        } catch (error) {
+          console.error("Error fetching previous attendance:", error);
+          setPreviouslyAttendedVisitors([]);
+          setMostRecentAttendedVisitors([]);
+          setPreviouslyAttendedMembers([]);
+          setMostRecentAttendedMembers([]);
+        }
+      } else {
+        setPreviouslyAttendedVisitors([]);
+        setMostRecentAttendedVisitors([]);
+        setPreviouslyAttendedMembers([]);
+        setMostRecentAttendedMembers([]);
+      }
+    };
+
+    fetchPreviousAttendance();
+  }, [selectedCluster?.id, initialData]);
 
   const handleChange = (field: keyof ClusterWeeklyReport, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -366,6 +514,9 @@ export default function ClusterWeeklyReportForm({
             availablePeople={people}
             filterRole="MEMBER"
             onSelectionChange={handleMembersChange}
+            selectedCluster={(selectedCluster as any) || undefined}
+            previouslyAttendedIds={previouslyAttendedMembers}
+            mostRecentAttendedIds={mostRecentAttendedMembers}
           />
 
           <div className="mb-6">
@@ -398,6 +549,9 @@ export default function ClusterWeeklyReportForm({
               filterRole="VISITOR"
               onSelectionChange={handleVisitorsChange}
               className="mb-0"
+              selectedCluster={(selectedCluster as any) || undefined}
+              previouslyAttendedIds={previouslyAttendedVisitors}
+              mostRecentAttendedIds={mostRecentAttendedVisitors}
             />
           </div>
         </>
@@ -498,47 +652,21 @@ export default function ClusterWeeklyReportForm({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-end gap-3 pt-4">
+      <div className="flex gap-4 pt-4">
         <Button
+          variant="tertiary"
+          className="flex-1"
           onClick={onClose}
-          variant="secondary"
-          className="!text-black py-2 px-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+          disabled={loading}
         >
           Cancel
         </Button>
-        <Button
-          onClick={() => handleSubmit(new Event("submit") as any)}
-          disabled={loading}
-          className="!text-white py-2 px-4 text-sm font-normal bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-        >
-          {loading ? (
-            <>
-              <svg
-                className="animate-spin h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              <span>Submitting...</span>
-            </>
-          ) : (
-            <>
-              <span>{initialData ? "Update Report" : "Submit Report"}</span>
-            </>
-          )}
+        <Button className="flex-1" disabled={loading} type="submit">
+          {loading
+            ? "Saving..."
+            : initialData
+            ? "Update Report"
+            : "Submit Report"}
         </Button>
       </div>
     </form>

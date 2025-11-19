@@ -6,17 +6,17 @@ This document outlines the business rules and technical implementation for manag
 
 ## Core Principles
 
-### 1. Family-Centric Membership
+### 1. Automatic Family Member Addition
 
-- **Primary Rule**: When a family is added to a cluster, all family members are automatically added to the cluster
-- **Override Protection**: Individual members already assigned to other clusters are not overridden
-- **Consistency**: Family membership in a cluster implies all family members belong to that cluster
+- **Primary Rule**: When a family is added to a cluster, all family members are automatically added to the cluster's members list
+- **Automatic Behavior**: This happens automatically in the backend when families are assigned via the API or cluster form
+- **Consistency**: Family membership in a cluster ensures all family members are included in the cluster
 
-### 2. Individual Member Override
+### 2. Manual Member Removal
 
-- **Override Rule**: Individual members can be assigned to clusters independently of their family
-- **Priority**: Individual cluster assignments take precedence over family-based assignments
-- **Flexibility**: Allows for members to be in different clusters than their family
+- **User Control**: Users can manually remove individual members from the cluster's members list if they don't want certain family members to be part of the cluster
+- **Flexibility**: This allows for cases where not all family members should participate in the cluster
+- **No Automatic Re-addition**: If a member is manually removed, they won't be automatically re-added when the family is updated (unless the family assignment is changed)
 
 ### 3. Coordinator Safety
 
@@ -32,69 +32,85 @@ This document outlines the business rules and technical implementation for manag
 
 ```
 WHEN: A family is added to a cluster
-THEN: All family members are automatically added to the cluster
-UNLESS: The member is already assigned to a different cluster
+THEN: All family members are automatically added to the cluster's members list
 ```
 
 **Implementation Logic:**
 
-```typescript
-const addFamily = (family: Family) => {
-  const familyMembers = family.members || [];
-  const existingMembers = cluster.members || [];
-  const newMembers = familyMembers.filter(
-    (memberId: string) => !existingMembers.includes(memberId)
-  );
+**Frontend (Real-Time UI):**
+The `ClusterForm` component in `frontend/src/components/clusters/ClusterForm.tsx` provides immediate visual feedback:
 
-  return {
-    families: [...cluster.families, family.id],
-    members: [...existingMembers, ...newMembers],
-  };
+```typescript
+const addFamily = (family) => {
+  setFamilyIds([...familyIds, familyIdStr]);
+  
+  // Automatically add all family members to the members list
+  const selectedFamily = families.find(f => f.id.toString() === familyIdStr);
+  if (selectedFamily && selectedFamily.members) {
+    const familyMemberIds = selectedFamily.members.map(id => id.toString());
+    // Add family members that aren't already in the list
+    setMemberIds([...memberIds, ...familyMemberIds.filter(id => !memberIds.includes(id))]);
+  }
 };
 ```
 
-#### Rule 2: Override Protection
+**Backend (On Submit):**
+The `ClusterSerializer` in `apps.clusters.serializers` automatically handles this on form submission:
 
-```
-WHEN: A family member is already in a different cluster
-THEN: The member remains in their current cluster
-AND: The family is still added to the new cluster
-BUT: The conflicted member is not added to the new cluster
+```python
+def _add_family_members_to_cluster(self, instance, families):
+    # Get all members from the assigned families
+    family_member_ids = set()
+    for family in families:
+        family_members = family.members.all()
+        family_member_ids.update(member.id for member in family_members)
+    
+    # Get existing cluster members
+    existing_member_ids = set(instance.members.values_list('id', flat=True))
+    
+    # Union: Add new family members to existing members
+    all_member_ids = existing_member_ids | family_member_ids
+    
+    # Update the cluster's members
+    instance.members.set(all_member_ids)
 ```
 
 **Example Scenario:**
 
 - Family A has members: John, Jane, Bob
-- John is already in Cluster X
-- Family A is added to Cluster Y
-- Result: Jane and Bob are added to Cluster Y, John remains in Cluster X
+- Family A is added to Cluster Y in the form
+- **Frontend**: John, Jane, and Bob immediately appear in the members field (before submitting)
+- **Backend**: On form submission, John, Jane, and Bob are automatically added to Cluster Y's members list in the database
 
 ### Removing Families from Clusters
 
-#### Rule 3: Complete Member Removal
+#### Rule 3: Family Removal Behavior
 
 ```
-WHEN: A family is removed from a cluster
-THEN: All family members are removed from the cluster
-UNLESS: The member was individually added to the cluster
+WHEN: A family is removed from a cluster (in the form)
+THEN: The family is removed from the families list
+AND: All family members are automatically removed from the members list (frontend)
+NOTE: On backend, family members remain unless explicitly removed via API
 ```
 
-**Implementation Logic:**
+**Frontend Behavior:**
+When a family is removed in the cluster form, all its members are automatically removed from the members list in real-time:
 
 ```typescript
 const removeFamily = (familyId: string) => {
-  const family = families.find((f) => f.id === familyId);
-  const familyMembers = family?.members || [];
-  const nextMembers = cluster.members.filter(
-    (memberId: string) => !familyMembers.includes(memberId)
-  );
-
-  return {
-    families: cluster.families.filter((id) => id !== familyId),
-    members: nextMembers,
-  };
+  setFamilyIds(familyIds.filter((id) => id !== familyId));
+  
+  // Remove family members when family is removed
+  const removedFamily = families.find(f => f.id.toString() === familyId);
+  if (removedFamily && removedFamily.members) {
+    const familyMemberIds = removedFamily.members.map(id => id.toString());
+    setMemberIds(memberIds.filter(id => !familyMemberIds.includes(id)));
+  }
 };
 ```
+
+**Backend Behavior:**
+When updating via API, removing a family from the families list does NOT automatically remove the family members. This allows for flexibility - family members can remain in the cluster even if the family assignment is removed.
 
 #### Rule 4: Coordinator Cleanup
 
@@ -118,18 +134,22 @@ if (familyMembers.includes(cluster.coordinator)) {
 
 ```
 WHEN: An individual member is added to a cluster
-THEN: The member is added regardless of family assignments
+THEN: The member is added to the cluster's members list
 AND: Family assignments are not affected
+NOTE: This works in addition to family-based member addition
 ```
 
-#### Rule 6: Individual Removal
+#### Rule 6: Manual Member Removal
 
 ```
-WHEN: An individual member is removed from a cluster
+WHEN: An individual member is removed from a cluster's members list
 THEN: The member is removed from the cluster
 AND: Family assignments remain unchanged
-UNLESS: The member was the coordinator
+NOTE: This allows users to exclude specific family members from a cluster
+UNLESS: The member was the coordinator (coordinator cleanup may be needed)
 ```
+
+**Use Case**: If a family is added to a cluster but one family member shouldn't participate, the user can manually remove that member from the cluster's members list while keeping the family assigned.
 
 ### Coordinator Management
 
@@ -246,17 +266,18 @@ interface Person {
 
 ### Key Functions
 
-#### addFamily()
+#### addFamily() (Frontend)
 
-- Adds family to cluster
-- Adds all family members to cluster (with override protection)
-- Updates member count display
+- Adds family to cluster's families list
+- Automatically adds all family members to cluster's members list in real-time
+- Updates member count display immediately
+- Provides instant visual feedback before form submission
 
-#### removeFamily()
+#### removeFamily() (Frontend)
 
-- Removes family from cluster
-- Removes all family members from cluster
-- Handles coordinator cleanup
+- Removes family from cluster's families list
+- Automatically removes all family members from cluster's members list in real-time
+- Updates member count display immediately
 
 #### addMember()
 
@@ -278,10 +299,12 @@ interface Person {
 
 ### Search and Selection
 
-1. **Family Search**: Search by name or address
-2. **Member Search**: Search by name, role, or status
-3. **Visual Feedback**: Clear indication of selected items
-4. **Member Count**: Show participation level for families
+1. **Family Search**: Search by name with real-time dropdown suggestions
+2. **Member Search**: Search by name, role, or status with real-time dropdown suggestions
+3. **Visual Feedback**: Clear indication of selected items as chips/cards
+4. **Real-Time Updates**: When a family is selected, all family members immediately appear in the members field
+5. **Automatic Removal**: When a family is removed, all its members are automatically removed from the members list
+6. **Member Count**: Shows number of selected members in the label (e.g., "Add Members (5 selected)")
 
 ### Display Format
 

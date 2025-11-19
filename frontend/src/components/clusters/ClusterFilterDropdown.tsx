@@ -62,21 +62,40 @@ export default function ClusterFilterDropdown({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(target as Node)
       ) {
+        // Check if click is on the filter button or its children
+        const clickedButton = target.closest('button');
+        if (clickedButton) {
+          const buttonText = clickedButton.textContent?.trim() || '';
+          // Don't close if clicking the filter button itself
+          // Check by text content (should contain "Filter") and SVG icon
+          if (buttonText === 'Filter' || buttonText.startsWith('Filter')) {
+            // Verify it has the filter icon by checking for the specific path
+            const svgPath = clickedButton.querySelector('path[d*="M12 6v6"]');
+            if (svgPath) {
+              return; // This is the filter button, don't close
+            }
+          }
+        }
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      // Use a small delay to avoid closing immediately when opening
+      const timeoutId = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
     }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;

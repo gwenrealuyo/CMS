@@ -34,21 +34,40 @@ export default function ClusterSortDropdown({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(target as Node)
       ) {
+        // Check if click is on the sort button or its children
+        const clickedButton = target.closest('button');
+        if (clickedButton) {
+          const buttonText = clickedButton.textContent?.trim() || '';
+          // Don't close if clicking the sort button itself
+          // Check by text content (should start with "Sort") and SVG icon
+          if (buttonText.startsWith('Sort')) {
+            // Verify it has the sort icon by checking for the specific path pattern
+            const hasSortIcon = clickedButton.querySelector('svg path[d*="M3 4h13"]');
+            if (hasSortIcon) {
+              return; // This is the sort button, don't close
+            }
+          }
+        }
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      // Use a small delay to avoid closing immediately when opening
+      const timeoutId = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
     }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;

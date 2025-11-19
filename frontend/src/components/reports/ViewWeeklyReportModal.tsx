@@ -97,6 +97,23 @@ export default function ViewWeeklyReportModal({
     }
   };
 
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case "PASTOR":
+        return "bg-purple-100 text-purple-800";
+      case "COORDINATOR":
+        return "bg-blue-100 text-blue-800";
+      case "MEMBER":
+        return "bg-green-100 text-green-800";
+      case "VISITOR":
+        return "bg-orange-100 text-orange-800";
+      case "ADMIN":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -154,7 +171,7 @@ export default function ViewWeeklyReportModal({
           <div className="space-y-5">
             {/* Basic Information */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">
                   {report.cluster_code}{" "}
                   {report.cluster_name || "Untitled Cluster"}
@@ -320,13 +337,26 @@ export default function ViewWeeklyReportModal({
                                 </p>
                               )}
                             </div>
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                member.status
-                              )}`}
-                            >
-                              {member.status?.toLowerCase() || "unknown"}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              {member.role && (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getRoleColor(
+                                    member.role
+                                  )}`}
+                                >
+                                  {member.role?.toLowerCase() || "unknown"}
+                                </span>
+                              )}
+                              {member.status && (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
+                                    member.status
+                                  )}`}
+                                >
+                                  {member.status?.toLowerCase() || "unknown"}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -413,13 +443,26 @@ export default function ViewWeeklyReportModal({
                                 </p>
                               )}
                             </div>
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                visitor.status
-                              )}`}
-                            >
-                              {visitor.status?.toLowerCase() || "unknown"}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              {visitor.role && (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getRoleColor(
+                                    visitor.role
+                                  )}`}
+                                >
+                                  {visitor.role?.toLowerCase() || "unknown"}
+                                </span>
+                              )}
+                              {visitor.status && (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
+                                    visitor.status
+                                  )}`}
+                                >
+                                  {visitor.status?.toLowerCase() || "unknown"}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

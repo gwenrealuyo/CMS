@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "django_filters",
     # Local apps
     "apps.people.apps.PeopleConfig",
+    "apps.clusters.apps.ClustersConfig",
     "apps.events.apps.EventsConfig",
     "apps.attendance.apps.AttendanceConfig",
     "apps.lessons.apps.LessonsConfig",

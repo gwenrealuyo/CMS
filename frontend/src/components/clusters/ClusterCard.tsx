@@ -15,14 +15,17 @@ const ClusterCard = memo(
     // Memoize expensive calculations
     const coordinator = React.useMemo(
       () =>
-        peopleUI.find((person) => person.id === (cluster as any).coordinator),
+        peopleUI.find((person) => 
+          person.id === (cluster as any).coordinator?.id?.toString() || 
+          person.id === (cluster as any).coordinator_id?.toString()
+        ),
       [peopleUI, cluster]
     );
 
     const clusterMembers = React.useMemo(
       () =>
         peopleUI.filter((person) =>
-          (cluster as any).members?.includes(person.id)
+          (cluster as any).members?.includes(Number(person.id))
         ),
       [peopleUI, cluster]
     );
@@ -63,7 +66,7 @@ const ClusterCard = memo(
 
     return (
       <div
-        className="p-4 bg-white rounded-lg border-2 border-transparent shadow-sm relative transition-all hover:shadow-lg hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
+        className="p-4 bg-white rounded-lg border-2 border-transparent shadow-md relative transition-all hover:shadow-md hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
         onClick={onView}
       >
         <div className="flex items-start justify-between">

@@ -1940,8 +1940,8 @@ export default function PeoplePage() {
               setReportSelectedCluster(null);
             }}
             onSubmit={async (data) => {
-              const { clusterWeeklyReportsApi } = await import("@/src/lib/api");
-              await clusterWeeklyReportsApi.create(data);
+              const { clusterReportsApi } = await import("@/src/lib/api");
+              await clusterReportsApi.create(data);
               setShowReportForm(false);
               setReportSelectedCluster(null);
             }}

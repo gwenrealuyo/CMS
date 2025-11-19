@@ -2,11 +2,16 @@ import axios from "axios";
 import {
   Person,
   Family,
-  Cluster,
   Milestone,
-  ClusterWeeklyReport,
-  ReportAnalytics,
 } from "@/src/types/person";
+import {
+  Cluster,
+  ClusterWeeklyReport,
+  ClusterInput,
+  ClusterWeeklyReportInput,
+  ClusterAnalytics,
+  OverdueClusters,
+} from "@/src/types/cluster";
 import {
   Lesson,
   LessonCommitmentSettings,
@@ -71,19 +76,46 @@ export const familiesApi = {
 };
 
 export const clustersApi = {
-  getAll: () => api.get<Cluster[]>("/people/clusters/"),
-  getById: (id: string) => api.get<Cluster>(`/people/clusters/${id}/`),
-  create: (data: Partial<Cluster>) =>
-    api.post<Cluster>("/people/clusters/", data),
-  update: (id: string, data: Partial<Cluster>) =>
-    api.put<Cluster>(`/people/clusters/${id}/`, data),
-  patch: (id: string, data: Partial<Cluster>) =>
-    api.patch<Cluster>(`/people/clusters/${id}/`, data),
-  delete: (id: string) => api.delete(`/people/clusters/${id}/`),
-  addFamily: (clusterId: string, familyId: string) =>
-    api.post(`/people/clusters/${clusterId}/families/`, { familyId }),
-  removeFamily: (clusterId: string, familyId: string) =>
-    api.delete(`/people/clusters/${clusterId}/families/${familyId}/`),
+  getAll: () => api.get<Cluster[]>("/clusters/clusters/"),
+  getById: (id: string | number) => api.get<Cluster>(`/clusters/clusters/${id}/`),
+  create: (data: ClusterInput) =>
+    api.post<Cluster>("/clusters/clusters/", data),
+  update: (id: string | number, data: Partial<ClusterInput>) =>
+    api.put<Cluster>(`/clusters/clusters/${id}/`, data),
+  patch: (id: string | number, data: Partial<ClusterInput>) =>
+    api.patch<Cluster>(`/clusters/clusters/${id}/`, data),
+  delete: (id: string | number) => api.delete(`/clusters/clusters/${id}/`),
+};
+
+export const clusterReportsApi = {
+  getAll: (params?: {
+    cluster?: string;
+    year?: number;
+    week_number?: number;
+    gathering_type?: string;
+    submitted_by?: string;
+    month?: number;
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<{ results: ClusterWeeklyReport[]; count: number; next?: string; previous?: string }>(
+      "/clusters/cluster-weekly-reports/",
+      { params }
+    ),
+  getById: (id: string) =>
+    api.get<ClusterWeeklyReport>(`/clusters/cluster-weekly-reports/${id}/`),
+  create: (data: ClusterWeeklyReportInput) =>
+    api.post<ClusterWeeklyReport>("/clusters/cluster-weekly-reports/", data),
+  update: (id: string, data: Partial<ClusterWeeklyReportInput>) =>
+    api.put<ClusterWeeklyReport>(`/clusters/cluster-weekly-reports/${id}/`, data),
+  patch: (id: string, data: Partial<ClusterWeeklyReportInput>) =>
+    api.patch<ClusterWeeklyReport>(`/clusters/cluster-weekly-reports/${id}/`, data),
+  delete: (id: string) =>
+    api.delete(`/clusters/cluster-weekly-reports/${id}/`),
+  analytics: (params?: { cluster?: string; year?: number }) =>
+    api.get<ClusterAnalytics>("/clusters/cluster-weekly-reports/analytics/", { params }),
+  overdue: () =>
+    api.get<OverdueClusters>("/clusters/cluster-weekly-reports/overdue/"),
 };
 
 export const eventsApi = {
@@ -280,34 +312,6 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
-export const clusterWeeklyReportsApi = {
-  getAll: (params?: {
-    page?: number;
-    page_size?: number;
-    cluster?: string;
-    year?: number;
-    week_number?: number;
-    gathering_type?: string;
-    submitted_by?: string;
-    month?: string;
-  }) =>
-    api.get<PaginatedResponse<ClusterWeeklyReport>>(
-      "/people/cluster-weekly-reports/",
-      { params }
-    ),
-  getById: (id: string) =>
-    api.get<ClusterWeeklyReport>(`/people/cluster-weekly-reports/${id}/`),
-  create: (data: Partial<ClusterWeeklyReport>) =>
-    api.post<ClusterWeeklyReport>("/people/cluster-weekly-reports/", data),
-  update: (id: string, data: Partial<ClusterWeeklyReport>) =>
-    api.put<ClusterWeeklyReport>(`/people/cluster-weekly-reports/${id}/`, data),
-  delete: (id: string) => api.delete(`/people/cluster-weekly-reports/${id}/`),
-  getAnalytics: (params?: { cluster?: string; year?: number }) =>
-    api.get<ReportAnalytics>("/people/cluster-weekly-reports/analytics/", {
-      params,
-    }),
-  getOverdue: () => api.get("/people/cluster-weekly-reports/overdue/"),
-};
 
 const mapDonation = (payload: any): Donation => ({
   id: payload.id,

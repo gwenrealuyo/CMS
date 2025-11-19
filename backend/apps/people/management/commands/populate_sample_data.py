@@ -5,7 +5,7 @@ Usage: python manage.py populate_sample_data
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
-from apps.people.models import Person, Family, Cluster, Milestone, ClusterWeeklyReport
+from apps.people.models import Person, Family, Milestone
 from datetime import datetime, timedelta
 from decimal import Decimal
 import random
@@ -28,30 +28,26 @@ class Command(BaseCommand):
             help="Number of families to create (default: 10)",
         )
         parser.add_argument(
-            "--clusters",
-            type=int,
-            default=5,
-            help="Number of clusters to create (default: 5)",
-        )
-        parser.add_argument(
             "--clear", action="store_true", help="Clear existing data before populating"
         )
 
     def handle(self, *args, **options):
         num_people = options["people"]
         num_families = options["families"]
-        num_clusters = options["clusters"]
         clear_existing = options["clear"]
 
         if clear_existing:
             self.stdout.write("Clearing existing data...")
-            ClusterWeeklyReport.objects.all().delete()
             Milestone.objects.all().delete()
-            Cluster.objects.all().delete()
             Family.objects.all().delete()
             Person.objects.filter(
                 role__in=["MEMBER", "VISITOR", "COORDINATOR"]
             ).delete()
+            self.stdout.write(
+                self.style.WARNING(
+                    "Note: Cluster data should be created separately using populate_clusters_data command."
+                )
+            )
 
         self.stdout.write("Creating sample data...")
 
@@ -405,153 +401,13 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"✓ Created {len(families)} families"))
 
-        # Create Clusters
-        clusters = []
-        cluster_names = [
-            "North Cluster",
-            "South Cluster",
-            "East Cluster",
-            "West Cluster",
-            "Central Cluster",
-            "Riverside Cluster",
-            "Hillside Cluster",
-            "Valley Cluster",
-            "Summit Cluster",
-            "Prairie Cluster",
-        ]
-
-        for i in range(num_clusters):
-            cluster_name = cluster_names[i % len(cluster_names)]
-            cluster_code = f"CLU-{random.randint(100, 999)}"
-
-            # Select a coordinator
-            coordinators = [p for p in people if p.role in ["COORDINATOR", "PASTOR"]]
-            coordinator = random.choice(coordinators) if coordinators else people[0]
-
-            cluster = Cluster(
-                name=cluster_name,
-                code=cluster_code,
-                coordinator=coordinator,
-                location=random.choice(
-                    ["Community Center", "Church Hall", "Member Home", "Park Pavilion"]
-                ),
-                meeting_schedule=random.choice(
-                    [
-                        "Sunday 2:00 PM",
-                        "Saturday 3:00 PM",
-                        "Wednesday 7:00 PM",
-                        "Tuesday 6:00 PM",
-                    ]
-                ),
-                description=f"{cluster_name} focuses on community building and spiritual growth",
-            )
-            cluster.save()
-
-            # Add 1-3 families to cluster
-            num_families_in_cluster = random.randint(1, min(3, len(families)))
-            cluster_families = random.sample(families, num_families_in_cluster)
-            cluster.families.add(*cluster_families)
-
-            # Add some individual members
-            num_individual_members = random.randint(3, 8)
-            individual_members = random.sample(
-                [p for p in people if p not in cluster.members.all()],
-                min(num_individual_members, len(people) - cluster.members.count()),
-            )
-            cluster.members.add(*individual_members)
-
-            clusters.append(cluster)
-
-        self.stdout.write(self.style.SUCCESS(f"✓ Created {len(clusters)} clusters"))
-
-        # Create Cluster Weekly Reports
-        for cluster in clusters:
-            # Create reports for the last 4 weeks
-            for week_offset in range(4):
-                from datetime import date
-
-                today = date.today()
-                current_date = today - timedelta(weeks=week_offset)
-                year, week_num, _ = current_date.isocalendar()
-
-                # Select some attendees
-                cluster_all_members = list(cluster.members.all())
-                members_attended = random.sample(
-                    [m for m in cluster_all_members if m.role == "MEMBER"],
-                    min(
-                        random.randint(2, 8),
-                        len([m for m in cluster_all_members if m.role == "MEMBER"]),
-                    ),
-                )
-
-                visitors_attended = random.sample(
-                    [m for m in cluster_all_members if m.role == "VISITOR"],
-                    min(
-                        random.randint(0, 3),
-                        len([m for m in cluster_all_members if m.role == "VISITOR"]),
-                    ),
-                )
-
-                report = ClusterWeeklyReport(
-                    cluster=cluster,
-                    year=year,
-                    week_number=week_num,
-                    meeting_date=current_date - timedelta(days=random.randint(0, 6)),
-                    gathering_type=random.choice(["PHYSICAL", "ONLINE", "HYBRID"]),
-                    activities_held=random.choice(
-                        [
-                            "Bible study on the book of John",
-                            "Prayer and worship session",
-                            "Testimony sharing and fellowship",
-                            "Guest speaker on evangelism",
-                            "Community outreach planning",
-                        ]
-                    ),
-                    prayer_requests=random.choice(
-                        [
-                            "Pray for healing for member families",
-                            "Pray for guidance in upcoming events",
-                            "Pray for the community",
-                            "Pray for spiritual growth",
-                        ]
-                    ),
-                    testimonies=random.choice(
-                        [
-                            "Member shared about recent blessing",
-                            "Testimony of answered prayers",
-                            "Story of personal transformation",
-                        ]
-                    ),
-                    offerings=Decimal(f"{random.uniform(50, 500):.2f}"),
-                    highlights=random.choice(
-                        [
-                            "Great attendance this week",
-                            "New members joined the cluster",
-                            "Wonderful time of fellowship",
-                            "Powerful prayer session",
-                        ]
-                    ),
-                    lowlights=random.choice(
-                        [
-                            "Some members unable to attend",
-                            "Need more volunteers for events",
-                            "",
-                        ]
-                    ),
-                    submitted_by=cluster.coordinator,
-                )
-                report.save()
-
-                # Add attendees
-                report.members_attended.add(*members_attended)
-                report.visitors_attended.add(*visitors_attended)
-
-        self.stdout.write(self.style.SUCCESS("✓ Created cluster weekly reports"))
-
         # Summary
         self.stdout.write(self.style.SUCCESS("\nSample data created successfully!"))
         self.stdout.write(f"  • People: {Person.objects.count()}")
         self.stdout.write(f"  • Families: {Family.objects.count()}")
-        self.stdout.write(f"  • Clusters: {Cluster.objects.count()}")
         self.stdout.write(f"  • Milestones: {Milestone.objects.count()}")
-        self.stdout.write(f"  • Weekly Reports: {ClusterWeeklyReport.objects.count()}")
+        self.stdout.write(
+            self.style.WARNING(
+                "\nNote: To create cluster data, run: python manage.py populate_clusters_data"
+            )
+        )

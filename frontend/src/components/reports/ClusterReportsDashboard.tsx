@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import Button from "@/src/components/ui/Button";
 import {
   ClusterWeeklyReport,
+  ClusterWeeklyReportInput,
   Cluster,
-  ReportAnalytics,
-} from "@/src/types/person";
-import { clusterWeeklyReportsApi, PaginatedResponse } from "@/src/lib/api";
+  ClusterAnalytics,
+} from "@/src/types/cluster";
+import { clusterReportsApi, PaginatedResponse } from "@/src/lib/api";
 import { formatPersonName } from "@/src/lib/name";
 import ClusterWeeklyReportForm from "./ClusterWeeklyReportForm";
 import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
@@ -24,19 +25,43 @@ import autoTable from "jspdf-autotable";
 
 interface ClusterReportsDashboardProps {
   clusters: Cluster[];
+  externalShowForm?: boolean;
+  externalSelectedCluster?: Cluster | null;
+  externalEditingReport?: ClusterWeeklyReport | null;
+  onFormClose?: () => void;
+  onSubmitReport?: (data: Partial<ClusterWeeklyReport>) => Promise<void>;
+  onEditReport?: (report: ClusterWeeklyReport) => void;
+  onSetReportSelectedCluster?: (cluster: Cluster | null) => void;
 }
 
 export default function ClusterReportsDashboard({
   clusters,
+  externalShowForm,
+  externalSelectedCluster,
+  externalEditingReport,
+  onFormClose,
+  onSubmitReport: externalOnSubmitReport,
+  onEditReport: externalOnEditReport,
+  onSetReportSelectedCluster: externalOnSetReportSelectedCluster,
 }: ClusterReportsDashboardProps) {
   const [reports, setReports] = useState<ClusterWeeklyReport[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [analytics, setAnalytics] = useState<ReportAnalytics | null>(null);
+  const [analytics, setAnalytics] = useState<ClusterAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
   const [editingReport, setEditingReport] =
     useState<ClusterWeeklyReport | null>(null);
+
+  // Use external props if provided, otherwise use internal state
+  const isFormOpen =
+    externalShowForm !== undefined ? externalShowForm : showForm;
+  const formSelectedCluster =
+    externalSelectedCluster !== undefined
+      ? externalSelectedCluster
+      : selectedCluster;
+  const formEditingReport =
+    externalEditingReport !== undefined ? externalEditingReport : editingReport;
   const [viewingReport, setViewingReport] =
     useState<ClusterWeeklyReport | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -53,7 +78,9 @@ export default function ClusterReportsDashboard({
   // Filters
   const [selectedClusterFilter, setSelectedClusterFilter] =
     useState<string>("");
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    String(new Date().getMonth() + 1).padStart(2, "0")
+  );
   const [selectedYear, setSelectedYear] = useState<number>(
     new Date().getFullYear()
   );
@@ -115,7 +142,7 @@ export default function ClusterReportsDashboard({
       if (selectedGatheringType) params.gathering_type = selectedGatheringType;
       if (selectedMonth) params.month = selectedMonth;
 
-      const response = await clusterWeeklyReportsApi.getAll(params);
+      const response = await clusterReportsApi.getAll(params);
       const data = response.data as PaginatedResponse<ClusterWeeklyReport>;
 
       setReports(data.results);
@@ -133,8 +160,10 @@ export default function ClusterReportsDashboard({
       const params: any = {};
       if (selectedClusterFilter) params.cluster = selectedClusterFilter;
       if (selectedYear) params.year = selectedYear;
+      if (selectedMonth) params.month = selectedMonth;
+      if (selectedGatheringType) params.gathering_type = selectedGatheringType;
 
-      const response = await clusterWeeklyReportsApi.getAnalytics(params);
+      const response = await clusterReportsApi.analytics(params);
       setAnalytics(response.data);
     } catch (error) {
       console.error("Error fetching analytics:", error);
@@ -154,7 +183,12 @@ export default function ClusterReportsDashboard({
 
   useEffect(() => {
     fetchAnalytics();
-  }, [selectedClusterFilter, selectedMonth, selectedYear]);
+  }, [
+    selectedClusterFilter,
+    selectedMonth,
+    selectedYear,
+    selectedGatheringType,
+  ]);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -277,6 +311,13 @@ export default function ClusterReportsDashboard({
   );
 
   const handleCreateReport = (cluster: Cluster) => {
+    if (externalSelectedCluster !== undefined) {
+      // Controlled from parent
+      if (onFormClose) {
+        // Parent will handle opening
+        return;
+      }
+    }
     setSelectedCluster(cluster);
     setEditingReport(null);
     setShowForm(true);
@@ -285,18 +326,40 @@ export default function ClusterReportsDashboard({
   const handleEditReport = (report: ClusterWeeklyReport) => {
     const cluster = clusters.find((c) => c.id === report.cluster);
     if (cluster) {
-      setSelectedCluster(cluster);
-      setEditingReport(report);
-      setShowForm(true);
+      // Use external handler if provided
+      if (externalOnEditReport) {
+        externalOnEditReport(report);
+        if (externalOnSetReportSelectedCluster) {
+          externalOnSetReportSelectedCluster(cluster);
+        }
+      } else {
+        // Otherwise use internal state
+        setSelectedCluster(cluster);
+        setEditingReport(report);
+        setShowForm(true);
+      }
     }
   };
 
   const handleSubmitReport = async (data: Partial<ClusterWeeklyReport>) => {
     try {
-      if (editingReport) {
-        await clusterWeeklyReportsApi.update(editingReport.id, data);
+      // Use external handler if provided
+      if (externalOnSubmitReport) {
+        await externalOnSubmitReport(data as Partial<ClusterWeeklyReportInput>);
+        if (onFormClose) {
+          onFormClose();
+        }
+        return;
+      }
+
+      // Otherwise use internal handler
+      if (formEditingReport) {
+        await clusterReportsApi.update(
+          formEditingReport.id.toString(),
+          data as ClusterWeeklyReportInput
+        );
       } else {
-        await clusterWeeklyReportsApi.create(data);
+        await clusterReportsApi.create(data as ClusterWeeklyReportInput);
         // Reset to first page when adding new report
         setCurrentPage(1);
       }
@@ -323,7 +386,7 @@ export default function ClusterReportsDashboard({
     if (deleteConfirmation.report) {
       setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
       try {
-        await clusterWeeklyReportsApi.delete(deleteConfirmation.report.id);
+        await clusterReportsApi.delete(deleteConfirmation.report.id.toString());
         await fetchReports();
         await fetchAnalytics();
         setDeleteConfirmation({
@@ -524,13 +587,17 @@ export default function ClusterReportsDashboard({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[#2D3748]">
           Cluster Weekly Reports
         </h1>
         <div className="flex gap-3">
           <Button
             onClick={() => {
+              if (externalSelectedCluster !== undefined && onFormClose) {
+                // Controlled from parent - let parent handle it
+                return;
+              }
               setSelectedCluster(null);
               setEditingReport(null);
               setShowForm(true);
@@ -539,131 +606,278 @@ export default function ClusterReportsDashboard({
             Submit Report
           </Button>
         </div>
-      </div>
+      </div> */}
 
       {/* Analytics Cards */}
-      {analytics && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <svg
-                  className="w-6 h-6 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  Total Reports
-                </p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {analytics.total_reports}
-                </p>
-              </div>
-            </div>
-          </div>
+      {analytics &&
+        (() => {
+          // Calculate report frequency (reports per month)
+          const reportFrequency = selectedMonth
+            ? reports.filter((r) => {
+                const reportDate = new Date(r.meeting_date);
+                return (
+                  reportDate.getMonth() + 1 === parseInt(selectedMonth) &&
+                  reportDate.getFullYear() === selectedYear
+                );
+              }).length
+            : Math.round((analytics.total_reports / 12) * 10) / 10; // Average per month if no month selected
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <svg
-                  className="w-6 h-6 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  Total Attendance
-                </p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {analytics.total_attendance.members +
-                    analytics.total_attendance.visitors}
-                </p>
-              </div>
-            </div>
-          </div>
+          // Calculate member attendance rate (percentage)
+          // Use filtered clusters if cluster filter is applied, otherwise use all clusters
+          const filteredClusters = selectedClusterFilter
+            ? clusters.filter((c) => c.id.toString() === selectedClusterFilter)
+            : clusters;
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <svg
-                  className="w-6 h-6 text-yellow-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-                  />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  Total Offerings
-                </p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {formatCurrency(analytics.total_offerings)}
-                </p>
-              </div>
-            </div>
-          </div>
+          // Average members per cluster across filtered clusters
+          const avgMembersPerCluster =
+            filteredClusters.length > 0
+              ? filteredClusters.reduce(
+                  (sum, c) => sum + (c.members?.length || 0),
+                  0
+                ) / filteredClusters.length
+              : 0;
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <svg
-                  className="w-6 h-6 text-purple-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
+          // Total possible member attendances (reports * average members per cluster)
+          // analytics.total_reports is already filtered by month, year, cluster, gathering_type
+          const totalPossibleMemberAttendances =
+            analytics.total_reports * avgMembersPerCluster;
+
+          const memberAttendanceRate =
+            totalPossibleMemberAttendances > 0
+              ? Math.round(
+                  (analytics.total_attendance.members /
+                    totalPossibleMemberAttendances) *
+                    100 *
+                    10
+                ) / 10
+              : 0;
+
+          // Calculate visitor count per month
+          const visitorCountPerMonth = selectedMonth
+            ? reports
+                .filter((r) => {
+                  const reportDate = new Date(r.meeting_date);
+                  return (
+                    reportDate.getMonth() + 1 === parseInt(selectedMonth) &&
+                    reportDate.getFullYear() === selectedYear
+                  );
+                })
+                .reduce((sum, r) => sum + (r.visitors_attended?.length || 0), 0)
+            : Math.round((analytics.total_attendance.visitors / 12) * 10) / 10;
+
+          // Average member attendance
+          // analytics.average_attendance.avg_members is already filtered by month, year, cluster, gathering_type
+          const avgMemberAttendance =
+            Math.round(analytics.average_attendance.avg_members * 10) / 10;
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Report Frequency Card */}
+              <div
+                className="bg-white p-6 py-4 rounded-lg border border-gray-200 shadow-sm"
+                role="region"
+                aria-label="Report Frequency"
+              >
+                <div className="flex items-center">
+                  <div
+                    className="p-1.5 bg-blue-100 rounded-lg"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      className="w-5 h-5 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p
+                      className="text-sm font-medium text-gray-600"
+                      aria-label="Metric label"
+                    >
+                      Report Frequency
+                    </p>
+                    <p
+                      className="text-2xl font-semibold text-gray-900"
+                      aria-label="Report frequency value"
+                    >
+                      {reportFrequency}
+                    </p>
+                    <p
+                      className="text-xs text-gray-500 mt-1"
+                      aria-label="Metric description"
+                    >
+                      {selectedMonth
+                        ? "Reports this month"
+                        : "Average reports per month"}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  Avg Attendance
-                </p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {Math.round(
-                    analytics.average_attendance.avg_members +
-                      analytics.average_attendance.avg_visitors
-                  )}
-                </p>
+
+              {/* Member Attendance Rate Card */}
+              <div
+                className="bg-white p-6 py-4 rounded-lg border border-gray-200 shadow-sm"
+                role="region"
+                aria-label="Member Attendance Rate"
+              >
+                <div className="flex items-center">
+                  <div
+                    className="p-1.5 bg-green-100 rounded-lg"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      className="w-5 h-5 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p
+                      className="text-sm font-medium text-gray-600"
+                      aria-label="Metric label"
+                    >
+                      Member Attendance Rate
+                    </p>
+                    <p
+                      className="text-2xl font-semibold text-gray-900"
+                      aria-label="Member attendance rate value"
+                    >
+                      {memberAttendanceRate}%
+                    </p>
+                    <p
+                      className="text-xs text-gray-500 mt-1"
+                      aria-label="Metric description"
+                    >
+                      % of members attending
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visitor Count per Month Card */}
+              <div
+                className="bg-white p-6 py-4 rounded-lg border border-gray-200 shadow-sm"
+                role="region"
+                aria-label="Visitor Count per Month"
+              >
+                <div className="flex items-center">
+                  <div
+                    className="p-1.5 bg-yellow-100 rounded-lg"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      className="w-5 h-5 text-yellow-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p
+                      className="text-sm font-medium text-gray-600"
+                      aria-label="Metric label"
+                    >
+                      Visitor Count
+                    </p>
+                    <p
+                      className="text-2xl font-semibold text-gray-900"
+                      aria-label="Visitor count per month value"
+                    >
+                      {visitorCountPerMonth}
+                    </p>
+                    <p
+                      className="text-xs text-gray-500 mt-1"
+                      aria-label="Metric description"
+                    >
+                      {selectedMonth
+                        ? "Visitors this month"
+                        : "Average visitors per month"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Average Member Attendance Card */}
+              <div
+                className="bg-white p-6 py-4 rounded-lg border border-gray-200 shadow-sm"
+                role="region"
+                aria-label="Average Member Attendance"
+              >
+                <div className="flex items-center">
+                  <div
+                    className="p-1.5 bg-purple-100 rounded-lg"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      className="w-5 h-5 text-purple-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p
+                      className="text-sm font-medium text-gray-600"
+                      aria-label="Metric label"
+                    >
+                      Avg Member Attendance
+                    </p>
+                    <p
+                      className="text-2xl font-semibold text-gray-900"
+                      aria-label="Average member attendance value"
+                    >
+                      {avgMemberAttendance}
+                    </p>
+                    <p
+                      className="text-xs text-gray-500 mt-1"
+                      aria-label="Metric description"
+                    >
+                      Average members per report
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          );
+        })()}
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200">
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
         <div className="grid grid-cols-4 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -747,7 +961,7 @@ export default function ClusterReportsDashboard({
       </div>
 
       {/* Reports Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex justify-end">
           <div className="flex items-center space-x-2">
             <button
@@ -1119,26 +1333,36 @@ export default function ClusterReportsDashboard({
 
       {/* Report Form Modal */}
       <Modal
-        isOpen={showForm}
+        isOpen={isFormOpen}
         onClose={() => {
-          setShowForm(false);
-          setSelectedCluster(null);
-          setEditingReport(null);
-        }}
-        title={editingReport ? "Edit Weekly Report" : "Submit Weekly Report"}
-        className="!mt-0"
-      >
-        <ClusterWeeklyReportForm
-          cluster={selectedCluster}
-          clusters={clusters}
-          isOpen={showForm}
-          onClose={() => {
+          if (onFormClose) {
+            onFormClose();
+          } else {
             setShowForm(false);
             setSelectedCluster(null);
             setEditingReport(null);
+          }
+        }}
+        title={
+          formEditingReport ? "Edit Weekly Report" : "Submit Weekly Report"
+        }
+        className="!mt-0"
+      >
+        <ClusterWeeklyReportForm
+          cluster={formSelectedCluster as any}
+          clusters={clusters as any}
+          isOpen={isFormOpen}
+          onClose={() => {
+            if (onFormClose) {
+              onFormClose();
+            } else {
+              setShowForm(false);
+              setSelectedCluster(null);
+              setEditingReport(null);
+            }
           }}
-          onSubmit={handleSubmitReport}
-          initialData={editingReport || undefined}
+          onSubmit={handleSubmitReport as any}
+          initialData={(formEditingReport as any) || undefined}
         />
       </Modal>
 

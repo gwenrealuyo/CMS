@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDownIcon,
   MagnifyingGlassIcon,
@@ -44,7 +45,9 @@ export default function ScalableSelect({
 }: ScalableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const optionsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -69,9 +72,12 @@ export default function ScalableSelect({
   // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (
+        triggerRef.current &&
+        !triggerRef.current.contains(target) &&
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(target)
       ) {
         setIsOpen(false);
         setSearchQuery("");
@@ -84,6 +90,31 @@ export default function ScalableSelect({
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Calculate dropdown position when it opens or window resizes/scrolls
+  const updateDropdownPosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4, // 4px gap, using fixed positioning so no scroll offset needed
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateDropdownPosition();
+      window.addEventListener("scroll", updateDropdownPosition, true);
+      window.addEventListener("resize", updateDropdownPosition);
+    }
+
+    return () => {
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+      window.removeEventListener("resize", updateDropdownPosition);
     };
   }, [isOpen]);
 
@@ -260,10 +291,54 @@ export default function ScalableSelect({
     ));
   };
 
+  const renderDropdown = () => {
+    if (!isOpen) return null;
+
+    return createPortal(
+      <div
+        ref={dropdownRef}
+        className="fixed z-[60] bg-white border border-gray-300 rounded-md shadow-lg"
+        style={{
+          top: `${dropdownPosition.top}px`,
+          left: `${dropdownPosition.left}px`,
+          width: `${dropdownPosition.width}px`,
+        }}
+      >
+        {/* Search Input */}
+        {showSearch && (
+          <div className="p-2 border-b border-gray-200">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Options List */}
+        <div
+          ref={optionsContainerRef}
+          className="overflow-y-auto"
+          style={{ maxHeight: `${maxHeight}px` }}
+        >
+          {renderOptions()}
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative ${className}`}>
       {/* Trigger Button */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={handleToggle}
         disabled={disabled}
@@ -305,36 +380,8 @@ export default function ScalableSelect({
         </div>
       </button>
 
-      {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
-          {/* Search Input */}
-          {showSearch && (
-            <div className="p-2 border-b border-gray-200">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={searchPlaceholder}
-                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Options List */}
-          <div
-            ref={optionsContainerRef}
-            className="overflow-y-auto"
-            style={{ maxHeight: `${maxHeight}px` }}
-          >
-            {renderOptions()}
-          </div>
-        </div>
-      )}
+      {/* Dropdown - Rendered via Portal */}
+      {renderDropdown()}
     </div>
   );
 }

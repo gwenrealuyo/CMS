@@ -46,6 +46,7 @@ export interface Person {
   last_name: string;
   suffix?: string;
   nickname?: string;
+  full_name?: string; // Computed full name from backend (includes nickname, middle initial, suffix)
   phone?: string;
   photo?: string; // URL to profile image
   gender?: Gender;

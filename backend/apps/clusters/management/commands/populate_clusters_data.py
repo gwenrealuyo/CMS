@@ -149,13 +149,15 @@ class Command(BaseCommand):
                         cluster_members, num_members_attended
                     )
                 else:
-                members_attended = []
+                    members_attended = []
 
                 # Random visitors (0-3)
                 num_visitors_attended = random.randint(0, min(3, len(cluster_visitors)))
-                visitors_attended = random.sample(
-                    cluster_visitors, num_visitors_attended
-                ) if cluster_visitors else []
+                visitors_attended = (
+                    random.sample(cluster_visitors, num_visitors_attended)
+                    if cluster_visitors
+                    else []
+                )
 
                 report = ClusterWeeklyReport(
                     cluster=cluster,
@@ -200,8 +202,8 @@ class Command(BaseCommand):
                     submitted_by=cluster.coordinator,
                 )
                 report.save()
-                    report.members_attended.add(*members_attended)
-                    report.visitors_attended.add(*visitors_attended)
+                report.members_attended.add(*members_attended)
+                report.visitors_attended.add(*visitors_attended)
 
         self.stdout.write(
             self.style.SUCCESS(

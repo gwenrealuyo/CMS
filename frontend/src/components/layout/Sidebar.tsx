@@ -21,6 +21,7 @@ import {
   Squares2X2Icon,
   DocumentChartBarIcon,
   AcademicCapIcon,
+  MegaphoneIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -41,6 +42,7 @@ const navigation = [
   { name: "Ministries", href: "/ministries", icon: UserGroupIcon },
   { name: "Lessons", href: "/lessons", icon: BookOpenIcon },
   { name: "Sunday School", href: "/sunday-school", icon: AcademicCapIcon },
+  { name: "Evangelism", href: "/evangelism", icon: MegaphoneIcon },
 ];
 
 export default function Sidebar() {

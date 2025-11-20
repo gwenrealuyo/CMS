@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.ministries.apps.MinistriesConfig",
     "apps.finance.apps.FinanceConfig",
     "apps.sunday_school.apps.SundaySchoolConfig",
+    "apps.evangelism.apps.EvangelismConfig",
     # 'lessons.apps.LessonsConfig',
     # 'admin_dashboard.apps.AdminDashboardConfig',
 ]

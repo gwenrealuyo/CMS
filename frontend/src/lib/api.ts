@@ -37,6 +37,23 @@ import {
   RecurringSessionData,
 } from "@/src/types/sundaySchool";
 import {
+  EvangelismGroup,
+  EvangelismGroupMember,
+  EvangelismSession,
+  EvangelismWeeklyReport,
+  Prospect,
+  FollowUpTask,
+  DropOff,
+  Conversion,
+  MonthlyConversionTracking,
+  MonthlyStatistics,
+  Each1Reach1Goal,
+  EvangelismSummary,
+  RecurringSessionData as EvangelismRecurringSessionData,
+  BibleSharersCoverage,
+  BulkEnrollData,
+} from "@/src/types/evangelism";
+import {
   Donation,
   DonationPurpose,
   Offering,
@@ -691,6 +708,245 @@ export const sundaySchoolApi = {
       "/sunday-school/sessions/create_recurring/",
       payload
     ),
+};
+
+export const evangelismApi = {
+  // Groups
+  listGroups: (params?: {
+    cluster?: number | string;
+    is_active?: boolean;
+    search?: string;
+  }) => api.get<EvangelismGroup[]>("/evangelism/groups/", { params }),
+  getGroup: (id: number | string) =>
+    api.get<EvangelismGroup>(`/evangelism/groups/${id}/`),
+  createGroup: (data: Partial<EvangelismGroup>) =>
+    api.post<EvangelismGroup>("/evangelism/groups/", data),
+  updateGroup: (id: number | string, data: Partial<EvangelismGroup>) =>
+    api.put<EvangelismGroup>(`/evangelism/groups/${id}/`, data),
+  deleteGroup: (id: number | string) => api.delete(`/evangelism/groups/${id}/`),
+  enroll: (groupId: number | string, payload: BulkEnrollData) =>
+    api.post<{ created: number; message: string }>(
+      `/evangelism/groups/${groupId}/enroll/`,
+      payload
+    ),
+  getGroupSessions: (
+    groupId: number | string,
+    params?: { date_from?: string; date_to?: string }
+  ) =>
+    api.get<EvangelismSession[]>(`/evangelism/groups/${groupId}/sessions/`, {
+      params,
+    }),
+  getGroupConversions: (groupId: number | string) =>
+    api.get<Conversion[]>(`/evangelism/groups/${groupId}/conversions/`),
+  getGroupVisitors: (groupId: number | string) =>
+    api.get<Prospect[]>(`/evangelism/groups/${groupId}/visitors/`),
+  getGroupSummary: (groupId: number | string) =>
+    api.get<any>(`/evangelism/groups/${groupId}/summary/`),
+  getBibleSharersCoverage: () =>
+    api.get<BibleSharersCoverage>("/evangelism/groups/bible_sharers_coverage/"),
+
+  // Members
+  listMembers: (params?: {
+    evangelism_group?: number | string;
+    role?: string;
+    is_active?: boolean;
+  }) => api.get<EvangelismGroupMember[]>("/evangelism/members/", { params }),
+  getMember: (id: number | string) =>
+    api.get<EvangelismGroupMember>(`/evangelism/members/${id}/`),
+  createMember: (data: Partial<EvangelismGroupMember>) =>
+    api.post<EvangelismGroupMember>("/evangelism/members/", data),
+  updateMember: (id: number | string, data: Partial<EvangelismGroupMember>) =>
+    api.put<EvangelismGroupMember>(`/evangelism/members/${id}/`, data),
+  deleteMember: (id: number | string) =>
+    api.delete(`/evangelism/members/${id}/`),
+
+  // Sessions
+  listSessions: (params?: {
+    evangelism_group?: number | string;
+    session_date?: string;
+    search?: string;
+  }) => api.get<EvangelismSession[]>("/evangelism/sessions/", { params }),
+  getSession: (id: number | string) =>
+    api.get<EvangelismSession>(`/evangelism/sessions/${id}/`),
+  createSession: (data: Partial<EvangelismSession>) =>
+    api.post<EvangelismSession>("/evangelism/sessions/", data),
+  updateSession: (id: number | string, data: Partial<EvangelismSession>) =>
+    api.put<EvangelismSession>(`/evangelism/sessions/${id}/`, data),
+  deleteSession: (id: number | string) =>
+    api.delete(`/evangelism/sessions/${id}/`),
+  getSessionAttendanceReport: (id: number | string) =>
+    api.get<any>(`/evangelism/sessions/${id}/attendance_report/`),
+  createRecurringSessions: (payload: EvangelismRecurringSessionData) =>
+    api.post<{ created: number; sessions: EvangelismSession[] }>(
+      "/evangelism/sessions/create_recurring/",
+      payload
+    ),
+
+  // Weekly Reports
+  listWeeklyReports: (params?: {
+    evangelism_group?: number | string;
+    year?: number;
+    week_number?: number;
+    gathering_type?: string;
+  }) =>
+    api.get<EvangelismWeeklyReport[]>("/evangelism/weekly-reports/", {
+      params,
+    }),
+  getWeeklyReport: (id: number | string) =>
+    api.get<EvangelismWeeklyReport>(`/evangelism/weekly-reports/${id}/`),
+  createWeeklyReport: (data: Partial<EvangelismWeeklyReport>) =>
+    api.post<EvangelismWeeklyReport>("/evangelism/weekly-reports/", data),
+  updateWeeklyReport: (
+    id: number | string,
+    data: Partial<EvangelismWeeklyReport>
+  ) =>
+    api.put<EvangelismWeeklyReport>(`/evangelism/weekly-reports/${id}/`, data),
+  deleteWeeklyReport: (id: number | string) =>
+    api.delete(`/evangelism/weekly-reports/${id}/`),
+
+  // Prospects
+  listProspects: (params?: {
+    invited_by?: number | string;
+    inviter_cluster?: number | string;
+    evangelism_group?: number | string;
+    pipeline_stage?: string;
+    endorsed_cluster?: number | string;
+    is_dropped_off?: boolean;
+  }) => api.get<Prospect[]>("/evangelism/prospects/", { params }),
+  getProspect: (id: number | string) =>
+    api.get<Prospect>(`/evangelism/prospects/${id}/`),
+  createProspect: (data: Partial<Prospect>) =>
+    api.post<Prospect>("/evangelism/prospects/", data),
+  updateProspect: (id: number | string, data: Partial<Prospect>) =>
+    api.put<Prospect>(`/evangelism/prospects/${id}/`, data),
+  deleteProspect: (id: number | string) =>
+    api.delete(`/evangelism/prospects/${id}/`),
+  endorseToCluster: (id: number | string, payload: { cluster_id: number }) =>
+    api.post<Prospect>(
+      `/evangelism/prospects/${id}/endorse_to_cluster/`,
+      payload
+    ),
+  updateProgress: (
+    id: number | string,
+    payload: { pipeline_stage?: string; last_activity_date?: string }
+  ) =>
+    api.post<Prospect>(`/evangelism/prospects/${id}/update_progress/`, payload),
+  markAttended: (
+    id: number | string,
+    payload?: { first_name?: string; last_name?: string }
+  ) =>
+    api.post<Prospect>(
+      `/evangelism/prospects/${id}/mark_attended/`,
+      payload || {}
+    ),
+  createPerson: (id: number | string, data: Partial<Person>) =>
+    api.post<Prospect>(`/evangelism/prospects/${id}/create_person/`, data),
+  markDroppedOff: (
+    id: number | string,
+    payload: { reason?: string; reason_details?: string }
+  ) =>
+    api.post<Prospect>(
+      `/evangelism/prospects/${id}/mark_dropped_off/`,
+      payload
+    ),
+  recover: (id: number | string) =>
+    api.post<Prospect>(`/evangelism/prospects/${id}/recover/`),
+
+  // Follow-up Tasks
+  listFollowUpTasks: (params?: {
+    prospect?: number | string;
+    assigned_to?: number | string;
+    status?: string;
+    priority?: string;
+  }) => api.get<FollowUpTask[]>("/evangelism/follow-up-tasks/", { params }),
+  getFollowUpTask: (id: number | string) =>
+    api.get<FollowUpTask>(`/evangelism/follow-up-tasks/${id}/`),
+  createFollowUpTask: (data: Partial<FollowUpTask>) =>
+    api.post<FollowUpTask>("/evangelism/follow-up-tasks/", data),
+  updateFollowUpTask: (id: number | string, data: Partial<FollowUpTask>) =>
+    api.put<FollowUpTask>(`/evangelism/follow-up-tasks/${id}/`, data),
+  deleteFollowUpTask: (id: number | string) =>
+    api.delete(`/evangelism/follow-up-tasks/${id}/`),
+  completeTask: (id: number | string) =>
+    api.post<FollowUpTask>(`/evangelism/follow-up-tasks/${id}/complete/`),
+  getOverdueTasks: () =>
+    api.get<FollowUpTask[]>("/evangelism/follow-up-tasks/overdue/"),
+
+  // Drop-offs
+  listDropOffs: (params?: {
+    drop_off_stage?: string;
+    reason?: string;
+    recovered?: boolean;
+    start_date?: string;
+    end_date?: string;
+  }) => api.get<DropOff[]>("/evangelism/drop-offs/", { params }),
+  getDropOff: (id: number | string) =>
+    api.get<DropOff>(`/evangelism/drop-offs/${id}/`),
+  recoverDropOff: (id: number | string) =>
+    api.post<DropOff>(`/evangelism/drop-offs/${id}/recover/`),
+  getDropOffAnalytics: (params?: { start_date?: string; end_date?: string }) =>
+    api.get<any>("/evangelism/drop-offs/analytics/", { params }),
+
+  // Conversions
+  listConversions: (params?: {
+    converted_by?: number | string;
+    cluster?: number | string;
+    evangelism_group?: number | string;
+    year?: number;
+  }) => api.get<Conversion[]>("/evangelism/conversions/", { params }),
+  getConversion: (id: number | string) =>
+    api.get<Conversion>(`/evangelism/conversions/${id}/`),
+  createConversion: (data: Partial<Conversion>) =>
+    api.post<Conversion>("/evangelism/conversions/", data),
+  updateConversion: (id: number | string, data: Partial<Conversion>) =>
+    api.put<Conversion>(`/evangelism/conversions/${id}/`, data),
+  deleteConversion: (id: number | string) =>
+    api.delete(`/evangelism/conversions/${id}/`),
+
+  // Monthly Tracking
+  listMonthlyTracking: (params?: {
+    cluster?: number | string;
+    year?: number;
+    month?: number;
+    stage?: string;
+  }) =>
+    api.get<MonthlyConversionTracking[]>("/evangelism/monthly-tracking/", {
+      params,
+    }),
+  getMonthlyStatistics: (params?: {
+    cluster?: number | string;
+    year?: number;
+    month?: number;
+  }) =>
+    api.get<MonthlyStatistics[]>("/evangelism/monthly-tracking/statistics/", {
+      params,
+    }),
+
+  // Each 1 Reach 1 Goals
+  listGoals: (params?: {
+    cluster?: number | string;
+    year?: number;
+    status?: string;
+  }) =>
+    api.get<Each1Reach1Goal[]>("/evangelism/each1reach1-goals/", { params }),
+  getGoal: (id: number | string) =>
+    api.get<Each1Reach1Goal>(`/evangelism/each1reach1-goals/${id}/`),
+  createGoal: (data: Partial<Each1Reach1Goal>) =>
+    api.post<Each1Reach1Goal>("/evangelism/each1reach1-goals/", data),
+  updateGoal: (id: number | string, data: Partial<Each1Reach1Goal>) =>
+    api.put<Each1Reach1Goal>(`/evangelism/each1reach1-goals/${id}/`, data),
+  deleteGoal: (id: number | string) =>
+    api.delete(`/evangelism/each1reach1-goals/${id}/`),
+  getGoalProgress: (id: number | string) =>
+    api.get<any>(`/evangelism/each1reach1-goals/${id}/progress/`),
+  getMemberProgress: (id: number | string) =>
+    api.get<any[]>(`/evangelism/each1reach1-goals/${id}/member_progress/`),
+  getLeaderboard: (params?: { year?: number }) =>
+    api.get<Each1Reach1Goal[]>("/evangelism/each1reach1-goals/leaderboard/", {
+      params,
+    }),
+  getSummary: (params?: { year?: number }) =>
+    api.get<any>("/evangelism/each1reach1-goals/summary/", { params }),
 };
 
 export default api;

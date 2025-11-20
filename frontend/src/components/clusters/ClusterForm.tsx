@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Cluster } from "@/src/types/cluster";
-import { PersonUI } from "@/src/types/person";
+import { Person, PersonUI } from "@/src/types/person";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import Button from "@/src/components/ui/Button";
@@ -25,7 +25,9 @@ export default function ClusterForm({
   const [code, setCode] = useState(initialData?.code || "");
   const [name, setName] = useState(initialData?.name || "");
   const [coordinatorId, setCoordinatorId] = useState(
-    initialData?.coordinator_id?.toString() || initialData?.coordinator?.id?.toString() || ""
+    initialData?.coordinator_id?.toString() ||
+      initialData?.coordinator?.id?.toString() ||
+      ""
   );
   const [familyIds, setFamilyIds] = useState<string[]>(
     (initialData?.families || []).map((id) => id.toString())
@@ -37,7 +39,9 @@ export default function ClusterForm({
   const [meetingSchedule, setMeetingSchedule] = useState(
     initialData?.meeting_schedule || ""
   );
-  const [description, setDescription] = useState(initialData?.description || "");
+  const [description, setDescription] = useState(
+    initialData?.description || ""
+  );
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [familySearch, setFamilySearch] = useState("");
@@ -74,9 +78,12 @@ export default function ClusterForm({
     });
   };
 
-  const coordinatorOptions = people
-    .filter((p) => p.role === "COORDINATOR" || p.role === "PASTOR")
-    .map((p) => ({ value: p.id, label: `${p.first_name} ${p.last_name}` }));
+  // Coordinator options: only show cluster members
+  // SearchableSelect expects options with id, first_name, last_name, username structure
+  const coordinatorOptions = useMemo(() => {
+    const memberIdsSet = new Set(memberIds);
+    return people.filter((p) => memberIdsSet.has(p.id.toString()));
+  }, [people, memberIds]);
 
   const filteredFamilies = useMemo(() => {
     if (!familySearch.trim()) return families;
@@ -89,20 +96,24 @@ export default function ClusterForm({
     const familyIdStr = family.id.toString();
     if (!familyIds.includes(familyIdStr)) {
       setFamilyIds([...familyIds, familyIdStr]);
-      
+
       // Automatically add all family members to the members list
-      const selectedFamily = families.find(f => f.id.toString() === familyIdStr);
+      const selectedFamily = families.find(
+        (f) => f.id.toString() === familyIdStr
+      );
       if (selectedFamily && selectedFamily.members) {
-        const familyMemberIds = selectedFamily.members.map(id => id.toString());
+        const familyMemberIds = selectedFamily.members.map((id) =>
+          id.toString()
+        );
         const newMemberIds = [...memberIds];
-        
+
         // Add family members that aren't already in the list
-        familyMemberIds.forEach(memberId => {
+        familyMemberIds.forEach((memberId) => {
           if (!newMemberIds.includes(memberId)) {
             newMemberIds.push(memberId);
           }
         });
-        
+
         setMemberIds(newMemberIds);
       }
     }
@@ -112,12 +123,12 @@ export default function ClusterForm({
 
   const removeFamily = (familyId: string) => {
     setFamilyIds(familyIds.filter((id) => id !== familyId));
-    
+
     // Remove family members when family is removed
-    const removedFamily = families.find(f => f.id.toString() === familyId);
+    const removedFamily = families.find((f) => f.id.toString() === familyId);
     if (removedFamily && removedFamily.members) {
-      const familyMemberIds = removedFamily.members.map(id => id.toString());
-      setMemberIds(memberIds.filter(id => !familyMemberIds.includes(id)));
+      const familyMemberIds = removedFamily.members.map((id) => id.toString());
+      setMemberIds(memberIds.filter((id) => !familyMemberIds.includes(id)));
     }
   };
 
@@ -144,7 +155,7 @@ export default function ClusterForm({
     );
   }, [people, memberSearch]);
 
-  const addMember = (member: PersonUI) => {
+  const addMember = (member: Person | PersonUI) => {
     const memberIdStr = member.id.toString();
     if (!memberIds.includes(memberIdStr)) {
       setMemberIds([...memberIds, memberIdStr]);
@@ -157,7 +168,7 @@ export default function ClusterForm({
     setMemberIds(memberIds.filter((id) => id !== memberId));
   };
 
-  const getInitials = (person: PersonUI) => {
+  const getInitials = (person: Person | PersonUI) => {
     return `${person.first_name?.[0] || ""}${
       person.last_name?.[0] || ""
     }`.toUpperCase();
@@ -196,9 +207,7 @@ export default function ClusterForm({
   };
 
   const getSelectedMembers = () => {
-    return people.filter((member) =>
-      memberIds.includes(member.id.toString())
-    );
+    return people.filter((member) => memberIds.includes(member.id.toString()));
   };
 
   return (
@@ -235,11 +244,10 @@ export default function ClusterForm({
           Coordinator
         </label>
         <SearchableSelect
-          options={coordinatorOptions}
+          options={coordinatorOptions as any}
           value={coordinatorId}
           onChange={setCoordinatorId}
           placeholder="Select coordinator"
-          loading={peopleLoading}
         />
       </div>
       <div>

@@ -380,12 +380,25 @@ def password_reset_request_view(request):
 def password_reset_requests_list_view(request):
     """
     List all password reset requests (admin only).
+    Supports search by username, email, or name.
     """
+    from django.db.models import Q
+
     status_filter = request.query_params.get("status", None)
     queryset = PasswordResetRequest.objects.all().select_related("user", "approved_by")
 
     if status_filter:
         queryset = queryset.filter(status=status_filter)
+
+    # Search filter
+    search = request.query_params.get("search", "").strip()
+    if search:
+        queryset = queryset.filter(
+            Q(user__username__icontains=search)
+            | Q(user__email__icontains=search)
+            | Q(user__first_name__icontains=search)
+            | Q(user__last_name__icontains=search)
+        )
 
     # Pagination
     page_size = int(request.query_params.get("page_size", 10))
@@ -458,11 +471,68 @@ def approve_password_reset_view(request, id):
     )
 
 
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def reject_password_reset_view(request, id):
+    """
+    Reject a password reset request (admin only).
+    Requires a notes field with rejection reason.
+    """
+    try:
+        reset_request = PasswordResetRequest.objects.get(id=id)
+    except PasswordResetRequest.DoesNotExist:
+        return Response(
+            {"error": "Password reset request not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if reset_request.status != "PENDING":
+        return Response(
+            {"error": "This request has already been processed."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Require notes field
+    notes = request.data.get("notes", "").strip()
+    if not notes:
+        return Response(
+            {"error": "Rejection reason (notes) is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Update request
+    reset_request.status = "REJECTED"
+    reset_request.rejected_at = timezone.now()
+    reset_request.rejected_by = request.user
+    reset_request.notes = notes
+    reset_request.save()
+
+    # Log rejection
+    log_audit_event(
+        reset_request.user,
+        "PASSWORD_RESET_REJECTED",
+        request,
+        {
+            "request_id": reset_request.id,
+            "rejected_by": request.user.username,
+            "notes": notes,
+        },
+    )
+
+    return Response(
+        {
+            "message": f"Password reset request rejected for {reset_request.user.username}."
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
 @api_view(["GET"])
 @permission_classes([IsAdmin])
 def locked_accounts_list_view(request):
     """
     List all locked accounts (admin only).
+    Supports search, filter by lockout count, and sorting.
     """
     from django.db.models import Q
 
@@ -478,6 +548,49 @@ def locked_accounts_list_view(request):
         .select_related("user")
         .distinct()
     )
+
+    # Search filter
+    search = request.query_params.get("search", "").strip()
+    if search:
+        queryset = queryset.filter(
+            Q(user__username__icontains=search)
+            | Q(user__email__icontains=search)
+            | Q(user__first_name__icontains=search)
+            | Q(user__last_name__icontains=search)
+        )
+
+    # Filter by lockout count (permanent vs temporary)
+    lockout_count_filter = request.query_params.get("lockout_count_filter", "")
+    if lockout_count_filter == "permanent":
+        # Only permanent lockouts (lockout_count >= 2, locked_until is null)
+        queryset = queryset.filter(lockout_count__gte=2, locked_until__isnull=True)
+    elif lockout_count_filter == "temporary":
+        # Only temporary lockouts (locked_until is not null and in the future)
+        queryset = queryset.filter(locked_until__isnull=False, locked_until__gt=now)
+
+    # Sorting
+    sort_by = request.query_params.get("sort_by", "last_attempt")
+    sort_order = request.query_params.get("sort_order", "desc")
+
+    if sort_by == "user":
+        queryset = queryset.order_by(
+            f"{'-' if sort_order == 'desc' else ''}user__last_name",
+            f"{'-' if sort_order == 'desc' else ''}user__first_name",
+        )
+    elif sort_by == "failed_attempts":
+        queryset = queryset.order_by(
+            f"{'-' if sort_order == 'desc' else ''}failed_attempts"
+        )
+    elif sort_by == "lockout_count":
+        queryset = queryset.order_by(
+            f"{'-' if sort_order == 'desc' else ''}lockout_count"
+        )
+    elif sort_by == "last_attempt":
+        queryset = queryset.order_by(
+            f"{'-' if sort_order == 'desc' else ''}last_attempt"
+        )
+    else:
+        queryset = queryset.order_by("-last_attempt")
 
     # Pagination
     page_size = int(request.query_params.get("page_size", 10))
@@ -495,6 +608,48 @@ def locked_accounts_list_view(request):
             "page": page,
             "page_size": page_size,
             "results": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAdmin])
+def admin_dashboard_stats_view(request):
+    """
+    Get dashboard statistics for admin settings (admin only).
+    Returns counts and recent activity.
+    """
+    from django.db.models import Q
+
+    # Count pending password reset requests
+    pending_resets = PasswordResetRequest.objects.filter(status="PENDING").count()
+
+    # Count locked accounts
+    now = timezone.now()
+    locked_accounts_count = (
+        AccountLockout.objects.filter(
+            Q(locked_until__isnull=False, locked_until__gt=now)
+            | Q(lockout_count__gte=2, failed_attempts__gte=5, locked_until__isnull=True)
+        )
+        .distinct()
+        .count()
+    )
+
+    # Get recent audit logs (last 15)
+    recent_activity = (
+        AuditLog.objects.all().select_related("user").order_by("-timestamp")[:15]
+    )
+
+    from .serializers import AuditLogSerializer
+
+    recent_activity_serializer = AuditLogSerializer(recent_activity, many=True)
+
+    return Response(
+        {
+            "pending_password_resets": pending_resets,
+            "locked_accounts": locked_accounts_count,
+            "recent_activity": recent_activity_serializer.data,
         },
         status=status.HTTP_200_OK,
     )
@@ -541,8 +696,25 @@ def unlock_account_view(request, user_id):
 def audit_logs_view(request):
     """
     List audit logs with filtering (admin only).
+    Supports user search, IP filter, and date range filtering.
     """
+    from django.db.models import Q
+
     queryset = AuditLog.objects.all().select_related("user")
+
+    # User search filter (searches username and full name)
+    user_search = request.query_params.get("user_search", "").strip()
+    if user_search:
+        queryset = queryset.filter(
+            Q(user__username__icontains=user_search)
+            | Q(user__first_name__icontains=user_search)
+            | Q(user__last_name__icontains=user_search)
+        )
+
+    # IP address filter
+    ip_address = request.query_params.get("ip_address", "").strip()
+    if ip_address:
+        queryset = queryset.filter(ip_address__icontains=ip_address)
 
     # Filters
     user_id = request.query_params.get("user_id", None)

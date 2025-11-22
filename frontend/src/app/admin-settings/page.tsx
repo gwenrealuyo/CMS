@@ -8,7 +8,15 @@ import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import Pagination from "@/src/components/ui/Pagination";
-import { CheckCircleIcon, LockOpenIcon } from "@heroicons/react/24/outline";
+import toast from "react-hot-toast";
+import {
+  CheckCircleIcon,
+  LockOpenIcon,
+  XCircleIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+} from "@heroicons/react/24/outline";
 import {
   authApi,
   PasswordResetRequest,
@@ -18,6 +26,7 @@ import {
 import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorManager";
 
 type Tab =
+  | "overview"
   | "password-resets"
   | "locked-accounts"
   | "audit-logs"
@@ -32,7 +41,12 @@ export default function AdminSettingsPage() {
 }
 
 function AdminSettingsPageContent() {
-  const [activeTab, setActiveTab] = useState<Tab>("password-resets");
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [dashboardStats, setDashboardStats] = useState<{
+    pending_password_resets: number;
+    locked_accounts: number;
+    recent_activity: AuditLog[];
+  } | null>(null);
   const [passwordResetRequests, setPasswordResetRequests] = useState<
     PasswordResetRequest[]
   >([]);
@@ -40,11 +54,25 @@ function AdminSettingsPageContent() {
   const [resetRequestsTotal, setResetRequestsTotal] = useState(0);
   const [resetRequestsItemsPerPage, setResetRequestsItemsPerPage] =
     useState(10);
+  const [resetRequestsSearch, setResetRequestsSearch] = useState("");
+  const [resetRequestsSearchDebounced, setResetRequestsSearchDebounced] =
+    useState("");
   const [lockedAccounts, setLockedAccounts] = useState<LockedAccount[]>([]);
   const [lockedAccountsPage, setLockedAccountsPage] = useState(1);
   const [lockedAccountsTotal, setLockedAccountsTotal] = useState(0);
   const [lockedAccountsItemsPerPage, setLockedAccountsItemsPerPage] =
     useState(10);
+  const [lockedAccountsSearch, setLockedAccountsSearch] = useState("");
+  const [lockedAccountsSearchDebounced, setLockedAccountsSearchDebounced] =
+    useState("");
+  const [lockedAccountsFilter, setLockedAccountsFilter] = useState("");
+  const [lockedAccountsSort, setLockedAccountsSort] = useState<{
+    field: string;
+    order: "asc" | "desc";
+  }>({ field: "last_attempt", order: "desc" });
+  const [expandedLockedAccount, setExpandedLockedAccount] = useState<
+    number | null
+  >(null);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,7 +83,10 @@ function AdminSettingsPageContent() {
     action: "",
     start_date: "",
     end_date: "",
+    user_search: "",
+    ip_address: "",
   });
+  const [expandedAuditLog, setExpandedAuditLog] = useState<number | null>(null);
   const [approveConfirmation, setApproveConfirmation] = useState<{
     isOpen: boolean;
     request: PasswordResetRequest | null;
@@ -74,6 +105,37 @@ function AdminSettingsPageContent() {
     account: null,
     loading: false,
   });
+  const [rejectConfirmation, setRejectConfirmation] = useState<{
+    isOpen: boolean;
+    request: PasswordResetRequest | null;
+    loading: boolean;
+    notes: string;
+  }>({
+    isOpen: false,
+    request: null,
+    loading: false,
+    notes: "",
+  });
+
+  // Debounce search input for password reset requests
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setResetRequestsSearchDebounced(resetRequestsSearch);
+      setResetRequestsPage(1);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [resetRequestsSearch]);
+
+  // Debounce search input for locked accounts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLockedAccountsSearchDebounced(lockedAccountsSearch);
+      setLockedAccountsPage(1);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [lockedAccountsSearch]);
 
   useEffect(() => {
     fetchData();
@@ -84,27 +146,39 @@ function AdminSettingsPageContent() {
     auditFilters,
     resetRequestsPage,
     resetRequestsItemsPerPage,
+    resetRequestsSearchDebounced,
     lockedAccountsPage,
     lockedAccountsItemsPerPage,
+    lockedAccountsSearchDebounced,
+    lockedAccountsFilter,
+    lockedAccountsSort,
   ]);
 
   const fetchData = async () => {
     setLoading(true);
     setError("");
     try {
-      if (activeTab === "password-resets") {
+      if (activeTab === "overview") {
+        const response = await authApi.getAdminDashboardStats();
+        setDashboardStats(response.data);
+      } else if (activeTab === "password-resets") {
         const status = statusFilter === "ALL" ? undefined : statusFilter;
         const response = await authApi.getPasswordResetRequests(
           status,
           resetRequestsPage,
-          resetRequestsItemsPerPage
+          resetRequestsItemsPerPage,
+          resetRequestsSearchDebounced || undefined
         );
         setPasswordResetRequests(response.data.results);
         setResetRequestsTotal(response.data.count);
       } else if (activeTab === "locked-accounts") {
         const response = await authApi.getLockedAccounts(
           lockedAccountsPage,
-          lockedAccountsItemsPerPage
+          lockedAccountsItemsPerPage,
+          lockedAccountsSearchDebounced || undefined,
+          lockedAccountsFilter || undefined,
+          lockedAccountsSort.field,
+          lockedAccountsSort.order
         );
         setLockedAccounts(response.data.results);
         setLockedAccountsTotal(response.data.count);
@@ -145,14 +219,55 @@ function AdminSettingsPageContent() {
         request: null,
         loading: false,
       });
+      toast.success("Password reset request approved successfully.");
       await fetchData();
     } catch (err: any) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
           err.message ||
           "Failed to approve request."
       );
       setApproveConfirmation((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleRejectReset = (request: PasswordResetRequest) => {
+    setRejectConfirmation({
+      isOpen: true,
+      request,
+      loading: false,
+      notes: "",
+    });
+  };
+
+  const confirmRejectReset = async () => {
+    if (!rejectConfirmation.request) return;
+    if (!rejectConfirmation.notes.trim()) {
+      toast.error("Please provide a rejection reason.");
+      return;
+    }
+
+    setRejectConfirmation((prev) => ({ ...prev, loading: true }));
+    try {
+      await authApi.rejectPasswordReset(
+        rejectConfirmation.request.id,
+        rejectConfirmation.notes
+      );
+      setRejectConfirmation({
+        isOpen: false,
+        request: null,
+        loading: false,
+        notes: "",
+      });
+      toast.success("Password reset request rejected successfully.");
+      await fetchData();
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to reject request."
+      );
+      setRejectConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -175,9 +290,10 @@ function AdminSettingsPageContent() {
         account: null,
         loading: false,
       });
+      toast.success("Account unlocked successfully.");
       await fetchData();
     } catch (err: any) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
           err.message ||
           "Failed to unlock account."
@@ -188,6 +304,25 @@ function AdminSettingsPageContent() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
+  };
+
+  const getActionBadgeColor = (action: string) => {
+    const colors: Record<string, string> = {
+      LOGIN_SUCCESS: "bg-green-100 text-green-800 border-green-200",
+      LOGIN_FAILURE: "bg-red-100 text-red-800 border-red-200",
+      LOGOUT: "bg-gray-100 text-gray-800 border-gray-200",
+      PASSWORD_CHANGE: "bg-blue-100 text-blue-800 border-blue-200",
+      PASSWORD_RESET_REQUEST: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      PASSWORD_RESET_APPROVED: "bg-green-100 text-green-800 border-green-200",
+      PASSWORD_RESET_REJECTED: "bg-red-100 text-red-800 border-red-200",
+      ACCOUNT_LOCKED: "bg-red-100 text-red-800 border-red-200",
+      ACCOUNT_UNLOCKED: "bg-blue-100 text-blue-800 border-blue-200",
+      TOKEN_REFRESH: "bg-purple-100 text-purple-800 border-purple-200",
+      ROLE_CHANGE: "bg-indigo-100 text-indigo-800 border-indigo-200",
+      ACCOUNT_ACTIVATED: "bg-green-100 text-green-800 border-green-200",
+      ACCOUNT_DEACTIVATED: "bg-gray-100 text-gray-800 border-gray-200",
+    };
+    return colors[action] || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   return (
@@ -203,6 +338,16 @@ function AdminSettingsPageContent() {
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "overview"
+                  ? "border-[#2563EB] text-[#2563EB]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Overview
+            </button>
             <button
               onClick={() => setActiveTab("password-resets")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -258,26 +403,173 @@ function AdminSettingsPageContent() {
           </div>
         ) : (
           <>
+            {/* Overview Tab */}
+            {activeTab === "overview" && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold text-[#2D3748]">
+                  Dashboard Overview
+                </h2>
+
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Pending Password Resets
+                        </p>
+                        <p className="text-3xl font-bold text-[#2D3748] mt-2">
+                          {dashboardStats?.pending_password_resets ?? 0}
+                        </p>
+                      </div>
+                      <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <CheckCircleIcon className="w-6 h-6 text-yellow-600" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Locked Accounts
+                        </p>
+                        <p className="text-3xl font-bold text-[#2D3748] mt-2">
+                          {dashboardStats?.locked_accounts ?? 0}
+                        </p>
+                      </div>
+                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                        <LockOpenIcon className="w-6 h-6 text-red-600" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="bg-white rounded-lg shadow-md">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-[#2D3748]">
+                      Recent Activity
+                    </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {dashboardStats?.recent_activity &&
+                    dashboardStats.recent_activity.length > 0 ? (
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Timestamp
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              User
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Action
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              IP Address
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {dashboardStats.recent_activity.map((log) => (
+                            <tr key={log.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {formatDate(log.timestamp)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div>
+                                  {log.username || "Unknown"}
+                                  {log.full_name && (
+                                    <div className="text-xs text-gray-500">
+                                      {log.full_name}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
+                                    log.action
+                                  )}`}
+                                >
+                                  {log.action.replace(/_/g, " ")}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {log.ip_address}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">
+                        No recent activity found.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Password Reset Requests Tab */}
             {activeTab === "password-resets" && (
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-[#2D3748]">
-                    Password Reset Requests
-                  </h2>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => {
-                      setStatusFilter(e.target.value);
-                      setResetRequestsPage(1);
-                    }}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  >
-                    <option value="ALL">All Statuses</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Rejected</option>
-                  </select>
+                <h2 className="text-xl font-semibold text-[#2D3748]">
+                  Password Reset Requests
+                </h2>
+
+                {/* Filters */}
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Search
+                      </label>
+                      <input
+                        type="text"
+                        value={resetRequestsSearch}
+                        onChange={(e) => {
+                          setResetRequestsSearch(e.target.value);
+                        }}
+                        placeholder="Search by name, email, or username..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Status
+                      </label>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => {
+                          setStatusFilter(e.target.value);
+                          setResetRequestsPage(1);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="ALL">All Statuses</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="REJECTED">Rejected</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        variant="tertiary"
+                        onClick={() => {
+                          setResetRequestsSearch("");
+                          setStatusFilter("ALL");
+                          setResetRequestsPage(1);
+                        }}
+                        className="w-full"
+                      >
+                        Reset
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 {passwordResetRequests.length === 0 ? (
@@ -317,7 +609,7 @@ function AdminSettingsPageContent() {
                                   {request.full_name}
                                 </div>
                                 <div className="text-sm text-gray-500">
-                                  {request.username} ({request.email})
+                                  {request.username}
                                 </div>
                               </div>
                             </td>
@@ -342,13 +634,22 @@ function AdminSettingsPageContent() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               {request.status === "PENDING" && (
-                                <button
-                                  onClick={() => handleApproveReset(request)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
-                                >
-                                  <CheckCircleIcon className="w-4 h-4" />
-                                  Approve
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleApproveReset(request)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
+                                  >
+                                    <CheckCircleIcon className="w-4 h-4" />
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectReset(request)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                  >
+                                    <XCircleIcon className="w-4 h-4" />
+                                    Reject
+                                  </button>
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -387,6 +688,60 @@ function AdminSettingsPageContent() {
                   Locked Accounts
                 </h2>
 
+                {/* Filters */}
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Search
+                      </label>
+                      <input
+                        type="text"
+                        value={lockedAccountsSearch}
+                        onChange={(e) => {
+                          setLockedAccountsSearch(e.target.value);
+                        }}
+                        placeholder="Search by name, email, or username..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Lockout Type
+                      </label>
+                      <select
+                        value={lockedAccountsFilter}
+                        onChange={(e) => {
+                          setLockedAccountsFilter(e.target.value);
+                          setLockedAccountsPage(1);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="">All Lockouts</option>
+                        <option value="temporary">Temporary</option>
+                        <option value="permanent">Permanent</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        variant="tertiary"
+                        onClick={() => {
+                          setLockedAccountsSearch("");
+                          setLockedAccountsFilter("");
+                          setLockedAccountsSort({
+                            field: "last_attempt",
+                            order: "desc",
+                          });
+                          setLockedAccountsPage(1);
+                        }}
+                        className="w-full"
+                      >
+                        Reset
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 {lockedAccounts.length === 0 ? (
                   <div className="bg-white rounded-lg shadow-md p-8 text-center">
                     <p className="text-gray-500">No locked accounts found.</p>
@@ -396,17 +751,109 @@ function AdminSettingsPageContent() {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            User
+                          <th
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            onClick={() => {
+                              const newOrder =
+                                lockedAccountsSort.field === "user" &&
+                                lockedAccountsSort.order === "asc"
+                                  ? "desc"
+                                  : "asc";
+                              setLockedAccountsSort({
+                                field: "user",
+                                order: newOrder,
+                              });
+                              setLockedAccountsPage(1);
+                            }}
+                          >
+                            <div className="flex items-center gap-1">
+                              User
+                              {lockedAccountsSort.field === "user" &&
+                                (lockedAccountsSort.order === "asc" ? (
+                                  <ChevronUpIcon className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDownIcon className="w-4 h-4" />
+                                ))}
+                            </div>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Failed Attempts
+                          <th
+                            className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-32"
+                            onClick={() => {
+                              const newOrder =
+                                lockedAccountsSort.field ===
+                                  "failed_attempts" &&
+                                lockedAccountsSort.order === "asc"
+                                  ? "desc"
+                                  : "asc";
+                              setLockedAccountsSort({
+                                field: "failed_attempts",
+                                order: newOrder,
+                              });
+                              setLockedAccountsPage(1);
+                            }}
+                          >
+                            <div className="flex items-center gap-1">
+                              Failed Attempts
+                              {lockedAccountsSort.field === "failed_attempts" &&
+                                (lockedAccountsSort.order === "asc" ? (
+                                  <ChevronUpIcon className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDownIcon className="w-4 h-4" />
+                                ))}
+                            </div>
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Locked Until
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Lockout Count
+                          <th
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            onClick={() => {
+                              const newOrder =
+                                lockedAccountsSort.field === "lockout_count" &&
+                                lockedAccountsSort.order === "asc"
+                                  ? "desc"
+                                  : "asc";
+                              setLockedAccountsSort({
+                                field: "lockout_count",
+                                order: newOrder,
+                              });
+                              setLockedAccountsPage(1);
+                            }}
+                          >
+                            <div className="flex items-center gap-1">
+                              Lockout Count
+                              {lockedAccountsSort.field === "lockout_count" &&
+                                (lockedAccountsSort.order === "asc" ? (
+                                  <ChevronUpIcon className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDownIcon className="w-4 h-4" />
+                                ))}
+                            </div>
+                          </th>
+                          <th
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            onClick={() => {
+                              const newOrder =
+                                lockedAccountsSort.field === "last_attempt" &&
+                                lockedAccountsSort.order === "asc"
+                                  ? "desc"
+                                  : "asc";
+                              setLockedAccountsSort({
+                                field: "last_attempt",
+                                order: newOrder,
+                              });
+                              setLockedAccountsPage(1);
+                            }}
+                          >
+                            <div className="flex items-center gap-1">
+                              Last Attempt
+                              {lockedAccountsSort.field === "last_attempt" &&
+                                (lockedAccountsSort.order === "asc" ? (
+                                  <ChevronUpIcon className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDownIcon className="w-4 h-4" />
+                                ))}
+                            </div>
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
@@ -415,38 +862,126 @@ function AdminSettingsPageContent() {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {lockedAccounts.map((account) => (
-                          <tr key={account.user_id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {account.full_name}
+                          <>
+                            <tr key={account.user_id}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {account.full_name}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    {account.username}
+                                  </div>
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                  {account.username} ({account.email})
+                              </td>
+                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {account.failed_attempts}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {account.locked_until
+                                  ? formatDate(account.locked_until)
+                                  : "Permanent (Admin unlock required)"}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {account.lockout_count}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {formatDate(account.last_attempt)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() =>
+                                      setExpandedLockedAccount(
+                                        expandedLockedAccount ===
+                                          account.user_id
+                                          ? null
+                                          : account.user_id
+                                      )
+                                    }
+                                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="View details"
+                                  >
+                                    <ChevronRightIcon
+                                      className={`w-4 h-4 transition-transform ${
+                                        expandedLockedAccount ===
+                                        account.user_id
+                                          ? "rotate-90"
+                                          : ""
+                                      }`}
+                                    />
+                                  </button>
+                                  <button
+                                    onClick={() => handleUnlockAccount(account)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                  >
+                                    <LockOpenIcon className="w-4 h-4" />
+                                    Unlock
+                                  </button>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {account.failed_attempts}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {account.locked_until
-                                ? formatDate(account.locked_until)
-                                : "Permanent (Admin unlock required)"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {account.lockout_count}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button
-                                onClick={() => handleUnlockAccount(account)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                              >
-                                <LockOpenIcon className="w-4 h-4" />
-                                Unlock
-                              </button>
-                            </td>
-                          </tr>
+                              </td>
+                            </tr>
+                            {expandedLockedAccount === account.user_id && (
+                              <tr>
+                                <td
+                                  colSpan={6}
+                                  className="px-6 py-4 bg-gray-50"
+                                >
+                                  <div className="space-y-2">
+                                    <h4 className="text-sm font-semibold text-gray-900">
+                                      Lockout Details
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                      <div>
+                                        <span className="font-medium text-gray-700">
+                                          Lockout Type:
+                                        </span>{" "}
+                                        {account.locked_until
+                                          ? "Temporary"
+                                          : "Permanent"}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-gray-700">
+                                          Failed Attempts:
+                                        </span>{" "}
+                                        {account.failed_attempts}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-gray-700">
+                                          Lockout Count:
+                                        </span>{" "}
+                                        {account.lockout_count}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-gray-700">
+                                          Last Attempt:
+                                        </span>{" "}
+                                        {formatDate(
+                                          account.locked_until ||
+                                            account.last_attempt
+                                        )}
+                                      </div>
+                                      {account.locked_until && (
+                                        <div className="col-span-2">
+                                          <span className="font-medium text-gray-700">
+                                            Auto-unlocks at:
+                                          </span>{" "}
+                                          {formatDate(account.locked_until)}
+                                        </div>
+                                      )}
+                                      {!account.locked_until && (
+                                        <div className="col-span-2 text-amber-600">
+                                          This account requires admin unlock. It
+                                          has been locked{" "}
+                                          {account.lockout_count} time(s).
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
                         ))}
                       </tbody>
                     </table>
@@ -484,6 +1019,104 @@ function AdminSettingsPageContent() {
 
                 {/* Filters */}
                 <div className="bg-white rounded-lg shadow-md p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        User Search
+                      </label>
+                      <input
+                        type="text"
+                        value={auditFilters.user_search}
+                        onChange={(e) =>
+                          setAuditFilters({
+                            ...auditFilters,
+                            user_search: e.target.value,
+                          })
+                        }
+                        placeholder="Search by username or name..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        IP Address
+                      </label>
+                      <input
+                        type="text"
+                        value={auditFilters.ip_address}
+                        onChange={(e) =>
+                          setAuditFilters({
+                            ...auditFilters,
+                            ip_address: e.target.value,
+                          })
+                        }
+                        placeholder="Filter by IP address..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Date Range Presets
+                      </label>
+                      <select
+                        onChange={(e) => {
+                          const preset = e.target.value;
+                          const today = new Date();
+                          const startOfDay = new Date(
+                            today.getFullYear(),
+                            today.getMonth(),
+                            today.getDate()
+                          );
+                          let startDate = "";
+                          let endDate = "";
+
+                          if (preset === "today") {
+                            startDate = startOfDay.toISOString().split("T")[0];
+                            endDate = startDate;
+                          } else if (preset === "this_week") {
+                            const dayOfWeek = today.getDay();
+                            const diff = today.getDate() - dayOfWeek;
+                            const start = new Date(today.setDate(diff));
+                            startDate = start.toISOString().split("T")[0];
+                            endDate = new Date().toISOString().split("T")[0];
+                          } else if (preset === "this_month") {
+                            startDate = new Date(
+                              today.getFullYear(),
+                              today.getMonth(),
+                              1
+                            )
+                              .toISOString()
+                              .split("T")[0];
+                            endDate = new Date().toISOString().split("T")[0];
+                          } else if (preset === "last_30_days") {
+                            const thirtyDaysAgo = new Date();
+                            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                            startDate = thirtyDaysAgo
+                              .toISOString()
+                              .split("T")[0];
+                            endDate = new Date().toISOString().split("T")[0];
+                          }
+
+                          if (preset) {
+                            setAuditFilters({
+                              ...auditFilters,
+                              start_date: startDate,
+                              end_date: endDate,
+                            });
+                            setAuditPage(1);
+                          }
+                          e.target.value = "";
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="">Select preset...</option>
+                        <option value="today">Today</option>
+                        <option value="this_week">This Week</option>
+                        <option value="this_month">This Month</option>
+                        <option value="last_30_days">Last 30 Days</option>
+                      </select>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -509,6 +1142,9 @@ function AdminSettingsPageContent() {
                         </option>
                         <option value="PASSWORD_RESET_APPROVED">
                           Password Reset Approved
+                        </option>
+                        <option value="PASSWORD_RESET_REJECTED">
+                          Password Reset Rejected
                         </option>
                         <option value="ACCOUNT_LOCKED">Account Locked</option>
                         <option value="ACCOUNT_UNLOCKED">
@@ -564,6 +1200,8 @@ function AdminSettingsPageContent() {
                             action: "",
                             start_date: "",
                             end_date: "",
+                            user_search: "",
+                            ip_address: "",
                           });
                           setAuditPage(1);
                         }}
@@ -604,57 +1242,110 @@ function AdminSettingsPageContent() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {auditLogs.map((log) => (
-                            <tr key={log.id}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {formatDate(log.timestamp)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {log.username || "Unknown"}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                  {log.action.replace(/_/g, " ")}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {log.ip_address}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500">
-                                {log.details &&
-                                Object.keys(log.details).length > 0
-                                  ? JSON.stringify(log.details)
-                                  : "-"}
-                              </td>
-                            </tr>
+                            <>
+                              <tr key={log.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {formatDate(log.timestamp)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <div>
+                                    {log.username || "Unknown"}
+                                    {log.full_name && (
+                                      <div className="text-xs text-gray-500">
+                                        {log.full_name}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span
+                                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
+                                      log.action
+                                    )}`}
+                                  >
+                                    {log.action.replace(/_/g, " ")}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {log.ip_address}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-500">
+                                  <div className="flex items-center gap-2">
+                                    {log.details &&
+                                    Object.keys(log.details).length > 0 ? (
+                                      <>
+                                        <span className="text-gray-400">
+                                          {Object.keys(log.details).length}{" "}
+                                          field(s)
+                                        </span>
+                                        <button
+                                          onClick={() =>
+                                            setExpandedAuditLog(
+                                              expandedAuditLog === log.id
+                                                ? null
+                                                : log.id
+                                            )
+                                          }
+                                          className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                          title="View details"
+                                        >
+                                          <ChevronRightIcon
+                                            className={`w-4 h-4 transition-transform ${
+                                              expandedAuditLog === log.id
+                                                ? "rotate-90"
+                                                : ""
+                                            }`}
+                                          />
+                                        </button>
+                                      </>
+                                    ) : (
+                                      "-"
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                              {expandedAuditLog === log.id &&
+                                log.details &&
+                                Object.keys(log.details).length > 0 && (
+                                  <tr>
+                                    <td
+                                      colSpan={5}
+                                      className="px-6 py-4 bg-gray-50"
+                                    >
+                                      <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold text-gray-900">
+                                          Details
+                                        </h4>
+                                        <pre className="text-xs bg-white p-3 rounded border overflow-x-auto">
+                                          {JSON.stringify(log.details, null, 2)}
+                                        </pre>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                            </>
                           ))}
                         </tbody>
                       </table>
                     </div>
 
                     {/* Pagination */}
-                    <div className="flex justify-between items-center">
-                      <div className="text-sm text-gray-500">
-                        Showing {(auditPage - 1) * 50 + 1} to{" "}
-                        {Math.min(auditPage * 50, auditTotal)} of {auditTotal}{" "}
-                        results
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() =>
-                            setAuditPage((p) => Math.max(1, p - 1))
-                          }
-                          disabled={auditPage === 1}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          onClick={() => setAuditPage((p) => p + 1)}
-                          disabled={auditPage * 50 >= auditTotal}
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
+                    {auditTotal > 0 && (
+                      <Pagination
+                        currentPage={auditPage}
+                        totalPages={Math.ceil(auditTotal / 50)}
+                        onPageChange={(page) => {
+                          setAuditPage(page);
+                        }}
+                        itemsPerPage={50}
+                        totalItems={auditTotal}
+                        onItemsPerPageChange={(newItemsPerPage) => {
+                          // Keep page size at 50 for audit logs
+                          setAuditPage(1);
+                        }}
+                        showItemsPerPage={false}
+                      />
+                    )}
                   </>
                 )}
               </div>
@@ -713,6 +1404,87 @@ function AdminSettingsPageContent() {
         variant="info"
         loading={unlockConfirmation.loading}
       />
+
+      {/* Reject Password Reset Confirmation Modal */}
+      {rejectConfirmation.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-gray-500 bg-opacity-75"
+            onClick={() =>
+              setRejectConfirmation({
+                isOpen: false,
+                request: null,
+                loading: false,
+                notes: "",
+              })
+            }
+          />
+          <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+            <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div className="sm:flex sm:items-start">
+                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <XCircleIcon className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Reject Password Reset Request
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500 mb-4">
+                      Are you sure you want to reject the password reset request
+                      for {rejectConfirmation.request?.full_name} (
+                      {rejectConfirmation.request?.email})? Please provide a
+                      reason for rejection.
+                    </p>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Rejection Reason <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={rejectConfirmation.notes}
+                      onChange={(e) =>
+                        setRejectConfirmation((prev) => ({
+                          ...prev,
+                          notes: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter rejection reason..."
+                      required
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              <Button
+                onClick={confirmRejectReset}
+                disabled={
+                  rejectConfirmation.loading || !rejectConfirmation.notes.trim()
+                }
+                className="w-full sm:w-auto sm:ml-3 bg-red-600 hover:bg-red-700"
+              >
+                {rejectConfirmation.loading ? "Rejecting..." : "Reject"}
+              </Button>
+              <Button
+                variant="tertiary"
+                onClick={() =>
+                  setRejectConfirmation({
+                    isOpen: false,
+                    request: null,
+                    loading: false,
+                    notes: "",
+                  })
+                }
+                disabled={rejectConfirmation.loading}
+                className="w-full sm:w-auto mt-3 sm:mt-0"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

@@ -1164,6 +1164,8 @@ export interface PasswordResetRequest {
   requested_at: string;
   approved_at: string | null;
   approved_by_name: string | null;
+  rejected_at: string | null;
+  rejected_by_name: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   notes: string;
 }
@@ -1183,6 +1185,7 @@ export interface AuditLog {
   id: number;
   user_id: number | null;
   username: string | null;
+  full_name: string | null;
   action: string;
   ip_address: string;
   user_agent: string;
@@ -1270,12 +1273,14 @@ export const authApi = {
   getPasswordResetRequests: (
     status?: string,
     page?: number,
-    page_size?: number
+    page_size?: number,
+    search?: string
   ) => {
     const params: any = {};
     if (status) params.status = status;
     if (page) params.page = page;
     if (page_size) params.page_size = page_size;
+    if (search) params.search = search;
     return api.get<{
       count: number;
       page: number;
@@ -1289,10 +1294,27 @@ export const authApi = {
   approvePasswordReset: (requestId: number) =>
     api.post(`/auth/admin/password-reset-requests/${requestId}/approve/`),
 
-  getLockedAccounts: (page?: number, page_size?: number) => {
+  rejectPasswordReset: (requestId: number, notes: string) =>
+    api.post(`/auth/admin/password-reset-requests/${requestId}/reject/`, {
+      notes,
+    }),
+
+  getLockedAccounts: (
+    page?: number,
+    page_size?: number,
+    search?: string,
+    lockout_count_filter?: string,
+    sort_by?: string,
+    sort_order?: string
+  ) => {
     const params: any = {};
     if (page) params.page = page;
     if (page_size) params.page_size = page_size;
+    if (search) params.search = search;
+    if (lockout_count_filter)
+      params.lockout_count_filter = lockout_count_filter;
+    if (sort_by) params.sort_by = sort_by;
+    if (sort_order) params.sort_order = sort_order;
     return api.get<{
       count: number;
       page: number;
@@ -1321,6 +1343,13 @@ export const authApi = {
       results: AuditLog[];
     }>("/auth/admin/audit-logs/", { params: filters });
   },
+
+  getAdminDashboardStats: () =>
+    api.get<{
+      pending_password_resets: number;
+      locked_accounts: number;
+      recent_activity: AuditLog[];
+    }>("/auth/admin/dashboard-stats/"),
 };
 
 export default api;

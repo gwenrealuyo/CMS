@@ -23,6 +23,14 @@ class PasswordResetRequest(models.Model):
         blank=True,
         related_name="approved_password_resets",
     )
+    rejected_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rejected_password_resets",
+    )
+    rejected_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     notes = models.TextField(blank=True)
 
@@ -62,6 +70,7 @@ class AuditLog(models.Model):
         ("PASSWORD_CHANGE", "Password Change"),
         ("PASSWORD_RESET_REQUEST", "Password Reset Request"),
         ("PASSWORD_RESET_APPROVED", "Password Reset Approved"),
+        ("PASSWORD_RESET_REJECTED", "Password Reset Rejected"),
         ("ACCOUNT_LOCKED", "Account Locked"),
         ("ACCOUNT_UNLOCKED", "Account Unlocked"),
         ("TOKEN_REFRESH", "Token Refresh"),

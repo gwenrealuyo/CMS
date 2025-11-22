@@ -182,6 +182,7 @@ class PasswordResetRequestListSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     full_name = serializers.SerializerMethodField()
     approved_by_name = serializers.SerializerMethodField()
+    rejected_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = PasswordResetRequest
@@ -194,6 +195,8 @@ class PasswordResetRequestListSerializer(serializers.ModelSerializer):
             "requested_at",
             "approved_at",
             "approved_by_name",
+            "rejected_at",
+            "rejected_by_name",
             "status",
             "notes",
         )
@@ -204,6 +207,11 @@ class PasswordResetRequestListSerializer(serializers.ModelSerializer):
     def get_approved_by_name(self, obj):
         if obj.approved_by:
             return format_person_name(obj.approved_by)
+        return None
+
+    def get_rejected_by_name(self, obj):
+        if obj.rejected_by:
+            return format_person_name(obj.rejected_by)
         return None
 
 
@@ -237,6 +245,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
         source="user.username", read_only=True, allow_null=True
     )
+    full_name = serializers.SerializerMethodField()
 
     class Meta:
         model = AuditLog
@@ -244,9 +253,15 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "id",
             "user_id",
             "username",
+            "full_name",
             "action",
             "ip_address",
             "user_agent",
             "details",
             "timestamp",
         )
+
+    def get_full_name(self, obj):
+        if obj.user:
+            return format_person_name(obj.user)
+        return None

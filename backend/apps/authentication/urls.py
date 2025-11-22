@@ -27,6 +27,11 @@ urlpatterns = [
         name="approve_password_reset",
     ),
     path(
+        "admin/password-reset-requests/<int:id>/reject/",
+        views.reject_password_reset_view,
+        name="reject_password_reset",
+    ),
+    path(
         "admin/locked-accounts/",
         views.locked_accounts_list_view,
         name="locked_accounts_list",
@@ -37,5 +42,10 @@ urlpatterns = [
         name="unlock_account",
     ),
     path("admin/audit-logs/", views.audit_logs_view, name="audit_logs"),
+    path(
+        "admin/dashboard-stats/",
+        views.admin_dashboard_stats_view,
+        name="admin_dashboard_stats",
+    ),
 ]
 

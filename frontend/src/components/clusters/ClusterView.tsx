@@ -1,4 +1,5 @@
-import { Cluster, Person, Family } from "@/src/types/person";
+import { Cluster } from "@/src/types/cluster";
+import { Person, Family } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 

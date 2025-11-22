@@ -12,6 +12,12 @@ from rest_framework.response import Response
 from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event
 from apps.people.models import Person
+from apps.authentication.permissions import (
+    IsMemberOrAbove,
+    IsAuthenticatedAndNotVisitor,
+    HasModuleAccess,
+)
+from apps.people.models import ModuleCoordinator
 
 from .models import (
     SundaySchoolCategory,
@@ -40,9 +46,14 @@ from .services import (
 
 
 class SundaySchoolCategoryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = SundaySchoolCategory.objects.all()
     serializer_class = SundaySchoolCategorySerializer
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
     filterset_fields = ("is_active",)
     search_fields = ("name", "description")
     ordering_fields = ("order", "name", "created_at")
@@ -50,24 +61,95 @@ class SundaySchoolCategoryViewSet(viewsets.ModelViewSet):
 
 
 class SundaySchoolClassViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
         SundaySchoolClass.objects.select_related("category")
         .prefetch_related(
             Prefetch(
                 "members",
-                queryset=SundaySchoolClassMember.objects.select_related("person").filter(
-                    is_active=True
-                ),
+                queryset=SundaySchoolClassMember.objects.select_related(
+                    "person"
+                ).filter(is_active=True),
             )
         )
         .all()
     )
     serializer_class = SundaySchoolClassSerializer
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
     filterset_fields = ("category", "is_active")
     search_fields = ("name", "description", "yearly_theme", "room_location")
     ordering_fields = ("name", "created_at")
     ordering = ("category__order", "name")
+    
+    def get_queryset(self):
+        user = self.request.user
+        queryset = super().get_queryset()
+        
+        # ADMIN/PASTOR: All classes
+        if user.role in ["ADMIN", "PASTOR"]:
+            return queryset
+        
+        # Sunday School Coordinator (SUNDAY_SCHOOL, COORDINATOR): All classes
+        if user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+        ):
+            return queryset
+        
+        # Sunday School Teacher (SUNDAY_SCHOOL, TEACHER): All classes (filtering happens in permissions)
+        if user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER
+        ):
+            return queryset
+        
+        # MEMBER: Read-only, all classes visible
+        if user.role == "MEMBER":
+            return queryset
+        
+        # Default: empty queryset for safety
+        return queryset.none()
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        """
+        if self.action in ["list", "retrieve", "sessions", "attendance_report", "unenrolled", "summary"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        elif self.action in ["create", "update", "partial_update", "enroll"]:
+            # Write operations: ADMIN, PASTOR, Sunday School Coordinator, or Teacher (with restrictions)
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('SUNDAY_SCHOOL', 'write')]
+        elif self.action == "destroy":
+            # Delete: ADMIN, PASTOR, Sunday School Coordinator only (Teachers cannot delete)
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('SUNDAY_SCHOOL', 'delete')]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+    
+    def get_object(self):
+        obj = super().get_object()
+        user = self.request.user
+        
+        # Sunday School Teacher can only edit/delete classes where they're TEACHER
+        if (self.action in ["update", "partial_update", "destroy"] and
+            user.is_module_coordinator(
+                ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+                level=ModuleCoordinator.CoordinatorLevel.TEACHER
+            )):
+            # Check if user is a teacher in this class
+            if not SundaySchoolClassMember.objects.filter(
+                sunday_school_class=obj,
+                person=user,
+                role=SundaySchoolClassMember.Role.TEACHER,
+                is_active=True
+            ).exists():
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You can only edit classes where you are a teacher.")
+        
+        return obj
 
     @action(detail=True, methods=["post"])
     def enroll(self, request, pk=None):
@@ -90,7 +172,9 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
     def sessions(self, request, pk=None):
         """List sessions for a class."""
         sunday_school_class = self.get_object()
-        sessions = sunday_school_class.sessions.all().order_by("-session_date", "-session_time")
+        sessions = sunday_school_class.sessions.all().order_by(
+            "-session_date", "-session_time"
+        )
 
         # Apply filters
         date_from = request.query_params.get("date_from")
@@ -107,7 +191,9 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
     def attendance(self, request, pk=None):
         """Get attendance records via linked Events."""
         sunday_school_class = self.get_object()
-        sessions = sunday_school_class.sessions.filter(event__isnull=False).select_related("event")
+        sessions = sunday_school_class.sessions.filter(
+            event__isnull=False
+        ).select_related("event")
 
         occurrence_date = request.query_params.get("occurrence_date")
         if occurrence_date:
@@ -125,7 +211,8 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
                         "session_date": session.session_date,
                         "lesson_title": session.lesson_title,
                         "person_id": record.person.id,
-                        "person_name": record.person.get_full_name() or record.person.username,
+                        "person_name": record.person.get_full_name()
+                        or record.person.username,
                         "status": record.status,
                         "notes": record.notes,
                     }
@@ -153,7 +240,9 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
                 )
 
         class_attendance.sort(key=lambda x: x["attendance_rate"], reverse=True)
-        stats["most_attended_classes"] = class_attendance[:5] if class_attendance else []
+        stats["most_attended_classes"] = (
+            class_attendance[:5] if class_attendance else []
+        )
         stats["least_attended_classes"] = (
             class_attendance[-5:] if len(class_attendance) > 5 else []
         )
@@ -167,17 +256,24 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
         status_filter = request.query_params.get("status")
         role_filter = request.query_params.get("role")
 
-        result = get_unenrolled_by_category(status_filter=status_filter, role_filter=role_filter)
+        result = get_unenrolled_by_category(
+            status_filter=status_filter, role_filter=role_filter
+        )
         serializer = SundaySchoolUnenrolledByCategorySerializer(result, many=True)
         return Response(serializer.data)
 
 
 class SundaySchoolClassMemberViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = SundaySchoolClassMember.objects.select_related(
         "sunday_school_class", "person"
     ).all()
     serializer_class = SundaySchoolClassMemberSerializer
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
     filterset_fields = ("sunday_school_class", "role", "is_active")
     search_fields = (
         "person__first_name",
@@ -190,11 +286,16 @@ class SundaySchoolClassMemberViewSet(viewsets.ModelViewSet):
 
 
 class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = SundaySchoolSession.objects.select_related(
         "sunday_school_class", "event"
     ).all()
     serializer_class = SundaySchoolSessionSerializer
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
     filterset_fields = ("sunday_school_class", "session_date")
     search_fields = ("lesson_title", "notes", "sunday_school_class__name")
     ordering_fields = ("session_date", "session_time", "created_at")
@@ -222,7 +323,9 @@ class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
     def _create_event_for_session(self, session: SundaySchoolSession):
         """Create an Event for a Sunday School session."""
         class_obj = session.sunday_school_class
-        meeting_time = session.session_time or class_obj.meeting_time or timezone.now().time()
+        meeting_time = (
+            session.session_time or class_obj.meeting_time or timezone.now().time()
+        )
 
         session_datetime = datetime.combine(session.session_date, meeting_time)
         session_datetime = timezone.make_aware(session_datetime)
@@ -251,7 +354,9 @@ class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
             return
 
         class_obj = session.sunday_school_class
-        meeting_time = session.session_time or class_obj.meeting_time or timezone.now().time()
+        meeting_time = (
+            session.session_time or class_obj.meeting_time or timezone.now().time()
+        )
 
         session_datetime = datetime.combine(session.session_date, meeting_time)
         session_datetime = timezone.make_aware(session_datetime)
@@ -273,7 +378,8 @@ class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
         session = self.get_object()
         if not session.event:
             return Response(
-                {"error": "Session has no linked event"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Session has no linked event"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Get enrolled students
@@ -298,7 +404,9 @@ class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
 
         total_enrolled = enrolled_students.count()
         attendance_rate = (
-            round((present_count / total_enrolled * 100), 2) if total_enrolled > 0 else 0.0
+            round((present_count / total_enrolled * 100), 2)
+            if total_enrolled > 0
+            else 0.0
         )
 
         data = {
@@ -349,4 +457,3 @@ class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
-

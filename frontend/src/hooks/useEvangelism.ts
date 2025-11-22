@@ -13,7 +13,7 @@ import {
   MonthlyStatistics,
   Each1Reach1Goal,
   EvangelismSummary,
-  EvangelismRecurringSessionData,
+  RecurringSessionData,
   BulkEnrollData,
 } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
@@ -186,7 +186,7 @@ export const useEvangelismSessions = (groupId: number | string | null) => {
     setSessions((prev) => prev.filter((session) => session.id !== String(id)));
   };
 
-  const createRecurringSessions = async (data: EvangelismRecurringSessionData) => {
+  const createRecurringSessions = async (data: RecurringSessionData) => {
     const response = await evangelismApi.createRecurringSessions(data);
     setSessions((prev) => [...prev, ...response.data.sessions]);
     return response.data;

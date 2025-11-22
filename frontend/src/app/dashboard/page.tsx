@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
+import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import Card from "@/src/components/ui/Card";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
@@ -216,7 +217,8 @@ export default function Dashboard() {
   }, [lessonSummary]);
 
   return (
-    <DashboardLayout>
+    <ProtectedRoute>
+      <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -421,6 +423,7 @@ export default function Dashboard() {
         </div>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   );
 }
 

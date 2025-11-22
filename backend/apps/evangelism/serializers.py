@@ -76,7 +76,7 @@ class EvangelismGroupMemberSerializer(serializers.ModelSerializer):
     person = PersonSummarySerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
         source="person",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
     )
     role_display = serializers.CharField(source="get_role_display", read_only=True)
@@ -101,7 +101,7 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
     coordinator = PersonSummarySerializer(read_only=True)
     coordinator_id = serializers.PrimaryKeyRelatedField(
         source="coordinator",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
         required=False,
         allow_null=True,
@@ -258,7 +258,7 @@ class ProspectSerializer(serializers.ModelSerializer):
     invited_by = PersonSummarySerializer(read_only=True)
     invited_by_id = serializers.PrimaryKeyRelatedField(
         source="invited_by",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
     )
     inviter_cluster = ClusterSummarySerializer(read_only=True)
@@ -326,13 +326,13 @@ class FollowUpTaskSerializer(serializers.ModelSerializer):
     assigned_to = PersonSummarySerializer(read_only=True)
     assigned_to_id = serializers.PrimaryKeyRelatedField(
         source="assigned_to",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
     )
     created_by = PersonSummarySerializer(read_only=True)
     created_by_id = serializers.PrimaryKeyRelatedField(
         source="created_by",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
         required=False,
         allow_null=True,
@@ -397,7 +397,7 @@ class ConversionSerializer(serializers.ModelSerializer):
     person = PersonSummarySerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
         source="person",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
     )
     prospect = ProspectSerializer(read_only=True)
@@ -411,7 +411,7 @@ class ConversionSerializer(serializers.ModelSerializer):
     converted_by = PersonSummarySerializer(read_only=True)
     converted_by_id = serializers.PrimaryKeyRelatedField(
         source="converted_by",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
     )
     evangelism_group = EvangelismGroupSerializer(read_only=True)
@@ -433,7 +433,7 @@ class ConversionSerializer(serializers.ModelSerializer):
     verified_by = PersonSummarySerializer(read_only=True)
     verified_by_id = serializers.PrimaryKeyRelatedField(
         source="verified_by",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
         required=False,
         allow_null=True,

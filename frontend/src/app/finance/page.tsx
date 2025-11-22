@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
+import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import DonationForm from "@/src/components/finance/DonationForm";
 import DonationStats from "@/src/components/finance/DonationStats";
 import DonationTable from "@/src/components/finance/DonationTable";
@@ -865,7 +866,8 @@ export default function FinancePage() {
   };
 
   return (
-    <DashboardLayout>
+    <ProtectedRoute allowedRoles={["ADMIN", "PASTOR"]}>
+      <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
@@ -1442,6 +1444,7 @@ export default function FinancePage() {
         loading={deleteDonationLoading}
       />
     </DashboardLayout>
+    </ProtectedRoute>
   );
 }
 

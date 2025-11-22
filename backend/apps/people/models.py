@@ -73,6 +73,8 @@ class Person(AbstractUser):
             ("ATTENDED", "Attended"),
         ],
     )
+    must_change_password = models.BooleanField(default=False)
+    first_login = models.BooleanField(default=True)
 
     groups = models.ManyToManyField(
         Group,
@@ -87,6 +89,22 @@ class Person(AbstractUser):
 
     def __str__(self):
         return self.username  # or full name if you prefer
+    
+    def is_module_coordinator(self, module_type, level=None, resource_id=None):
+        """Check if user is a coordinator for a specific module"""
+        queryset = self.module_coordinator_assignments.filter(module=module_type)
+        if level:
+            queryset = queryset.filter(level=level)
+        if resource_id is not None:
+            queryset = queryset.filter(resource_id=resource_id)
+        return queryset.exists()
+    
+    def is_senior_coordinator(self, module_type=None):
+        """Check if user is a senior coordinator (optionally for a specific module)"""
+        queryset = self.module_coordinator_assignments.filter(level=ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR)
+        if module_type:
+            queryset = queryset.filter(module=module_type)
+        return queryset.exists()
 
 
 class Family(models.Model):
@@ -131,3 +149,54 @@ class Milestone(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.type} - {self.date}"
+
+
+class ModuleCoordinator(models.Model):
+    """Tracks which users have coordinator access to specific modules"""
+    
+    class ModuleType(models.TextChoices):
+        CLUSTER = "CLUSTER", "Cluster"
+        FINANCE = "FINANCE", "Finance"
+        EVANGELISM = "EVANGELISM", "Evangelism"
+        SUNDAY_SCHOOL = "SUNDAY_SCHOOL", "Sunday School"
+        LESSONS = "LESSONS", "Lessons"
+        EVENTS = "EVENTS", "Events"
+        MINISTRIES = "MINISTRIES", "Ministries"
+    
+    class CoordinatorLevel(models.TextChoices):
+        COORDINATOR = "COORDINATOR", "Coordinator"  # Limited to assigned resources
+        SENIOR_COORDINATOR = "SENIOR_COORDINATOR", "Senior Coordinator"  # Full module access
+        TEACHER = "TEACHER", "Teacher"  # For Sunday School/Lessons
+        BIBLE_SHARER = "BIBLE_SHARER", "Bible Sharer"  # For Evangelism
+    
+    person = models.ForeignKey(
+        Person, 
+        on_delete=models.CASCADE, 
+        related_name="module_coordinator_assignments"
+    )
+    module = models.CharField(max_length=50, choices=ModuleType.choices)
+    level = models.CharField(max_length=50, choices=CoordinatorLevel.choices)
+    resource_id = models.IntegerField(
+        null=True, 
+        blank=True, 
+        help_text="For resource-specific assignments (e.g., specific cluster ID)"
+    )
+    resource_type = models.CharField(
+        max_length=50, 
+        blank=True, 
+        help_text="Type of resource (e.g., 'Cluster', 'EvangelismGroup')"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = [("person", "module", "resource_id")]
+        indexes = [
+            models.Index(fields=["person", "module"]),
+        ]
+        verbose_name = "Module Coordinator"
+        verbose_name_plural = "Module Coordinators"
+        ordering = ["person", "module", "level"]
+    
+    def __str__(self):
+        resource_info = f" ({self.resource_type}#{self.resource_id})" if self.resource_id else ""
+        return f"{self.person.username} - {self.get_module_display()} {self.get_level_display()}{resource_info}"

@@ -144,14 +144,19 @@ export default function SundaySchoolPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
-      await createClass(values);
+      await createClass({
+        ...values,
+        category_id: typeof values.category_id === 'string' ? parseInt(values.category_id) : values.category_id,
+      } as any);
       setSuccessMessage(`Class "${values.name}" has been created.`);
       setIsCreateOpen(false);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
+      const errorData = err.response?.data || {};
+      const errorValues = Object.values(errorData);
       setFormError(
         err.response?.data?.detail ||
-          Object.values(err.response?.data || {})[0]?.[0] ||
+          (errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined) ||
           "Failed to create class"
       );
     } finally {
@@ -164,15 +169,20 @@ export default function SundaySchoolPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
-      await updateClass(viewEditClass.id, values);
+      await updateClass(viewEditClass.id, {
+        ...values,
+        category_id: typeof values.category_id === 'string' ? parseInt(values.category_id) : values.category_id,
+      } as any);
       setSuccessMessage(`Class "${values.name}" has been updated.`);
       setViewEditClass(null);
       setViewMode("view");
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
+      const errorData = err.response?.data || {};
+      const errorValues = Object.values(errorData);
       setFormError(
         err.response?.data?.detail ||
-          Object.values(err.response?.data || {})[0]?.[0] ||
+          (errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined) ||
           "Failed to update class"
       );
     } finally {
@@ -200,17 +210,19 @@ export default function SundaySchoolPage() {
       setIsSubmitting(true);
       setFormError(null);
       await createSession({
-        sunday_school_class_id: viewEditClass.id,
         ...values,
-      });
+        sunday_school_class_id: typeof viewEditClass.id === 'string' ? parseInt(viewEditClass.id) : viewEditClass.id,
+      } as any);
       setSuccessMessage("Session created successfully. Event added to calendar.");
       setIsSessionModalOpen(false);
       setEditingSession(null);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
+      const errorData = err.response?.data || {};
+      const errorValues = Object.values(errorData);
       setFormError(
         err.response?.data?.detail ||
-          Object.values(err.response?.data || {})[0]?.[0] ||
+          (errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined) ||
           "Failed to create session"
       );
     } finally {
@@ -252,7 +264,10 @@ export default function SundaySchoolPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
-      await updateSession(editingSession.id, values);
+      await updateSession(editingSession.id, {
+        ...values,
+        sunday_school_class_id: typeof values.sunday_school_class_id === 'string' ? parseInt(values.sunday_school_class_id) : values.sunday_school_class_id,
+      } as any);
       setSuccessMessage("Session updated successfully.");
       setIsSessionModalOpen(false);
       setEditingSession(null);
@@ -260,7 +275,11 @@ export default function SundaySchoolPage() {
     } catch (err: any) {
       setFormError(
         err.response?.data?.detail ||
-          Object.values(err.response?.data || {})[0]?.[0] ||
+          (() => {
+            const errorData = err.response?.data || {};
+            const errorValues = Object.values(errorData);
+            return errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined;
+          })() ||
           "Failed to update session"
       );
     } finally {
@@ -283,7 +302,11 @@ export default function SundaySchoolPage() {
     } catch (err: any) {
       setFormError(
         err.response?.data?.detail ||
-          Object.values(err.response?.data || {})[0]?.[0] ||
+          (() => {
+            const errorData = err.response?.data || {};
+            const errorValues = Object.values(errorData);
+            return errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined;
+          })() ||
           "Failed to create recurring sessions"
       );
     } finally {
@@ -634,8 +657,8 @@ export default function SundaySchoolPage() {
           categories={categories}
           loading={categoriesLoading}
           error={categoriesError}
-          onCreate={createCategory}
-          onUpdate={updateCategory}
+          onCreate={async (data) => { await createCategory(data); }}
+          onUpdate={async (id, data) => { await updateCategory(id, data); }}
           onDelete={deleteCategory}
         />
       </Modal>

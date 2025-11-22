@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Person, Family, Milestone } from "@/src/types/person";
+import { Person, Family, Milestone, ModuleCoordinator } from "@/src/types/person";
 import {
   Cluster,
   ClusterWeeklyReport,
@@ -73,6 +73,134 @@ const api = axios.create({
   },
 });
 
+// Token storage keys
+const ACCESS_TOKEN_KEY = "access_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
+const REMEMBER_ME_KEY = "remember_me";
+
+// Token management functions
+export const tokenStorage = {
+  getAccessToken: () => localStorage.getItem(ACCESS_TOKEN_KEY),
+  getRefreshToken: () => localStorage.getItem(REFRESH_TOKEN_KEY),
+  setTokens: (access: string, refresh: string, rememberMe?: boolean) => {
+    localStorage.setItem(ACCESS_TOKEN_KEY, access);
+    localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+    if (rememberMe !== undefined) {
+      localStorage.setItem(REMEMBER_ME_KEY, rememberMe.toString());
+    }
+  },
+  clearTokens: () => {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(REMEMBER_ME_KEY);
+  },
+  getRememberMe: () => localStorage.getItem(REMEMBER_ME_KEY) === "true",
+};
+
+// Request interceptor: Add JWT token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = tokenStorage.getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor: Handle 401 errors and token refresh
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If error is 401 and we haven't tried to refresh yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If already refreshing, queue this request
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken = tokenStorage.getRefreshToken();
+      if (!refreshToken) {
+        tokenStorage.clearTokens();
+        processQueue(new Error("No refresh token"), null);
+        window.location.href = "/login";
+        return Promise.reject(error);
+      }
+
+      try {
+        const response = await axios.post(
+          `${api.defaults.baseURL}/auth/token/refresh/`,
+          { refresh: refreshToken }
+        );
+        const { access } = response.data;
+        tokenStorage.setTokens(access, refreshToken);
+        originalRequest.headers.Authorization = `Bearer ${access}`;
+        processQueue(null, access);
+        return api(originalRequest);
+      } catch (refreshError) {
+        tokenStorage.clearTokens();
+        processQueue(refreshError, null);
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    // Standardize error response format
+    if (error.response?.data) {
+      const errorData = error.response.data;
+      if (errorData.error && errorData.message) {
+        // Already in standardized format
+        return Promise.reject(error);
+      } else {
+        // Convert to standardized format
+        error.response.data = {
+          error: "error",
+          message: errorData.detail || errorData.message || "An error occurred",
+          details: errorData,
+        };
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export const peopleApi = {
   getAll: () => api.get<Person[]>("/people/people"),
   search: (params?: { search?: string; role?: string }) =>
@@ -98,6 +226,44 @@ export const familiesApi = {
     api.post(`/people/families/${familyId}/members/`, { memberId }),
   removeMember: (familyId: string, memberId: string) =>
     api.delete(`/people/families/${familyId}/members/${memberId}/`),
+};
+
+export const moduleCoordinatorsApi = {
+  getAll: (params?: {
+    person?: number;
+    module?: string;
+    level?: string;
+    resource_type?: string;
+    search?: string;
+  }) =>
+    api.get<ModuleCoordinator[]>("/people/module-coordinators/", { params }),
+  getById: (id: number) =>
+    api.get<ModuleCoordinator>(`/people/module-coordinators/${id}/`),
+  create: (data: {
+    person: number;
+    module: ModuleCoordinator["module"];
+    level: ModuleCoordinator["level"];
+    resource_id?: number | null;
+    resource_type?: string;
+  }) => api.post<ModuleCoordinator>("/people/module-coordinators/", data),
+  update: (id: number, data: Partial<{
+    person: number;
+    module: ModuleCoordinator["module"];
+    level: ModuleCoordinator["level"];
+    resource_id?: number | null;
+    resource_type?: string;
+  }>) =>
+    api.put<ModuleCoordinator>(`/people/module-coordinators/${id}/`, data),
+  patch: (id: number, data: Partial<{
+    person: number;
+    module: ModuleCoordinator["module"];
+    level: ModuleCoordinator["level"];
+    resource_id?: number | null;
+    resource_type?: string;
+  }>) =>
+    api.patch<ModuleCoordinator>(`/people/module-coordinators/${id}/`, data),
+  delete: (id: number) =>
+    api.delete(`/people/module-coordinators/${id}/`),
 };
 
 export const clustersApi = {
@@ -130,11 +296,11 @@ export const clusterReportsApi = {
       next?: string;
       previous?: string;
     }>("/clusters/cluster-weekly-reports/", { params }),
-  getById: (id: string) =>
+  getById: (id: string | number) =>
     api.get<ClusterWeeklyReport>(`/clusters/cluster-weekly-reports/${id}/`),
   create: (data: ClusterWeeklyReportInput) =>
     api.post<ClusterWeeklyReport>("/clusters/cluster-weekly-reports/", data),
-  update: (id: string, data: Partial<ClusterWeeklyReportInput>) =>
+  update: (id: string | number, data: Partial<ClusterWeeklyReportInput>) =>
     api.put<ClusterWeeklyReport>(
       `/clusters/cluster-weekly-reports/${id}/`,
       data
@@ -947,6 +1113,177 @@ export const evangelismApi = {
     }),
   getSummary: (params?: { year?: number }) =>
     api.get<any>("/evangelism/each1reach1-goals/summary/", { params }),
+};
+
+// Authentication API
+export interface LoginResponse {
+  access: string;
+  refresh: string;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
+    full_name: string;
+    role: string;
+    photo?: string;
+  };
+}
+
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  full_name: string;
+  role: string;
+  photo?: string;
+  must_change_password?: boolean;
+  first_login?: boolean;
+  module_coordinator_assignments?: ModuleCoordinator[];
+}
+
+export interface PasswordResetRequest {
+  id: number;
+  user_id: number;
+  username: string;
+  email: string;
+  full_name: string;
+  requested_at: string;
+  approved_at: string | null;
+  approved_by_name: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  notes: string;
+}
+
+export interface LockedAccount {
+  user_id: number;
+  username: string;
+  email: string;
+  full_name: string;
+  failed_attempts: number;
+  locked_until: string | null;
+  lockout_count: number;
+  last_attempt: string;
+}
+
+export interface AuditLog {
+  id: number;
+  user_id: number | null;
+  username: string | null;
+  action: string;
+  ip_address: string;
+  user_agent: string;
+  details: any;
+  timestamp: string;
+}
+
+export const authApi = {
+  login: (username: string, password: string, rememberMe: boolean = false) =>
+    api
+      .post<LoginResponse & { must_change_password?: boolean }>("/auth/login/", {
+        username,
+        password,
+        remember_me: rememberMe,
+      })
+      .then((response) => {
+        const { access, refresh, user, must_change_password } = response.data;
+        tokenStorage.setTokens(access, refresh, rememberMe);
+        return {
+          access,
+          refresh,
+          user: { ...user, must_change_password: must_change_password || false },
+        };
+      }),
+
+  logout: () => {
+    tokenStorage.clearTokens();
+    return api.post("/auth/logout/");
+  },
+
+  refreshToken: () => {
+    const refresh = tokenStorage.getRefreshToken();
+    if (!refresh) {
+      return Promise.reject(new Error("No refresh token available"));
+    }
+    return api
+      .post<{ access: string }>("/auth/token/refresh/", { refresh })
+      .then((response) => {
+        const rememberMe = tokenStorage.getRememberMe();
+        tokenStorage.setTokens(response.data.access, refresh, rememberMe);
+        return response.data.access;
+      });
+  },
+
+  getCurrentUser: () => api.get<User>("/auth/me/"),
+
+  changePassword: (
+    oldPassword: string,
+    newPassword: string,
+    confirmPassword: string
+  ) => {
+    const data: any = {
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    };
+    if (oldPassword) {
+      data.old_password = oldPassword;
+    }
+    return api.post("/auth/change-password/", data);
+  },
+
+  updateProfile: (data: FormData | any) => {
+    if (data instanceof FormData) {
+      return api.patch("/auth/me/", data, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    }
+    return api.patch<User>("/auth/me/", data);
+  },
+
+  requestPasswordReset: (userId: number, notes?: string) =>
+    api.post("/auth/password-reset-request/", {
+      user_id: userId,
+      notes: notes || "",
+    }),
+
+  getPasswordResetRequests: (status?: string) => {
+    const params = status ? { status } : {};
+    return api.get<PasswordResetRequest[]>("/auth/admin/password-reset-requests/", {
+      params,
+    });
+  },
+
+  approvePasswordReset: (requestId: number) =>
+    api.post(`/auth/admin/password-reset-requests/${requestId}/approve/`),
+
+  getLockedAccounts: () =>
+    api.get<LockedAccount[]>("/auth/admin/locked-accounts/"),
+
+  unlockAccount: (userId: number) =>
+    api.post(`/auth/admin/unlock-account/${userId}/`),
+
+  getAuditLogs: (filters?: {
+    user_id?: number;
+    action?: string;
+    start_date?: string;
+    end_date?: string;
+    page?: number;
+    page_size?: number;
+  }) => {
+    return api.get<{
+      count: number;
+      page: number;
+      page_size: number;
+      results: AuditLog[];
+    }>("/auth/admin/audit-logs/", { params: filters });
+  },
 };
 
 export default api;

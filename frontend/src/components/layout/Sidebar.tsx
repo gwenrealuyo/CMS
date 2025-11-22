@@ -3,8 +3,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSidebar } from "./SidebarContext";
+import { useAuth } from "@/src/contexts/AuthContext";
 import {
   HomeIcon,
   UserGroupIcon,
@@ -22,6 +23,7 @@ import {
   DocumentChartBarIcon,
   AcademicCapIcon,
   MegaphoneIcon,
+  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -36,19 +38,134 @@ const navigation = [
     ],
   },
   { name: "Clusters", href: "/clusters", icon: Squares2X2Icon },
+  { name: "Evangelism", href: "/evangelism", icon: MegaphoneIcon },
+  { name: "Ministries", href: "/ministries", icon: UserGroupIcon },
+  { name: "Sunday School", href: "/sunday-school", icon: AcademicCapIcon },
   { name: "Events", href: "/events", icon: CalendarIcon },
   // { name: "Attendance", href: "/attendance", icon: ClipboardDocumentCheckIcon },
   { name: "Finance", href: "/finance", icon: CurrencyDollarIcon },
-  { name: "Ministries", href: "/ministries", icon: UserGroupIcon },
   { name: "Lessons", href: "/lessons", icon: BookOpenIcon },
-  { name: "Sunday School", href: "/sunday-school", icon: AcademicCapIcon },
-  { name: "Evangelism", href: "/evangelism", icon: MegaphoneIcon },
+  {
+    name: "Admin Settings",
+    href: "/admin-settings",
+    icon: Cog6ToothIcon,
+    roles: ["ADMIN"],
+  },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const { collapsed, toggle } = useSidebar();
+  const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+
+  // Filter navigation based on user role and module coordinator assignments
+  const filteredNavigation = useMemo(() => {
+    if (!user) return [];
+
+    return navigation.filter((item) => {
+      // Admin Settings: Only ADMIN
+      if (item.name === "Admin Settings") {
+        return user.role === "ADMIN";
+      }
+
+      // Finance: ADMIN, PASTOR, or Finance Coordinator
+      if (item.name === "Finance") {
+        return (
+          user.role === "ADMIN" ||
+          user.role === "PASTOR" ||
+          isModuleCoordinator("FINANCE")
+        );
+      }
+
+      // Clusters: MEMBER and above (read-only for MEMBER)
+      if (item.name === "Clusters") {
+        return (
+          user.role === "MEMBER" ||
+          user.role === "COORDINATOR" ||
+          user.role === "PASTOR" ||
+          user.role === "ADMIN" ||
+          isModuleCoordinator("CLUSTER") ||
+          isSeniorCoordinator("CLUSTER")
+        );
+      }
+
+      // Evangelism: MEMBER and above (all can see stats)
+      if (item.name === "Evangelism") {
+        return (
+          user.role === "MEMBER" ||
+          user.role === "COORDINATOR" ||
+          user.role === "PASTOR" ||
+          user.role === "ADMIN" ||
+          isModuleCoordinator("EVANGELISM")
+        );
+      }
+
+      // Sunday School: MEMBER and above (read-only for MEMBER)
+      if (item.name === "Sunday School") {
+        return (
+          user.role === "MEMBER" ||
+          user.role === "COORDINATOR" ||
+          user.role === "PASTOR" ||
+          user.role === "ADMIN" ||
+          isModuleCoordinator("SUNDAY_SCHOOL")
+        );
+      }
+
+      // Lessons: MEMBER and above (read-only for MEMBER)
+      if (item.name === "Lessons") {
+        return (
+          user.role === "MEMBER" ||
+          user.role === "COORDINATOR" ||
+          user.role === "PASTOR" ||
+          user.role === "ADMIN" ||
+          isModuleCoordinator("LESSONS")
+        );
+      }
+
+      // Events: MEMBER and above (read-only for MEMBER)
+      if (item.name === "Events") {
+        return (
+          user.role === "MEMBER" ||
+          user.role === "COORDINATOR" ||
+          user.role === "PASTOR" ||
+          user.role === "ADMIN" ||
+          isModuleCoordinator("EVENTS") ||
+          isSeniorCoordinator()
+        );
+      }
+
+      // Ministries: MEMBER and above (read-only for MEMBER)
+      if (item.name === "Ministries") {
+        return (
+          user.role === "MEMBER" ||
+          user.role === "COORDINATOR" ||
+          user.role === "PASTOR" ||
+          user.role === "ADMIN" ||
+          isModuleCoordinator("MINISTRIES")
+        );
+      }
+
+      // People: MEMBER and above (filtered by role in backend)
+      if (item.name === "People") {
+        return (
+          user.role === "MEMBER" ||
+          user.role === "COORDINATOR" ||
+          user.role === "PASTOR" ||
+          user.role === "ADMIN" ||
+          isSeniorCoordinator()
+        );
+      }
+
+      // Dashboard: All authenticated users
+      if (item.name === "Dashboard") {
+        return true;
+      }
+
+      // All other items: All authenticated users (MEMBER and above)
+      return true;
+    });
+  }, [user, isModuleCoordinator, isSeniorCoordinator]);
 
   const toggleSection = (sectionName: string) => {
     setExpandedSections((prev) =>
@@ -164,7 +281,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="mt-6 px-3">
-        {navigation.map((item) => renderNavItem(item))}
+        {filteredNavigation.map((item) => renderNavItem(item))}
       </nav>
 
       {!collapsed && (

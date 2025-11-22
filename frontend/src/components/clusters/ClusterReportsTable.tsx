@@ -81,20 +81,18 @@ export default function ClusterReportsTable({
                   {report.gathering_type}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ₱{report.offerings.toFixed(2)}
+                  ₱{typeof report.offerings === 'number' ? (report.offerings as number).toFixed(2) : String(report.offerings)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex gap-2">
                     <Button
-                      variant="outline"
-                      size="sm"
+                      variant="secondary"
                       onClick={() => onEdit(report)}
                     >
                       Edit
                     </Button>
                     <Button
-                      variant="outline"
-                      size="sm"
+                      variant="secondary"
                       onClick={() => onDelete(report)}
                       className="text-red-600 hover:text-red-700"
                     >

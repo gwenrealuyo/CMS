@@ -5,7 +5,7 @@ Usage: python manage.py populate_sample_data
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
-from apps.people.models import Person, Family, Milestone
+from apps.people.models import Person, Family, Milestone, ModuleCoordinator
 from datetime import datetime, timedelta
 from decimal import Decimal
 import random
@@ -40,8 +40,13 @@ class Command(BaseCommand):
             self.stdout.write("Clearing existing data...")
             Milestone.objects.all().delete()
             Family.objects.all().delete()
+            # Clear ModuleCoordinator assignments for non-ADMIN users
+            ModuleCoordinator.objects.filter(
+                person__role__in=["MEMBER", "VISITOR", "COORDINATOR", "PASTOR"]
+            ).delete()
+            # Only delete non-ADMIN users
             Person.objects.filter(
-                role__in=["MEMBER", "VISITOR", "COORDINATOR"]
+                role__in=["MEMBER", "VISITOR", "COORDINATOR", "PASTOR"]
             ).delete()
             self.stdout.write(
                 self.style.WARNING(
@@ -340,6 +345,8 @@ class Command(BaseCommand):
                 ),
                 facebook_name=f"{first_name} {last_name}",
                 password=make_password("password123"),
+                must_change_password=True,  # Force password change on first login
+                first_login=True,  # Mark as first login
             )
             person.save()
             people.append(person)
@@ -366,6 +373,51 @@ class Command(BaseCommand):
                 milestone.save()
 
         self.stdout.write(self.style.SUCCESS(f"✓ Created {len(people)} people"))
+
+        # Create ModuleCoordinator assignments for coordinators
+        coordinators = [p for p in people if p.role == "COORDINATOR"]
+        module_assignments_created = 0
+        
+        # Assign some coordinators to different modules
+        modules = [
+            ModuleCoordinator.ModuleType.CLUSTER,
+            ModuleCoordinator.ModuleType.FINANCE,
+            ModuleCoordinator.ModuleType.EVANGELISM,
+            ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+            ModuleCoordinator.ModuleType.LESSONS,
+            ModuleCoordinator.ModuleType.EVENTS,
+        ]
+        
+        for coordinator in coordinators:
+            # Each coordinator gets 1-2 module assignments
+            num_assignments = random.randint(1, 2)
+            assigned_modules = random.sample(modules, min(num_assignments, len(modules)))
+            
+            for module_type in assigned_modules:
+                # Most are regular coordinators, some are senior coordinators
+                level = (
+                    ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR
+                    if random.random() < 0.2
+                    else ModuleCoordinator.CoordinatorLevel.COORDINATOR
+                )
+                
+                ModuleCoordinator.objects.get_or_create(
+                    person=coordinator,
+                    module=module_type,
+                    resource_id=None,  # General module access
+                    defaults={
+                        "level": level,
+                        "resource_type": "",
+                    }
+                )
+                module_assignments_created += 1
+        
+        if module_assignments_created > 0:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"✓ Created {module_assignments_created} module coordinator assignments"
+                )
+            )
 
         # Create Families
         families = []
@@ -403,9 +455,14 @@ class Command(BaseCommand):
 
         # Summary
         self.stdout.write(self.style.SUCCESS("\nSample data created successfully!"))
-        self.stdout.write(f"  • People: {Person.objects.count()}")
+        self.stdout.write(
+            f"  • People: {Person.objects.exclude(role='ADMIN').count()} (excluding ADMIN)"
+        )
         self.stdout.write(f"  • Families: {Family.objects.count()}")
         self.stdout.write(f"  • Milestones: {Milestone.objects.count()}")
+        self.stdout.write(
+            f"  • Module Coordinator Assignments: {ModuleCoordinator.objects.count()}"
+        )
         self.stdout.write(
             self.style.WARNING(
                 "\nNote: To create cluster data, run: python manage.py populate_clusters_data"

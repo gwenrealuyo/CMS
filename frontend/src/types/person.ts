@@ -80,6 +80,7 @@ export interface Person {
   user_permissions?: string[]; // Permission IDs
   cluster_codes?: string[];
   family_names?: string[];
+  module_coordinator_assignments?: ModuleCoordinator[];
 }
 
 // UI-normalized view of a person for components
@@ -97,61 +98,15 @@ export interface Family {
   notes?: string; // Family notes/description
 }
 
-export interface Cluster {
-  id: string;
-  code?: string; // unique cluster code
-  name?: string;
-  coordinator?: string; // Person ID
-  families: string[]; // List of Family IDs
-  members?: string[]; // List of Person IDs (not necessarily in a family)
-  location?: string;
-  meeting_schedule?: string;
-  description?: string;
-}
-
-export type GatheringType = "PHYSICAL" | "ONLINE" | "HYBRID";
-
-export interface ClusterWeeklyReport {
-  id: string;
-  cluster: string; // Cluster ID
-  cluster_name?: string;
-  cluster_code?: string | null;
-  year: number;
-  week_number: number;
-  meeting_date: string; // ISO date string
-  members_attended: string[]; // List of Person IDs (MEMBER role)
-  visitors_attended: string[]; // List of Person IDs (VISITOR role)
-  members_attended_details?: PersonUI[]; // Full person details for members who attended
-  visitors_attended_details?: PersonUI[]; // Full person details for visitors who attended
-  members_present: number; // Computed: count of members_attended
-  visitors_present: number; // Computed: count of visitors_attended
-  member_attendance_rate?: number; // Computed: percentage of cluster members who attended
-  gathering_type: GatheringType;
-  activities_held?: string;
-  prayer_requests?: string;
-  testimonies?: string;
-  offerings: number;
-  highlights?: string;
-  lowlights?: string;
-  submitted_by: string; // Person ID
-  submitted_by_details?: PersonUI;
-  submitted_at: string; // ISO datetime
-  updated_at: string; // ISO datetime
-}
-
-export interface ReportAnalytics {
-  total_reports: number;
-  total_attendance: {
-    members: number;
-    visitors: number;
-  };
-  average_attendance: {
-    avg_members: number;
-    avg_visitors: number;
-  };
-  total_offerings: number;
-  gathering_type_distribution: Array<{
-    gathering_type: string;
-    count: number;
-  }>;
+export interface ModuleCoordinator {
+  id: number;
+  person: number;
+  person_name?: string;
+  module: "CLUSTER" | "FINANCE" | "EVANGELISM" | "SUNDAY_SCHOOL" | "LESSONS" | "EVENTS" | "MINISTRIES";
+  module_display?: string;
+  level: "COORDINATOR" | "SENIOR_COORDINATOR" | "TEACHER" | "BIBLE_SHARER";
+  level_display?: string;
+  resource_id?: number | null;
+  resource_type?: string;
+  created_at?: string;
 }

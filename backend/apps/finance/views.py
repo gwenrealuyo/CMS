@@ -7,6 +7,15 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 
+from apps.authentication.permissions import (
+    IsAdminOrPastor, 
+    IsAuthenticatedAndNotVisitor,
+    IsModuleCoordinator,
+    HasModuleAccess,
+    IsMemberOrAbove,
+)
+from apps.people.models import ModuleCoordinator
+
 from .models import Donation, Offering, Pledge, PledgeContribution
 from .serializers import (
     DonationSerializer,
@@ -28,7 +37,21 @@ class RecordedByMixin:
         serializer.save(recorded_by=self._current_user_or_none())
 
 class DonationViewSet(RecordedByMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = DonationSerializer
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        Full access: ADMIN, PASTOR, Finance Coordinator
+        Read-only: Everyone else (MEMBER and above)
+        """
+        if self.action in ["list", "retrieve", "stats"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        else:
+            # Write operations: ADMIN, PASTOR, or Finance Coordinator
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
 
     def get_queryset(self):
         queryset = Donation.objects.all().order_by("-date", "-created_at")
@@ -49,7 +72,21 @@ class DonationViewSet(RecordedByMixin, viewsets.ModelViewSet):
 
 
 class OfferingViewSet(RecordedByMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = OfferingSerializer
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        Full access: ADMIN, PASTOR, Finance Coordinator
+        Read-only: Everyone else (MEMBER and above)
+        """
+        if self.action in ["list", "retrieve", "weekly_summary"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        else:
+            # Write operations: ADMIN, PASTOR, or Finance Coordinator
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
 
     def get_queryset(self):
         queryset = Offering.objects.all().order_by("-service_date", "-created_at")
@@ -70,12 +107,26 @@ class OfferingViewSet(RecordedByMixin, viewsets.ModelViewSet):
 
 
 class PledgeViewSet(RecordedByMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
         Pledge.objects.all()
         .prefetch_related("contributions", "contributions__recorded_by")
         .order_by("status", "target_date", "pledge_title")
     )
     serializer_class = PledgeSerializer
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        Full access: ADMIN, PASTOR, Finance Coordinator
+        Read-only: Everyone else (MEMBER and above)
+        """
+        if self.action in ["list", "retrieve", "summary"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        else:
+            # Write operations: ADMIN, PASTOR, or Finance Coordinator
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
 
     def perform_create(self, serializer):
         pledge = serializer.save(recorded_by=self._current_user_or_none())
@@ -103,8 +154,22 @@ class PledgeViewSet(RecordedByMixin, viewsets.ModelViewSet):
 
 
 class PledgeContributionViewSet(RecordedByMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = PledgeContributionSerializer
     http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        Full access: ADMIN, PASTOR, Finance Coordinator
+        Read-only: Everyone else (MEMBER and above)
+        """
+        if self.action in ["list", "retrieve"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        else:
+            # Write operations: ADMIN, PASTOR, or Finance Coordinator
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
 
     def get_queryset(self):
         queryset = (

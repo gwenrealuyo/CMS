@@ -384,7 +384,7 @@ export default function ClusterReportsDashboard({
     () => [
       { value: "", label: "All Clusters" },
       ...clusters.map((cluster) => ({
-        value: cluster.id,
+        value: String(cluster.id),
         label: cluster.name || "Unnamed Cluster",
       })),
     ],
@@ -538,7 +538,7 @@ export default function ClusterReportsDashboard({
         "Gathering Type": report.gathering_type,
         Offerings: report.offerings,
         "Submitted By": report.submitted_by_details
-          ? formatPersonName(report.submitted_by_details)
+          ? formatPersonName(report.submitted_by_details as any)
           : "Unknown",
         "Submitted At": new Date(report.submitted_at).toLocaleDateString(),
       }))
@@ -574,9 +574,9 @@ export default function ClusterReportsDashboard({
         ? `${report.member_attendance_rate.toFixed(1)}%`
         : "N/A",
       report.gathering_type,
-      formatCurrency(report.offerings),
+      formatCurrency(typeof report.offerings === 'number' ? report.offerings : parseFloat(String(report.offerings)) || 0),
       report.submitted_by_details
-        ? formatPersonName(report.submitted_by_details)
+        ? formatPersonName(report.submitted_by_details as any)
         : "Unknown",
     ]);
 
@@ -606,7 +606,7 @@ export default function ClusterReportsDashboard({
           report.gathering_type,
           report.offerings,
           report.submitted_by_details
-            ? formatPersonName(report.submitted_by_details)
+            ? formatPersonName(report.submitted_by_details as any)
             : "Unknown",
         ].join(",")
       )
@@ -1311,7 +1311,7 @@ export default function ClusterReportsDashboard({
             </label>
             <ScalableSelect
               options={clusterOptions}
-              value={selectedClusterFilter}
+              value={selectedClusterFilter ? String(selectedClusterFilter) : ""}
               onChange={setSelectedClusterFilter}
               placeholder="Select a cluster"
               searchPlaceholder="Search clusters..."
@@ -1658,7 +1658,7 @@ export default function ClusterReportsDashboard({
                           case "offerings":
                             cellContent = (
                               <span className="text-sm text-gray-900">
-                                {formatCurrency(report.offerings)}
+                                {formatCurrency(typeof report.offerings === 'number' ? report.offerings : parseFloat(String(report.offerings)) || 0)}
                               </span>
                             );
                             break;

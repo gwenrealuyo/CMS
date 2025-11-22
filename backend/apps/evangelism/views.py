@@ -13,6 +13,14 @@ from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event
 from apps.people.models import Person
 from apps.clusters.models import Cluster
+from apps.authentication.permissions import (
+    IsMemberOrAbove,
+    IsAuthenticatedAndNotVisitor,
+    IsModuleCoordinator,
+    HasModuleAccess,
+    CanEditAssignedResource,
+)
+from apps.people.models import ModuleCoordinator
 
 from .models import (
     EvangelismGroup,
@@ -64,6 +72,7 @@ from .services import (
 
 
 class EvangelismGroupViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
         EvangelismGroup.objects.select_related("coordinator", "cluster")
         .prefetch_related(
@@ -86,6 +95,75 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
     search_fields = ("name", "description", "location")
     ordering_fields = ("name", "created_at")
     ordering = ("name",)
+    
+    def get_queryset(self):
+        user = self.request.user
+        queryset = super().get_queryset()
+        
+        # ADMIN/PASTOR: All groups
+        if user.role in ["ADMIN", "PASTOR"]:
+            return queryset
+        
+        # Evangelism Coordinator (EVANGELISM, COORDINATOR): All groups
+        if user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+        ):
+            return queryset
+        
+        # Bible Sharer (EVANGELISM, BIBLE_SHARER): All groups (filtering happens in permissions)
+        if user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+        ):
+            return queryset
+        
+        # MEMBER: Only groups they're members of
+        if user.role == "MEMBER":
+            member_groups = EvangelismGroup.objects.filter(
+                members__person=user,
+                members__is_active=True
+            ).distinct()
+            return member_groups
+        
+        # Default: empty queryset for safety
+        return queryset.none()
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        """
+        if self.action in ["list", "retrieve", "sessions", "conversions", "visitors", "summary"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        elif self.action in ["create", "update", "partial_update", "enroll"]:
+            # Write operations: ADMIN, PASTOR, Evangelism Coordinator, or Bible Sharer (with restrictions)
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('EVANGELISM', 'write')]
+        elif self.action == "destroy":
+            # Delete: ADMIN, PASTOR, Evangelism Coordinator only (Bible Sharer cannot delete)
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('EVANGELISM', 'delete')]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+    
+    def get_object(self):
+        obj = super().get_object()
+        user = self.request.user
+        
+        # Bible Sharer can only edit/delete groups they're members of
+        if (self.action in ["update", "partial_update", "destroy"] and
+            user.is_module_coordinator(
+                ModuleCoordinator.ModuleType.EVANGELISM,
+                level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+            )):
+            # Check if user is a member of this group
+            if not EvangelismGroupMember.objects.filter(
+                evangelism_group=obj,
+                person=user,
+                is_active=True
+            ).exists():
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You can only edit groups you are a member of.")
+        
+        return obj
 
     @action(detail=True, methods=["post"])
     def enroll(self, request, pk=None):
@@ -151,17 +229,18 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         stats = get_group_statistics(evangelism_group)
         return Response(stats)
 
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticatedAndNotVisitor, IsMemberOrAbove])
     def bible_sharers_coverage(self, request):
         """Get Bible Sharers coverage across clusters.
 
         Returns which clusters have Bible Sharers and which don't.
+        Stats are visible to all authenticated users.
         """
         from apps.clusters.models import Cluster
         from .serializers import ClusterSummarySerializer
 
-        # Get all active Bible Sharers groups
-        bible_sharers_groups = self.queryset.filter(
+        # Get all active Bible Sharers groups (use base queryset, not filtered)
+        bible_sharers_groups = EvangelismGroup.objects.filter(
             is_bible_sharers_group=True, is_active=True
         ).select_related("cluster")
 
@@ -235,6 +314,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
 
 
 class EvangelismGroupMemberViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = EvangelismGroupMember.objects.select_related(
         "evangelism_group", "person"
     ).all()
@@ -256,6 +336,7 @@ class EvangelismGroupMemberViewSet(viewsets.ModelViewSet):
 
 
 class EvangelismSessionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = EvangelismSession.objects.select_related(
         "evangelism_group", "event"
     ).all()
@@ -428,6 +509,7 @@ class EvangelismSessionViewSet(viewsets.ModelViewSet):
 
 
 class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = (
         EvangelismWeeklyReport.objects.select_related(
             "evangelism_group", "submitted_by"
@@ -448,6 +530,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
 
 class ProspectViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = Prospect.objects.select_related(
         "invited_by",
         "inviter_cluster",
@@ -651,6 +734,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
 
 
 class FollowUpTaskViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = FollowUpTask.objects.select_related(
         "prospect", "assigned_to", "created_by"
     ).all()
@@ -689,6 +773,7 @@ class FollowUpTaskViewSet(viewsets.ModelViewSet):
 
 
 class DropOffViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = DropOff.objects.select_related("prospect").all()
     serializer_class = DropOffSerializer
     filter_backends = (
@@ -760,6 +845,7 @@ class DropOffViewSet(viewsets.ModelViewSet):
 
 
 class ConversionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = Conversion.objects.select_related(
         "person",
         "prospect",
@@ -849,6 +935,7 @@ class ConversionViewSet(viewsets.ModelViewSet):
 
 
 class MonthlyConversionTrackingViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = MonthlyConversionTracking.objects.select_related(
         "cluster", "prospect", "person"
     ).all()
@@ -888,6 +975,7 @@ class MonthlyConversionTrackingViewSet(viewsets.ModelViewSet):
 
 
 class Each1Reach1GoalViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = Each1Reach1Goal.objects.select_related("cluster").all()
     serializer_class = Each1Reach1GoalSerializer
     filter_backends = (

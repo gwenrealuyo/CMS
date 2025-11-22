@@ -45,7 +45,8 @@ export default function DataTable({
   const displayPeople: DisplayPerson[] = people
     .filter(
       (p) =>
-        p.username !== "admin" &&
+        p.role !== "ADMIN" &&  // Exclude ADMIN users
+        p.username !== "admin" &&  // Keep the username check as backup
         ((p.first_name ?? "") !== "" || (p.last_name ?? "") !== "")
     )
     .map((p) => ({

@@ -4,7 +4,16 @@ Base URL: `/api/people/`
 
 ### Authentication
 
-- Current default: AllowAny (no auth). Intended: DRF auth (Session/Basic) once enabled.
+- **JWT Token Authentication**: All endpoints require authentication except login
+- **Base URL**: `/api/auth/`
+- **Endpoints**:
+  - `POST /api/auth/login/` - Login (returns access + refresh tokens)
+  - `POST /api/auth/logout/` - Logout (clears tokens)
+  - `POST /api/auth/token/refresh/` - Refresh access token
+  - `GET /api/auth/me/` - Get current authenticated user
+- **Role-Based Access**: Different modules have different permission requirements
+- **VISITOR Exclusion**: VISITOR role cannot log in
+- See `docs/AUTHENTICATION_MODULE.md` for detailed documentation
 
 ### Person
 

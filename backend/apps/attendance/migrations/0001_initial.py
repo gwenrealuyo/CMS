@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("people", "0004_clusterweeklyreport"),
+        ("people", "0002_family_notes"),
         ("events", "0002_alter_event_type"),
     ]
 

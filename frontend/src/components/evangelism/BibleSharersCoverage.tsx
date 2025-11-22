@@ -23,7 +23,11 @@ export default function BibleSharersCoverageComponent() {
       } catch (err: any) {
         setError(
           err.response?.data?.detail ||
-            Object.values(err.response?.data || {})[0]?.[0] ||
+            (() => {
+            const errorData = err.response?.data || {};
+            const errorValues = Object.values(errorData);
+            return errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined;
+          })() ||
             "Failed to load Bible Sharers coverage"
         );
       } finally {
@@ -146,12 +150,12 @@ export default function BibleSharersCoverageComponent() {
               columns={[
                 {
                   header: "Cluster",
-                  accessor: "cluster" as keyof BibleSharersCoverageItem,
+                  accessor: "cluster" as any,
                   render: (value, item) => item.cluster.name || item.cluster.code || "N/A",
                 },
                 {
                   header: "Status",
-                  accessor: "has_bible_sharers" as keyof BibleSharersCoverageItem,
+                  accessor: "has_bible_sharers" as any,
                   render: (value, item) => (
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
@@ -166,17 +170,17 @@ export default function BibleSharersCoverageComponent() {
                 },
                 {
                   header: "Bible Sharers Groups",
-                  accessor: "bible_sharers_groups" as keyof BibleSharersCoverageItem,
+                  accessor: "bible_sharers_groups" as any,
                   render: (value, item) => item.bible_sharers_groups.length,
                 },
                 {
                   header: "Total Bible Sharers",
-                  accessor: "bible_sharers_count" as keyof BibleSharersCoverageItem,
+                  accessor: "bible_sharers_count" as any,
                   render: (value) => value,
                 },
                 {
                   header: "Groups",
-                  accessor: "bible_sharers_groups" as keyof BibleSharersCoverageItem,
+                  accessor: "bible_sharers_groups" as any,
                   render: (value, item) => {
                     if (item.bible_sharers_groups.length === 0) {
                       return <span className="text-gray-400">None</span>;

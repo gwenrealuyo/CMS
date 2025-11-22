@@ -54,8 +54,8 @@ class Command(BaseCommand):
 
         self.stdout.write("Creating sample finance data...")
 
-        # Get some people to use as donors/pledgers/recorders
-        people = list(Person.objects.all()[:20])
+        # Get some people to use as donors/pledgers/recorders (exclude ADMIN users)
+        people = list(Person.objects.exclude(role="ADMIN")[:20])
         if not people:
             self.stdout.write(
                 self.style.WARNING(

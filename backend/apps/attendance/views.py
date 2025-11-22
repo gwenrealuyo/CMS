@@ -6,15 +6,18 @@ from rest_framework.response import Response
 from rest_framework.generics import get_object_or_404
 
 from apps.events.models import Event
+from apps.authentication.permissions import (
+    IsMemberOrAbove,
+    IsAuthenticatedAndNotVisitor,
+)
 
 from .models import AttendanceRecord
 from .serializers import AttendanceRecordSerializer
 
 
 class AttendanceRecordViewSet(viewsets.ModelViewSet):
-    queryset = AttendanceRecord.objects.select_related(
-        "event", "person", "milestone"
-    )
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
+    queryset = AttendanceRecord.objects.select_related("event", "person", "milestone")
     serializer_class = AttendanceRecordSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["event", "person", "occurrence_date", "status"]
@@ -47,4 +50,3 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             queryset, many=True, context={"request": request}
         )
         return Response(serializer.data)
-

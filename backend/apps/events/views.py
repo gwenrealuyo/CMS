@@ -9,12 +9,21 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from apps.attendance.models import AttendanceRecord
 from apps.attendance.serializers import AttendanceRecordSerializer
+from apps.authentication.permissions import (
+    IsMemberOrAbove,
+    IsAuthenticatedAndNotVisitor,
+    HasModuleAccess,
+    CanEditOwnResource,
+    IsSeniorCoordinator,
+)
+from apps.people.models import ModuleCoordinator
 from .models import Event
 from .serializers import EventSerializer
 from .services.recurrence import clean_weekly_pattern
 
 
 class EventViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
         Event.objects.all()
         .order_by("start_date")
@@ -30,6 +39,65 @@ class EventViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ["title", "description"]
     filterset_fields = ["type", "start_date"]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = super().get_queryset()
+
+        # ADMIN/PASTOR: All events
+        if user.role in ["ADMIN", "PASTOR"]:
+            return queryset
+
+        # Events Coordinator (EVENTS, COORDINATOR): All events
+        if user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.EVENTS,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+        ):
+            return queryset
+
+        # Senior Coordinator: All events (filtering for edit/delete happens in permissions)
+        if user.is_senior_coordinator():
+            return queryset
+
+        # MEMBER: Read-only, all events visible
+        if user.role == "MEMBER":
+            return queryset
+
+        # Default: empty queryset for safety
+        return queryset.none()
+
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        """
+        if self.action in ["list", "retrieve", "attendance"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        elif self.action in ["create", "update", "partial_update", "add_attendance"]:
+            # Write operations: ADMIN, PASTOR, Events Coordinator, or Senior Coordinator (with restrictions)
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "write")]
+        elif self.action == "destroy":
+            # Delete: ADMIN, PASTOR, Events Coordinator, or Senior Coordinator (with restrictions)
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "delete")]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    def get_object(self):
+        obj = super().get_object()
+        user = self.request.user
+
+        # Senior Coordinator can only edit/delete events they created
+        if (
+            self.action in ["update", "partial_update", "destroy"]
+            and user.is_senior_coordinator()
+            and not user.is_module_coordinator(ModuleCoordinator.ModuleType.EVENTS)
+        ):
+            # Check if user created this event
+            if hasattr(obj, "created_by") and obj.created_by != user:
+                from rest_framework.exceptions import PermissionDenied
+
+                raise PermissionDenied("You can only edit events you created.")
+
+        return obj
 
     def _parse_dt(self, value):
         if not value:
@@ -62,11 +130,7 @@ class EventViewSet(viewsets.ModelViewSet):
             parsed_date = parse_date(occurrence_date_param)
             if not parsed_date:
                 return Response(
-                    {
-                        "occurrence_date": [
-                            "Invalid date format. Use YYYY-MM-DD."
-                        ]
-                    },
+                    {"occurrence_date": ["Invalid date format. Use YYYY-MM-DD."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             records = records.filter(occurrence_date=parsed_date)

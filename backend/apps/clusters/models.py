@@ -18,6 +18,16 @@ class Cluster(models.Model):
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def member_count(self):
+        """Count members excluding ADMIN users"""
+        return self.members.exclude(role="ADMIN").count()
+    
+    @property
+    def visitor_count(self):
+        """Count visitors excluding ADMIN users"""
+        return self.members.filter(role="VISITOR").exclude(role="ADMIN").count()
+    
     def __str__(self):
         return self.name or self.code or f"Cluster {self.id}"
 
@@ -88,19 +98,22 @@ class ClusterWeeklyReport(models.Model):
 
     @property
     def members_present(self):
-        return self.members_attended.count()
+        """Count members attended excluding ADMIN users"""
+        return self.members_attended.exclude(role="ADMIN").count()
 
     @property
     def visitors_present(self):
-        return self.visitors_attended.count()
+        """Count visitors attended excluding ADMIN users"""
+        return self.visitors_attended.exclude(role="ADMIN").count()
 
     @property
     def member_attendance_rate(self):
         """Returns the percentage of cluster members who attended the meeting."""
-        total_members = self.cluster.members.count()
+        # Exclude ADMIN users from both total and attended counts
+        total_members = self.cluster.members.exclude(role="ADMIN").count()
         if total_members == 0:
             return 0.0  # Avoid division by zero
-        members_attended_count = self.members_attended.count()
+        members_attended_count = self.members_attended.exclude(role="ADMIN").count()
         return round((members_attended_count / total_members) * 100, 2)
 
     class Meta:

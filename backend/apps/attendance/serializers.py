@@ -47,7 +47,7 @@ class AttendancePersonSerializer(serializers.ModelSerializer):
 class AttendanceRecordSerializer(serializers.ModelSerializer):
     person = AttendancePersonSerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         source="person",
         write_only=True,
     )

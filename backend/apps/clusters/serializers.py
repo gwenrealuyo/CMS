@@ -6,7 +6,7 @@ from .models import Cluster, ClusterWeeklyReport
 class ClusterSerializer(serializers.ModelSerializer):
     coordinator = serializers.SerializerMethodField()
     coordinator_id = serializers.PrimaryKeyRelatedField(
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         source="coordinator",
         write_only=True,
         allow_null=True,
@@ -16,7 +16,7 @@ class ClusterSerializer(serializers.ModelSerializer):
         many=True, queryset=Family.objects.all()
     )
     members = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Person.objects.all()
+        many=True, queryset=Person.objects.exclude(role="ADMIN")
     )
 
     class Meta:
@@ -137,10 +137,10 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         source="cluster.code", read_only=True, allow_null=True
     )
     members_attended = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Person.objects.filter(role="MEMBER"), required=False
+        many=True, queryset=Person.objects.filter(role="MEMBER").exclude(role="ADMIN"), required=False
     )
     visitors_attended = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Person.objects.filter(role="VISITOR"), required=False
+        many=True, queryset=Person.objects.filter(role="VISITOR").exclude(role="ADMIN"), required=False
     )
     # Read-only fields with full person details
     members_attended_details = serializers.SerializerMethodField()
@@ -207,7 +207,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
                 "role": person.role,
                 "status": person.status,
             }
-            for person in obj.members_attended.all()
+            for person in obj.members_attended.exclude(role="ADMIN")
         ]
 
     def get_visitors_attended_details(self, obj):
@@ -220,5 +220,5 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
                 "role": person.role,
                 "status": person.status,
             }
-            for person in obj.visitors_attended.all()
+            for person in obj.visitors_attended.exclude(role="ADMIN")
         ]

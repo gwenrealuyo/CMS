@@ -3,11 +3,11 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
-import { EvangelismRecurringSessionData } from "@/src/types/evangelism";
+import { RecurringSessionData } from "@/src/types/evangelism";
 
 interface RecurringSessionFormProps {
   groupId: string;
-  onSubmit: (values: EvangelismRecurringSessionData) => Promise<void>;
+  onSubmit: (values: RecurringSessionData) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
   error?: string | null;
@@ -26,7 +26,7 @@ export default function RecurringSessionForm({
     firstSundayOfNovember.setDate(firstSundayOfNovember.getDate() + 1);
   }
 
-  const [values, setValues] = useState<EvangelismRecurringSessionData>({
+  const [values, setValues] = useState<RecurringSessionData>({
     evangelism_group_id: Number(groupId),
     start_date: new Date().toISOString().split("T")[0],
     end_date: firstSundayOfNovember.toISOString().split("T")[0],
@@ -35,7 +35,7 @@ export default function RecurringSessionForm({
     default_topic: "",
   });
 
-  const handleChange = (field: keyof EvangelismRecurringSessionData) => (
+  const handleChange = (field: keyof RecurringSessionData) => (
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const value = event.target.value;

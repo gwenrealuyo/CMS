@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("people", "0004_clusterweeklyreport"),
+        ("people", "0002_family_notes"),
     ]
 
     operations = [

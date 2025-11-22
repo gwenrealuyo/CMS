@@ -5,7 +5,7 @@ Usage: python manage.py populate_clusters_data
 
 from django.core.management.base import BaseCommand
 from apps.clusters.models import Cluster, ClusterWeeklyReport
-from apps.people.models import Person, Family
+from apps.people.models import Person, Family, ModuleCoordinator
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 import random
@@ -43,8 +43,8 @@ class Command(BaseCommand):
             ClusterWeeklyReport.objects.all().delete()
             Cluster.objects.all().delete()
 
-        # Check if we have people and families
-        people = list(Person.objects.all())
+        # Check if we have people and families (exclude ADMIN users)
+        people = list(Person.objects.exclude(role="ADMIN"))
         families = list(Family.objects.all())
 
         if not people:
@@ -85,6 +85,8 @@ class Command(BaseCommand):
             # Select a random coordinator (prefer COORDINATOR role, fallback to any)
             coordinators = [p for p in people if p.role == "COORDINATOR"]
             if not coordinators:
+                coordinators = [p for p in people if p.role in ["MEMBER", "PASTOR"]]
+            if not coordinators:
                 coordinators = people
             coordinator = random.choice(coordinators) if coordinators else None
 
@@ -97,6 +99,18 @@ class Command(BaseCommand):
                 description=f"{cluster_name} focuses on community building and spiritual growth",
             )
             cluster.save()
+            
+            # Create ModuleCoordinator assignment for cluster coordinator
+            if coordinator:
+                ModuleCoordinator.objects.get_or_create(
+                    person=coordinator,
+                    module=ModuleCoordinator.ModuleType.CLUSTER,
+                    resource_id=cluster.id,
+                    defaults={
+                        "level": ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                        "resource_type": "Cluster",
+                    }
+                )
 
             # Add 1-3 families to cluster if available
             if families:
@@ -104,13 +118,15 @@ class Command(BaseCommand):
                 cluster_families = random.sample(families, num_families_in_cluster)
                 cluster.families.add(*cluster_families)
 
-            # Add 3-8 individual members to cluster
-            num_individual_members = random.randint(3, 8)
+            # Add 3-8 individual members to cluster (exclude ADMIN users)
+            available_people = [p for p in people if p not in cluster.members.all() and p.role != "ADMIN"]
+            num_individual_members = random.randint(3, min(8, len(available_people)))
             individual_members = random.sample(
-                [p for p in people if p not in cluster.members.all()],
-                min(num_individual_members, len(people) - cluster.members.count()),
+                available_people,
+                min(num_individual_members, len(available_people)),
             )
-            cluster.members.add(*individual_members)
+            if individual_members:
+                cluster.members.add(*individual_members)
 
             clusters.append(cluster)
 
@@ -215,3 +231,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("\n✓ Cluster data population complete!"))
         self.stdout.write(f"  • Clusters: {Cluster.objects.count()}")
         self.stdout.write(f"  • Weekly Reports: {ClusterWeeklyReport.objects.count()}")
+        self.stdout.write(
+            f"  • Cluster Module Coordinator Assignments: {ModuleCoordinator.objects.filter(module=ModuleCoordinator.ModuleType.CLUSTER, resource_type='Cluster').count()}"
+        )

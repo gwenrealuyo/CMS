@@ -172,7 +172,7 @@ class PersonLessonProgressSerializer(serializers.ModelSerializer):
 class LessonSessionReportSerializer(serializers.ModelSerializer):
     teacher = PersonNestedSerializer(read_only=True)
     teacher_id = serializers.PrimaryKeyRelatedField(
-        queryset=Person.objects.exclude(role="VISITOR"),
+        queryset=Person.objects.exclude(role="VISITOR").exclude(role="ADMIN"),
         source="teacher",
         required=False,
         write_only=True,

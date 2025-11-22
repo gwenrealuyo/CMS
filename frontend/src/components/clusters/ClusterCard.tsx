@@ -1,5 +1,6 @@
 import React, { memo } from "react";
-import { Cluster, PersonUI } from "@/src/types/person";
+import { Cluster } from "@/src/types/cluster";
+import { PersonUI } from "@/src/types/person";
 import ActionMenu from "@/src/components/families/ActionMenu";
 
 interface ClusterCardProps {
@@ -37,19 +38,18 @@ const ClusterCard = memo(
       const members = clusterMembers.filter(
         (member) => member.role === "MEMBER"
       );
-      return (
-        members.length + (coordinator && coordinator.role === "MEMBER" ? 1 : 0)
-      );
+      // Only count coordinator if they're MEMBER (backend already filters out ADMIN users)
+      const coordinatorCount = coordinator && coordinator.role === "MEMBER" ? 1 : 0;
+      return members.length + coordinatorCount;
     }, [clusterMembers, coordinator]);
 
     const visitorCount = React.useMemo(() => {
       const visitors = clusterMembers.filter(
         (member) => member.role === "VISITOR"
       );
-      return (
-        visitors.length +
-        (coordinator && coordinator.role === "VISITOR" ? 1 : 0)
-      );
+      // Only count coordinator if they're VISITOR (backend already filters out ADMIN users)
+      const coordinatorCount = coordinator && coordinator.role === "VISITOR" ? 1 : 0;
+      return visitors.length + coordinatorCount;
     }, [clusterMembers, coordinator]);
 
     const coordinatorName = React.useMemo(() => {

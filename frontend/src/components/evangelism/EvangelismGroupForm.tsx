@@ -46,7 +46,7 @@ export default function EvangelismGroupForm({
           name: initialData.name,
           description: initialData.description || "",
           coordinator_id: initialData.coordinator?.id || "",
-          cluster_id: initialData.cluster?.id || "",
+          cluster_id: initialData.cluster?.id ? String(initialData.cluster.id) : "",
           location: initialData.location || "",
           meeting_time: initialData.meeting_time || "",
           meeting_day: initialData.meeting_day || "",

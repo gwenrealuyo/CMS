@@ -1,5 +1,30 @@
 from rest_framework import serializers
-from .models import Family, Milestone, Person
+from .models import Family, Milestone, Person, ModuleCoordinator
+
+
+class ModuleCoordinatorSerializer(serializers.ModelSerializer):
+    module_display = serializers.CharField(source="get_module_display", read_only=True)
+    level_display = serializers.CharField(source="get_level_display", read_only=True)
+    person_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ModuleCoordinator
+        fields = [
+            "id",
+            "person",
+            "person_name",
+            "module",
+            "module_display",
+            "level",
+            "level_display",
+            "resource_id",
+            "resource_type",
+            "created_at",
+        ]
+        read_only_fields = ["created_at"]
+    
+    def get_person_name(self, obj):
+        return obj.person.get_full_name() or obj.person.username
 
 
 class MilestoneSerializer(serializers.ModelSerializer):
@@ -33,6 +58,7 @@ class PersonSerializer(serializers.ModelSerializer):
     milestones = MilestoneSerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
+    module_coordinator_assignments = ModuleCoordinatorSerializer(many=True, read_only=True)
 
     class Meta:
         model = Person
@@ -62,6 +88,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "milestones",
             "cluster_codes",
             "family_names",
+            "module_coordinator_assignments",
         ]
         read_only_fields = ["username"]
 
@@ -98,10 +125,10 @@ class PersonSerializer(serializers.ModelSerializer):
 
 class FamilySerializer(serializers.ModelSerializer):
     leader = serializers.PrimaryKeyRelatedField(
-        queryset=Person.objects.all(), allow_null=True
+        queryset=Person.objects.exclude(role="ADMIN"), allow_null=True
     )
     members = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Person.objects.all()
+        many=True, queryset=Person.objects.exclude(role="ADMIN")
     )
 
     class Meta:

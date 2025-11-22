@@ -1,3 +1,5 @@
+export type GatheringType = "PHYSICAL" | "ONLINE" | "HYBRID";
+
 export interface Cluster {
   id: number;
   code: string | null;
@@ -53,7 +55,7 @@ export interface ClusterWeeklyReport {
   members_present: number;
   visitors_present: number;
   member_attendance_rate: number;
-  gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID";
+  gathering_type: GatheringType;
   activities_held: string;
   prayer_requests: string;
   testimonies: string;
@@ -78,7 +80,7 @@ export interface ClusterWeeklyReportInput {
   meeting_date: string;
   members_attended?: number[];
   visitors_attended?: number[];
-  gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID";
+  gathering_type: GatheringType;
   activities_held?: string;
   prayer_requests?: string;
   testimonies?: string;

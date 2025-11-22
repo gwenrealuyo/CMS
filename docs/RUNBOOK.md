@@ -21,7 +21,8 @@ Notes
 
 - Media uploads served at `MEDIA_URL=/media/` in development.
 - CORS allows frontend at `http://localhost:3000`.
-- Default DRF permissions are open (`AllowAny`); enable auth when ready.
+- **Authentication is enabled**: JWT token-based authentication required for all API endpoints (except login).
+- See `docs/AUTHENTICATION_MODULE.md` for authentication setup and usage.
 
 ### Frontend (Next.js)
 
@@ -37,8 +38,26 @@ Notes
 
 ### Useful Commands
 
-- Backend admin: `python manage.py createsuperuser`
+- **Create admin user**: `python manage.py create_admin`
+- **Set default passwords**: `python manage.py set_default_passwords`
+- Backend admin: `python manage.py createsuperuser` (or use `create_admin` command)
 - Frontend build: `npm run build && npm start`
+
+### Initial Setup (First Time)
+
+1. **Create admin user**:
+   ```bash
+   python manage.py create_admin
+   ```
+
+2. **Set default passwords for existing users**:
+   ```bash
+   python manage.py set_default_passwords
+   ```
+
+3. **Login**:
+   - Navigate to `http://localhost:3000`
+   - Use admin credentials to log in
 
 
 

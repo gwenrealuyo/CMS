@@ -11,6 +11,12 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.people.models import Person
+from apps.authentication.permissions import (
+    IsMemberOrAbove, 
+    IsAuthenticatedAndNotVisitor,
+    HasModuleAccess,
+)
+from apps.people.models import ModuleCoordinator
 
 from .models import Lesson, LessonSessionReport, LessonSettings, PersonLessonProgress
 from .serializers import (
@@ -25,7 +31,19 @@ from .services import bulk_assign_lessons, mark_progress_completed
 
 
 class LessonViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = LessonSerializer
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        """
+        if self.action in ["list", "retrieve", "commitment_form"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        else:
+            # Write operations: ADMIN, PASTOR, or Lessons Coordinator
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
 
     def get_queryset(self):
         queryset = (
@@ -78,12 +96,42 @@ class PersonLessonProgressViewSet(
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = PersonLessonProgressSerializer
 
     def get_queryset(self):
+        user = self.request.user
         queryset = PersonLessonProgress.objects.select_related(
             "person", "lesson", "lesson__milestone_config", "milestone"
         )
+        
+        # ADMIN/PASTOR: All progress
+        if user.role in ["ADMIN", "PASTOR"]:
+            pass  # No filtering
+        # Lessons Coordinator: All progress
+        elif user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+        ):
+            pass  # No filtering
+        # Lessons Teacher: Only progress for their students
+        elif user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER
+        ):
+            # Get all students where this user is the teacher
+            student_ids = LessonSessionReport.objects.filter(
+                teacher=user
+            ).values_list('student_id', flat=True).distinct()
+            queryset = queryset.filter(person_id__in=student_ids)
+        # MEMBER: Only own progress
+        elif user.role == "MEMBER":
+            queryset = queryset.filter(person=user)
+        else:
+            # Default: empty queryset for safety
+            queryset = queryset.none()
+        
+        # Apply query filters
         person_id = self.request.query_params.get("person")
         if person_id:
             queryset = queryset.filter(person_id=person_id)
@@ -94,6 +142,17 @@ class PersonLessonProgressViewSet(
         if status_param:
             queryset = queryset.filter(status=status_param)
         return queryset.order_by("lesson__order", "-updated_at")
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        """
+        if self.action in ["list", "retrieve"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        else:
+            # Write operations: ADMIN, PASTOR, Lessons Coordinator, or Teacher
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
 
     @action(detail=True, methods=["post"])
     def complete(self, request, pk=None):
@@ -211,12 +270,38 @@ class PersonLessonProgressViewSet(
 
 
 class LessonSessionReportViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = LessonSessionReportSerializer
 
     def get_queryset(self):
+        user = self.request.user
         queryset = LessonSessionReport.objects.select_related(
             "teacher", "student", "lesson"
         )
+        
+        # ADMIN/PASTOR: All reports
+        if user.role in ["ADMIN", "PASTOR"]:
+            pass  # No filtering
+        # Lessons Coordinator: All reports
+        elif user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+        ):
+            pass  # No filtering
+        # Lessons Teacher: Only reports where they are the teacher
+        elif user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER
+        ):
+            queryset = queryset.filter(teacher=user)
+        # MEMBER: Only reports where they are the student
+        elif user.role == "MEMBER":
+            queryset = queryset.filter(student=user)
+        else:
+            # Default: empty queryset for safety
+            queryset = queryset.none()
+        
+        # Apply query filters
         teacher_id = self.request.query_params.get("teacher")
         if teacher_id:
             queryset = queryset.filter(teacher_id=teacher_id)
@@ -235,6 +320,17 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(session_date__lte=date_to)
 
         return queryset.order_by("-session_date", "-session_start")
+    
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        """
+        if self.action in ["list", "retrieve"]:
+            # Read operations: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        else:
+            # Write operations: ADMIN, PASTOR, Lessons Coordinator, or Teacher
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
 
     def perform_create(self, serializer):
         request = self.request

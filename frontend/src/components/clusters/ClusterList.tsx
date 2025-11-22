@@ -57,15 +57,13 @@ export default function ClusterList({
             )}
             <div className="flex gap-2 pt-2">
               <Button
-                variant="outline"
-                size="sm"
+                variant="secondary"
                 onClick={() => onEdit(cluster)}
               >
                 Edit
               </Button>
               <Button
-                variant="outline"
-                size="sm"
+                variant="secondary"
                 onClick={() => onDelete(cluster)}
                 className="text-red-600 hover:text-red-700"
               >

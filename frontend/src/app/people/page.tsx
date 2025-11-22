@@ -14,7 +14,8 @@ import FilterDropdown from "@/src/components/people/FilterDropdown";
 import FilterCard from "@/src/components/people/FilterCard";
 import Pagination from "@/src/components/ui/Pagination";
 import DataTable from "@/src/components/people/DataTable";
-import { Person, PersonUI, Family, Cluster } from "@/src/types/person";
+import { Person, PersonUI, Family } from "@/src/types/person";
+import { Cluster } from "@/src/types/cluster";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { clustersApi, peopleApi } from "@/src/lib/api";
@@ -1815,7 +1816,7 @@ export default function PeoplePage() {
             ) : editCluster ? (
               <ClusterForm
                 onSubmit={handleUpdateCluster}
-                onClose={() => {
+                onCancel={() => {
                   if (viewCluster) {
                     // If editing from view, return to view mode
                     setEditCluster(null);
@@ -1829,25 +1830,18 @@ export default function PeoplePage() {
                   }
                 }}
                 initialData={editCluster || undefined}
-                availableFamilies={families}
-                availablePeople={people}
               />
             ) : (
               <ClusterForm
                 onSubmit={handleCreateCluster}
-                onClose={() => setIsModalOpen(false)}
-                initialData={undefined}
-                availableFamilies={families}
-                availablePeople={people}
+                onCancel={() => setIsModalOpen(false)}
               />
             )}
           </>
         ) : (
           <ClusterForm
             onSubmit={handleCreateCluster}
-            onClose={() => setIsModalOpen(false)}
-            availableFamilies={families}
-            availablePeople={people}
+            onCancel={() => setIsModalOpen(false)}
           />
         )}
       </Modal>
@@ -1941,7 +1935,7 @@ export default function PeoplePage() {
             }}
             onSubmit={async (data) => {
               const { clusterReportsApi } = await import("@/src/lib/api");
-              await clusterReportsApi.create(data);
+              await clusterReportsApi.create(data as any);
               setShowReportForm(false);
               setReportSelectedCluster(null);
             }}
@@ -2141,13 +2135,11 @@ export default function PeoplePage() {
               setShowEditClusterOverlay(false);
               setEditClusterOverlay(null);
             }}
-            onClose={() => {
+            onCancel={() => {
               setShowEditClusterOverlay(false);
               setEditClusterOverlay(null);
             }}
             initialData={editClusterOverlay}
-            availableFamilies={families}
-            availablePeople={people}
           />
         </Modal>
       )}
@@ -2606,7 +2598,7 @@ export default function PeoplePage() {
               // clear context
               setClusterCreateContextPerson(null);
             }}
-            onClose={() => setShowCreateClusterOverlay(false)}
+            onCancel={() => setShowCreateClusterOverlay(false)}
             initialData={(() => {
               const p = clusterCreateContextPerson || selectClusterModal.person;
               if (!p) return undefined;
@@ -2638,8 +2630,6 @@ export default function PeoplePage() {
               }
               return base;
             })()}
-            availableFamilies={families}
-            availablePeople={people}
           />
         </Modal>
       )}

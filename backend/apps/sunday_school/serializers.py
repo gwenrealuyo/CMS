@@ -98,7 +98,7 @@ class SundaySchoolClassMemberSerializer(serializers.ModelSerializer):
     person = PersonSummarySerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
         source="person",
-        queryset=Person.objects.all(),
+        queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
     )
     role_display = serializers.CharField(source="get_role_display", read_only=True)

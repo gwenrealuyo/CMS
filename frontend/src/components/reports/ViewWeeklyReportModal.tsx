@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
-  ClusterWeeklyReport,
   PersonUI,
   Person,
   Family,
 } from "@/src/types/person";
+import { ClusterWeeklyReport } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import PersonProfile from "@/src/components/people/PersonProfile";
@@ -320,7 +320,7 @@ export default function ViewWeeklyReportModal({
                         ).map((member) => (
                           <div
                             key={member.id}
-                            onClick={() => handlePersonClick(member)}
+                            onClick={() => handlePersonClick(member as any)}
                             className="flex items-center space-x-2 p-2 bg-gray-50 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
                           >
                             <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
@@ -331,29 +331,29 @@ export default function ViewWeeklyReportModal({
                               <p className="font-medium text-gray-900 truncate text-sm">
                                 {formatPersonName(member)}
                               </p>
-                              {member.email && (
+                              {(member as any).email && (
                                 <p className="text-xs text-gray-600 truncate">
-                                  {member.email}
+                                  {(member as any).email}
                                 </p>
                               )}
                             </div>
                             <div className="flex items-center gap-1">
-                              {member.role && (
+                              {(member as any).role && (
                                 <span
                                   className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getRoleColor(
-                                    member.role
+                                    (member as any).role
                                   )}`}
                                 >
-                                  {member.role?.toLowerCase() || "unknown"}
+                                  {(member as any).role?.toLowerCase() || "unknown"}
                                 </span>
                               )}
-                              {member.status && (
+                              {(member as any).status && (
                                 <span
                                   className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                    member.status
+                                    (member as any).status
                                   )}`}
                                 >
-                                  {member.status?.toLowerCase() || "unknown"}
+                                  {(member as any).status?.toLowerCase() || "unknown"}
                                 </span>
                               )}
                             </div>
@@ -426,7 +426,7 @@ export default function ViewWeeklyReportModal({
                         ).map((visitor) => (
                           <div
                             key={visitor.id}
-                            onClick={() => handlePersonClick(visitor)}
+                            onClick={() => handlePersonClick(visitor as any)}
                             className="flex items-center space-x-2 p-2 bg-gray-50 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
                           >
                             <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
@@ -437,29 +437,29 @@ export default function ViewWeeklyReportModal({
                               <p className="font-medium text-gray-900 truncate text-sm">
                                 {formatPersonName(visitor)}
                               </p>
-                              {visitor.email && (
+                              {(visitor as any).email && (
                                 <p className="text-xs text-gray-600 truncate">
-                                  {visitor.email}
+                                  {(visitor as any).email}
                                 </p>
                               )}
                             </div>
                             <div className="flex items-center gap-1">
-                              {visitor.role && (
+                              {(visitor as any).role && (
                                 <span
                                   className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getRoleColor(
-                                    visitor.role
+                                    (visitor as any).role
                                   )}`}
                                 >
-                                  {visitor.role?.toLowerCase() || "unknown"}
+                                  {(visitor as any).role?.toLowerCase() || "unknown"}
                                 </span>
                               )}
-                              {visitor.status && (
+                              {(visitor as any).status && (
                                 <span
                                   className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                    visitor.status
+                                    (visitor as any).status
                                   )}`}
                                 >
-                                  {visitor.status?.toLowerCase() || "unknown"}
+                                  {(visitor as any).status?.toLowerCase() || "unknown"}
                                 </span>
                               )}
                             </div>
@@ -543,7 +543,7 @@ export default function ViewWeeklyReportModal({
                   <p className="text-xs text-gray-600">Submitted By</p>
                   <p className="text-sm font-medium text-gray-900">
                     {report.submitted_by_details
-                      ? formatPersonName(report.submitted_by_details)
+                      ? formatPersonName(report.submitted_by_details as any)
                       : "Unknown"}
                   </p>
                 </div>

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Person, Family, Milestone
+from .models import Person, Family, Milestone, ModuleCoordinator
 
 
 class PersonAdmin(UserAdmin):
@@ -87,7 +87,53 @@ class PersonAdmin(UserAdmin):
     ordering = ("username",)
 
 
+class ModuleCoordinatorAdmin(admin.ModelAdmin):
+    list_display = (
+        "person",
+        "module",
+        "level",
+        "resource_type",
+        "resource_id",
+        "created_at",
+    )
+    list_filter = ("module", "level", "created_at")
+    search_fields = (
+        "person__username",
+        "person__first_name",
+        "person__last_name",
+        "person__email",
+    )
+    raw_id_fields = ("person",)
+    ordering = ("person", "module", "level")
+    date_hierarchy = "created_at"
+    
+    fieldsets = (
+        (
+            "Assignment",
+            {
+                "fields": ("person", "module", "level"),
+            },
+        ),
+        (
+            "Resource Assignment (Optional)",
+            {
+                "fields": ("resource_type", "resource_id"),
+                "description": "For resource-specific assignments (e.g., specific cluster, evangelism group). Leave blank for module-wide access.",
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": ("created_at",),
+            },
+        ),
+    )
+    
+    readonly_fields = ("created_at",)
+
+
 # Register with custom admin
 admin.site.register(Person, PersonAdmin)
 admin.site.register(Family)
 admin.site.register(Milestone)
+admin.site.register(ModuleCoordinator, ModuleCoordinatorAdmin)

@@ -61,8 +61,8 @@ export default function ClassMembersSection({
           <p className="font-medium text-gray-900">
             {row.person.full_name || `${row.person.first_name || ""} ${row.person.last_name || ""}`.trim() || row.person.username}
           </p>
-          {row.person.email && (
-            <p className="text-xs text-gray-500">{row.person.email}</p>
+          {(row.person as any).email && (
+            <p className="text-xs text-gray-500">{(row.person as any).email}</p>
           )}
         </div>
       ),

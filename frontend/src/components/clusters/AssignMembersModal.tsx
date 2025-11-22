@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Cluster, Person, PersonUI } from "@/src/types/person";
+import { Cluster } from "@/src/types/cluster";
+import { Person, PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 

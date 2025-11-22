@@ -1,4 +1,5 @@
-import { Person, Milestone, Cluster, Family } from "@/src/types/person";
+import { Person, Milestone, Family } from "@/src/types/person";
+import { Cluster } from "@/src/types/cluster";
 import Button from "@/src/components/ui/Button";
 import { useEffect, useState } from "react";
 import { milestonesApi } from "@/src/lib/api";

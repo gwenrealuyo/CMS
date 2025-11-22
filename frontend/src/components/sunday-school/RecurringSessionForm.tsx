@@ -46,7 +46,7 @@ export default function RecurringSessionForm({
     sunday_school_class_id: classData.id,
     start_date: new Date().toISOString().split("T")[0],
     end_date: defaultEndDate,
-    num_occurrences: "",
+    num_occurrences: 0,
     recurrence_pattern: "weekly",
     day_of_week: 6, // Default to Sunday
     default_lesson_title: "",
@@ -76,12 +76,12 @@ export default function RecurringSessionForm({
         ? new Date(values.end_date)
         : null
       : values.num_occurrences
-      ? parseInt(values.num_occurrences)
+      ? (typeof values.num_occurrences === 'string' ? parseInt(values.num_occurrences, 10) : values.num_occurrences)
       : null;
 
     for (let i = 0; i < maxDates; i++) {
       if (useEndDate && endCondition && current > endCondition) break;
-      if (!useEndDate && endCondition && i >= endCondition) break;
+      if (!useEndDate && endCondition && typeof endCondition === 'number' && i >= endCondition) break;
 
       dates.push(new Date(current).toISOString().split("T")[0]);
 

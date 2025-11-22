@@ -17,7 +17,7 @@ from apps.evangelism.models import (
     DropOff,
     EvangelismWeeklyReport,
 )
-from apps.people.models import Person
+from apps.people.models import Person, ModuleCoordinator
 from apps.clusters.models import Cluster
 from apps.events.models import Event
 from datetime import datetime, timedelta, date
@@ -71,8 +71,8 @@ class Command(BaseCommand):
             Each1Reach1Goal.objects.all().delete()
             EvangelismGroup.objects.all().delete()
 
-        # Check if we have people and clusters
-        people = list(Person.objects.all())
+        # Check if we have people and clusters (exclude ADMIN users)
+        people = list(Person.objects.exclude(role="ADMIN"))
         clusters = list(Cluster.objects.all())
 
         if not people:
@@ -112,7 +112,7 @@ class Command(BaseCommand):
             is_bible_sharers = "Bible Sharers" in group_name
 
             # Select a random coordinator
-            coordinators = [p for p in people if p.role in ["COORDINATOR", "LEADER", "MEMBER"]]
+            coordinators = [p for p in people if p.role in ["COORDINATOR", "MEMBER", "PASTOR"]]
             if not coordinators:
                 coordinators = people
             coordinator = random.choice(coordinators) if coordinators else None
@@ -136,6 +136,23 @@ class Command(BaseCommand):
                 is_bible_sharers_group=is_bible_sharers,
             )
             group.save()
+            
+            # Create ModuleCoordinator assignment for evangelism group coordinator
+            if coordinator:
+                level = (
+                    ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+                    if is_bible_sharers
+                    else ModuleCoordinator.CoordinatorLevel.COORDINATOR
+                )
+                ModuleCoordinator.objects.get_or_create(
+                    person=coordinator,
+                    module=ModuleCoordinator.ModuleType.EVANGELISM,
+                    resource_id=group.id,
+                    defaults={
+                        "level": level,
+                        "resource_type": "EvangelismGroup",
+                    }
+                )
 
             # Add 3-8 members to the group
             available_people = [p for p in people if p != coordinator]
@@ -299,6 +316,8 @@ class Command(BaseCommand):
                         "last_name": name.split()[-1] if len(name.split()) > 1 else "",
                         "role": "VISITOR",
                         "email": f"{name.lower().replace(' ', '.')}@example.com",
+                        "must_change_password": True,
+                        "first_login": True,
                     },
                 )
                 if created:
@@ -603,4 +622,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  • Follow-up Tasks: {FollowUpTask.objects.count()}")
         self.stdout.write(f"  • Drop-offs: {DropOff.objects.count()}")
         self.stdout.write(f"  • Weekly Reports: {EvangelismWeeklyReport.objects.count()}")
+        self.stdout.write(
+            f"  • Evangelism Module Coordinator Assignments: {ModuleCoordinator.objects.filter(module=ModuleCoordinator.ModuleType.EVANGELISM, resource_type='EvangelismGroup').count()}"
+        )
 

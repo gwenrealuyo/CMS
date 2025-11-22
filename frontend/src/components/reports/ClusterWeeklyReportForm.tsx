@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+import { PersonUI, Person } from "@/src/types/person";
 import {
   ClusterWeeklyReport,
   Cluster,
   GatheringType,
-  PersonUI,
-  Person,
-} from "@/src/types/person";
+} from "@/src/types/cluster";
 import { peopleApi, clusterReportsApi } from "@/src/lib/api";
 import Button from "@/src/components/ui/Button";
 import AttendanceSelector from "./AttendanceSelector";
@@ -28,14 +27,19 @@ export default function ClusterWeeklyReportForm({
   cluster,
   clusters,
 }: ClusterWeeklyReportFormProps) {
-  // Normalize IDs to strings for consistency
-  const normalizeIds = (ids: any[]): string[] => {
+  // Normalize IDs to numbers for consistency
+  const normalizeIds = (ids: any[]): number[] => {
     if (!ids || !Array.isArray(ids)) return [];
-    return ids.map((id) => id?.toString() || "").filter((id) => id !== "");
+    return ids
+      .map((id) => {
+        const numId = typeof id === "string" ? parseInt(id, 10) : id;
+        return isNaN(numId) ? 0 : numId;
+      })
+      .filter((id) => id !== 0);
   };
 
   const [formData, setFormData] = useState<Partial<ClusterWeeklyReport>>({
-    cluster: cluster?.id || "",
+    cluster: cluster?.id || 0,
     year: new Date().getFullYear(),
     week_number: getWeekNumber(new Date()),
     meeting_date: new Date().toISOString().split("T")[0],
@@ -45,13 +49,17 @@ export default function ClusterWeeklyReportForm({
     activities_held: "",
     prayer_requests: "",
     testimonies: "",
-    offerings: 0,
+    offerings: "",
     highlights: "",
     lowlights: "",
     ...initialData,
-    // Normalize IDs to strings (override initialData if present)
-    members_attended: normalizeIds(initialData?.members_attended || []),
-    visitors_attended: normalizeIds(initialData?.visitors_attended || []),
+    // Normalize IDs to numbers (override initialData if present)
+    members_attended: (initialData?.members_attended || []).map((id) =>
+      typeof id === "string" ? parseInt(id) : id
+    ),
+    visitors_attended: (initialData?.visitors_attended || []).map((id) =>
+      typeof id === "string" ? parseInt(id) : id
+    ),
   });
 
   const [loading, setLoading] = useState(false);
@@ -104,20 +112,36 @@ export default function ClusterWeeklyReportForm({
 
         // Filter out invalid IDs from formData (visitors/members that were deleted)
         setFormData((prev) => {
-          const validPeopleIds = new Set(normalizedPeopleUI.map((p) => p.id));
-          // Normalize formData IDs to strings for comparison
-          const normalizedMembers = (prev.members_attended || []).map(
-            (id) => id?.toString() || ""
+          // Convert PersonUI.id (string) to numbers for comparison
+          const validPeopleIds = new Set(
+            normalizedPeopleUI
+              .map((p) => {
+                const numId =
+                  typeof p.id === "string" ? parseInt(p.id, 10) : p.id;
+                return isNaN(numId) ? 0 : numId;
+              })
+              .filter((id) => id !== 0)
           );
+
+          // Ensure members_attended and visitors_attended are number arrays
+          const normalizedMembers = (prev.members_attended || []).map((id) => {
+            const numId =
+              typeof id === "string" ? parseInt(String(id), 10) : id;
+            return isNaN(numId) ? 0 : numId;
+          });
           const normalizedVisitors = (prev.visitors_attended || []).map(
-            (id) => id?.toString() || ""
+            (id) => {
+              const numId =
+                typeof id === "string" ? parseInt(String(id), 10) : id;
+              return isNaN(numId) ? 0 : numId;
+            }
           );
 
           const validMembers = normalizedMembers.filter(
-            (id) => validPeopleIds.has(id) && id !== ""
+            (id) => validPeopleIds.has(id) && id !== 0
           );
           const validVisitors = normalizedVisitors.filter(
-            (id) => validPeopleIds.has(id) && id !== ""
+            (id) => validPeopleIds.has(id) && id !== 0
           );
 
           // Only update if there were invalid IDs removed or IDs needed normalization
@@ -338,8 +362,10 @@ export default function ClusterWeeklyReportForm({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleClusterSelect = (clusterId: string) => {
-    handleChange("cluster", clusterId);
+  const handleClusterSelect = (clusterId: number | string) => {
+    const numId =
+      typeof clusterId === "string" ? parseInt(clusterId, 10) : clusterId;
+    handleChange("cluster", numId);
     setShowClusterDropdown(false);
     setClusterSearchTerm("");
   };
@@ -396,9 +422,15 @@ export default function ClusterWeeklyReportForm({
       setFormData((prev) => ({
         ...prev,
         visitors_attended: [
-          ...(prev.visitors_attended || []),
-          response.data.id,
-        ],
+          ...(prev.visitors_attended || [])
+            .map((id) =>
+              typeof id === "string" ? parseInt(String(id), 10) : id
+            )
+            .filter((id) => !isNaN(id)),
+          typeof response.data.id === "string"
+            ? parseInt(response.data.id, 10)
+            : response.data.id,
+        ].filter((id) => !isNaN(id)) as number[],
       }));
 
       return response.data;
@@ -408,11 +440,17 @@ export default function ClusterWeeklyReportForm({
   };
 
   const handleMembersChange = (ids: string[]) => {
-    setFormData((prev) => ({ ...prev, members_attended: ids }));
+    const numIds = ids
+      .map((id) => (typeof id === "string" ? parseInt(id, 10) : id))
+      .filter((id) => !isNaN(id)) as number[];
+    setFormData((prev) => ({ ...prev, members_attended: numIds }));
   };
 
   const handleVisitorsChange = (ids: string[]) => {
-    setFormData((prev) => ({ ...prev, visitors_attended: ids }));
+    const numIds = ids
+      .map((id) => (typeof id === "string" ? parseInt(id, 10) : id))
+      .filter((id) => !isNaN(id)) as number[];
+    setFormData((prev) => ({ ...prev, visitors_attended: numIds }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -455,7 +493,7 @@ export default function ClusterWeeklyReportForm({
         <div className="relative" ref={dropdownRef}>
           <input
             type="text"
-            value={selectedClusterDisplay}
+            value={selectedClusterDisplay || ""}
             onClick={() => setShowClusterDropdown(true)}
             readOnly
             placeholder="Select cluster..."
@@ -578,7 +616,9 @@ export default function ClusterWeeklyReportForm({
         <>
           <AttendanceSelector
             label="Members Attended"
-            selectedIds={formData.members_attended || []}
+            selectedIds={(formData.members_attended || []).map((id) =>
+              String(id)
+            )}
             availablePeople={people}
             filterRole="MEMBER"
             onSelectionChange={handleMembersChange}
@@ -612,7 +652,9 @@ export default function ClusterWeeklyReportForm({
             </div>
             <AttendanceSelector
               label=""
-              selectedIds={formData.visitors_attended || []}
+              selectedIds={(formData.visitors_attended || []).map((id) =>
+                String(id)
+              )}
               availablePeople={people}
               filterRole="VISITOR"
               onSelectionChange={handleVisitorsChange}
@@ -633,7 +675,11 @@ export default function ClusterWeeklyReportForm({
         <input
           type="number"
           step="0.01"
-          value={formData.offerings === 0 ? "" : formData.offerings}
+          value={
+            formData.offerings === "" || formData.offerings === "0"
+              ? ""
+              : String(formData.offerings)
+          }
           onChange={(e) =>
             handleChange(
               "offerings",

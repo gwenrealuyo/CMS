@@ -221,7 +221,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
                 all_clusters = coordinator_clusters
             
             # Get families directly connected to these clusters
-            directly_connected_families = queryset.filter(clusters__in=all_clusters).distinct()
+            directly_connected_families = queryset.filter(cluster__in=all_clusters).distinct()
             
             # Get all people in these clusters
             cluster_member_ids = all_clusters.values_list('members__id', flat=True).distinct()

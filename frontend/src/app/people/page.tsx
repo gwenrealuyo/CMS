@@ -998,7 +998,7 @@ export default function PeoplePage() {
   return (
     <DashboardLayout>
       {/* Page header with Add Person */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-[#2D3748]">People</h1>
         <Button
           onClick={() => {
@@ -1007,6 +1007,7 @@ export default function PeoplePage() {
             setViewMode("view");
             setIsModalOpen(true);
           }}
+          className="w-full sm:w-auto"
         >
           Add Person
         </Button>
@@ -1100,8 +1101,8 @@ export default function PeoplePage() {
 
             {/* Search Results Count */}
             {(searchQuery || activeFilters.length > 0) && (
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-gray-600">
+                <div className="flex flex-wrap items-center gap-2">
                   <span>
                     {isSearching
                       ? "Searching..."
@@ -1298,8 +1299,8 @@ export default function PeoplePage() {
                 </div>
 
                 {/* Search Bar for Clusters */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-6">
-                  <div className="flex items-center justify-between">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm mb-6">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                     <div className="flex-1 max-w-md">
                       <div className="relative">
                         <svg
@@ -1322,7 +1323,7 @@ export default function PeoplePage() {
                           onChange={(e) =>
                             setClusterSearchQuery(e.target.value)
                           }
-                          className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                          className={`w-full pl-10 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
                             clusterSearchQuery ? "pr-10" : "pr-4"
                           }`}
                         />
@@ -1330,7 +1331,7 @@ export default function PeoplePage() {
                           <button
                             type="button"
                             onClick={() => setClusterSearchQuery("")}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
                           >
                             <svg
                               className="w-4 h-4"
@@ -1351,10 +1352,10 @@ export default function PeoplePage() {
                     </div>
 
                     {/* Filter and Sort Buttons */}
-                    <div className="flex items-center gap-3 ml-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:ml-4">
                       {/* Active Filters Display */}
                       {clusterActiveFilters.length > 0 && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {clusterActiveFilters.map((filter) => (
                             <span
                               key={filter.id}
@@ -1389,7 +1390,7 @@ export default function PeoplePage() {
                           ))}
                           <button
                             onClick={() => setClusterActiveFilters([])}
-                            className="text-xs text-gray-500 hover:text-gray-700"
+                            className="text-xs text-gray-500 hover:text-gray-700 min-h-[44px] px-2"
                           >
                             Clear All
                           </button>
@@ -1405,7 +1406,7 @@ export default function PeoplePage() {
                             ).getBoundingClientRect()
                           )
                         }
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        className="inline-flex items-center px-3 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                       >
                         <svg
                           className="w-4 h-4 mr-1"
@@ -1436,7 +1437,7 @@ export default function PeoplePage() {
                             ).getBoundingClientRect()
                           )
                         }
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        className="inline-flex items-center px-3 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                       >
                         <svg
                           className="w-4 h-4 mr-1"
@@ -2425,7 +2426,7 @@ export default function PeoplePage() {
             </div>
 
             {/* Search and pagination */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <input
                 type="text"
                 placeholder="Search clusters..."
@@ -2440,9 +2441,9 @@ export default function PeoplePage() {
                     e.stopPropagation();
                   }
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <span className="text-xs text-gray-500 whitespace-nowrap">
+              <span className="text-xs text-gray-500 whitespace-nowrap flex items-center">
                 {clusters.length} total
               </span>
             </div>
@@ -2507,7 +2508,7 @@ export default function PeoplePage() {
                               person: null,
                             });
                           }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
+                          className="w-full text-left px-3 py-2 min-h-[44px] text-sm hover:bg-gray-50 border-b last:border-b-0"
                         >
                           {(() => {
                             const code = (c as any).code as string | undefined;
@@ -2529,21 +2530,21 @@ export default function PeoplePage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-sm text-gray-600">
+                      <span className="flex items-center">
                         Page {clusterSelectPage} of{" "}
                         {Math.max(
                           1,
                           Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE)
                         )}
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() =>
                             setClusterSelectPage((p) => Math.max(1, p - 1))
                           }
                           disabled={clusterSelectPage === 1}
-                          className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                          className="px-3 py-2 min-h-[44px] border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50 flex-1 sm:flex-initial"
                         >
                           ‹ Prev
                         </button>
@@ -2570,7 +2571,7 @@ export default function PeoplePage() {
                               )
                             )
                           }
-                          className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                          className="px-3 py-2 min-h-[44px] border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50 flex-1 sm:flex-initial"
                         >
                           Next ›
                         </button>

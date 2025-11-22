@@ -310,12 +310,12 @@ export default function PersonProfile({
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0 bg-white">
-        <div>
-          <h2 className="text-base font-medium text-gray-900">
+      <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0 bg-white">
+        <div className="flex-1 min-w-0 pr-2">
+          <h2 className="text-sm sm:text-base font-medium text-gray-900 truncate">
             Person Details
           </h2>
-          <p className="text-xs text-gray-600 mt-0.5">
+          <p className="text-xs text-gray-600 mt-0.5 truncate">
             {person.first_name}
             {(person as any).nickname
               ? ` "${(person as any).nickname}"`
@@ -329,7 +329,7 @@ export default function PersonProfile({
         </div>
         <button
           onClick={onClose}
-          className="text-red-600 hover:text-red-700 text-xl font-bold p-1 rounded-md hover:bg-red-50 transition-colors"
+          className="text-red-600 hover:text-red-700 text-xl font-bold p-2 min-h-[44px] min-w-[44px] rounded-md hover:bg-red-50 transition-colors flex items-center justify-center flex-shrink-0"
         >
           <svg
             className="w-5 h-5"
@@ -348,17 +348,17 @@ export default function PersonProfile({
       </div>
 
       {/* Content */}
-      <div className="p-6 overflow-y-auto flex-1">
-        <div className="space-y-6">
+      <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+        <div className="space-y-4 sm:space-y-6">
           {/* Profile Header Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-            <div className="flex items-center space-x-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0">
                 {person.first_name?.[0]}
                 {person.last_name?.[0]}
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
+              <div className="flex-1 w-full sm:w-auto text-center sm:text-left">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                   {person.first_name}
                   {(person as any).nickname
                     ? ` "${(person as any).nickname}"`
@@ -369,8 +369,10 @@ export default function PersonProfile({
                   {person.last_name}
                   {person.suffix ? ` ${person.suffix}` : ""}
                 </h2>
-                <p className="text-gray-600">@{person.username}</p>
-                <div className="flex items-center space-x-2 mt-2">
+                <p className="text-gray-600 text-sm sm:text-base">
+                  @{person.username}
+                </p>
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:space-x-2 mt-2">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
                       person.role
@@ -470,10 +472,10 @@ export default function PersonProfile({
 
           {/* Tab Navigation */}
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8">
+            <nav className="flex space-x-4 sm:space-x-8 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("overview")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-sm min-h-[44px] sm:min-h-0 whitespace-nowrap ${
                   activeTab === "overview"
                     ? "border-blue-500 text-blue-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -484,7 +486,7 @@ export default function PersonProfile({
               {person.can_view_journey_timeline !== false && (
                 <button
                   onClick={() => setActiveTab("timeline")}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-sm min-h-[44px] sm:min-h-0 whitespace-nowrap ${
                     activeTab === "timeline"
                       ? "border-blue-500 text-blue-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -503,9 +505,9 @@ export default function PersonProfile({
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Contact Information Card */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                     <div className="flex items-center space-x-2 mb-4">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                         <svg
                           className="w-4 h-4 text-blue-600"
                           fill="none"
@@ -520,7 +522,7 @@ export default function PersonProfile({
                           />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                         Contact Information
                       </h3>
                     </div>
@@ -619,9 +621,9 @@ export default function PersonProfile({
                   </div>
 
                   {/* Profile Details Card */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                     <div className="flex items-center space-x-2 mb-4">
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                         <svg
                           className="w-4 h-4 text-green-600"
                           fill="none"
@@ -636,7 +638,7 @@ export default function PersonProfile({
                           />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                         Profile Details
                       </h3>
                     </div>
@@ -821,9 +823,9 @@ export default function PersonProfile({
             {activeTab === "timeline" && (
               <div className="space-y-6">
                 {/* Timeline Events Card */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                   <div className="flex items-center space-x-2 mb-4">
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
                       <svg
                         className="w-4 h-4 text-purple-600"
                         fill="none"
@@ -838,7 +840,7 @@ export default function PersonProfile({
                         />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                       Journey Timeline
                     </h3>
                   </div>
@@ -857,7 +859,7 @@ export default function PersonProfile({
                             value={journeySearch}
                             onChange={(e) => setJourneySearch(e.target.value)}
                             placeholder="Search by title, description, or type..."
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 min-h-[44px] text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                         {/* Filter by Type */}
@@ -872,7 +874,7 @@ export default function PersonProfile({
                                 e.target.value as JourneyType | "ALL"
                               )
                             }
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 min-h-[44px] text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           >
                             <option value="ALL">All Types</option>
                             {[
@@ -1012,36 +1014,15 @@ export default function PersonProfile({
       </div>
 
       {/* Footer */}
-      <div className="p-6 border-t border-gray-200 bg-gray-50">
+      <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
         {activeTab === "overview" ? (
-          <div className="flex justify-between items-center">
-            {!hideDeleteButton && (
-              <Button
-                onClick={onDelete}
-                variant="secondary"
-                className="!text-red-600 py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </Button>
-            )}
-            {hideDeleteButton && <div />}
-            <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
+            {/* Action Buttons - Right side on desktop, full width on mobile */}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-2 sm:order-2">
               <Button
                 onClick={onCancel}
                 variant="secondary"
-                className="!text-black py-4 px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+                className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full sm:w-auto"
               >
                 <svg
                   className="w-4 h-4"
@@ -1062,7 +1043,7 @@ export default function PersonProfile({
                 <Button
                   onClick={onEdit}
                   variant="secondary"
-                  className="!text-blue-600 py-4 px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                  className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full sm:w-auto"
                 >
                   <svg
                     className="w-4 h-4"
@@ -1081,12 +1062,35 @@ export default function PersonProfile({
                 </Button>
               )}
             </div>
+            {/* Delete Button - Left side on desktop, full width on mobile */}
+            {!hideDeleteButton && (
+              <Button
+                onClick={onDelete}
+                variant="secondary"
+                className="!text-red-600 py-3 px-4 text-sm font-medium bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 flex items-center justify-center space-x-2 min-h-[44px] w-full sm:w-auto order-1 sm:order-1"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                <span>Delete</span>
+              </Button>
+            )}
           </div>
         ) : (
           <Button
             onClick={onAddTimeline}
             variant="secondary"
-            className="!text-black w-full py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+            className="!text-gray-700 w-full py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px]"
           >
             <svg
               className="w-4 h-4"

@@ -14,6 +14,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DocumentArrowDownIcon,
+  Squares2X2Icon,
+  TableCellsIcon,
 } from "@heroicons/react/24/outline";
 
 interface DataTableProps {
@@ -67,6 +69,9 @@ export default function DataTable({
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+  const [mobileViewMode, setMobileViewMode] = useState<"cards" | "table">(
+    "cards"
+  );
 
   // Available columns with their config
   const availableColumns = [
@@ -453,7 +458,7 @@ export default function DataTable({
         <button
           ref={buttonRef}
           onClick={handleToggle}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 min-h-[44px] min-w-[44px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
           title="Actions"
         >
           <svg
@@ -487,7 +492,7 @@ export default function DataTable({
                       onView(person as Person);
                       onClose();
                     }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   >
                     <svg
                       className="w-4 h-4 mr-2 text-blue-500"
@@ -517,7 +522,7 @@ export default function DataTable({
                       onEdit(person as Person);
                       onClose();
                     }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   >
                     <svg
                       className="w-4 h-4 mr-2 text-green-500"
@@ -541,7 +546,7 @@ export default function DataTable({
                       onDelete(person as Person);
                       onClose();
                     }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
+                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
                   >
                     <svg
                       className="w-4 h-4 mr-2"
@@ -595,8 +600,9 @@ export default function DataTable({
       {/* Table Header with Actions */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-0 md:gap-4">
+            {/* Selected People */}
+            <div className="flex items-center justify-end md:justify-start space-x-4 mb-2 md:mb-0">
               {selectedPeople.size > 0 && (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">
@@ -611,7 +617,33 @@ export default function DataTable({
               )}
             </div>
             <div className="flex items-center space-x-2 flex-wrap gap-2">
-              <div className="flex items-center sm:gap-2 flex-wrap">
+              {/* Mobile View Toggle - Only visible on mobile */}
+              <div className="md:hidden flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setMobileViewMode("cards")}
+                  className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                    mobileViewMode === "cards"
+                      ? "bg-blue-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                  title="Card View"
+                >
+                  <Squares2X2Icon className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setMobileViewMode("table")}
+                  className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                    mobileViewMode === "table"
+                      ? "bg-blue-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                  title="Table View"
+                >
+                  <TableCellsIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex items-center flex-wrap gap-2 md:gap-4 !ml-0 md:ml-2">
                 <button
                   onClick={() => setShowColumnsModal(true)}
                   className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
@@ -664,86 +696,321 @@ export default function DataTable({
         </div>
 
         {/* Mobile Card View */}
-        <div className="md:hidden space-y-4 p-4">
-          {paginatedPeople.map((person) => (
-            <div
-              key={person.id}
-              className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <input
-                    type="checkbox"
-                    checked={selectedPeople.has(person.id)}
-                    onChange={() => handleSelectPerson(person.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1 flex-shrink-0"
+        {mobileViewMode === "cards" && (
+          <div className="md:hidden space-y-4 p-4">
+            {paginatedPeople.map((person) => (
+              <div
+                key={person.id}
+                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedPeople.has(person.id)}
+                      onChange={() => handleSelectPerson(person.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1 flex-shrink-0"
+                    />
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                      {`${person.first_name?.[0] || ""}${
+                        person.last_name?.[0] || ""
+                      }`.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => onView && onView(person as Person)}
+                        className="text-left w-full"
+                      >
+                        <div className="text-sm font-semibold text-blue-700 hover:underline truncate">
+                          {person.first_name} {person.last_name}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                  <ActionMenu
+                    person={person}
+                    isOpen={openActionMenuId === person.id}
+                    onOpen={() => setOpenActionMenuId(person.id)}
+                    onClose={() => setOpenActionMenuId(null)}
                   />
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                    {`${person.first_name?.[0] || ""}${
-                      person.last_name?.[0] || ""
-                    }`.toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => onView && onView(person as Person)}
-                      className="text-left w-full"
-                    >
-                      <div className="text-sm font-semibold text-blue-700 hover:underline truncate">
-                        {person.first_name} {person.last_name}
-                      </div>
-                    </button>
-                  </div>
                 </div>
-                <ActionMenu
-                  person={person}
-                  isOpen={openActionMenuId === person.id}
-                  onOpen={() => setOpenActionMenuId(person.id)}
-                  onClose={() => setOpenActionMenuId(null)}
-                />
-              </div>
-              <div className="space-y-2 pl-14">
-                {visibleColumns.has("email") && person.email && (
-                  <div className="text-sm">
-                    <span className="text-gray-500 font-medium">Email: </span>
-                    <span className="text-gray-900">{person.email}</span>
-                  </div>
-                )}
-                {visibleColumns.has("phone") && person.phone && (
-                  <div className="text-sm">
-                    <span className="text-gray-500 font-medium">Phone: </span>
-                    <span className="text-gray-900">{person.phone}</span>
-                  </div>
-                )}
-                {visibleColumns.has("role") && (
-                  <div className="text-sm">
-                    <span className="text-gray-500 font-medium">Role: </span>
-                    <span className="text-gray-900">{person.role}</span>
-                  </div>
-                )}
-                {visibleColumns.has("status") && (
-                  <div className="text-sm">
-                    <span className="text-gray-500 font-medium">Status: </span>
-                    <span className="text-gray-900">{person.status}</span>
-                  </div>
-                )}
-                {visibleColumns.has("dateFirstAttended") &&
-                  person.dateFirstAttended && (
+                <div className="space-y-2 pl-14">
+                  {visibleColumns.has("email") && person.email && (
                     <div className="text-sm">
-                      <span className="text-gray-500 font-medium">
-                        First Attended:{" "}
-                      </span>
-                      <span className="text-gray-900">
-                        {new Date(
-                          person.dateFirstAttended
-                        ).toLocaleDateString()}
+                      <span className="text-gray-500 font-medium">Email: </span>
+                      <span className="text-gray-900">{person.email}</span>
+                    </div>
+                  )}
+                  {visibleColumns.has("phone") && person.phone && (
+                    <div className="text-sm">
+                      <span className="text-gray-500 font-medium">Phone: </span>
+                      <span className="text-gray-900">{person.phone}</span>
+                    </div>
+                  )}
+                  {visibleColumns.has("role") && (
+                    <div className="text-sm flex items-center gap-2">
+                      <span className="text-gray-500 font-medium">Role: </span>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+                          person.role
+                        )}`}
+                      >
+                        {person.role}
                       </span>
                     </div>
                   )}
+                  {visibleColumns.has("status") && (
+                    <div className="text-sm flex items-center gap-2">
+                      <span className="text-gray-500 font-medium">
+                        Status:{" "}
+                      </span>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                          person.status
+                        )}`}
+                      >
+                        {person.status}
+                      </span>
+                    </div>
+                  )}
+                  {visibleColumns.has("dateFirstAttended") &&
+                    person.dateFirstAttended && (
+                      <div className="text-sm">
+                        <span className="text-gray-500 font-medium">
+                          First Attended:{" "}
+                        </span>
+                        <span className="text-gray-900">
+                          {new Date(
+                            person.dateFirstAttended
+                          ).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {/* Mobile Table View */}
+        {mobileViewMode === "table" && (
+          <div className="md:hidden overflow-x-auto p-4">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedPeople.size === paginatedPeople.length &&
+                        paginatedPeople.length > 0
+                      }
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </th>
+                  {availableColumns.map((col) => {
+                    if (!visibleColumns.has(col.key)) return null;
+                    const field = col.key;
+                    return (
+                      <th
+                        key={field}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort(field as keyof DisplayPerson)}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>{col.label}</span>
+                          <SortIcon field={field as keyof DisplayPerson} />
+                        </div>
+                      </th>
+                    );
+                  })}
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedPeople.map((person) => (
+                  <tr
+                    key={person.id}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedPeople.has(person.id)}
+                        onChange={() => handleSelectPerson(person.id)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
+                    {availableColumns.map((col) => {
+                      if (!visibleColumns.has(col.key)) return null;
+                      const field = col.key;
+                      return (
+                        <td key={field} className="px-4 py-3 whitespace-nowrap">
+                          {field === "first_name" && (
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-xs mr-2">
+                                {`${person.first_name?.[0] || ""}${
+                                  person.last_name?.[0] || ""
+                                }`.toUpperCase()}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onView && onView(person as Person)
+                                }
+                                className="text-left"
+                                title="View profile"
+                              >
+                                <div className="text-sm font-medium text-blue-700 hover:underline">
+                                  {person.first_name || "-"}
+                                </div>
+                              </button>
+                            </div>
+                          )}
+                          {field === "last_name" && (
+                            <button
+                              type="button"
+                              onClick={() => onView && onView(person as Person)}
+                              className="text-left"
+                              title="View profile"
+                            >
+                              <div className="text-sm font-medium text-blue-700 hover:underline">
+                                {person.last_name || "-"}
+                              </div>
+                            </button>
+                          )}
+                          {field === "middle_name" && (
+                            <div className="text-sm text-gray-900">
+                              {person.middle_name || "-"}
+                            </div>
+                          )}
+                          {field === "suffix" && (
+                            <div className="text-sm text-gray-900">
+                              {person.suffix || "-"}
+                            </div>
+                          )}
+                          {field === "username" && (
+                            <div className="text-sm text-gray-900">
+                              {person.username || "-"}
+                            </div>
+                          )}
+                          {field === "email" && (
+                            <div className="text-sm text-gray-900">
+                              {person.email || "-"}
+                            </div>
+                          )}
+                          {field === "phone" && (
+                            <div className="text-sm text-gray-900">
+                              {person.phone || "-"}
+                            </div>
+                          )}
+                          {field === "gender" && (
+                            <div className="text-sm text-gray-900">
+                              {person.gender || "-"}
+                            </div>
+                          )}
+                          {field === "address" && (
+                            <div className="text-sm text-gray-900">
+                              {person.address || "-"}
+                            </div>
+                          )}
+                          {field === "country" && (
+                            <div className="text-sm text-gray-900">
+                              {person.country || "-"}
+                            </div>
+                          )}
+                          {field === "member_id" && (
+                            <div className="text-sm text-gray-900">
+                              {person.member_id || "-"}
+                            </div>
+                          )}
+                          {field === "facebook_name" && (
+                            <div className="text-sm text-gray-900">
+                              {person.facebook_name || "-"}
+                            </div>
+                          )}
+                          {field === "dateOfBirth" && (
+                            <div className="text-sm text-gray-900">
+                              {person.dateOfBirth
+                                ? new Date(
+                                    person.dateOfBirth
+                                  ).toLocaleDateString()
+                                : "-"}
+                            </div>
+                          )}
+                          {field === "first_activity_attended" && (
+                            <div className="text-sm text-gray-900">
+                              {(person as any).first_activity_attended || "-"}
+                            </div>
+                          )}
+                          {field === "role" && (
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+                                person.role
+                              )}`}
+                            >
+                              {person.role}
+                            </span>
+                          )}
+                          {field === "status" && (
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                person.status === "ACTIVE"
+                                  ? "bg-green-100 text-green-800"
+                                  : person.status === "INACTIVE"
+                                  ? "bg-gray-100 text-gray-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {person.status}
+                            </span>
+                          )}
+                          {field === "dateFirstAttended" && (
+                            <div className="text-sm text-gray-900">
+                              {person.dateFirstAttended
+                                ? new Date(
+                                    person.dateFirstAttended
+                                  ).toLocaleDateString()
+                                : "-"}
+                            </div>
+                          )}
+                          {field === "waterBaptismDate" && (
+                            <div className="text-sm text-gray-900">
+                              {person.waterBaptismDate
+                                ? new Date(
+                                    person.waterBaptismDate
+                                  ).toLocaleDateString()
+                                : "-"}
+                            </div>
+                          )}
+                          {field === "spiritBaptismDate" && (
+                            <div className="text-sm text-gray-900">
+                              {person.spiritBaptismDate
+                                ? new Date(
+                                    person.spiritBaptismDate
+                                  ).toLocaleDateString()
+                                : "-"}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="px-2 py-3 whitespace-nowrap text-sm font-medium w-12">
+                      <ActionMenu
+                        person={person}
+                        isOpen={openActionMenuId === person.id}
+                        onOpen={() => setOpenActionMenuId(person.id)}
+                        onClose={() => setOpenActionMenuId(null)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">

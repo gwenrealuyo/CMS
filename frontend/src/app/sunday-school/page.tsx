@@ -15,12 +15,15 @@ import SundaySchoolClassForm, {
 import CategoryManagement from "@/src/components/sunday-school/CategoryManagement";
 import ClassMembersSection from "@/src/components/sunday-school/ClassMembersSection";
 import ClassSessionsSection from "@/src/components/sunday-school/ClassSessionsSection";
-import SessionForm, { SessionFormValues } from "@/src/components/sunday-school/SessionForm";
+import SessionForm, {
+  SessionFormValues,
+} from "@/src/components/sunday-school/SessionForm";
 import RecurringSessionForm from "@/src/components/sunday-school/RecurringSessionForm";
 import AttendanceReportComponent from "@/src/components/sunday-school/AttendanceReport";
 import SessionView from "@/src/components/sunday-school/SessionView";
 import UnenrolledByCategory from "@/src/components/sunday-school/UnenrolledByCategory";
 import SundaySchoolSummary from "@/src/components/sunday-school/SundaySchoolSummary";
+import { useAuth } from "@/src/contexts/AuthContext";
 import {
   useSundaySchoolCategories,
   useSundaySchoolClasses,
@@ -41,6 +44,7 @@ import {
 } from "@/src/types/sundaySchool";
 
 export default function SundaySchoolPage() {
+  const { user } = useAuth();
   const {
     categories,
     loading: categoriesLoading,
@@ -63,27 +67,49 @@ export default function SundaySchoolPage() {
     bulkEnroll,
   } = useSundaySchoolClasses();
 
-  const { summary, loading: summaryLoading, error: summaryError } = useSundaySchoolSummary();
-  const { unenrolled, loading: unenrolledLoading, error: unenrolledError, fetchUnenrolled } =
-    useSundaySchoolUnenrolledByCategory();
+  const {
+    summary,
+    loading: summaryLoading,
+    error: summaryError,
+  } = useSundaySchoolSummary();
+  const {
+    unenrolled,
+    loading: unenrolledLoading,
+    error: unenrolledError,
+    fetchUnenrolled,
+  } = useSundaySchoolUnenrolledByCategory();
 
   const [searchValue, setSearchValue] = useState(filters.search ?? "");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(filters.search ?? "");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(
+    filters.search ?? ""
+  );
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
-  const [viewEditClass, setViewEditClass] = useState<SundaySchoolClass | null>(null);
+  const [isCategoryManagementOpen, setIsCategoryManagementOpen] =
+    useState(false);
+  const [viewEditClass, setViewEditClass] = useState<SundaySchoolClass | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<SundaySchoolSession | null>(null);
-  const [viewingSession, setViewingSession] = useState<SundaySchoolSession | null>(null);
-  const [editingSession, setEditingSession] = useState<SundaySchoolSession | null>(null);
+  const [selectedSession, setSelectedSession] =
+    useState<SundaySchoolSession | null>(null);
+  const [viewingSession, setViewingSession] =
+    useState<SundaySchoolSession | null>(null);
+  const [editingSession, setEditingSession] =
+    useState<SundaySchoolSession | null>(null);
   const [isAttendanceReportOpen, setIsAttendanceReportOpen] = useState(false);
-  const [attendanceSessionId, setAttendanceSessionId] = useState<number | string | null>(null);
-  const [viewSessionReport, setViewSessionReport] = useState<AttendanceReport | null>(null);
-  const [viewSessionReportLoading, setViewSessionReportLoading] = useState(false);
-  const [viewSessionReportError, setViewSessionReportError] = useState<string | null>(null);
+  const [attendanceSessionId, setAttendanceSessionId] = useState<
+    number | string | null
+  >(null);
+  const [viewSessionReport, setViewSessionReport] =
+    useState<AttendanceReport | null>(null);
+  const [viewSessionReportLoading, setViewSessionReportLoading] =
+    useState(false);
+  const [viewSessionReportError, setViewSessionReportError] = useState<
+    string | null
+  >(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -97,31 +123,45 @@ export default function SundaySchoolPage() {
     loading: false,
   });
 
-  const { classData, loading: classLoading, fetchClass } = useSundaySchoolClass(
-    viewEditClass?.id || null
-  );
-  const { sessions, loading: sessionsLoading, fetchSessions, createSession, updateSession, deleteSession } =
-    useSundaySchoolSessions(viewEditClass?.id || null);
-  const { report, loading: reportLoading, fetchReport } = useSundaySchoolAttendanceReport(
-    attendanceSessionId
-  );
-  const { createRecurring, loading: recurringLoading } = useCreateRecurringSessions();
+  const {
+    classData,
+    loading: classLoading,
+    fetchClass,
+  } = useSundaySchoolClass(viewEditClass?.id || null);
+  const {
+    sessions,
+    loading: sessionsLoading,
+    fetchSessions,
+    createSession,
+    updateSession,
+    deleteSession,
+  } = useSundaySchoolSessions(viewEditClass?.id || null);
+  const {
+    report,
+    loading: reportLoading,
+    fetchReport,
+  } = useSundaySchoolAttendanceReport(attendanceSessionId);
+  const { createRecurring, loading: recurringLoading } =
+    useCreateRecurringSessions();
 
   // Debounced search for better performance
-  const handleSearchChange = useCallback((query: string) => {
-    setSearchValue(query);
+  const handleSearchChange = useCallback(
+    (query: string) => {
+      setSearchValue(query);
 
-    // Clear existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
+      // Clear existing timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
 
-    // Set new timeout for debounced search
-    searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedSearchQuery(query);
-      setFilter("search", query);
-    }, 300); // 300ms delay
-  }, [setFilter]);
+      // Set new timeout for debounced search
+      searchTimeoutRef.current = setTimeout(() => {
+        setDebouncedSearchQuery(query);
+        setFilter("search", query);
+      }, 300); // 300ms delay
+    },
+    [setFilter]
+  );
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -146,7 +186,10 @@ export default function SundaySchoolPage() {
       setFormError(null);
       await createClass({
         ...values,
-        category_id: typeof values.category_id === 'string' ? parseInt(values.category_id) : values.category_id,
+        category_id:
+          typeof values.category_id === "string"
+            ? parseInt(values.category_id)
+            : values.category_id,
       } as any);
       setSuccessMessage(`Class "${values.name}" has been created.`);
       setIsCreateOpen(false);
@@ -156,7 +199,9 @@ export default function SundaySchoolPage() {
       const errorValues = Object.values(errorData);
       setFormError(
         err.response?.data?.detail ||
-          (errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined) ||
+          (errorValues.length > 0 && Array.isArray(errorValues[0])
+            ? errorValues[0][0]
+            : undefined) ||
           "Failed to create class"
       );
     } finally {
@@ -171,7 +216,10 @@ export default function SundaySchoolPage() {
       setFormError(null);
       await updateClass(viewEditClass.id, {
         ...values,
-        category_id: typeof values.category_id === 'string' ? parseInt(values.category_id) : values.category_id,
+        category_id:
+          typeof values.category_id === "string"
+            ? parseInt(values.category_id)
+            : values.category_id,
       } as any);
       setSuccessMessage(`Class "${values.name}" has been updated.`);
       setViewEditClass(null);
@@ -182,7 +230,9 @@ export default function SundaySchoolPage() {
       const errorValues = Object.values(errorData);
       setFormError(
         err.response?.data?.detail ||
-          (errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined) ||
+          (errorValues.length > 0 && Array.isArray(errorValues[0])
+            ? errorValues[0][0]
+            : undefined) ||
           "Failed to update class"
       );
     } finally {
@@ -211,9 +261,14 @@ export default function SundaySchoolPage() {
       setFormError(null);
       await createSession({
         ...values,
-        sunday_school_class_id: typeof viewEditClass.id === 'string' ? parseInt(viewEditClass.id) : viewEditClass.id,
+        sunday_school_class_id:
+          typeof viewEditClass.id === "string"
+            ? parseInt(viewEditClass.id)
+            : viewEditClass.id,
       } as any);
-      setSuccessMessage("Session created successfully. Event added to calendar.");
+      setSuccessMessage(
+        "Session created successfully. Event added to calendar."
+      );
       setIsSessionModalOpen(false);
       setEditingSession(null);
       setTimeout(() => setSuccessMessage(null), 5000);
@@ -222,7 +277,9 @@ export default function SundaySchoolPage() {
       const errorValues = Object.values(errorData);
       setFormError(
         err.response?.data?.detail ||
-          (errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined) ||
+          (errorValues.length > 0 && Array.isArray(errorValues[0])
+            ? errorValues[0][0]
+            : undefined) ||
           "Failed to create session"
       );
     } finally {
@@ -233,13 +290,15 @@ export default function SundaySchoolPage() {
   const handleViewSession = async (session: SundaySchoolSession) => {
     setViewingSession(session);
     setFormError(null);
-    
+
     // Fetch attendance report if event exists
     if (session.event_id) {
       setViewSessionReportLoading(true);
       setViewSessionReportError(null);
       try {
-        const response = await sundaySchoolApi.getSessionAttendanceReport(session.id);
+        const response = await sundaySchoolApi.getSessionAttendanceReport(
+          session.id
+        );
         setViewSessionReport(response.data);
       } catch (err: any) {
         setViewSessionReportError("Failed to load attendance data");
@@ -266,7 +325,10 @@ export default function SundaySchoolPage() {
       setFormError(null);
       await updateSession(editingSession.id, {
         ...values,
-        sunday_school_class_id: typeof values.sunday_school_class_id === 'string' ? parseInt(values.sunday_school_class_id) : values.sunday_school_class_id,
+        sunday_school_class_id:
+          typeof values.sunday_school_class_id === "string"
+            ? parseInt(values.sunday_school_class_id)
+            : values.sunday_school_class_id,
       } as any);
       setSuccessMessage("Session updated successfully.");
       setIsSessionModalOpen(false);
@@ -278,7 +340,9 @@ export default function SundaySchoolPage() {
           (() => {
             const errorData = err.response?.data || {};
             const errorValues = Object.values(errorData);
-            return errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined;
+            return errorValues.length > 0 && Array.isArray(errorValues[0])
+              ? errorValues[0][0]
+              : undefined;
           })() ||
           "Failed to update session"
       );
@@ -305,7 +369,9 @@ export default function SundaySchoolPage() {
           (() => {
             const errorData = err.response?.data || {};
             const errorValues = Object.values(errorData);
-            return errorValues.length > 0 && Array.isArray(errorValues[0]) ? errorValues[0][0] : undefined;
+            return errorValues.length > 0 && Array.isArray(errorValues[0])
+              ? errorValues[0][0]
+              : undefined;
           })() ||
           "Failed to create recurring sessions"
       );
@@ -314,12 +380,19 @@ export default function SundaySchoolPage() {
     }
   };
 
-  const handleBulkEnroll = async (personIds: number[], role: ClassMemberRole) => {
+  const handleBulkEnroll = async (
+    personIds: number[],
+    role: ClassMemberRole
+  ) => {
     if (!viewEditClass) return;
     try {
       await bulkEnroll(viewEditClass.id, personIds, role);
       await fetchClass();
-      setSuccessMessage(`Enrolled ${personIds.length} ${personIds.length === 1 ? "person" : "people"}.`);
+      setSuccessMessage(
+        `Enrolled ${personIds.length} ${
+          personIds.length === 1 ? "person" : "people"
+        }.`
+      );
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
       throw err;
@@ -339,7 +412,11 @@ export default function SundaySchoolPage() {
     try {
       await bulkEnroll(categoryClass.id, personIds, role);
       await fetchUnenrolled();
-      setSuccessMessage(`Enrolled ${personIds.length} ${personIds.length === 1 ? "person" : "people"} into ${categoryClass.name}.`);
+      setSuccessMessage(
+        `Enrolled ${personIds.length} ${
+          personIds.length === 1 ? "person" : "people"
+        } into ${categoryClass.name}.`
+      );
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
       throw err;
@@ -369,7 +446,9 @@ export default function SundaySchoolPage() {
     }
 
     if (filters.category && filters.category !== "all") {
-      filtered = filtered.filter((cls) => cls.category.id === Number(filters.category));
+      filtered = filtered.filter(
+        (cls) => cls.category.id === Number(filters.category)
+      );
     }
 
     if (filters.is_active !== "all") {
@@ -387,7 +466,9 @@ export default function SundaySchoolPage() {
         <div>
           <p className="font-semibold text-[#2D3748]">{row.name}</p>
           {row.description && (
-            <p className="text-sm text-gray-500 line-clamp-2">{row.description}</p>
+            <p className="text-sm text-gray-500 line-clamp-2">
+              {row.description}
+            </p>
           )}
         </div>
       ),
@@ -399,7 +480,9 @@ export default function SundaySchoolPage() {
         <div>
           <p className="text-sm text-gray-700">{row.category.name}</p>
           {row.category.age_range_display && (
-            <p className="text-xs text-gray-500">{row.category.age_range_display}</p>
+            <p className="text-xs text-gray-500">
+              {row.category.age_range_display}
+            </p>
           )}
         </div>
       ),
@@ -413,7 +496,8 @@ export default function SundaySchoolPage() {
             <span className="font-medium">{row.members_count || 0}</span> total
           </p>
           <p className="text-xs text-gray-500">
-            {row.students_count || 0} students, {row.teachers_count || 0} teachers
+            {row.students_count || 0} students, {row.teachers_count || 0}{" "}
+            teachers
           </p>
         </div>
       ),
@@ -431,9 +515,7 @@ export default function SundaySchoolPage() {
       render: (value: boolean) => (
         <span
           className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-            value
-              ? "bg-green-100 text-green-800"
-              : "bg-gray-200 text-gray-600"
+            value ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-600"
           }`}
         >
           {value ? "Active" : "Inactive"}
@@ -468,13 +550,19 @@ export default function SundaySchoolPage() {
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-[#2D3748]">Sunday School</h1>
+              <h1 className="text-2xl font-bold text-[#2D3748]">
+                Sunday School
+              </h1>
               <p className="text-sm text-gray-500">
-                Manage classes, enrollments, and track attendance for Sunday School.
+                Manage classes, enrollments, and track attendance for Sunday
+                School.
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="tertiary" onClick={() => setIsCategoryManagementOpen(true)}>
+              <Button
+                variant="tertiary"
+                onClick={() => setIsCategoryManagementOpen(true)}
+              >
                 Manage Categories
               </Button>
               <Button variant="primary" onClick={() => setIsCreateOpen(true)}>
@@ -521,7 +609,9 @@ export default function SundaySchoolPage() {
           <Card title="Filter classes">
             <div className="flex flex-col gap-4 md:flex-row md:items-end">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Search
+                </label>
                 <input
                   type="search"
                   value={searchValue}
@@ -532,11 +622,16 @@ export default function SundaySchoolPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category
+                </label>
                 <select
                   value={filters.category === "all" ? "all" : filters.category}
                   onChange={(e) =>
-                    setFilter("category", e.target.value === "all" ? "all" : e.target.value)
+                    setFilter(
+                      "category",
+                      e.target.value === "all" ? "all" : e.target.value
+                    )
                   }
                   className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
@@ -552,7 +647,9 @@ export default function SundaySchoolPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
                 <select
                   value={
                     filters.is_active === "all"
@@ -594,9 +691,12 @@ export default function SundaySchoolPage() {
               <ErrorMessage message={classesError} />
             ) : filteredClasses.length === 0 ? (
               <div className="py-12 text-center">
-                <h3 className="text-lg font-semibold text-gray-600">No classes yet</h3>
+                <h3 className="text-lg font-semibold text-gray-600">
+                  No classes yet
+                </h3>
                 <p className="text-sm text-gray-500 mt-2">
-                  Once you add your first Sunday School class, you&rsquo;ll see it listed here.
+                  Once you add your first Sunday School class, you&rsquo;ll see
+                  it listed here.
                 </p>
               </div>
             ) : (
@@ -606,7 +706,13 @@ export default function SundaySchoolPage() {
 
           {summary && (
             <div className="space-y-6">
-              <SundaySchoolSummary summary={summary} loading={summaryLoading} error={summaryError} />
+              {user?.role !== "MEMBER" && (
+                <SundaySchoolSummary
+                  summary={summary}
+                  loading={summaryLoading}
+                  error={summaryError}
+                />
+              )}
               <UnenrolledByCategory
                 unenrolled={unenrolled}
                 loading={unenrolledLoading}
@@ -657,8 +763,12 @@ export default function SundaySchoolPage() {
           categories={categories}
           loading={categoriesLoading}
           error={categoriesError}
-          onCreate={async (data) => { await createCategory(data); }}
-          onUpdate={async (id, data) => { await updateCategory(id, data); }}
+          onCreate={async (data) => {
+            await createCategory(data);
+          }}
+          onUpdate={async (id, data) => {
+            await updateCategory(id, data);
+          }}
           onDelete={deleteCategory}
         />
       </Modal>
@@ -680,8 +790,12 @@ export default function SundaySchoolPage() {
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-gray-200">
               <div>
-                <h2 className="text-sm font-medium text-gray-900">Class Details</h2>
-                <p className="text-[11px] text-gray-600 mt-0.5">{classData.name}</p>
+                <h2 className="text-sm font-medium text-gray-900">
+                  Class Details
+                </h2>
+                <p className="text-[11px] text-gray-600 mt-0.5">
+                  {classData.name}
+                </p>
               </div>
               <button
                 onClick={() => {
@@ -690,7 +804,12 @@ export default function SundaySchoolPage() {
                 }}
                 className="text-red-600 hover:text-red-700 text-xl font-bold p-1 rounded-md hover:bg-red-50 transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -717,30 +836,46 @@ export default function SundaySchoolPage() {
 
                 {classData.description && (
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Description</p>
-                    <p className="text-sm text-gray-900">{classData.description}</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      Description
+                    </p>
+                    <p className="text-sm text-gray-900">
+                      {classData.description}
+                    </p>
                   </div>
                 )}
 
                 {classData.yearly_theme && (
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Yearly Theme</p>
-                    <p className="text-sm text-gray-900">{classData.yearly_theme}</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      Yearly Theme
+                    </p>
+                    <p className="text-sm text-gray-900">
+                      {classData.yearly_theme}
+                    </p>
                   </div>
                 )}
 
                 {classData.room_location && (
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Room Location</p>
-                    <p className="text-sm text-gray-900">{classData.room_location}</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      Room Location
+                    </p>
+                    <p className="text-sm text-gray-900">
+                      {classData.room_location}
+                    </p>
                   </div>
                 )}
 
                 {classData.meeting_time && (
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Meeting Time</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      Meeting Time
+                    </p>
                     <p className="text-sm text-gray-900">
-                      {new Date(`2000-01-01T${classData.meeting_time}`).toLocaleTimeString([], {
+                      {new Date(
+                        `2000-01-01T${classData.meeting_time}`
+                      ).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
@@ -780,37 +915,18 @@ export default function SundaySchoolPage() {
               />
             </div>
 
-          {/* Footer */}
-          <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
-            <Button
-              onClick={() => {
-                setDeleteConfirmation({ isOpen: true, class: classData, loading: false });
-              }}
-              variant="secondary"
-              className="!text-red-600 py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </Button>
-            <div className="flex gap-3">
+            {/* Footer */}
+            <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
               <Button
                 onClick={() => {
-                  setViewEditClass(null);
-                  setViewMode("view");
+                  setDeleteConfirmation({
+                    isOpen: true,
+                    class: classData,
+                    loading: false,
+                  });
                 }}
                 variant="secondary"
-                className="!text-black py-4 px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+                className="!text-red-600 py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
               >
                 <svg
                   className="w-4 h-4"
@@ -822,35 +938,58 @@ export default function SundaySchoolPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                   />
                 </svg>
-                <span>Close</span>
               </Button>
-              <Button
-                onClick={() => {
-                  setViewMode("edit");
-                }}
-                variant="secondary"
-                className="!text-blue-600 py-4 px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => {
+                    setViewEditClass(null);
+                    setViewMode("view");
+                  }}
+                  variant="secondary"
+                  className="!text-black py-4 px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-                <span>Edit</span>
-              </Button>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  <span>Close</span>
+                </Button>
+                <Button
+                  onClick={() => {
+                    setViewMode("edit");
+                  }}
+                  variant="secondary"
+                  className="!text-blue-600 py-4 px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  <span>Edit</span>
+                </Button>
+              </div>
             </div>
-          </div>
           </div>
         ) : (
           <ErrorMessage message="Failed to load class details" />
@@ -872,7 +1011,9 @@ export default function SundaySchoolPage() {
         {viewEditClass && (
           <SessionForm
             classData={viewEditClass}
-            onSubmit={editingSession ? handleUpdateSession : handleCreateSession}
+            onSubmit={
+              editingSession ? handleUpdateSession : handleCreateSession
+            }
             onCancel={() => {
               setIsSessionModalOpen(false);
               setEditingSession(null);
@@ -959,7 +1100,11 @@ export default function SundaySchoolPage() {
         }}
         title="Attendance Report"
       >
-        <AttendanceReportComponent report={report} loading={reportLoading} error={null} />
+        <AttendanceReportComponent
+          report={report}
+          loading={reportLoading}
+          error={null}
+        />
       </Modal>
 
       {/* Delete Confirmation Modal */}
@@ -979,4 +1124,3 @@ export default function SundaySchoolPage() {
     </>
   );
 }
-

@@ -246,6 +246,19 @@ export const moduleCoordinatorsApi = {
     resource_id?: number | null;
     resource_type?: string;
   }) => api.post<ModuleCoordinator>("/people/module-coordinators/", data),
+  bulkCreate: (
+    assignments: Array<{
+      person: number;
+      module: ModuleCoordinator["module"];
+      level: ModuleCoordinator["level"];
+      resource_id?: number | null;
+      resource_type?: string;
+    }>
+  ) =>
+    api.post<{
+      message: string;
+      created: ModuleCoordinator[];
+    }>("/people/module-coordinators/bulk-create/", { assignments }),
   update: (
     id: number,
     data: Partial<{

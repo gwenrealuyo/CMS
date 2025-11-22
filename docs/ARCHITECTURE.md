@@ -31,3 +31,4 @@
 ### Notes
 
 - Permissions are currently permissive (`AllowAny`); toggle to `IsAuthenticated` when auth is in place.
+- Access Control: See `docs/ACCESS_CONTROL.md` for complete access control matrix, role-based permissions, and module coordinator assignment rules.

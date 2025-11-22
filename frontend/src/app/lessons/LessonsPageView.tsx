@@ -22,6 +22,7 @@ import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Card from "@/src/components/ui/Card";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import NoteInputModal from "@/src/components/ui/NoteInputModal";
+import { useAuth } from "@/src/contexts/AuthContext";
 import {
   Lesson,
   LessonCommitmentSettings,
@@ -287,6 +288,15 @@ export default function LessonsPageView({
   onSetLessonDeleteTarget,
   onSetLessonDeleteError,
 }: LessonsPageViewProps) {
+  const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  
+  // Show stats cards for: ADMIN, PASTOR, Senior Coordinators, Cluster Coordinators
+  const shouldShowStats = 
+    user?.role === "ADMIN" || 
+    user?.role === "PASTOR" || 
+    isSeniorCoordinator() ||
+    isModuleCoordinator("CLUSTER", "COORDINATOR");
+  
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -312,12 +322,14 @@ export default function LessonsPageView({
 
         {lessonsError && <ErrorMessage message={lessonsError} />}
 
-        <LessonStatsCards
-          summary={summary}
-          visitorsAwaitingCount={summary?.unassigned_visitors ?? 0}
-          loading={summaryLoading}
-          error={summaryError}
-        />
+        {shouldShowStats && (
+          <LessonStatsCards
+            summary={summary}
+            visitorsAwaitingCount={summary?.unassigned_visitors ?? 0}
+            loading={summaryLoading}
+            error={summaryError}
+          />
+        )}
 
         <div className="mt-10 border-t border-gray-200 pt-7 space-y-6">
           <LessonContentTabs

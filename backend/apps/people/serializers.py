@@ -27,6 +27,109 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
         return obj.person.get_full_name() or obj.person.username
 
 
+class ModuleCoordinatorBulkCreateSerializer(serializers.Serializer):
+    """
+    Serializer for bulk creating multiple module coordinator assignments.
+    Validates all assignments before creating any (atomic operation).
+    """
+    assignments = serializers.ListField(
+        child=serializers.DictField(),
+        min_length=1,
+        help_text="List of assignment objects to create"
+    )
+    
+    def validate_assignments(self, value):
+        """
+        Validate all assignments before creating any.
+        """
+        if not value:
+            raise serializers.ValidationError("At least one assignment is required.")
+        
+        validated_assignments = []
+        seen_combinations = set()
+        
+        for idx, assignment in enumerate(value):
+            # Validate required fields
+            if 'person' not in assignment:
+                raise serializers.ValidationError(
+                    f"Assignment {idx + 1}: 'person' field is required."
+                )
+            if 'module' not in assignment:
+                raise serializers.ValidationError(
+                    f"Assignment {idx + 1}: 'module' field is required."
+                )
+            if 'level' not in assignment:
+                raise serializers.ValidationError(
+                    f"Assignment {idx + 1}: 'level' field is required."
+                )
+            
+            person_id = assignment['person']
+            module = assignment['module']
+            level = assignment['level']
+            resource_id = assignment.get('resource_id')
+            resource_type = assignment.get('resource_type', '')
+            
+            # Validate person exists
+            try:
+                person = Person.objects.get(id=person_id)
+            except Person.DoesNotExist:
+                raise serializers.ValidationError(
+                    f"Assignment {idx + 1}: Person with ID {person_id} does not exist."
+                )
+            
+            # Validate module and level choices
+            if module not in [choice[0] for choice in ModuleCoordinator.ModuleType.choices]:
+                raise serializers.ValidationError(
+                    f"Assignment {idx + 1}: Invalid module '{module}'."
+                )
+            if level not in [choice[0] for choice in ModuleCoordinator.CoordinatorLevel.choices]:
+                raise serializers.ValidationError(
+                    f"Assignment {idx + 1}: Invalid level '{level}'."
+                )
+            
+            # Check for duplicates within the request
+            combination_key = (person_id, module, resource_id)
+            if combination_key in seen_combinations:
+                raise serializers.ValidationError(
+                    f"Assignment {idx + 1}: Duplicate assignment (person={person_id}, module={module}, resource_id={resource_id})."
+                )
+            seen_combinations.add(combination_key)
+            
+            # Check for existing assignments (respect unique_together constraint)
+            existing = ModuleCoordinator.objects.filter(
+                person_id=person_id,
+                module=module,
+                resource_id=resource_id
+            )
+            if existing.exists():
+                raise serializers.ValidationError(
+                    f"Assignment {idx + 1}: Assignment already exists for person {person_id}, module {module}, resource_id {resource_id}."
+                )
+            
+            validated_assignments.append({
+                'person': person,
+                'module': module,
+                'level': level,
+                'resource_id': resource_id if resource_id else None,
+                'resource_type': resource_type,
+            })
+        
+        return validated_assignments
+    
+    def create(self, validated_data):
+        """
+        Create all assignments atomically.
+        """
+        assignments_data = validated_data['assignments']
+        created_assignments = []
+        
+        for assignment_data in assignments_data:
+            assignment = ModuleCoordinator.objects.create(**assignment_data)
+            created_assignments.append(assignment)
+        
+        return {'created': created_assignments}
+
+
 class JourneySerializer(serializers.ModelSerializer):
     type_display = serializers.CharField(source="get_type_display", read_only=True)
     user = serializers.PrimaryKeyRelatedField(queryset=Person.objects.all())

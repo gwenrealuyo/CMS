@@ -19,13 +19,19 @@ Base URL: `/api/people/`
 
 - List: `GET /api/people/`
   - Query: `search` (username, email, first_name, last_name), `role`
+  - Access: Based on role and module coordinator assignments. See `docs/ACCESS_CONTROL.md` for details.
 - Retrieve: `GET /api/people/{id}/`
+  - Access: Based on role and module coordinator assignments. See `docs/ACCESS_CONTROL.md` for details.
 - Create: `POST /api/people/`
   - Required: `first_name`, `last_name`, `role`
   - Auto: `username` generated from first two letters of first name + last name; uniqueness enforced by suffixing a counter
+  - Access: ADMIN, PASTOR, or Senior Coordinator
 - Update: `PUT /api/people/{id}/`
+  - Access: ADMIN, PASTOR, or Senior Coordinator
 - Partial Update: `PATCH /api/people/{id}/`
+  - Access: ADMIN, PASTOR, or Senior Coordinator
 - Delete: `DELETE /api/people/{id}/`
+  - Access: ADMIN, PASTOR
 
 Person fields (serializer)
 
@@ -38,11 +44,17 @@ date_first_attended?, inviter (Person id)?, member_id?, status?
 ### Family
 
 - List: `GET /api/people/families/`
+  - Access: Based on role and module coordinator assignments. Cluster coordinators see families in their clusters + families of cluster members. See `docs/ACCESS_CONTROL.md` for details.
 - Retrieve: `GET /api/people/families/{id}/`
+  - Access: Based on role and module coordinator assignments. See `docs/ACCESS_CONTROL.md` for details.
 - Create: `POST /api/people/families/`
+  - Access: ADMIN, PASTOR, or Senior Coordinator
 - Update: `PUT /api/people/families/{id}/`
+  - Access: ADMIN, PASTOR, or Senior Coordinator
 - Partial Update: `PATCH /api/people/families/{id}/`
+  - Access: ADMIN, PASTOR, or Senior Coordinator
 - Delete: `DELETE /api/people/families/{id}/`
+  - Access: ADMIN, PASTOR
 
 Family fields (serializer)
 
@@ -85,8 +97,31 @@ id, user (Person ID), title?, date, type (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE),
 description?, verified_by (Person ID | null), created_at (read-only)
 ```
 
+### Module Coordinator Assignments
+
+- List: `GET /api/people/module-coordinators/`
+  - Query: `person`, `module`, `level`, `resource_type`, `search`
+  - Access: ADMIN only
+- Retrieve: `GET /api/people/module-coordinators/{id}/`
+  - Access: ADMIN only
+- Create: `POST /api/people/module-coordinators/`
+  - Access: ADMIN only
+  - Payload: `{ person, module, level, resource_id?, resource_type? }`
+- Bulk Create: `POST /api/people/module-coordinators/bulk-create/`
+  - Access: ADMIN only
+  - Payload: `{ assignments: [{ person, module, level, resource_id?, resource_type? }, ...] }`
+  - Creates multiple assignments atomically (all validated before any are created)
+  - Returns: `{ message: string, created: ModuleCoordinator[] }`
+- Update: `PUT /api/people/module-coordinators/{id}/`
+  - Access: ADMIN only
+- Partial Update: `PATCH /api/people/module-coordinators/{id}/`
+  - Access: ADMIN only
+- Delete: `DELETE /api/people/module-coordinators/{id}/`
+  - Access: ADMIN only
+
 ### Notes
 
 - Media uploads for `photo` use `MEDIA_URL = /media/` and `MEDIA_ROOT` from settings.
 - Pagination is default DRF (not explicitly configured).
 - Person serializer includes `journeys` field (read-only) with full journey data.
+- Access control: See `docs/ACCESS_CONTROL.md` for complete access matrix and permission rules.

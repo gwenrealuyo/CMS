@@ -134,6 +134,33 @@ export default function ModuleCoordinatorManager() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Multiple assignments state
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkPerson, setBulkPerson] = useState<number | "">("");
+  const [bulkAssignments, setBulkAssignments] = useState<
+    Array<{
+      module: ModuleCoordinator["module"] | "";
+      level: ModuleCoordinator["level"] | "";
+      assignmentType: "module-wide" | "resource-specific";
+      resource_id: number | null;
+      resource_type: string;
+    }>
+  >([
+    {
+      module: "",
+      level: "",
+      assignmentType: "module-wide",
+      resource_id: null,
+      resource_type: "",
+    },
+  ]);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [bulkAvailableResources, setBulkAvailableResources] = useState<
+    Array<{ id: number; name: string; type: string }>
+  >([]);
+  const [bulkLoadingResources, setBulkLoadingResources] = useState(false);
+
   // Resource selection state
   const [assignmentType, setAssignmentType] = useState<
     "module-wide" | "resource-specific"
@@ -377,6 +404,147 @@ export default function ModuleCoordinatorManager() {
     return formatPersonName(person);
   };
 
+  // Bulk assignment handlers
+  const handleAddBulkAssignment = () => {
+    setBulkAssignments([
+      ...bulkAssignments,
+      {
+        module: "",
+        level: "",
+        assignmentType: "module-wide",
+        resource_id: null,
+        resource_type: "",
+      },
+    ]);
+  };
+
+  const handleRemoveBulkAssignment = (index: number) => {
+    if (bulkAssignments.length > 1) {
+      setBulkAssignments(bulkAssignments.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleBulkAssignmentChange = (
+    index: number,
+    field: string,
+    value: any
+  ) => {
+    const updated = [...bulkAssignments];
+    updated[index] = { ...updated[index], [field]: value };
+
+    // Auto-select assignment type based on level
+    if (field === "level") {
+      if (value === "SENIOR_COORDINATOR") {
+        updated[index].assignmentType = "module-wide";
+        updated[index].resource_id = null;
+        updated[index].resource_type = "";
+      } else if (value === "TEACHER" || value === "BIBLE_SHARER") {
+        updated[index].assignmentType = "resource-specific";
+      } else if (
+        value === "COORDINATOR" &&
+        updated[index].assignmentType === "module-wide"
+      ) {
+        updated[index].assignmentType = "resource-specific";
+      }
+    }
+
+    // Reset resource when module changes
+    if (field === "module") {
+      updated[index].resource_id = null;
+      updated[index].resource_type = "";
+    }
+
+    setBulkAssignments(updated);
+  };
+
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBulkSubmitting(true);
+    setBulkError("");
+
+    try {
+      if (!bulkPerson) {
+        setBulkError("Please select a person.");
+        setBulkSubmitting(false);
+        return;
+      }
+
+      // Validate all assignments
+      const validatedAssignments = bulkAssignments
+        .filter((assignment) => assignment.module && assignment.level)
+        .map((assignment) => ({
+          person: Number(bulkPerson),
+          module: assignment.module as ModuleCoordinator["module"],
+          level: assignment.level as ModuleCoordinator["level"],
+          resource_id:
+            assignment.assignmentType === "resource-specific"
+              ? assignment.resource_id
+              : null,
+          resource_type:
+            assignment.assignmentType === "resource-specific"
+              ? assignment.resource_type
+              : "",
+        }));
+
+      if (validatedAssignments.length === 0) {
+        setBulkError("Please add at least one valid assignment.");
+        setBulkSubmitting(false);
+        return;
+      }
+
+      // Check for duplicates
+      const seen = new Set<string>();
+      for (const assignment of validatedAssignments) {
+        const key = `${assignment.module}-${assignment.resource_id}`;
+        if (seen.has(key)) {
+          setBulkError(
+            `Duplicate assignment detected: ${assignment.module} with resource_id ${assignment.resource_id}`
+          );
+          setBulkSubmitting(false);
+          return;
+        }
+        seen.add(key);
+      }
+
+      const response = await moduleCoordinatorsApi.bulkCreate(
+        validatedAssignments
+      );
+
+      setIsBulkModalOpen(false);
+      setBulkPerson("");
+      setBulkAssignments([
+        {
+          module: "",
+          level: "",
+          assignmentType: "module-wide",
+          resource_id: null,
+          resource_type: "",
+        },
+      ]);
+      await fetchData();
+
+      // Show success message
+      alert(
+        `Successfully created ${
+          response.data.created.length
+        } assignment(s) for ${getPersonName(Number(bulkPerson))}.`
+      );
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.detail ||
+        (err.response?.data?.assignments &&
+        Array.isArray(err.response.data.assignments)
+          ? err.response.data.assignments.join(", ")
+          : JSON.stringify(err.response?.data)) ||
+        err.message ||
+        "Failed to create assignments.";
+      setBulkError(errorMessage);
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
   // Format person options for ScalableSelect
   const personOptions = useMemo(() => {
     return people
@@ -407,7 +575,12 @@ export default function ModuleCoordinatorManager() {
         <h2 className="text-xl font-semibold text-[#2D3748]">
           Module Coordinator Assignments
         </h2>
-        <Button onClick={handleCreate}>Create Assignment</Button>
+        <div className="flex gap-2">
+          <Button onClick={handleCreate}>Create Assignment</Button>
+          <Button onClick={() => setIsBulkModalOpen(true)} variant="secondary">
+            Create Multiple Assignments
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -958,6 +1131,356 @@ export default function ModuleCoordinatorManager() {
         variant="danger"
         loading={deleteConfirmation.loading}
       />
+
+      {/* Bulk Create Modal */}
+      <Modal
+        isOpen={isBulkModalOpen}
+        onClose={() => {
+          setIsBulkModalOpen(false);
+          setBulkError("");
+          setBulkPerson("");
+          setBulkAssignments([
+            {
+              module: "",
+              level: "",
+              assignmentType: "module-wide",
+              resource_id: null,
+              resource_type: "",
+            },
+          ]);
+        }}
+        title="Create Multiple Assignments"
+      >
+        <form onSubmit={handleBulkSubmit} className="space-y-4">
+          {bulkError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{bulkError}</p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Person <span className="text-red-500">*</span>
+            </label>
+            <ScalableSelect
+              options={[
+                { label: "Select a person...", value: "" },
+                ...personOptions,
+              ]}
+              value={bulkPerson ? String(bulkPerson) : ""}
+              onChange={(value) => setBulkPerson(value ? Number(value) : "")}
+              placeholder="Select a person..."
+              className="w-full"
+              showSearch
+            />
+          </div>
+
+          <div className="border-t border-gray-200 pt-4">
+            <div className="flex justify-between items-center mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Assignments
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleAddBulkAssignment}
+                className="text-sm"
+              >
+                Add Another Assignment
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {bulkAssignments.map((assignment, index) => (
+                <div
+                  key={index}
+                  className="p-4 border border-gray-200 rounded-lg space-y-3"
+                >
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-sm font-medium text-gray-700">
+                      Assignment {index + 1}
+                    </h4>
+                    {bulkAssignments.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBulkAssignment(index)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Module <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={assignment.module}
+                      onChange={(e) =>
+                        handleBulkAssignmentChange(
+                          index,
+                          "module",
+                          e.target.value
+                        )
+                      }
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    >
+                      <option value="">Select a module...</option>
+                      {MODULE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Level <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={assignment.level}
+                      onChange={(e) =>
+                        handleBulkAssignmentChange(
+                          index,
+                          "level",
+                          e.target.value
+                        )
+                      }
+                      required
+                      disabled={!assignment.module}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">
+                        {assignment.module
+                          ? "Select a level..."
+                          : "Select a module first"}
+                      </option>
+                      {getAvailableLevels(assignment.module).map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {assignment.module &&
+                    !["FINANCE", "MINISTRIES"].includes(assignment.module) && (
+                      <div className="border-t border-gray-200 pt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Assignment Scope
+                        </label>
+                        <div className="flex gap-4">
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`assignmentType-${index}`}
+                              value="module-wide"
+                              checked={
+                                assignment.assignmentType === "module-wide"
+                              }
+                              onChange={() =>
+                                handleBulkAssignmentChange(
+                                  index,
+                                  "assignmentType",
+                                  "module-wide"
+                                )
+                              }
+                              disabled={
+                                assignment.level === "TEACHER" ||
+                                assignment.level === "BIBLE_SHARER"
+                              }
+                              className="mr-2 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <span
+                              className={
+                                assignment.level === "TEACHER" ||
+                                assignment.level === "BIBLE_SHARER"
+                                  ? "text-gray-400"
+                                  : "text-gray-900"
+                              }
+                            >
+                              Module-wide
+                            </span>
+                          </label>
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`assignmentType-${index}`}
+                              value="resource-specific"
+                              checked={
+                                assignment.assignmentType ===
+                                "resource-specific"
+                              }
+                              onChange={() =>
+                                handleBulkAssignmentChange(
+                                  index,
+                                  "assignmentType",
+                                  "resource-specific"
+                                )
+                              }
+                              disabled={
+                                assignment.level === "SENIOR_COORDINATOR"
+                              }
+                              className="mr-2 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <span
+                              className={
+                                assignment.level === "SENIOR_COORDINATOR"
+                                  ? "text-gray-400"
+                                  : "text-gray-900"
+                              }
+                            >
+                              Specific Resource
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                  {assignment.assignmentType === "resource-specific" &&
+                    assignment.module && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Select Resource{" "}
+                          {assignment.level !== "SENIOR_COORDINATOR" && (
+                            <span className="text-red-500">*</span>
+                          )}
+                        </label>
+                        {bulkLoadingResources ? (
+                          <div className="flex items-center justify-center py-2">
+                            <LoadingSpinner />
+                            <span className="ml-2 text-sm text-gray-500">
+                              Loading resources...
+                            </span>
+                          </div>
+                        ) : (
+                          <select
+                            value={assignment.resource_id || ""}
+                            onChange={async (e) => {
+                              const resourceId = e.target.value
+                                ? Number(e.target.value)
+                                : null;
+                              const resource = bulkAvailableResources.find(
+                                (r) => r.id === resourceId
+                              );
+                              handleBulkAssignmentChange(
+                                index,
+                                "resource_id",
+                                resourceId
+                              );
+                              handleBulkAssignmentChange(
+                                index,
+                                "resource_type",
+                                resource?.type || ""
+                              );
+                            }}
+                            required={assignment.level !== "SENIOR_COORDINATOR"}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                            onFocus={async () => {
+                              if (!assignment.module) return;
+                              setBulkLoadingResources(true);
+                              try {
+                                let resources: Array<{
+                                  id: number;
+                                  name: string;
+                                  type: string;
+                                }> = [];
+
+                                switch (assignment.module) {
+                                  case "CLUSTER":
+                                    const clusters = await clustersApi.getAll();
+                                    resources = clusters.data.map((c: any) => ({
+                                      id: c.id,
+                                      name:
+                                        c.name || c.code || `Cluster #${c.id}`,
+                                      type: "Cluster",
+                                    }));
+                                    break;
+                                  case "EVANGELISM":
+                                    const groups =
+                                      await evangelismApi.listGroups();
+                                    resources = groups.data.map((g: any) => ({
+                                      id: g.id,
+                                      name:
+                                        g.name || `Evangelism Group #${g.id}`,
+                                      type: "EvangelismGroup",
+                                    }));
+                                    break;
+                                  case "SUNDAY_SCHOOL":
+                                    const classes =
+                                      await sundaySchoolApi.listClasses();
+                                    resources = classes.data.map((c: any) => ({
+                                      id: c.id,
+                                      name:
+                                        c.name ||
+                                        `Sunday School Class #${c.id}`,
+                                      type: "SundaySchoolClass",
+                                    }));
+                                    break;
+                                }
+                                setBulkAvailableResources(resources);
+                              } catch (err) {
+                                console.error(
+                                  "Failed to fetch resources:",
+                                  err
+                                );
+                                setBulkAvailableResources([]);
+                              } finally {
+                                setBulkLoadingResources(false);
+                              }
+                            }}
+                          >
+                            <option value="">Select a resource...</option>
+                            {bulkAvailableResources.map((resource) => (
+                              <option key={resource.id} value={resource.id}>
+                                {resource.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <Button
+              type="button"
+              variant="tertiary"
+              className="flex-1"
+              onClick={() => {
+                setIsBulkModalOpen(false);
+                setBulkError("");
+                setBulkPerson("");
+                setBulkAssignments([
+                  {
+                    module: "",
+                    level: "",
+                    assignmentType: "module-wide",
+                    resource_id: null,
+                    resource_type: "",
+                  },
+                ]);
+              }}
+              disabled={bulkSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" className="flex-1" disabled={bulkSubmitting}>
+              {bulkSubmitting
+                ? "Creating..."
+                : `Create ${
+                    bulkAssignments.filter((a) => a.module && a.level).length
+                  } Assignment(s)`}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

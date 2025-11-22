@@ -175,7 +175,7 @@ export default function ClusterReportsDashboard({
   const exportDropdownRef = useRef<HTMLDivElement>(null);
 
   // Charts visibility
-  const [showCharts, setShowCharts] = useState(true);
+  const [showCharts, setShowCharts] = useState(false);
   const availableColumns = [
     { key: "cluster", label: "Cluster", default: true },
     { key: "week", label: "Week", default: true },
@@ -574,7 +574,11 @@ export default function ClusterReportsDashboard({
         ? `${report.member_attendance_rate.toFixed(1)}%`
         : "N/A",
       report.gathering_type,
-      formatCurrency(typeof report.offerings === 'number' ? report.offerings : parseFloat(String(report.offerings)) || 0),
+      formatCurrency(
+        typeof report.offerings === "number"
+          ? report.offerings
+          : parseFloat(String(report.offerings)) || 0
+      ),
       report.submitted_by_details
         ? formatPersonName(report.submitted_by_details as any)
         : "Unknown",
@@ -966,7 +970,7 @@ export default function ClusterReportsDashboard({
             </h2>
             <button
               onClick={() => setShowCharts(!showCharts)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="flex items-center gap-2 px-3 py-1.5 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               {showCharts ? (
                 <>
@@ -1304,7 +1308,7 @@ export default function ClusterReportsDashboard({
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cluster
@@ -1330,7 +1334,7 @@ export default function ClusterReportsDashboard({
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">All Months</option>
               <option value="1">January</option>
@@ -1355,7 +1359,7 @@ export default function ClusterReportsDashboard({
             <select
               value={selectedWeek}
               onChange={(e) => setSelectedWeek(e.target.value)}
-              className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">All Weeks</option>
               {Array.from({ length: 53 }, (_, i) => {
@@ -1381,7 +1385,7 @@ export default function ClusterReportsDashboard({
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               {Array.from(
                 { length: 5 },
@@ -1401,7 +1405,7 @@ export default function ClusterReportsDashboard({
             <select
               value={selectedGatheringType}
               onChange={(e) => setSelectedGatheringType(e.target.value)}
-              className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">All Types</option>
               <option value="PHYSICAL">Physical</option>
@@ -1414,11 +1418,11 @@ export default function ClusterReportsDashboard({
 
       {/* Reports Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-end">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-end gap-2">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowColumnsModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <svg
                 className="w-4 h-4 mr-2"
@@ -1439,7 +1443,7 @@ export default function ClusterReportsDashboard({
               <button
                 ref={exportButtonRef}
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
                 Export
@@ -1455,7 +1459,7 @@ export default function ClusterReportsDashboard({
                         handleExport("excel");
                         setShowExportDropdown(false);
                       }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <svg
                         className="w-4 h-4 mr-2 text-green-600"
@@ -1477,7 +1481,7 @@ export default function ClusterReportsDashboard({
                         handleExport("pdf");
                         setShowExportDropdown(false);
                       }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <svg
                         className="w-4 h-4 mr-2 text-red-600"
@@ -1499,7 +1503,7 @@ export default function ClusterReportsDashboard({
                         handleExport("csv");
                         setShowExportDropdown(false);
                       }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <svg
                         className="w-4 h-4 mr-2 text-blue-600"
@@ -1546,7 +1550,135 @@ export default function ClusterReportsDashboard({
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4 p-4">
+              {sortedReports.map((report) => (
+                <div
+                  key={report.id}
+                  className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                >
+                  <div className="space-y-3">
+                    <div>
+                      <button
+                        onClick={() => handleViewReport(report)}
+                        className="text-blue-600 hover:text-blue-800 hover:underline font-medium text-base"
+                      >
+                        {report.cluster_code
+                          ? `${report.cluster_code} - ${report.cluster_name}`
+                          : report.cluster_name}
+                      </button>
+                    </div>
+                    {visibleColumns.has("week") && (
+                      <div>
+                        <span className="text-xs text-gray-500">Week</span>
+                        <p className="text-sm text-gray-900">
+                          {report.year} W{report.week_number}
+                        </p>
+                      </div>
+                    )}
+                    {visibleColumns.has("meeting_date") && (
+                      <div>
+                        <span className="text-xs text-gray-500">
+                          Meeting Date
+                        </span>
+                        <p className="text-sm text-gray-900">
+                          {new Date(report.meeting_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                    {visibleColumns.has("attendance") && (
+                      <div>
+                        <span className="text-xs text-gray-500">
+                          Attendance
+                        </span>
+                        <p className="text-sm text-gray-900">
+                          {report.members_present}M /{" "}
+                          <span
+                            className={
+                              report.visitors_present === 0
+                                ? "text-red-600"
+                                : ""
+                            }
+                          >
+                            {report.visitors_present}V
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                    {visibleColumns.has("member_attendance_rate") && (
+                      <div>
+                        <span className="text-xs text-gray-500">
+                          Member Rate
+                        </span>
+                        <p className="text-sm text-gray-900">
+                          {report.member_attendance_rate !== undefined
+                            ? `${report.member_attendance_rate.toFixed(1)}%`
+                            : "N/A"}
+                        </p>
+                      </div>
+                    )}
+                    {visibleColumns.has("type") && (
+                      <div>
+                        <span className="text-xs text-gray-500">Type</span>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
+                            report.gathering_type
+                          )}`}
+                        >
+                          {report.gathering_type}
+                        </span>
+                      </div>
+                    )}
+                    {visibleColumns.has("offerings") && (
+                      <div>
+                        <span className="text-xs text-gray-500">Offerings</span>
+                        <p className="text-sm text-gray-900">
+                          {formatCurrency(
+                            typeof report.offerings === "number"
+                              ? report.offerings
+                              : parseFloat(String(report.offerings)) || 0
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    {visibleColumns.has("submitted_by") && (
+                      <div>
+                        <span className="text-xs text-gray-500">
+                          Submitted By
+                        </span>
+                        <p className="text-sm text-gray-900">
+                          {report.submitted_by_details
+                            ? formatPersonName(report.submitted_by_details)
+                            : "Unknown"}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex gap-2 pt-2 border-t border-gray-200">
+                      <button
+                        onClick={() => handleViewReport(report)}
+                        className="flex-1 text-indigo-600 hover:text-indigo-900 py-2 px-3 rounded border border-indigo-200 hover:bg-indigo-50 text-sm font-medium"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleEditReport(report)}
+                        className="flex-1 text-blue-600 hover:text-blue-900 py-2 px-3 rounded border border-blue-200 hover:bg-blue-50 text-sm font-medium"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReport(report)}
+                        className="flex-1 text-red-600 hover:text-red-900 py-2 px-3 rounded border border-red-200 hover:bg-red-50 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -1658,7 +1790,11 @@ export default function ClusterReportsDashboard({
                           case "offerings":
                             cellContent = (
                               <span className="text-sm text-gray-900">
-                                {formatCurrency(typeof report.offerings === 'number' ? report.offerings : parseFloat(String(report.offerings)) || 0)}
+                                {formatCurrency(
+                                  typeof report.offerings === "number"
+                                    ? report.offerings
+                                    : parseFloat(String(report.offerings)) || 0
+                                )}
                               </span>
                             );
                             break;
@@ -1693,7 +1829,7 @@ export default function ClusterReportsDashboard({
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewReport(report)}
-                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
+                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                             title="View Report"
                           >
                             <svg
@@ -1719,7 +1855,7 @@ export default function ClusterReportsDashboard({
                           </button>
                           <button
                             onClick={() => handleEditReport(report)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                             title="Edit Report"
                           >
                             <svg
@@ -1739,7 +1875,7 @@ export default function ClusterReportsDashboard({
                           </button>
                           <button
                             onClick={() => handleDeleteReport(report)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                             title="Delete Report"
                           >
                             <svg
@@ -1860,8 +1996,8 @@ export default function ClusterReportsDashboard({
 
       {/* Columns Configuration Modal */}
       {showColumnsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 !mt-0">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col sm:mx-4">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
                 Configure Columns
@@ -1870,7 +2006,7 @@ export default function ClusterReportsDashboard({
                 Select which columns to display in the table
               </p>
             </div>
-            <div className="px-6 py-4 max-h-96 overflow-y-auto">
+            <div className="px-6 py-4 flex-1 overflow-y-auto">
               <div className="space-y-2">
                 {availableColumns.map((col) => (
                   <label
@@ -1896,7 +2032,7 @@ export default function ClusterReportsDashboard({
                 ))}
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={() => {
                   setVisibleColumns(
@@ -1907,13 +2043,13 @@ export default function ClusterReportsDashboard({
                     )
                   );
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+                className="px-4 py-2 min-h-[44px] text-sm font-medium text-gray-700 hover:text-gray-900"
               >
                 Reset to Default
               </button>
               <button
                 onClick={() => setShowColumnsModal(false)}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Done
               </button>

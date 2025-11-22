@@ -260,10 +260,17 @@ export default function ClustersPageView({
           </div>
           <div className="flex gap-2">
             {activeTab === "clusters" && (
-              <Button onClick={onCreateCluster}>Add Cluster</Button>
+              <Button onClick={onCreateCluster} className="w-full md:w-auto">
+                Add Cluster
+              </Button>
             )}
             {activeTab === "reports" && (
-              <Button onClick={() => onOpenReportForm()}>Submit Report</Button>
+              <Button
+                onClick={() => onOpenReportForm()}
+                className="w-full md:w-auto"
+              >
+                Submit Report
+              </Button>
             )}
           </div>
         </div>
@@ -273,9 +280,9 @@ export default function ClustersPageView({
         {activeTab === "clusters" && (
           <div className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div
-                className="bg-white rounded-lg border border-gray-200 p-6 py-4 shadow-sm"
+                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 shadow-sm"
                 role="region"
                 aria-label="Total Clusters"
               >
@@ -323,7 +330,7 @@ export default function ClustersPageView({
                 </div>
               </div>
               <div
-                className="bg-white rounded-lg border border-gray-200 p-6 py-4 shadow-sm"
+                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 shadow-sm"
                 role="region"
                 aria-label="Total Members"
               >
@@ -371,7 +378,7 @@ export default function ClustersPageView({
                 </div>
               </div>
               <div
-                className="bg-white rounded-lg border border-gray-200 p-6 py-4 shadow-sm"
+                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 shadow-sm"
                 role="region"
                 aria-label="Unassigned Members"
               >
@@ -421,9 +428,9 @@ export default function ClustersPageView({
             </div>
 
             {/* Search Bar */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 max-w-md">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex-1 w-full md:max-w-md">
                   <div className="relative">
                     <svg
                       className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -443,7 +450,7 @@ export default function ClustersPageView({
                       placeholder="Search clusters…"
                       value={clusterSearchQuery}
                       onChange={(e) => onClusterSearchChange(e.target.value)}
-                      className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                      className={`w-full pl-10 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
                         clusterSearchQuery ? "pr-10" : "pr-4"
                       }`}
                     />
@@ -451,7 +458,8 @@ export default function ClustersPageView({
                       <button
                         type="button"
                         onClick={() => onClusterSearchChange("")}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                        aria-label="Clear search"
                       >
                         <svg
                           className="w-4 h-4"
@@ -472,11 +480,11 @@ export default function ClustersPageView({
                 </div>
 
                 {/* Bulk Actions and Filter/Sort Buttons */}
-                <div className="flex items-center gap-3 ml-4">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3 md:ml-4">
                   {/* Selection Mode Toggle */}
                   <button
                     onClick={onToggleSelectionMode}
-                    className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                    className={`inline-flex items-center px-3 py-2.5 md:py-2 text-sm font-medium rounded-lg border transition-colors min-h-[44px] md:min-h-0 ${
                       isSelectionMode
                         ? "bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
                         : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -509,16 +517,19 @@ export default function ClustersPageView({
                   )}
                   {/* Active Filters Display */}
                   {clusterActiveFilters.length > 0 && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                       {clusterActiveFilters.map((filter) => (
                         <span
                           key={filter.id}
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                          className="inline-flex items-center px-2 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 min-h-[32px]"
                         >
-                          {filter.label}
+                          <span className="truncate max-w-[150px] md:max-w-none">
+                            {filter.label}
+                          </span>
                           <button
                             onClick={() => onClusterFilterRemove(filter.id)}
-                            className="ml-1 text-blue-600 hover:text-blue-800"
+                            className="ml-1 text-blue-600 hover:text-blue-800 min-w-[20px] min-h-[20px] flex items-center justify-center flex-shrink-0"
+                            aria-label="Remove filter"
                           >
                             <svg
                               className="w-3 h-3"
@@ -538,7 +549,7 @@ export default function ClustersPageView({
                       ))}
                       <button
                         onClick={onClusterClearFilters}
-                        className="text-xs text-gray-500 hover:text-gray-700"
+                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 min-h-[32px] md:min-h-0"
                       >
                         Clear All
                       </button>
@@ -554,7 +565,7 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors min-h-[44px] md:min-h-0"
                   >
                     <svg
                       className="w-4 h-4 mr-1"
@@ -585,7 +596,7 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors min-h-[44px] md:min-h-0"
                   >
                     <svg
                       className="w-4 h-4 mr-1"
@@ -646,7 +657,7 @@ export default function ClustersPageView({
                 {/* Select All Checkbox - Only show in selection mode */}
                 {isSelectionMode && clusterPaginatedData.length > 0 && (
                   <div className="mb-4 flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer min-h-[44px]">
                       <input
                         type="checkbox"
                         checked={
@@ -655,13 +666,13 @@ export default function ClustersPageView({
                           clusterPaginatedData.length > 0
                         }
                         onChange={onSelectAllClusters}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
                       Select All ({selectedClusters.size} selected)
                     </label>
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {clusterPaginatedData.map((c) => (
                     <ClusterCard
                       key={c.id}

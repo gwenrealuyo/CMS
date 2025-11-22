@@ -46,16 +46,17 @@ export default function ClusterView({
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-200">
-        <div>
+      <div className="flex items-center justify-between p-3 md:p-4 border-b border-gray-200">
+        <div className="flex-1 min-w-0">
           <h2 className="text-sm font-medium text-gray-900">Cluster Details</h2>
-          <p className="text-[11px] text-gray-600 mt-0.5">
+          <p className="text-xs md:text-[11px] text-gray-600 mt-0.5 truncate">
             {cluster.name || "Untitled Cluster"}
           </p>
         </div>
         <button
           onClick={onClose}
-          className="text-red-600 hover:text-red-700 text-xl font-bold p-1 rounded-md hover:bg-red-50 transition-colors"
+          className="text-red-600 hover:text-red-700 text-xl font-bold p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 ml-2"
+          aria-label="Close"
         >
           <svg
             className="w-5 h-5"
@@ -74,22 +75,22 @@ export default function ClusterView({
       </div>
 
       {/* Content */}
-      <div className="p-5 overflow-y-auto flex-1">
-        <div className="space-y-5">
+      <div className="p-4 md:p-5 overflow-y-auto flex-1">
+        <div className="space-y-4 md:space-y-5">
           {/* Cluster Info Card */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-gray-900">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 truncate">
                   {cluster.name || "Untitled Cluster"}
                 </h2>
                 {cluster.code && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm font-medium">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm font-medium flex-shrink-0">
                     {cluster.code}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 text-gray-700">
+              <div className="flex items-center gap-2 sm:gap-3 text-gray-700 flex-wrap">
                 <div className="flex items-center gap-1">
                   <svg
                     className="w-4 h-4"
@@ -213,15 +214,15 @@ export default function ClusterView({
           {/* Members */}
           {(clusterMembers.length > 0 || coordinator) && (
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <h3 className="text-base md:text-lg font-semibold text-gray-900">
                   Members ({totalMemberCount})
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <Button
                     onClick={onAssignMembers}
                     variant="secondary"
-                    className="!text-green-600 py-2 px-4 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2"
+                    className="!text-green-600 py-2.5 md:py-2 px-4 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
                   >
                     <svg
                       className="w-4 h-4"
@@ -241,7 +242,7 @@ export default function ClusterView({
                   <Button
                     onClick={onSubmitReport}
                     variant="secondary"
-                    className="!text-blue-600 py-2 px-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                    className="!text-blue-600 py-2.5 md:py-2 px-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
                   >
                     <svg
                       className="w-4 h-4"
@@ -260,7 +261,7 @@ export default function ClusterView({
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {/* Show coordinator first if exists */}
                 {coordinator && (
                   <div
@@ -426,11 +427,12 @@ export default function ClusterView({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 md:p-6 border-t border-gray-200 bg-gray-50">
         <Button
           onClick={onDelete}
           variant="secondary"
-          className="!text-red-600 py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
+          className="!text-red-600 py-2.5 md:py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center min-h-[44px] md:min-h-0 w-full sm:w-auto"
+          aria-label="Delete cluster"
         >
           <svg
             className="w-4 h-4"
@@ -446,11 +448,11 @@ export default function ClusterView({
             />
           </svg>
         </Button>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <Button
             onClick={onCancel}
             variant="secondary"
-            className="!text-black py-4 px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+            className="!text-black py-2.5 md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             <svg
               className="w-4 h-4"
@@ -470,7 +472,7 @@ export default function ClusterView({
           <Button
             onClick={onEdit}
             variant="secondary"
-            className="!text-blue-600 py-4 px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+            className="!text-blue-600 py-2.5 md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             <svg
               className="w-4 h-4"

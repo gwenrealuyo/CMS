@@ -72,13 +72,19 @@ export default function ClusterSortDropdown({
 
   if (!isOpen) return null;
 
+  // Adjust position for mobile
+  const adjustedPosition = {
+    top: position.top,
+    left: Math.max(16, Math.min(position.left, window.innerWidth - 272)), // 256 + 16 padding
+  };
+
   return (
     <div
       ref={dropdownRef}
-      className="fixed z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+      className="fixed z-50 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
       style={{
-        top: position.top,
-        left: position.left,
+        top: adjustedPosition.top,
+        left: adjustedPosition.left,
       }}
     >
       <div className="px-3 py-2 border-b border-gray-100">
@@ -87,27 +93,29 @@ export default function ClusterSortDropdown({
 
       <div className="max-h-64 overflow-y-auto">
         {SORT_OPTIONS.map((option) => (
-          <div key={option.key} className="px-3 py-2">
+          <div key={option.key} className="px-3 py-2.5 md:py-2">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-700">{option.label}</span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => onSelectSort(option.key, "asc")}
-                  className={`px-2 py-1 text-xs rounded ${
+                  className={`px-2.5 py-1.5 md:px-2 md:py-1 text-xs rounded min-h-[36px] md:min-h-0 ${
                     currentSortBy === option.key && currentSortOrder === "asc"
                       ? "bg-blue-100 text-blue-800"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
+                  aria-label={`Sort ${option.label} ascending`}
                 >
                   ↑
                 </button>
                 <button
                   onClick={() => onSelectSort(option.key, "desc")}
-                  className={`px-2 py-1 text-xs rounded ${
+                  className={`px-2.5 py-1.5 md:px-2 md:py-1 text-xs rounded min-h-[36px] md:min-h-0 ${
                     currentSortBy === option.key && currentSortOrder === "desc"
                       ? "bg-blue-100 text-blue-800"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
+                  aria-label={`Sort ${option.label} descending`}
                 >
                   ↓
                 </button>

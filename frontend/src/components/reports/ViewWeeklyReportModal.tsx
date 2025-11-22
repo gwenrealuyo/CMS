@@ -133,8 +133,8 @@ export default function ViewWeeklyReportModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !mt-0">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[95vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !mt-0 p-0 sm:p-4">
+      <div className="bg-white rounded-none sm:rounded-lg shadow-xl w-full max-w-4xl h-full sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-gray-200">
           <div>
@@ -206,7 +206,7 @@ export default function ViewWeeklyReportModal({
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 Attendance & Gathering
               </h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Members Present</p>
                   <p className="text-xl font-bold text-gray-900">
@@ -232,7 +232,7 @@ export default function ViewWeeklyReportModal({
                   </p>
                 </div>
               </div>
-              <div className="mt-4 flex items-start gap-4">
+              <div className="mt-4 flex flex-col sm:flex-row items-start gap-4">
                 <div>
                   <p className="text-sm text-gray-600 mb-2">Gathering Type</p>
                   <span
@@ -509,7 +509,7 @@ export default function ViewWeeklyReportModal({
 
             {/* Highlights and Lowlights */}
             {(report.highlights || report.lowlights) && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {report.highlights && (
                   <div className="bg-green-50 rounded-lg border border-green-200 p-4">
                     <h3 className="text-sm font-medium text-green-900 mb-2">
@@ -538,7 +538,7 @@ export default function ViewWeeklyReportModal({
               <h3 className="text-sm font-medium text-gray-700 mb-2">
                 Submission Information
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-gray-600">Submitted By</p>
                   <p className="text-sm font-medium text-gray-900">
@@ -559,11 +559,11 @@ export default function ViewWeeklyReportModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
           <Button
             onClick={onDelete}
             variant="secondary"
-            className="!text-red-600 py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
+            className="!text-red-600 py-4 px-4 min-h-[44px] text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center w-full sm:w-auto"
           >
             <svg
               className="w-4 h-4"
@@ -579,11 +579,11 @@ export default function ViewWeeklyReportModal({
               />
             </svg>
           </Button>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <Button
               onClick={onCancel}
               variant="secondary"
-              className="!text-black py-4 px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+              className="!text-black py-4 px-6 min-h-[44px] text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
             >
               <svg
                 className="w-4 h-4"
@@ -603,7 +603,7 @@ export default function ViewWeeklyReportModal({
             <Button
               onClick={onEdit}
               variant="secondary"
-              className="!text-blue-600 py-4 px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+              className="!text-blue-600 py-4 px-6 min-h-[44px] text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
             >
               <svg
                 className="w-4 h-4"
@@ -626,8 +626,8 @@ export default function ViewWeeklyReportModal({
 
       {/* Person Profile Modal */}
       {showPersonModal && selectedPerson && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50] !mt-0">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[95vh] overflow-hidden flex flex-col h-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50] !mt-0 p-0 sm:p-4">
+          <div className="bg-white rounded-none sm:rounded-lg shadow-xl w-full max-w-3xl h-full sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col">
             <PersonProfile
               person={selectedPerson as Person}
               families={families}

@@ -169,20 +169,30 @@ export default function ClusterFilterCard({
 
   if (!isOpen) return null;
 
+  // Adjust position for mobile
+  const adjustedPosition = {
+    top: position.top,
+    left: Math.max(16, Math.min(position.left, window.innerWidth - 336)), // 320 + 16 padding
+  };
+
   return (
     <div
       ref={cardRef}
-      className="fixed z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+      className="fixed z-50 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 p-4"
       style={{
-        top: position.top,
-        left: position.left,
+        top: adjustedPosition.top,
+        left: adjustedPosition.left,
       }}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-gray-900">
           Filter by {field.label}
         </h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 min-w-[32px] min-h-[32px] flex items-center justify-center"
+          aria-label="Close filter"
+        >
           <svg
             className="w-4 h-4"
             fill="none"
@@ -208,7 +218,7 @@ export default function ClusterFilterCard({
           <select
             value={operator}
             onChange={(e) => setOperator(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
           >
             {OPERATORS[field.type].map((op) => (
               <option key={op.value} value={op.value}>
@@ -231,7 +241,7 @@ export default function ClusterFilterCard({
               value={selectedOption}
               onChange={(e) => setSelectedOption(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
             >
               <option value="">Select {field.label}</option>
               {field.options?.map((option) => (
@@ -258,7 +268,7 @@ export default function ClusterFilterCard({
                 placeholder={
                   operator === "between" ? "Min value" : "Enter value"
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
               />
             </div>
             {operator === "between" && (
@@ -271,7 +281,7 @@ export default function ClusterFilterCard({
                   value={value2}
                   onChange={(e) => setValue2(e.target.value)}
                   placeholder="Max value"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
                 />
               </div>
             )}
@@ -290,7 +300,7 @@ export default function ClusterFilterCard({
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
               />
             </div>
             {operator === "between" && (
@@ -302,7 +312,7 @@ export default function ClusterFilterCard({
                   type="date"
                   value={value2}
                   onChange={(e) => setValue2(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
                 />
               </div>
             )}
@@ -322,7 +332,7 @@ export default function ClusterFilterCard({
                 onChange={(e) => setValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={`Enter ${field.label.toLowerCase()}`}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
               />
             </div>
             {operator === "between" && (
@@ -335,7 +345,7 @@ export default function ClusterFilterCard({
                   value={value2}
                   onChange={(e) => setValue2(e.target.value)}
                   placeholder={`Enter second ${field.label.toLowerCase()}`}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
                 />
               </div>
             )}
@@ -343,16 +353,16 @@ export default function ClusterFilterCard({
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-end space-x-2 pt-2">
+        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-3 py-2.5 md:py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             Cancel
           </button>
           <button
             onClick={handleApply}
-            className="px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-3 py-2.5 md:py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             Apply Filter
           </button>

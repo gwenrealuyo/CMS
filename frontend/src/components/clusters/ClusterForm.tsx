@@ -222,7 +222,7 @@ export default function ClusterForm({
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             placeholder="CLU-001"
           />
         </div>
@@ -234,7 +234,7 @@ export default function ClusterForm({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             required
           />
         </div>
@@ -265,7 +265,7 @@ export default function ClusterForm({
               setShowFamilyDropdown(true);
             }}
             onFocus={() => setShowFamilyDropdown(true)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             placeholder="Search families by name..."
             disabled={familiesLoading}
           />
@@ -287,7 +287,7 @@ export default function ClusterForm({
                       type="button"
                       onClick={() => addFamily(family)}
                       disabled={isSelected}
-                      className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center justify-between ${
+                      className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center justify-between min-h-[44px] md:min-h-0 ${
                         isSelected
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                           : "text-gray-900"
@@ -323,7 +323,8 @@ export default function ClusterForm({
                   <button
                     type="button"
                     onClick={() => removeFamily(family.id.toString())}
-                    className="text-gray-400 hover:text-red-500 ml-1"
+                    className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                    aria-label="Remove family"
                   >
                     <svg
                       className="w-4 h-4"
@@ -368,7 +369,7 @@ export default function ClusterForm({
               setShowMemberDropdown(true);
             }}
             onFocus={() => setShowMemberDropdown(true)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             placeholder="Search members by name, role, or status..."
           />
 
@@ -389,7 +390,7 @@ export default function ClusterForm({
                       type="button"
                       onClick={() => addMember(member)}
                       disabled={isSelected}
-                      className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 ${
+                      className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center space-x-3 min-h-[44px] md:min-h-0 ${
                         isSelected
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                           : "text-gray-900"
@@ -451,7 +452,8 @@ export default function ClusterForm({
                   <button
                     type="button"
                     onClick={() => removeMember(member.id.toString())}
-                    className="text-gray-400 hover:text-red-500 ml-1"
+                    className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                    aria-label="Remove member"
                   >
                     <svg
                       className="w-4 h-4"
@@ -490,7 +492,7 @@ export default function ClusterForm({
             type="text"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
           />
         </div>
         <div>
@@ -501,7 +503,7 @@ export default function ClusterForm({
             type="text"
             value={meetingSchedule}
             onChange={(e) => setMeetingSchedule(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             placeholder="Sunday 2:00 PM"
           />
         </div>
@@ -513,20 +515,20 @@ export default function ClusterForm({
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[100px] md:min-h-0"
           rows={3}
         />
       </div>
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col sm:flex-row gap-3 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1"
+          className="w-full sm:flex-1"
           onClick={onCancel}
           disabled={submitting}
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={submitting} type="submit">
+        <Button className="w-full sm:flex-1" disabled={submitting} type="submit">
           {submitting
             ? "Saving..."
             : initialData

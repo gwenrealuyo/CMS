@@ -100,13 +100,19 @@ export default function ClusterFilterDropdown({
 
   if (!isOpen) return null;
 
+  // Adjust position for mobile
+  const adjustedPosition = {
+    top: position.top,
+    left: Math.max(16, Math.min(position.left, window.innerWidth - 272)), // 256 + 16 padding
+  };
+
   return (
     <div
       ref={dropdownRef}
-      className="fixed z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+      className="fixed z-50 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
       style={{
-        top: position.top,
-        left: position.left,
+        top: adjustedPosition.top,
+        left: adjustedPosition.left,
       }}
     >
       <div className="px-3 py-2 border-b border-gray-100">
@@ -121,7 +127,7 @@ export default function ClusterFilterDropdown({
               onSelectField(field);
               onClose();
             }}
-            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+            className="w-full px-3 py-2.5 md:py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between min-h-[44px] md:min-h-0"
           >
             <span>{field.label}</span>
             <span className="text-xs text-gray-400 capitalize">

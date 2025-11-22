@@ -43,15 +43,24 @@ export default function Pagination({
 
       <div className="flex items-center gap-2">
         {showItemsPerPage && onItemsPerPageChange && (
-          <div className="flex items-center gap-2 mr-4">
-            <label htmlFor="items-per-page" className="text-sm text-gray-600">
+          <div className="flex items-center gap-2 mr-0 md:mr-4">
+            <label
+              htmlFor="items-per-page"
+              className="text-sm text-gray-600 hidden sm:inline"
+            >
               Items per page:
+            </label>
+            <label
+              htmlFor="items-per-page"
+              className="text-sm text-gray-600 sm:hidden"
+            >
+              Per page:
             </label>
             <select
               id="items-per-page"
               value={itemsPerPage}
               onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="rounded-md border border-gray-300 px-2 py-2 md:py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[44px] md:min-h-0"
               aria-label="Items per page"
             >
               <option value={10}>10</option>
@@ -62,15 +71,16 @@ export default function Pagination({
           </div>
         )}
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap justify-center">
           <Button
             variant="tertiary"
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="px-3 py-1 text-sm"
+            className="px-3 py-2 md:py-1 text-sm min-h-[44px] md:min-h-0"
             aria-label="Previous page"
           >
-            Previous
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Prev</span>
           </Button>
 
           <div className="flex items-center gap-1">
@@ -93,7 +103,7 @@ export default function Pagination({
                     <Button
                       variant={currentPage === page ? "primary" : "tertiary"}
                       onClick={() => onPageChange(page)}
-                      className="px-3 py-1 text-sm min-w-[2.5rem]"
+                      className="px-3 py-2 md:py-1 text-sm min-w-[2.5rem] min-h-[44px] md:min-h-0"
                       aria-label={`Page ${page}`}
                       aria-current={currentPage === page ? "page" : undefined}
                     >
@@ -108,7 +118,7 @@ export default function Pagination({
             variant="tertiary"
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="px-3 py-1 text-sm"
+            className="px-3 py-2 md:py-1 text-sm min-h-[44px] md:min-h-0"
             aria-label="Next page"
           >
             Next

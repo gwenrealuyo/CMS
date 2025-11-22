@@ -497,7 +497,7 @@ export default function ClusterWeeklyReportForm({
             onClick={() => setShowClusterDropdown(true)}
             readOnly
             placeholder="Select cluster..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
             required
           />
           {showClusterDropdown && (
@@ -508,7 +508,7 @@ export default function ClusterWeeklyReportForm({
                   value={clusterSearchTerm}
                   onChange={(e) => handleClusterSearchChange(e.target.value)}
                   placeholder="Search clusters..."
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2 py-1.5 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               {filteredClusters.length > 0 ? (
@@ -517,7 +517,7 @@ export default function ClusterWeeklyReportForm({
                     key={cluster.id}
                     type="button"
                     onClick={() => handleClusterSelect(cluster.id)}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                    className="w-full px-3 py-2 min-h-[44px] text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                   >
                     <div className="font-medium text-gray-900">
                       {cluster.code
@@ -542,7 +542,7 @@ export default function ClusterWeeklyReportForm({
       </div>
 
       {/* Basic Information Grid */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Year *
@@ -553,7 +553,7 @@ export default function ClusterWeeklyReportForm({
             onChange={(e) => handleChange("year", parseInt(e.target.value))}
             min="2020"
             max="2030"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
@@ -570,7 +570,7 @@ export default function ClusterWeeklyReportForm({
             }
             min="1"
             max="53"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
@@ -583,7 +583,7 @@ export default function ClusterWeeklyReportForm({
             type="date"
             value={formData.meeting_date || ""}
             onChange={(e) => handleChange("meeting_date", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
@@ -597,7 +597,7 @@ export default function ClusterWeeklyReportForm({
             onChange={(e) =>
               handleChange("gathering_type", e.target.value as GatheringType)
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           >
             <option value="PHYSICAL">Physical</option>
@@ -687,7 +687,7 @@ export default function ClusterWeeklyReportForm({
             )
           }
           min="0"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
@@ -708,7 +708,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("activities_held", e.target.value)}
           rows={3}
           placeholder="Describe activities or events held during the cluster meeting..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
@@ -721,7 +721,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("prayer_requests", e.target.value)}
           rows={3}
           placeholder="List prayer requests shared during the meeting..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
@@ -734,7 +734,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("testimonies", e.target.value)}
           rows={3}
           placeholder="Share testimonies or encouraging stories from members..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
@@ -748,7 +748,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("highlights", e.target.value)}
           rows={3}
           placeholder="Positive events, achievements, or encouraging moments..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
@@ -761,21 +761,21 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("lowlights", e.target.value)}
           rows={3}
           placeholder="Challenges, concerns, or areas needing attention..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1"
+          className="w-full sm:flex-1"
           onClick={onClose}
           disabled={loading}
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={loading} type="submit">
+        <Button className="w-full sm:flex-1" disabled={loading} type="submit">
           {loading
             ? "Saving..."
             : initialData

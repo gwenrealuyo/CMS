@@ -69,16 +69,16 @@ const ClusterCard = memo(
 
     return (
       <div
-        className={`p-4 bg-white rounded-lg border-2 ${
+        className={`p-4 md:p-5 bg-white rounded-lg border-2 ${
           isSelected ? "border-blue-500 bg-blue-50/50" : "border-transparent"
         } shadow-md relative transition-all hover:shadow-md hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer`}
         onClick={onView}
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           {/* Checkbox - Only show in selection mode */}
           {isSelectionMode && onSelect && (
             <div
-              className="mr-2 mt-1"
+              className="mr-2 mt-1 flex-shrink-0"
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect();
@@ -92,12 +92,12 @@ const ClusterCard = memo(
                   onSelect();
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-all truncate">
+            <h4 className="font-semibold text-base md:text-lg text-blue-600 hover:text-blue-700 hover:underline transition-all truncate">
               {cluster.name || "Untitled Cluster"}
             </h4>
             <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
@@ -109,7 +109,7 @@ const ClusterCard = memo(
             {(cluster as any).coordinator && (
               <div className="mt-1 flex items-center gap-1 text-xs text-gray-600">
                 <svg
-                  className="w-3.5 h-3.5 text-gray-500"
+                  className="w-3.5 h-3.5 text-gray-500 flex-shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -121,17 +121,17 @@ const ClusterCard = memo(
                     d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                   />
                 </svg>
-                <span className="truncate max-w-[12rem]">
+                <span className="truncate max-w-[10rem] md:max-w-[12rem]">
                   {coordinatorName}
                 </span>
               </div>
             )}
             {/* Location and Meeting Schedule */}
-            <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
+            <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-wrap text-xs">
               {(cluster as any).location && (
                 <span className="inline-flex items-center gap-1 text-gray-600">
                   <svg
-                    className="w-3.5 h-3.5 text-gray-500"
+                    className="w-3.5 h-3.5 text-gray-500 flex-shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -148,7 +148,7 @@ const ClusterCard = memo(
                       d="M19.5 10.5c0 7.5-7.5 11.25-7.5 11.25S4.5 18 4.5 10.5a7.5 7.5 0 1115 0z"
                     />
                   </svg>
-                  <span className="truncate max-w-[12rem]">
+                  <span className="truncate max-w-[10rem] md:max-w-[12rem]">
                     {(cluster as any).location}
                   </span>
                 </span>
@@ -156,7 +156,7 @@ const ClusterCard = memo(
               {(cluster as any).meeting_schedule && (
                 <span className="inline-flex items-center gap-1 text-gray-600">
                   <svg
-                    className="w-3.5 h-3.5 text-gray-500"
+                    className="w-3.5 h-3.5 text-gray-500 flex-shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -168,7 +168,7 @@ const ClusterCard = memo(
                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                     />
                   </svg>
-                  <span className="truncate max-w-[12rem]">
+                  <span className="truncate max-w-[10rem] md:max-w-[12rem]">
                     {(cluster as any).meeting_schedule}
                   </span>
                 </span>
@@ -177,7 +177,7 @@ const ClusterCard = memo(
           </div>
           {/* Top Right Corner: Counts and Actions */}
           <div
-            className="ml-3 flex items-center gap-2"
+            className="ml-2 md:ml-3 flex items-center gap-1 md:gap-2 flex-shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-1 text-gray-600">
@@ -230,7 +230,7 @@ const ClusterCard = memo(
             />
           </div>
         </div>
-        <div className="mt-2 text-sm text-gray-700">
+        <div className="mt-2 text-sm text-gray-700 line-clamp-2">
           {cluster.description || "No description"}
         </div>
       </div>

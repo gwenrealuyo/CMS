@@ -1,8 +1,9 @@
-import { Person, Journey, Family } from "@/src/types/person";
+import { Person, Journey, Family, JourneyType } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import Button from "@/src/components/ui/Button";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { journeysApi } from "@/src/lib/api";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface PersonProfileProps {
   person: Person;
@@ -43,6 +44,12 @@ export default function PersonProfile({
   const [journeys, setJourneys] = useState<Journey[]>(
     (person.journeys as Journey[]) || []
   );
+  const [journeySearch, setJourneySearch] = useState("");
+  const [journeyFilter, setJourneyFilter] = useState<JourneyType | "ALL">(
+    "ALL"
+  );
+  const journeyListRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setJourneys(((person.journeys as Journey[]) || []).slice());
   }, [person.id]);
@@ -72,6 +79,42 @@ export default function PersonProfile({
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  // Filter and sort journeys for virtualization
+  const filteredAndSortedJourneys = useMemo(() => {
+    let filtered = journeys || [];
+
+    // Filter by search
+    if (journeySearch.trim()) {
+      const searchLower = journeySearch.toLowerCase();
+      filtered = filtered.filter(
+        (j) =>
+          j.title?.toLowerCase().includes(searchLower) ||
+          j.description?.toLowerCase().includes(searchLower) ||
+          j.type?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Filter by type
+    if (journeyFilter !== "ALL") {
+      filtered = filtered.filter((j) => j.type === journeyFilter);
+    }
+
+    // Sort by date (newest first)
+    return [...filtered].sort((a, b) => {
+      const dateA = new Date(a.date || 0).getTime();
+      const dateB = new Date(b.date || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [journeys, journeySearch, journeyFilter]);
+
+  // Virtualizer for journey list
+  const virtualizer = useVirtualizer({
+    count: filteredAndSortedJourneys.length,
+    getScrollElement: () => journeyListRef.current,
+    estimateSize: () => 120, // Estimated height per journey item with spacing
+    overscan: 5, // Render 5 extra items outside viewport for smooth scrolling
+  });
 
   const renderTypeIcon = (type: string) => {
     // Small icons inspired by the header style, per event type
@@ -788,41 +831,144 @@ export default function PersonProfile({
                     </h3>
                   </div>
 
-                  {journeys && journeys.length > 0 ? (
-                    <div className="relative pl-3 pt-4 pb-4">
-                      <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
-                      <div className="space-y-6">
-                        {journeys.map((journey, index) => (
-                          <div key={journey.id} className="relative group">
-                            <div className="absolute left-1.5 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                              {renderTypeIcon(journey.type)}
-                            </div>
-                            <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                              <div className="flex items-center justify-between">
-                                <div className="font-medium text-gray-900">
-                                  {journey.title}
-                                </div>
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${getJourneyBadgeClasses(
-                                    journey.type
-                                  )}`}
-                                >
-                                  {journey.type_display ||
-                                    formatJourneyType(journey.type)}
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {journey.date}
-                              </div>
-                              {journey.description && (
-                                <div className="text-sm text-gray-700 mt-2">
-                                  {journey.description}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                  {/* Search and Filter Controls */}
+                  {journeys && journeys.length > 0 && (
+                    <div className="space-y-3 mb-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Search */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Search Events
+                          </label>
+                          <input
+                            type="text"
+                            value={journeySearch}
+                            onChange={(e) => setJourneySearch(e.target.value)}
+                            placeholder="Search by title, description, or type..."
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        {/* Filter by Type */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Filter by Type
+                          </label>
+                          <select
+                            value={journeyFilter}
+                            onChange={(e) =>
+                              setJourneyFilter(
+                                e.target.value as JourneyType | "ALL"
+                              )
+                            }
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="ALL">All Types</option>
+                            {[
+                              "BAPTISM",
+                              "SPIRIT",
+                              "CLUSTER",
+                              "LESSON",
+                              "NOTE",
+                              "EVENT_ATTENDANCE",
+                            ].map((type) => (
+                              <option key={type} value={type}>
+                                {type.charAt(0) + type.slice(1).toLowerCase()}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
+                      {/* Results count */}
+                      {filteredAndSortedJourneys.length !== journeys.length && (
+                        <div className="text-xs text-gray-500">
+                          Showing {filteredAndSortedJourneys.length} of{" "}
+                          {journeys.length} events
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {filteredAndSortedJourneys.length > 0 ? (
+                    <div
+                      ref={journeyListRef}
+                      className="relative h-[500px] overflow-auto"
+                    >
+                      <div className="relative pl-3 pt-4 pb-4">
+                        <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
+                        <div
+                          style={{
+                            height: `${virtualizer.getTotalSize()}px`,
+                            width: "100%",
+                            position: "relative",
+                          }}
+                        >
+                          {virtualizer.getVirtualItems().map((virtualRow) => {
+                            const journey =
+                              filteredAndSortedJourneys[virtualRow.index];
+
+                            return (
+                              <div
+                                key={virtualRow.key}
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  left: 0,
+                                  width: "100%",
+                                  height: `${virtualRow.size}px`,
+                                  transform: `translateY(${virtualRow.start}px)`,
+                                }}
+                              >
+                                <div className="relative group my-3">
+                                  <div className="absolute left-1.5 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                                    {renderTypeIcon(journey.type)}
+                                  </div>
+                                  <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                      <div className="font-medium text-gray-900">
+                                        {journey.title}
+                                      </div>
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${getJourneyBadgeClasses(
+                                          journey.type
+                                        )}`}
+                                      >
+                                        {journey.type_display ||
+                                          formatJourneyType(journey.type)}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {journey.date}
+                                    </div>
+                                    {journey.description && (
+                                      <div className="text-sm text-gray-700 mt-2 line-clamp-3">
+                                        {journey.description}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ) : journeys &&
+                    journeys.length > 0 &&
+                    filteredAndSortedJourneys.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p className="text-sm">
+                        No journey events match your search or filter criteria.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJourneySearch("");
+                          setJourneyFilter("ALL");
+                        }}
+                        className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                      >
+                        Clear filters
+                      </button>
                     </div>
                   ) : (
                     <div className="text-center py-8 text-gray-500">

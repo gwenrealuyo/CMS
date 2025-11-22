@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Person, JourneyType } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
 import { journeysApi } from "@/src/lib/api";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import toast from "react-hot-toast";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface PersonFormProps {
   onSubmit: (data: Partial<Person>) => Promise<Person | void>;
@@ -38,6 +40,11 @@ export default function PersonForm({
   const [loading, setLoading] = useState(false);
   const [inviterSearch, setInviterSearch] = useState("");
   const [showInviterDropdown, setShowInviterDropdown] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [tabSwitchConfirmation, setTabSwitchConfirmation] = useState<{
+    isOpen: boolean;
+    targetTab: "basic" | "timeline" | null;
+  }>({ isOpen: false, targetTab: null });
   // Toast validation removed per request
 
   // Track initial journeys to avoid re-creating unchanged ones on save
@@ -93,6 +100,15 @@ export default function PersonForm({
 
   const syncPhoneToForm = (code: string, local: string) => {
     setFormData((prev) => ({ ...prev, phone: `${code}${local}` }));
+    // Note: hasUnsavedChanges is set in the onChange handler that calls this function
+  };
+
+  const handleTabSwitch = (targetTab: "basic" | "timeline") => {
+    if (hasUnsavedChanges && activeTab === "basic") {
+      setTabSwitchConfirmation({ isOpen: true, targetTab });
+    } else {
+      setActiveTab(targetTab);
+    }
   };
 
   const [newJourney, setNewJourney] = useState<{
@@ -106,6 +122,15 @@ export default function PersonForm({
     title: "",
     description: "",
   });
+
+  const [editingJourneyIndex, setEditingJourneyIndex] = useState<number | null>(
+    null
+  );
+  const [journeySearch, setJourneySearch] = useState("");
+  const [journeyFilter, setJourneyFilter] = useState<JourneyType | "ALL">(
+    "ALL"
+  );
+  const journeyListRef = useRef<HTMLDivElement>(null);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -128,6 +153,7 @@ export default function PersonForm({
       }
       return next;
     });
+    setHasUnsavedChanges(true);
   };
 
   const statusOptions =
@@ -139,8 +165,10 @@ export default function PersonForm({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () =>
+      reader.onloadend = () => {
         setFormData((prev) => ({ ...prev, photo: reader.result as string }));
+        setHasUnsavedChanges(true);
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -176,8 +204,14 @@ export default function PersonForm({
               } as any,
             ],
           }));
-        } catch (e) {
+          toast.success("Journey event added successfully.");
+        } catch (e: any) {
           console.error("Failed to create journey immediately:", e);
+          toast.error(
+            e.response?.data?.message ||
+              e.message ||
+              "Failed to add journey event."
+          );
         }
       })();
     } else {
@@ -193,6 +227,9 @@ export default function PersonForm({
           } as any,
         ],
       }));
+      toast.success(
+        "Journey event added. It will be saved when you submit the form."
+      );
     }
     setNewJourney({
       date: new Date().toISOString().slice(0, 10),
@@ -200,6 +237,140 @@ export default function PersonForm({
       title: "",
       description: "",
     });
+  };
+
+  const handleEditJourney = (index: number) => {
+    const journey = formData.journeys?.[index];
+    if (journey) {
+      setEditingJourneyIndex(index);
+      setNewJourney({
+        date: journey.date || new Date().toISOString().slice(0, 10),
+        type: journey.type || "NOTE",
+        title: journey.title || "",
+        description: journey.description || "",
+      });
+    }
+  };
+
+  const handleUpdateJourney = () => {
+    if (
+      !newJourney.date ||
+      !newJourney.title.trim() ||
+      editingJourneyIndex === null
+    ) {
+      return;
+    }
+
+    const existingUserId = (initialData?.id || (formData as any).id) as
+      | string
+      | undefined;
+    const currentJourneys = formData.journeys || [];
+    const journeyToUpdate = currentJourneys[editingJourneyIndex];
+
+    if (existingUserId && journeyToUpdate?.id) {
+      (async () => {
+        try {
+          await journeysApi.update(journeyToUpdate.id, {
+            title: newJourney.title,
+            date: newJourney.date,
+            type: newJourney.type,
+            description: newJourney.description,
+          });
+
+          // Update the journey in the form data
+          setFormData((prev) => {
+            const updatedJourneys = [...(prev.journeys || [])];
+            updatedJourneys[editingJourneyIndex] = {
+              ...updatedJourneys[editingJourneyIndex],
+              ...newJourney,
+            } as any;
+            return {
+              ...prev,
+              journeys: updatedJourneys,
+            };
+          });
+
+          toast.success("Journey event updated successfully.");
+          handleCancelEdit();
+        } catch (e: any) {
+          console.error("Failed to update journey:", e);
+          toast.error(
+            e.response?.data?.message ||
+              e.message ||
+              "Failed to update journey event."
+          );
+        }
+      })();
+    } else {
+      // For new users, just update the local state
+      setFormData((prev) => {
+        const updatedJourneys = [...(prev.journeys || [])];
+        updatedJourneys[editingJourneyIndex] = {
+          ...updatedJourneys[editingJourneyIndex],
+          ...newJourney,
+        } as any;
+        return {
+          ...prev,
+          journeys: updatedJourneys,
+        };
+      });
+      toast.success(
+        "Journey event updated. It will be saved when you submit the form."
+      );
+      handleCancelEdit();
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingJourneyIndex(null);
+    setNewJourney({
+      date: new Date().toISOString().slice(0, 10),
+      type: "NOTE",
+      title: "",
+      description: "",
+    });
+  };
+
+  // Filter and sort journeys for virtualization
+  const filteredAndSortedJourneys = useMemo(() => {
+    let filtered = formData.journeys || [];
+
+    // Filter by search
+    if (journeySearch.trim()) {
+      const searchLower = journeySearch.toLowerCase();
+      filtered = filtered.filter(
+        (j) =>
+          j.title?.toLowerCase().includes(searchLower) ||
+          j.description?.toLowerCase().includes(searchLower) ||
+          j.type?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Filter by type
+    if (journeyFilter !== "ALL") {
+      filtered = filtered.filter((j) => j.type === journeyFilter);
+    }
+
+    // Sort by date (newest first)
+    return [...filtered].sort((a, b) => {
+      const dateA = new Date(a.date || 0).getTime();
+      const dateB = new Date(b.date || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [formData.journeys, journeySearch, journeyFilter]);
+
+  // Virtualizer for journey list
+  const virtualizer = useVirtualizer({
+    count: filteredAndSortedJourneys.length,
+    getScrollElement: () => journeyListRef.current,
+    estimateSize: () => 100, // Estimated height per journey item
+    overscan: 5, // Render 5 extra items outside viewport for smooth scrolling
+  });
+
+  // Map original index to filtered index for edit/delete operations
+  const getOriginalJourneyIndex = (filteredIndex: number): number => {
+    const journey = filteredAndSortedJourneys[filteredIndex];
+    return formData.journeys?.findIndex((j) => j.id === journey.id) ?? -1;
   };
 
   // Delete journey confirmation state
@@ -276,9 +447,28 @@ export default function PersonForm({
             }
           } catch (error) {
             console.error("Failed to save journeys:", error);
+            toast.error(
+              "Person saved, but some journey events failed to save."
+            );
           }
         }
+
+        // Show success toast
+        if (initialData?.id) {
+          toast.success("Person updated successfully.");
+        } else {
+          toast.success("Person created successfully.");
+        }
       }
+      setHasUnsavedChanges(false);
+    } catch (error: any) {
+      console.error("Failed to save person:", error);
+      toast.error(
+        error?.response?.data?.message || error?.message || initialData?.id
+          ? "Failed to update person. Please try again."
+          : "Failed to create person. Please try again."
+      );
+      throw error; // Re-throw to let parent handle if needed
     } finally {
       setLoading(false);
     }
@@ -299,7 +489,7 @@ export default function PersonForm({
                 ? "border-b-2 border-blue-600 text-blue-600"
                 : "text-gray-500"
             }`}
-            onClick={() => setActiveTab("basic")}
+            onClick={() => handleTabSwitch("basic")}
           >
             Basic Info
           </button>
@@ -310,7 +500,7 @@ export default function PersonForm({
                 ? "border-b-2 border-blue-600 text-blue-600"
                 : "text-gray-500"
             }`}
-            onClick={() => setActiveTab("timeline")}
+            onClick={() => handleTabSwitch("timeline")}
           >
             Journey Timeline
           </button>
@@ -460,6 +650,7 @@ export default function PersonForm({
                           const next = digitsOnly.slice(0, max);
                           setPhoneLocal(next);
                           syncPhoneToForm(phoneCountryCode, next);
+                          setHasUnsavedChanges(true);
                         }}
                         placeholder="##########"
                         className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -479,6 +670,7 @@ export default function PersonForm({
                           ...prev,
                           country: newCountry,
                         }));
+                        setHasUnsavedChanges(true);
                         const meta = COUNTRY_META[newCountry];
                         if (meta) {
                           setPhoneCountryCode(meta.code);
@@ -579,6 +771,7 @@ export default function PersonForm({
                           ...prev,
                           has_finished_lessons: e.target.checked,
                         }));
+                        setHasUnsavedChanges(true);
                       }}
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
@@ -769,6 +962,7 @@ export default function PersonForm({
                                 setFormData(
                                   (prev) => ({ ...prev, inviter: p.id } as any)
                                 );
+                                setHasUnsavedChanges(true);
                                 setInviterSearch(
                                   `${p.first_name ?? ""} ${
                                     p.last_name ?? ""
@@ -870,80 +1064,230 @@ export default function PersonForm({
                 placeholder="Event description..."
               />
             </div>
-            <Button
-              onClick={() => {
-                // prevent form submit triggering page reload from parent browser default
-                handleAddJourney();
-              }}
-              disabled={!newJourney.date || !newJourney.title.trim()}
-            >
-              + Add Event
-            </Button>
+            <div className="flex gap-3">
+              {editingJourneyIndex !== null && (
+                <Button
+                  variant="tertiary"
+                  onClick={handleCancelEdit}
+                  className="flex-1 py-3 text-base font-medium"
+                >
+                  Cancel
+                </Button>
+              )}
+              <Button
+                onClick={() => {
+                  // prevent form submit triggering page reload from parent browser default
+                  if (editingJourneyIndex !== null) {
+                    handleUpdateJourney();
+                  } else {
+                    handleAddJourney();
+                  }
+                }}
+                disabled={!newJourney.date || !newJourney.title.trim()}
+                className={`${
+                  editingJourneyIndex !== null ? "flex-1" : "w-full"
+                } py-3 text-base font-medium`}
+              >
+                {editingJourneyIndex !== null ? "Update Event" : "+ Add Event"}
+              </Button>
+            </div>
 
-            {formData.journeys && formData.journeys?.length > 0 && (
-              <div className="space-y-2 mt-4">
-                {formData.journeys.map((m, i) => (
-                  <div
-                    key={m.id}
-                    className="flex justify-between items-start bg-gray-50 p-2 rounded"
-                  >
-                    <div>
-                      <div className="font-semibold">{m.title}</div>
-                      <div className="text-xs text-gray-500">
-                        {m.date} • {m.type}
-                      </div>
-                      <div>{m.description}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => openJourneyDelete(i)}
-                      className="text-gray-400 hover:text-red-600 p-1"
-                      title="Remove journey"
-                      aria-label="Remove journey"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
+            {/* Search and Filter Controls */}
+            {formData.journeys && formData.journeys.length > 0 && (
+              <div className="space-y-3 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Search */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Search Events
+                    </label>
+                    <input
+                      type="text"
+                      value={journeySearch}
+                      onChange={(e) => setJourneySearch(e.target.value)}
+                      placeholder="Search by title, description, or type..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
-                ))}
+                  {/* Filter by Type */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Filter by Type
+                    </label>
+                    <select
+                      value={journeyFilter}
+                      onChange={(e) =>
+                        setJourneyFilter(e.target.value as JourneyType | "ALL")
+                      }
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="ALL">All Types</option>
+                      {[
+                        "BAPTISM",
+                        "SPIRIT",
+                        "CLUSTER",
+                        "LESSON",
+                        "NOTE",
+                        "EVENT_ATTENDANCE",
+                      ].map((type) => (
+                        <option key={type} value={type}>
+                          {type.charAt(0) + type.slice(1).toLowerCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Results count */}
+                {filteredAndSortedJourneys.length !==
+                  formData.journeys.length && (
+                  <div className="text-xs text-gray-500">
+                    Showing {filteredAndSortedJourneys.length} of{" "}
+                    {formData.journeys.length} events
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Virtualized Journey List */}
+            {filteredAndSortedJourneys.length > 0 && (
+              <div
+                ref={journeyListRef}
+                className="mt-4 h-[400px] overflow-auto rounded-lg border border-gray-200"
+              >
+                <div
+                  style={{
+                    height: `${virtualizer.getTotalSize()}px`,
+                    width: "100%",
+                    position: "relative",
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const journey = filteredAndSortedJourneys[virtualRow.index];
+                    const originalIndex = getOriginalJourneyIndex(
+                      virtualRow.index
+                    );
+                    const isEditing = editingJourneyIndex === originalIndex;
+
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: `${virtualRow.size}px`,
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <div
+                          onClick={() => handleEditJourney(originalIndex)}
+                          className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all h-full ${
+                            isEditing
+                              ? "border-2 border-blue-500 shadow-md"
+                              : "border border-transparent hover:border-gray-300 hover:shadow-sm"
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-gray-900 truncate">
+                              {journey.title}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {journey.date} • {journey.type}
+                            </div>
+                            {journey.description && (
+                              <div className="text-sm text-gray-700 mt-1 line-clamp-2">
+                                {journey.description}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openJourneyDelete(originalIndex);
+                            }}
+                            className="text-gray-400 hover:text-red-600 p-1 ml-2 flex-shrink-0"
+                            title="Remove journey"
+                            aria-label="Remove journey"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Empty states */}
+            {(!formData.journeys || formData.journeys.length === 0) && (
+              <div className="mt-4 text-center py-8 text-gray-500">
+                <p className="text-sm">No journey events yet.</p>
+                <p className="text-xs mt-1">
+                  Add your first journey event using the form above.
+                </p>
+              </div>
+            )}
+            {formData.journeys &&
+              formData.journeys.length > 0 &&
+              filteredAndSortedJourneys.length === 0 && (
+                <div className="mt-4 text-center py-8 text-gray-500">
+                  <p className="text-sm">
+                    No journey events match your search or filter criteria.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setJourneySearch("");
+                      setJourneyFilter("ALL");
+                    }}
+                    className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
           </div>
         )}
 
-        {/* Footer */}
-        <div className="flex gap-4 pt-4">
-          <Button
-            variant="tertiary"
-            className="flex-1"
-            onClick={
-              isEditingFromProfile && onBackToProfile
-                ? onBackToProfile
-                : onClose
-            }
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button className="flex-1" disabled={loading} type="submit">
-            {loading
-              ? "Saving..."
-              : initialData?.id
-              ? "Update Person"
-              : "Create Person"}
-          </Button>
-        </div>
+        {/* Footer - Only show on Basic Info tab */}
+        {activeTab === "basic" && (
+          <div className="flex gap-4 pt-4">
+            <Button
+              variant="tertiary"
+              className="flex-1"
+              onClick={
+                isEditingFromProfile && onBackToProfile
+                  ? onBackToProfile
+                  : onClose
+              }
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button className="flex-1" disabled={loading} type="submit">
+              {loading
+                ? "Saving..."
+                : initialData?.id
+                ? "Update Person"
+                : "Create Person"}
+            </Button>
+          </div>
+        )}
       </form>
 
       {/* Journey delete confirmation */}
@@ -958,7 +1302,26 @@ export default function PersonForm({
         variant="danger"
         loading={journeyDeleteConfirm.loading}
       />
-      {/* toast removed */}
+
+      {/* Tab switch confirmation */}
+      <ConfirmationModal
+        isOpen={tabSwitchConfirmation.isOpen}
+        onClose={() =>
+          setTabSwitchConfirmation({ isOpen: false, targetTab: null })
+        }
+        onConfirm={() => {
+          if (tabSwitchConfirmation.targetTab) {
+            setActiveTab(tabSwitchConfirmation.targetTab);
+            setHasUnsavedChanges(false);
+            setTabSwitchConfirmation({ isOpen: false, targetTab: null });
+          }
+        }}
+        title="Unsaved Changes"
+        message="You have unsaved changes in Basic Info. Are you sure you want to switch tabs? Your changes will be lost if you don't save first."
+        confirmText="Switch Anyway"
+        cancelText="Stay Here"
+        variant="warning"
+      />
     </>
   );
 }

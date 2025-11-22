@@ -45,8 +45,8 @@ export default function DataTable({
   const displayPeople: DisplayPerson[] = people
     .filter(
       (p) =>
-        p.role !== "ADMIN" &&  // Exclude ADMIN users
-        p.username !== "admin" &&  // Keep the username check as backup
+        p.role !== "ADMIN" && // Exclude ADMIN users
+        p.username !== "admin" && // Keep the username check as backup
         ((p.first_name ?? "") !== "" || (p.last_name ?? "") !== "")
     )
     .map((p) => ({
@@ -594,8 +594,8 @@ export default function DataTable({
 
       {/* Table Header with Actions */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-200">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center space-x-4">
               {selectedPeople.size > 0 && (
                 <div className="flex items-center space-x-2">
@@ -610,11 +610,11 @@ export default function DataTable({
                 </div>
               )}
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center space-x-2 flex-wrap gap-2">
+              <div className="flex items-center sm:gap-2 flex-wrap">
                 <button
                   onClick={() => setShowColumnsModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
                 >
                   <svg
                     className="w-4 h-4 mr-2"
@@ -633,14 +633,15 @@ export default function DataTable({
                 </button>
                 <button
                   onClick={() => setShowExportModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
                 >
                   <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
-                  Export All
+                  <span className="hidden sm:inline">Export All</span>
+                  <span className="sm:hidden">Export</span>
                 </button>
                 <button
                   onClick={() => setShowImportModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
                 >
                   <svg
                     className="w-4 h-4 mr-2"
@@ -662,8 +663,90 @@ export default function DataTable({
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-4 p-4">
+          {paginatedPeople.map((person) => (
+            <div
+              key={person.id}
+              className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={selectedPeople.has(person.id)}
+                    onChange={() => handleSelectPerson(person.id)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1 flex-shrink-0"
+                  />
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                    {`${person.first_name?.[0] || ""}${
+                      person.last_name?.[0] || ""
+                    }`.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => onView && onView(person as Person)}
+                      className="text-left w-full"
+                    >
+                      <div className="text-sm font-semibold text-blue-700 hover:underline truncate">
+                        {person.first_name} {person.last_name}
+                      </div>
+                    </button>
+                  </div>
+                </div>
+                <ActionMenu
+                  person={person}
+                  isOpen={openActionMenuId === person.id}
+                  onOpen={() => setOpenActionMenuId(person.id)}
+                  onClose={() => setOpenActionMenuId(null)}
+                />
+              </div>
+              <div className="space-y-2 pl-14">
+                {visibleColumns.has("email") && person.email && (
+                  <div className="text-sm">
+                    <span className="text-gray-500 font-medium">Email: </span>
+                    <span className="text-gray-900">{person.email}</span>
+                  </div>
+                )}
+                {visibleColumns.has("phone") && person.phone && (
+                  <div className="text-sm">
+                    <span className="text-gray-500 font-medium">Phone: </span>
+                    <span className="text-gray-900">{person.phone}</span>
+                  </div>
+                )}
+                {visibleColumns.has("role") && (
+                  <div className="text-sm">
+                    <span className="text-gray-500 font-medium">Role: </span>
+                    <span className="text-gray-900">{person.role}</span>
+                  </div>
+                )}
+                {visibleColumns.has("status") && (
+                  <div className="text-sm">
+                    <span className="text-gray-500 font-medium">Status: </span>
+                    <span className="text-gray-900">{person.status}</span>
+                  </div>
+                )}
+                {visibleColumns.has("dateFirstAttended") &&
+                  person.dateFirstAttended && (
+                    <div className="text-sm">
+                      <span className="text-gray-500 font-medium">
+                        First Attended:{" "}
+                      </span>
+                      <span className="text-gray-900">
+                        {new Date(
+                          person.dateFirstAttended
+                        ).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -874,23 +957,25 @@ export default function DataTable({
         </div>
 
         {/* Pagination */}
-        <div className="bg-white px-6 py-3 border-t border-gray-200">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="text-sm text-gray-700">
+        <div className="bg-white px-4 md:px-6 py-3 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-sm text-gray-700 text-center sm:text-left">
               Showing {startIndex + 1} to{" "}
               {Math.min(endIndex, sortedPeople.length)} of {sortedPeople.length}{" "}
               results
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 flex-wrap justify-center">
               <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-700">Show:</label>
+                <label className="text-sm text-gray-700 hidden sm:inline">
+                  Show:
+                </label>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
                     setItemsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>
@@ -903,11 +988,12 @@ export default function DataTable({
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center"
+                  aria-label="Previous page"
                 >
                   <ChevronLeftIcon className="w-4 h-4" />
                 </button>
-                <span className="px-3 py-1 text-sm text-gray-700">
+                <span className="px-3 py-2 text-sm text-gray-700 min-h-[44px] md:min-h-0 flex items-center">
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
@@ -915,7 +1001,8 @@ export default function DataTable({
                     setCurrentPage(Math.min(totalPages, currentPage + 1))
                   }
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center"
+                  aria-label="Next page"
                 >
                   <ChevronRightIcon className="w-4 h-4" />
                 </button>

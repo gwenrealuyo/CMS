@@ -24,6 +24,7 @@ import {
   AcademicCapIcon,
   MegaphoneIcon,
   Cog6ToothIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -56,7 +57,7 @@ const navigation = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed, mobileOpen, toggle, closeMobile } = useSidebar();
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
 
   // Filter navigation based on user role and module coordinator assignments
@@ -185,7 +186,7 @@ export default function Sidebar() {
         {hasChildren ? (
           <button
             onClick={() => toggleSection(item.name)}
-            className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors ${
+            className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors min-h-[44px] ${
               isExpanded
                 ? "bg-blue-50 text-blue-700"
                 : "text-gray-700 hover:bg-gray-50"
@@ -210,7 +211,8 @@ export default function Sidebar() {
           <Link
             href={item.href}
             title={collapsed ? item.name : undefined}
-            className={`flex items-center px-3 py-3 rounded-lg transition-colors ${
+            onClick={closeMobile}
+            className={`flex items-center px-3 py-3 rounded-lg transition-colors min-h-[44px] ${
               isActive
                 ? "bg-blue-50 text-blue-700"
                 : "text-gray-700 hover:bg-gray-50"
@@ -233,7 +235,8 @@ export default function Sidebar() {
                 <Link
                   key={child.name}
                   href={child.href}
-                  className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
+                  onClick={closeMobile}
+                  className={`flex items-center px-3 py-2 rounded-lg transition-colors min-h-[44px] ${
                     isChildActive
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-600 hover:bg-gray-50"
@@ -257,28 +260,52 @@ export default function Sidebar() {
   };
 
   return (
-    <aside
-      className={`fixed left-0 top-0 h-screen ${
-        collapsed ? "w-16" : "w-64"
-      } bg-white shadow-lg z-20 transition-all`}
-    >
-      <div className="p-6 flex items-center justify-between">
-        {!collapsed && (
-          <h1 className="text-2xl font-bold text-[#2D3748]">Church Manager</h1>
-        )}
-        <button
-          onClick={toggle}
-          aria-label="Toggle sidebar"
-          className="p-2 rounded-md hover:bg-gray-100 text-gray-600"
-          title={collapsed ? "Expand" : "Collapse"}
-        >
-          {collapsed ? (
-            <ChevronRightIcon className="h-5 w-5" />
-          ) : (
-            <ChevronLeftIcon className="h-5 w-5" />
+    <>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={closeMobile}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 h-screen ${
+          collapsed ? "w-16" : "w-64"
+        } bg-white shadow-lg z-50 transition-all ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        <div className="p-6 flex items-center justify-between">
+          {!collapsed && (
+            <h1 className="text-2xl font-bold text-[#2D3748]">Church Manager</h1>
           )}
-        </button>
-      </div>
+          <div className="flex items-center gap-2">
+            {/* Mobile close button */}
+            <button
+              onClick={closeMobile}
+              aria-label="Close sidebar"
+              className="p-2 rounded-md hover:bg-gray-100 text-gray-600 md:hidden"
+              title="Close"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+            {/* Desktop collapse button */}
+            <button
+              onClick={toggle}
+              aria-label="Toggle sidebar"
+              className="p-2 rounded-md hover:bg-gray-100 text-gray-600 hidden md:block"
+              title={collapsed ? "Expand" : "Collapse"}
+            >
+              {collapsed ? (
+                <ChevronRightIcon className="h-5 w-5" />
+              ) : (
+                <ChevronLeftIcon className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+        </div>
 
       <nav className="mt-6 px-3">
         {filteredNavigation.map((item) => renderNavItem(item))}
@@ -295,6 +322,7 @@ export default function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   );
 }
 // END EDIT

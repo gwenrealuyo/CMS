@@ -6,13 +6,13 @@ import Button from "@/src/components/ui/Button";
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC]">
-      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-[#2D3748] mb-2">
+    <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] px-4">
+      <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-lg shadow-md">
+        <div className="mb-6 md:mb-8 text-center">
+          <h1 className="text-2xl md:text-3xl font-bold text-[#2D3748] mb-2">
             Reset Password
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm md:text-base text-gray-600">
             Contact an administrator to reset your password
           </p>
         </div>

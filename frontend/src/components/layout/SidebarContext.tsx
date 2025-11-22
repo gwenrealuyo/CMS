@@ -4,8 +4,11 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 type SidebarContextValue = {
   collapsed: boolean;
+  mobileOpen: boolean;
   setCollapsed: (next: boolean) => void;
   toggle: () => void;
+  toggleMobile: () => void;
+  closeMobile: () => void;
 };
 
 const SidebarContext = createContext<SidebarContextValue | undefined>(
@@ -14,6 +17,7 @@ const SidebarContext = createContext<SidebarContextValue | undefined>(
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -31,9 +35,20 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   }, [collapsed]);
 
   const toggle = () => setCollapsed(!collapsed);
+  const toggleMobile = () => setMobileOpen(!mobileOpen);
+  const closeMobile = () => setMobileOpen(false);
 
   return (
-    <SidebarContext.Provider value={{ collapsed, setCollapsed, toggle }}>
+    <SidebarContext.Provider
+      value={{
+        collapsed,
+        mobileOpen,
+        setCollapsed,
+        toggle,
+        toggleMobile,
+        closeMobile,
+      }}
+    >
       {children}
     </SidebarContext.Provider>
   );

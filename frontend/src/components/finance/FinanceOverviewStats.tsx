@@ -83,7 +83,7 @@ export default function FinanceOverviewStats({
               onCustomEndDateChange("");
             }
           }}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 w-full sm:w-auto min-w-[180px]"
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 md:py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 w-full sm:w-auto min-w-[180px] min-h-[44px] md:min-h-0"
         >
           <option value="thisWeek">This Week</option>
           <option value="thisMonth">This Month</option>
@@ -107,7 +107,7 @@ export default function FinanceOverviewStats({
                 type="date"
                 value={customStartDate}
                 onChange={(e) => onCustomStartDateChange?.(e.target.value)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 min-h-[44px] md:min-h-0"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export default function FinanceOverviewStats({
                 value={customEndDate}
                 onChange={(e) => onCustomEndDateChange?.(e.target.value)}
                 min={customStartDate}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 min-h-[44px] md:min-h-0"
               />
             </div>
           </div>

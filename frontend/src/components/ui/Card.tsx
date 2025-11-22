@@ -7,15 +7,24 @@ interface CardProps {
   className?: string;
 }
 
-export default function Card({ children, title, headerAction, className }: CardProps) {
+export default function Card({
+  children,
+  title,
+  headerAction,
+  className,
+}: CardProps) {
   const showHeader = Boolean(title || headerAction);
 
   return (
-    <div className={`bg-white rounded-lg shadow-md p-6 ${className || ''}`}>
+    <div
+      className={`bg-white rounded-lg shadow-md p-4 md:p-6 ${className || ""}`}
+    >
       {showHeader && (
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {title && (
-            <h3 className="text-xl font-semibold text-[#2D3748]">{title}</h3>
+            <h3 className="text-lg md:text-xl font-semibold text-[#2D3748]">
+              {title}
+            </h3>
           )}
           {headerAction && (
             <div className="flex items-center gap-3">{headerAction}</div>

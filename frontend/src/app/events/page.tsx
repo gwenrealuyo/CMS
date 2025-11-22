@@ -351,7 +351,7 @@ export default function EventsPage() {
   return (
     <DashboardLayout>
       {/* Page header with Add Event */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-[#2D3748]">Church Events</h1>
         <Button
           onClick={() => {
@@ -359,6 +359,7 @@ export default function EventsPage() {
             setViewMode("edit");
             setIsModalOpen(true);
           }}
+          className="w-full sm:w-auto"
         >
           Add Event
         </Button>
@@ -406,10 +407,10 @@ export default function EventsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-6">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm mb-6">
+        <div className="flex flex-col gap-4">
           {/* Search */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="w-full">
             <div className="relative">
               <svg
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -429,7 +430,7 @@ export default function EventsPage() {
                 placeholder="Search events..."
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className={`w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                className={`w-full pl-10 pr-10 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
                   searchQuery ? "pr-10" : "pr-4"
                 }`}
               />
@@ -457,49 +458,52 @@ export default function EventsPage() {
             </div>
           </div>
 
-          {/* Type Filter */}
-          <div className="w-[200px]">
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            >
-              {eventTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Type and Year Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            {/* Type Filter */}
+            <div className="flex-1 sm:w-[200px]">
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              >
+                {eventTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Year Filter */}
-          <div className="w-[160px]">
-            <select
-              value={filterYear}
-              onChange={(e) => setFilterYear(e.target.value)}
-              className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            >
-              <option value="all">All Years</option>
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Year Filter */}
+            <div className="flex-1 sm:w-[160px]">
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              >
+                <option value="all">All Years</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Clear Filters */}
-          {(searchQuery ||
-            filterType !== "all" ||
-            filterYear !== "all" ||
-            selectedDate) && (
-            <button
-              onClick={clearAllFilters}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg border border-gray-300 transition-colors"
-            >
-              Clear All
-            </button>
-          )}
+            {/* Clear Filters */}
+            {(searchQuery ||
+              filterType !== "all" ||
+              filterYear !== "all" ||
+              selectedDate) && (
+              <button
+                onClick={clearAllFilters}
+                className="px-4 py-2.5 md:py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg border border-gray-300 transition-colors min-h-[44px] md:min-h-0 w-full sm:w-auto"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Active Filters Display */}

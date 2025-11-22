@@ -76,13 +76,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC]">
-      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-[#2D3748] mb-2">
+    <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] px-4">
+      <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-lg shadow-md">
+        <div className="mb-6 md:mb-8 text-center">
+          <h1 className="text-2xl md:text-3xl font-bold text-[#2D3748] mb-2">
             Church Management System
           </h1>
-          <p className="text-gray-600">Sign in to your account</p>
+          <p className="text-sm md:text-base text-gray-600">Sign in to your account</p>
         </div>
 
         {error && (
@@ -105,7 +105,7 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent"
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
               placeholder="Enter your username or email"
             />
           </div>

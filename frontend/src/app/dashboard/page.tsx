@@ -230,7 +230,9 @@ export default function Dashboard() {
               for the week.
             </p>
           </div>
-          <Button variant="primary">Generate Report</Button>
+          <Button variant="primary" className="w-full md:w-auto">
+            Generate Report
+          </Button>
         </div>
 
         {(lessonSummaryError || peopleError) && (
@@ -281,7 +283,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card>
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-[#2D3748]">
                   Lesson Completion Pipeline
@@ -292,7 +294,7 @@ export default function Dashboard() {
               </div>
               <Button
                 variant="tertiary"
-                className="text-xs"
+                className="text-xs w-full sm:w-auto"
                 onClick={() => {
                   window.location.href = "/lessons";
                 }}
@@ -313,9 +315,9 @@ export default function Dashboard() {
                     key={`${lesson.lesson_id}-${lesson.version_label}`}
                     className="border rounded-lg px-4 py-3"
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-semibold text-[#2D3748]">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-[#2D3748] break-words">
                           {lesson.lesson_title}
                         </h4>
                         <p className="text-xs text-gray-500">
@@ -323,11 +325,11 @@ export default function Dashboard() {
                           {lesson.is_latest ? "(Latest)" : "(Superseded)"}
                         </p>
                       </div>
-                      <span className="text-sm font-semibold text-[#2563EB]">
+                      <span className="text-sm font-semibold text-[#2563EB] flex-shrink-0">
                         {lesson.completed}/{lesson.total} completed
                       </span>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 mt-3 text-xs text-gray-600">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs text-gray-600">
                       <div>
                         <span className="block font-semibold text-gray-700">
                           Assigned

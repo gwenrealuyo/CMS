@@ -13,9 +13,13 @@ function LayoutShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#F7FAFC]">
       <Sidebar />
-      <div className={collapsed ? "ml-16" : "ml-64"}>
+      <div
+        className={`${
+          collapsed ? "md:ml-16" : "md:ml-64"
+        } transition-all`}
+      >
         <Navbar />
-        <main className="p-6 mt-16">{children}</main>
+        <main className="p-4 md:p-6 mt-16">{children}</main>
       </div>
     </div>
   );

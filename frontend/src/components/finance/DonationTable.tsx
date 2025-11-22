@@ -129,9 +129,9 @@ export default function DonationTable({
   }) => {
     return (
       <th
-        className={`px-4 py-2 ${
+        className={`px-3 md:px-4 py-2 ${
           align === "right" ? "text-right" : "text-left"
-        } text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors select-none`}
+        } text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors select-none min-h-[44px] md:min-h-0 flex items-center`}
         onClick={() => handleSort(column)}
       >
         <div
@@ -148,7 +148,7 @@ export default function DonationTable({
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div>
           <h3 className="text-lg font-semibold text-[#2D3748]">Donation Log</h3>
           <p className="text-xs text-gray-500">
@@ -158,7 +158,7 @@ export default function DonationTable({
         {onAddDonation && (
           <button
             onClick={onAddDonation}
-            className="rounded-md bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB]"
+            className="rounded-md bg-[#2563EB] px-3 py-2.5 md:py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             Record Donation
           </button>
@@ -172,34 +172,37 @@ export default function DonationTable({
           No donations recorded yet. Record a donation to get started.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <SortableHeader column="date" align="left">
-                  Date
-                </SortableHeader>
-                <SortableHeader column="donorName" align="left">
-                  Donor
-                </SortableHeader>
-                <SortableHeader column="purpose" align="left">
-                  Purpose
-                </SortableHeader>
-                <SortableHeader column="amount" align="right">
-                  Amount
-                </SortableHeader>
-                <SortableHeader column="paymentMethod" align="left">
-                  Payment Method
-                </SortableHeader>
-                <SortableHeader column="recordedByName" align="left">
-                  Recorded By
-                </SortableHeader>
-              </tr>
-            </thead>
+        <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="inline-block min-w-full align-middle md:px-0 px-4">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <SortableHeader column="date" align="left">
+                    Date
+                  </SortableHeader>
+                  <SortableHeader column="donorName" align="left">
+                    Donor
+                  </SortableHeader>
+                  <SortableHeader column="purpose" align="left">
+                    Purpose
+                  </SortableHeader>
+                  <SortableHeader column="amount" align="right">
+                    Amount
+                  </SortableHeader>
+                  <SortableHeader column="paymentMethod" align="left">
+                    <span className="hidden md:inline">Payment Method</span>
+                    <span className="md:hidden">Method</span>
+                  </SortableHeader>
+                  <SortableHeader column="recordedByName" align="left">
+                    <span className="hidden lg:inline">Recorded By</span>
+                    <span className="lg:hidden">By</span>
+                  </SortableHeader>
+                </tr>
+              </thead>
             <tbody className="divide-y divide-gray-100">
               {sortedDonations.map((donation) => (
                 <tr key={donation.id}>
-                  <td className="px-4 py-3 text-sm text-gray-700">
+                  <td className="px-3 md:px-4 py-3 text-sm text-gray-700">
                     {onEditDonation ? (
                       <button
                         type="button"

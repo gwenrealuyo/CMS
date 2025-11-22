@@ -71,7 +71,7 @@ export default function FilterBar({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6 mb-6">
       {/* Search Bar */}
       <div className="mb-4">
         <div className="relative">
@@ -95,7 +95,7 @@ export default function FilterBar({
             placeholder="Search by name, email, or phone..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className={`block w-full pl-10 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+            className={`block w-full pl-10 py-2.5 md:py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
               searchQuery ? "pr-10" : "pr-3"
             }`}
           />
@@ -146,9 +146,11 @@ export default function FilterBar({
       </div>
 
       {/* Filter Section */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <span className="text-sm font-medium text-gray-700">Filters:</span>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
+          <span className="text-sm font-medium text-gray-700 flex-shrink-0">
+            Filters:
+          </span>
 
           {activeFilters.length === 0 ? (
             <span className="text-sm text-gray-500 italic">
@@ -159,17 +161,18 @@ export default function FilterBar({
               {activeFilters.map((filter) => (
                 <div
                   key={filter.id}
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getFilterChipColor(
+                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border min-h-[32px] ${getFilterChipColor(
                     filter.field
                   )}`}
                 >
-                  <span className="mr-1">
+                  <span className="mr-1 break-words">
                     {filter.label} {getOperatorLabel(filter.operator)}{" "}
                     {formatFilterValue(filter)}
                   </span>
                   <button
                     onClick={() => onRemoveFilter(filter.id)}
-                    className="ml-1 hover:opacity-75 transition-opacity"
+                    className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
+                    aria-label="Remove filter"
                   >
                     <svg
                       className="w-3 h-3"
@@ -191,11 +194,11 @@ export default function FilterBar({
           )}
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-shrink-0">
           {activeFilters.length > 0 && (
             <button
               onClick={onClearAllFilters}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors min-h-[44px] md:min-h-0 px-2 md:px-0"
             >
               Clear All
             </button>
@@ -207,7 +210,7 @@ export default function FilterBar({
                 (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
               )
             }
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors min-h-[44px] md:min-h-0"
           >
             <svg
               className="w-4 h-4 mr-1"

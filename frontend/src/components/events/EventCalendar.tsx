@@ -100,22 +100,23 @@ export default function EventCalendar({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-[#2D3748]">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6">
+        <h2 className="text-base md:text-lg font-semibold text-[#2D3748]">
           {monthNames[month]} {year}
         </h2>
         <div className="flex items-center gap-2">
           <button
             onClick={goToToday}
-            className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors min-h-[44px] md:min-h-0"
           >
             Today
           </button>
           <div className="flex items-center gap-1">
             <button
               onClick={goToPreviousMonth}
-              className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
+              aria-label="Previous month"
             >
               <svg
                 className="w-5 h-5"
@@ -133,7 +134,8 @@ export default function EventCalendar({
             </button>
             <button
               onClick={goToNextMonth}
-              className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
+              aria-label="Next month"
             >
               <svg
                 className="w-5 h-5"
@@ -157,7 +159,7 @@ export default function EventCalendar({
         {dayNames.map((day) => (
           <div
             key={day}
-            className="text-center text-sm font-medium text-gray-500 py-2"
+            className="text-center text-xs md:text-sm font-medium text-gray-500 py-2"
           >
             {day}
           </div>
@@ -172,8 +174,8 @@ export default function EventCalendar({
             <div
               key={index}
               className={`
-                aspect-square flex flex-col items-center justify-start p-1 rounded-md
-                ${date ? "hover:bg-gray-50 cursor-pointer" : ""}
+                aspect-square flex flex-col items-center justify-start p-1 md:p-2 rounded-md min-h-[44px] md:min-h-0
+                ${date ? "hover:bg-gray-50 cursor-pointer active:bg-gray-100" : ""}
                 ${isCurrentDate ? "bg-blue-50 font-semibold" : ""}
                 ${isSelectedDate ? "bg-blue-100 ring-2 ring-blue-500" : ""}
                 transition-colors
@@ -183,14 +185,14 @@ export default function EventCalendar({
               {date && (
                 <>
                   <span
-                    className={`text-sm ${
+                    className={`text-xs md:text-sm ${
                       isCurrentDate ? "text-blue-600" : "text-gray-900"
                     }`}
                   >
                     {date.getDate()}
                   </span>
                   {eventCount > 0 && (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-semibold mt-0.5">
+                    <span className="inline-flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full bg-blue-600 text-white text-[10px] md:text-xs font-semibold mt-0.5">
                       {eventCount}
                     </span>
                   )}

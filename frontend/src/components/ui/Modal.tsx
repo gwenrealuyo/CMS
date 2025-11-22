@@ -38,16 +38,24 @@ export default function Modal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className} !mt-0`}
+      className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className} !mt-0 p-0 md:p-4`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
-      <div className="bg-white rounded-lg max-w-3xl w-full mx-4 max-h-[95vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-none md:rounded-lg max-w-3xl w-full h-full md:h-auto md:max-h-[95vh] md:mx-4 overflow-hidden flex flex-col">
         {!hideHeader && (
-          <div className="p-6 pb-0 flex-shrink-0">
+          <div className="p-4 md:p-6 pb-0 flex-shrink-0 border-b border-gray-200">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-[#2D3748]">{title}</h2>
+              <h2 className="text-lg md:text-xl font-semibold text-[#2D3748]">
+                {title}
+              </h2>
               <button
                 onClick={onClose}
-                className="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50 transition-colors"
+                className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Close modal"
               >
                 <svg
                   className="w-5 h-5"
@@ -67,7 +75,7 @@ export default function Modal({
           </div>
         )}
         <div
-          className={`flex-1 overflow-y-auto ${hideHeader ? "" : "p-6 pt-0"}`}
+          className={`flex-1 overflow-y-auto ${hideHeader ? "p-4 md:p-6" : "p-4 md:p-6 pt-0"}`}
         >
           {children}
         </div>

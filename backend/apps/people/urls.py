@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     PersonViewSet,
     FamilyViewSet,
-    MilestoneViewSet,
+    JourneyViewSet,
     ModuleCoordinatorViewSet,
 )
 
@@ -12,7 +12,7 @@ app_name = "people"
 router = DefaultRouter()
 router.register(r"people", PersonViewSet, basename="person")
 router.register(r"families", FamilyViewSet, basename="family")
-router.register(r"milestones", MilestoneViewSet, basename="milestone")
+router.register(r"journeys", JourneyViewSet, basename="journey")
 router.register(r"module-coordinators", ModuleCoordinatorViewSet, basename="module-coordinator")
 
 urlpatterns = [

@@ -1,12 +1,12 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from apps.people.models import Milestone
+from apps.people.models import Journey
 
 from .models import AttendanceRecord
 
 
-def _build_milestone_defaults(record: AttendanceRecord) -> dict:
+def _build_journey_defaults(record: AttendanceRecord) -> dict:
     event = record.event
     type_display = getattr(event, "get_type_display", None)
     event_type = (
@@ -29,7 +29,7 @@ def _build_milestone_defaults(record: AttendanceRecord) -> dict:
 
 
 @receiver(post_save, sender=AttendanceRecord)
-def manage_attendance_milestone(
+def manage_attendance_journey(
     sender, instance: AttendanceRecord, created: bool, **kwargs
 ):
     is_present = (
@@ -37,36 +37,36 @@ def manage_attendance_milestone(
     )
 
     if is_present:
-        milestone = instance.milestone
-        defaults = _build_milestone_defaults(instance)
-        if milestone:
+        journey = instance.journey
+        defaults = _build_journey_defaults(instance)
+        if journey:
             updated = False
             for field, value in defaults.items():
-                if getattr(milestone, field) != value:
-                    setattr(milestone, field, value)
+                if getattr(journey, field) != value:
+                    setattr(journey, field, value)
                     updated = True
             if updated:
-                milestone.save(update_fields=list(defaults.keys()))
+                journey.save(update_fields=list(defaults.keys()))
         else:
-            milestone = Milestone.objects.create(
+            journey = Journey.objects.create(
                 user=instance.person,
                 **defaults,
             )
-            sender.objects.filter(pk=instance.pk).update(milestone=milestone)
+            sender.objects.filter(pk=instance.pk).update(journey=journey)
     else:
-        if instance.milestone_id:
-            instance.milestone.delete()
-            sender.objects.filter(pk=instance.pk).update(milestone=None)
+        if instance.journey_id:
+            instance.journey.delete()
+            sender.objects.filter(pk=instance.pk).update(journey=None)
 
 
 @receiver(post_delete, sender=AttendanceRecord)
-def delete_attendance_milestone(
+def delete_attendance_journey(
     sender, instance: AttendanceRecord, **kwargs
 ):
-    if instance.milestone_id:
+    if instance.journey_id:
         try:
-            instance.milestone.delete()
-        except Milestone.DoesNotExist:
+            instance.journey.delete()
+        except Journey.DoesNotExist:
             pass
 
 

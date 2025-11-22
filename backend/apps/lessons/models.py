@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models import Q
 
-from apps.people.models import Milestone, Person
+from apps.people.models import Journey, Person
 
 
 class Lesson(models.Model):
@@ -57,39 +57,39 @@ class Lesson(models.Model):
         return f"{self.title} ({self.version_label})"
 
 
-class LessonMilestone(models.Model):
+class LessonJourney(models.Model):
     """
     Stores metadata that determines how a lesson completion appears in the conversion
-    timeline as a milestone (LESSON type by default).
+    timeline as a journey (LESSON type by default).
     """
 
     lesson = models.OneToOneField(
-        Lesson, on_delete=models.CASCADE, related_name="milestone_config"
+        Lesson, on_delete=models.CASCADE, related_name="journey_config"
     )
-    milestone_type = models.CharField(
+    journey_type = models.CharField(
         max_length=20,
-        choices=Milestone._meta.get_field("type").choices,
+        choices=Journey._meta.get_field("type").choices,
         default="LESSON",
-        help_text="Milestone type to create when the lesson is completed.",
+        help_text="Journey type to create when the lesson is completed.",
     )
     title_template = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Optional override for the milestone title (defaults to lesson title).",
+        help_text="Optional override for the journey title (defaults to lesson title).",
     )
     note_template = models.TextField(
         blank=True,
-        help_text="Optional note body saved on the milestone when the lesson is completed.",
+        help_text="Optional note body saved on the journey when the lesson is completed.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Lesson Milestone Configuration"
-        verbose_name_plural = "Lesson Milestone Configurations"
+        verbose_name = "Lesson Journey Configuration"
+        verbose_name_plural = "Lesson Journey Configurations"
 
     def __str__(self) -> str:
-        return f"{self.lesson.title} milestone config"
+        return f"{self.lesson.title} journey config"
 
 
 class PersonLessonProgress(models.Model):
@@ -129,8 +129,8 @@ class PersonLessonProgress(models.Model):
         on_delete=models.SET_NULL,
         related_name="lessons_verified",
     )
-    milestone = models.OneToOneField(
-        Milestone,
+    journey = models.OneToOneField(
+        Journey,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -224,7 +224,11 @@ class LessonSessionReport(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
-        teacher_name = self.teacher.get_full_name() or self.teacher.username if self.teacher else "Unknown"
+        teacher_name = (
+            self.teacher.get_full_name() or self.teacher.username
+            if self.teacher
+            else "Unknown"
+        )
         student_name = self.student.get_full_name() or self.student.username
         return f"{teacher_name} -> {student_name} ({self.session_date})"
 

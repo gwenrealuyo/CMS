@@ -17,7 +17,7 @@ from .serializers import AttendanceRecordSerializer
 
 class AttendanceRecordViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
-    queryset = AttendanceRecord.objects.select_related("event", "person", "milestone")
+    queryset = AttendanceRecord.objects.select_related("event", "person", "journey")
     serializer_class = AttendanceRecordSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["event", "person", "occurrence_date", "status"]
@@ -36,7 +36,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     def by_event(self, request, event_id=None):
         event = get_object_or_404(Event.objects.all(), pk=event_id)
         occurrence_date_param = request.query_params.get("occurrence_date")
-        queryset = event.attendance_records.select_related("person", "milestone")
+        queryset = event.attendance_records.select_related("person", "journey")
         if occurrence_date_param:
             parsed = parse_date(occurrence_date_param)
             if parsed:

@@ -48,7 +48,7 @@ class LessonViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = (
             Lesson.objects.all()
-            .select_related("milestone_config")
+            .select_related("journey_config")
             .prefetch_related(
                 Prefetch(
                     "progress_records",
@@ -102,7 +102,7 @@ class PersonLessonProgressViewSet(
     def get_queryset(self):
         user = self.request.user
         queryset = PersonLessonProgress.objects.select_related(
-            "person", "lesson", "lesson__milestone_config", "milestone"
+            "person", "lesson", "lesson__journey_config", "journey"
         )
         
         # ADMIN/PASTOR: All progress

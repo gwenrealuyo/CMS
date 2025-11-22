@@ -31,19 +31,19 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name="LessonMilestone",
+            name="LessonJourney",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("milestone_type", models.CharField(choices=[("LESSON", "Lesson"), ("BAPTISM", "Baptism"), ("SPIRIT", "Spirit"), ("CLUSTER", "Cluster"), ("NOTE", "Note"), ("EVENT_ATTENDANCE", "Event Attendance")], default="NOTE", help_text="Milestone type to create when the lesson is completed.", max_length=20)),
-                ("title_template", models.CharField(blank=True, help_text="Optional override for the milestone title (defaults to lesson title).", max_length=100)),
-                ("note_template", models.TextField(blank=True, help_text="Optional note body saved on the milestone when the lesson is completed.")),
+                ("journey_type", models.CharField(choices=[("LESSON", "Lesson"), ("BAPTISM", "Baptism"), ("SPIRIT", "Spirit"), ("CLUSTER", "Cluster"), ("NOTE", "Note"), ("EVENT_ATTENDANCE", "Event Attendance")], default="LESSON", help_text="Journey type to create when the lesson is completed.", max_length=20)),
+                ("title_template", models.CharField(blank=True, help_text="Optional override for the journey title (defaults to lesson title).", max_length=100)),
+                ("note_template", models.TextField(blank=True, help_text="Optional note body saved on the journey when the lesson is completed.")),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
-                ("lesson", models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name="milestone_config", to="lessons.lesson")),
+                ("lesson", models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name="journey_config", to="lessons.lesson")),
             ],
             options={
-                "verbose_name": "Lesson Milestone Configuration",
-                "verbose_name_plural": "Lesson Milestone Configurations",
+                "verbose_name": "Lesson Journey Configuration",
+                "verbose_name_plural": "Lesson Journey Configurations",
             },
         ),
         migrations.CreateModel(
@@ -60,7 +60,7 @@ class Migration(migrations.Migration):
                 ("assigned_by", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="lessons_assigned", to="people.person")),
                 ("completed_by", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="lessons_verified", to="people.person")),
                 ("lesson", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="progress_records", to="lessons.lesson")),
-                ("milestone", models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="lesson_progress", to="people.milestone")),
+                ("journey", models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="lesson_progress", to="people.journey")),
                 ("person", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="lesson_progress", to="people.person")),
             ],
             options={

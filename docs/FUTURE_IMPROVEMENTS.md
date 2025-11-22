@@ -46,19 +46,19 @@ This document outlines planned improvements and feature recommendations for the 
 - Sortable and filterable by cluster, score range
 - Visual indicators (color-coded scores)
 
-#### 1.5 Milestone Integration with Attendance Timeline
+#### 1.5 Journey Integration with Attendance Timeline
 
 **Status**: Planned - Not Implemented
 
-##### Automatic Milestone Creation
+##### Automatic Journey Creation
 
-- **Trigger**: Automatically create milestones with type "CLUSTER" when a person attends a cluster meeting
+- **Trigger**: Automatically create journeys with type "CLUSTER" when a person attends a cluster meeting
 - **When**: Every time a person is added to `members_attended` or `visitors_attended` in a ClusterWeeklyReport
 - **Implementation Method**: Use Django signals (`m2m_changed`) or override serializer `create`/`update` methods
 
-##### Milestone Details
+##### Journey Details
 
-- **Type**: Always "CLUSTER" for attendance-based milestones
+- **Type**: Always "CLUSTER" for attendance-based journeys
 - **Title**: Format like "Cluster Meeting - {Cluster Name}" or "Attended {Cluster Code}"
 - **Date**: Use the report's `meeting_date`
 - **Description**: Optional - could include gathering type (Physical/Online/Hybrid) or meeting notes
@@ -69,20 +69,20 @@ This document outlines planned improvements and feature recommendations for the 
 
 1. **Duplicate Prevention**
 
-   - Check if milestone already exists for same person, date, and type "CLUSTER"
-   - Prevent duplicate milestone creation
+   - Check if journey already exists for same person, date, and type "CLUSTER"
+   - Prevent duplicate journey creation
    - Consider adding database uniqueness constraint
 
 2. **Update/Delete Handling**
 
-   - When attendance is removed: delete corresponding milestone
-   - When attendance is updated: ensure milestones reflect current state
+   - When attendance is removed: delete corresponding journey
+   - When attendance is updated: ensure journeys reflect current state
    - Handle bulk attendance changes efficiently
 
 3. **Members vs Visitors**
 
-   - Create milestones for both members and visitors
-   - Consider adding role indicator in milestone description or title
+   - Create journeys for both members and visitors
+   - Consider adding role indicator in journey description or title
 
 4. **Bulk Operations**
 
@@ -92,72 +92,72 @@ This document outlines planned improvements and feature recommendations for the 
 
 5. **Retroactive Creation**
 
-   - Management command to create milestones for existing attendance records
+   - Management command to create journeys for existing attendance records
    - Backfill historical data if needed
 
 6. **Auto-Generated Identification**
    - Add `auto_generated` boolean field or use naming pattern
-   - Distinguish auto-created from manual milestones
+   - Distinguish auto-created from manual journeys
    - Help with cleanup and prevent accidental deletion
 
 ##### Unified Timeline View
 
-- **Display**: Combined timeline showing both attendance records and milestones
+- **Display**: Combined timeline showing both attendance records and journeys
 - **Location**: New "Attendance" tab in PersonProfile (or enhance existing Timeline tab)
-- **Visual Distinction**: Different icons/colors for attendance vs milestones
-- **Filtering**: Filter by date range, cluster, milestone type, or both
+- **Visual Distinction**: Different icons/colors for attendance vs journeys
+- **Filtering**: Filter by date range, cluster, journey type, or both
 - **Chronological Order**: Sort all items by date (most recent first)
 
 ##### API Integration
 
-- **Attendance History Endpoint**: Include milestones in response
+- **Attendance History Endpoint**: Include journeys in response
 
-  - Combined `timeline_items` array with both attendance and milestones
+  - Combined `timeline_items` array with both attendance and journeys
   - Separate arrays for backward compatibility
-  - Filter milestones by same date range as attendance
+  - Filter journeys by same date range as attendance
 
-- **Attendance Insights Endpoint**: Analyze milestone impact
-  - Correlate milestone dates with attendance patterns
-  - Identify if milestones affect attendance (e.g., attendance increase after baptism)
-  - Show milestone impact in insights response
+- **Attendance Insights Endpoint**: Analyze journey impact
+  - Correlate journey dates with attendance patterns
+  - Identify if journeys affect attendance (e.g., attendance increase after baptism)
+  - Show journey impact in insights response
 
 ##### Implementation Considerations
 
 1. **Performance**
 
-   - Batch milestone creation for multiple attendees
+   - Batch journey creation for multiple attendees
    - Consider async/background tasks if needed
    - Optimize queries when fetching combined timeline
 
 2. **Error Handling**
 
-   - Log errors but don't block report creation if milestone creation fails
+   - Log errors but don't block report creation if journey creation fails
    - Decide on rollback strategy
 
 3. **Data Migration**
 
-   - Plan for creating milestones for existing attendance records
+   - Plan for creating journeys for existing attendance records
    - Use data migration or management command
 
 4. **UI Considerations**
 
-   - Visual distinction between auto-generated and manual milestones
-   - Decide if auto-generated milestones are editable/deletable
-   - Show cluster information in milestone display
+   - Visual distinction between auto-generated and manual journeys
+   - Decide if auto-generated journeys are editable/deletable
+   - Show cluster information in journey display
 
 5. **Testing**
-   - Test milestone creation on report save
-   - Test milestone deletion on attendance removal
+   - Test journey creation on report save
+   - Test journey deletion on attendance removal
    - Test duplicate prevention
    - Test bulk operations
-   - Test retroactive milestone creation
+   - Test retroactive journey creation
 
 ##### Future Enhancements
 
-- Milestone-triggered insights (e.g., "Attendance dropped after completing lessons")
-- Milestone recommendations (suggest creating milestones for significant attendance events)
+- Journey-triggered insights (e.g., "Attendance dropped after completing lessons")
+- Journey recommendations (suggest creating journeys for significant attendance events)
 - Timeline export (export unified timeline as PDF or CSV)
-- Milestone impact analytics (detailed analysis of how milestones correlate with attendance)
+- Journey impact analytics (detailed analysis of how journeys correlate with attendance)
 
 ### API Endpoints Needed
 
@@ -168,11 +168,11 @@ This document outlines planned improvements and feature recommendations for the 
 
 ### UI Components Needed
 
-- `AttendanceHistoryTab` - New tab in PersonProfile with unified timeline (attendance + milestones)
+- `AttendanceHistoryTab` - New tab in PersonProfile with unified timeline (attendance + journeys)
 - `AttendanceInsightsCard` - Summary card with scores and streaks
 - `FrequentlyAbsentMembersList` - Dashboard component
 - `EngagementScoresDashboard` - Overview of all members
-- `UnifiedTimelineView` - Combined timeline showing attendance records and milestones chronologically
+- `UnifiedTimelineView` - Combined timeline showing attendance records and journeys chronologically
 
 ### Future Enhancements
 
@@ -181,7 +181,7 @@ This document outlines planned improvements and feature recommendations for the 
 - Attendance goals (set and track goals)
 - Comparison tools (compare across clusters)
 - Seasonal analysis (identify seasonal patterns)
-- Milestone integration (automatic milestone creation for attendance - see section 1.5)
+- Journey integration (automatic journey creation for attendance - see section 1.5)
 
 ---
 

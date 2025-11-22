@@ -163,7 +163,7 @@ Key features include:
   - `converted_by` (ForeignKey to `people.Person`) – member who led the conversion
   - `evangelism_group` (ForeignKey to EvangelismGroup, nullable) – associated group
   - `cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster for tracking (from inviter or endorsed cluster)
-  - `conversion_date` (DateField) – date of conversion milestone
+  - `conversion_date` (DateField) – date of conversion journey
   - `water_baptism_date` (DateField, nullable) – date of water baptism
   - `spirit_baptism_date` (DateField, nullable) – date of Holy Ghost reception
   - `is_complete` (BooleanField) – True if both baptisms completed
@@ -173,10 +173,10 @@ Key features include:
 - Default ordering: by `-conversion_date`
 - **Validation**: Check if lessons are completed before baptism (unless fast-tracked)
 - **Validation**: Check if commitment form is signed (unless fast-tracked)
-- **Auto-updates**: 
+- **Auto-updates**:
   - Update Person's `water_baptism_date` and `spirit_baptism_date` when conversion is created/updated
   - Update prospect `pipeline_stage` (BAPTIZED, RECEIVED_HG, CONVERTED)
-  - Update monthly tracking when conversion milestones are recorded
+  - Update monthly tracking when conversion journeys are recorded
   - Update Each1Reach1Goal when conversion is completed (cluster-based)
 
 ### MonthlyConversionTracking Model
@@ -196,8 +196,8 @@ Key features include:
 - **Monthly Counting Logic**:
   - **INVITED**: Count unique persons invited that month (only if they haven't attended yet)
   - **ATTENDED**: Count unique persons who attended that month (replaces INVITED count if in same month)
-  - **BAPTIZED**: Count baptism events that month (milestone count, can be separate from RECEIVED_HG)
-  - **RECEIVED_HG**: Count Holy Ghost reception events that month (milestone count, can be separate from BAPTIZED)
+  - **BAPTIZED**: Count baptism events that month (journey count, can be separate from RECEIVED_HG)
+  - **RECEIVED_HG**: Count Holy Ghost reception events that month (journey count, can be separate from BAPTIZED)
   - **CONVERTED**: Count unique persons who completed both BAPTIZED and RECEIVED_HG by end of month (within same year). Counted in the month they first complete both. Only counted once per person per year.
 
 ### Each1Reach1Goal Model
@@ -216,6 +216,7 @@ Key features include:
 ### Cross-App References
 
 All ForeignKey relationships use string references to avoid circular imports:
+
 - `leader = models.ForeignKey('people.Person', ...)`
 - `cluster = models.ForeignKey('clusters.Cluster', ...)`
 - `person = models.ForeignKey(settings.AUTH_USER_MODEL, ...)`
@@ -412,6 +413,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
 Serializers (`apps.evangelism.serializers`) expose:
 
 - `EvangelismGroupSerializer`:
+
   - `leader` – nested person object (read-only)
   - `leader_id` – write-only field for setting leader
   - `cluster` – nested cluster object (read-only)
@@ -421,18 +423,21 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All group fields
 
 - `EvangelismGroupMemberSerializer`:
+
   - `person` – nested person object with full name formatting (read-only)
   - `person_id` – write-only field for setting person
   - `role_display` – human-readable role name (read-only)
   - All member fields
 
 - `EvangelismSessionSerializer`:
+
   - `evangelism_group` – nested group object (read-only)
   - `evangelism_group_id` – write-only field for setting group
   - `event_id` – read-only event ID if event exists
   - All session fields
 
 - `EvangelismWeeklyReportSerializer`:
+
   - `evangelism_group` – nested group object (read-only)
   - `members_attended_details` – read-only full person details for members
   - `visitors_attended_details` – read-only full person details for visitors
@@ -440,6 +445,7 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All report fields
 
 - `ProspectSerializer`:
+
   - `invited_by` – nested person object (read-only)
   - `invited_by_id` – write-only field for setting inviter
   - `inviter_cluster` – nested cluster object (read-only)
@@ -451,6 +457,7 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All prospect fields
 
 - `FollowUpTaskSerializer`:
+
   - `prospect` – nested prospect object (read-only)
   - `assigned_to` – nested person object (read-only)
   - `created_by` – nested person object (read-only)
@@ -460,12 +467,14 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All task fields
 
 - `DropOffSerializer`:
+
   - `prospect` – nested prospect object (read-only)
   - `drop_off_stage_display` – human-readable stage (read-only)
   - `reason_display` – human-readable reason (read-only)
   - All drop-off fields
 
 - `ConversionSerializer`:
+
   - `person` – nested person object (read-only)
   - `prospect` – nested prospect object (read-only)
   - `converted_by` – nested person object (read-only)
@@ -475,6 +484,7 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All conversion fields
 
 - `MonthlyConversionTrackingSerializer`:
+
   - `cluster` – nested cluster object (read-only)
   - `prospect` – nested prospect object (read-only)
   - `person` – nested person object (read-only, if linked)
@@ -482,6 +492,7 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All tracking fields
 
 - `MonthlyStatisticsSerializer`:
+
   - `year` – year
   - `month` – month
   - `cluster_id` – cluster ID
@@ -505,6 +516,7 @@ The Evangelism hub lives at `frontend/src/app/evangelism/page.tsx` and provides 
 ### Main Page Features
 
 The main page includes tabs for different views:
+
 - **Groups Tab**: Manage evangelism groups
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
 - **Reports Tab**: View monthly statistics and conversion reports
@@ -590,7 +602,7 @@ The main page includes tabs for different views:
   - Prospect information
   - Pipeline stage history
   - Follow-up tasks
-  - Conversion milestones
+  - Conversion journeys
   - Drop-off information (if applicable)
 - **`UpdateProgressModal`**: Modal to update visitor's pipeline stage
   - Stage selection
@@ -688,6 +700,7 @@ The main page includes tabs for different views:
 ### Group Detail Modal
 
 When viewing a group, a modal displays:
+
 - **Group Information**: Leader, cluster, location, meeting time, meeting day
 - **Members Section**: List of enrolled members with management options
 - **Sessions Section**: List of sessions with scheduling options
@@ -745,57 +758,66 @@ When viewing a group, a modal displays:
 - Track commitment form signing
 - Fast-track reasons: GOING_ABROAD, HEALTH_ISSUES, OTHER
 
-### Milestones Module
+### Journeys Module
 
-- Optionally create milestones for conversions
-- Create milestones for pipeline stage progress
-- Link milestones to conversion records
+- Optionally create journeys for conversions
+- Create journeys for pipeline stage progress
+- Link journeys to conversion records
 
 ## Django Admin
 
 All Evangelism models are registered in Django admin (`apps.evangelism.admin`):
 
 - **EvangelismGroupAdmin**:
+
   - List display: name, leader, cluster, location, meeting_time, is_active
   - Filterable by cluster, is_active
   - Searchable by name, description, leader name
 
 - **EvangelismGroupMemberAdmin**:
+
   - List display: evangelism_group, person, role, joined_date, is_active
   - Filterable by role, is_active, group
   - Searchable by group name, person name
 
 - **EvangelismSessionAdmin**:
+
   - List display: evangelism_group, session_date, session_time, topic, event
   - Filterable by group, session_date
   - Searchable by group name, topic
 
 - **EvangelismWeeklyReportAdmin**:
+
   - List display: evangelism_group, year, week_number, meeting_date, gathering_type
   - Filterable by group, year, week_number, gathering_type
   - Searchable by group name
 
 - **ProspectAdmin**:
+
   - List display: name, invited_by, pipeline_stage, last_activity_date, is_dropped_off
   - Filterable by pipeline_stage, inviter_cluster, group, is_dropped_off
   - Searchable by name, contact_info
 
 - **FollowUpTaskAdmin**:
+
   - List display: prospect, assigned_to, task_type, due_date, status, priority
   - Filterable by status, priority, assigned_to
   - Searchable by prospect name, assignee name
 
 - **DropOffAdmin**:
+
   - List display: prospect, drop_off_date, drop_off_stage, reason, recovered
   - Filterable by drop_off_stage, reason, recovered
   - Searchable by prospect name
 
 - **ConversionAdmin**:
+
   - List display: person, converted_by, conversion_date, water_baptism_date, spirit_baptism_date, is_complete
   - Filterable by cluster, group, year, is_complete
   - Searchable by person name, converter name
 
 - **MonthlyConversionTrackingAdmin**:
+
   - List display: cluster, prospect, year, month, stage, first_date_in_stage
   - Filterable by cluster, year, month, stage
   - Searchable by prospect name
@@ -819,7 +841,7 @@ All Evangelism models are registered in Django admin (`apps.evangelism.admin`):
   - Drop-off recovery process
   - Conversion recording and Person model sync
   - Monthly tracking with proper unique person counting
-  - CONVERTED count logic (both milestones within same year)
+  - CONVERTED count logic (both journeys within same year)
   - Each1Reach1Goal auto-updates (cluster-based)
   - Cluster visitor tracking (inviter cluster vs endorsed cluster)
   - Weekly report submission
@@ -850,7 +872,7 @@ python manage.py test apps.evangelism --settings=core.settings_test
 
 - Notify on overdue follow-up tasks
 - Notify on new drop-offs
-- Notify on conversion milestones
+- Notify on conversion journeys
 - Email/SMS integration for follow-up reminders
 
 ### 3. Advanced Analytics
@@ -894,4 +916,3 @@ python manage.py test apps.evangelism --settings=core.settings_test
 - **Lessons Integration**: Visitors must complete lessons before baptism unless fast-tracked for GOING_ABROAD, HEALTH_ISSUES, or OTHER reasons.
 - **Monthly Counting**: CONVERTED counts unique persons who completed both BAPTIZED and RECEIVED_HG within the same year. Counted in the month they first complete both, only once per person per year.
 - **Person Creation**: Prospects can be just names until they attend. When they first attend, a Person record is auto-created (or linked if Person with VISITOR role already exists).
-

@@ -453,7 +453,7 @@ The following features and improvements are planned for future development:
 
 - **Student Notes**: Teachers can add notes and observations about individual students
 - **Progress Tracking**: Track student growth and development over time
-- **Milestone Integration**: Automatic milestone creation for student achievements (e.g., "Completed 10 sessions")
+- **Journey Integration**: Automatic journey creation for student achievements (e.g., "Completed 10 sessions")
 - **Student Profiles**: Comprehensive view of each student's Sunday School journey
 - **Parent/Guardian Portal**: Allow parents to view their child's attendance and progress
 
@@ -484,7 +484,7 @@ The following features and improvements are planned for future development:
 ### 9. Integration Enhancements
 
 - **Lessons Module Integration**: Link Sunday School lessons to the Lessons module
-- **Milestone Auto-Creation**: Automatically create milestones for attendance achievements
+- **Journey Auto-Creation**: Automatically create journeys for attendance achievements
 - **Finance Integration**: Track offerings or fees collected during Sunday School sessions
 - **People Module Deep Integration**: Enhanced student profiles with Sunday School history
 - **Calendar Enhancements**: Better calendar integration with color-coding and filtering

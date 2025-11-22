@@ -100,7 +100,7 @@ export default function SessionReportsSection({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <p className="text-sm text-gray-500 sm:max-w-lg">
             Log 1-on-1 lesson sessions to capture coaching notes beyond
-            milestone updates and export them for follow-up.
+            journey updates and export them for follow-up.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button

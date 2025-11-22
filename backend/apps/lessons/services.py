@@ -6,27 +6,27 @@ from typing import Iterable, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from apps.people.models import Milestone, Person
+from apps.people.models import Journey, Person
 
-from .models import Lesson, LessonMilestone, PersonLessonProgress
+from .models import Lesson, LessonJourney, PersonLessonProgress
 
 
 @dataclass
 class LessonCompletionResult:
     progress: PersonLessonProgress
-    milestone: Milestone
+    journey: Journey
 
 
-def _get_or_create_milestone_config(lesson: Lesson) -> LessonMilestone:
-    milestone_config, _ = LessonMilestone.objects.get_or_create(
+def _get_or_create_journey_config(lesson: Lesson) -> LessonJourney:
+    journey_config, _ = LessonJourney.objects.get_or_create(
         lesson=lesson,
         defaults={
-            "milestone_type": "LESSON",
+            "journey_type": "LESSON",
             "title_template": "",
             "note_template": "",
         },
     )
-    return milestone_config
+    return journey_config
 
 
 @transaction.atomic
@@ -38,7 +38,7 @@ def mark_progress_completed(
     completed_at=None,
 ) -> LessonCompletionResult:
     """
-    Transitions a progress record to the COMPLETED state, producing a milestone entry
+    Transitions a progress record to the COMPLETED state, producing a journey entry
     in the conversion timeline (NOTE type by default).
     """
 
@@ -65,35 +65,35 @@ def mark_progress_completed(
         ]
     )
 
-    milestone_config = _get_or_create_milestone_config(progress.lesson)
-    milestone_title = milestone_config.title_template or progress.lesson.title
-    milestone_description = note or milestone_config.note_template
+    journey_config = _get_or_create_journey_config(progress.lesson)
+    journey_title = journey_config.title_template or progress.lesson.title
+    journey_description = note or journey_config.note_template
 
-    if progress.milestone:
-        milestone = progress.milestone
-        milestone.type = milestone_config.milestone_type
-        milestone.title = milestone_title
-        milestone.description = milestone_description
-        milestone.date = completed_at.date()
-        milestone.verified_by = completed_by
-        milestone.save(
+    if progress.journey:
+        journey = progress.journey
+        journey.type = journey_config.journey_type
+        journey.title = journey_title
+        journey.description = journey_description
+        journey.date = completed_at.date()
+        journey.verified_by = completed_by
+        journey.save(
             update_fields=["type", "title", "description", "date", "verified_by"]
         )
     else:
-        milestone = Milestone.objects.create(
+        journey = Journey.objects.create(
             user=progress.person,
-            title=milestone_title,
-            description=milestone_description,
-            type=milestone_config.milestone_type,
+            title=journey_title,
+            description=journey_description,
+            type=journey_config.journey_type,
             date=completed_at.date(),
             verified_by=completed_by,
         )
-        progress.milestone = milestone
-        progress.save(update_fields=["milestone", "updated_at"])
+        progress.journey = journey
+        progress.save(update_fields=["journey", "updated_at"])
 
     progress.refresh_from_db(fields=None)
 
-    return LessonCompletionResult(progress=progress, milestone=progress.milestone)
+    return LessonCompletionResult(progress=progress, journey=progress.journey)
 
 
 @transaction.atomic
@@ -103,9 +103,9 @@ def mark_commitment_signed(
     signed_by: Optional[Person] = None,
     signed_at=None,
     note: Optional[str] = None,
-) -> Milestone:
+) -> Journey:
     """
-    Records the commitment form signature and adds a milestone entry.
+    Records the commitment form signature and adds a journey entry.
     """
 
     signed_at = signed_at or timezone.now()
@@ -125,7 +125,7 @@ def mark_commitment_signed(
         ]
     )
 
-    commitment_milestone, _ = Milestone.objects.get_or_create(
+    commitment_journey, _ = Journey.objects.get_or_create(
         user=progress.person,
         type="NOTE",
         title="Commitment Form Signed",
@@ -137,14 +137,14 @@ def mark_commitment_signed(
     )
 
     if not _:
-        commitment_milestone.description = (
+        commitment_journey.description = (
             note or "Signed the New Converts Course commitment form."
         )
-        commitment_milestone.date = signed_at.date()
-        commitment_milestone.verified_by = signed_by
-        commitment_milestone.save(update_fields=["description", "date", "verified_by"])
+        commitment_journey.date = signed_at.date()
+        commitment_journey.verified_by = signed_by
+        commitment_journey.save(update_fields=["description", "date", "verified_by"])
 
-    return commitment_milestone
+    return commitment_journey
 
 
 @transaction.atomic
@@ -154,23 +154,23 @@ def revert_progress_completion(
     previous_status: str,
 ) -> None:
     """
-    Removes the milestone association when a previously completed lesson is reverted
+    Removes the journey association when a previously completed lesson is reverted
     to another state.
     """
 
     if previous_status != PersonLessonProgress.Status.COMPLETED:
         return
 
-    milestone = progress.milestone
+    journey = progress.journey
     progress.completed_at = None
     progress.completed_by = None
-    progress.milestone = None
+    progress.journey = None
     progress.save(
-        update_fields=["completed_at", "completed_by", "milestone", "updated_at"]
+        update_fields=["completed_at", "completed_by", "journey", "updated_at"]
     )
 
-    if milestone:
-        milestone.delete()
+    if journey:
+        journey.delete()
 
 
 @transaction.atomic

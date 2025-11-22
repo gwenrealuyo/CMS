@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event
-from apps.people.models import Milestone, Person
+from apps.people.models import Journey, Person
 
 
 def make_aware(year, month, day, hour=0, minute=0):
@@ -37,7 +37,7 @@ class AttendanceIntegrationTests(TestCase):
         )
         self.occurrence_date = self.event.start_date.date().isoformat()
 
-    def test_add_attendance_creates_record_and_milestone(self):
+    def test_add_attendance_creates_record_and_journey(self):
         url = reverse("events:event-attendance", kwargs={"pk": self.event.pk})
         payload = {
             "person_id": str(self.person.pk),
@@ -58,14 +58,14 @@ class AttendanceIntegrationTests(TestCase):
             person=self.person,
             occurrence_date=self.occurrence_date,
         )
-        self.assertIsNotNone(record.milestone_id)
+        self.assertIsNotNone(record.journey_id)
         self.assertEqual(record.status, "PRESENT")
 
-        milestone = record.milestone
-        self.assertIsNotNone(milestone)
-        self.assertEqual(milestone.type, "EVENT_ATTENDANCE")
-        self.assertEqual(milestone.user, self.person)
-        self.assertEqual(milestone.date.isoformat(), self.occurrence_date)
+        journey = record.journey
+        self.assertIsNotNone(journey)
+        self.assertEqual(journey.type, "EVENT_ATTENDANCE")
+        self.assertEqual(journey.user, self.person)
+        self.assertEqual(journey.date.isoformat(), self.occurrence_date)
 
         # Serializer response should include updated attendance count
         data = response.json()
@@ -78,7 +78,7 @@ class AttendanceIntegrationTests(TestCase):
             list_response.json()[0]["person"]["id"], self.person.pk
         )
 
-    def test_remove_attendance_deletes_record_and_milestone(self):
+    def test_remove_attendance_deletes_record_and_journey(self):
         record = AttendanceRecord.objects.create(
             event=self.event,
             person=self.person,
@@ -86,7 +86,7 @@ class AttendanceIntegrationTests(TestCase):
             status="PRESENT",
         )
         record.refresh_from_db()
-        milestone_id = record.milestone_id
+        journey_id = record.journey_id
 
         url = reverse(
             "events:event-remove-attendance",
@@ -98,7 +98,7 @@ class AttendanceIntegrationTests(TestCase):
         self.assertFalse(
             AttendanceRecord.objects.filter(pk=record.pk).exists()
         )
-        self.assertFalse(Milestone.objects.filter(pk=milestone_id).exists())
+        self.assertFalse(Journey.objects.filter(pk=journey_id).exists())
 
     def test_event_serializer_includes_attendance_summary(self):
         AttendanceRecord.objects.create(

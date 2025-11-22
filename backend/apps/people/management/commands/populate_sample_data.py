@@ -5,7 +5,7 @@ Usage: python manage.py populate_sample_data
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
-from apps.people.models import Person, Family, Milestone, ModuleCoordinator
+from apps.people.models import Person, Family, Journey, ModuleCoordinator
 from datetime import datetime, timedelta
 from decimal import Decimal
 import random
@@ -38,7 +38,7 @@ class Command(BaseCommand):
 
         if clear_existing:
             self.stdout.write("Clearing existing data...")
-            Milestone.objects.all().delete()
+            Journey.objects.all().delete()
             Family.objects.all().delete()
             # Clear ModuleCoordinator assignments for non-ADMIN users
             ModuleCoordinator.objects.filter(
@@ -351,9 +351,9 @@ class Command(BaseCommand):
             person.save()
             people.append(person)
 
-            # Create some milestones for each person
+            # Create some journeys for each person
             if random.random() > 0.5:
-                milestone = Milestone(
+                journey = Journey(
                     user=person,
                     title=random.choice(
                         [
@@ -368,9 +368,9 @@ class Command(BaseCommand):
                     type=random.choice(
                         ["LESSON", "BAPTISM", "SPIRIT", "CLUSTER", "NOTE"]
                     ),
-                    description=f"Milestone for {person.first_name} {person.last_name}",
+                    description=f"Journey for {person.first_name} {person.last_name}",
                 )
-                milestone.save()
+                journey.save()
 
         self.stdout.write(self.style.SUCCESS(f"✓ Created {len(people)} people"))
 
@@ -459,7 +459,7 @@ class Command(BaseCommand):
             f"  • People: {Person.objects.exclude(role='ADMIN').count()} (excluding ADMIN)"
         )
         self.stdout.write(f"  • Families: {Family.objects.count()}")
-        self.stdout.write(f"  • Milestones: {Milestone.objects.count()}")
+        self.stdout.write(f"  • Journeys: {Journey.objects.count()}")
         self.stdout.write(
             f"  • Module Coordinator Assignments: {ModuleCoordinator.objects.count()}"
         )

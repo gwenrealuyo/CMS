@@ -1,7 +1,7 @@
-import { MilestoneType } from "@/src/types/person";
+import { JourneyType } from "@/src/types/person";
 
-export interface LessonMilestoneConfig {
-  milestone_type: MilestoneType;
+export interface LessonJourneyConfig {
+  journey_type: JourneyType;
   title_template: string;
   note_template: string;
 }
@@ -18,7 +18,7 @@ export interface Lesson {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  milestone_config?: LessonMilestoneConfig | null;
+  journey_config?: LessonJourneyConfig | null;
 }
 
 export type LessonProgressStatus =
@@ -47,7 +47,7 @@ export interface PersonLessonProgress {
   started_at: string | null;
   completed_at: string | null;
   completed_by: number | null;
-  milestone: number | null;
+  journey: number | null;
   notes: string;
   commitment_signed: boolean;
   commitment_signed_at: string | null;

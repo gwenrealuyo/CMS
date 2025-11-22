@@ -200,7 +200,7 @@ export default function Dashboard() {
 
   const nextSteps = [
     "Review members with outstanding lessons and schedule follow-up conversations.",
-    "Celebrate recent conversions and update their milestone stories.",
+    "Celebrate recent conversions and update their journey stories.",
     "Publish the next series of lessons for upcoming cohorts.",
   ];
 

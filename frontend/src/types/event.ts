@@ -36,7 +36,7 @@ export interface EventAttendanceRecord {
   occurrence_date: string;
   status: AttendanceStatus;
   notes?: string;
-  milestone_id?: number | null;
+  journey_id?: number | null;
   recorded_at: string;
   updated_at: string;
   person: EventAttendancePerson;

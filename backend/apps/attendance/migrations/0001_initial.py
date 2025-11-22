@@ -48,13 +48,13 @@ class Migration(migrations.Migration):
                 ),
                 ("notes", models.TextField(blank=True)),
                 (
-                    "milestone",
+                    "journey",
                     models.OneToOneField(
                         blank=True,
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
                         related_name="attendance_record",
-                        to="people.milestone",
+                        to="people.journey",
                     ),
                 ),
                 ("recorded_at", models.DateTimeField(auto_now_add=True)),

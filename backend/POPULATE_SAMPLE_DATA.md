@@ -9,7 +9,7 @@ The `populate_sample_data` management command creates realistic sample data for:
 - People (Members, Visitors, Coordinators, Pastors)
 - Families
 - Clusters
-- Milestones
+- Journeys
 - Cluster Weekly Reports
 
 ## Usage
@@ -26,7 +26,7 @@ This will create:
 - 50 people
 - 10 families
 - 5 clusters
-- Multiple milestones
+- Multiple journeys
 - Weekly reports for clusters
 
 ### Customize the Amount of Data
@@ -87,7 +87,7 @@ The command creates people with:
 - 3-8 individual members per cluster
 - Meeting schedules and locations
 
-### Milestones
+### Journeys
 
 - Created for ~50% of people
 - Various types: LESSON, BAPTISM, SPIRIT, CLUSTER, NOTE

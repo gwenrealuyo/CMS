@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Family, Milestone, Person, ModuleCoordinator
+from .models import Family, Journey, Person, ModuleCoordinator
 
 
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
@@ -27,7 +27,7 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
         return obj.person.get_full_name() or obj.person.username
 
 
-class MilestoneSerializer(serializers.ModelSerializer):
+class JourneySerializer(serializers.ModelSerializer):
     type_display = serializers.CharField(source="get_type_display", read_only=True)
     user = serializers.PrimaryKeyRelatedField(queryset=Person.objects.all())
     verified_by = serializers.PrimaryKeyRelatedField(
@@ -35,7 +35,7 @@ class MilestoneSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Milestone
+        model = Journey
         fields = [
             "id",
             "user",
@@ -55,7 +55,7 @@ class PersonSerializer(serializers.ModelSerializer):
         queryset=Person.objects.all(), allow_null=True, required=False
     )
     photo = serializers.ImageField(required=False, allow_null=True)
-    milestones = MilestoneSerializer(many=True, read_only=True)
+    journeys = JourneySerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     module_coordinator_assignments = ModuleCoordinatorSerializer(many=True, read_only=True)
@@ -85,7 +85,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "inviter",
             "member_id",
             "status",
-            "milestones",
+            "journeys",
             "cluster_codes",
             "family_names",
             "module_coordinator_assignments",

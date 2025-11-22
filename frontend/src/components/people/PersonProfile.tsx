@@ -1,8 +1,8 @@
-import { Person, Milestone, Family } from "@/src/types/person";
+import { Person, Journey, Family } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import Button from "@/src/components/ui/Button";
 import { useEffect, useState } from "react";
-import { milestonesApi } from "@/src/lib/api";
+import { journeysApi } from "@/src/lib/api";
 
 interface PersonProfileProps {
   person: Person;
@@ -40,14 +40,14 @@ export default function PersonProfile({
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(
     "overview"
   );
-  const [milestones, setMilestones] = useState<Milestone[]>(
-    (person.milestones as Milestone[]) || []
+  const [journeys, setJourneys] = useState<Journey[]>(
+    (person.journeys as Journey[]) || []
   );
   useEffect(() => {
-    setMilestones(((person.milestones as Milestone[]) || []).slice());
+    setJourneys(((person.journeys as Journey[]) || []).slice());
   }, [person.id]);
 
-  const formatMilestoneType = (type: string) => {
+  const formatJourneyType = (type: string) => {
     if (!type) return "";
     return type
       .split("_")
@@ -55,7 +55,7 @@ export default function PersonProfile({
       .join(" ");
   };
 
-  const getMilestoneBadgeClasses = (type: string) => {
+  const getJourneyBadgeClasses = (type: string) => {
     switch (type) {
       case "BAPTISM":
         return "bg-blue-100 text-blue-800";
@@ -784,39 +784,39 @@ export default function PersonProfile({
                       </svg>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      Timeline Events
+                      Journey Timeline
                     </h3>
                   </div>
 
-                  {milestones && milestones.length > 0 ? (
+                  {journeys && journeys.length > 0 ? (
                     <div className="relative pl-3 pt-4 pb-4">
                       <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
                       <div className="space-y-6">
-                        {milestones.map((milestone, index) => (
-                          <div key={milestone.id} className="relative group">
+                        {journeys.map((journey, index) => (
+                          <div key={journey.id} className="relative group">
                             <div className="absolute left-1.5 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                              {renderTypeIcon(milestone.type)}
+                              {renderTypeIcon(journey.type)}
                             </div>
                             <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-100">
                               <div className="flex items-center justify-between">
                                 <div className="font-medium text-gray-900">
-                                  {milestone.title}
+                                  {journey.title}
                                 </div>
                                 <span
-                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${getMilestoneBadgeClasses(
-                                    milestone.type
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${getJourneyBadgeClasses(
+                                    journey.type
                                   )}`}
                                 >
-                                  {milestone.type_display ||
-                                    formatMilestoneType(milestone.type)}
+                                  {journey.type_display ||
+                                    formatJourneyType(journey.type)}
                                 </span>
                               </div>
                               <div className="text-xs text-gray-500 mt-1">
-                                {milestone.date}
+                                {journey.date}
                               </div>
-                              {milestone.description && (
+                              {journey.description && (
                                 <div className="text-sm text-gray-700 mt-2">
-                                  {milestone.description}
+                                  {journey.description}
                                 </div>
                               )}
                             </div>
@@ -839,9 +839,9 @@ export default function PersonProfile({
                           d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      <p>No timeline events yet</p>
+                      <p>No journey timeline yet</p>
                       <p className="text-sm">
-                        Add milestones in the Timeline Events tab when editing
+                        Add journeys in the Journey Timeline tab when editing
                         this person
                       </p>
                     </div>

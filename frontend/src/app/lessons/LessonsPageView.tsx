@@ -296,7 +296,7 @@ export default function LessonsPageView({
               New Converts Course
             </h1>
             <p className="text-sm text-gray-600">
-              Track lesson content, version labels, and participant milestones
+              Track lesson content, version labels, and participant journeys
               across the conversion journey.
             </p>
           </div>
@@ -455,11 +455,11 @@ export default function LessonsPageView({
             {commitmentConfirm?.nextValue
               ? `Mark ${formatPersonName(
                   commitmentConfirm.record.person
-                )} as having signed the commitment form? This will add a milestone to the conversion timeline.`
+                )} as having signed the commitment form? This will add a journey to the conversion timeline.`
               : commitmentConfirm
               ? `Remove the commitment signature for ${formatPersonName(
                   commitmentConfirm.record.person
-                )}? This will clear the milestone entry.`
+                )}? This will clear the journey entry.`
               : ""}
           </p>
         </div>
@@ -484,8 +484,8 @@ export default function LessonsPageView({
         isOpen={noteInputModal.isOpen}
         onClose={onCloseNoteInputModal}
         onConfirm={onNoteInputConfirm}
-        title="Add Note for Milestone"
-        message="Add a note for this milestone (optional):"
+        title="Add Note for Journey"
+        message="Add a note for this journey (optional):"
         initialValue={noteInputModal.record?.notes ?? ""}
         loading={isProgressUpdating}
       />

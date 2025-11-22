@@ -32,7 +32,7 @@ class EventViewSet(viewsets.ModelViewSet):
             "attendance_records__person__families",
             "attendance_records__person__clusters__members",
             "attendance_records__person",
-            "attendance_records__milestone",
+            "attendance_records__journey",
         )
     )
     serializer_class = EventSerializer
@@ -125,7 +125,7 @@ class EventViewSet(viewsets.ModelViewSet):
     def attendance(self, request, pk=None):
         event = self.get_object()
         occurrence_date_param = request.query_params.get("occurrence_date")
-        records = event.attendance_records.select_related("person", "milestone")
+        records = event.attendance_records.select_related("person", "journey")
         if occurrence_date_param:
             parsed_date = parse_date(occurrence_date_param)
             if not parsed_date:

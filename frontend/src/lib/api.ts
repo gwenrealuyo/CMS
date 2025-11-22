@@ -1,10 +1,5 @@
 import axios from "axios";
-import {
-  Person,
-  Family,
-  Milestone,
-  ModuleCoordinator,
-} from "@/src/types/person";
+import { Person, Family, Journey, ModuleCoordinator } from "@/src/types/person";
 import {
   Cluster,
   ClusterWeeklyReport,
@@ -403,16 +398,16 @@ export const attendanceApi = {
   delete: (id: string | number) => api.delete(`/attendance/${id}/`),
 };
 
-export const milestonesApi = {
-  getAll: () => api.get<Milestone[]>("/people/milestones/"),
-  getById: (id: string) => api.get<Milestone>(`/people/milestones/${id}/`),
-  create: (data: Partial<Milestone>) =>
-    api.post<Milestone>("/people/milestones/", data),
-  update: (id: string, data: Partial<Milestone>) =>
-    api.put<Milestone>(`/people/milestones/${id}/`, data),
-  delete: (id: string) => api.delete(`/people/milestones/${id}/`),
+export const journeysApi = {
+  getAll: () => api.get<Journey[]>("/people/journeys/"),
+  getById: (id: string) => api.get<Journey>(`/people/journeys/${id}/`),
+  create: (data: Partial<Journey>) =>
+    api.post<Journey>("/people/journeys/", data),
+  update: (id: string, data: Partial<Journey>) =>
+    api.put<Journey>(`/people/journeys/${id}/`, data),
+  delete: (id: string) => api.delete(`/people/journeys/${id}/`),
   getByUser: (userId: string) =>
-    api.get<Milestone[]>(`/people/milestones/?user=${userId}`),
+    api.get<Journey[]>(`/people/journeys/?user=${userId}`),
 };
 
 export const lessonsApi = {

@@ -419,7 +419,7 @@ export default function PledgeForm({
               }))
             }
             rows={4}
-            placeholder="Capture reminders, donor commitments, or milestones."
+            placeholder="Capture reminders, donor commitments, or journey notes."
             className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>

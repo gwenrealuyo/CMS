@@ -17,7 +17,7 @@ export type PersonStatus =
 
 export type Gender = "MALE" | "FEMALE" | "";
 
-export type MilestoneType =
+export type JourneyType =
   | "LESSON"
   | "BAPTISM"
   | "SPIRIT"
@@ -25,12 +25,12 @@ export type MilestoneType =
   | "NOTE"
   | "EVENT_ATTENDANCE";
 
-export interface Milestone {
+export interface Journey {
   id: string;
   user: string; // refers to Person ID
   title?: string;
   date: string; // ISO date string (YYYY-MM-DD)
-  type: MilestoneType;
+  type: JourneyType;
   type_display?: string;
   description?: string;
   verified_by?: string; // Person ID
@@ -75,7 +75,7 @@ export interface Person {
   inviter?: string; // ID of another Person
   member_id?: string;
   status: PersonStatus;
-  milestones?: Milestone[];
+  journeys?: Journey[];
   groups?: string[]; // Group IDs
   user_permissions?: string[]; // Permission IDs
   cluster_codes?: string[];

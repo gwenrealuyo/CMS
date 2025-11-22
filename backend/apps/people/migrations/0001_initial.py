@@ -181,7 +181,7 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name="Milestone",
+            name="Journey",
             fields=[
                 (
                     "id",
@@ -214,7 +214,7 @@ class Migration(migrations.Migration):
                     "user",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="milestones",
+                        related_name="journeys",
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),
@@ -223,7 +223,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
-                        related_name="verified_milestones",
+                        related_name="verified_journeys",
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),

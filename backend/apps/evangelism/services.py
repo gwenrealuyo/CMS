@@ -179,10 +179,10 @@ def calculate_monthly_statistics(
     # For ATTENDED: count unique persons
     attended_count = len(attended_prospects)
 
-    # For BAPTIZED: count events (milestone count)
+    # For BAPTIZED: count events (journey count)
     baptized_count = query.filter(stage=MonthlyConversionTracking.Stage.BAPTIZED).count()
 
-    # For RECEIVED_HG: count events (milestone count)
+    # For RECEIVED_HG: count events (journey count)
     received_hg_count = query.filter(stage=MonthlyConversionTracking.Stage.RECEIVED_HG).count()
 
     # For CONVERTED: count unique persons who completed both within same year

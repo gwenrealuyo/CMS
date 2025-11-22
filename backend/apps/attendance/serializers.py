@@ -56,7 +56,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         source="event",
         write_only=True,
     )
-    milestone_id = serializers.IntegerField(source="milestone.id", read_only=True)
+    journey_id = serializers.IntegerField(source="journey.id", read_only=True)
 
     class Meta:
         model = AttendanceRecord
@@ -69,11 +69,11 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "occurrence_date",
             "status",
             "notes",
-            "milestone_id",
+            "journey_id",
             "recorded_at",
             "updated_at",
         ]
-        read_only_fields = ["event", "milestone_id", "recorded_at", "updated_at"]
+        read_only_fields = ["event", "journey_id", "recorded_at", "updated_at"]
         validators = []
 
     def to_representation(self, instance):

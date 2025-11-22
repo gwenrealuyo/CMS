@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Person, MilestoneType } from "@/src/types/person";
+import { Person, JourneyType } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
-import { milestonesApi } from "@/src/lib/api";
+import { journeysApi } from "@/src/lib/api";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 
 interface PersonFormProps {
@@ -30,7 +30,7 @@ export default function PersonForm({
   const [formData, setFormData] = useState<Partial<Person>>({
     role: "MEMBER",
     status: "ACTIVE",
-    milestones: [],
+    journeys: [],
     ...initialData,
     country: initialData?.country || "Philippines",
   });
@@ -40,15 +40,15 @@ export default function PersonForm({
   const [showInviterDropdown, setShowInviterDropdown] = useState(false);
   // Toast validation removed per request
 
-  // Track initial milestones to avoid re-creating unchanged ones on save
-  const initialMilestoneKeysRef = useRef<Set<string>>(new Set());
+  // Track initial journeys to avoid re-creating unchanged ones on save
+  const initialJourneyKeysRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const keyOf = (m: any) =>
       `${m.date}|${m.type}|${m.title ?? ""}|${m.description ?? ""}`;
     const initialKeys = new Set(
-      (initialData?.milestones || []).map((m: any) => keyOf(m))
+      (initialData?.journeys || []).map((m: any) => keyOf(m))
     );
-    initialMilestoneKeysRef.current = initialKeys;
+    initialJourneyKeysRef.current = initialKeys;
   }, [initialData]);
 
   // Phone management: country code and local number
@@ -95,9 +95,9 @@ export default function PersonForm({
     setFormData((prev) => ({ ...prev, phone: `${code}${local}` }));
   };
 
-  const [newMilestone, setNewMilestone] = useState<{
+  const [newJourney, setNewJourney] = useState<{
     date: string;
-    type: MilestoneType;
+    type: JourneyType;
     title: string;
     description: string;
   }>({
@@ -145,8 +145,8 @@ export default function PersonForm({
     }
   };
 
-  const handleAddMilestone = () => {
-    if (!newMilestone.date || !newMilestone.title.trim()) {
+  const handleAddJourney = () => {
+    if (!newJourney.date || !newJourney.title.trim()) {
       return;
     }
     // If editing an existing person, persist immediately so it remains after closing
@@ -156,45 +156,45 @@ export default function PersonForm({
     if (existingUserId) {
       (async () => {
         try {
-          const created = await milestonesApi.create({
+          const created = await journeysApi.create({
             user: existingUserId,
-            title: newMilestone.title,
-            date: newMilestone.date,
-            type: newMilestone.type,
-            description: newMilestone.description,
+            title: newJourney.title,
+            date: newJourney.date,
+            type: newJourney.type,
+            description: newJourney.description,
           });
           // optimistic append so it shows instantly
           const createdId = (created?.data as any)?.id || crypto.randomUUID();
           setFormData((prev) => ({
             ...prev,
-            milestones: [
-              ...(prev.milestones || []),
+            journeys: [
+              ...(prev.journeys || []),
               {
                 id: createdId,
                 user: existingUserId,
-                ...newMilestone,
+                ...newJourney,
               } as any,
             ],
           }));
         } catch (e) {
-          console.error("Failed to create milestone immediately:", e);
+          console.error("Failed to create journey immediately:", e);
         }
       })();
     } else {
       const id = crypto.randomUUID();
       setFormData((prev) => ({
         ...prev,
-        milestones: [
-          ...(prev.milestones || []),
+        journeys: [
+          ...(prev.journeys || []),
           {
             id,
             user: prev.id || "",
-            ...newMilestone,
+            ...newJourney,
           } as any,
         ],
       }));
     }
-    setNewMilestone({
+    setNewJourney({
       date: new Date().toISOString().slice(0, 10),
       type: "NOTE",
       title: "",
@@ -202,49 +202,49 @@ export default function PersonForm({
     });
   };
 
-  // Delete milestone confirmation state
-  const [milestoneDeleteConfirm, setMilestoneDeleteConfirm] = useState<{
+  // Delete journey confirmation state
+  const [journeyDeleteConfirm, setJourneyDeleteConfirm] = useState<{
     isOpen: boolean;
     index: number | null;
     loading: boolean;
   }>({ isOpen: false, index: null, loading: false });
 
-  const openMilestoneDelete = (index: number) => {
-    setMilestoneDeleteConfirm({ isOpen: true, index, loading: false });
+  const openJourneyDelete = (index: number) => {
+    setJourneyDeleteConfirm({ isOpen: true, index, loading: false });
   };
 
-  const closeMilestoneDelete = () => {
-    setMilestoneDeleteConfirm({ isOpen: false, index: null, loading: false });
+  const closeJourneyDelete = () => {
+    setJourneyDeleteConfirm({ isOpen: false, index: null, loading: false });
   };
 
-  const confirmMilestoneDelete = async () => {
-    if (milestoneDeleteConfirm.index === null) return;
-    const idx = milestoneDeleteConfirm.index;
-    const current = formData.milestones || [];
+  const confirmJourneyDelete = async () => {
+    if (journeyDeleteConfirm.index === null) return;
+    const idx = journeyDeleteConfirm.index;
+    const current = formData.journeys || [];
     const toDelete = current[idx] as any;
     try {
-      setMilestoneDeleteConfirm((p) => ({ ...p, loading: true }));
+      setJourneyDeleteConfirm((p) => ({ ...p, loading: true }));
       if (toDelete?.id && (initialData?.id || (formData as any).id)) {
-        await milestonesApi.delete(toDelete.id);
+        await journeysApi.delete(toDelete.id);
       }
       setFormData((prev) => ({
         ...prev,
-        milestones: (prev.milestones || []).filter((_, i) => i !== idx),
+        journeys: (prev.journeys || []).filter((_, i) => i !== idx),
       }));
-      closeMilestoneDelete();
+      closeJourneyDelete();
     } catch (e) {
-      console.error("Failed to delete milestone:", e);
-      setMilestoneDeleteConfirm((p) => ({ ...p, loading: false }));
+      console.error("Failed to delete journey:", e);
+      setJourneyDeleteConfirm((p) => ({ ...p, loading: false }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Extract milestones from formData before submitting person
-    const milestones = formData.milestones || [];
+    // Extract journeys from formData before submitting person
+    const journeys = formData.journeys || [];
     const personData = { ...formData };
-    delete personData.milestones; // Remove milestones from person data
+    delete personData.journeys; // Remove journeys from person data
 
     // Submit person data first
     let result: Person | void;
@@ -252,30 +252,30 @@ export default function PersonForm({
       setLoading(true);
       result = await onSubmit(personData);
 
-      // If person was created/updated successfully and we have new milestones, save only new/changed ones
+      // If person was created/updated successfully and we have new journeys, save only new/changed ones
       if (result && typeof result === "object" && "id" in result) {
         const keyOf = (m: any) =>
           `${m.date}|${m.type}|${m.title ?? ""}|${m.description ?? ""}`;
-        const newOrChanged = (milestones || []).filter((m: any) => {
+        const newOrChanged = (journeys || []).filter((m: any) => {
           const key = keyOf(m);
-          return !initialMilestoneKeysRef.current.has(key);
+          return !initialJourneyKeysRef.current.has(key);
         });
         if (newOrChanged.length > 0) {
           try {
-            for (const milestone of newOrChanged) {
+            for (const journey of newOrChanged) {
               // skip if no date or all fields empty
-              if (!milestone.date && !milestone.title && !milestone.description)
+              if (!journey.date && !journey.title && !journey.description)
                 continue;
-              await milestonesApi.create({
+              await journeysApi.create({
                 user: (result as { id: string }).id,
-                title: milestone.title,
-                date: milestone.date,
-                type: milestone.type,
-                description: milestone.description,
+                title: journey.title,
+                date: journey.date,
+                type: journey.type,
+                description: journey.description,
               });
             }
           } catch (error) {
-            console.error("Failed to save milestones:", error);
+            console.error("Failed to save journeys:", error);
           }
         }
       }
@@ -312,7 +312,7 @@ export default function PersonForm({
             }`}
             onClick={() => setActiveTab("timeline")}
           >
-            Timeline Events
+            Journey Timeline
           </button>
         </div>
 
@@ -798,7 +798,7 @@ export default function PersonForm({
           </div>
         )}
 
-        {/* TIMELINE EVENTS TAB */}
+        {/* JOURNEY TIMELINE TAB */}
         {activeTab === "timeline" && (
           <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-1 p-0">
             <div>
@@ -807,9 +807,9 @@ export default function PersonForm({
               </label>
               <input
                 type="text"
-                value={newMilestone.title}
+                value={newJourney.title}
                 onChange={(e) =>
-                  setNewMilestone((prev) => ({
+                  setNewJourney((prev) => ({
                     ...prev,
                     title: e.target.value,
                   }))
@@ -824,9 +824,9 @@ export default function PersonForm({
               </label>
               <input
                 type="date"
-                value={newMilestone.date}
+                value={newJourney.date}
                 onChange={(e) =>
-                  setNewMilestone((prev) => ({ ...prev, date: e.target.value }))
+                  setNewJourney((prev) => ({ ...prev, date: e.target.value }))
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
@@ -836,11 +836,11 @@ export default function PersonForm({
                 Type
               </label>
               <select
-                value={newMilestone.type}
+                value={newJourney.type}
                 onChange={(e) =>
-                  setNewMilestone((prev) => ({
+                  setNewJourney((prev) => ({
                     ...prev,
-                    type: e.target.value as MilestoneType,
+                    type: e.target.value as JourneyType,
                   }))
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -859,9 +859,9 @@ export default function PersonForm({
                 Description
               </label>
               <textarea
-                value={newMilestone.description}
+                value={newJourney.description}
                 onChange={(e) =>
-                  setNewMilestone((prev) => ({
+                  setNewJourney((prev) => ({
                     ...prev,
                     description: e.target.value,
                   }))
@@ -873,16 +873,16 @@ export default function PersonForm({
             <Button
               onClick={() => {
                 // prevent form submit triggering page reload from parent browser default
-                handleAddMilestone();
+                handleAddJourney();
               }}
-              disabled={!newMilestone.date || !newMilestone.title.trim()}
+              disabled={!newJourney.date || !newJourney.title.trim()}
             >
               + Add Event
             </Button>
 
-            {formData.milestones && formData.milestones?.length > 0 && (
+            {formData.journeys && formData.journeys?.length > 0 && (
               <div className="space-y-2 mt-4">
-                {formData.milestones.map((m, i) => (
+                {formData.journeys.map((m, i) => (
                   <div
                     key={m.id}
                     className="flex justify-between items-start bg-gray-50 p-2 rounded"
@@ -896,10 +896,10 @@ export default function PersonForm({
                     </div>
                     <button
                       type="button"
-                      onClick={() => openMilestoneDelete(i)}
+                      onClick={() => openJourneyDelete(i)}
                       className="text-gray-400 hover:text-red-600 p-1"
-                      title="Remove milestone"
-                      aria-label="Remove milestone"
+                      title="Remove journey"
+                      aria-label="Remove journey"
                     >
                       <svg
                         className="w-4 h-4"
@@ -946,17 +946,17 @@ export default function PersonForm({
         </div>
       </form>
 
-      {/* Milestone delete confirmation */}
+      {/* Journey delete confirmation */}
       <ConfirmationModal
-        isOpen={milestoneDeleteConfirm.isOpen}
-        onClose={closeMilestoneDelete}
-        onConfirm={confirmMilestoneDelete}
-        title="Delete Milestone"
-        message="Are you sure you want to delete this timeline event? This action cannot be undone."
+        isOpen={journeyDeleteConfirm.isOpen}
+        onClose={closeJourneyDelete}
+        onConfirm={confirmJourneyDelete}
+        title="Delete Journey"
+        message="Are you sure you want to delete this journey event? This action cannot be undone."
         confirmText="Delete Event"
         cancelText="Cancel"
         variant="danger"
-        loading={milestoneDeleteConfirm.loading}
+        loading={journeyDeleteConfirm.loading}
       />
       {/* toast removed */}
     </>

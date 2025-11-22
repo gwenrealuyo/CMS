@@ -13,11 +13,11 @@ export default function LessonDetailPanel({
   lesson,
   onEdit,
 }: LessonDetailPanelProps) {
-  const [showMilestone, setShowMilestone] = useState(false);
+  const [showJourney, setShowJourney] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
 
   useEffect(() => {
-    setShowMilestone(false);
+    setShowJourney(false);
     setShowMetadata(false);
   }, [lesson?.id]);
 
@@ -102,43 +102,43 @@ export default function LessonDetailPanel({
           <div className="border rounded-lg p-4">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                Milestone Settings
+                Journey Settings
               </h4>
               <button
                 type="button"
-                onClick={() => setShowMilestone((prev) => !prev)}
+                onClick={() => setShowJourney((prev) => !prev)}
                 className="text-xs font-medium text-blue-600 hover:text-blue-700"
               >
-                {showMilestone ? "Hide" : "Show"}
+                {showJourney ? "Hide" : "Show"}
               </button>
             </div>
-            {showMilestone && (
+            {showJourney && (
               <>
                 <p className="mt-2 text-sm text-gray-600">
                   Type:{" "}
                   <span className="font-medium text-gray-800">
-                    {lesson.milestone_config?.milestone_type ?? "NOTE"}
+                    {lesson.journey_config?.journey_type ?? "NOTE"}
                   </span>
                 </p>
-                {lesson.milestone_config?.title_template && (
+                {lesson.journey_config?.title_template && (
                   <p className="mt-2 text-sm text-gray-600">
                     Title template:
                     <span className="block font-medium text-gray-800">
-                      {lesson.milestone_config.title_template}
+                      {lesson.journey_config.title_template}
                     </span>
                   </p>
                 )}
-                {lesson.milestone_config?.note_template && (
+                {lesson.journey_config?.note_template && (
                   <p className="mt-2 text-sm text-gray-600">
                     Note template:
                     <span className="block font-medium text-gray-800 whitespace-pre-line">
-                      {lesson.milestone_config.note_template}
+                      {lesson.journey_config.note_template}
                     </span>
                   </p>
                 )}
-                {!lesson.milestone_config && (
+                {!lesson.journey_config && (
                   <p className="mt-2 text-sm text-gray-500">
-                    No milestone settings configured yet.
+                    No journey settings configured yet.
                   </p>
                 )}
               </>

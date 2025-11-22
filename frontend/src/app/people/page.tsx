@@ -827,7 +827,7 @@ export default function PeoplePage() {
   //     ...personData,
   //     id: Date.now().toString(),
   //     dateFirstAttended: new Date(),
-  //     milestones: [],
+  //     journeys: [],
   //   } as Person;
   //   setPeople([...people, newPerson]);
   //   setIsModalOpen(false);
@@ -837,7 +837,7 @@ export default function PeoplePage() {
     try {
       const result = await createPerson(personData);
       setIsModalOpen(false);
-      return result; // Return the created person for milestone handling
+      return result; // Return the created person for journey handling
     } catch (err) {
       console.error(err);
       alert("Failed to save person.");
@@ -1648,7 +1648,7 @@ export default function PeoplePage() {
                     setStartOnTimelineTab(false);
                     // Optionally refresh list data
                     await refreshPeople();
-                    return result; // Return for milestone handling
+                    return result; // Return for journey handling
                   }}
                   onClose={() => {
                     setIsModalOpen(false);

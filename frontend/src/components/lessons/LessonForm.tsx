@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import Button from "@/src/components/ui/Button";
-import { Lesson, LessonMilestoneConfig } from "@/src/types/lesson";
-import { MilestoneType } from "@/src/types/person";
+import { Lesson, LessonJourneyConfig } from "@/src/types/lesson";
+import { JourneyType } from "@/src/types/person";
 
-const MILESTONE_TYPE_OPTIONS: MilestoneType[] = [
+const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
   "NOTE",
   "LESSON",
   "BAPTISM",
@@ -21,7 +21,7 @@ export interface LessonFormValues {
   order: number;
   is_latest: boolean;
   is_active: boolean;
-  milestone_config: LessonMilestoneConfig;
+  journey_config: LessonJourneyConfig;
 }
 
 interface LessonFormProps {
@@ -53,23 +53,23 @@ export default function LessonForm({
   );
   const [isLatest, setIsLatest] = useState<boolean>(lesson?.is_latest ?? true);
   const [isActive, setIsActive] = useState<boolean>(lesson?.is_active ?? true);
-  const [milestoneType, setMilestoneType] = useState<MilestoneType>(
-    lesson?.milestone_config?.milestone_type ?? "NOTE"
+  const [journeyType, setJourneyType] = useState<JourneyType>(
+    lesson?.journey_config?.journey_type ?? "NOTE"
   );
-  const [milestoneTitle, setMilestoneTitle] = useState<string>(
-    lesson?.milestone_config?.title_template ?? ""
+  const [journeyTitle, setJourneyTitle] = useState<string>(
+    lesson?.journey_config?.title_template ?? ""
   );
-  const [milestoneNote, setMilestoneNote] = useState<string>(
-    lesson?.milestone_config?.note_template ?? ""
+  const [journeyNote, setJourneyNote] = useState<string>(
+    lesson?.journey_config?.note_template ?? ""
   );
   const isEditing = Boolean(lesson);
-  const [showMilestoneFields, setShowMilestoneFields] = useState<boolean>(
+  const [showJourneyFields, setShowJourneyFields] = useState<boolean>(
     !isEditing
   );
 
   useEffect(() => {
     if (!lesson) {
-      setShowMilestoneFields(true);
+      setShowJourneyFields(true);
       return;
     }
     setCode(lesson.code);
@@ -80,10 +80,10 @@ export default function LessonForm({
     setOrder(String(lesson.order));
     setIsLatest(lesson.is_latest);
     setIsActive(lesson.is_active);
-    setMilestoneType(lesson.milestone_config?.milestone_type ?? "NOTE");
-    setMilestoneTitle(lesson.milestone_config?.title_template ?? "");
-    setMilestoneNote(lesson.milestone_config?.note_template ?? "");
-    setShowMilestoneFields(false);
+    setJourneyType(lesson.journey_config?.journey_type ?? "NOTE");
+    setJourneyTitle(lesson.journey_config?.title_template ?? "");
+    setJourneyNote(lesson.journey_config?.note_template ?? "");
+    setShowJourneyFields(false);
   }, [lesson]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -104,10 +104,10 @@ export default function LessonForm({
       order: numericOrder,
       is_latest: isLatest,
       is_active: isActive,
-      milestone_config: {
-        milestone_type: milestoneType,
-        title_template: milestoneTitle.trim(),
-        note_template: milestoneNote.trim(),
+      journey_config: {
+        journey_type: journeyType,
+        title_template: journeyTitle.trim(),
+        note_template: journeyNote.trim(),
       },
     });
   };
@@ -223,7 +223,7 @@ export default function LessonForm({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-700">
-              Milestone Settings
+              Journey Settings
             </p>
             <p className="text-xs text-gray-500">
               Configure how this lesson appears on participant timelines.
@@ -233,29 +233,27 @@ export default function LessonForm({
             type="button"
             variant="tertiary"
             className="text-sm !py-2 !px-4"
-            onClick={() => setShowMilestoneFields((previous) => !previous)}
+            onClick={() => setShowJourneyFields((previous) => !previous)}
           >
-            {showMilestoneFields
-              ? "Hide Milestone Fields"
-              : "Show Milestone Fields"}
+            {showJourneyFields ? "Hide Journey Fields" : "Show Journey Fields"}
           </Button>
         </div>
 
-        {showMilestoneFields && (
+        {showJourneyFields && (
           <div className="space-y-4 rounded-lg border border-dashed border-gray-300 p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Milestone Type
+                  Journey Type
                 </label>
                 <select
-                  value={milestoneType}
+                  value={journeyType}
                   onChange={(event) =>
-                    setMilestoneType(event.target.value as MilestoneType)
+                    setJourneyType(event.target.value as JourneyType)
                   }
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {MILESTONE_TYPE_OPTIONS.map((option) => (
+                  {JOURNEY_TYPE_OPTIONS.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
@@ -264,12 +262,12 @@ export default function LessonForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Milestone Title Template
+                  Journey Title Template
                 </label>
                 <input
                   type="text"
-                  value={milestoneTitle}
-                  onChange={(event) => setMilestoneTitle(event.target.value)}
+                  value={journeyTitle}
+                  onChange={(event) => setJourneyTitle(event.target.value)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Completed Lesson X: ..."
                 />
@@ -278,14 +276,14 @@ export default function LessonForm({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Milestone Note Template
+                Journey Note Template
               </label>
               <textarea
-                value={milestoneNote}
-                onChange={(event) => setMilestoneNote(event.target.value)}
+                value={journeyNote}
+                onChange={(event) => setJourneyNote(event.target.value)}
                 rows={3}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Comment that appears when the milestone note is created..."
+                placeholder="Comment that appears when the journey note is created..."
               />
             </div>
           </div>

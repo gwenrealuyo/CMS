@@ -124,9 +124,9 @@ class Family(models.Model):
         verbose_name_plural = "Families"
 
 
-class Milestone(models.Model):
+class Journey(models.Model):
     user = models.ForeignKey(
-        Person, on_delete=models.CASCADE, related_name="milestones"
+        Person, on_delete=models.CASCADE, related_name="journeys"
     )
     title = models.CharField(blank=True, max_length=100)
     date = models.DateField()
@@ -143,7 +143,7 @@ class Milestone(models.Model):
     )
     description = models.TextField(blank=True)
     verified_by = models.ForeignKey(
-        Person, on_delete=models.SET_NULL, null=True, related_name="verified_milestones"
+        Person, on_delete=models.SET_NULL, null=True, related_name="verified_journeys"
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

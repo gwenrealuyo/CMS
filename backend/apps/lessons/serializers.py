@@ -9,7 +9,7 @@ from apps.people.models import Person
 
 from .models import (
     Lesson,
-    LessonMilestone,
+    LessonJourney,
     LessonSessionReport,
     LessonSettings,
     PersonLessonProgress,
@@ -21,14 +21,14 @@ from .services import (
 )
 
 
-class LessonMilestoneSerializer(serializers.ModelSerializer):
+class LessonJourneySerializer(serializers.ModelSerializer):
     class Meta:
-        model = LessonMilestone
-        fields = ["milestone_type", "title_template", "note_template"]
+        model = LessonJourney
+        fields = ["journey_type", "title_template", "note_template"]
 
 
 class LessonSerializer(serializers.ModelSerializer):
-    milestone_config = LessonMilestoneSerializer(required=False)
+    journey_config = LessonJourneySerializer(required=False)
 
     class Meta:
         model = Lesson
@@ -44,26 +44,24 @@ class LessonSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
             "updated_at",
-            "milestone_config",
+            "journey_config",
         ]
         read_only_fields = ["created_at", "updated_at"]
 
     def create(self, validated_data: Dict[str, Any]) -> Lesson:
-        milestone_data = validated_data.pop("milestone_config", None)
+        journey_data = validated_data.pop("journey_config", None)
         lesson = super().create(validated_data)
-        if milestone_data:
-            LessonMilestone.objects.create(lesson=lesson, **milestone_data)
+        if journey_data:
+            LessonJourney.objects.create(lesson=lesson, **journey_data)
         else:
-            LessonMilestone.objects.create(lesson=lesson)
+            LessonJourney.objects.create(lesson=lesson)
         return lesson
 
     def update(self, instance: Lesson, validated_data: Dict[str, Any]) -> Lesson:
-        milestone_data = validated_data.pop("milestone_config", None)
+        journey_data = validated_data.pop("journey_config", None)
         lesson = super().update(instance, validated_data)
-        if milestone_data:
-            LessonMilestone.objects.update_or_create(
-                lesson=lesson, defaults=milestone_data
-            )
+        if journey_data:
+            LessonJourney.objects.update_or_create(lesson=lesson, defaults=journey_data)
         return lesson
 
 
@@ -105,7 +103,7 @@ class PersonLessonProgressSerializer(serializers.ModelSerializer):
             "started_at",
             "completed_at",
             "completed_by",
-            "milestone",
+            "journey",
             "notes",
             "commitment_signed",
             "commitment_signed_at",
@@ -115,7 +113,7 @@ class PersonLessonProgressSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "assigned_at",
-            "milestone",
+            "journey",
             "commitment_signed_at",
             "commitment_signed_by",
             "created_at",
@@ -235,15 +233,16 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
         """Validate that next_session_date is after session_date."""
         session_date = attrs.get("session_date")
         next_session_date = attrs.get("next_session_date")
-        
+
         if session_date and next_session_date:
             if next_session_date <= session_date:
-                raise serializers.ValidationError({
-                    "next_session_date": "Next session date must be after the session date."
-                })
-        
-        return attrs
+                raise serializers.ValidationError(
+                    {
+                        "next_session_date": "Next session date must be after the session date."
+                    }
+                )
 
+        return attrs
 
 
 class LessonSettingsSerializer(serializers.ModelSerializer):

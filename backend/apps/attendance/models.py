@@ -27,8 +27,8 @@ class AttendanceRecord(models.Model):
         default=AttendanceStatus.PRESENT,
     )
     notes = models.TextField(blank=True)
-    milestone = models.OneToOneField(
-        "people.Milestone",
+    journey = models.OneToOneField(
+        "people.Journey",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

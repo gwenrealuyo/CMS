@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Person, Family, Milestone, ModuleCoordinator
+from .models import Person, Family, Journey, ModuleCoordinator
 
 
 class PersonAdmin(UserAdmin):
@@ -135,5 +135,5 @@ class ModuleCoordinatorAdmin(admin.ModelAdmin):
 # Register with custom admin
 admin.site.register(Person, PersonAdmin)
 admin.site.register(Family)
-admin.site.register(Milestone)
+admin.site.register(Journey)
 admin.site.register(ModuleCoordinator, ModuleCoordinatorAdmin)

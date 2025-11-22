@@ -574,7 +574,7 @@ export default function EventView({
                             {record.person.status
                               ? ` • ${record.person.status.toLowerCase()}`
                               : ""}{" "}
-                            {record.milestone_id ? "• Milestone logged" : ""}
+                            {record.journey_id ? "• Journey logged" : ""}
                           </div>
                         </div>
                         <div className="flex items-center gap-3">

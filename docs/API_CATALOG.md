@@ -66,19 +66,19 @@ id, code, name, coordinator (Person id | null), families (Family ids[]),
 description?, created_at (read-only)
 ```
 
-### Milestone
+### Journey
 
-- List: `GET /api/people/milestones/`
+- List: `GET /api/people/journeys/`
   - Query: `user` (Person ID), `type`
-- Retrieve: `GET /api/people/milestones/{id}/`
-- Create: `POST /api/people/milestones/`
+- Retrieve: `GET /api/people/journeys/{id}/`
+- Create: `POST /api/people/journeys/`
   - Required: `user` (Person ID), `date`, `type`
   - Optional: `title`, `description`, `verified_by` (Person ID)
-- Update: `PUT /api/people/milestones/{id}/`
-- Partial Update: `PATCH /api/people/milestones/{id}/`
-- Delete: `DELETE /api/people/milestones/{id}/`
+- Update: `PUT /api/people/journeys/{id}/`
+- Partial Update: `PATCH /api/people/journeys/{id}/`
+- Delete: `DELETE /api/people/journeys/{id}/`
 
-Milestone fields (serializer)
+Journey fields (serializer)
 
 ```
 id, user (Person ID), title?, date, type (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE),
@@ -89,4 +89,4 @@ description?, verified_by (Person ID | null), created_at (read-only)
 
 - Media uploads for `photo` use `MEDIA_URL = /media/` and `MEDIA_ROOT` from settings.
 - Pagination is default DRF (not explicitly configured).
-- Person serializer includes `milestones` field (read-only) with full milestone data.
+- Person serializer includes `journeys` field (read-only) with full journey data.

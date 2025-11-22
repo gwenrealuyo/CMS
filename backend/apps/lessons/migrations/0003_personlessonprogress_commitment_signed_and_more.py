@@ -35,8 +35,8 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AlterField(
-            model_name="lessonmilestone",
-            name="milestone_type",
+            model_name="lessonjourney",
+            name="journey_type",
             field=models.CharField(
                 choices=[
                     ("LESSON", "Lesson"),
@@ -47,7 +47,7 @@ class Migration(migrations.Migration):
                     ("EVENT_ATTENDANCE", "Event Attendance"),
                 ],
                 default="LESSON",
-                help_text="Milestone type to create when the lesson is completed.",
+                help_text="Journey type to create when the lesson is completed.",
                 max_length=20,
             ),
         ),

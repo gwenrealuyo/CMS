@@ -24,7 +24,7 @@ Notes
 
 - Fields: `code` (unique, nullable), `name?`, `coordinator` → Person (nullable), `families` → ManyToMany(Family), `description?`, `created_at`
 
-### Milestone
+### Journey
 
 - Fields: `user` → Person, `title?`, `date`, `type` (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE), `description?`, `verified_by` → Person (nullable), `created_at`
 

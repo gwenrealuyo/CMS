@@ -1,10 +1,10 @@
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Person, Family, Milestone, ModuleCoordinator
+from .models import Person, Family, Journey, ModuleCoordinator
 from .serializers import (
     PersonSerializer,
     FamilySerializer,
-    MilestoneSerializer,
+    JourneySerializer,
     ModuleCoordinatorSerializer,
 )
 from apps.authentication.permissions import (
@@ -108,9 +108,9 @@ class FamilyViewSet(viewsets.ModelViewSet):
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
 
-class MilestoneViewSet(viewsets.ModelViewSet):
-    queryset = Milestone.objects.all()
-    serializer_class = MilestoneSerializer
+class JourneyViewSet(viewsets.ModelViewSet):
+    queryset = Journey.objects.all()
+    serializer_class = JourneySerializer
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["user", "type"]

@@ -12,8 +12,8 @@ LESSON_DEFINITIONS = [
             '• Key Verse: John 14:7 — "If ye had known me, ye should have known my Father also: '
             'and from henceforth ye know him, and have seen him."'
         ),
-        "milestone_title": "Completed Lesson 1: God — Who Is He?",
-        "milestone_note": (
+        "journey_title": "Completed Lesson 1: God — Who Is He?",
+        "journey_note": (
             "Celebrated the revelation of the one true God in the Lord Jesus Christ "
             "(John 14:7)."
         ),
@@ -32,8 +32,8 @@ LESSON_DEFINITIONS = [
             '• Key Verse: Mark 16:15-16 — "Go ye into all the world, and preach the gospel to every creature. '
             'He that believeth and is baptized shall be saved; but he that believeth not shall be damned."'
         ),
-        "milestone_title": "Completed Lesson 2: The Sure Way to Heaven",
-        "milestone_note": (
+        "journey_title": "Completed Lesson 2: The Sure Way to Heaven",
+        "journey_note": (
             "Affirmed the gospel response of faith, baptism, and obedience "
             "(Mark 16:15-16)."
         ),
@@ -51,8 +51,8 @@ LESSON_DEFINITIONS = [
             "• Key Verses: Acts 2:46-47 — continuing daily with one accord, breaking bread from house to house, "
             "and the Lord adding to the church daily such as should be saved."
         ),
-        "milestone_title": "Completed Lesson 3: Clustering — Apostolic Small Groups",
-        "milestone_note": (
+        "journey_title": "Completed Lesson 3: Clustering — Apostolic Small Groups",
+        "journey_note": (
             "Joined a church cluster to continue growing in grace " "(Acts 2:46-47)."
         ),
     },
@@ -69,8 +69,8 @@ LESSON_DEFINITIONS = [
             "• Key Verse: Ephesians 6:18 — praying always with all prayer and supplication in the Spirit, "
             "watching with perseverance for all saints."
         ),
-        "milestone_title": "Completed Lesson 4: Prayer — Communicating with God",
-        "milestone_note": (
+        "journey_title": "Completed Lesson 4: Prayer — Communicating with God",
+        "journey_note": (
             "Committed to ongoing communication with God through Spirit-led prayer "
             "(Ephesians 6:18)."
         ),
@@ -87,8 +87,8 @@ LESSON_DEFINITIONS = [
             "• Key Verses: Isaiah 58:6-8 — the fast God has chosen to loose bands of wickedness, undo heavy burdens, "
             "free the oppressed, and bring restorative blessing."
         ),
-        "milestone_title": "Completed Lesson 5: The Fast That God Has Chosen",
-        "milestone_note": (
+        "journey_title": "Completed Lesson 5: The Fast That God Has Chosen",
+        "journey_note": (
             "Received the call to biblical fasting with compassion and holiness "
             "(Isaiah 58:6-8)."
         ),
@@ -106,8 +106,8 @@ LESSON_DEFINITIONS = [
             "• God promises to bless and protect the financial and material interests of those who practice it.\n"
             '• Key Verse: Malachi 3:10 — "Bring ye all the tithes into the storehouse..."'
         ),
-        "milestone_title": "Completed Lesson 6: Tithing — Windows of Heaven",
-        "milestone_note": (
+        "journey_title": "Completed Lesson 6: Tithing — Windows of Heaven",
+        "journey_note": (
             "Committed to faithful tithing and experienced God's promise of provision "
             "(Malachi 3:10)."
         ),
@@ -121,8 +121,8 @@ LESSON_DEFINITIONS = [
             "• Our obedience to God's word is the key to a complete and joyful life.\n"
             '• Key Verse: 1 Samuel 15:22 — "Behold, to obey is better than sacrifice, and to hearken than the fat of rams."'
         ),
-        "milestone_title": "Completed Lesson 7: To Obey Is Better Than Sacrifice",
-        "milestone_note": (
+        "journey_title": "Completed Lesson 7: To Obey Is Better Than Sacrifice",
+        "journey_note": (
             "Chose obedient discipleship over mere sacrifice (1 Samuel 15:22)."
         ),
     },
@@ -131,7 +131,7 @@ LESSON_DEFINITIONS = [
 
 def seed_default_lessons(apps, schema_editor):
     Lesson = apps.get_model("lessons", "Lesson")
-    LessonMilestone = apps.get_model("lessons", "LessonMilestone")
+    LessonJourney = apps.get_model("lessons", "LessonJourney")
 
     for idx, definition in enumerate(LESSON_DEFINITIONS, start=1):
         lesson, created = Lesson.objects.get_or_create(
@@ -148,11 +148,11 @@ def seed_default_lessons(apps, schema_editor):
         )
 
         if created:
-            LessonMilestone.objects.create(
+            LessonJourney.objects.create(
                 lesson=lesson,
-                milestone_type="LESSON",
-                title_template=definition.get("milestone_title", ""),
-                note_template=definition.get("milestone_note", ""),
+                journey_type="LESSON",
+                title_template=definition.get("journey_title", ""),
+                note_template=definition.get("journey_note", ""),
             )
 
 

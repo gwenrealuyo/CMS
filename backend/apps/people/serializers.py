@@ -59,6 +59,7 @@ class PersonSerializer(serializers.ModelSerializer):
     cluster_codes = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     module_coordinator_assignments = ModuleCoordinatorSerializer(many=True, read_only=True)
+    can_view_journey_timeline = serializers.SerializerMethodField()
 
     class Meta:
         model = Person
@@ -89,6 +90,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "cluster_codes",
             "family_names",
             "module_coordinator_assignments",
+            "can_view_journey_timeline",
         ]
         read_only_fields = ["username"]
 
@@ -121,6 +123,53 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def get_family_names(self, obj: Person):
         return list(obj.families.values_list("name", flat=True))
+
+    def get_can_view_journey_timeline(self, obj: Person):
+        """
+        Check if the current user can view the journey timeline for this person.
+        Permission rules:
+        1. Always allowed if viewing own profile
+        2. ADMIN and PASTOR roles have full access
+        3. Senior Coordinators in CLUSTER, EVANGELISM, SUNDAY_SCHOOL, or LESSONS modules
+        4. Cluster Coordinators can see journey timelines for members of their assigned cluster(s)
+        """
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        
+        user = request.user
+        
+        # 1. Own profile - always allowed
+        if user.id == obj.id:
+            return True
+        
+        # 2. ADMIN and PASTOR roles - full access
+        if user.role in ['ADMIN', 'PASTOR']:
+            return True
+        
+        # 3. Senior Coordinators in allowed modules
+        allowed_modules = [
+            ModuleCoordinator.ModuleType.CLUSTER,
+            ModuleCoordinator.ModuleType.EVANGELISM,
+            ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+            ModuleCoordinator.ModuleType.LESSONS,
+        ]
+        for module in allowed_modules:
+            if user.is_senior_coordinator(module):
+                return True
+        
+        # 4. Cluster Coordinator - check if person is in their cluster(s)
+        if user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+        ):
+            # Get clusters where user is coordinator
+            from apps.clusters.models import Cluster
+            user_clusters = Cluster.objects.filter(coordinator=user)
+            # Check if person is a direct member of any of these clusters
+            return obj.clusters.filter(id__in=user_clusters.values_list('id', flat=True)).exists()
+        
+        return False
 
 
 class FamilySerializer(serializers.ModelSerializer):

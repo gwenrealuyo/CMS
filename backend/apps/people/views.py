@@ -115,6 +115,49 @@ class JourneyViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["user", "type"]
 
+    def get_queryset(self):
+        """
+        Filter journeys based on user permissions:
+        1. ADMIN and PASTOR roles have full access
+        2. Senior Coordinators in allowed modules have full access
+        3. Cluster Coordinators can see journeys for members of their assigned cluster(s) + their own
+        4. Users can always see their own journeys
+        5. Otherwise, return empty queryset
+        """
+        user = self.request.user
+        queryset = super().get_queryset()
+        
+        # 1. ADMIN and PASTOR roles - full access
+        if user.role in ['ADMIN', 'PASTOR']:
+            return queryset
+        
+        # 2. Senior Coordinators in allowed modules - full access
+        allowed_modules = [
+            ModuleCoordinator.ModuleType.CLUSTER,
+            ModuleCoordinator.ModuleType.EVANGELISM,
+            ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+            ModuleCoordinator.ModuleType.LESSONS,
+        ]
+        for module in allowed_modules:
+            if user.is_senior_coordinator(module):
+                return queryset
+        
+        # 3. Cluster Coordinator - can see journeys for members of their cluster(s) + their own
+        if user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+        ):
+            # Get clusters where user is coordinator
+            from apps.clusters.models import Cluster
+            user_clusters = Cluster.objects.filter(coordinator=user)
+            # Get all members of these clusters
+            cluster_member_ids = user_clusters.values_list('members__id', flat=True).distinct()
+            # Return journeys for these members + own journeys
+            return queryset.filter(user__id__in=list(cluster_member_ids) + [user.id]).distinct()
+        
+        # 4. Otherwise - only own journeys
+        return queryset.filter(user=user)
+
 
 class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
     """

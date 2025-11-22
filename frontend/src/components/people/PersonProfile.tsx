@@ -54,6 +54,16 @@ export default function PersonProfile({
     setJourneys(((person.journeys as Journey[]) || []).slice());
   }, [person.id]);
 
+  // Redirect to overview if user doesn't have permission to view timeline tab
+  useEffect(() => {
+    if (
+      activeTab === "timeline" &&
+      person.can_view_journey_timeline === false
+    ) {
+      setActiveTab("overview");
+    }
+  }, [activeTab, person.can_view_journey_timeline]);
+
   const formatJourneyType = (type: string) => {
     if (!type) return "";
     return type
@@ -471,16 +481,18 @@ export default function PersonProfile({
               >
                 Overview
               </button>
-              <button
-                onClick={() => setActiveTab("timeline")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === "timeline"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Timeline
-              </button>
+              {person.can_view_journey_timeline !== false && (
+                <button
+                  onClick={() => setActiveTab("timeline")}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === "timeline"
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  Timeline
+                </button>
+              )}
             </nav>
           </div>
 

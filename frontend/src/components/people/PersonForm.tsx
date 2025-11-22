@@ -25,9 +25,11 @@ export default function PersonForm({
   startOnTimelineTab = false,
   peopleOptions = [],
 }: PersonFormProps) {
-  const [activeTab, setActiveTab] = useState<"basic" | "timeline">(
-    startOnTimelineTab ? "timeline" : "basic"
-  );
+  // Determine initial tab: use timeline only if user has permission and startOnTimelineTab is true
+  const canViewTimeline = initialData?.can_view_journey_timeline !== false;
+  const initialTab =
+    startOnTimelineTab && canViewTimeline ? "timeline" : "basic";
+  const [activeTab, setActiveTab] = useState<"basic" | "timeline">(initialTab);
 
   const [formData, setFormData] = useState<Partial<Person>>({
     role: "MEMBER",
@@ -104,12 +106,23 @@ export default function PersonForm({
   };
 
   const handleTabSwitch = (targetTab: "basic" | "timeline") => {
+    // Prevent switching to timeline tab if user doesn't have permission
+    if (targetTab === "timeline" && !canViewTimeline) {
+      return;
+    }
     if (hasUnsavedChanges && activeTab === "basic") {
       setTabSwitchConfirmation({ isOpen: true, targetTab });
     } else {
       setActiveTab(targetTab);
     }
   };
+
+  // Redirect to basic tab if user somehow accesses timeline tab without permission
+  useEffect(() => {
+    if (activeTab === "timeline" && !canViewTimeline) {
+      setActiveTab("basic");
+    }
+  }, [activeTab, canViewTimeline]);
 
   const [newJourney, setNewJourney] = useState<{
     date: string;
@@ -493,17 +506,19 @@ export default function PersonForm({
           >
             Basic Info
           </button>
-          <button
-            type="button"
-            className={`px-4 py-2 font-medium ${
-              activeTab === "timeline"
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500"
-            }`}
-            onClick={() => handleTabSwitch("timeline")}
-          >
-            Journey Timeline
-          </button>
+          {canViewTimeline && (
+            <button
+              type="button"
+              className={`px-4 py-2 font-medium ${
+                activeTab === "timeline"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500"
+              }`}
+              onClick={() => handleTabSwitch("timeline")}
+            >
+              Journey Timeline
+            </button>
+          )}
         </div>
 
         {/* BASIC INFO TAB */}

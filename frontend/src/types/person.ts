@@ -81,6 +81,7 @@ export interface Person {
   cluster_codes?: string[];
   family_names?: string[];
   module_coordinator_assignments?: ModuleCoordinator[];
+  can_view_journey_timeline?: boolean;
 }
 
 // UI-normalized view of a person for components

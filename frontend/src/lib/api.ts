@@ -1,5 +1,10 @@
 import axios from "axios";
-import { Person, Family, Milestone, ModuleCoordinator } from "@/src/types/person";
+import {
+  Person,
+  Family,
+  Milestone,
+  ModuleCoordinator,
+} from "@/src/types/person";
 import {
   Cluster,
   ClusterWeeklyReport,
@@ -246,24 +251,27 @@ export const moduleCoordinatorsApi = {
     resource_id?: number | null;
     resource_type?: string;
   }) => api.post<ModuleCoordinator>("/people/module-coordinators/", data),
-  update: (id: number, data: Partial<{
-    person: number;
-    module: ModuleCoordinator["module"];
-    level: ModuleCoordinator["level"];
-    resource_id?: number | null;
-    resource_type?: string;
-  }>) =>
-    api.put<ModuleCoordinator>(`/people/module-coordinators/${id}/`, data),
-  patch: (id: number, data: Partial<{
-    person: number;
-    module: ModuleCoordinator["module"];
-    level: ModuleCoordinator["level"];
-    resource_id?: number | null;
-    resource_type?: string;
-  }>) =>
-    api.patch<ModuleCoordinator>(`/people/module-coordinators/${id}/`, data),
-  delete: (id: number) =>
-    api.delete(`/people/module-coordinators/${id}/`),
+  update: (
+    id: number,
+    data: Partial<{
+      person: number;
+      module: ModuleCoordinator["module"];
+      level: ModuleCoordinator["level"];
+      resource_id?: number | null;
+      resource_type?: string;
+    }>
+  ) => api.put<ModuleCoordinator>(`/people/module-coordinators/${id}/`, data),
+  patch: (
+    id: number,
+    data: Partial<{
+      person: number;
+      module: ModuleCoordinator["module"];
+      level: ModuleCoordinator["level"];
+      resource_id?: number | null;
+      resource_type?: string;
+    }>
+  ) => api.patch<ModuleCoordinator>(`/people/module-coordinators/${id}/`, data),
+  delete: (id: number) => api.delete(`/people/module-coordinators/${id}/`),
 };
 
 export const clustersApi = {
@@ -1185,18 +1193,24 @@ export interface AuditLog {
 export const authApi = {
   login: (username: string, password: string, rememberMe: boolean = false) =>
     api
-      .post<LoginResponse & { must_change_password?: boolean }>("/auth/login/", {
-        username,
-        password,
-        remember_me: rememberMe,
-      })
+      .post<LoginResponse & { must_change_password?: boolean }>(
+        "/auth/login/",
+        {
+          username,
+          password,
+          remember_me: rememberMe,
+        }
+      )
       .then((response) => {
         const { access, refresh, user, must_change_password } = response.data;
         tokenStorage.setTokens(access, refresh, rememberMe);
         return {
           access,
           refresh,
-          user: { ...user, must_change_password: must_change_password || false },
+          user: {
+            ...user,
+            must_change_password: must_change_password || false,
+          },
         };
       }),
 
@@ -1253,9 +1267,21 @@ export const authApi = {
       notes: notes || "",
     }),
 
-  getPasswordResetRequests: (status?: string) => {
-    const params = status ? { status } : {};
-    return api.get<PasswordResetRequest[]>("/auth/admin/password-reset-requests/", {
+  getPasswordResetRequests: (
+    status?: string,
+    page?: number,
+    page_size?: number
+  ) => {
+    const params: any = {};
+    if (status) params.status = status;
+    if (page) params.page = page;
+    if (page_size) params.page_size = page_size;
+    return api.get<{
+      count: number;
+      page: number;
+      page_size: number;
+      results: PasswordResetRequest[];
+    }>("/auth/admin/password-reset-requests/", {
       params,
     });
   },
@@ -1263,8 +1289,19 @@ export const authApi = {
   approvePasswordReset: (requestId: number) =>
     api.post(`/auth/admin/password-reset-requests/${requestId}/approve/`),
 
-  getLockedAccounts: () =>
-    api.get<LockedAccount[]>("/auth/admin/locked-accounts/"),
+  getLockedAccounts: (page?: number, page_size?: number) => {
+    const params: any = {};
+    if (page) params.page = page;
+    if (page_size) params.page_size = page_size;
+    return api.get<{
+      count: number;
+      page: number;
+      page_size: number;
+      results: LockedAccount[];
+    }>("/auth/admin/locked-accounts/", {
+      params,
+    });
+  },
 
   unlockAccount: (userId: number) =>
     api.post(`/auth/admin/unlock-account/${userId}/`),

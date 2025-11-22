@@ -6,6 +6,9 @@ import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import Pagination from "@/src/components/ui/Pagination";
+import { CheckCircleIcon, LockOpenIcon } from "@heroicons/react/24/outline";
 import {
   authApi,
   PasswordResetRequest,
@@ -14,7 +17,11 @@ import {
 } from "@/src/lib/api";
 import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorManager";
 
-type Tab = "password-resets" | "locked-accounts" | "audit-logs" | "module-coordinators";
+type Tab =
+  | "password-resets"
+  | "locked-accounts"
+  | "audit-logs"
+  | "module-coordinators";
 
 export default function AdminSettingsPage() {
   return (
@@ -29,7 +36,15 @@ function AdminSettingsPageContent() {
   const [passwordResetRequests, setPasswordResetRequests] = useState<
     PasswordResetRequest[]
   >([]);
+  const [resetRequestsPage, setResetRequestsPage] = useState(1);
+  const [resetRequestsTotal, setResetRequestsTotal] = useState(0);
+  const [resetRequestsItemsPerPage, setResetRequestsItemsPerPage] =
+    useState(10);
   const [lockedAccounts, setLockedAccounts] = useState<LockedAccount[]>([]);
+  const [lockedAccountsPage, setLockedAccountsPage] = useState(1);
+  const [lockedAccountsTotal, setLockedAccountsTotal] = useState(0);
+  const [lockedAccountsItemsPerPage, setLockedAccountsItemsPerPage] =
+    useState(10);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,10 +56,37 @@ function AdminSettingsPageContent() {
     start_date: "",
     end_date: "",
   });
+  const [approveConfirmation, setApproveConfirmation] = useState<{
+    isOpen: boolean;
+    request: PasswordResetRequest | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    request: null,
+    loading: false,
+  });
+  const [unlockConfirmation, setUnlockConfirmation] = useState<{
+    isOpen: boolean;
+    account: LockedAccount | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    account: null,
+    loading: false,
+  });
 
   useEffect(() => {
     fetchData();
-  }, [activeTab, statusFilter, auditPage, auditFilters]);
+  }, [
+    activeTab,
+    statusFilter,
+    auditPage,
+    auditFilters,
+    resetRequestsPage,
+    resetRequestsItemsPerPage,
+    lockedAccountsPage,
+    lockedAccountsItemsPerPage,
+  ]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -52,11 +94,20 @@ function AdminSettingsPageContent() {
     try {
       if (activeTab === "password-resets") {
         const status = statusFilter === "ALL" ? undefined : statusFilter;
-        const response = await authApi.getPasswordResetRequests(status);
-        setPasswordResetRequests(response.data);
+        const response = await authApi.getPasswordResetRequests(
+          status,
+          resetRequestsPage,
+          resetRequestsItemsPerPage
+        );
+        setPasswordResetRequests(response.data.results);
+        setResetRequestsTotal(response.data.count);
       } else if (activeTab === "locked-accounts") {
-        const response = await authApi.getLockedAccounts();
-        setLockedAccounts(response.data);
+        const response = await authApi.getLockedAccounts(
+          lockedAccountsPage,
+          lockedAccountsItemsPerPage
+        );
+        setLockedAccounts(response.data.results);
+        setLockedAccountsTotal(response.data.count);
       } else if (activeTab === "audit-logs") {
         const response = await authApi.getAuditLogs({
           ...auditFilters,
@@ -75,29 +126,63 @@ function AdminSettingsPageContent() {
     }
   };
 
-  const handleApproveReset = async (requestId: number) => {
-    if (!confirm("Are you sure you want to approve this password reset request?")) {
-      return;
-    }
+  const handleApproveReset = (request: PasswordResetRequest) => {
+    setApproveConfirmation({
+      isOpen: true,
+      request,
+      loading: false,
+    });
+  };
+
+  const confirmApproveReset = async () => {
+    if (!approveConfirmation.request) return;
+
+    setApproveConfirmation((prev) => ({ ...prev, loading: true }));
     try {
-      await authApi.approvePasswordReset(requestId);
+      await authApi.approvePasswordReset(approveConfirmation.request.id);
+      setApproveConfirmation({
+        isOpen: false,
+        request: null,
+        loading: false,
+      });
       await fetchData();
     } catch (err: any) {
       alert(
-        err.response?.data?.message || err.message || "Failed to approve request."
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to approve request."
       );
+      setApproveConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
 
-  const handleUnlockAccount = async (userId: number) => {
-    if (!confirm("Are you sure you want to unlock this account?")) {
-      return;
-    }
+  const handleUnlockAccount = (account: LockedAccount) => {
+    setUnlockConfirmation({
+      isOpen: true,
+      account,
+      loading: false,
+    });
+  };
+
+  const confirmUnlockAccount = async () => {
+    if (!unlockConfirmation.account) return;
+
+    setUnlockConfirmation((prev) => ({ ...prev, loading: true }));
     try {
-      await authApi.unlockAccount(userId);
+      await authApi.unlockAccount(unlockConfirmation.account.user_id);
+      setUnlockConfirmation({
+        isOpen: false,
+        account: null,
+        loading: false,
+      });
       await fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.message || err.message || "Failed to unlock account.");
+      alert(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to unlock account."
+      );
+      setUnlockConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -182,7 +267,10 @@ function AdminSettingsPageContent() {
                   </h2>
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setResetRequestsPage(1);
+                    }}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                   >
                     <option value="ALL">All Statuses</option>
@@ -194,7 +282,9 @@ function AdminSettingsPageContent() {
 
                 {passwordResetRequests.length === 0 ? (
                   <div className="bg-white rounded-lg shadow-md p-8 text-center">
-                    <p className="text-gray-500">No password reset requests found.</p>
+                    <p className="text-gray-500">
+                      No password reset requests found.
+                    </p>
                   </div>
                 ) : (
                   <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -252,12 +342,13 @@ function AdminSettingsPageContent() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               {request.status === "PENDING" && (
-                                <Button
-                                  onClick={() => handleApproveReset(request.id)}
-                                  className="bg-green-600 hover:bg-green-700"
+                                <button
+                                  onClick={() => handleApproveReset(request)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
                                 >
+                                  <CheckCircleIcon className="w-4 h-4" />
                                   Approve
-                                </Button>
+                                </button>
                               )}
                             </td>
                           </tr>
@@ -265,6 +356,26 @@ function AdminSettingsPageContent() {
                       </tbody>
                     </table>
                   </div>
+                )}
+
+                {/* Pagination */}
+                {resetRequestsTotal > 0 && (
+                  <Pagination
+                    currentPage={resetRequestsPage}
+                    totalPages={Math.ceil(
+                      resetRequestsTotal / resetRequestsItemsPerPage
+                    )}
+                    onPageChange={(page) => {
+                      setResetRequestsPage(page);
+                    }}
+                    itemsPerPage={resetRequestsItemsPerPage}
+                    totalItems={resetRequestsTotal}
+                    onItemsPerPageChange={(newItemsPerPage) => {
+                      setResetRequestsItemsPerPage(newItemsPerPage);
+                      setResetRequestsPage(1);
+                    }}
+                    showItemsPerPage={true}
+                  />
                 )}
               </div>
             )}
@@ -327,12 +438,13 @@ function AdminSettingsPageContent() {
                               {account.lockout_count}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <Button
-                                onClick={() => handleUnlockAccount(account.user_id)}
-                                className="bg-blue-600 hover:bg-blue-700"
+                              <button
+                                onClick={() => handleUnlockAccount(account)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
                               >
+                                <LockOpenIcon className="w-4 h-4" />
                                 Unlock
-                              </Button>
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -340,13 +452,35 @@ function AdminSettingsPageContent() {
                     </table>
                   </div>
                 )}
+
+                {/* Pagination */}
+                {lockedAccountsTotal > 0 && (
+                  <Pagination
+                    currentPage={lockedAccountsPage}
+                    totalPages={Math.ceil(
+                      lockedAccountsTotal / lockedAccountsItemsPerPage
+                    )}
+                    onPageChange={(page) => {
+                      setLockedAccountsPage(page);
+                    }}
+                    itemsPerPage={lockedAccountsItemsPerPage}
+                    totalItems={lockedAccountsTotal}
+                    onItemsPerPageChange={(newItemsPerPage) => {
+                      setLockedAccountsItemsPerPage(newItemsPerPage);
+                      setLockedAccountsPage(1);
+                    }}
+                    showItemsPerPage={true}
+                  />
+                )}
               </div>
             )}
 
             {/* Audit Logs Tab */}
             {activeTab === "audit-logs" && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-[#2D3748]">Audit Logs</h2>
+                <h2 className="text-xl font-semibold text-[#2D3748]">
+                  Audit Logs
+                </h2>
 
                 {/* Filters */}
                 <div className="bg-white rounded-lg shadow-md p-4">
@@ -358,7 +492,10 @@ function AdminSettingsPageContent() {
                       <select
                         value={auditFilters.action}
                         onChange={(e) =>
-                          setAuditFilters({ ...auditFilters, action: e.target.value })
+                          setAuditFilters({
+                            ...auditFilters,
+                            action: e.target.value,
+                          })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       >
@@ -367,14 +504,24 @@ function AdminSettingsPageContent() {
                         <option value="LOGIN_FAILURE">Login Failure</option>
                         <option value="LOGOUT">Logout</option>
                         <option value="PASSWORD_CHANGE">Password Change</option>
-                        <option value="PASSWORD_RESET_REQUEST">Password Reset Request</option>
-                        <option value="PASSWORD_RESET_APPROVED">Password Reset Approved</option>
+                        <option value="PASSWORD_RESET_REQUEST">
+                          Password Reset Request
+                        </option>
+                        <option value="PASSWORD_RESET_APPROVED">
+                          Password Reset Approved
+                        </option>
                         <option value="ACCOUNT_LOCKED">Account Locked</option>
-                        <option value="ACCOUNT_UNLOCKED">Account Unlocked</option>
+                        <option value="ACCOUNT_UNLOCKED">
+                          Account Unlocked
+                        </option>
                         <option value="TOKEN_REFRESH">Token Refresh</option>
                         <option value="ROLE_CHANGE">Role Change</option>
-                        <option value="ACCOUNT_ACTIVATED">Account Activated</option>
-                        <option value="ACCOUNT_DEACTIVATED">Account Deactivated</option>
+                        <option value="ACCOUNT_ACTIVATED">
+                          Account Activated
+                        </option>
+                        <option value="ACCOUNT_DEACTIVATED">
+                          Account Deactivated
+                        </option>
                       </select>
                     </div>
                     <div>
@@ -411,13 +558,18 @@ function AdminSettingsPageContent() {
                     </div>
                     <div className="flex items-end">
                       <Button
+                        variant="tertiary"
                         onClick={() => {
-                          setAuditFilters({ action: "", start_date: "", end_date: "" });
+                          setAuditFilters({
+                            action: "",
+                            start_date: "",
+                            end_date: "",
+                          });
                           setAuditPage(1);
                         }}
                         className="w-full"
                       >
-                        Clear Filters
+                        Reset
                       </Button>
                     </div>
                   </div>
@@ -468,7 +620,8 @@ function AdminSettingsPageContent() {
                                 {log.ip_address}
                               </td>
                               <td className="px-6 py-4 text-sm text-gray-500">
-                                {log.details && Object.keys(log.details).length > 0
+                                {log.details &&
+                                Object.keys(log.details).length > 0
                                   ? JSON.stringify(log.details)
                                   : "-"}
                               </td>
@@ -481,12 +634,15 @@ function AdminSettingsPageContent() {
                     {/* Pagination */}
                     <div className="flex justify-between items-center">
                       <div className="text-sm text-gray-500">
-                        Showing {((auditPage - 1) * 50) + 1} to{" "}
-                        {Math.min(auditPage * 50, auditTotal)} of {auditTotal} results
+                        Showing {(auditPage - 1) * 50 + 1} to{" "}
+                        {Math.min(auditPage * 50, auditTotal)} of {auditTotal}{" "}
+                        results
                       </div>
                       <div className="flex gap-2">
                         <Button
-                          onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                          onClick={() =>
+                            setAuditPage((p) => Math.max(1, p - 1))
+                          }
                           disabled={auditPage === 1}
                         >
                           Previous
@@ -511,7 +667,52 @@ function AdminSettingsPageContent() {
           </>
         )}
       </div>
+
+      {/* Approve Password Reset Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={approveConfirmation.isOpen}
+        onClose={() =>
+          setApproveConfirmation({
+            isOpen: false,
+            request: null,
+            loading: false,
+          })
+        }
+        onConfirm={confirmApproveReset}
+        title="Approve Password Reset Request"
+        message={
+          approveConfirmation.request
+            ? `Are you sure you want to approve the password reset request for ${approveConfirmation.request.full_name} (${approveConfirmation.request.email})? The user will be required to change their password on next login.`
+            : ""
+        }
+        confirmText="Approve"
+        cancelText="Cancel"
+        variant="info"
+        loading={approveConfirmation.loading}
+      />
+
+      {/* Unlock Account Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={unlockConfirmation.isOpen}
+        onClose={() =>
+          setUnlockConfirmation({
+            isOpen: false,
+            account: null,
+            loading: false,
+          })
+        }
+        onConfirm={confirmUnlockAccount}
+        title="Unlock Account"
+        message={
+          unlockConfirmation.account
+            ? `Are you sure you want to unlock the account for ${unlockConfirmation.account.full_name} (${unlockConfirmation.account.email})? This will reset their failed login attempts and allow them to log in again.`
+            : ""
+        }
+        confirmText="Unlock"
+        cancelText="Cancel"
+        variant="info"
+        loading={unlockConfirmation.loading}
+      />
     </DashboardLayout>
   );
 }
-

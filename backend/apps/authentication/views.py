@@ -255,9 +255,7 @@ def logout_view(request):
     )
     # Client-side blacklisting: tokens are cleared on frontend
     # If database blacklisting is needed later, implement here
-    return Response(
-        {"message": "Successfully logged out"}, status=status.HTTP_200_OK
-    )
+    return Response({"message": "Successfully logged out"}, status=status.HTTP_200_OK)
 
 
 @api_view(["GET", "PATCH"])
@@ -389,8 +387,25 @@ def password_reset_requests_list_view(request):
     if status_filter:
         queryset = queryset.filter(status=status_filter)
 
-    serializer = PasswordResetRequestListSerializer(queryset, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    # Pagination
+    page_size = int(request.query_params.get("page_size", 10))
+    page = int(request.query_params.get("page", 1))
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    total = queryset.count()
+    requests = queryset[start:end]
+
+    serializer = PasswordResetRequestListSerializer(requests, many=True)
+    return Response(
+        {
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "results": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["POST"])
@@ -455,13 +470,34 @@ def locked_accounts_list_view(request):
     # Temporarily locked: locked_until is not null and in the future
     # Permanently locked: lockout_count >= 2 and failed_attempts >= 5
     now = timezone.now()
-    queryset = AccountLockout.objects.filter(
-        Q(locked_until__isnull=False, locked_until__gt=now)
-        | Q(lockout_count__gte=2, failed_attempts__gte=5, locked_until__isnull=True)
-    ).select_related("user").distinct()
+    queryset = (
+        AccountLockout.objects.filter(
+            Q(locked_until__isnull=False, locked_until__gt=now)
+            | Q(lockout_count__gte=2, failed_attempts__gte=5, locked_until__isnull=True)
+        )
+        .select_related("user")
+        .distinct()
+    )
 
-    serializer = AccountLockoutSerializer(queryset, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    # Pagination
+    page_size = int(request.query_params.get("page_size", 10))
+    page = int(request.query_params.get("page", 1))
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    total = queryset.count()
+    accounts = queryset[start:end]
+
+    serializer = AccountLockoutSerializer(accounts, many=True)
+    return Response(
+        {
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "results": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["POST"])
@@ -473,9 +509,7 @@ def unlock_account_view(request, user_id):
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
-        return Response(
-            {"error": "User not found."}, status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
     lockout, created = AccountLockout.objects.get_or_create(user=user)
 
@@ -544,4 +578,3 @@ def audit_logs_view(request):
         },
         status=status.HTTP_200_OK,
     )
-

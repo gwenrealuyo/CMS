@@ -7,6 +7,36 @@ import re
 User = get_user_model()
 
 
+def format_person_name(user):
+    """
+    Formats a person's name with first name, nickname (in quotes),
+    middle initial, last name, and suffix.
+    """
+    pieces = []
+
+    if user.first_name:
+        pieces.append(user.first_name.strip())
+
+    # Nickname in quotes (after first name)
+    if user.nickname:
+        pieces.append(f'"{user.nickname.strip()}"')
+
+    # Middle initial
+    if user.middle_name:
+        middle_initial = user.middle_name.strip()
+        if middle_initial:
+            pieces.append(f"{middle_initial[0].upper()}.")
+
+    if user.last_name:
+        pieces.append(user.last_name.strip())
+
+    if user.suffix:
+        pieces.append(user.suffix.strip())
+
+    name = " ".join(pieces).strip()
+    return name if name else user.username
+
+
 class PasswordStrengthValidator:
     """
     Validates that password has:
@@ -90,11 +120,17 @@ class UserSerializer(serializers.ModelSerializer):
             "must_change_password",
             "first_login",
         )
-        read_only_fields = ("id", "username", "email", "role", "must_change_password", "first_login")
+        read_only_fields = (
+            "id",
+            "username",
+            "email",
+            "role",
+            "must_change_password",
+            "first_login",
+        )
 
     def get_full_name(self, obj):
-        parts = [obj.first_name, obj.middle_name, obj.last_name, obj.suffix]
-        return " ".join(filter(None, parts)).strip() or obj.username
+        return format_person_name(obj)
 
 
 class TokenResponseSerializer(serializers.Serializer):
@@ -163,18 +199,11 @@ class PasswordResetRequestListSerializer(serializers.ModelSerializer):
         )
 
     def get_full_name(self, obj):
-        parts = [
-            obj.user.first_name,
-            obj.user.middle_name,
-            obj.user.last_name,
-            obj.user.suffix,
-        ]
-        return " ".join(filter(None, parts)).strip() or obj.user.username
+        return format_person_name(obj.user)
 
     def get_approved_by_name(self, obj):
         if obj.approved_by:
-            parts = [obj.approved_by.first_name, obj.approved_by.last_name]
-            return " ".join(filter(None, parts)).strip()
+            return format_person_name(obj.approved_by)
         return None
 
 
@@ -198,17 +227,13 @@ class AccountLockoutSerializer(serializers.ModelSerializer):
         )
 
     def get_full_name(self, obj):
-        parts = [
-            obj.user.first_name,
-            obj.user.middle_name,
-            obj.user.last_name,
-            obj.user.suffix,
-        ]
-        return " ".join(filter(None, parts)).strip() or obj.user.username
+        return format_person_name(obj.user)
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
-    user_id = serializers.IntegerField(source="user.id", read_only=True, allow_null=True)
+    user_id = serializers.IntegerField(
+        source="user.id", read_only=True, allow_null=True
+    )
     username = serializers.CharField(
         source="user.username", read_only=True, allow_null=True
     )
@@ -225,4 +250,3 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "details",
             "timestamp",
         )
-

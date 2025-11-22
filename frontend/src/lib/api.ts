@@ -1213,7 +1213,9 @@ export const authApi = {
       }),
 
   logout: () => {
-    tokenStorage.clearTokens();
+    // Call logout API first (requires auth token for audit logging)
+    // If token is expired/invalid, this will fail with 401, but AuthContext will handle it
+    // AuthContext will clear tokens in its finally block regardless of API call success/failure
     return api.post("/auth/logout/");
   },
 

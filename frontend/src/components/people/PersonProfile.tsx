@@ -372,7 +372,7 @@ export default function PersonProfile({
                 <p className="text-gray-600 text-sm sm:text-base">
                   @{person.username}
                 </p>
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:space-x-2 mt-2">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:space-x-2 mt-2">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
                       person.role
@@ -905,7 +905,11 @@ export default function PersonProfile({
                   {filteredAndSortedJourneys.length > 0 ? (
                     <div
                       ref={journeyListRef}
-                      className="relative h-[500px] overflow-auto"
+                      className={`relative ${
+                        filteredAndSortedJourneys.length <= 3
+                          ? "overflow-visible"
+                          : "h-[360px] overflow-auto"
+                      }`}
                     >
                       <div className="relative pl-3 pt-4 pb-4">
                         <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
@@ -1016,34 +1020,14 @@ export default function PersonProfile({
       {/* Footer */}
       <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
         {activeTab === "overview" ? (
-          <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
-            {/* Action Buttons - Right side on desktop, full width on mobile */}
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-2 sm:order-2">
-              <Button
-                onClick={onCancel}
-                variant="secondary"
-                className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full sm:w-auto"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-                <span>Cancel</span>
-              </Button>
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+            {/* Mobile buttons - full width with text */}
+            <div className="flex flex-col md:hidden gap-3 w-full">
               {!hideEditButton && (
                 <Button
                   onClick={onEdit}
                   variant="secondary"
-                  className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full sm:w-auto"
+                  className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
                 >
                   <svg
                     className="w-4 h-4"
@@ -1061,13 +1045,10 @@ export default function PersonProfile({
                   <span>Edit</span>
                 </Button>
               )}
-            </div>
-            {/* Delete Button - Left side on desktop, full width on mobile */}
-            {!hideDeleteButton && (
               <Button
-                onClick={onDelete}
+                onClick={onCancel}
                 variant="secondary"
-                className="!text-red-600 py-3 px-4 text-sm font-medium bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 flex items-center justify-center space-x-2 min-h-[44px] w-full sm:w-auto order-1 sm:order-1"
+                className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
               >
                 <svg
                   className="w-4 h-4"
@@ -1079,12 +1060,107 @@ export default function PersonProfile({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    d="M6 18L18 6M6 6l12 12"
                   />
                 </svg>
-                <span>Delete</span>
+                <span>Cancel</span>
               </Button>
-            )}
+              {!hideDeleteButton && (
+                <>
+                  <div className="border-t border-gray-200 my-1"></div>
+                  <Button
+                    onClick={onDelete}
+                    variant="secondary"
+                    className="!text-red-600 py-3 px-4 text-sm font-medium bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    <span>Delete</span>
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {/* Desktop/Tablet buttons - old style with icons */}
+            <div className="hidden md:flex md:items-center md:justify-between md:w-full">
+              {!hideDeleteButton && (
+                <Button
+                  onClick={onDelete}
+                  variant="secondary"
+                  className="!text-red-600 px-4 md:py-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </Button>
+              )}
+              {hideDeleteButton && <div />}
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={onCancel}
+                  variant="secondary"
+                  className="!text-black px-6 md:py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  <span>Cancel</span>
+                </Button>
+                {!hideEditButton && (
+                  <Button
+                    onClick={onEdit}
+                    variant="secondary"
+                    className="!text-blue-600 px-6 md:py-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                    <span>Edit</span>
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
           <Button

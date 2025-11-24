@@ -47,11 +47,9 @@ export default function Modal({
     >
       <div className="bg-white rounded-none md:rounded-lg max-w-3xl w-full h-full md:h-auto md:max-h-[95vh] md:mx-4 overflow-hidden flex flex-col">
         {!hideHeader && (
-          <div className="p-4 md:p-6 pb-0 flex-shrink-0 border-b border-gray-200">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg md:text-xl font-semibold text-[#2D3748]">
-                {title}
-              </h2>
+          <div className="p-4 md:py-2 md:px-6 pb-0 flex-shrink-0 border-b border-gray-200">
+            <div className="flex justify-between items-center mb-4 md:mb-0">
+              <h2 className="text-lg font-semibold text-[#2D3748]">{title}</h2>
               <button
                 onClick={onClose}
                 className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -75,7 +73,9 @@ export default function Modal({
           </div>
         )}
         <div
-          className={`flex-1 overflow-y-auto ${hideHeader ? "p-4 md:p-6" : "p-4 md:p-6 pt-0"}`}
+          className={`flex-1 overflow-y-auto ${
+            hideHeader ? "p-4 md:p-0 pt-0" : "p-4 md:p-6"
+          }`}
         >
           {children}
         </div>

@@ -143,7 +143,7 @@ export default function ConfirmationModal({
           <Button
             onClick={onConfirm}
             disabled={loading}
-            className={`w-full sm:w-auto sm:ml-3 ${styles.confirmButton}`}
+            className={`w-full sm:w-auto sm:ml-3 min-h-[44px] ${styles.confirmButton}`}
           >
             {loading ? "Processing..." : confirmText}
           </Button>
@@ -151,7 +151,7 @@ export default function ConfirmationModal({
             variant="tertiary"
             onClick={onClose}
             disabled={loading}
-            className="w-full sm:w-auto mt-3 sm:mt-0"
+            className="w-full sm:w-auto mt-3 sm:mt-0 min-h-[44px]"
           >
             {cancelText}
           </Button>

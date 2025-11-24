@@ -491,7 +491,7 @@ export default function PersonForm({
     <>
       <form
         onSubmit={handleSubmit}
-        className="max-h-[85vh] overflow-y-auto space-y-6 text-sm max-w-3xl"
+        className="overflow-y-auto space-y-6 text-sm max-w-3xl -mt-2 md:-mt-4"
       >
         {/* Tabs */}
         <div className="flex border-b mb-4">
@@ -523,7 +523,7 @@ export default function PersonForm({
 
         {/* BASIC INFO TAB */}
         {activeTab === "basic" && (
-          <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
+          <div className="space-y-6 overflow-y-auto pr-1">
             <div>
               <div className="p-0">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">
@@ -1004,12 +1004,39 @@ export default function PersonForm({
                 </div>
               </div>
             </div>
+
+            {/* Footer Buttons - At bottom of form fields */}
+            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6">
+              <Button
+                variant="tertiary"
+                className="w-full sm:flex-1 min-h-[44px]"
+                onClick={
+                  isEditingFromProfile && onBackToProfile
+                    ? onBackToProfile
+                    : onClose
+                }
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="w-full sm:flex-1 min-h-[44px]"
+                disabled={loading}
+                type="submit"
+              >
+                {loading
+                  ? "Saving..."
+                  : initialData?.id
+                  ? "Update Person"
+                  : "Create Person"}
+              </Button>
+            </div>
           </div>
         )}
 
         {/* JOURNEY TIMELINE TAB */}
         {activeTab === "timeline" && (
-          <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-1 p-0">
+          <div className="space-y-4 overflow-y-auto pr-1 p-0">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Event Title *
@@ -1109,7 +1136,7 @@ export default function PersonForm({
 
             {/* Search and Filter Controls */}
             {formData.journeys && formData.journeys.length > 0 && (
-              <div className="space-y-3 mt-4">
+              <div className="space-y-3 mt-6 pt-6 border-t border-gray-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Search */}
                   <div>
@@ -1167,7 +1194,11 @@ export default function PersonForm({
             {filteredAndSortedJourneys.length > 0 && (
               <div
                 ref={journeyListRef}
-                className="mt-4 h-[400px] overflow-auto rounded-lg border border-gray-200"
+                className={`mt-4 rounded-lg border border-gray-200 ${
+                  filteredAndSortedJourneys.length <= 3
+                    ? "overflow-visible"
+                    : "h-[300px] overflow-auto"
+                }`}
               >
                 <div
                   style={{
@@ -1276,31 +1307,6 @@ export default function PersonForm({
                   </button>
                 </div>
               )}
-          </div>
-        )}
-
-        {/* Footer - Only show on Basic Info tab */}
-        {activeTab === "basic" && (
-          <div className="flex gap-4 pt-4">
-            <Button
-              variant="tertiary"
-              className="flex-1"
-              onClick={
-                isEditingFromProfile && onBackToProfile
-                  ? onBackToProfile
-                  : onClose
-              }
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button className="flex-1" disabled={loading} type="submit">
-              {loading
-                ? "Saving..."
-                : initialData?.id
-                ? "Update Person"
-                : "Create Person"}
-            </Button>
           </div>
         )}
       </form>

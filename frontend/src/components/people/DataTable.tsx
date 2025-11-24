@@ -69,6 +69,9 @@ export default function DataTable({
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+  const [openActionMenuView, setOpenActionMenuView] = useState<
+    "mobile-card" | "mobile-table" | "desktop" | null
+  >(null);
   const [mobileViewMode, setMobileViewMode] = useState<"cards" | "table">(
     "cards"
   );
@@ -353,11 +356,15 @@ export default function DataTable({
     isOpen,
     onOpen,
     onClose,
+    currentOpenMenuId,
+    viewType,
   }: {
     person: DisplayPerson;
     isOpen: boolean;
     onOpen: () => void;
     onClose: () => void;
+    currentOpenMenuId: string | null;
+    viewType: "mobile-card" | "mobile-table" | "desktop";
   }) => {
     const menuRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -366,90 +373,117 @@ export default function DataTable({
     const [coords, setCoords] = useState<{ top: number; left: number } | null>(
       null
     );
-    const [dropdownPosition, setDropdownPosition] = useState<"below" | "above">(
-      "below"
-    );
 
     useEffect(() => {
       setMounted(true);
     }, []);
 
+    // Calculate position when menu opens
+    useEffect(() => {
+      // Only calculate if this menu is actually open, matches the global state, and matches the view type
+      const isActiveView =
+        (viewType === "mobile-card" && mobileViewMode === "cards") ||
+        (viewType === "mobile-table" && mobileViewMode === "table") ||
+        viewType === "desktop";
+
+      if (
+        isOpen &&
+        currentOpenMenuId === person.id &&
+        openActionMenuView === viewType &&
+        isActiveView &&
+        buttonRef.current
+      ) {
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        const dropdownHeight = 200;
+        const dropdownWidth = 192;
+        const isMobile = viewportWidth < 768;
+
+        // Calculate top position
+        const minTop = 8;
+        const maxTop = Math.max(minTop, viewportHeight - dropdownHeight - 8);
+        const proposedTop = buttonRect.bottom + 4;
+        const top = Math.max(minTop, Math.min(maxTop, proposedTop));
+
+        // Calculate left position - on mobile, center it or align to button
+        let left: number;
+        if (isMobile) {
+          // On mobile, try to align with button, but ensure it fits
+          const proposedLeft = buttonRect.right - dropdownWidth;
+          const minLeft = 8;
+          const maxLeft = viewportWidth - dropdownWidth - 8;
+          left = Math.max(minLeft, Math.min(maxLeft, proposedLeft));
+        } else {
+          // On desktop, align to right edge of button
+          const proposedLeft = buttonRect.right - dropdownWidth;
+          const minLeft = 8;
+          const maxLeft = viewportWidth - dropdownWidth - 8;
+          left = Math.max(minLeft, Math.min(maxLeft, proposedLeft));
+        }
+
+        setCoords({ top, left });
+      } else if (
+        !isOpen ||
+        currentOpenMenuId !== person.id ||
+        openActionMenuView !== viewType
+      ) {
+        setCoords(null);
+      }
+    }, [
+      isOpen,
+      currentOpenMenuId,
+      person.id,
+      openActionMenuView,
+      viewType,
+      mobileViewMode,
+    ]);
+
     useEffect(() => {
       if (!isOpen) return;
 
-      const handleClickOutside = (event: MouseEvent) => {
+      const handleClickOutside = (event: MouseEvent | TouchEvent) => {
         const target = event.target as Node;
-        const clickedInsideAnchor = menuRef.current?.contains(target);
+        const clickedInsideButton = menuRef.current?.contains(target);
         const clickedInsidePortal = portalMenuRef.current?.contains(target);
-        if (!clickedInsideAnchor && !clickedInsidePortal) {
+        if (!clickedInsideButton && !clickedInsidePortal) {
           onClose();
-          setCoords(null);
         }
       };
 
+      // Use mousedown for desktop and touchend for mobile
+      // touchend fires after the user lifts their finger, allowing button actions to complete first
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchend", handleClickOutside);
 
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("touchend", handleClickOutside);
       };
     }, [isOpen, onClose]);
 
-    // Ensure coordinates are computed immediately after menu opens
-    useEffect(() => {
-      if (isOpen && !coords && buttonRef.current) {
-        const buttonRect = buttonRef.current.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const dropdownHeight = 200;
-        const dropdownWidth = 192;
-
-        const minTop = 8;
-        const maxTop = Math.max(minTop, viewportHeight - dropdownHeight - 8);
-        const proposedTop = buttonRect.bottom + 4;
-        const top = Math.max(minTop, Math.min(maxTop, proposedTop));
-
-        const minLeft = 8;
-        const maxLeft = Math.max(
-          minLeft,
-          window.innerWidth - dropdownWidth - 8
-        );
-        const proposedLeft = buttonRect.right - dropdownWidth;
-        const left = Math.max(minLeft, Math.min(maxLeft, proposedLeft));
-
-        setCoords({ top, left });
+    const handleToggle = (
+      e:
+        | React.MouseEvent<HTMLButtonElement>
+        | React.TouchEvent<HTMLButtonElement>
+    ) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if ("stopImmediatePropagation" in e.nativeEvent) {
+        e.nativeEvent.stopImmediatePropagation();
       }
-    }, [isOpen, coords]);
 
-    const handleToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
-      if (!isOpen && buttonRef.current) {
-        // Calculate position when opening - only once
-        const buttonRect = (
-          e.currentTarget as HTMLButtonElement
-        ).getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const dropdownHeight = 200;
-        const dropdownWidth = 192;
-
-        // Always position below with minimal gap; clamp within viewport
-        const minTop = 8;
-        const maxTop = Math.max(minTop, viewportHeight - dropdownHeight - 8);
-        const proposedTop = buttonRect.bottom + 4;
-        const top = Math.max(minTop, Math.min(maxTop, proposedTop));
-        // Align to right edge; clamp within viewport
-        const minLeft = 8;
-        const maxLeft = Math.max(
-          minLeft,
-          window.innerWidth - dropdownWidth - 8
-        );
-        const proposedLeft = buttonRect.right - dropdownWidth;
-        const left = Math.max(minLeft, Math.min(maxLeft, proposedLeft));
-        setCoords({ top, left });
-
-        // Open this menu
-        onOpen();
+      if (!isOpen) {
+        // Close any other open menu first
+        if (currentOpenMenuId && currentOpenMenuId !== person.id) {
+          onClose();
+        }
+        // Small delay to ensure state is cleared
+        requestAnimationFrame(() => {
+          onOpen();
+        });
       } else {
-        // Close this menu
         onClose();
-        setCoords(null);
       }
     };
 
@@ -458,6 +492,8 @@ export default function DataTable({
         <button
           ref={buttonRef}
           onClick={handleToggle}
+          onTouchEnd={handleToggle}
+          type="button"
           className="p-2 min-h-[44px] min-w-[44px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
           title="Actions"
         >
@@ -471,7 +507,7 @@ export default function DataTable({
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+              d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"
             />
           </svg>
         </button>
@@ -479,20 +515,48 @@ export default function DataTable({
         {isOpen &&
           mounted &&
           coords &&
+          currentOpenMenuId === person.id &&
+          openActionMenuView === viewType &&
           ReactDOM.createPortal(
             <div
               ref={portalMenuRef}
-              className="fixed w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-[1000]"
-              style={{ top: coords.top, left: coords.left }}
+              className="fixed w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-[9999]"
+              style={{ top: `${coords.top}px`, left: `${coords.left}px` }}
+              onClick={(e) => {
+                // Only stop propagation to prevent outside click handler from firing
+                // Don't prevent default so buttons inside can be clicked
+                e.stopPropagation();
+              }}
+              onMouseDown={(e) => {
+                // Prevent mousedown from bubbling to document (which would close menu)
+                e.stopPropagation();
+              }}
+              onTouchStart={(e) => {
+                // Prevent touchstart from bubbling to document (which would close menu on mobile)
+                e.stopPropagation();
+              }}
+              onTouchEnd={(e) => {
+                // Prevent touchend from bubbling to document (which would close menu on mobile)
+                e.stopPropagation();
+              }}
             >
               <div className="py-1">
                 {onView && (
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       onView(person as Person);
                       onClose();
                     }}
-                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onView(person as Person);
+                      onClose();
+                    }}
+                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-100 cursor-pointer"
                   >
                     <svg
                       className="w-4 h-4 mr-2 text-blue-500"
@@ -518,11 +582,20 @@ export default function DataTable({
                 )}
                 {onEdit && (
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       onEdit(person as Person);
                       onClose();
                     }}
-                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onEdit(person as Person);
+                      onClose();
+                    }}
+                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-100 cursor-pointer"
                   >
                     <svg
                       className="w-4 h-4 mr-2 text-green-500"
@@ -542,11 +615,20 @@ export default function DataTable({
                 )}
                 {onDelete && (
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       onDelete(person as Person);
                       onClose();
                     }}
-                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDelete(person as Person);
+                      onClose();
+                    }}
+                    className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-red-600 hover:bg-red-50 hover:text-red-700 active:bg-red-50 cursor-pointer"
                   >
                     <svg
                       className="w-4 h-4 mr-2"
@@ -731,8 +813,16 @@ export default function DataTable({
                   <ActionMenu
                     person={person}
                     isOpen={openActionMenuId === person.id}
-                    onOpen={() => setOpenActionMenuId(person.id)}
-                    onClose={() => setOpenActionMenuId(null)}
+                    onOpen={() => {
+                      setOpenActionMenuId(person.id);
+                      setOpenActionMenuView("mobile-card");
+                    }}
+                    onClose={() => {
+                      setOpenActionMenuId(null);
+                      setOpenActionMenuView(null);
+                    }}
+                    currentOpenMenuId={openActionMenuId}
+                    viewType="mobile-card"
                   />
                 </div>
                 <div className="space-y-2 pl-14">
@@ -1001,8 +1091,16 @@ export default function DataTable({
                       <ActionMenu
                         person={person}
                         isOpen={openActionMenuId === person.id}
-                        onOpen={() => setOpenActionMenuId(person.id)}
-                        onClose={() => setOpenActionMenuId(null)}
+                        onOpen={() => {
+                          setOpenActionMenuId(person.id);
+                          setOpenActionMenuView("mobile-table");
+                        }}
+                        onClose={() => {
+                          setOpenActionMenuId(null);
+                          setOpenActionMenuView(null);
+                        }}
+                        currentOpenMenuId={openActionMenuId}
+                        viewType="mobile-table"
                       />
                     </td>
                   </tr>
@@ -1213,8 +1311,16 @@ export default function DataTable({
                     <ActionMenu
                       person={person}
                       isOpen={openActionMenuId === person.id}
-                      onOpen={() => setOpenActionMenuId(person.id)}
-                      onClose={() => setOpenActionMenuId(null)}
+                      onOpen={() => {
+                        setOpenActionMenuId(person.id);
+                        setOpenActionMenuView("desktop");
+                      }}
+                      onClose={() => {
+                        setOpenActionMenuId(null);
+                        setOpenActionMenuView(null);
+                      }}
+                      currentOpenMenuId={openActionMenuId}
+                      viewType="desktop"
                     />
                   </td>
                 </tr>

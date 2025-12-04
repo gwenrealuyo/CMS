@@ -519,16 +519,16 @@ export default function ClusterForm({
           rows={3}
         />
       </div>
-      <div className="flex flex-col sm:flex-row gap-3 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
         <Button
           variant="tertiary"
-          className="w-full sm:flex-1"
+          className="w-full sm:flex-1 min-h-[44px]"
           onClick={onCancel}
           disabled={submitting}
         >
           Cancel
         </Button>
-        <Button className="w-full sm:flex-1" disabled={submitting} type="submit">
+        <Button className="w-full sm:flex-1 min-h-[44px]" disabled={submitting} type="submit">
           {submitting
             ? "Saving..."
             : initialData

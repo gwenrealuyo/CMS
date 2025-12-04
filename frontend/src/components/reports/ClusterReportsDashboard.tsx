@@ -18,6 +18,8 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   DocumentArrowDownIcon,
+  Squares2X2Icon,
+  TableCellsIcon,
 } from "@heroicons/react/24/outline";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
@@ -176,6 +178,15 @@ export default function ClusterReportsDashboard({
 
   // Charts visibility
   const [showCharts, setShowCharts] = useState(false);
+
+  // View mode toggle - Initialize based on screen size (cards for mobile, table for desktop)
+  const [viewMode, setViewMode] = useState<"table" | "cards">(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 768 ? "cards" : "table";
+    }
+    return "table";
+  });
+
   const availableColumns = [
     { key: "cluster", label: "Cluster", default: true },
     { key: "week", label: "Week", default: true },
@@ -1328,9 +1339,64 @@ export default function ClusterReportsDashboard({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Month
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium text-gray-700">Month</label>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentMonth = new Date().getMonth() + 1;
+                  if (selectedMonth === "") {
+                    // Switch to current month
+                    setSelectedMonth(currentMonth.toString());
+                  } else {
+                    // Switch to all months
+                    setSelectedMonth("");
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                title={
+                  selectedMonth === ""
+                    ? "Show Current Month"
+                    : "Show All Months"
+                }
+              >
+                {selectedMonth === "" ? (
+                  <>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Current Month
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 6h16M4 12h16M4 18h16"
+                      />
+                    </svg>
+                    All Months
+                  </>
+                )}
+              </button>
+            </div>
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
@@ -1353,9 +1419,62 @@ export default function ClusterReportsDashboard({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Week
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium text-gray-700">Week</label>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentWeek = getISOWeekNumber(new Date());
+                  if (selectedWeek === "") {
+                    // Switch to current week
+                    setSelectedWeek(currentWeek.toString());
+                  } else {
+                    // Switch to all weeks
+                    setSelectedWeek("");
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                title={
+                  selectedWeek === "" ? "Show Current Week" : "Show All Weeks"
+                }
+              >
+                {selectedWeek === "" ? (
+                  <>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Current Week
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 6h16M4 12h16M4 18h16"
+                      />
+                    </svg>
+                    All Weeks
+                  </>
+                )}
+              </button>
+            </div>
             <select
               value={selectedWeek}
               onChange={(e) => setSelectedWeek(e.target.value)}
@@ -1419,7 +1538,32 @@ export default function ClusterReportsDashboard({
       {/* Reports Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-end gap-2">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 flex-wrap gap-2">
+            {/* View Toggle - Mobile Only */}
+            <div className="md:hidden flex items-center border border-gray-300 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode("cards")}
+                className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                  viewMode === "cards"
+                    ? "bg-blue-500 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+                title="Card View"
+              >
+                <Squares2X2Icon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                  viewMode === "table"
+                    ? "bg-blue-500 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+                title="Table View"
+              >
+                <TableCellsIcon className="w-5 h-5" />
+              </button>
+            </div>
             <button
               onClick={() => setShowColumnsModal(true)}
               className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -1550,135 +1694,151 @@ export default function ClusterReportsDashboard({
           </div>
         ) : (
           <>
-            {/* Mobile Card View */}
-            <div className="md:hidden space-y-4 p-4">
-              {sortedReports.map((report) => (
-                <div
-                  key={report.id}
-                  className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
-                >
-                  <div className="space-y-3">
-                    <div>
-                      <button
-                        onClick={() => handleViewReport(report)}
-                        className="text-blue-600 hover:text-blue-800 hover:underline font-medium text-base"
-                      >
-                        {report.cluster_code
-                          ? `${report.cluster_code} - ${report.cluster_name}`
-                          : report.cluster_name}
-                      </button>
-                    </div>
-                    {visibleColumns.has("week") && (
+            {/* Card View - Mobile Only */}
+            {viewMode === "cards" && (
+              <div className="md:hidden space-y-4 p-4">
+                {sortedReports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                  >
+                    <div className="space-y-3">
+                      {/* Cluster Name - Full Width */}
                       <div>
-                        <span className="text-xs text-gray-500">Week</span>
-                        <p className="text-sm text-gray-900">
-                          {report.year} W{report.week_number}
-                        </p>
-                      </div>
-                    )}
-                    {visibleColumns.has("meeting_date") && (
-                      <div>
-                        <span className="text-xs text-gray-500">
-                          Meeting Date
-                        </span>
-                        <p className="text-sm text-gray-900">
-                          {new Date(report.meeting_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                    )}
-                    {visibleColumns.has("attendance") && (
-                      <div>
-                        <span className="text-xs text-gray-500">
-                          Attendance
-                        </span>
-                        <p className="text-sm text-gray-900">
-                          {report.members_present}M /{" "}
-                          <span
-                            className={
-                              report.visitors_present === 0
-                                ? "text-red-600"
-                                : ""
-                            }
-                          >
-                            {report.visitors_present}V
-                          </span>
-                        </p>
-                      </div>
-                    )}
-                    {visibleColumns.has("member_attendance_rate") && (
-                      <div>
-                        <span className="text-xs text-gray-500">
-                          Member Rate
-                        </span>
-                        <p className="text-sm text-gray-900">
-                          {report.member_attendance_rate !== undefined
-                            ? `${report.member_attendance_rate.toFixed(1)}%`
-                            : "N/A"}
-                        </p>
-                      </div>
-                    )}
-                    {visibleColumns.has("type") && (
-                      <div>
-                        <span className="text-xs text-gray-500">Type</span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
-                            report.gathering_type
-                          )}`}
+                        <button
+                          onClick={() => handleViewReport(report)}
+                          className="text-blue-600 hover:text-blue-800 hover:underline font-medium text-base"
                         >
-                          {report.gathering_type}
-                        </span>
+                          {report.cluster_code
+                            ? `${report.cluster_code} - ${report.cluster_name}`
+                            : report.cluster_name}
+                        </button>
                       </div>
-                    )}
-                    {visibleColumns.has("offerings") && (
-                      <div>
-                        <span className="text-xs text-gray-500">Offerings</span>
-                        <p className="text-sm text-gray-900">
-                          {formatCurrency(
-                            typeof report.offerings === "number"
-                              ? report.offerings
-                              : parseFloat(String(report.offerings)) || 0
-                          )}
-                        </p>
+                      {/* Fields in Two Columns */}
+                      <div className="grid grid-cols-2 gap-3">
+                        {visibleColumns.has("week") && (
+                          <div>
+                            <span className="text-xs text-gray-500">Week</span>
+                            <p className="text-sm text-gray-900">
+                              {report.year} W{report.week_number}
+                            </p>
+                          </div>
+                        )}
+                        {visibleColumns.has("meeting_date") && (
+                          <div>
+                            <span className="text-xs text-gray-500">
+                              Meeting Date
+                            </span>
+                            <p className="text-sm text-gray-900">
+                              {new Date(
+                                report.meeting_date
+                              ).toLocaleDateString()}
+                            </p>
+                          </div>
+                        )}
+                        {visibleColumns.has("attendance") && (
+                          <div>
+                            <span className="text-xs text-gray-500">
+                              Attendance
+                            </span>
+                            <p className="text-sm text-gray-900">
+                              {report.members_present}M /{" "}
+                              <span
+                                className={
+                                  report.visitors_present === 0
+                                    ? "text-red-600"
+                                    : ""
+                                }
+                              >
+                                {report.visitors_present}V
+                              </span>
+                            </p>
+                          </div>
+                        )}
+                        {visibleColumns.has("member_attendance_rate") && (
+                          <div>
+                            <span className="text-xs text-gray-500">
+                              Member Rate
+                            </span>
+                            <p className="text-sm text-gray-900">
+                              {report.member_attendance_rate !== undefined
+                                ? `${report.member_attendance_rate.toFixed(1)}%`
+                                : "N/A"}
+                            </p>
+                          </div>
+                        )}
+                        {visibleColumns.has("type") && (
+                          <div>
+                            <span className="text-xs text-gray-500 block mb-1">
+                              Type
+                            </span>
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
+                                report.gathering_type
+                              )}`}
+                            >
+                              {report.gathering_type}
+                            </span>
+                          </div>
+                        )}
+                        {visibleColumns.has("offerings") && (
+                          <div>
+                            <span className="text-xs text-gray-500">
+                              Offerings
+                            </span>
+                            <p className="text-sm text-gray-900">
+                              {formatCurrency(
+                                typeof report.offerings === "number"
+                                  ? report.offerings
+                                  : parseFloat(String(report.offerings)) || 0
+                              )}
+                            </p>
+                          </div>
+                        )}
+                        {visibleColumns.has("submitted_by") && (
+                          <div className="col-span-2">
+                            <span className="text-xs text-gray-500">
+                              Submitted By
+                            </span>
+                            <p className="text-sm text-gray-900">
+                              {report.submitted_by_details
+                                ? formatPersonName(report.submitted_by_details)
+                                : "Unknown"}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {visibleColumns.has("submitted_by") && (
-                      <div>
-                        <span className="text-xs text-gray-500">
-                          Submitted By
-                        </span>
-                        <p className="text-sm text-gray-900">
-                          {report.submitted_by_details
-                            ? formatPersonName(report.submitted_by_details)
-                            : "Unknown"}
-                        </p>
+                      <div className="flex gap-2 pt-2 border-t border-gray-200">
+                        <button
+                          onClick={() => handleViewReport(report)}
+                          className="flex-1 text-indigo-600 hover:text-indigo-900 py-2 px-3 rounded border border-indigo-200 hover:bg-indigo-50 text-sm font-medium"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleEditReport(report)}
+                          className="flex-1 text-blue-600 hover:text-blue-900 py-2 px-3 rounded border border-blue-200 hover:bg-blue-50 text-sm font-medium"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteReport(report)}
+                          className="flex-1 text-red-600 hover:text-red-900 py-2 px-3 rounded border border-red-200 hover:bg-red-50 text-sm font-medium"
+                        >
+                          Delete
+                        </button>
                       </div>
-                    )}
-                    <div className="flex gap-2 pt-2 border-t border-gray-200">
-                      <button
-                        onClick={() => handleViewReport(report)}
-                        className="flex-1 text-indigo-600 hover:text-indigo-900 py-2 px-3 rounded border border-indigo-200 hover:bg-indigo-50 text-sm font-medium"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => handleEditReport(report)}
-                        className="flex-1 text-blue-600 hover:text-blue-900 py-2 px-3 rounded border border-blue-200 hover:bg-blue-50 text-sm font-medium"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteReport(report)}
-                        className="flex-1 text-red-600 hover:text-red-900 py-2 px-3 rounded border border-red-200 hover:bg-red-50 text-sm font-medium"
-                      >
-                        Delete
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-            {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto">
+                ))}
+              </div>
+            )}
+            {/* Table View - Mobile when table selected, always on desktop */}
+            <div
+              className={`overflow-x-auto ${
+                viewMode === "cards" ? "hidden md:block" : ""
+              }`}
+            >
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>

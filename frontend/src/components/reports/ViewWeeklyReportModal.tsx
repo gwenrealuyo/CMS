@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  PersonUI,
-  Person,
-  Family,
-} from "@/src/types/person";
+import { PersonUI, Person, Family } from "@/src/types/person";
 import { ClusterWeeklyReport } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
@@ -35,6 +31,22 @@ export default function ViewWeeklyReportModal({
 
   // Show 6 items initially (2 rows on lg screens with 3 columns)
   const INITIAL_DISPLAY_COUNT = 6;
+
+  // Reset expanded states when report changes (e.g., after editing)
+  // Use a more comprehensive check to detect when report data actually changes
+  useEffect(() => {
+    if (isOpen && report) {
+      setMembersExpanded(false);
+      setVisitorsExpanded(false);
+    }
+  }, [
+    isOpen,
+    report?.id,
+    report?.updated_at,
+    report?.meeting_date,
+    report?.members_present,
+    report?.visitors_present,
+  ]);
 
   // Fetch families when modal opens
   useEffect(() => {
@@ -344,7 +356,8 @@ export default function ViewWeeklyReportModal({
                                     (member as any).role
                                   )}`}
                                 >
-                                  {(member as any).role?.toLowerCase() || "unknown"}
+                                  {(member as any).role?.toLowerCase() ||
+                                    "unknown"}
                                 </span>
                               )}
                               {(member as any).status && (
@@ -353,7 +366,8 @@ export default function ViewWeeklyReportModal({
                                     (member as any).status
                                   )}`}
                                 >
-                                  {(member as any).status?.toLowerCase() || "unknown"}
+                                  {(member as any).status?.toLowerCase() ||
+                                    "unknown"}
                                 </span>
                               )}
                             </div>
@@ -450,7 +464,8 @@ export default function ViewWeeklyReportModal({
                                     (visitor as any).role
                                   )}`}
                                 >
-                                  {(visitor as any).role?.toLowerCase() || "unknown"}
+                                  {(visitor as any).role?.toLowerCase() ||
+                                    "unknown"}
                                 </span>
                               )}
                               {(visitor as any).status && (
@@ -459,7 +474,8 @@ export default function ViewWeeklyReportModal({
                                     (visitor as any).status
                                   )}`}
                                 >
-                                  {(visitor as any).status?.toLowerCase() || "unknown"}
+                                  {(visitor as any).status?.toLowerCase() ||
+                                    "unknown"}
                                 </span>
                               )}
                             </div>
@@ -559,67 +575,137 @@ export default function ViewWeeklyReportModal({
         </div>
 
         {/* Footer */}
-        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
-          <Button
-            onClick={onDelete}
-            variant="secondary"
-            className="!text-red-600 py-4 px-4 min-h-[44px] text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center w-full sm:w-auto"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </Button>
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <Button
-              onClick={onCancel}
-              variant="secondary"
-              className="!text-black py-4 px-6 min-h-[44px] text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+        <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+            {/* Mobile buttons - full width with text */}
+            <div className="flex flex-col md:hidden gap-3 w-full">
+              <Button
+                onClick={onEdit}
+                variant="secondary"
+                className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              <span>Cancel</span>
-            </Button>
-            <Button
-              onClick={onEdit}
-              variant="secondary"
-              className="!text-blue-600 py-4 px-6 min-h-[44px] text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                <span>Edit</span>
+              </Button>
+              <Button
+                onClick={onCancel}
+                variant="secondary"
+                className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-              <span>Edit</span>
-            </Button>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+                <span>Cancel</span>
+              </Button>
+              <div className="border-t border-gray-200 my-1"></div>
+              <Button
+                onClick={onDelete}
+                variant="secondary"
+                className="!text-red-600 py-3 px-4 text-sm font-medium bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                <span>Delete</span>
+              </Button>
+            </div>
+
+            {/* Desktop/Tablet buttons - icon-only delete on left, cancel/edit on right */}
+            <div className="hidden md:flex md:items-center md:justify-between md:w-full">
+              <Button
+                onClick={onDelete}
+                variant="secondary"
+                className="!text-red-600 px-4 md:py-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </Button>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={onCancel}
+                  variant="secondary"
+                  className="!text-black px-6 md:py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  <span>Cancel</span>
+                </Button>
+                <Button
+                  onClick={onEdit}
+                  variant="secondary"
+                  className="!text-blue-600 px-6 md:py-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  <span>Edit</span>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

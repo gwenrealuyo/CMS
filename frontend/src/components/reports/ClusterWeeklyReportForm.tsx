@@ -766,16 +766,16 @@ export default function ClusterWeeklyReportForm({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"
-          className="w-full sm:flex-1"
+          className="w-full sm:flex-1 min-h-[44px]"
           onClick={onClose}
           disabled={loading}
         >
           Cancel
         </Button>
-        <Button className="w-full sm:flex-1" disabled={loading} type="submit">
+        <Button className="w-full sm:flex-1 min-h-[44px]" disabled={loading} type="submit">
           {loading
             ? "Saving..."
             : initialData

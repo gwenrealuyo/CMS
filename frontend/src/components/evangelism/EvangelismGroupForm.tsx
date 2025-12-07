@@ -275,14 +275,14 @@ export default function EvangelismGroupForm({
       <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1 min-h-[44px]"
+          className="w-full sm:flex-1 min-h-[44px]"
           onClick={onCancel}
           disabled={isSubmitting}
         >
           Cancel
         </Button>
         <Button
-          className="flex-1 min-h-[44px]"
+          className="w-full sm:flex-1 min-h-[44px]"
           disabled={isSubmitting}
           type="submit"
         >

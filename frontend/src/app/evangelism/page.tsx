@@ -400,7 +400,7 @@ export default function EvangelismPage() {
           <Button
             variant="primary"
             onClick={() => setIsCreateOpen(true)}
-            className="self-start md:self-auto"
+            className="w-full sm:w-auto min-h-[44px]"
           >
             Create Group
           </Button>
@@ -505,7 +505,7 @@ export default function EvangelismPage() {
                 headerAction={
                   <Button
                     onClick={() => setIsCreateOpen(true)}
-                    className="text-sm"
+                    className="text-sm w-full sm:w-auto min-h-[44px]"
                   >
                     Add Group
                   </Button>

@@ -65,7 +65,7 @@ export default function Each1Reach1Dashboard({ year }: Each1Reach1DashboardProps
       headerAction={
         <Button 
           variant="tertiary" 
-          className="text-sm"
+          className="w-full sm:w-auto min-h-[44px] text-sm"
           onClick={() => setShowAllModal(true)}
         >
           View All

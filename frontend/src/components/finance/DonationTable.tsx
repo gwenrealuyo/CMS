@@ -199,62 +199,62 @@ export default function DonationTable({
                   </SortableHeader>
                 </tr>
               </thead>
-            <tbody className="divide-y divide-gray-100">
-              {sortedDonations.map((donation) => (
-                <tr key={donation.id}>
-                  <td className="px-3 md:px-4 py-3 text-sm text-gray-700">
-                    {onEditDonation ? (
-                      <button
-                        type="button"
-                        onClick={() => onEditDonation(donation)}
-                        className="group text-left focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 rounded"
-                      >
-                        <div className="font-medium text-[#2563EB] group-hover:text-[#1D4ED8] group-hover:underline transition-colors cursor-pointer">
-                          {new Date(donation.date).toLocaleDateString()}
-                        </div>
-                        {donation.receiptNumber && (
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            {donation.receiptNumber}
+              <tbody className="divide-y divide-gray-100">
+                {sortedDonations.map((donation) => (
+                  <tr key={donation.id}>
+                    <td className="px-3 md:px-4 py-3 text-sm text-gray-700">
+                      {onEditDonation ? (
+                        <button
+                          type="button"
+                          onClick={() => onEditDonation(donation)}
+                          className="group text-left focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 rounded"
+                        >
+                          <div className="font-medium text-[#2563EB] group-hover:text-[#1D4ED8] group-hover:underline transition-colors cursor-pointer">
+                            {new Date(donation.date).toLocaleDateString()}
                           </div>
-                        )}
-                      </button>
-                    ) : (
-                      <>
-                        <div className="font-medium text-[#2D3748]">
-                          {new Date(donation.date).toLocaleDateString()}
-                        </div>
-                        {donation.receiptNumber && (
-                          <div className="text-xs text-gray-500">
-                            {donation.receiptNumber}
+                          {donation.receiptNumber && (
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              {donation.receiptNumber}
+                            </div>
+                          )}
+                        </button>
+                      ) : (
+                        <>
+                          <div className="font-medium text-[#2D3748]">
+                            {new Date(donation.date).toLocaleDateString()}
                           </div>
-                        )}
-                      </>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {donation.isAnonymous || !donation.donorName
-                      ? "Anonymous"
-                      : donation.donorName}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {donation.purpose || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold text-[#2563EB]">
-                    {formatCurrency(donation.amount)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {formatPaymentMethod(donation.paymentMethod)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {donation.recordedByName || "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                          {donation.receiptNumber && (
+                            <div className="text-xs text-gray-500">
+                              {donation.receiptNumber}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {donation.isAnonymous || !donation.donorName
+                        ? "Anonymous"
+                        : donation.donorName}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {donation.purpose || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-[#2563EB]">
+                      {formatCurrency(donation.amount)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {formatPaymentMethod(donation.paymentMethod)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {donation.recordedByName || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </Card>
   );
 }
-

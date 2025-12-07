@@ -27,7 +27,7 @@ export default function Card({
             </h3>
           )}
           {headerAction && (
-            <div className="flex items-center gap-3">{headerAction}</div>
+            <div className="flex w-full sm:w-auto items-center gap-3">{headerAction}</div>
           )}
         </div>
       )}

@@ -20,17 +20,19 @@ export default function GroupConversionsSection({
   const [showAll, setShowAll] = useState(false);
   const DEFAULT_LIMIT = 5;
 
-  const displayedConversions = showAll ? conversions : conversions.slice(0, DEFAULT_LIMIT);
+  const displayedConversions = showAll
+    ? conversions
+    : conversions.slice(0, DEFAULT_LIMIT);
   const hasMoreConversions = conversions.length > DEFAULT_LIMIT;
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h3 className="text-lg font-semibold text-gray-900">Conversions</h3>
         {onAddConversion && (
-          <Button 
+          <Button
             onClick={onAddConversion}
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto min-h-[44px]"
           >
             Record Conversion
           </Button>
@@ -40,7 +42,9 @@ export default function GroupConversionsSection({
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading...</div>
       ) : conversions.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No conversions recorded</div>
+        <div className="text-center py-8 text-gray-500">
+          No conversions recorded
+        </div>
       ) : (
         <>
           <Table
@@ -59,7 +63,9 @@ export default function GroupConversionsSection({
                 accessor: "converted_by" as keyof Conversion,
                 render: (_value, row) => (
                   <span className="text-sm text-gray-700">
-                    {row.converted_by?.full_name || row.converted_by?.username || "N/A"}
+                    {row.converted_by?.full_name ||
+                      row.converted_by?.username ||
+                      "N/A"}
                   </span>
                 ),
               },
@@ -110,7 +116,9 @@ export default function GroupConversionsSection({
                 onClick={() => setShowAll(!showAll)}
                 className="text-sm"
               >
-                {showAll ? "Show Less" : `Show More (${conversions.length - DEFAULT_LIMIT} more)`}
+                {showAll
+                  ? "Show Less"
+                  : `Show More (${conversions.length - DEFAULT_LIMIT} more)`}
               </Button>
             </div>
           )}
@@ -119,4 +127,3 @@ export default function GroupConversionsSection({
     </div>
   );
 }
-

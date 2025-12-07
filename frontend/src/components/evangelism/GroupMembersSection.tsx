@@ -28,19 +28,19 @@ export default function GroupMembersSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h3 className="text-lg font-semibold text-gray-900">Members</h3>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             variant="secondary"
             onClick={onBulkEnroll}
-            className="!text-green-600 bg-white border border-green-200 hover:bg-green-50 hover:border-green-300"
+            className="!text-green-600 bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 w-full sm:w-auto min-h-[44px]"
           >
             Bulk Enroll
           </Button>
           <Button
             onClick={onAddMember}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto min-h-[44px]"
           >
             Add Member
           </Button>

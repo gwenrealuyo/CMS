@@ -3,7 +3,10 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
-import { EvangelismGroup, EvangelismGroupFormValues } from "@/src/types/evangelism";
+import {
+  EvangelismGroup,
+  EvangelismGroupFormValues,
+} from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 
@@ -46,7 +49,9 @@ export default function EvangelismGroupForm({
           name: initialData.name,
           description: initialData.description || "",
           coordinator_id: initialData.coordinator?.id || "",
-          cluster_id: initialData.cluster?.id ? String(initialData.cluster.id) : "",
+          cluster_id: initialData.cluster?.id
+            ? String(initialData.cluster.id)
+            : "",
           location: initialData.location || "",
           meeting_time: initialData.meeting_time || "",
           meeting_day: initialData.meeting_day || "",
@@ -56,18 +61,22 @@ export default function EvangelismGroupForm({
       : DEFAULT_VALUES
   );
 
-  const handleChange = (field: keyof EvangelismGroupFormValues) => (
-    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const value =
-      event.target.type === "checkbox"
-        ? (event.target as HTMLInputElement).checked
-        : event.target.value;
-    setValues((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  const handleChange =
+    (field: keyof EvangelismGroupFormValues) =>
+    (
+      event: ChangeEvent<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >
+    ) => {
+      const value =
+        event.target.type === "checkbox"
+          ? (event.target as HTMLInputElement).checked
+          : event.target.value;
+      setValues((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -78,8 +87,12 @@ export default function EvangelismGroupForm({
     const options = [];
     for (let hour = 6; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
-        const displayTime = new Date(`2000-01-01T${timeString}`).toLocaleTimeString([], {
+        const timeString = `${hour.toString().padStart(2, "0")}:${minute
+          .toString()
+          .padStart(2, "0")}`;
+        const displayTime = new Date(
+          `2000-01-01T${timeString}`
+        ).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
@@ -115,28 +128,32 @@ export default function EvangelismGroupForm({
           onChange={handleChange("name")}
           required
           placeholder="e.g., North Bible Study"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Description</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Description
+        </label>
         <textarea
           value={values.description}
           onChange={handleChange("description")}
           placeholder="Group description..."
           rows={3}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">Coordinator</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Coordinator
+          </label>
           <select
             value={values.coordinator_id}
             onChange={handleChange("coordinator_id")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Select coordinator</option>
             {coordinators.map((coordinator) => (
@@ -148,11 +165,13 @@ export default function EvangelismGroupForm({
         </div>
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">Cluster (Optional)</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Cluster (Optional)
+          </label>
           <select
             value={values.cluster_id}
             onChange={handleChange("cluster_id")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="">No cluster</option>
             {clusters.map((cluster) => (
@@ -165,23 +184,27 @@ export default function EvangelismGroupForm({
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Location</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Location
+        </label>
         <input
           type="text"
           value={values.location}
           onChange={handleChange("location")}
           placeholder="Meeting location"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">Meeting Day</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Meeting Day
+          </label>
           <select
             value={values.meeting_day}
             onChange={handleChange("meeting_day")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {dayOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -192,11 +215,13 @@ export default function EvangelismGroupForm({
         </div>
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">Meeting Time</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Meeting Time
+          </label>
           <select
             value={values.meeting_time}
             onChange={handleChange("meeting_time")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Select time</option>
             {generateTimeOptions().map((option) => (
@@ -217,7 +242,10 @@ export default function EvangelismGroupForm({
             onChange={handleChange("is_active")}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5"
           />
-          <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700 cursor-pointer">
+          <label
+            htmlFor="is_active"
+            className="ml-2 block text-sm text-gray-700 cursor-pointer"
+          >
             Active
           </label>
         </div>
@@ -230,29 +258,37 @@ export default function EvangelismGroupForm({
             onChange={handleChange("is_bible_sharers_group")}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5"
           />
-          <label htmlFor="is_bible_sharers_group" className="ml-2 block text-sm text-gray-700 cursor-pointer">
+          <label
+            htmlFor="is_bible_sharers_group"
+            className="ml-2 block text-sm text-gray-700 cursor-pointer"
+          >
             Bible Sharers Group
             <span className="ml-2 text-xs text-gray-500 font-normal">
-              (Mark this group as a Bible Sharers group. Bible Sharers are capable of facilitating bible studies and can step in when a cluster doesn't have someone to facilitate.)
+              (Mark this group as a Bible Sharers group. Bible Sharers are
+              capable of facilitating bible studies and can step in when a
+              cluster doesn't have someone to facilitate.)
             </span>
           </label>
         </div>
       </div>
 
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1"
+          className="flex-1 min-h-[44px]"
           onClick={onCancel}
           disabled={isSubmitting}
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={isSubmitting} type="submit">
+        <Button
+          className="flex-1 min-h-[44px]"
+          disabled={isSubmitting}
+          type="submit"
+        >
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>
     </form>
   );
 }
-

@@ -35,15 +35,18 @@ export default function RecurringSessionForm({
     default_topic: "",
   });
 
-  const handleChange = (field: keyof RecurringSessionData) => (
-    event: ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const value = event.target.value;
-    setValues((prev) => ({
-      ...prev,
-      [field]: field === "evangelism_group_id" || field === "day_of_week" ? Number(value) : value,
-    }));
-  };
+  const handleChange =
+    (field: keyof RecurringSessionData) =>
+    (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const value = event.target.value;
+      setValues((prev) => ({
+        ...prev,
+        [field]:
+          field === "evangelism_group_id" || field === "day_of_week"
+            ? Number(value)
+            : value,
+      }));
+    };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -54,8 +57,12 @@ export default function RecurringSessionForm({
     const options = [];
     for (let hour = 6; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
-        const displayTime = new Date(`2000-01-01T${timeString}`).toLocaleTimeString([], {
+        const timeString = `${hour.toString().padStart(2, "0")}:${minute
+          .toString()
+          .padStart(2, "0")}`;
+        const displayTime = new Date(
+          `2000-01-01T${timeString}`
+        ).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
@@ -80,17 +87,19 @@ export default function RecurringSessionForm({
             value={values.start_date}
             onChange={handleChange("start_date")}
             required
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">End Date</label>
+          <label className="block text-sm font-medium text-gray-700">
+            End Date
+          </label>
           <input
             type="date"
             value={values.end_date}
             onChange={handleChange("end_date")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -103,7 +112,7 @@ export default function RecurringSessionForm({
           value={values.recurrence_pattern}
           onChange={handleChange("recurrence_pattern")}
           required
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="weekly">Weekly</option>
           <option value="bi_weekly">Bi-weekly</option>
@@ -120,7 +129,7 @@ export default function RecurringSessionForm({
             value={values.day_of_week}
             onChange={handleChange("day_of_week")}
             required
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value={0}>Monday</option>
             <option value={1}>Tuesday</option>
@@ -134,30 +143,35 @@ export default function RecurringSessionForm({
       )}
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Default Topic</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Default Topic
+        </label>
         <input
           type="text"
           value={values.default_topic}
           onChange={handleChange("default_topic")}
           placeholder="Default Bible study topic"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1"
+          className="flex-1 min-h-[44px]"
           onClick={onCancel}
           disabled={isSubmitting}
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={isSubmitting} type="submit">
+        <Button
+          className="flex-1 min-h-[44px]"
+          disabled={isSubmitting}
+          type="submit"
+        >
           {isSubmitting ? "Creating..." : "Create Recurring Sessions"}
         </Button>
       </div>
     </form>
   );
 }
-

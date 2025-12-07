@@ -29,27 +29,33 @@ export default function GroupSessionsSection({
     if (!time) return "N/A";
     const [hours, minutes] = time.split(":");
     const date = new Date(`2000-01-01T${hours}:${minutes}`);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
-  const displayedSessions = showAll ? sessions : sessions.slice(0, DEFAULT_LIMIT);
+  const displayedSessions = showAll
+    ? sessions
+    : sessions.slice(0, DEFAULT_LIMIT);
   const hasMoreSessions = sessions.length > DEFAULT_LIMIT;
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h3 className="text-lg font-semibold text-gray-900">Sessions</h3>
-        <div className="flex gap-2">
-          <Button 
-            variant="secondary" 
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            variant="secondary"
             onClick={onCreateRecurring}
-            className="!text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+            className="!text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300 w-full sm:w-auto min-h-[44px]"
           >
             Create Recurring
           </Button>
-          <Button 
+          <Button
             onClick={onAddSession}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px]"
           >
             Add Session
           </Button>
@@ -59,7 +65,9 @@ export default function GroupSessionsSection({
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading...</div>
       ) : sessions.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No sessions scheduled</div>
+        <div className="text-center py-8 text-gray-500">
+          No sessions scheduled
+        </div>
       ) : (
         <>
           <Table
@@ -69,7 +77,9 @@ export default function GroupSessionsSection({
                 accessor: "session_date" as keyof EvangelismSession,
                 render: (value) => (
                   <span className="text-sm text-gray-700">
-                    {value ? new Date(value as string).toLocaleDateString() : "N/A"}
+                    {value
+                      ? new Date(value as string).toLocaleDateString()
+                      : "N/A"}
                   </span>
                 ),
               },
@@ -94,7 +104,7 @@ export default function GroupSessionsSection({
               {
                 header: "Event",
                 accessor: "event_id" as keyof EvangelismSession,
-                render: (value, row) => (
+                render: (value, row) =>
                   value ? (
                     <a
                       href={`/events?event=${value}`}
@@ -104,23 +114,22 @@ export default function GroupSessionsSection({
                     </a>
                   ) : (
                     <span className="text-sm text-gray-700">N/A</span>
-                  )
-                ),
+                  ),
               },
               {
                 header: "Actions",
                 accessor: "id" as keyof EvangelismSession,
                 render: (_value, row) => (
                   <div className="flex gap-1.5">
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       onClick={() => onViewSession(row)}
                       className="!text-cyan-600 bg-white border border-cyan-200 hover:bg-cyan-50 hover:border-cyan-300 text-xs py-1 px-2"
                     >
                       View
                     </Button>
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       onClick={() => onEditSession(row)}
                       className="!text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-xs py-1 px-2"
                     >
@@ -139,7 +148,9 @@ export default function GroupSessionsSection({
                 onClick={() => setShowAll(!showAll)}
                 className="text-sm"
               >
-                {showAll ? "Show Less" : `Show More (${sessions.length - DEFAULT_LIMIT} more)`}
+                {showAll
+                  ? "Show Less"
+                  : `Show More (${sessions.length - DEFAULT_LIMIT} more)`}
               </Button>
             </div>
           )}
@@ -148,4 +159,3 @@ export default function GroupSessionsSection({
     </div>
   );
 }
-

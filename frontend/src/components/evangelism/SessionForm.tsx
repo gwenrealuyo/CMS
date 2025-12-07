@@ -44,17 +44,22 @@ export default function SessionForm({
     create_event: false, // Default to unchecked
   });
 
-  const handleChange = (field: keyof SessionFormValues) => (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const value = event.target.type === "checkbox" 
-      ? (event.target as HTMLInputElement).checked 
-      : event.target.value;
-    setValues((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  const handleChange =
+    (field: keyof SessionFormValues) =>
+    (
+      event: ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
+      const value =
+        event.target.type === "checkbox"
+          ? (event.target as HTMLInputElement).checked
+          : event.target.value;
+      setValues((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -65,8 +70,12 @@ export default function SessionForm({
     const options = [];
     for (let hour = 6; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
-        const displayTime = new Date(`2000-01-01T${timeString}`).toLocaleTimeString([], {
+        const timeString = `${hour.toString().padStart(2, "0")}:${minute
+          .toString()
+          .padStart(2, "0")}`;
+        const displayTime = new Date(
+          `2000-01-01T${timeString}`
+        ).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
@@ -90,16 +99,18 @@ export default function SessionForm({
           value={values.session_date}
           onChange={handleChange("session_date")}
           required
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Session Time</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Session Time
+        </label>
         <select
           value={values.session_time}
           onChange={handleChange("session_time")}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">Select time</option>
           {generateTimeOptions().map((option) => (
@@ -117,7 +128,7 @@ export default function SessionForm({
           value={values.topic}
           onChange={handleChange("topic")}
           placeholder="Bible study topic"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -128,7 +139,7 @@ export default function SessionForm({
           onChange={handleChange("notes")}
           placeholder="Session notes..."
           rows={4}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -145,20 +156,23 @@ export default function SessionForm({
         </label>
       </div>
 
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1"
+          className="flex-1 min-h-[44px]"
           onClick={onCancel}
           disabled={isSubmitting}
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={isSubmitting} type="submit">
+        <Button
+          className="flex-1 min-h-[44px]"
+          disabled={isSubmitting}
+          type="submit"
+        >
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>
     </form>
   );
 }
-

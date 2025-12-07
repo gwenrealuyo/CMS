@@ -57,14 +57,18 @@ export default function ProspectForm({
       : DEFAULT_VALUES
   );
 
-  const handleChange = (field: keyof ProspectFormValues) => (
-    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    setValues((prev) => ({
-      ...prev,
-      [field]: event.target.value,
-    }));
-  };
+  const handleChange =
+    (field: keyof ProspectFormValues) =>
+    (
+      event: ChangeEvent<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >
+    ) => {
+      setValues((prev) => ({
+        ...prev,
+        [field]: event.target.value,
+      }));
+    };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -115,18 +119,20 @@ export default function ProspectForm({
           onChange={handleChange("name")}
           required
           placeholder="Prospect's name"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Contact Info</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Contact Info
+        </label>
         <input
           type="text"
           value={values.contact_info}
           onChange={handleChange("contact_info")}
           placeholder="Phone or email"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -175,24 +181,27 @@ export default function ProspectForm({
           onChange={handleChange("notes")}
           placeholder="Additional notes..."
           rows={3}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1"
+          className="flex-1 min-h-[44px]"
           onClick={onCancel}
           disabled={isSubmitting}
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={isSubmitting} type="submit">
+        <Button
+          className="flex-1 min-h-[44px]"
+          disabled={isSubmitting}
+          type="submit"
+        >
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>
     </form>
   );
 }
-

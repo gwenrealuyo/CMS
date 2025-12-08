@@ -479,7 +479,7 @@ export default function EventView({
                 disabled={
                   actionLoading || !selectedOccurrenceDate || !selectedPersonId
                 }
-                className="md:self-center md:px-6"
+                className="w-full sm:w-auto min-h-[44px] md:self-center md:px-6"
               >
                 {actionLoading ? "Saving..." : "Add Attendee"}
               </Button>
@@ -506,7 +506,7 @@ export default function EventView({
                         setAttendanceSearchTerm(event.target.value)
                       }
                       placeholder="Search attendees for this date..."
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <svg
                       className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
@@ -577,10 +577,10 @@ export default function EventView({
                             {record.journey_id ? "• Journey logged" : ""}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
                           <Button
                             variant="tertiary"
-                            className="text-xs px-3 py-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                            className="w-full sm:w-auto min-h-[44px] text-xs px-3 py-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
                             onClick={() => handleRemoveAttendance(record.id)}
                             disabled={actionLoading}
                           >
@@ -598,11 +598,11 @@ export default function EventView({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-6 border-t border-gray-200 bg-gray-50">
         <Button
           onClick={onDelete}
           variant="secondary"
-          className="!text-red-600 py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
+          className="!text-red-600 min-h-[44px] px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center w-full sm:w-auto"
         >
           <svg
             className="w-4 h-4"
@@ -617,12 +617,13 @@ export default function EventView({
               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
             />
           </svg>
+          <span className="ml-2 sm:ml-0 md:ml-2">Delete</span>
         </Button>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Button
             onClick={onCancel ? onCancel : onClose}
             variant="secondary"
-            className="!text-black py-4 px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+            className="!text-black min-h-[44px] px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
           >
             <svg
               className="w-4 h-4"
@@ -642,7 +643,7 @@ export default function EventView({
           <Button
             onClick={onEdit}
             variant="secondary"
-            className="!text-blue-600 py-4 px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+            className="!text-blue-600 min-h-[44px] px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
           >
             <svg
               className="w-4 h-4"

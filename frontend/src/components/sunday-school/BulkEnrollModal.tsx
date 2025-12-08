@@ -156,7 +156,7 @@ export default function BulkEnrollModal({
             value={role}
             onChange={(e) => setRole(e.target.value as ClassMemberRole)}
             required
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="STUDENT">Student</option>
             <option value="TEACHER">Teacher</option>
@@ -171,7 +171,7 @@ export default function BulkEnrollModal({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name, email, or username..."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           {searchQuery && !loading && (
             <p className="text-xs text-gray-500">
@@ -238,11 +238,22 @@ export default function BulkEnrollModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="tertiary" onClick={handleClose} disabled={isSubmitting}>
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+          <Button 
+            type="button" 
+            variant="tertiary" 
+            className="w-full sm:w-auto min-h-[44px]"
+            onClick={handleClose} 
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={isSubmitting || selectedPersonIds.size === 0}>
+          <Button 
+            type="submit" 
+            variant="primary" 
+            className="w-full sm:w-auto min-h-[44px]"
+            disabled={isSubmitting || selectedPersonIds.size === 0}
+          >
             {isSubmitting ? "Enrolling..." : `Enroll ${selectedPersonIds.size} ${selectedPersonIds.size === 1 ? "Person" : "People"}`}
           </Button>
         </div>

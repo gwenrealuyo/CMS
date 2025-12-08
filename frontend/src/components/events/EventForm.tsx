@@ -373,9 +373,9 @@ export default function EventForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-h-[90vh] min-h-[70vh] overflow-y-auto space-y-6 text-sm max-w-3xl"
+      className="max-h-[85vh] overflow-y-auto space-y-6 text-sm max-w-3xl"
     >
-      <div className="space-y-6 overflow-y-auto max-h-[70vh] pr-1">
+      <div className="space-y-6 pr-1">
         <div>
           <div className="p-0">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">
@@ -396,7 +396,7 @@ export default function EventForm({
                   required
                   value={formData.title}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., Sunday Worship Service"
                 />
               </div>
@@ -411,7 +411,7 @@ export default function EventForm({
                     name="type"
                     value={formData.type}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {eventTypeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -430,7 +430,7 @@ export default function EventForm({
                     required
                     value={formData.location}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Main Sanctuary"
                   />
                 </div>
@@ -446,7 +446,7 @@ export default function EventForm({
                   value={formData.description}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Add any additional details about the event..."
                 />
               </div>
@@ -487,7 +487,7 @@ export default function EventForm({
                         return nextState;
                       });
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -503,7 +503,7 @@ export default function EventForm({
                       const value = e.target.value;
                       setFormData((prev) => ({ ...prev, end_date: value }));
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -552,7 +552,7 @@ export default function EventForm({
                       onChange={(e) =>
                         handleRecurrenceThroughChange(e.target.value)
                       }
-                      className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
                     <p className="text-[11px] text-gray-400 mt-1">
                       Weekly schedule can be adjusted anytime. You can skip an
@@ -567,16 +567,20 @@ export default function EventForm({
       </div>
 
       {/* Footer */}
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1"
+          className="w-full sm:flex-1 min-h-[44px]"
           onClick={onClose}
           disabled={loading}
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={loading} type="submit">
+        <Button 
+          className="w-full sm:flex-1 min-h-[44px]" 
+          disabled={loading} 
+          type="submit"
+        >
           {loading
             ? "Saving..."
             : initialData

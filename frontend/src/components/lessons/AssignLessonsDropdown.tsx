@@ -142,7 +142,7 @@ export default function AssignLessonsDropdown({
       <Button
         variant="primary"
         onClick={() => setIsOpen(!isOpen)}
-        className="sm:w-auto"
+        className="w-full sm:w-auto min-h-[44px]"
       >
         Assign Lessons
       </Button>
@@ -167,7 +167,7 @@ export default function AssignLessonsDropdown({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search by name, nickname, or member ID..."
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     autoFocus
                   />
                 </div>
@@ -266,16 +266,21 @@ export default function AssignLessonsDropdown({
             )}
           </div>
 
-          <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+          <div className="p-4 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3">
             <Button
               variant="tertiary"
               onClick={handleCancel}
               disabled={assigning}
+              className="w-full sm:w-auto min-h-[44px]"
             >
               Cancel
             </Button>
             {selectedPersonId && selectedLessonIds.size > 0 && (
-              <Button onClick={handleSubmit} disabled={assigning}>
+              <Button 
+                onClick={handleSubmit} 
+                disabled={assigning}
+                className="w-full sm:w-auto min-h-[44px]"
+              >
                 {assigning ? "Assigning..." : "Assign Selected Lessons"}
               </Button>
             )}

@@ -57,9 +57,9 @@ export default function MemberProgressSection({
           <p className="text-sm text-gray-500 sm:max-w-md">
             View all participants taking lessons and their overall progress.
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <select
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full sm:w-auto min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               value={progressFilterLessonId || ""}
               onChange={(e) =>
                 onProgressFilterChange(
@@ -89,16 +89,12 @@ export default function MemberProgressSection({
         {progressActionError && <ErrorMessage message={progressActionError} />}
         {assignError && <ErrorMessage message={assignError} />}
 
-        <div className="-mx-6 overflow-x-auto">
-          <div className="min-w-[720px] px-6">
-            <LessonProgressTable
-              groupedProgress={groupedProgress}
-              loading={progressLoading}
-              error={progressError}
-              onPersonClick={onPersonClick}
-            />
-          </div>
-        </div>
+        <LessonProgressTable
+          groupedProgress={groupedProgress}
+          loading={progressLoading}
+          error={progressError}
+          onPersonClick={onPersonClick}
+        />
       </div>
     </Card>
   );

@@ -104,8 +104,12 @@ export default function MinistriesPage() {
                 ministry.
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="primary" onClick={() => setIsCreateOpen(true)}>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button 
+                variant="primary" 
+                onClick={() => setIsCreateOpen(true)}
+                className="w-full sm:w-auto min-h-[44px]"
+              >
                 Add Ministry
               </Button>
             </div>
@@ -151,15 +155,19 @@ export default function MinistriesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Search
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="search"
                     value={searchValue}
                     onChange={(event) => setSearchValue(event.target.value)}
                     placeholder="Name, description, coordinator"
-                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <Button variant="primary" onClick={handleSearch}>
+                  <Button 
+                    variant="primary" 
+                    onClick={handleSearch}
+                    className="w-full sm:w-auto min-h-[44px]"
+                  >
                     Search
                   </Button>
                 </div>
@@ -177,7 +185,7 @@ export default function MinistriesPage() {
                       event.target.value as typeof filters.activity_cadence
                     )
                   }
-                  className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {cadenceOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -199,7 +207,7 @@ export default function MinistriesPage() {
                       event.target.value as typeof filters.category
                     )
                   }
-                  className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {categoryOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -229,7 +237,7 @@ export default function MinistriesPage() {
                       setFilter("is_active", value === "active");
                     }
                   }}
-                  className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="all">All</option>
                   <option value="active">Active</option>
@@ -237,8 +245,12 @@ export default function MinistriesPage() {
                 </select>
               </div>
 
-              <div className="md:ml-auto">
-                <Button variant="tertiary" onClick={handleResetFilters}>
+              <div className="w-full sm:w-auto md:ml-auto">
+                <Button 
+                  variant="tertiary" 
+                  onClick={handleResetFilters}
+                  className="w-full sm:w-auto min-h-[44px]"
+                >
                   Reset
                 </Button>
               </div>

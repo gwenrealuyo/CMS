@@ -97,7 +97,7 @@ export default function CategoryManagement({
 
   return (
     <>
-      <Card title="Categories" headerAction={<Button onClick={handleOpenCreate}>Add Category</Button>}>
+      <Card title="Categories" headerAction={<Button onClick={handleOpenCreate} className="w-full sm:w-auto min-h-[44px]">Add Category</Button>}>
         {error && <ErrorMessage message={error} />}
         {loading ? (
           <LoadingSpinner />
@@ -158,7 +158,7 @@ export default function CategoryManagement({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -168,7 +168,7 @@ export default function CategoryManagement({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={2}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -180,7 +180,7 @@ export default function CategoryManagement({
                 min="0"
                 value={formData.min_age}
                 onChange={(e) => setFormData({ ...formData, min_age: e.target.value })}
-                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <div className="space-y-1">
@@ -190,7 +190,7 @@ export default function CategoryManagement({
                 min="0"
                 value={formData.max_age}
                 onChange={(e) => setFormData({ ...formData, max_age: e.target.value })}
-                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -202,7 +202,7 @@ export default function CategoryManagement({
               min="0"
               value={formData.order}
               onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -219,17 +219,22 @@ export default function CategoryManagement({
             </label>
           </div>
 
-          <div className="flex gap-4 pt-4">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
             <Button
               type="button"
               variant="tertiary"
-              className="flex-1"
+              className="w-full sm:flex-1 min-h-[44px]"
               onClick={() => setIsModalOpen(false)}
               disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" className="flex-1" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              variant="primary" 
+              className="w-full sm:flex-1 min-h-[44px]" 
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Saving..." : editingCategory ? "Update" : "Create"}
             </Button>
           </div>

@@ -93,7 +93,7 @@ export default function SessionForm({
           type="text"
           value={classData.name}
           disabled
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm bg-gray-50 text-gray-600"
         />
       </div>
 
@@ -107,7 +107,7 @@ export default function SessionForm({
             value={values.session_date}
             onChange={handleChange("session_date")}
             required
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
@@ -118,7 +118,7 @@ export default function SessionForm({
           <select
             value={values.session_time}
             onChange={handleChange("session_time")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Select time</option>
             {generateTimeOptions().map((option) => (
@@ -139,7 +139,7 @@ export default function SessionForm({
           value={values.lesson_title}
           onChange={handleChange("lesson_title")}
           placeholder="What lesson or theme will be covered?"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -150,7 +150,7 @@ export default function SessionForm({
           onChange={handleChange("notes")}
           rows={3}
           placeholder="Additional notes..."
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -159,11 +159,22 @@ export default function SessionForm({
         <p>An event will be automatically created on the calendar for this session.</p>
       </div>
 
-      <div className="flex gap-4 pt-4">
-        <Button type="button" variant="tertiary" className="flex-1" onClick={onCancel} disabled={isSubmitting}>
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+        <Button 
+          type="button" 
+          variant="tertiary" 
+          className="w-full sm:flex-1 min-h-[44px]" 
+          onClick={onCancel} 
+          disabled={isSubmitting}
+        >
           Cancel
         </Button>
-        <Button type="submit" variant="primary" className="flex-1" disabled={isSubmitting}>
+        <Button 
+          type="submit" 
+          variant="primary" 
+          className="w-full sm:flex-1 min-h-[44px]" 
+          disabled={isSubmitting}
+        >
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>

@@ -359,7 +359,7 @@ export default function EventsPage() {
             setViewMode("edit");
             setIsModalOpen(true);
           }}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto min-h-[44px]"
         >
           Add Event
         </Button>
@@ -378,7 +378,7 @@ export default function EventsPage() {
           <Button
             variant="tertiary"
             onClick={() => setShowCalendar((prev) => !prev)}
-            className="flex items-center gap-1 text-xs !px-2 !py-1"
+            className="flex items-center gap-1 text-xs !px-2 !py-1 min-h-[44px]"
           >
             <svg
               className={`w-4 h-4 transition-transform ${
@@ -687,6 +687,7 @@ export default function EventsPage() {
                 setViewMode("edit");
                 setIsModalOpen(true);
               }}
+              className="w-full sm:w-auto min-h-[44px]"
             >
               Create Event
             </Button>

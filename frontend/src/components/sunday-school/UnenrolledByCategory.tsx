@@ -6,23 +6,34 @@ import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Table from "@/src/components/ui/Table";
-import { UnenrolledByCategory as UnenrolledByCategoryType } from "@/src/types/sundaySchool";
+import {
+  UnenrolledByCategory as UnenrolledByCategoryType,
+  SundaySchoolClass,
+} from "@/src/types/sundaySchool";
 import { ClassMemberRole } from "@/src/types/sundaySchool";
 
 interface UnenrolledByCategoryProps {
   unenrolled: UnenrolledByCategoryType[];
   loading: boolean;
   error: string | null;
-  onBulkEnroll?: (categoryId: number, personIds: number[], role: ClassMemberRole) => Promise<void>;
+  classes?: SundaySchoolClass[];
+  onBulkEnroll?: (
+    categoryId: number,
+    personIds: number[],
+    role: ClassMemberRole
+  ) => Promise<void>;
 }
 
 export default function UnenrolledByCategory({
   unenrolled,
   loading,
   error,
+  classes = [],
   onBulkEnroll,
 }: UnenrolledByCategoryProps) {
-  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
+    new Set()
+  );
   const [isEnrolling, setIsEnrolling] = useState<number | null>(null);
 
   const toggleCategory = (categoryId: number) => {
@@ -61,7 +72,10 @@ export default function UnenrolledByCategory({
     );
   }
 
-  const totalUnenrolled = unenrolled.reduce((sum, cat) => sum + cat.unenrolled_count, 0);
+  const totalUnenrolled = unenrolled.reduce(
+    (sum, cat) => sum + cat.unenrolled_count,
+    0
+  );
 
   const personColumns = [
     {
@@ -111,7 +125,8 @@ export default function UnenrolledByCategory({
         {totalUnenrolled > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm font-medium text-blue-900">
-              Total Unenrolled: {totalUnenrolled} {totalUnenrolled === 1 ? "person" : "people"}
+              Total Unenrolled: {totalUnenrolled}{" "}
+              {totalUnenrolled === 1 ? "person" : "people"}
             </p>
           </div>
         )}
@@ -125,6 +140,11 @@ export default function UnenrolledByCategory({
             {unenrolled.map((category) => {
               const isExpanded = expandedCategories.has(category.category_id);
               const isEnrollingThis = isEnrolling === category.category_id;
+              const hasClassForCategory = classes.some(
+                (c) =>
+                  c.category.id === category.category_id ||
+                  c.category_id === category.category_id
+              );
 
               return (
                 <div
@@ -155,12 +175,17 @@ export default function UnenrolledByCategory({
                         <p className="font-medium text-gray-900">
                           {category.category_name}
                           {category.age_range && (
-                            <span className="text-gray-500 ml-2">({category.age_range})</span>
+                            <span className="text-gray-500 ml-2">
+                              ({category.age_range})
+                            </span>
                           )}
                         </p>
                         <p className="text-sm text-gray-500">
                           {category.unenrolled_count}{" "}
-                          {category.unenrolled_count === 1 ? "person" : "people"} not enrolled
+                          {category.unenrolled_count === 1
+                            ? "person"
+                            : "people"}{" "}
+                          not enrolled
                         </p>
                       </div>
                     </div>
@@ -175,9 +200,12 @@ export default function UnenrolledByCategory({
                     <div className="border-t border-gray-200 bg-gray-50 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-sm font-medium text-gray-700">
-                          {category.unenrolled_people.length} {category.unenrolled_people.length === 1 ? "person" : "people"}
+                          {category.unenrolled_people.length}{" "}
+                          {category.unenrolled_people.length === 1
+                            ? "person"
+                            : "people"}
                         </p>
-                        {onBulkEnroll && (
+                        {onBulkEnroll && hasClassForCategory && (
                           <Button
                             variant="primary"
                             onClick={() =>
@@ -195,7 +223,10 @@ export default function UnenrolledByCategory({
                           </Button>
                         )}
                       </div>
-                      <Table data={category.unenrolled_people} columns={personColumns} />
+                      <Table
+                        data={category.unenrolled_people}
+                        columns={personColumns}
+                      />
                     </div>
                   )}
 
@@ -213,4 +244,3 @@ export default function UnenrolledByCategory({
     </Card>
   );
 }
-

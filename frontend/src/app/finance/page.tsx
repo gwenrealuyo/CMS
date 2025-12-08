@@ -868,582 +868,589 @@ export default function FinancePage() {
   return (
     <ProtectedRoute allowedRoles={["ADMIN", "PASTOR"]}>
       <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-[#2D3748]">Finance</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Track donations, weekly offerings, and pledge progress in one
-              view.
-            </p>
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-[#2D3748]">Finance</h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Track donations, weekly offerings, and pledge progress in one
+                view.
+              </p>
+            </div>
+            <div className="w-full md:w-auto">
+              <Button
+                variant="primary"
+                onClick={() => setIsOfferingModalOpen(true)}
+                className="w-full md:w-auto min-h-[44px]"
+              >
+                Record Offering
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3 justify-end w-full md:w-auto">
-            <Button
-              variant="primary"
-              onClick={() => setIsOfferingModalOpen(true)}
-            >
-              Record Offering
-            </Button>
+
+          {error && <ErrorMessage message={error} />}
+
+          <FinanceOverviewStats
+            donationStats={{
+              totalAmount: donationStats.totalAmount,
+              donationCount: donationStats.donationCount,
+              averageDonation: donationStats.averageDonation,
+            }}
+            offeringStats={offeringMetrics}
+            pledgeStats={pledgeMetrics}
+            dateRangePeriod={dateRangePeriod}
+            onDateRangeChange={setDateRangePeriod}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomStartDateChange={setCustomStartDate}
+            onCustomEndDateChange={setCustomEndDate}
+          />
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <OfferingTable
+                offerings={offerings}
+                loading={loading.offerings}
+                onAddOffering={() => setIsOfferingModalOpen(true)}
+                onEditOffering={handleEditOffering}
+              />
+              <OfferingSummaryCard
+                summary={offeringSummary}
+                loading={loading.summary}
+              />
+            </div>
+
+            <div className="space-y-6">
+              <PledgeTable
+                pledges={pledges}
+                loading={loading.pledges}
+                onAddPledge={() => {
+                  setEditingPledge(null);
+                  setIsPledgeModalOpen(true);
+                }}
+                onManageContributions={openContributionModal}
+                onEditPledge={handleEditPledge}
+              />
+              <Card title="Pledge Snapshot">
+                {pledges.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Add a pledge to monitor campaign progress.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <SnapshotTile
+                      label="Total Pledged"
+                      value={formatCurrency(pledgeMetrics.totalPledged)}
+                      description="Across active commitments"
+                      badgeClass="bg-blue-100 text-blue-700"
+                    />
+                    <SnapshotTile
+                      label="Received"
+                      value={formatCurrency(pledgeMetrics.totalReceived)}
+                      description="Funds already collected"
+                      badgeClass="bg-green-100 text-green-700"
+                    />
+                    <SnapshotTile
+                      label="Outstanding"
+                      value={formatCurrency(pledgeMetrics.outstandingBalance)}
+                      description="Remaining balance to fulfill"
+                      badgeClass="bg-amber-100 text-amber-700"
+                    />
+                  </div>
+                )}
+              </Card>
+              <DonationTable
+                donations={donations}
+                loading={loading.donations}
+                onAddDonation={() => {
+                  setEditingDonation(null);
+                  setIsDonationModalOpen(true);
+                }}
+                onEditDonation={handleEditDonation}
+              />
+              <Card
+                title="Donation Snapshot"
+                headerAction={
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      setEditingDonation(null);
+                      setIsDonationModalOpen(true);
+                    }}
+                    className="w-full sm:w-auto min-h-[44px]"
+                  >
+                    Record Donation
+                  </Button>
+                }
+              >
+                {loading.donations && donations.length === 0 ? (
+                  <div className="flex justify-center py-12">
+                    <LoadingSpinner />
+                  </div>
+                ) : (
+                  <DonationStats stats={donationStats} />
+                )}
+              </Card>
+            </div>
           </div>
         </div>
 
-        {error && <ErrorMessage message={error} />}
-
-        <FinanceOverviewStats
-          donationStats={{
-            totalAmount: donationStats.totalAmount,
-            donationCount: donationStats.donationCount,
-            averageDonation: donationStats.averageDonation,
-          }}
-          offeringStats={offeringMetrics}
-          pledgeStats={pledgeMetrics}
-          dateRangePeriod={dateRangePeriod}
-          onDateRangeChange={setDateRangePeriod}
-          customStartDate={customStartDate}
-          customEndDate={customEndDate}
-          onCustomStartDateChange={setCustomStartDate}
-          onCustomEndDateChange={setCustomEndDate}
-        />
-
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div className="space-y-6">
-            <OfferingTable
-              offerings={offerings}
-              loading={loading.offerings}
-              onAddOffering={() => setIsOfferingModalOpen(true)}
-              onEditOffering={handleEditOffering}
-            />
-            <OfferingSummaryCard
-              summary={offeringSummary}
-              loading={loading.summary}
-            />
-          </div>
-
-          <div className="space-y-6">
-            <PledgeTable
-              pledges={pledges}
-              loading={loading.pledges}
-              onAddPledge={() => {
-                setEditingPledge(null);
-                setIsPledgeModalOpen(true);
-              }}
-              onManageContributions={openContributionModal}
-              onEditPledge={handleEditPledge}
-            />
-            <Card title="Pledge Snapshot">
-              {pledges.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  Add a pledge to monitor campaign progress.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <SnapshotTile
-                    label="Total Pledged"
-                    value={formatCurrency(pledgeMetrics.totalPledged)}
-                    description="Across active commitments"
-                    badgeClass="bg-blue-100 text-blue-700"
-                  />
-                  <SnapshotTile
-                    label="Received"
-                    value={formatCurrency(pledgeMetrics.totalReceived)}
-                    description="Funds already collected"
-                    badgeClass="bg-green-100 text-green-700"
-                  />
-                  <SnapshotTile
-                    label="Outstanding"
-                    value={formatCurrency(pledgeMetrics.outstandingBalance)}
-                    description="Remaining balance to fulfill"
-                    badgeClass="bg-amber-100 text-amber-700"
-                  />
-                </div>
-              )}
-            </Card>
-            <DonationTable
-              donations={donations}
-              loading={loading.donations}
-              onAddDonation={() => {
-                setEditingDonation(null);
-                setIsDonationModalOpen(true);
-              }}
-              onEditDonation={handleEditDonation}
-            />
-            <Card
-              title="Donation Snapshot"
-              headerAction={
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    setEditingDonation(null);
-                    setIsDonationModalOpen(true);
-                  }}
-                >
-                  Record Donation
-                </Button>
-              }
-            >
-              {loading.donations && donations.length === 0 ? (
-                <div className="flex justify-center py-12">
-                  <LoadingSpinner />
-                </div>
-              ) : (
-                <DonationStats stats={donationStats} />
-              )}
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      <Modal
-        isOpen={isDonationModalOpen}
-        onClose={() => {
-          setIsDonationModalOpen(false);
-          setEditingDonation(null);
-        }}
-        title={editingDonation ? "Edit Donation" : "Record New Donation"}
-      >
-        <DonationForm
-          onSubmit={
-            editingDonation ? handleUpdateDonation : handleCreateDonation
-          }
-          onCancel={() => {
+        <Modal
+          isOpen={isDonationModalOpen}
+          onClose={() => {
             setIsDonationModalOpen(false);
             setEditingDonation(null);
           }}
-          onDelete={
-            editingDonation
-              ? () => requestDeleteDonation(editingDonation)
-              : undefined
-          }
-          submitting={isSubmitting}
-          initialData={editingDonation || undefined}
-        />
-      </Modal>
+          title={editingDonation ? "Edit Donation" : "Record New Donation"}
+        >
+          <DonationForm
+            onSubmit={
+              editingDonation ? handleUpdateDonation : handleCreateDonation
+            }
+            onCancel={() => {
+              setIsDonationModalOpen(false);
+              setEditingDonation(null);
+            }}
+            onDelete={
+              editingDonation
+                ? () => requestDeleteDonation(editingDonation)
+                : undefined
+            }
+            submitting={isSubmitting}
+            initialData={editingDonation || undefined}
+          />
+        </Modal>
 
-      <Modal
-        isOpen={isOfferingModalOpen}
-        onClose={() => {
-          setIsOfferingModalOpen(false);
-          setEditingOffering(null);
-        }}
-        title={editingOffering ? "Edit Offering" : "Record Weekly Offering"}
-      >
-        <OfferingForm
-          onSubmit={
-            editingOffering ? handleUpdateOffering : handleCreateOffering
-          }
-          onCancel={() => {
+        <Modal
+          isOpen={isOfferingModalOpen}
+          onClose={() => {
             setIsOfferingModalOpen(false);
             setEditingOffering(null);
           }}
-          onDelete={
-            editingOffering
-              ? () => requestDeleteOffering(editingOffering)
-              : undefined
-          }
-          submitting={isSubmitting}
-          initialData={editingOffering || undefined}
-        />
-      </Modal>
+          title={editingOffering ? "Edit Offering" : "Record Weekly Offering"}
+        >
+          <OfferingForm
+            onSubmit={
+              editingOffering ? handleUpdateOffering : handleCreateOffering
+            }
+            onCancel={() => {
+              setIsOfferingModalOpen(false);
+              setEditingOffering(null);
+            }}
+            onDelete={
+              editingOffering
+                ? () => requestDeleteOffering(editingOffering)
+                : undefined
+            }
+            submitting={isSubmitting}
+            initialData={editingOffering || undefined}
+          />
+        </Modal>
 
-      <Modal
-        isOpen={isPledgeModalOpen}
-        onClose={() => {
-          setIsPledgeModalOpen(false);
-          setEditingPledge(null);
-        }}
-        title={editingPledge ? "Edit Pledge" : "Add Pledge"}
-      >
-        <PledgeForm
-          onSubmit={editingPledge ? handleUpdatePledge : handleCreatePledge}
-          onCancel={() => {
+        <Modal
+          isOpen={isPledgeModalOpen}
+          onClose={() => {
             setIsPledgeModalOpen(false);
             setEditingPledge(null);
           }}
-          onDelete={
-            editingPledge ? () => requestDeletePledge(editingPledge) : undefined
+          title={editingPledge ? "Edit Pledge" : "Add Pledge"}
+        >
+          <PledgeForm
+            onSubmit={editingPledge ? handleUpdatePledge : handleCreatePledge}
+            onCancel={() => {
+              setIsPledgeModalOpen(false);
+              setEditingPledge(null);
+            }}
+            onDelete={
+              editingPledge
+                ? () => requestDeletePledge(editingPledge)
+                : undefined
+            }
+            submitting={isSubmitting}
+            existingPledges={pledges}
+            initialData={editingPledge || undefined}
+          />
+        </Modal>
+
+        <Modal
+          isOpen={isContributionModalOpen}
+          onClose={closeContributionModal}
+          title={
+            selectedPledge
+              ? `Log Contributions — ${selectedPledge.pledgeTitle}`
+              : "Log Contributions"
           }
-          submitting={isSubmitting}
-          existingPledges={pledges}
-          initialData={editingPledge || undefined}
-        />
-      </Modal>
-
-      <Modal
-        isOpen={isContributionModalOpen}
-        onClose={closeContributionModal}
-        title={
-          selectedPledge
-            ? `Log Contributions — ${selectedPledge.pledgeTitle}`
-            : "Log Contributions"
-        }
-      >
-        <div className="space-y-6">
-          {selectedPledge && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-gray-600">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Target
-                  </span>
-                  <span className="text-sm font-medium text-[#1F2937]">
-                    {formatCurrency(selectedPledge.pledgeAmount)}
-                  </span>
+        >
+          <div className="space-y-6">
+            {selectedPledge && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-gray-600">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Target
+                    </span>
+                    <span className="text-sm font-medium text-[#1F2937]">
+                      {formatCurrency(selectedPledge.pledgeAmount)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Received
+                    </span>
+                    <span className="text-sm font-medium text-green-600">
+                      {formatCurrency(selectedPledge.amountReceived)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Outstanding
+                    </span>
+                    <span className="text-sm font-medium text-[#D97706]">
+                      {formatCurrency(selectedPledge.balance)}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Received
-                  </span>
-                  <span className="text-sm font-medium text-green-600">
-                    {formatCurrency(selectedPledge.amountReceived)}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Outstanding
-                  </span>
-                  <span className="text-sm font-medium text-[#D97706]">
-                    {formatCurrency(selectedPledge.balance)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {contributionError && <ErrorMessage message={contributionError} />}
-
-          <div
-            className="space-y-4 rounded-lg border border-slate-200 p-4 shadow-sm"
-            data-contribution-form
-          >
-            <h3 className="text-sm font-semibold text-[#2D3748]">
-              {editingContribution ? "Edit Contribution" : "Add Contribution"}
-            </h3>
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Contributor (optional)
-              </label>
-              <ScalableSelect
-                options={[
-                  { label: "Not set", value: "" },
-                  ...contributorOptions,
-                ]}
-                value={contributionForm.contributorId}
-                onChange={(value) => {
-                  setContributionForm((previous) => ({
-                    ...previous,
-                    contributorId: value,
-                  }));
-                  setContributionError(null);
-                }}
-                placeholder="Select contributor..."
-                className="w-full"
-                showSearch
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Amount *
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={contributionForm.amount}
-                  onChange={(event) => {
-                    setContributionForm((previous) => ({
-                      ...previous,
-                      amount: event.target.value,
-                    }));
-                    setContributionError(null);
-                  }}
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="₱0.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Contribution Date *
-                </label>
-                <input
-                  type="date"
-                  value={contributionForm.date}
-                  onChange={(event) => {
-                    setContributionForm((previous) => ({
-                      ...previous,
-                      date: event.target.value,
-                    }));
-                    setContributionError(null);
-                  }}
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Notes (optional)
-              </label>
-              <textarea
-                value={contributionForm.note}
-                onChange={(event) => {
-                  setContributionForm((previous) => ({
-                    ...previous,
-                    note: event.target.value,
-                  }));
-                  setContributionError(null);
-                }}
-                rows={3}
-                className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="Add any reminders or context for this contribution."
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              {editingContribution && (
-                <Button
-                  variant="tertiary"
-                  onClick={() => {
-                    setContributionForm(createEmptyContributionForm());
-                    setEditingContribution(null);
-                    setContributionError(null);
-                  }}
-                  disabled={contributionSubmitting}
-                >
-                  Cancel Edit
-                </Button>
-              )}
-              <Button
-                variant="tertiary"
-                onClick={() =>
-                  setContributionForm((previous) => ({
-                    ...previous,
-                    amount: "",
-                    note: "",
-                  }))
-                }
-                disabled={contributionSubmitting || !!editingContribution}
-              >
-                Clear
-              </Button>
-              <Button
-                onClick={handleContributionSubmit}
-                disabled={contributionSubmitting}
-              >
-                {contributionSubmitting
-                  ? "Saving…"
-                  : editingContribution
-                  ? "Update Contribution"
-                  : "Save Contribution"}
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-lg border border-slate-200 p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-[#2D3748]">
-              Contribution History
-            </h3>
-            {contributionsLoading ? (
-              <div className="flex justify-center py-6">
-                <LoadingSpinner />
-              </div>
-            ) : contributions.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                No contributions recorded for this pledge yet.
-              </p>
-            ) : (
-              <div className="max-h-72 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-500">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Date</th>
-                      <th className="px-3 py-2 text-left">Contributor</th>
-                      <th className="px-3 py-2 text-right">Amount</th>
-                      <th className="px-3 py-2 text-left">Recorded By</th>
-                      <th className="px-3 py-2 text-left">Notes</th>
-                      <th className="px-3 py-2 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {contributions.map((contribution) => (
-                      <tr key={contribution.id}>
-                        <td
-                          className="px-3 py-2 text-gray-700 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
-                          onClick={() => handleEditContribution(contribution)}
-                          title="Click to edit this contribution"
-                        >
-                          {formatDate(contribution.contributionDate)}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
-                          onClick={() => handleEditContribution(contribution)}
-                          title="Click to edit this contribution"
-                        >
-                          {contribution.contributorName ?? "—"}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-right font-semibold text-[#2563EB] cursor-pointer hover:text-blue-700 hover:underline transition-colors"
-                          onClick={() => handleEditContribution(contribution)}
-                          title="Click to edit this contribution"
-                        >
-                          {formatCurrency(contribution.amount)}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
-                          onClick={() => handleEditContribution(contribution)}
-                          title="Click to edit this contribution"
-                        >
-                          {contribution.recordedByName ?? "—"}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
-                          onClick={() => handleEditContribution(contribution)}
-                          title="Click to edit this contribution"
-                        >
-                          {contribution.note ? (
-                            <span className="whitespace-pre-line">
-                              {contribution.note}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditContribution(contribution);
-                              }}
-                              disabled={
-                                deleteContributionTarget?.id ===
-                                  contribution.id ||
-                                contributionSubmitting ||
-                                deleteContributionLoading
-                              }
-                              className="text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-blue-300"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                requestDeleteContribution(contribution);
-                              }}
-                              disabled={
-                                deleteContributionTarget?.id ===
-                                  contribution.id ||
-                                contributionSubmitting ||
-                                deleteContributionLoading
-                              }
-                              className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:text-red-300"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             )}
+
+            {contributionError && <ErrorMessage message={contributionError} />}
+
+            <div
+              className="space-y-4 rounded-lg border border-slate-200 p-4 shadow-sm"
+              data-contribution-form
+            >
+              <h3 className="text-sm font-semibold text-[#2D3748]">
+                {editingContribution ? "Edit Contribution" : "Add Contribution"}
+              </h3>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Contributor (optional)
+                </label>
+                <ScalableSelect
+                  options={[
+                    { label: "Not set", value: "" },
+                    ...contributorOptions,
+                  ]}
+                  value={contributionForm.contributorId}
+                  onChange={(value) => {
+                    setContributionForm((previous) => ({
+                      ...previous,
+                      contributorId: value,
+                    }));
+                    setContributionError(null);
+                  }}
+                  placeholder="Select contributor..."
+                  className="w-full"
+                  showSearch
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Amount *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={contributionForm.amount}
+                    onChange={(event) => {
+                      setContributionForm((previous) => ({
+                        ...previous,
+                        amount: event.target.value,
+                      }));
+                      setContributionError(null);
+                    }}
+                    className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="₱0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Contribution Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={contributionForm.date}
+                    onChange={(event) => {
+                      setContributionForm((previous) => ({
+                        ...previous,
+                        date: event.target.value,
+                      }));
+                      setContributionError(null);
+                    }}
+                    className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={contributionForm.note}
+                  onChange={(event) => {
+                    setContributionForm((previous) => ({
+                      ...previous,
+                      note: event.target.value,
+                    }));
+                    setContributionError(null);
+                  }}
+                  rows={3}
+                  className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Add any reminders or context for this contribution."
+                />
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+                {editingContribution && (
+                  <Button
+                    variant="tertiary"
+                    onClick={() => {
+                      setContributionForm(createEmptyContributionForm());
+                      setEditingContribution(null);
+                      setContributionError(null);
+                    }}
+                    disabled={contributionSubmitting}
+                    className="w-full sm:w-auto min-h-[44px]"
+                  >
+                    Cancel Edit
+                  </Button>
+                )}
+                <Button
+                  variant="tertiary"
+                  onClick={() =>
+                    setContributionForm((previous) => ({
+                      ...previous,
+                      amount: "",
+                      note: "",
+                    }))
+                  }
+                  disabled={contributionSubmitting || !!editingContribution}
+                  className="w-full sm:w-auto min-h-[44px]"
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={handleContributionSubmit}
+                  disabled={contributionSubmitting}
+                  className="w-full sm:w-auto min-h-[44px]"
+                >
+                  {contributionSubmitting
+                    ? "Saving…"
+                    : editingContribution
+                    ? "Update Contribution"
+                    : "Save Contribution"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-slate-200 p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-[#2D3748]">
+                Contribution History
+              </h3>
+              {contributionsLoading ? (
+                <div className="flex justify-center py-6">
+                  <LoadingSpinner />
+                </div>
+              ) : contributions.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No contributions recorded for this pledge yet.
+                </p>
+              ) : (
+                <div className="max-h-72 overflow-y-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-500">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Date</th>
+                        <th className="px-3 py-2 text-left">Contributor</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                        <th className="px-3 py-2 text-left">Recorded By</th>
+                        <th className="px-3 py-2 text-left">Notes</th>
+                        <th className="px-3 py-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {contributions.map((contribution) => (
+                        <tr key={contribution.id}>
+                          <td
+                            className="px-3 py-2 text-gray-700 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
+                            onClick={() => handleEditContribution(contribution)}
+                            title="Click to edit this contribution"
+                          >
+                            {formatDate(contribution.contributionDate)}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
+                            onClick={() => handleEditContribution(contribution)}
+                            title="Click to edit this contribution"
+                          >
+                            {contribution.contributorName ?? "—"}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-right font-semibold text-[#2563EB] cursor-pointer hover:text-blue-700 hover:underline transition-colors"
+                            onClick={() => handleEditContribution(contribution)}
+                            title="Click to edit this contribution"
+                          >
+                            {formatCurrency(contribution.amount)}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
+                            onClick={() => handleEditContribution(contribution)}
+                            title="Click to edit this contribution"
+                          >
+                            {contribution.recordedByName ?? "—"}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
+                            onClick={() => handleEditContribution(contribution)}
+                            title="Click to edit this contribution"
+                          >
+                            {contribution.note ? (
+                              <span className="whitespace-pre-line">
+                                {contribution.note}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex flex-col items-end gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditContribution(contribution);
+                                }}
+                                disabled={
+                                  deleteContributionTarget?.id ===
+                                    contribution.id ||
+                                  contributionSubmitting ||
+                                  deleteContributionLoading
+                                }
+                                className="text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-blue-300"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  requestDeleteContribution(contribution);
+                                }}
+                                disabled={
+                                  deleteContributionTarget?.id ===
+                                    contribution.id ||
+                                  contributionSubmitting ||
+                                  deleteContributionLoading
+                                }
+                                className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:text-red-300"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
 
-      <ConfirmationModal
-        isOpen={Boolean(deleteContributionTarget)}
-        onClose={() => {
-          if (deleteContributionLoading) return;
-          setDeleteContributionTarget(null);
-          setDeleteContributionError(null);
-        }}
-        onConfirm={confirmDeleteContribution}
-        title="Delete Contribution"
-        message={
-          deleteContributionError
-            ? `${deleteContributionError} Please try again.`
-            : `Are you sure you want to delete this contribution of ${formatCurrency(
-                deleteContributionTarget?.amount || 0
-              )}? This action cannot be undone and will update the pledge totals.`
-        }
-        confirmText="Delete Contribution"
-        cancelText="Cancel"
-        variant="danger"
-        loading={deleteContributionLoading}
-      />
+        <ConfirmationModal
+          isOpen={Boolean(deleteContributionTarget)}
+          onClose={() => {
+            if (deleteContributionLoading) return;
+            setDeleteContributionTarget(null);
+            setDeleteContributionError(null);
+          }}
+          onConfirm={confirmDeleteContribution}
+          title="Delete Contribution"
+          message={
+            deleteContributionError
+              ? `${deleteContributionError} Please try again.`
+              : `Are you sure you want to delete this contribution of ${formatCurrency(
+                  deleteContributionTarget?.amount || 0
+                )}? This action cannot be undone and will update the pledge totals.`
+          }
+          confirmText="Delete Contribution"
+          cancelText="Cancel"
+          variant="danger"
+          loading={deleteContributionLoading}
+        />
 
-      <ConfirmationModal
-        isOpen={Boolean(deleteOfferingTarget)}
-        onClose={() => {
-          if (deleteOfferingLoading) return;
-          setDeleteOfferingTarget(null);
-          setDeleteOfferingError(null);
-        }}
-        onConfirm={confirmDeleteOffering}
-        title="Delete Offering"
-        message={
-          deleteOfferingError
-            ? `${deleteOfferingError} Please try again.`
-            : `Are you sure you want to delete the offering for "${
-                deleteOfferingTarget?.serviceName
-              }" on ${formatDate(
-                deleteOfferingTarget?.serviceDate || ""
-              )}? This action cannot be undone and will remove ${formatCurrency(
-                deleteOfferingTarget?.amount || 0
-              )} from your offering records.`
-        }
-        confirmText="Delete Offering"
-        cancelText="Cancel"
-        variant="danger"
-        loading={deleteOfferingLoading}
-      />
+        <ConfirmationModal
+          isOpen={Boolean(deleteOfferingTarget)}
+          onClose={() => {
+            if (deleteOfferingLoading) return;
+            setDeleteOfferingTarget(null);
+            setDeleteOfferingError(null);
+          }}
+          onConfirm={confirmDeleteOffering}
+          title="Delete Offering"
+          message={
+            deleteOfferingError
+              ? `${deleteOfferingError} Please try again.`
+              : `Are you sure you want to delete the offering for "${
+                  deleteOfferingTarget?.serviceName
+                }" on ${formatDate(
+                  deleteOfferingTarget?.serviceDate || ""
+                )}? This action cannot be undone and will remove ${formatCurrency(
+                  deleteOfferingTarget?.amount || 0
+                )} from your offering records.`
+          }
+          confirmText="Delete Offering"
+          cancelText="Cancel"
+          variant="danger"
+          loading={deleteOfferingLoading}
+        />
 
-      <ConfirmationModal
-        isOpen={Boolean(deletePledgeTarget)}
-        onClose={() => {
-          if (deletePledgeLoading) return;
-          setDeletePledgeTarget(null);
-          setDeletePledgeError(null);
-        }}
-        onConfirm={confirmDeletePledge}
-        title="Delete Pledge"
-        message={
-          deletePledgeError
-            ? `${deletePledgeError} Please try again.`
-            : `Are you sure you want to delete the pledge "${deletePledgeTarget?.pledgeTitle}"? This action cannot be undone and will remove all associated contribution records.`
-        }
-        confirmText="Delete Pledge"
-        cancelText="Cancel"
-        variant="danger"
-        loading={deletePledgeLoading}
-      />
+        <ConfirmationModal
+          isOpen={Boolean(deletePledgeTarget)}
+          onClose={() => {
+            if (deletePledgeLoading) return;
+            setDeletePledgeTarget(null);
+            setDeletePledgeError(null);
+          }}
+          onConfirm={confirmDeletePledge}
+          title="Delete Pledge"
+          message={
+            deletePledgeError
+              ? `${deletePledgeError} Please try again.`
+              : `Are you sure you want to delete the pledge "${deletePledgeTarget?.pledgeTitle}"? This action cannot be undone and will remove all associated contribution records.`
+          }
+          confirmText="Delete Pledge"
+          cancelText="Cancel"
+          variant="danger"
+          loading={deletePledgeLoading}
+        />
 
-      <ConfirmationModal
-        isOpen={Boolean(deleteDonationTarget)}
-        onClose={() => {
-          if (deleteDonationLoading) return;
-          setDeleteDonationTarget(null);
-          setDeleteDonationError(null);
-        }}
-        onConfirm={confirmDeleteDonation}
-        title="Delete Donation"
-        message={
-          deleteDonationError
-            ? `${deleteDonationError} Please try again.`
-            : `Are you sure you want to delete the donation of ${formatCurrency(
-                deleteDonationTarget?.amount || 0
-              )} on ${formatDate(
-                deleteDonationTarget?.date || ""
-              )}? This action cannot be undone and will remove this donation from your records.`
-        }
-        confirmText="Delete Donation"
-        cancelText="Cancel"
-        variant="danger"
-        loading={deleteDonationLoading}
-      />
-    </DashboardLayout>
+        <ConfirmationModal
+          isOpen={Boolean(deleteDonationTarget)}
+          onClose={() => {
+            if (deleteDonationLoading) return;
+            setDeleteDonationTarget(null);
+            setDeleteDonationError(null);
+          }}
+          onConfirm={confirmDeleteDonation}
+          title="Delete Donation"
+          message={
+            deleteDonationError
+              ? `${deleteDonationError} Please try again.`
+              : `Are you sure you want to delete the donation of ${formatCurrency(
+                  deleteDonationTarget?.amount || 0
+                )} on ${formatDate(
+                  deleteDonationTarget?.date || ""
+                )}? This action cannot be undone and will remove this donation from your records.`
+          }
+          confirmText="Delete Donation"
+          cancelText="Cancel"
+          variant="danger"
+          loading={deleteDonationLoading}
+        />
+      </DashboardLayout>
     </ProtectedRoute>
   );
 }

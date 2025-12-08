@@ -123,7 +123,7 @@ export default function LessonForm({
             type="text"
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="conversion-journey-01"
             required
           />
@@ -140,7 +140,7 @@ export default function LessonForm({
             type="text"
             value={versionLabel}
             onChange={(event) => setVersionLabel(event.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="v1"
           />
         </div>
@@ -153,7 +153,7 @@ export default function LessonForm({
             min={1}
             value={order}
             onChange={(event) => setOrder(event.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>
@@ -187,7 +187,7 @@ export default function LessonForm({
           type="text"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Living on Mission Every Day"
           required
         />
@@ -201,7 +201,7 @@ export default function LessonForm({
           value={summary}
           onChange={(event) => setSummary(event.target.value)}
           rows={3}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Short overview of the lesson focus..."
         />
       </div>
@@ -214,7 +214,7 @@ export default function LessonForm({
           value={outline}
           onChange={(event) => setOutline(event.target.value)}
           rows={4}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Key points or sections..."
         />
       </div>
@@ -232,7 +232,7 @@ export default function LessonForm({
           <Button
             type="button"
             variant="tertiary"
-            className="text-sm !py-2 !px-4"
+            className="w-full sm:w-auto min-h-[44px] text-sm"
             onClick={() => setShowJourneyFields((previous) => !previous)}
           >
             {showJourneyFields ? "Hide Journey Fields" : "Show Journey Fields"}
@@ -251,7 +251,7 @@ export default function LessonForm({
                   onChange={(event) =>
                     setJourneyType(event.target.value as JourneyType)
                   }
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {JOURNEY_TYPE_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -268,7 +268,7 @@ export default function LessonForm({
                   type="text"
                   value={journeyTitle}
                   onChange={(event) => setJourneyTitle(event.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Completed Lesson X: ..."
                 />
               </div>
@@ -282,7 +282,7 @@ export default function LessonForm({
                 value={journeyNote}
                 onChange={(event) => setJourneyNote(event.target.value)}
                 rows={3}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Comment that appears when the journey note is created..."
               />
             </div>
@@ -304,20 +304,20 @@ export default function LessonForm({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex flex-col-reverse sm:flex-row gap-3">
         <Button
           type="button"
           variant="tertiary"
           onClick={onCancel}
           disabled={submitting}
-          className="w-full text-sm !py-2"
+          className="w-full sm:flex-1 min-h-[44px] text-sm"
         >
           Cancel
         </Button>
         <Button
           type="submit"
           disabled={submitting}
-          className="w-full text-sm !py-2"
+          className="w-full sm:flex-1 min-h-[44px] text-sm"
         >
           {submitting ? "Saving..." : "Save Lesson"}
         </Button>

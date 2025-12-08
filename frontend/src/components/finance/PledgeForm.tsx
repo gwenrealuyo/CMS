@@ -197,7 +197,7 @@ export default function PledgeForm({
                   onChange={(e) => {
                     setSelectedPledgeId(e.target.value);
                   }}
-                  className="w-full rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full min-h-[44px] rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   required={!isCreatingNew}
                 >
                   <option value="">
@@ -221,7 +221,7 @@ export default function PledgeForm({
                       }))
                     }
                     placeholder="e.g., Building Fund Campaign"
-                    className="w-full rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full min-h-[44px] rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     required
                   />
                 )}
@@ -237,7 +237,7 @@ export default function PledgeForm({
                   }))
                 }
                 placeholder="e.g., Building Fund Campaign"
-                className="w-full rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full min-h-[44px] rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 required
               />
             )}
@@ -257,7 +257,7 @@ export default function PledgeForm({
                 }))
               }
               placeholder="Building improvements, missions, etc."
-              className="w-full rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full min-h-[44px] rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
@@ -284,7 +284,7 @@ export default function PledgeForm({
                     pledgeAmount: Number.parseFloat(e.target.value || "0"),
                   }))
                 }
-                className="w-full rounded-lg border border-emerald-100 bg-white py-2 pl-7 pr-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full min-h-[44px] rounded-lg border border-emerald-100 bg-white py-2 pl-7 pr-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 required
               />
             </div>
@@ -316,7 +316,7 @@ export default function PledgeForm({
                     amountReceived: Number.parseFloat(e.target.value || "0"),
                   }))
                 }
-                className="w-full rounded-lg border border-emerald-100 bg-white py-2 pl-7 pr-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full min-h-[44px] rounded-lg border border-emerald-100 bg-white py-2 pl-7 pr-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
@@ -335,7 +335,7 @@ export default function PledgeForm({
                   status: e.target.value as PledgeStatus,
                 }))
               }
-              className="w-full rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full min-h-[44px] rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               {STATUS_OPTIONS.map(({ value, label }) => (
                 <option key={value} value={value}>
@@ -383,7 +383,7 @@ export default function PledgeForm({
                   startDate: e.target.value,
                 }))
               }
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
               required
             />
           </div>
@@ -401,7 +401,7 @@ export default function PledgeForm({
                   targetDate: e.target.value,
                 }))
               }
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
         </div>
@@ -420,7 +420,7 @@ export default function PledgeForm({
             }
             rows={4}
             placeholder="Capture reminders, donor commitments, or journey notes."
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
       </section>
@@ -439,17 +439,17 @@ export default function PledgeForm({
         </div>
       )}
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
         <Button
           type="button"
           variant="tertiary"
           onClick={onCancel}
           disabled={submitting}
-          className="flex-1"
+          className="w-full sm:flex-1 min-h-[44px]"
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={submitting} className="flex-1">
+        <Button type="submit" disabled={submitting} className="w-full sm:flex-1 min-h-[44px]">
           {submitting ? "Saving…" : isEditing ? "Update Pledge" : "Save Pledge"}
         </Button>
       </div>

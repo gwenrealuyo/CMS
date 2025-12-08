@@ -38,7 +38,7 @@ export default function CommitmentFormSection({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {hasCommitmentForm ? (
               <a href={commitmentUrl} target="_blank" rel="noopener noreferrer">
-                <Button variant="secondary" className="sm:w-auto text-sm">
+                <Button variant="secondary" className="w-full sm:w-auto min-h-[44px] text-sm">
                   Download Current PDF
                 </Button>
               </a>
@@ -47,7 +47,7 @@ export default function CommitmentFormSection({
                 No commitment form uploaded yet.
               </span>
             )}
-            <Button onClick={onOpenModal} className="sm:w-auto text-sm">
+            <Button onClick={onOpenModal} className="w-full sm:w-auto min-h-[44px] text-sm">
               {hasCommitmentForm
                 ? "Replace Commitment Form"
                 : "Upload Commitment Form"}

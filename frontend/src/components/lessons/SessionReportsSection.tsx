@@ -102,12 +102,12 @@ export default function SessionReportsSection({
             Log 1-on-1 lesson sessions to capture coaching notes beyond
             journey updates and export them for follow-up.
           </p>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
             <Button
               variant="secondary"
               onClick={onExport}
               disabled={!canExport}
-              className="text-sm !py-1.5 !px-3"
+              className="w-full sm:w-auto min-h-[44px] text-sm"
             >
               Download CSV
             </Button>
@@ -115,7 +115,7 @@ export default function SessionReportsSection({
               variant="primary"
               onClick={onOpenSessionModal}
               disabled={!canLogSession}
-              className="text-sm !py-1.5 !px-3"
+              className="w-full sm:w-auto min-h-[44px] text-sm"
             >
               Log Session
             </Button>
@@ -148,7 +148,7 @@ export default function SessionReportsSection({
               </label>
               <input
                 type="date"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={sessionFilterDraft.dateFrom}
                 onChange={(event) =>
                   onFilterChange("dateFrom", event.target.value)
@@ -161,7 +161,7 @@ export default function SessionReportsSection({
               </label>
               <input
                 type="date"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={sessionFilterDraft.dateTo}
                 onChange={(event) =>
                   onFilterChange("dateTo", event.target.value)
@@ -170,11 +170,19 @@ export default function SessionReportsSection({
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="tertiary" onClick={onResetFilters}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+            <Button 
+              variant="tertiary" 
+              onClick={onResetFilters}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
               Reset Filters
             </Button>
-            <Button variant="secondary" onClick={onApplyFilters}>
+            <Button 
+              variant="secondary" 
+              onClick={onApplyFilters}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
               Apply Filters
             </Button>
           </div>

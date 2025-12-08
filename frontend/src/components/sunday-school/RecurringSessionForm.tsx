@@ -144,7 +144,7 @@ export default function RecurringSessionForm({
           type="text"
           value={classData.name}
           disabled
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm bg-gray-50 text-gray-600"
         />
       </div>
 
@@ -157,7 +157,7 @@ export default function RecurringSessionForm({
           value={values.start_date}
           onChange={handleChange("start_date")}
           required
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -166,7 +166,7 @@ export default function RecurringSessionForm({
         <select
           value={values.recurrence_pattern}
           onChange={handleChange("recurrence_pattern")}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="weekly">Weekly</option>
           <option value="bi_weekly">Bi-weekly</option>
@@ -180,7 +180,7 @@ export default function RecurringSessionForm({
           <select
             value={values.day_of_week}
             onChange={(e) => setValues({ ...values, day_of_week: parseInt(e.target.value) })}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {DAYS_OF_WEEK.map((day) => (
               <option key={day.value} value={day.value}>
@@ -209,7 +209,7 @@ export default function RecurringSessionForm({
             type="date"
             value={values.end_date}
             onChange={handleChange("end_date")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         )}
 
@@ -233,7 +233,7 @@ export default function RecurringSessionForm({
             value={values.num_occurrences || ""}
             onChange={handleChange("num_occurrences")}
             placeholder="e.g., 12"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         )}
       </div>
@@ -245,7 +245,7 @@ export default function RecurringSessionForm({
           value={values.default_lesson_title}
           onChange={handleChange("default_lesson_title")}
           placeholder="Optional: default lesson title for all sessions"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -269,11 +269,22 @@ export default function RecurringSessionForm({
         <p>Events will be automatically created on the calendar for each session.</p>
       </div>
 
-      <div className="flex gap-4 pt-4">
-        <Button type="button" variant="tertiary" className="flex-1" onClick={onCancel} disabled={isSubmitting}>
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+        <Button 
+          type="button" 
+          variant="tertiary" 
+          className="w-full sm:flex-1 min-h-[44px]" 
+          onClick={onCancel} 
+          disabled={isSubmitting}
+        >
           Cancel
         </Button>
-        <Button type="submit" variant="primary" className="flex-1" disabled={isSubmitting}>
+        <Button 
+          type="submit" 
+          variant="primary" 
+          className="w-full sm:flex-1 min-h-[44px]" 
+          disabled={isSubmitting}
+        >
           {isSubmitting ? "Creating..." : `Create ${previewDates.length > 0 ? previewDates.length : ""} Sessions`}
         </Button>
       </div>

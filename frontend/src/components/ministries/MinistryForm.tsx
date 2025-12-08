@@ -179,7 +179,7 @@ export default function MinistryForm({
             value={values.name}
             onChange={handleChange("name")}
             placeholder="e.g. Worship Team"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
@@ -192,7 +192,7 @@ export default function MinistryForm({
             onChange={handleChange("description")}
             rows={3}
             placeholder="Describe the ministry's focus and activities."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
@@ -203,7 +203,7 @@ export default function MinistryForm({
           <select
             value={values.category}
             onChange={handleChange("category")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {categoryOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -221,7 +221,7 @@ export default function MinistryForm({
             required
             value={values.activity_cadence}
             onChange={handleChange("activity_cadence")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {cadenceOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -270,7 +270,7 @@ export default function MinistryForm({
               variant="secondary"
               onClick={handleAddSupportCoordinator}
               disabled={!supportSelectorValue}
-              className="sm:w-auto"
+              className="w-full sm:w-auto min-h-[44px]"
             >
               Add Coordinator
             </Button>
@@ -312,7 +312,7 @@ export default function MinistryForm({
             value={values.meeting_location}
             onChange={handleChange("meeting_location")}
             placeholder="e.g. Main Building Room 203"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
@@ -325,7 +325,7 @@ export default function MinistryForm({
             value={values.communication_channel}
             onChange={handleChange("communication_channel")}
             placeholder="https://..."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <p className="mt-1 text-xs text-gray-500">
             Optional link to the group chat, email list, or coordination doc.
@@ -342,7 +342,7 @@ export default function MinistryForm({
               <select
                 value={values.meeting_schedule_day}
                 onChange={handleChange("meeting_schedule_day")}
-                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
                 {DAYS_OF_WEEK.map((option) => (
                   <option key={option.value || "unset"} value={option.value}>
@@ -359,7 +359,7 @@ export default function MinistryForm({
                 type="time"
                 value={values.meeting_schedule_time}
                 onChange={handleChange("meeting_schedule_time")}
-                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -371,7 +371,7 @@ export default function MinistryForm({
                 value={values.meeting_schedule_window}
                 onChange={handleChange("meeting_schedule_window")}
                 placeholder="e.g. Holy Week, Summer Camp, Anniversary Week"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -383,7 +383,7 @@ export default function MinistryForm({
                 onChange={handleChange("meeting_schedule_notes")}
                 rows={2}
                 placeholder="Optional: add rotation details, prep time, or other schedule notes."
-                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -407,7 +407,7 @@ export default function MinistryForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-col-reverse sm:flex-row gap-3">
         <Button
           type="button"
           variant="tertiary"
@@ -419,10 +419,16 @@ export default function MinistryForm({
             }
           }}
           disabled={isSubmitting}
+          className="w-full sm:flex-1 min-h-[44px]"
         >
           Cancel
         </Button>
-        <Button type="submit" variant="primary" disabled={disableSubmit}>
+        <Button 
+          type="submit" 
+          variant="primary" 
+          disabled={disableSubmit}
+          className="w-full sm:flex-1 min-h-[44px]"
+        >
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>

@@ -50,7 +50,11 @@ export default function EventCard({
             )}
           </div>
           {onView && (
-            <Button variant="tertiary" onClick={onView} className="text-xs">
+            <Button 
+              variant="tertiary" 
+              onClick={onView} 
+              className="text-xs min-h-[44px]"
+            >
               View
             </Button>
           )}
@@ -168,7 +172,7 @@ export default function EventCard({
               <Button
                 variant="tertiary"
                 onClick={onEdit}
-                className="flex-1 text-xs"
+                className="flex-1 text-xs min-h-[44px]"
               >
                 Edit
               </Button>
@@ -177,7 +181,7 @@ export default function EventCard({
               <Button
                 variant="tertiary"
                 onClick={onDelete}
-                className="flex-1 text-xs text-red-600 hover:bg-red-50"
+                className="flex-1 text-xs min-h-[44px] text-red-600 hover:bg-red-50"
               >
                 Delete
               </Button>

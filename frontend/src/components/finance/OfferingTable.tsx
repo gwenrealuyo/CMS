@@ -128,7 +128,7 @@ export default function OfferingTable({
   };
   return (
     <Card>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h3 className="text-lg font-semibold text-[#2D3748]">Offering Log</h3>
           <p className="text-xs text-gray-500">
@@ -138,7 +138,7 @@ export default function OfferingTable({
         {onAddOffering && (
           <button
             onClick={onAddOffering}
-            className="rounded-md bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB]"
+            className="w-full sm:w-auto min-h-[44px] rounded-md bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB]"
           >
             Record Offering
           </button>

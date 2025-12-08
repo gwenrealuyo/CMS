@@ -89,7 +89,7 @@ export default function OfferingForm({
                 }))
               }
               placeholder="e.g., Sunday AM Service"
-              className="w-full rounded-lg border border-indigo-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full min-h-[44px] rounded-lg border border-indigo-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
             />
           </div>
@@ -108,7 +108,7 @@ export default function OfferingForm({
                     serviceDate: e.target.value,
                   }))
                 }
-                className="w-full rounded-lg border border-indigo-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full min-h-[44px] rounded-lg border border-indigo-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
@@ -127,7 +127,7 @@ export default function OfferingForm({
                   }))
                 }
                 placeholder="General Fund"
-                className="w-full rounded-lg border border-indigo-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full min-h-[44px] rounded-lg border border-indigo-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function OfferingForm({
                     amount: e.target.value === "" ? "" : Number.parseFloat(e.target.value),
                   }))
                 }
-                className="w-full rounded-lg border border-indigo-100 bg-white py-2 pl-7 pr-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full min-h-[44px] rounded-lg border border-indigo-100 bg-white py-2 pl-7 pr-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
@@ -177,7 +177,7 @@ export default function OfferingForm({
             }
             rows={4}
             placeholder="Mention additional services, combined offerings, or reminders."
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
       </section>
@@ -196,17 +196,17 @@ export default function OfferingForm({
         </div>
       )}
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
         <Button
           type="button"
           variant="tertiary"
           onClick={onCancel}
           disabled={submitting}
-          className="flex-1"
+          className="w-full sm:flex-1 min-h-[44px]"
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={submitting} className="flex-1">
+        <Button type="submit" disabled={submitting} className="w-full sm:flex-1 min-h-[44px]">
           {submitting ? "Saving…" : isEditing ? "Update Offering" : "Record Offering"}
         </Button>
       </div>

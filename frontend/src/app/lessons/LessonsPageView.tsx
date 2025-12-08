@@ -314,7 +314,7 @@ export default function LessonsPageView({
             variant="primary"
             onClick={onOpenSessionReportModal}
             disabled={!selectedLesson}
-            className="self-start md:self-auto"
+            className="w-full sm:w-auto min-h-[44px] self-start md:self-auto"
           >
             Log Session
           </Button>
@@ -475,17 +475,19 @@ export default function LessonsPageView({
               : ""}
           </p>
         </div>
-        <div className="flex justify-end gap-2 mt-6">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
           <Button
             variant="tertiary"
             onClick={() => onSetCommitmentConfirm(null)}
             disabled={isProgressUpdating}
+            className="w-full sm:w-auto min-h-[44px]"
           >
             Cancel
           </Button>
           <Button
             onClick={onConfirmCommitmentToggle}
             disabled={isProgressUpdating}
+            className="w-full sm:w-auto min-h-[44px]"
           >
             {isProgressUpdating ? "Updating..." : "Confirm"}
           </Button>

@@ -21,7 +21,7 @@ export default function LessonList({
     <Card
       title="Lesson Catalog"
       headerAction={
-        <Button onClick={onCreateNew} className="text-sm">
+        <Button onClick={onCreateNew} className="w-full sm:w-auto min-h-[44px] text-sm">
           Add Lesson
         </Button>
       }

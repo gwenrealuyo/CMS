@@ -39,7 +39,7 @@ export default function LessonDetailPanel({
         onEdit ? (
           <Button
             variant="tertiary"
-            className="text-sm !py-1.5 !px-3"
+            className="w-full sm:w-auto min-h-[44px] text-sm"
             onClick={() => onEdit(lesson)}
           >
             Edit Lesson

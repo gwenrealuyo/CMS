@@ -671,6 +671,8 @@ export default function MinistriesPage() {
                           ministry: created.id,
                           member_id: Number(member.member_id),
                           role: member.role,
+                          skills: member.skills || "",
+                          notes: member.notes || "",
                         } as Partial<MinistryMember>)
                       )
                     );
@@ -848,12 +850,25 @@ export default function MinistriesPage() {
                           ministry: updated.id,
                           member_id: Number(member.member_id),
                           role: member.role,
+                          skills: member.skills || "",
+                          notes: member.notes || "",
                         } as Partial<MinistryMember>);
-                      } else if (existingMembership.role !== member.role) {
-                        // Existing member with role change - update it
-                        await updateMember(existingMembership.id, {
-                          role: member.role,
-                        });
+                      } else {
+                        // Existing member - check if any fields changed
+                        const needsUpdate =
+                          existingMembership.role !== member.role ||
+                          (existingMembership.skills || "") !==
+                            (member.skills || "") ||
+                          (existingMembership.notes || "") !==
+                            (member.notes || "");
+
+                        if (needsUpdate) {
+                          await updateMember(existingMembership.id, {
+                            role: member.role,
+                            skills: member.skills || "",
+                            notes: member.notes || "",
+                          });
+                        }
                       }
                     })
                   );

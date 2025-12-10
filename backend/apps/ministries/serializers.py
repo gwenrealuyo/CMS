@@ -1,6 +1,7 @@
 import json
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -46,6 +47,12 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
             "notes",
         )
         read_only_fields = ("join_date",)
+
+    def create(self, validated_data):
+        # Ensure join_date is set as a date (not datetime)
+        if "join_date" not in validated_data:
+            validated_data["join_date"] = timezone.now().date()
+        return super().create(validated_data)
 
 
 class MinistrySerializer(serializers.ModelSerializer):

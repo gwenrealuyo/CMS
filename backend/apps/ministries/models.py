@@ -3,6 +3,11 @@ from django.conf import settings
 from django.utils import timezone
 
 
+def today():
+    """Return today's date (not datetime) for DateField defaults."""
+    return timezone.now().date()
+
+
 class MinistryCategory(models.TextChoices):
     WORSHIP = "worship", "Worship"
     OUTREACH = "outreach", "Outreach"
@@ -83,7 +88,7 @@ class MinistryMember(models.Model):
         choices=MinistryRole.choices,
         default=MinistryRole.TEAM_MEMBER,
     )
-    join_date = models.DateField(default=timezone.now)
+    join_date = models.DateField(default=today)
     is_active = models.BooleanField(default=True)
     availability = models.JSONField(default=dict, blank=True)
     skills = models.TextField(blank=True)

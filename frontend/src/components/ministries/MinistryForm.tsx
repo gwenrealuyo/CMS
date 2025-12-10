@@ -17,6 +17,8 @@ import { formatPersonName } from "@/src/lib/name";
 export interface PendingMember {
   member_id: string;
   role: MinistryRole;
+  skills?: string;
+  notes?: string;
 }
 
 export interface MinistryFormValues {
@@ -126,6 +128,8 @@ export default function MinistryForm({
     ).map((membership: MinistryMember) => ({
       member_id: String(membership.member.id),
       role: membership.role,
+      skills: membership.skills || "",
+      notes: membership.notes || "",
     }));
 
     return {
@@ -177,6 +181,8 @@ export default function MinistryForm({
       ).map((membership: MinistryMember) => ({
         member_id: String(membership.member.id),
         role: membership.role,
+        skills: membership.skills || "",
+        notes: membership.notes || "",
       }));
 
       setValues({
@@ -298,7 +304,12 @@ export default function MinistryForm({
         ...values,
         members: [
           ...values.members,
-          { member_id: memberId, role: selectedMemberRole },
+          {
+            member_id: memberId,
+            role: selectedMemberRole,
+            skills: "",
+            notes: "",
+          },
         ],
       });
     }
@@ -331,6 +342,24 @@ export default function MinistryForm({
     });
   };
 
+  const updateMemberSkills = (memberId: string, skills: string) => {
+    setValues({
+      ...values,
+      members: values.members.map((m) =>
+        m.member_id === memberId ? { ...m, skills } : m
+      ),
+    });
+  };
+
+  const updateMemberNotes = (memberId: string, notes: string) => {
+    setValues({
+      ...values,
+      members: values.members.map((m) =>
+        m.member_id === memberId ? { ...m, notes } : m
+      ),
+    });
+  };
+
   const getSelectedMembersData = () => {
     return values.members
       .map((pendingMember) => {
@@ -342,14 +371,21 @@ export default function MinistryForm({
               person,
               role: pendingMember.role,
               member_id: pendingMember.member_id,
+              skills: pendingMember.skills || "",
+              notes: pendingMember.notes || "",
             }
           : null;
       })
       .filter(
         (
           item
-        ): item is { person: Person; role: MinistryRole; member_id: string } =>
-          item !== null
+        ): item is {
+          person: Person;
+          role: MinistryRole;
+          member_id: string;
+          skills: string;
+          notes: string;
+        } => item !== null
       );
   };
 
@@ -752,63 +788,87 @@ export default function MinistryForm({
 
           {/* Selected Members Display */}
           {values.members.length > 0 ? (
-            <div className="space-y-2">
-              {getSelectedMembersData().map(({ person, role, member_id }) => (
-                <div
-                  key={member_id}
-                  className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                      {getInitials(person)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {formatPersonName(person)}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <select
-                          value={role}
-                          onChange={(e) =>
-                            updateMemberRole(
-                              member_id,
-                              e.target.value as MinistryRole
-                            )
-                          }
-                          className="text-xs rounded border border-gray-300 px-2 py-0.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {ROLE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+            <div className="space-y-3">
+              {getSelectedMembersData().map(
+                ({ person, role, member_id, skills, notes }) => (
+                  <div
+                    key={member_id}
+                    className="bg-white border border-gray-200 rounded-lg p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                          {getInitials(person)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {formatPersonName(person)}
+                          </p>
+                          <div className="flex flex-col gap-2 mt-2">
+                            <select
+                              value={role}
+                              onChange={(e) =>
+                                updateMemberRole(
+                                  member_id,
+                                  e.target.value as MinistryRole
+                                )
+                              }
+                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {ROLE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="text"
+                              value={skills}
+                              onChange={(e) =>
+                                updateMemberSkills(member_id, e.target.value)
+                              }
+                              placeholder="Skills/Designation (e.g., Pianist, Singer)"
+                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <textarea
+                              value={notes}
+                              onChange={(e) =>
+                                updateMemberNotes(member_id, e.target.value)
+                              }
+                              placeholder="Notes (optional)"
+                              rows={2}
+                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full resize-none"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => removeMember(member_id)}
+                        className="text-gray-400 hover:text-red-500 flex-shrink-0 mt-1"
+                        aria-label={`Remove ${formatPersonName(person)}`}
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeMember(member_id)}
-                    className="text-gray-400 hover:text-red-500 ml-2 flex-shrink-0"
-                    aria-label={`Remove ${formatPersonName(person)}`}
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                )
+              )}
             </div>
           ) : (
             <p className="text-xs text-gray-500 italic">

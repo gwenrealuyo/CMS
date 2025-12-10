@@ -465,17 +465,34 @@ export default function MinistryView({
                         <p className="text-sm font-medium text-gray-900 truncate">
                           {formatPersonName(membership.member)}
                         </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getRoleBadgeColor(
-                              membership.role
-                            )}`}
-                          >
-                            {getRoleLabel(membership.role)}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            Joined {formatDate(membership.join_date)}
-                          </span>
+                        <div className="flex flex-col gap-1.5 mt-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getRoleBadgeColor(
+                                membership.role
+                              )}`}
+                            >
+                              {getRoleLabel(membership.role)}
+                            </span>
+                            {membership.skills && (
+                              <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                                {membership.skills}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-500">
+                              Joined {formatDate(membership.join_date)}
+                            </span>
+                          </div>
+                          {membership.notes && (
+                            <div className="mt-0.5">
+                              <p className="text-xs font-medium text-gray-500 mb-0.5">
+                                Notes:
+                              </p>
+                              <p className="text-xs text-gray-700 whitespace-pre-wrap">
+                                {membership.notes}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

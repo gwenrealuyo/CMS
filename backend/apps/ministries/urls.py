@@ -5,7 +5,8 @@ from .views import MinistryMemberViewSet, MinistryViewSet
 app_name = "ministries"
 
 router = DefaultRouter()
-router.register(r"", MinistryViewSet, basename="ministry")
+# Register more specific routes first (members) before the catch-all empty route
 router.register(r"members", MinistryMemberViewSet, basename="ministry-member")
+router.register(r"", MinistryViewSet, basename="ministry")
 
 urlpatterns = router.urls

@@ -1,7 +1,7 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from apps.authentication.permissions import (
-    IsMemberOrAbove, 
+    IsMemberOrAbove,
     IsAuthenticatedAndNotVisitor,
     HasModuleAccess,
 )
@@ -33,23 +33,23 @@ class MinistryViewSet(viewsets.ModelViewSet):
     )
     ordering_fields = ("name", "activity_cadence", "created_at")
     ordering = ("name",)
-    
+
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
-        
+
         # ADMIN/PASTOR: All ministries
         if user.role in ["ADMIN", "PASTOR"]:
             return queryset
-        
+
         # Ministry Coordinator: Only ministries they're assigned to
         coordinator_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.MINISTRIES
         )
         if coordinator_assignments.exists():
             ministry_ids = [
-                assignment.resource_id 
-                for assignment in coordinator_assignments 
+                assignment.resource_id
+                for assignment in coordinator_assignments
                 if assignment.resource_id
             ]
             # Also check if user is primary_coordinator or in support_coordinators
@@ -57,16 +57,22 @@ class MinistryViewSet(viewsets.ModelViewSet):
             support_coordinator_ministries = queryset.filter(support_coordinators=user)
             if ministry_ids:
                 assigned_ministries = queryset.filter(id__in=ministry_ids)
-                return (primary_coordinator_ministries | support_coordinator_ministries | assigned_ministries).distinct()
-            return (primary_coordinator_ministries | support_coordinator_ministries).distinct()
-        
+                return (
+                    primary_coordinator_ministries
+                    | support_coordinator_ministries
+                    | assigned_ministries
+                ).distinct()
+            return (
+                primary_coordinator_ministries | support_coordinator_ministries
+            ).distinct()
+
         # MEMBER: Read-only, all ministries visible
         if user.role == "MEMBER":
             return queryset
-        
+
         # Default: empty queryset for safety
         return queryset.none()
-    
+
     def get_permissions(self):
         """
         Override to set permissions based on action.
@@ -76,7 +82,10 @@ class MinistryViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         else:
             # Write operations: ADMIN, PASTOR, or Ministry Coordinator
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('MINISTRIES', 'write')]
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                HasModuleAccess(ModuleCoordinator.ModuleType.MINISTRIES, "write"),
+            ]
 
 
 class MinistryMemberViewSet(viewsets.ModelViewSet):
@@ -87,22 +96,43 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
         .all()
     )
     serializer_class = MinistryMemberSerializer
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
     filterset_fields = ("ministry", "role", "is_active")
     search_fields = ("ministry__name", "member__first_name", "member__last_name")
     ordering_fields = ("join_date", "role")
     ordering = ("ministry__name", "member__first_name")
-    
+
     def get_permissions(self):
         """
         Override to set permissions based on action.
         """
-        if self.action in ["list", "retrieve"]:
+        # Determine action from view.action or request method
+        action = getattr(self, "action", None)
+        if action is None and hasattr(self, "request"):
+            # Fallback to request method if action not yet determined
+            method = self.request.method
+            if method in ["GET", "HEAD", "OPTIONS"]:
+                action = "list"
+            elif method == "POST":
+                action = "create"
+            elif method in ["PUT", "PATCH"]:
+                action = "update"
+            elif method == "DELETE":
+                action = "destroy"
+
+        if action in ["list", "retrieve"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         else:
             # Write operations: ADMIN, PASTOR, or Ministry Coordinator
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('MINISTRIES', 'write')]
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                HasModuleAccess(ModuleCoordinator.ModuleType.MINISTRIES, "write"),
+            ]
 
     def perform_create(self, serializer):
         serializer.save()

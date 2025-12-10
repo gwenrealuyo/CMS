@@ -4,7 +4,11 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
-import { MinistryCadence, MinistryCategory } from "@/src/types/ministry";
+import {
+  MinistryCadence,
+  MinistryCategory,
+  Ministry,
+} from "@/src/types/ministry";
 import { Person } from "@/src/types/person";
 
 export interface MinistryFormValues {
@@ -37,6 +41,7 @@ interface MinistryFormProps {
   isSubmitting: boolean;
   error?: string | null;
   submitLabel?: string;
+  initialData?: Ministry;
 }
 
 const DEFAULT_VALUES: MinistryFormValues = {
@@ -80,9 +85,87 @@ export default function MinistryForm({
   isSubmitting,
   error,
   submitLabel = "Create Ministry",
+  initialData,
 }: MinistryFormProps) {
-  const [values, setValues] = useState<MinistryFormValues>(DEFAULT_VALUES);
+  // Initialize form values from initialData if provided
+  const getInitialValues = (): MinistryFormValues => {
+    if (!initialData) {
+      return DEFAULT_VALUES;
+    }
+
+    // Parse meeting_schedule from API format to form fields
+    const meetingSchedule = initialData.meeting_schedule as Record<
+      string,
+      string
+    > | null;
+    const scheduleDay = meetingSchedule?.day ?? "";
+    const scheduleTime = meetingSchedule?.time ?? "";
+    const scheduleWindow = meetingSchedule?.window ?? "";
+    const scheduleNotes = meetingSchedule?.notes ?? "";
+
+    // Extract support coordinator IDs
+    const supportCoordinatorIds = initialData.support_coordinators.map(
+      (coordinator) => String(coordinator.id)
+    );
+
+    return {
+      name: initialData.name ?? "",
+      description: initialData.description ?? "",
+      category: (initialData.category as MinistryCategory) ?? "",
+      activity_cadence: initialData.activity_cadence ?? "weekly",
+      primary_coordinator_id: initialData.primary_coordinator
+        ? String(initialData.primary_coordinator.id)
+        : "",
+      support_coordinator_ids: supportCoordinatorIds,
+      meeting_location: initialData.meeting_location ?? "",
+      meeting_schedule_day: scheduleDay,
+      meeting_schedule_time: scheduleTime,
+      meeting_schedule_window: scheduleWindow,
+      meeting_schedule_notes: scheduleNotes,
+      communication_channel: initialData.communication_channel ?? "",
+      is_active: initialData.is_active ?? true,
+    };
+  };
+
+  const [values, setValues] = useState<MinistryFormValues>(getInitialValues());
   const [supportSelectorValue, setSupportSelectorValue] = useState("");
+
+  // Reset form when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      const meetingSchedule = initialData.meeting_schedule as Record<
+        string,
+        string
+      > | null;
+      const scheduleDay = meetingSchedule?.day ?? "";
+      const scheduleTime = meetingSchedule?.time ?? "";
+      const scheduleWindow = meetingSchedule?.window ?? "";
+      const scheduleNotes = meetingSchedule?.notes ?? "";
+      const supportCoordinatorIds = initialData.support_coordinators.map(
+        (coordinator) => String(coordinator.id)
+      );
+
+      setValues({
+        name: initialData.name ?? "",
+        description: initialData.description ?? "",
+        category: (initialData.category as MinistryCategory) ?? "",
+        activity_cadence: initialData.activity_cadence ?? "weekly",
+        primary_coordinator_id: initialData.primary_coordinator
+          ? String(initialData.primary_coordinator.id)
+          : "",
+        support_coordinator_ids: supportCoordinatorIds,
+        meeting_location: initialData.meeting_location ?? "",
+        meeting_schedule_day: scheduleDay,
+        meeting_schedule_time: scheduleTime,
+        meeting_schedule_window: scheduleWindow,
+        meeting_schedule_notes: scheduleNotes,
+        communication_channel: initialData.communication_channel ?? "",
+        is_active: initialData.is_active ?? true,
+      });
+    } else {
+      setValues(DEFAULT_VALUES);
+    }
+  }, [initialData]);
 
   const coordinatorOptions = useMemo(
     () =>
@@ -103,7 +186,11 @@ export default function MinistryForm({
           option.value === values.primary_coordinator_id ||
           values.support_coordinator_ids.includes(option.value),
       })),
-    [coordinatorOptions, values.primary_coordinator_id, values.support_coordinator_ids]
+    [
+      coordinatorOptions,
+      values.primary_coordinator_id,
+      values.support_coordinator_ids,
+    ]
   );
 
   useEffect(() => {
@@ -123,18 +210,22 @@ export default function MinistryForm({
     });
   }, [values.primary_coordinator_id]);
 
-  const handleChange = (field: keyof MinistryFormValues) => (
-    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const value =
-      event.target.type === "checkbox"
-        ? (event.target as HTMLInputElement).checked
-        : event.target.value;
-    setValues((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  const handleChange =
+    (field: keyof MinistryFormValues) =>
+    (
+      event: ChangeEvent<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >
+    ) => {
+      const value =
+        event.target.type === "checkbox"
+          ? (event.target as HTMLInputElement).checked
+          : event.target.value;
+      setValues((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
 
   const handleAddSupportCoordinator = () => {
     if (!supportSelectorValue) return;
@@ -150,19 +241,26 @@ export default function MinistryForm({
   const handleRemoveSupportCoordinator = (id: string) => {
     setValues((prev) => ({
       ...prev,
-      support_coordinator_ids: prev.support_coordinator_ids.filter((item) => item !== id),
+      support_coordinator_ids: prev.support_coordinator_ids.filter(
+        (item) => item !== id
+      ),
     }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await onSubmit(values);
-    setValues(DEFAULT_VALUES);
-    setSupportSelectorValue("");
+    // Only reset form if not editing (no initialData)
+    if (!initialData) {
+      setValues(DEFAULT_VALUES);
+      setSupportSelectorValue("");
+    }
   };
 
   const disableSubmit =
-    isSubmitting || values.name.trim().length === 0 || values.activity_cadence === undefined;
+    isSubmitting ||
+    values.name.trim().length === 0 ||
+    values.activity_cadence === undefined;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -278,7 +376,9 @@ export default function MinistryForm({
           {values.support_coordinator_ids.length > 0 ? (
             <ul className="mt-3 flex flex-wrap gap-2">
               {values.support_coordinator_ids.map((id) => {
-                const label = coordinatorOptions.find((option) => option.value === id)?.label ?? id;
+                const label =
+                  coordinatorOptions.find((option) => option.value === id)
+                    ?.label ?? id;
                 return (
                   <li key={id}>
                     <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 border border-blue-200">
@@ -298,7 +398,8 @@ export default function MinistryForm({
             </ul>
           ) : (
             <p className="mt-2 text-xs text-gray-500">
-              Add as many coordinating team members as needed. They&rsquo;ll appear here once added.
+              Add as many coordinating team members as needed. They&rsquo;ll
+              appear here once added.
             </p>
           )}
         </div>
@@ -333,7 +434,9 @@ export default function MinistryForm({
         </div>
 
         <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Meeting Schedule</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            Meeting Schedule
+          </h3>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -388,8 +491,8 @@ export default function MinistryForm({
             </div>
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            Fill in what you know—leave fields blank if the ministry only serves seasonally or
-            on-demand.
+            Fill in what you know—leave fields blank if the ministry only serves
+            seasonally or on-demand.
           </p>
         </div>
 
@@ -401,7 +504,10 @@ export default function MinistryForm({
             onChange={handleChange("is_active")}
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
+          <label
+            htmlFor="is_active"
+            className="text-sm font-medium text-gray-700"
+          >
             Ministry is active
           </label>
         </div>
@@ -423,9 +529,9 @@ export default function MinistryForm({
         >
           Cancel
         </Button>
-        <Button 
-          type="submit" 
-          variant="primary" 
+        <Button
+          type="submit"
+          variant="primary"
           disabled={disableSubmit}
           className="w-full sm:flex-1 min-h-[44px]"
         >
@@ -435,7 +541,3 @@ export default function MinistryForm({
     </form>
   );
 }
-
-
-
-

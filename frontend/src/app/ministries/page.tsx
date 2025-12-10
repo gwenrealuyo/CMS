@@ -2,6 +2,7 @@
 
 import { AxiosError } from "axios";
 import { useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
@@ -9,11 +10,13 @@ import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Table from "@/src/components/ui/Table";
 import Modal from "@/src/components/ui/Modal";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import MinistryForm, {
   MinistryFormValues,
 } from "@/src/components/ministries/MinistryForm";
 import { useMinistries } from "@/src/hooks/useMinistries";
 import { usePeople } from "@/src/hooks/usePeople";
+import { Ministry } from "@/src/types/ministry";
 
 export default function MinistriesPage() {
   const {
@@ -26,13 +29,25 @@ export default function MinistriesPage() {
     categoryOptions,
     fetchMinistries,
     createMinistry,
+    updateMinistry,
+    deleteMinistry,
   } = useMinistries();
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
   const [searchValue, setSearchValue] = useState(filters.search ?? "");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editMinistry, setEditMinistry] = useState<Ministry | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    ministry: Ministry | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    ministry: null,
+    loading: false,
+  });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const cadenceOptionsForForm = useMemo(
     () => cadenceOptions.filter((option) => option.value !== "all"),
@@ -90,6 +105,50 @@ export default function MinistriesPage() {
     other: "Other",
   };
 
+  const handleEdit = (ministry: Ministry) => {
+    setEditMinistry(ministry);
+    setIsEditOpen(true);
+    setFormError(null);
+  };
+
+  const handleDelete = (ministry: Ministry) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      ministry,
+      loading: false,
+    });
+  };
+
+  const closeDeleteConfirmation = () => {
+    setDeleteConfirmation({
+      isOpen: false,
+      ministry: null,
+      loading: false,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmation.ministry) return;
+
+    try {
+      setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
+      await deleteMinistry(deleteConfirmation.ministry.id);
+      await fetchMinistries();
+      setDeleteConfirmation({
+        isOpen: false,
+        ministry: null,
+        loading: false,
+      });
+      toast.success(
+        `Ministry "${deleteConfirmation.ministry.name}" has been deleted.`
+      );
+    } catch (error) {
+      console.error("Error deleting ministry:", error);
+      setDeleteConfirmation((prev) => ({ ...prev, loading: false }));
+      toast.error("Failed to delete ministry. Please try again.");
+    }
+  };
+
   return (
     <>
       <DashboardLayout>
@@ -105,8 +164,8 @@ export default function MinistriesPage() {
               </p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 onClick={() => setIsCreateOpen(true)}
                 className="w-full sm:w-auto min-h-[44px]"
               >
@@ -114,12 +173,6 @@ export default function MinistriesPage() {
               </Button>
             </div>
           </div>
-
-          {successMessage && (
-            <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-              {successMessage}
-            </div>
-          )}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -163,8 +216,8 @@ export default function MinistriesPage() {
                     placeholder="Name, description, coordinator"
                     className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <Button 
-                    variant="primary" 
+                  <Button
+                    variant="primary"
                     onClick={handleSearch}
                     className="w-full sm:w-auto min-h-[44px]"
                   >
@@ -246,8 +299,8 @@ export default function MinistriesPage() {
               </div>
 
               <div className="w-full sm:w-auto md:ml-auto">
-                <Button 
-                  variant="tertiary" 
+                <Button
+                  variant="tertiary"
                   onClick={handleResetFilters}
                   className="w-full sm:w-auto min-h-[44px]"
                 >
@@ -391,6 +444,54 @@ export default function MinistriesPage() {
                       </span>
                     ),
                   },
+                  {
+                    header: "Actions",
+                    accessor: "id" as const,
+                    render: (_value, row: any) => (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEdit(row as Ministry)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                          title="Edit Ministry"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(row as Ministry)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          title="Delete Ministry"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    ),
+                  },
                 ]}
               />
             )}
@@ -468,12 +569,9 @@ export default function MinistriesPage() {
                 const created = await createMinistry(payload);
                 await fetchMinistries();
 
-                setSuccessMessage(
-                  `Ministry “${created.name}” has been created.`
-                );
+                toast.success(`Ministry "${created.name}" has been created.`);
                 setIsCreateOpen(false);
                 setFormError(null);
-                setTimeout(() => setSuccessMessage(null), 5000);
               } catch (submitError) {
                 if (submitError instanceof AxiosError) {
                   const data = submitError.response?.data;
@@ -514,7 +612,8 @@ export default function MinistriesPage() {
             }}
             onCancel={() => {
               if (!isSubmitting) {
-                setIsCreateOpen(false);
+                setIsEditOpen(false);
+                setEditMinistry(null);
                 setFormError(null);
               }
             }}
@@ -523,6 +622,146 @@ export default function MinistriesPage() {
             submitLabel="Create Ministry"
           />
         )}
+      </Modal>
+
+      <ConfirmationModal
+        isOpen={deleteConfirmation.isOpen}
+        onClose={closeDeleteConfirmation}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Ministry"
+        message={`Are you sure you want to delete the "${deleteConfirmation.ministry?.name}" ministry? This action cannot be undone and will permanently remove this ministry from the system.`}
+        confirmText="Delete Ministry"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleteConfirmation.loading}
+      />
+
+      <Modal
+        isOpen={isEditOpen}
+        onClose={() => {
+          if (!isSubmitting) {
+            setIsEditOpen(false);
+            setEditMinistry(null);
+            setFormError(null);
+          }
+        }}
+        title="Edit Ministry"
+      >
+        {peopleError && <ErrorMessage message={peopleError} />}
+        {peopleLoading ? (
+          <div className="py-12 flex justify-center">
+            <LoadingSpinner />
+          </div>
+        ) : editMinistry ? (
+          <MinistryForm
+            people={people}
+            cadenceOptions={cadenceOptionsForForm}
+            categoryOptions={categoryOptionsForForm}
+            initialData={editMinistry}
+            onSubmit={async (values: MinistryFormValues) => {
+              try {
+                setIsSubmitting(true);
+                setFormError(null);
+
+                const meetingSchedule: Record<string, string> = {};
+                if (values.meeting_schedule_day) {
+                  meetingSchedule.day = values.meeting_schedule_day;
+                }
+                if (values.meeting_schedule_time) {
+                  meetingSchedule.time = values.meeting_schedule_time;
+                }
+                if (values.meeting_schedule_window) {
+                  meetingSchedule.window = values.meeting_schedule_window;
+                }
+                if (values.meeting_schedule_notes) {
+                  meetingSchedule.notes = values.meeting_schedule_notes;
+                }
+
+                const supportIds = Array.from(
+                  new Set(
+                    values.support_coordinator_ids
+                      .filter(Boolean)
+                      .map((id) => Number(id))
+                      .filter((id) => !Number.isNaN(id))
+                  )
+                );
+
+                const payload = {
+                  name: values.name.trim(),
+                  description: values.description,
+                  category: values.category,
+                  activity_cadence: values.activity_cadence,
+                  primary_coordinator_id: values.primary_coordinator_id
+                    ? Number(values.primary_coordinator_id)
+                    : null,
+                  support_coordinator_ids: supportIds,
+                  meeting_location: values.meeting_location,
+                  meeting_schedule:
+                    Object.keys(meetingSchedule).length > 0
+                      ? meetingSchedule
+                      : null,
+                  communication_channel:
+                    values.communication_channel || undefined,
+                  is_active: values.is_active,
+                };
+
+                const updated = await updateMinistry(editMinistry.id, payload);
+                await fetchMinistries();
+
+                toast.success(`Ministry “${updated.name}” has been updated.`);
+                setIsEditOpen(false);
+                setEditMinistry(null);
+                setFormError(null);
+              } catch (submitError) {
+                if (submitError instanceof AxiosError) {
+                  const data = submitError.response?.data;
+                  if (data && typeof data === "object") {
+                    let message =
+                      (Array.isArray((data as any).non_field_errors) &&
+                        (data as any).non_field_errors[0]) ||
+                      (typeof (data as any).detail === "string" &&
+                        (data as any).detail);
+
+                    if (!message) {
+                      const firstFieldError = Object.values(
+                        data as Record<string, unknown>
+                      ).find(
+                        (value) =>
+                          Array.isArray(value) && typeof value[0] === "string"
+                      ) as string[] | undefined;
+                      message = firstFieldError ? firstFieldError[0] : null;
+                    }
+
+                    setFormError(
+                      message ??
+                        "Unable to update ministry. Please fix the highlighted fields."
+                    );
+                  } else {
+                    setFormError(
+                      "Unable to update ministry. Please fix the highlighted fields."
+                    );
+                  }
+                } else if (submitError instanceof Error) {
+                  setFormError(submitError.message);
+                } else {
+                  setFormError("Unable to update ministry. Please try again.");
+                }
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+            onCancel={() => {
+              if (!isSubmitting) {
+                setIsEditOpen(false);
+                setEditMinistry(null);
+                setFormError(null);
+              }
+            }}
+            isSubmitting={isSubmitting}
+            error={formError}
+            submitLabel="Update Ministry"
+          />
+        ) : null}
       </Modal>
     </>
   );

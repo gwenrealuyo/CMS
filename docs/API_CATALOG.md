@@ -119,9 +119,69 @@ description?, verified_by (Person ID | null), created_at (read-only)
 - Delete: `DELETE /api/people/module-coordinators/{id}/`
   - Access: ADMIN only
 
+### Ministry
+
+- List: `GET /api/ministries/`
+  - Query: `activity_cadence`, `category`, `is_active`, `search` (name, description, coordinator names), `ordering` (name, activity_cadence, created_at)
+  - Access: All authenticated non-visitor users (read-only for MEMBER role)
+  - Returns: Array of ministry objects with nested `memberships`, `primary_coordinator`, and `support_coordinators`
+- Retrieve: `GET /api/ministries/{id}/`
+  - Access: All authenticated non-visitor users (read-only for MEMBER role)
+- Create: `POST /api/ministries/`
+  - Required: `name`, `activity_cadence`
+  - Optional: `description`, `category`, `primary_coordinator_id`, `support_coordinator_ids[]`, `meeting_location`, `meeting_schedule` (JSON object), `communication_channel` (URL), `is_active`
+  - Access: ADMIN, PASTOR, or Ministry Coordinator with write access
+  - Note: Coordinators are automatically synced to `MinistryMember` entries with appropriate roles
+- Update: `PUT /api/ministries/{id}/`
+  - Access: ADMIN, PASTOR, or Ministry Coordinator with write access
+- Partial Update: `PATCH /api/ministries/{id}/`
+  - Access: ADMIN, PASTOR, or Ministry Coordinator with write access
+- Delete: `DELETE /api/ministries/{id}/`
+  - Access: ADMIN, PASTOR, or Ministry Coordinator with write access
+  - Note: Cascade deletes all related `MinistryMember` entries
+
+Ministry fields (serializer)
+
+```
+id, name, description?, category? (worship|outreach|care|logistics|other),
+activity_cadence (weekly|monthly|seasonal|event_driven|holiday|ad_hoc),
+primary_coordinator (read-only, UserSummary), primary_coordinator_id (write-only),
+support_coordinators (read-only, UserSummary[]), support_coordinator_ids (write-only, Person ids[]),
+meeting_location?, meeting_schedule? (JSON object), communication_channel? (URL),
+is_active, created_at (read-only), updated_at (read-only), memberships (read-only, MinistryMember[])
+```
+
+### Ministry Member
+
+- List: `GET /api/ministry-members/`
+  - Query: `ministry` (Ministry ID), `role` (primary_coordinator|coordinator|team_member|guest_helper), `is_active`, `search` (ministry name, member names), `ordering` (join_date, role)
+  - Access: All authenticated non-visitor users (read-only for MEMBER role)
+- Retrieve: `GET /api/ministry-members/{id}/`
+  - Access: All authenticated non-visitor users (read-only for MEMBER role)
+- Create: `POST /api/ministry-members/`
+  - Required: `ministry` (Ministry ID), `member_id` (Person ID)
+  - Optional: `role` (defaults to team_member), `skills`, `notes`, `is_active` (defaults to true), `availability` (JSON object)
+  - Auto: `join_date` set to today if not provided
+  - Access: ADMIN, PASTOR, or Ministry Coordinator with write access
+- Update: `PUT /api/ministry-members/{id}/`
+  - Access: ADMIN, PASTOR, or Ministry Coordinator with write access
+- Partial Update: `PATCH /api/ministry-members/{id}/`
+  - Access: ADMIN, PASTOR, or Ministry Coordinator with write access
+- Delete: `DELETE /api/ministry-members/{id}/`
+  - Access: ADMIN, PASTOR, or Ministry Coordinator with write access
+
+Ministry Member fields (serializer)
+
+```
+id, ministry (Ministry ID), member (read-only, UserSummary), member_id (write-only, Person ID),
+role (primary_coordinator|coordinator|team_member|guest_helper), join_date (read-only, auto-set),
+is_active, availability? (JSON object), skills?, notes?
+```
+
 ### Notes
 
 - Media uploads for `photo` use `MEDIA_URL = /media/` and `MEDIA_ROOT` from settings.
 - Pagination is default DRF (not explicitly configured).
 - Person serializer includes `journeys` field (read-only) with full journey data.
 - Access control: See `docs/ACCESS_CONTROL.md` for complete access matrix and permission rules.
+- Ministry coordinator sync: When `primary_coordinator` or `support_coordinators` are set on a Ministry, corresponding `MinistryMember` entries are automatically created/updated with roles `PRIMARY_COORDINATOR` or `COORDINATOR`. When coordinators are removed, their `MinistryMember` role is updated to `TEAM_MEMBER` if they still have a membership. See `docs/MINISTRIES_MODULE.md` for details.

@@ -133,6 +133,3 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
                 IsAuthenticatedAndNotVisitor(),
                 HasModuleAccess(ModuleCoordinator.ModuleType.MINISTRIES, "write"),
             ]
-
-    def perform_create(self, serializer):
-        serializer.save()

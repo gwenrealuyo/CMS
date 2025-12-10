@@ -61,17 +61,24 @@ export const useMinistries = () => {
     return response.data;
   };
 
-  const updateMinistry = async (id: number | string, payload: Partial<Ministry>) => {
+  const updateMinistry = async (
+    id: number | string,
+    payload: Partial<Ministry>
+  ) => {
     const response = await ministriesApi.patch(id, payload);
     setMinistries((prev) =>
-      prev.map((ministry) => (ministry.id === response.data.id ? response.data : ministry))
+      prev.map((ministry) =>
+        ministry.id === response.data.id ? response.data : ministry
+      )
     );
     return response.data;
   };
 
   const deleteMinistry = async (id: number | string) => {
     await ministriesApi.delete(id);
-    setMinistries((prev) => prev.filter((ministry) => ministry.id !== Number(id)));
+    setMinistries((prev) =>
+      prev.filter((ministry) => ministry.id !== Number(id))
+    );
   };
 
   const addMember = async (payload: Partial<MinistryMember>) => {
@@ -89,7 +96,10 @@ export const useMinistries = () => {
     return response.data;
   };
 
-  const updateMember = async (id: number | string, payload: Partial<MinistryMember>) => {
+  const updateMember = async (
+    id: number | string,
+    payload: Partial<MinistryMember>
+  ) => {
     const response = await ministryMembersApi.update(id, payload);
     setMinistries((prev) =>
       prev.map((ministry) =>
@@ -108,7 +118,9 @@ export const useMinistries = () => {
 
   const removeMember = async (id: number | string) => {
     const existing = ministries
-      .flatMap((ministry) => ministry.memberships.map((member) => ({ ministry, member })))
+      .flatMap((ministry) =>
+        ministry.memberships.map((member) => ({ ministry, member }))
+      )
       .find(({ member }) => member.id === Number(id));
 
     await ministryMembersApi.delete(id);
@@ -133,7 +145,10 @@ export const useMinistries = () => {
     fetchMinistries();
   }, [fetchMinistries]);
 
-  const setFilter = <K extends keyof MinistryFilters>(key: K, value: MinistryFilters[K]) => {
+  const setFilter = <K extends keyof MinistryFilters>(
+    key: K,
+    value: MinistryFilters[K]
+  ) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
@@ -165,13 +180,6 @@ export const useMinistries = () => {
     []
   );
 
-  const roleLabels: Record<MinistryRole, string> = {
-    primary_coordinator: "Primary Coordinator",
-    coordinator: "Coordinator",
-    team_member: "Team Member",
-    guest_helper: "Guest Helper",
-  };
-
   return {
     ministries,
     loading,
@@ -187,7 +195,5 @@ export const useMinistries = () => {
     addMember,
     updateMember,
     removeMember,
-    roleLabels,
   };
 };
-

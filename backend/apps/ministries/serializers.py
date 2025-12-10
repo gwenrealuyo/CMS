@@ -1,11 +1,13 @@
 import json
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from .models import Ministry, MinistryMember
+from .models import Ministry, MinistryMember, MinistryRole
+from .utils import sync_coordinators_to_members
 
 User = get_user_model()
 
@@ -132,3 +134,37 @@ class MinistrySerializer(serializers.ModelSerializer):
             attrs["support_coordinators"] = unique
 
         return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        # Extract ManyToMany field before saving
+        support_coordinators = validated_data.pop("support_coordinators", [])
+
+        # Create the ministry instance
+        ministry = super().create(validated_data)
+
+        # Set support_coordinators (ManyToMany must be set after save)
+        if support_coordinators:
+            ministry.support_coordinators.set(support_coordinators)
+
+        # Sync coordinators to MinistryMember entries
+        sync_coordinators_to_members(ministry)
+
+        return ministry
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        # Extract ManyToMany field before saving
+        support_coordinators = validated_data.pop("support_coordinators", None)
+
+        # Update the ministry instance
+        ministry = super().update(instance, validated_data)
+
+        # Update support_coordinators if provided
+        if support_coordinators is not None:
+            ministry.support_coordinators.set(support_coordinators)
+
+        # Sync coordinators to MinistryMember entries
+        sync_coordinators_to_members(ministry)
+
+        return ministry

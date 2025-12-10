@@ -8,8 +8,16 @@ import {
   MinistryCadence,
   MinistryCategory,
   Ministry,
+  MinistryRole,
+  MinistryMember,
 } from "@/src/types/ministry";
 import { Person } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
+
+export interface PendingMember {
+  member_id: string;
+  role: MinistryRole;
+}
 
 export interface MinistryFormValues {
   name: string;
@@ -25,6 +33,8 @@ export interface MinistryFormValues {
   meeting_schedule_notes: string;
   communication_channel: string;
   is_active: boolean;
+  members: PendingMember[];
+  removed_member_ids: number[];
 }
 
 interface Option {
@@ -58,7 +68,14 @@ const DEFAULT_VALUES: MinistryFormValues = {
   meeting_schedule_notes: "",
   communication_channel: "",
   is_active: true,
+  members: [],
+  removed_member_ids: [],
 };
+
+const ROLE_OPTIONS: Array<{ label: string; value: MinistryRole }> = [
+  { label: "Team Member", value: "team_member" },
+  { label: "Guest Helper", value: "guest_helper" },
+];
 
 const DAYS_OF_WEEK = [
   { label: "Not set", value: "" },
@@ -70,11 +87,6 @@ const DAYS_OF_WEEK = [
   { label: "Friday", value: "Friday" },
   { label: "Saturday", value: "Saturday" },
 ];
-
-const formatPersonLabel = (person: Person) => {
-  const name = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
-  return name || person.email || person.username;
-};
 
 export default function MinistryForm({
   people,
@@ -108,6 +120,14 @@ export default function MinistryForm({
       (coordinator) => String(coordinator.id)
     );
 
+    // Extract existing members
+    const existingMembers: PendingMember[] = (
+      initialData.memberships || []
+    ).map((membership: MinistryMember) => ({
+      member_id: String(membership.member.id),
+      role: membership.role,
+    }));
+
     return {
       name: initialData.name ?? "",
       description: initialData.description ?? "",
@@ -124,11 +144,17 @@ export default function MinistryForm({
       meeting_schedule_notes: scheduleNotes,
       communication_channel: initialData.communication_channel ?? "",
       is_active: initialData.is_active ?? true,
+      members: existingMembers,
+      removed_member_ids: [],
     };
   };
 
   const [values, setValues] = useState<MinistryFormValues>(getInitialValues());
   const [supportSelectorValue, setSupportSelectorValue] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [selectedMemberRole, setSelectedMemberRole] =
+    useState<MinistryRole>("team_member");
 
   // Reset form when initialData changes
   useEffect(() => {
@@ -144,6 +170,14 @@ export default function MinistryForm({
       const supportCoordinatorIds = initialData.support_coordinators.map(
         (coordinator) => String(coordinator.id)
       );
+
+      // Extract existing members
+      const existingMembers: PendingMember[] = (
+        initialData.memberships || []
+      ).map((membership: MinistryMember) => ({
+        member_id: String(membership.member.id),
+        role: membership.role,
+      }));
 
       setValues({
         name: initialData.name ?? "",
@@ -161,9 +195,13 @@ export default function MinistryForm({
         meeting_schedule_notes: scheduleNotes,
         communication_channel: initialData.communication_channel ?? "",
         is_active: initialData.is_active ?? true,
+        members: existingMembers,
+        removed_member_ids: [],
       });
     } else {
       setValues(DEFAULT_VALUES);
+      setMemberSearch("");
+      setSelectedMemberRole("team_member");
     }
   }, [initialData]);
 
@@ -174,7 +212,7 @@ export default function MinistryForm({
           (person) => person.role !== "ADMIN" && person.username !== "admin"
         )
         .map((person) => ({
-          label: formatPersonLabel(person),
+          label: formatPersonName(person),
           value: String(person.id),
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
@@ -195,6 +233,125 @@ export default function MinistryForm({
       values.support_coordinator_ids,
     ]
   );
+
+  // Filter available people for member selection (exclude admins and already added members)
+  const availablePeopleForMembers = useMemo(
+    () =>
+      people
+        .filter(
+          (person) =>
+            person.role !== "ADMIN" &&
+            person.username !== "admin" &&
+            !values.members.some((m) => m.member_id === String(person.id)) &&
+            values.primary_coordinator_id !== String(person.id) &&
+            !values.support_coordinator_ids.includes(String(person.id))
+        )
+        .sort((a, b) => {
+          const nameA = formatPersonName(a).toLowerCase();
+          const nameB = formatPersonName(b).toLowerCase();
+          return nameA.localeCompare(nameB);
+        }),
+    [
+      people,
+      values.members,
+      values.primary_coordinator_id,
+      values.support_coordinator_ids,
+    ]
+  );
+
+  const filteredMembers = useMemo(() => {
+    if (!memberSearch.trim()) return availablePeopleForMembers;
+    const searchLower = memberSearch.toLowerCase();
+    return availablePeopleForMembers.filter(
+      (person) =>
+        formatPersonName(person).toLowerCase().includes(searchLower) ||
+        person.email?.toLowerCase().includes(searchLower) ||
+        person.role?.toLowerCase().includes(searchLower)
+    );
+  }, [availablePeopleForMembers, memberSearch]);
+
+  const getInitials = (person: Person) => {
+    return `${person.first_name?.[0] || ""}${
+      person.last_name?.[0] || ""
+    }`.toUpperCase();
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case "PASTOR":
+        return "bg-purple-100 text-purple-800";
+      case "COORDINATOR":
+        return "bg-blue-100 text-blue-800";
+      case "MEMBER":
+        return "bg-green-100 text-green-800";
+      case "VISITOR":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const addMember = (person: Person) => {
+    const memberId = String(person.id);
+    if (!values.members.some((m) => m.member_id === memberId)) {
+      setValues({
+        ...values,
+        members: [
+          ...values.members,
+          { member_id: memberId, role: selectedMemberRole },
+        ],
+      });
+    }
+    setMemberSearch("");
+    setShowMemberDropdown(false);
+    setSelectedMemberRole("team_member");
+  };
+
+  const removeMember = (memberId: string) => {
+    const member = values.members.find((m) => m.member_id === memberId);
+    setValues({
+      ...values,
+      members: values.members.filter((m) => m.member_id !== memberId),
+      removed_member_ids: initialData
+        ? values.removed_member_ids.concat(
+            initialData.memberships
+              ?.filter((m: MinistryMember) => String(m.member.id) === memberId)
+              .map((m: MinistryMember) => m.id) || []
+          )
+        : values.removed_member_ids,
+    });
+  };
+
+  const updateMemberRole = (memberId: string, role: MinistryRole) => {
+    setValues({
+      ...values,
+      members: values.members.map((m) =>
+        m.member_id === memberId ? { ...m, role } : m
+      ),
+    });
+  };
+
+  const getSelectedMembersData = () => {
+    return values.members
+      .map((pendingMember) => {
+        const person = people.find(
+          (p) => String(p.id) === pendingMember.member_id
+        );
+        return person
+          ? {
+              person,
+              role: pendingMember.role,
+              member_id: pendingMember.member_id,
+            }
+          : null;
+      })
+      .filter(
+        (
+          item
+        ): item is { person: Person; role: MinistryRole; member_id: string } =>
+          item !== null
+      );
+  };
 
   useEffect(() => {
     setValues((prev) => {
@@ -257,6 +414,8 @@ export default function MinistryForm({
     if (!initialData) {
       setValues(DEFAULT_VALUES);
       setSupportSelectorValue("");
+      setMemberSearch("");
+      setSelectedMemberRole("team_member");
     }
   };
 
@@ -514,6 +673,158 @@ export default function MinistryForm({
             Ministry is active
           </label>
         </div>
+
+        {/* Members Section */}
+        <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            Members ({values.members.length})
+          </h3>
+
+          {/* Add Member Search */}
+          <div className="relative mb-4">
+            <div className="flex gap-2 mb-2">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={memberSearch}
+                  onChange={(e) => {
+                    setMemberSearch(e.target.value);
+                    setShowMemberDropdown(true);
+                  }}
+                  onFocus={() => setShowMemberDropdown(true)}
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Search members by name, email, or role..."
+                />
+              </div>
+              <select
+                value={selectedMemberRole}
+                onChange={(e) =>
+                  setSelectedMemberRole(e.target.value as MinistryRole)
+                }
+                className="rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {ROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Dropdown with filtered members */}
+            {showMemberDropdown && memberSearch && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {filteredMembers.length === 0 ? (
+                  <div className="px-3 py-2 text-gray-500 text-sm">
+                    No members found matching &ldquo;{memberSearch}&rdquo;
+                  </div>
+                ) : (
+                  filteredMembers.map((person) => (
+                    <button
+                      key={person.id}
+                      type="button"
+                      onClick={() => addMember(person)}
+                      className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 text-gray-900"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                        {getInitials(person)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">
+                          {formatPersonName(person)}
+                        </p>
+                        <div className="flex items-center space-x-1 mt-0.5">
+                          <span
+                            className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                              person.role
+                            )}`}
+                          >
+                            {person.role.toLowerCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Selected Members Display */}
+          {values.members.length > 0 ? (
+            <div className="space-y-2">
+              {getSelectedMembersData().map(({ person, role, member_id }) => (
+                <div
+                  key={member_id}
+                  className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                      {getInitials(person)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {formatPersonName(person)}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <select
+                          value={role}
+                          onChange={(e) =>
+                            updateMemberRole(
+                              member_id,
+                              e.target.value as MinistryRole
+                            )
+                          }
+                          className="text-xs rounded border border-gray-300 px-2 py-0.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {ROLE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeMember(member_id)}
+                    className="text-gray-400 hover:text-red-500 ml-2 flex-shrink-0"
+                    aria-label={`Remove ${formatPersonName(person)}`}
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500 italic">
+              No members added yet. Use the search above to add members to this
+              ministry.
+            </p>
+          )}
+
+          {/* Click outside to close dropdown */}
+          {showMemberDropdown && (
+            <div
+              className="fixed inset-0 z-0"
+              onClick={() => setShowMemberDropdown(false)}
+            />
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row gap-3">
@@ -524,6 +835,8 @@ export default function MinistryForm({
             if (!isSubmitting) {
               setValues(DEFAULT_VALUES);
               setSupportSelectorValue("");
+              setMemberSearch("");
+              setSelectedMemberRole("team_member");
               onCancel();
             }
           }}

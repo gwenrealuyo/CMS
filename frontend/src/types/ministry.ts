@@ -24,7 +24,9 @@ export interface UserSummary {
   id: number;
   username: string;
   first_name: string;
+  middle_name?: string;
   last_name: string;
+  suffix?: string;
   email: string;
 }
 
@@ -32,6 +34,7 @@ export interface MinistryMember {
   id: number;
   ministry: number;
   member: UserSummary;
+  member_id?: number; // For write operations (create/update)
   role: MinistryRole;
   join_date: string;
   is_active: boolean;
@@ -69,4 +72,3 @@ export interface MinistryCreateInput {
   communication_channel?: string;
   is_active?: boolean;
 }
-

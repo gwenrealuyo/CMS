@@ -14,9 +14,10 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import MinistryForm, {
   MinistryFormValues,
 } from "@/src/components/ministries/MinistryForm";
+import MinistryView from "@/src/components/ministries/MinistryView";
 import { useMinistries } from "@/src/hooks/useMinistries";
 import { usePeople } from "@/src/hooks/usePeople";
-import { Ministry } from "@/src/types/ministry";
+import { Ministry, MinistryMember } from "@/src/types/ministry";
 
 export default function MinistriesPage() {
   const {
@@ -31,12 +32,17 @@ export default function MinistriesPage() {
     createMinistry,
     updateMinistry,
     deleteMinistry,
+    addMember,
+    updateMember,
+    removeMember,
   } = useMinistries();
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
   const [searchQuery, setSearchQuery] = useState(filters.search ?? "");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [viewMinistry, setViewMinistry] = useState<Ministry | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [editMinistry, setEditMinistry] = useState<Ministry | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -137,6 +143,11 @@ export default function MinistriesPage() {
     care: "Care",
     logistics: "Logistics",
     other: "Other",
+  };
+
+  const handleView = (ministry: Ministry) => {
+    setViewMinistry(ministry);
+    setIsViewOpen(true);
   };
 
   const handleEdit = (ministry: Ministry) => {
@@ -475,8 +486,33 @@ export default function MinistriesPage() {
                     render: (_value, row: any) => (
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => handleView(row as Ministry)}
+                          className="flex items-center justify-center p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                          title="View Ministry"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
+                          </svg>
+                        </button>
+                        <button
                           onClick={() => handleEdit(row as Ministry)}
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                          className="flex items-center justify-center p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                           title="Edit Ministry"
                         >
                           <svg
@@ -492,11 +528,10 @@ export default function MinistriesPage() {
                               d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                             />
                           </svg>
-                          <span>Edit</span>
                         </button>
                         <button
                           onClick={() => handleDelete(row as Ministry)}
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          className="flex items-center justify-center p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
                           title="Delete Ministry"
                         >
                           <svg
@@ -512,7 +547,6 @@ export default function MinistriesPage() {
                               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                             />
                           </svg>
-                          <span>Delete</span>
                         </button>
                       </div>
                     ),
@@ -523,6 +557,41 @@ export default function MinistriesPage() {
           </Card>
         </div>
       </DashboardLayout>
+
+      <Modal
+        isOpen={isViewOpen}
+        onClose={() => {
+          setIsViewOpen(false);
+          setViewMinistry(null);
+        }}
+        title=""
+        hideHeader={true}
+      >
+        {viewMinistry && (
+          <MinistryView
+            ministry={viewMinistry}
+            onEdit={() => {
+              setIsViewOpen(false);
+              setEditMinistry(viewMinistry);
+              setIsEditOpen(true);
+              setViewMinistry(null);
+            }}
+            onDelete={() => {
+              setIsViewOpen(false);
+              handleDelete(viewMinistry);
+              setViewMinistry(null);
+            }}
+            onCancel={() => {
+              setIsViewOpen(false);
+              setViewMinistry(null);
+            }}
+            onClose={() => {
+              setIsViewOpen(false);
+              setViewMinistry(null);
+            }}
+          />
+        )}
+      </Modal>
 
       <Modal
         isOpen={isCreateOpen}
@@ -592,6 +661,27 @@ export default function MinistriesPage() {
                 };
 
                 const created = await createMinistry(payload);
+
+                // Add members to the newly created ministry
+                if (values.members && values.members.length > 0) {
+                  try {
+                    await Promise.all(
+                      values.members.map((member) =>
+                        addMember({
+                          ministry: created.id,
+                          member_id: Number(member.member_id),
+                          role: member.role,
+                        } as Partial<MinistryMember>)
+                      )
+                    );
+                  } catch (memberError) {
+                    console.error("Error adding members:", memberError);
+                    toast.error(
+                      "Ministry created but some members could not be added."
+                    );
+                  }
+                }
+
                 await fetchMinistries();
 
                 toast.success(`Ministry "${created.name}" has been created.`);
@@ -730,6 +820,50 @@ export default function MinistriesPage() {
                 };
 
                 const updated = await updateMinistry(editMinistry.id, payload);
+
+                // Sync memberships: add new, remove deleted, update roles
+                try {
+                  const existingMemberships = editMinistry.memberships || [];
+
+                  // Remove deleted members
+                  if (
+                    values.removed_member_ids &&
+                    values.removed_member_ids.length > 0
+                  ) {
+                    await Promise.all(
+                      values.removed_member_ids.map((id) => removeMember(id))
+                    );
+                  }
+
+                  // Add new members or update existing ones
+                  await Promise.all(
+                    values.members.map(async (member) => {
+                      const existingMembership = existingMemberships.find(
+                        (m: any) => String(m.member.id) === member.member_id
+                      );
+
+                      if (!existingMembership) {
+                        // New member - add it
+                        await addMember({
+                          ministry: updated.id,
+                          member_id: Number(member.member_id),
+                          role: member.role,
+                        } as Partial<MinistryMember>);
+                      } else if (existingMembership.role !== member.role) {
+                        // Existing member with role change - update it
+                        await updateMember(existingMembership.id, {
+                          role: member.role,
+                        });
+                      }
+                    })
+                  );
+                } catch (memberError) {
+                  console.error("Error syncing members:", memberError);
+                  toast.error(
+                    "Ministry updated but some member changes could not be applied."
+                  );
+                }
+
                 await fetchMinistries();
 
                 toast.success(`Ministry “${updated.name}” has been updated.`);

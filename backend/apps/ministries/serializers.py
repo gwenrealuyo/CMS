@@ -12,7 +12,15 @@ User = get_user_model()
 class UserSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("id", "username", "first_name", "last_name", "email")
+        fields = (
+            "id",
+            "username",
+            "first_name",
+            "middle_name",
+            "last_name",
+            "suffix",
+            "email",
+        )
 
 
 class MinistryMemberSerializer(serializers.ModelSerializer):

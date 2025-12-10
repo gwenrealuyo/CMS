@@ -32,9 +32,9 @@ class PersonViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
 
-        # ADMIN users: Only see other ADMIN users (for management purposes)
+        # ADMIN users: Can see all people (including other ADMINs)
         if user.role == "ADMIN":
-            return queryset.filter(role="ADMIN")
+            return queryset
 
         # Non-ADMIN users: Exclude ADMIN users (they're invisible to non-admins)
         queryset = queryset.exclude(role="ADMIN")

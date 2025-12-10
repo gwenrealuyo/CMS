@@ -35,9 +35,14 @@ export default function AssignLessonsDropdown({
   );
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Filter people by has_finished_lessons === false
+  // Filter people by has_finished_lessons === false and exclude ADMIN users
   const eligiblePeople = useMemo(() => {
-    return people.filter((person) => !person.has_finished_lessons);
+    return people.filter(
+      (person) =>
+        !person.has_finished_lessons &&
+        person.role !== "ADMIN" &&
+        person.username !== "admin"
+    );
   }, [people]);
 
   // Filter people by search query (name including nickname, member_id, NOT username)
@@ -276,8 +281,8 @@ export default function AssignLessonsDropdown({
               Cancel
             </Button>
             {selectedPersonId && selectedLessonIds.size > 0 && (
-              <Button 
-                onClick={handleSubmit} 
+              <Button
+                onClick={handleSubmit}
                 disabled={assigning}
                 className="w-full sm:w-auto min-h-[44px]"
               >

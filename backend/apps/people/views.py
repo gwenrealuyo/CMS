@@ -27,38 +27,41 @@ class PersonViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ["username", "email", "first_name", "last_name"]
     filterset_fields = ["role"]
-    
+
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
-        
-        # Exclude ADMIN users from all queries (they're invisible)
-        # Exception: ADMIN users can see other ADMIN users for management purposes
-        if user.role != "ADMIN":
-            queryset = queryset.exclude(role="ADMIN")
-        
-        # ADMIN/PASTOR: All people (excluding other ADMINS if not ADMIN themselves)
-        if user.role in ["ADMIN", "PASTOR"]:
+
+        # ADMIN users: Only see other ADMIN users (for management purposes)
+        if user.role == "ADMIN":
+            return queryset.filter(role="ADMIN")
+
+        # Non-ADMIN users: Exclude ADMIN users (they're invisible to non-admins)
+        queryset = queryset.exclude(role="ADMIN")
+
+        # PASTOR: All people (excluding ADMIN users)
+        if user.role == "PASTOR":
             return queryset
-        
+
         # Senior Coordinator: All people (any module senior coordinator has full people access)
         if user.is_senior_coordinator():
             return queryset
-        
+
         # Collect people from all module assignments
         people_querysets = []
-        
+
         # 1. Cluster Coordinator: People in assigned cluster(s)
         coordinator_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         )
         if coordinator_assignments.exists():
             from apps.clusters.models import Cluster
+
             # Get clusters from ModuleCoordinator assignments
             cluster_ids = [
-                assignment.resource_id 
-                for assignment in coordinator_assignments 
+                assignment.resource_id
+                for assignment in coordinator_assignments
                 if assignment.resource_id
             ]
             # Also get clusters where user is the coordinator
@@ -68,101 +71,130 @@ class PersonViewSet(viewsets.ModelViewSet):
                 all_clusters = (coordinator_clusters | assigned_clusters).distinct()
             else:
                 all_clusters = coordinator_clusters
-            
+
             # Get all members of these clusters (excluding ADMINs)
-            cluster_member_ids = all_clusters.values_list('members__id', flat=True).distinct()
+            cluster_member_ids = all_clusters.values_list(
+                "members__id", flat=True
+            ).distinct()
             # Also get people from families in these clusters
-            family_member_ids = all_clusters.values_list('families__members__id', flat=True).distinct()
+            family_member_ids = all_clusters.values_list(
+                "families__members__id", flat=True
+            ).distinct()
             # Combine and add to querysets
-            all_member_ids = list(set(list(cluster_member_ids) + list(family_member_ids)))
+            all_member_ids = list(
+                set(list(cluster_member_ids) + list(family_member_ids))
+            )
             if all_member_ids:
                 people_querysets.append(queryset.filter(id__in=all_member_ids))
-        
+
         # 2. Sunday School Teacher: Students in classes where they are teacher/assistant
         sunday_school_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
-            level=ModuleCoordinator.CoordinatorLevel.TEACHER
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER,
         )
         if sunday_school_assignments.exists():
             from apps.sunday_school.models import SundaySchoolClassMember
+
             # Get class IDs from assignments
             class_ids = [
-                assignment.resource_id 
-                for assignment in sunday_school_assignments 
+                assignment.resource_id
+                for assignment in sunday_school_assignments
                 if assignment.resource_id
             ]
             if class_ids:
                 # Get students from these classes
-                student_ids = SundaySchoolClassMember.objects.filter(
-                    sunday_school_class_id__in=class_ids,
-                    role__in=['STUDENT']
-                ).values_list('person_id', flat=True).distinct()
+                student_ids = (
+                    SundaySchoolClassMember.objects.filter(
+                        sunday_school_class_id__in=class_ids, role__in=["STUDENT"]
+                    )
+                    .values_list("person_id", flat=True)
+                    .distinct()
+                )
                 if student_ids:
                     people_querysets.append(queryset.filter(id__in=student_ids))
             else:
                 # Module-wide: Get all students from classes where user is teacher/assistant
-                teacher_class_ids = SundaySchoolClassMember.objects.filter(
-                    person=user,
-                    role__in=['TEACHER', 'ASSISTANT_TEACHER']
-                ).values_list('sunday_school_class_id', flat=True).distinct()
+                teacher_class_ids = (
+                    SundaySchoolClassMember.objects.filter(
+                        person=user, role__in=["TEACHER", "ASSISTANT_TEACHER"]
+                    )
+                    .values_list("sunday_school_class_id", flat=True)
+                    .distinct()
+                )
                 if teacher_class_ids:
-                    student_ids = SundaySchoolClassMember.objects.filter(
-                        sunday_school_class_id__in=teacher_class_ids,
-                        role='STUDENT'
-                    ).values_list('person_id', flat=True).distinct()
+                    student_ids = (
+                        SundaySchoolClassMember.objects.filter(
+                            sunday_school_class_id__in=teacher_class_ids, role="STUDENT"
+                        )
+                        .values_list("person_id", flat=True)
+                        .distinct()
+                    )
                     if student_ids:
                         people_querysets.append(queryset.filter(id__in=student_ids))
-        
+
         # 3. Lessons Teacher: Students in their lesson sessions
         lessons_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.LESSONS,
-            level=ModuleCoordinator.CoordinatorLevel.TEACHER
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER,
         )
         if lessons_assignments.exists():
             from apps.lessons.models import LessonSessionReport
+
             # Get students where user is the teacher
-            student_ids = LessonSessionReport.objects.filter(
-                teacher=user
-            ).values_list('student_id', flat=True).distinct()
+            student_ids = (
+                LessonSessionReport.objects.filter(teacher=user)
+                .values_list("student_id", flat=True)
+                .distinct()
+            )
             if student_ids:
                 people_querysets.append(queryset.filter(id__in=student_ids))
-        
+
         # 4. Bible Sharer: Members of assigned evangelism groups
         bible_sharer_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.EVANGELISM,
-            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
         )
         if bible_sharer_assignments.exists():
             from apps.evangelism.models import EvangelismGroupMember
+
             # Get group IDs from assignments
             group_ids = [
-                assignment.resource_id 
-                for assignment in bible_sharer_assignments 
+                assignment.resource_id
+                for assignment in bible_sharer_assignments
                 if assignment.resource_id
             ]
             if group_ids:
                 # Get members from these groups
-                member_ids = EvangelismGroupMember.objects.filter(
-                    evangelism_group_id__in=group_ids,
-                    is_active=True
-                ).values_list('person_id', flat=True).distinct()
+                member_ids = (
+                    EvangelismGroupMember.objects.filter(
+                        evangelism_group_id__in=group_ids, is_active=True
+                    )
+                    .values_list("person_id", flat=True)
+                    .distinct()
+                )
                 if member_ids:
                     people_querysets.append(queryset.filter(id__in=member_ids))
-        
+
         # Combine all querysets using union
         if people_querysets:
             combined_queryset = people_querysets[0]
             for qs in people_querysets[1:]:
                 combined_queryset = combined_queryset | qs
             return combined_queryset.distinct()
-        
+
         # MEMBER: Only themselves and family members
         if user.role == "MEMBER":
             # Get all family members (excluding ADMINs)
-            family_members = Person.objects.filter(families__members=user).exclude(role="ADMIN").distinct()
-            # Include themselves
-            return queryset.filter(id=user.id) | family_members
-        
+            family_member_ids = (
+                Person.objects.filter(families__members=user)
+                .exclude(role="ADMIN")
+                .values_list("id", flat=True)
+                .distinct()
+            )
+            # Include themselves and family members
+            all_ids = list(family_member_ids) + [user.id]
+            return queryset.filter(id__in=all_ids)
+
         # Default: empty queryset for safety
         return queryset.none()
 
@@ -186,30 +218,31 @@ class FamilyViewSet(viewsets.ModelViewSet):
     queryset = Family.objects.all()
     serializer_class = FamilySerializer
     permission_classes = [IsAuthenticatedAndNotVisitor]
-    
+
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
-        
+
         # ADMIN/PASTOR: All families
         if user.role in ["ADMIN", "PASTOR"]:
             return queryset
-        
+
         # Senior Coordinator: All families
         if user.is_senior_coordinator():
             return queryset
-        
+
         # Cluster Coordinator: Families in their assigned cluster(s) + families of cluster members
         coordinator_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         )
         if coordinator_assignments.exists():
             from apps.clusters.models import Cluster
+
             # Get clusters from ModuleCoordinator assignments
             cluster_ids = [
-                assignment.resource_id 
-                for assignment in coordinator_assignments 
+                assignment.resource_id
+                for assignment in coordinator_assignments
                 if assignment.resource_id
             ]
             # Also get clusters where user is the coordinator
@@ -219,22 +252,28 @@ class FamilyViewSet(viewsets.ModelViewSet):
                 all_clusters = (coordinator_clusters | assigned_clusters).distinct()
             else:
                 all_clusters = coordinator_clusters
-            
+
             # Get families directly connected to these clusters
-            directly_connected_families = queryset.filter(cluster__in=all_clusters).distinct()
-            
+            directly_connected_families = queryset.filter(
+                cluster__in=all_clusters
+            ).distinct()
+
             # Get all people in these clusters
-            cluster_member_ids = all_clusters.values_list('members__id', flat=True).distinct()
+            cluster_member_ids = all_clusters.values_list(
+                "members__id", flat=True
+            ).distinct()
             # Get families where these people are members
-            families_of_members = queryset.filter(members__id__in=cluster_member_ids).distinct()
-            
+            families_of_members = queryset.filter(
+                members__id__in=cluster_member_ids
+            ).distinct()
+
             # Return union of both
             return (directly_connected_families | families_of_members).distinct()
-        
+
         # MEMBER: Only families they're members of
         if user.role == "MEMBER":
             return queryset.filter(members=user).distinct()
-        
+
         # Default: empty queryset for safety
         return queryset.none()
 
@@ -272,11 +311,11 @@ class JourneyViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         queryset = super().get_queryset()
-        
+
         # 1. ADMIN and PASTOR roles - full access
-        if user.role in ['ADMIN', 'PASTOR']:
+        if user.role in ["ADMIN", "PASTOR"]:
             return queryset
-        
+
         # 2. Senior Coordinators in allowed modules - full access
         allowed_modules = [
             ModuleCoordinator.ModuleType.CLUSTER,
@@ -287,20 +326,25 @@ class JourneyViewSet(viewsets.ModelViewSet):
         for module in allowed_modules:
             if user.is_senior_coordinator(module):
                 return queryset
-        
+
         # 3. Cluster Coordinator - can see journeys for members of their cluster(s) + their own
         if user.is_module_coordinator(
             ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         ):
             # Get clusters where user is coordinator
             from apps.clusters.models import Cluster
+
             user_clusters = Cluster.objects.filter(coordinator=user)
             # Get all members of these clusters
-            cluster_member_ids = user_clusters.values_list('members__id', flat=True).distinct()
+            cluster_member_ids = user_clusters.values_list(
+                "members__id", flat=True
+            ).distinct()
             # Return journeys for these members + own journeys
-            return queryset.filter(user__id__in=list(cluster_member_ids) + [user.id]).distinct()
-        
+            return queryset.filter(
+                user__id__in=list(cluster_member_ids) + [user.id]
+            ).distinct()
+
         # 4. Otherwise - only own journeys
         return queryset.filter(user=user)
 
@@ -310,6 +354,7 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
     ViewSet for managing module coordinator assignments.
     Only accessible by ADMIN users.
     """
+
     queryset = ModuleCoordinator.objects.select_related("person").all()
     serializer_class = ModuleCoordinatorSerializer
     permission_classes = [IsAuthenticatedAndNotVisitor, IsAdmin]
@@ -322,8 +367,8 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
         "person__email",
     ]
     ordering = ["-created_at"]
-    
-    @action(detail=False, methods=['post'], url_path='bulk-create')
+
+    @action(detail=False, methods=["post"], url_path="bulk-create")
     def bulk_create(self, request):
         """
         Create multiple module coordinator assignments in one request.
@@ -332,13 +377,14 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
         serializer = ModuleCoordinatorBulkCreateSerializer(data=request.data)
         if serializer.is_valid():
             result = serializer.save()
-            response_serializer = ModuleCoordinatorSerializer(result['created'], many=True)
+            response_serializer = ModuleCoordinatorSerializer(
+                result["created"], many=True
+            )
             return Response(
                 {
-                    'message': f"Successfully created {len(result['created'])} assignment(s).",
-                    'created': response_serializer.data
+                    "message": f"Successfully created {len(result['created'])} assignment(s).",
+                    "created": response_serializer.data,
                 },
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-

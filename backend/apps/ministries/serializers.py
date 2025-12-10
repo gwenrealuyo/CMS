@@ -19,7 +19,7 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
     member = UserSummarySerializer(read_only=True)
     member_id = serializers.PrimaryKeyRelatedField(
         source="member",
-        queryset=User.objects.all(),
+        queryset=User.objects.exclude(role="ADMIN"),
         write_only=True,
     )
 
@@ -44,7 +44,7 @@ class MinistrySerializer(serializers.ModelSerializer):
     primary_coordinator = UserSummarySerializer(read_only=True)
     primary_coordinator_id = serializers.PrimaryKeyRelatedField(
         source="primary_coordinator",
-        queryset=User.objects.all(),
+        queryset=User.objects.exclude(role="ADMIN"),
         required=False,
         allow_null=True,
         write_only=True,
@@ -52,7 +52,7 @@ class MinistrySerializer(serializers.ModelSerializer):
     support_coordinators = UserSummarySerializer(many=True, read_only=True)
     support_coordinator_ids = serializers.PrimaryKeyRelatedField(
         source="support_coordinators",
-        queryset=User.objects.all(),
+        queryset=User.objects.exclude(role="ADMIN"),
         many=True,
         required=False,
         write_only=True,

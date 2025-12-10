@@ -16,7 +16,12 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import { formatPersonName } from "@/src/lib/name";
-import { PencilIcon, TrashIcon, Squares2X2Icon, TableCellsIcon } from "@heroicons/react/24/outline";
+import {
+  PencilIcon,
+  TrashIcon,
+  Squares2X2Icon,
+  TableCellsIcon,
+} from "@heroicons/react/24/outline";
 
 interface ModuleCoordinatorFormData {
   person: number | "";
@@ -553,9 +558,12 @@ export default function ModuleCoordinatorManager() {
     }
   };
 
-  // Format person options for ScalableSelect
+  // Format person options for ScalableSelect, excluding ADMIN users
   const personOptions = useMemo(() => {
     return people
+      .filter(
+        (person) => person.role !== "ADMIN" && person.username !== "admin"
+      )
       .map((person) => {
         const name = `${person.first_name ?? ""} ${
           person.last_name ?? ""
@@ -613,10 +621,17 @@ export default function ModuleCoordinatorManager() {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <Button onClick={handleCreate} className="w-full sm:w-auto min-h-[44px]">
+          <Button
+            onClick={handleCreate}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
             Create Assignment
           </Button>
-          <Button onClick={() => setIsBulkModalOpen(true)} variant="secondary" className="w-full sm:w-auto min-h-[44px]">
+          <Button
+            onClick={() => setIsBulkModalOpen(true)}
+            variant="secondary"
+            className="w-full sm:w-auto min-h-[44px]"
+          >
             Create Multiple Assignments
           </Button>
         </div>
@@ -752,7 +767,9 @@ export default function ModuleCoordinatorManager() {
                         </p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Created At</span>
+                        <span className="text-xs text-gray-500">
+                          Created At
+                        </span>
                         <p className="text-sm text-gray-900 text-right">
                           {formatDate(assignment.created_at)}
                         </p>
@@ -788,93 +805,93 @@ export default function ModuleCoordinatorManager() {
           >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Person
-                  </th>
-                  <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Module
-                  </th>
-                  <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Level
-                  </th>
-                  <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Resource
-                  </th>
-                  <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created At
-                  </th>
-                  <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAssignments.map((assignment) => (
-                  <tr key={assignment.id}>
-                    <td className="px-3 py-4 md:px-6 md:py-4">
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-900 break-words">
-                          {getPersonName(assignment.person)}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          ID: {assignment.person}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-4 md:px-6 md:py-4">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getModuleBadgeColor(
-                          assignment.module
-                        )}`}
-                      >
-                        {assignment.module_display || assignment.module}
-                      </span>
-                    </td>
-                    <td className="px-3 py-4 md:px-6 md:py-4">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getLevelBadgeColor(
-                          assignment.level
-                        )}`}
-                      >
-                        {assignment.level_display || assignment.level}
-                      </span>
-                    </td>
-                    <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
-                      {assignment.resource_id
-                        ? `${assignment.resource_type || "Resource"} #${
-                            assignment.resource_id
-                          }`
-                        : "Module-wide"}
-                    </td>
-                    <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
-                      {formatDate(assignment.created_at)}
-                    </td>
-                    <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                          onClick={() => handleEdit(assignment)}
-                          className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(assignment)}
-                          className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Person
+                    </th>
+                    <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Module
+                    </th>
+                    <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Level
+                    </th>
+                    <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Resource
+                    </th>
+                    <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created At
+                    </th>
+                    <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredAssignments.map((assignment) => (
+                    <tr key={assignment.id}>
+                      <td className="px-3 py-4 md:px-6 md:py-4">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 break-words">
+                            {getPersonName(assignment.person)}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            ID: {assignment.person}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-4 md:px-6 md:py-4">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getModuleBadgeColor(
+                            assignment.module
+                          )}`}
+                        >
+                          {assignment.module_display || assignment.module}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 md:px-6 md:py-4">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getLevelBadgeColor(
+                            assignment.level
+                          )}`}
+                        >
+                          {assignment.level_display || assignment.level}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
+                        {assignment.resource_id
+                          ? `${assignment.resource_type || "Resource"} #${
+                              assignment.resource_id
+                            }`
+                          : "Module-wide"}
+                      </td>
+                      <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                        {formatDate(assignment.created_at)}
+                      </td>
+                      <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <button
+                            onClick={() => handleEdit(assignment)}
+                            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(assignment)}
+                            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         </>
       )}
 
@@ -1221,7 +1238,11 @@ export default function ModuleCoordinatorManager() {
             >
               Cancel
             </Button>
-            <Button type="submit" className="w-full sm:flex-1 min-h-[44px]" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full sm:flex-1 min-h-[44px]"
+              disabled={submitting}
+            >
               {submitting
                 ? "Saving..."
                 : editingAssignment
@@ -1602,7 +1623,11 @@ export default function ModuleCoordinatorManager() {
             >
               Cancel
             </Button>
-            <Button type="submit" className="w-full sm:flex-1 min-h-[44px]" disabled={bulkSubmitting}>
+            <Button
+              type="submit"
+              className="w-full sm:flex-1 min-h-[44px]"
+              disabled={bulkSubmitting}
+            >
               {bulkSubmitting
                 ? "Creating..."
                 : `Create ${

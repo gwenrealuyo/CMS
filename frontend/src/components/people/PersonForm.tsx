@@ -961,6 +961,10 @@ export default function PersonForm({
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {peopleOptions
                           .filter((p) => {
+                            // Exclude ADMIN users
+                            if (p.role === "ADMIN" || p.username === "admin") {
+                              return false;
+                            }
                             const name = `${p.first_name ?? ""} ${
                               p.last_name ?? ""
                             }`.toLowerCase();

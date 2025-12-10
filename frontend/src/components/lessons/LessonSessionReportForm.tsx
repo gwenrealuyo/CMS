@@ -67,16 +67,26 @@ export default function LessonSessionReportForm({
   error,
 }: LessonSessionReportFormProps) {
   const teacherOptions = useMemo(
-    () => people.filter((person) => person.role !== "VISITOR"),
+    () =>
+      people.filter(
+        (person) =>
+          person.role !== "VISITOR" &&
+          person.role !== "ADMIN" &&
+          person.username !== "admin"
+      ),
     [people]
   );
 
   const studentOptions = useMemo(() => {
-    return [...people].sort((first, second) => {
-      const nameA = formatPersonName(first);
-      const nameB = formatPersonName(second);
-      return nameA.localeCompare(nameB);
-    });
+    return [...people]
+      .filter(
+        (person) => person.role !== "ADMIN" && person.username !== "admin"
+      )
+      .sort((first, second) => {
+        const nameA = formatPersonName(first);
+        const nameB = formatPersonName(second);
+        return nameA.localeCompare(nameB);
+      });
   }, [people]);
 
   const defaultState = useMemo(
@@ -649,16 +659,16 @@ export default function LessonSessionReportForm({
       {error && <ErrorMessage message={error} />}
 
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
-        <Button 
-          type="button" 
-          variant="tertiary" 
+        <Button
+          type="button"
+          variant="tertiary"
           onClick={onCancel}
           className="w-full sm:w-auto min-h-[44px]"
         >
           Cancel
         </Button>
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={submitting}
           className="w-full sm:w-auto min-h-[44px]"
         >

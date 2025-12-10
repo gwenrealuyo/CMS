@@ -59,7 +59,6 @@ export default function FilterOptions({
             <option value="COORDINATOR">Coordinator</option>
             <option value="MEMBER">Member</option>
             <option value="VISITOR">Visitor</option>
-            <option value="ADMIN">Admin</option>
           </select>
         </div>
 

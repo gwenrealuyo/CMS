@@ -170,6 +170,9 @@ export default function MinistryForm({
   const coordinatorOptions = useMemo(
     () =>
       people
+        .filter(
+          (person) => person.role !== "ADMIN" && person.username !== "admin"
+        )
         .map((person) => ({
           label: formatPersonLabel(person),
           value: String(person.id),

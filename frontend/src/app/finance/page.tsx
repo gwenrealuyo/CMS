@@ -307,6 +307,7 @@ export default function FinancePage() {
   const contributorOptions = useMemo(() => {
     const filtered = people.filter(
       (p) =>
+        p.role !== "ADMIN" &&
         p.username !== "admin" &&
         ((p.first_name ?? "") !== "" || (p.last_name ?? "") !== "")
     );

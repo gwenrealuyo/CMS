@@ -44,7 +44,6 @@ const FILTER_FIELDS: FilterField[] = [
       { value: "COORDINATOR", label: "Coordinator" },
       { value: "MEMBER", label: "Member" },
       { value: "VISITOR", label: "Visitor" },
-      { value: "ADMIN", label: "Admin" },
     ],
   },
   {

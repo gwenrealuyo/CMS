@@ -612,8 +612,7 @@ export default function MinistriesPage() {
             }}
             onCancel={() => {
               if (!isSubmitting) {
-                setIsEditOpen(false);
-                setEditMinistry(null);
+                setIsCreateOpen(false);
                 setFormError(null);
               }
             }}

@@ -23,7 +23,8 @@ export type JourneyType =
   | "SPIRIT"
   | "CLUSTER"
   | "NOTE"
-  | "EVENT_ATTENDANCE";
+  | "EVENT_ATTENDANCE"
+  | "MINISTRY";
 
 export interface Journey {
   id: string;
@@ -103,7 +104,14 @@ export interface ModuleCoordinator {
   id: number;
   person: number;
   person_name?: string;
-  module: "CLUSTER" | "FINANCE" | "EVANGELISM" | "SUNDAY_SCHOOL" | "LESSONS" | "EVENTS" | "MINISTRIES";
+  module:
+    | "CLUSTER"
+    | "FINANCE"
+    | "EVANGELISM"
+    | "SUNDAY_SCHOOL"
+    | "LESSONS"
+    | "EVENTS"
+    | "MINISTRIES";
   module_display?: string;
   level: "COORDINATOR" | "SENIOR_COORDINATOR" | "TEACHER" | "BIBLE_SHARER";
   level_display?: string;

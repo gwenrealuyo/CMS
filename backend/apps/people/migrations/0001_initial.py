@@ -204,6 +204,7 @@ class Migration(migrations.Migration):
                             ("CLUSTER", "Cluster"),
                             ("NOTE", "Note"),
                             ("EVENT_ATTENDANCE", "Event Attendance"),
+                            ("MINISTRY", "Ministry"),
                         ],
                         max_length=20,
                     ),

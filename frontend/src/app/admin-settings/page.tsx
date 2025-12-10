@@ -16,6 +16,8 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  Squares2X2Icon,
+  TableCellsIcon,
 } from "@heroicons/react/24/outline";
 import {
   authApi,
@@ -115,6 +117,32 @@ function AdminSettingsPageContent() {
     request: null,
     loading: false,
     notes: "",
+  });
+
+  // View mode states for tables - Initialize based on screen size
+  const [overviewViewMode, setOverviewViewMode] = useState<"table" | "cards">(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 768 ? "cards" : "table";
+    }
+    return "table";
+  });
+  const [passwordResetsViewMode, setPasswordResetsViewMode] = useState<"table" | "cards">(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 768 ? "cards" : "table";
+    }
+    return "table";
+  });
+  const [lockedAccountsViewMode, setLockedAccountsViewMode] = useState<"table" | "cards">(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 768 ? "cards" : "table";
+    }
+    return "table";
+  });
+  const [auditLogsViewMode, setAuditLogsViewMode] = useState<"table" | "cards">(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 768 ? "cards" : "table";
+    }
+    return "table";
   });
 
   // Debounce search input for password reset requests
@@ -337,10 +365,10 @@ function AdminSettingsPageContent() {
 
         {/* Tabs */}
         <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+          <nav className="-mb-px flex space-x-8 overflow-x-auto whitespace-nowrap">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "overview"
                   ? "border-[#2563EB] text-[#2563EB]"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -350,7 +378,7 @@ function AdminSettingsPageContent() {
             </button>
             <button
               onClick={() => setActiveTab("password-resets")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "password-resets"
                   ? "border-[#2563EB] text-[#2563EB]"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -360,7 +388,7 @@ function AdminSettingsPageContent() {
             </button>
             <button
               onClick={() => setActiveTab("locked-accounts")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "locked-accounts"
                   ? "border-[#2563EB] text-[#2563EB]"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -370,7 +398,7 @@ function AdminSettingsPageContent() {
             </button>
             <button
               onClick={() => setActiveTab("audit-logs")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "audit-logs"
                   ? "border-[#2563EB] text-[#2563EB]"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -380,7 +408,7 @@ function AdminSettingsPageContent() {
             </button>
             <button
               onClick={() => setActiveTab("module-coordinators")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "module-coordinators"
                   ? "border-[#2563EB] text-[#2563EB]"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -447,27 +475,120 @@ function AdminSettingsPageContent() {
 
                 {/* Recent Activity */}
                 <div className="bg-white rounded-lg shadow-md">
-                  <div className="px-6 py-4 border-b border-gray-200">
+                  <div className="px-4 md:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-[#2D3748]">
                       Recent Activity
                     </h3>
+                    {/* View Toggle - Mobile Only */}
+                    <div className="md:hidden flex items-center">
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setOverviewViewMode("cards")}
+                          className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                            overviewViewMode === "cards"
+                              ? "bg-blue-500 text-white"
+                              : "bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                          title="Card View"
+                        >
+                          <Squares2X2Icon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => setOverviewViewMode("table")}
+                          className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                            overviewViewMode === "table"
+                              ? "bg-blue-500 text-white"
+                              : "bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                          title="Table View"
+                        >
+                          <TableCellsIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="overflow-x-auto">
+
+                  {/* Card View - Mobile Only */}
+                  {overviewViewMode === "cards" && (
+                    <div className="md:hidden p-4 space-y-3">
+                      {dashboardStats?.recent_activity &&
+                      dashboardStats.recent_activity.length > 0 ? (
+                        dashboardStats.recent_activity.map((log) => (
+                          <div
+                            key={log.id}
+                            className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                          >
+                            <div className="space-y-3">
+                              {/* First Row - Action Badge */}
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">Action</span>
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
+                                    log.action
+                                  )}`}
+                                >
+                                  {log.action.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Timestamp</span>
+                                  <p className="text-sm text-gray-900 text-right">
+                                    {formatDate(log.timestamp)}
+                                  </p>
+                                </div>
+                                <div className="flex items-start justify-between">
+                                  <span className="text-xs text-gray-500">User</span>
+                                  <div className="text-right">
+                                    <p className="text-sm font-medium text-gray-900 break-words">
+                                      {log.username || "Unknown"}
+                                    </p>
+                                    {log.full_name && (
+                                      <p className="text-xs text-gray-500 break-words">
+                                        {log.full_name}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">IP Address</span>
+                                  <p className="text-sm text-gray-900 text-right break-words">
+                                    {log.ip_address}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-8 text-center text-gray-500">
+                          No recent activity found.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Table View */}
+                  <div
+                    className={`overflow-x-auto ${
+                      overviewViewMode === "cards" ? "hidden md:block" : ""
+                    }`}
+                  >
                     {dashboardStats?.recent_activity &&
                     dashboardStats.recent_activity.length > 0 ? (
-                      <table className="min-w-full divide-y divide-gray-200">
+                      <table className="w-full min-w-[700px] divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Timestamp
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               User
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Action
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               IP Address
                             </th>
                           </tr>
@@ -475,20 +596,20 @@ function AdminSettingsPageContent() {
                         <tbody className="bg-white divide-y divide-gray-200">
                           {dashboardStats.recent_activity.map((log) => (
                             <tr key={log.id}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
                                 {formatDate(log.timestamp)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div>
-                                  {log.username || "Unknown"}
+                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-900">
+                                <div className="min-w-0">
+                                  <div className="break-words">{log.username || "Unknown"}</div>
                                   {log.full_name && (
-                                    <div className="text-xs text-gray-500">
+                                    <div className="text-xs text-gray-500 break-words">
                                       {log.full_name}
                                     </div>
                                   )}
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-3 py-4 md:px-6 md:py-4">
                                 <span
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
                                     log.action
@@ -497,7 +618,7 @@ function AdminSettingsPageContent() {
                                   {log.action.replace(/_/g, " ")}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
                                 {log.ip_address}
                               </td>
                             </tr>
@@ -517,9 +638,38 @@ function AdminSettingsPageContent() {
             {/* Password Reset Requests Tab */}
             {activeTab === "password-resets" && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-[#2D3748]">
-                  Password Reset Requests
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-[#2D3748]">
+                    Password Reset Requests
+                  </h2>
+                  {/* View Toggle - Mobile Only */}
+                  <div className="md:hidden flex items-center">
+                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => setPasswordResetsViewMode("cards")}
+                        className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                          passwordResetsViewMode === "cards"
+                            ? "bg-blue-500 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                        title="Card View"
+                      >
+                        <Squares2X2Icon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setPasswordResetsViewMode("table")}
+                        className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                          passwordResetsViewMode === "table"
+                            ? "bg-blue-500 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                        title="Table View"
+                      >
+                        <TableCellsIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Filters */}
                 <div className="bg-white rounded-lg shadow-md p-4">
@@ -535,7 +685,7 @@ function AdminSettingsPageContent() {
                           setResetRequestsSearch(e.target.value);
                         }}
                         placeholder="Search by name, email, or username..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       />
                     </div>
                     <div>
@@ -548,7 +698,7 @@ function AdminSettingsPageContent() {
                           setStatusFilter(e.target.value);
                           setResetRequestsPage(1);
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       >
                         <option value="ALL">All Statuses</option>
                         <option value="PENDING">Pending</option>
@@ -564,7 +714,7 @@ function AdminSettingsPageContent() {
                           setStatusFilter("ALL");
                           setResetRequestsPage(1);
                         }}
-                        className="w-full"
+                        className="w-full sm:w-auto min-h-[44px]"
                       >
                         Reset
                       </Button>
@@ -579,84 +729,173 @@ function AdminSettingsPageContent() {
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            User
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Requested At
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Notes
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                  <>
+                    {/* Card View - Mobile Only */}
+                    {passwordResetsViewMode === "cards" && (
+                      <div className="md:hidden space-y-3">
                         {passwordResetRequests.map((request) => (
-                          <tr key={request.id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {request.full_name}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {request.username}
-                                </div>
+                          <div
+                            key={request.id}
+                            className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                          >
+                            <div className="space-y-3">
+                              {/* First Row - Status Badge */}
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">Status</span>
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    request.status === "APPROVED"
+                                      ? "bg-green-100 text-green-800"
+                                      : request.status === "PENDING"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-red-100 text-red-800"
+                                  }`}
+                                >
+                                  {request.status}
+                                </span>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDate(request.requested_at)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  request.status === "APPROVED"
-                                    ? "bg-green-100 text-green-800"
-                                    : request.status === "PENDING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {request.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">
-                              {request.notes || "-"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              {request.status === "PENDING" && (
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleApproveReset(request)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
-                                  >
-                                    <CheckCircleIcon className="w-4 h-4" />
-                                    Approve
-                                  </button>
-                                  <button
-                                    onClick={() => handleRejectReset(request)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                                  >
-                                    <XCircleIcon className="w-4 h-4" />
-                                    Reject
-                                  </button>
+                              <div className="grid grid-cols-1 gap-2">
+                                <div className="flex items-start justify-between">
+                                  <span className="text-xs text-gray-500">User</span>
+                                  <div className="text-right">
+                                    <p className="text-sm font-medium text-gray-900 break-words">
+                                      {request.full_name}
+                                    </p>
+                                    <p className="text-xs text-gray-500 break-words">
+                                      {request.username}
+                                    </p>
+                                  </div>
                                 </div>
-                              )}
-                            </td>
-                          </tr>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Requested At</span>
+                                  <p className="text-sm text-gray-900 text-right">
+                                    {formatDate(request.requested_at)}
+                                  </p>
+                                </div>
+                                {request.notes && (
+                                  <div className="flex items-start justify-between">
+                                    <span className="text-xs text-gray-500">Notes</span>
+                                    <p className="text-sm text-gray-900 text-right break-words max-w-[60%]">
+                                      {request.notes}
+                                    </p>
+                                  </div>
+                                )}
+                                {request.status === "PENDING" && (
+                                  <div className="pt-2 border-t border-gray-200">
+                                    <span className="text-xs text-gray-500 block mb-2">
+                                      Actions
+                                    </span>
+                                    <div className="flex flex-col gap-2">
+                                      <button
+                                        onClick={() => handleApproveReset(request)}
+                                        className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
+                                      >
+                                        <CheckCircleIcon className="w-4 h-4" />
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleRejectReset(request)}
+                                        className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                      >
+                                        <XCircleIcon className="w-4 h-4" />
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
+                      </div>
+                    )}
+
+                    {/* Table View */}
+                    <div
+                      className={`bg-white rounded-lg shadow-md overflow-hidden ${
+                        passwordResetsViewMode === "cards" ? "hidden md:block" : ""
+                      }`}
+                    >
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[800px] divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              User
+                            </th>
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Requested At
+                            </th>
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Notes
+                            </th>
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {passwordResetRequests.map((request) => (
+                            <tr key={request.id}>
+                              <td className="px-3 py-4 md:px-6 md:py-4">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium text-gray-900 break-words">
+                                    {request.full_name}
+                                  </div>
+                                  <div className="text-sm text-gray-500 break-words">
+                                    {request.username}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                                {formatDate(request.requested_at)}
+                              </td>
+                              <td className="px-3 py-4 md:px-6 md:py-4">
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    request.status === "APPROVED"
+                                      ? "bg-green-100 text-green-800"
+                                      : request.status === "PENDING"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-red-100 text-red-800"
+                                  }`}
+                                >
+                                  {request.status}
+                                </span>
+                              </td>
+                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
+                                {request.notes || "-"}
+                              </td>
+                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
+                                {request.status === "PENDING" && (
+                                  <div className="flex flex-col sm:flex-row gap-2">
+                                    <button
+                                      onClick={() => handleApproveReset(request)}
+                                      className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
+                                    >
+                                      <CheckCircleIcon className="w-4 h-4" />
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectReset(request)}
+                                      className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                    >
+                                      <XCircleIcon className="w-4 h-4" />
+                                      Reject
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
+                </>
                 )}
 
                 {/* Pagination */}
@@ -684,9 +923,38 @@ function AdminSettingsPageContent() {
             {/* Locked Accounts Tab */}
             {activeTab === "locked-accounts" && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-[#2D3748]">
-                  Locked Accounts
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-[#2D3748]">
+                    Locked Accounts
+                  </h2>
+                  {/* View Toggle - Mobile Only */}
+                  <div className="md:hidden flex items-center">
+                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => setLockedAccountsViewMode("cards")}
+                        className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                          lockedAccountsViewMode === "cards"
+                            ? "bg-blue-500 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                        title="Card View"
+                      >
+                        <Squares2X2Icon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setLockedAccountsViewMode("table")}
+                        className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                          lockedAccountsViewMode === "table"
+                            ? "bg-blue-500 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                        title="Table View"
+                      >
+                        <TableCellsIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Filters */}
                 <div className="bg-white rounded-lg shadow-md p-4">
@@ -702,7 +970,7 @@ function AdminSettingsPageContent() {
                           setLockedAccountsSearch(e.target.value);
                         }}
                         placeholder="Search by name, email, or username..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       />
                     </div>
                     <div>
@@ -715,7 +983,7 @@ function AdminSettingsPageContent() {
                           setLockedAccountsFilter(e.target.value);
                           setLockedAccountsPage(1);
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       >
                         <option value="">All Lockouts</option>
                         <option value="temporary">Temporary</option>
@@ -734,7 +1002,7 @@ function AdminSettingsPageContent() {
                           });
                           setLockedAccountsPage(1);
                         }}
-                        className="w-full"
+                        className="w-full sm:w-auto min-h-[44px]"
                       >
                         Reset
                       </Button>
@@ -747,230 +1015,109 @@ function AdminSettingsPageContent() {
                     <p className="text-gray-500">No locked accounts found.</p>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => {
-                              const newOrder =
-                                lockedAccountsSort.field === "user" &&
-                                lockedAccountsSort.order === "asc"
-                                  ? "desc"
-                                  : "asc";
-                              setLockedAccountsSort({
-                                field: "user",
-                                order: newOrder,
-                              });
-                              setLockedAccountsPage(1);
-                            }}
-                          >
-                            <div className="flex items-center gap-1">
-                              User
-                              {lockedAccountsSort.field === "user" &&
-                                (lockedAccountsSort.order === "asc" ? (
-                                  <ChevronUpIcon className="w-4 h-4" />
-                                ) : (
-                                  <ChevronDownIcon className="w-4 h-4" />
-                                ))}
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-32"
-                            onClick={() => {
-                              const newOrder =
-                                lockedAccountsSort.field ===
-                                  "failed_attempts" &&
-                                lockedAccountsSort.order === "asc"
-                                  ? "desc"
-                                  : "asc";
-                              setLockedAccountsSort({
-                                field: "failed_attempts",
-                                order: newOrder,
-                              });
-                              setLockedAccountsPage(1);
-                            }}
-                          >
-                            <div className="flex items-center gap-1">
-                              Failed Attempts
-                              {lockedAccountsSort.field === "failed_attempts" &&
-                                (lockedAccountsSort.order === "asc" ? (
-                                  <ChevronUpIcon className="w-4 h-4" />
-                                ) : (
-                                  <ChevronDownIcon className="w-4 h-4" />
-                                ))}
-                            </div>
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Locked Until
-                          </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => {
-                              const newOrder =
-                                lockedAccountsSort.field === "lockout_count" &&
-                                lockedAccountsSort.order === "asc"
-                                  ? "desc"
-                                  : "asc";
-                              setLockedAccountsSort({
-                                field: "lockout_count",
-                                order: newOrder,
-                              });
-                              setLockedAccountsPage(1);
-                            }}
-                          >
-                            <div className="flex items-center gap-1">
-                              Lockout Count
-                              {lockedAccountsSort.field === "lockout_count" &&
-                                (lockedAccountsSort.order === "asc" ? (
-                                  <ChevronUpIcon className="w-4 h-4" />
-                                ) : (
-                                  <ChevronDownIcon className="w-4 h-4" />
-                                ))}
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => {
-                              const newOrder =
-                                lockedAccountsSort.field === "last_attempt" &&
-                                lockedAccountsSort.order === "asc"
-                                  ? "desc"
-                                  : "asc";
-                              setLockedAccountsSort({
-                                field: "last_attempt",
-                                order: newOrder,
-                              });
-                              setLockedAccountsPage(1);
-                            }}
-                          >
-                            <div className="flex items-center gap-1">
-                              Last Attempt
-                              {lockedAccountsSort.field === "last_attempt" &&
-                                (lockedAccountsSort.order === "asc" ? (
-                                  <ChevronUpIcon className="w-4 h-4" />
-                                ) : (
-                                  <ChevronDownIcon className="w-4 h-4" />
-                                ))}
-                            </div>
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                  <>
+                    {/* Card View - Mobile Only */}
+                    {lockedAccountsViewMode === "cards" && (
+                      <div className="md:hidden space-y-3">
                         {lockedAccounts.map((account) => (
-                          <>
-                            <tr key={account.user_id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {account.full_name}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {account.username}
+                          <div
+                            key={account.user_id}
+                            className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                          >
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-1 gap-2">
+                                <div className="flex items-start justify-between">
+                                  <span className="text-xs text-gray-500">User</span>
+                                  <div className="text-right">
+                                    <p className="text-sm font-medium text-gray-900 break-words">
+                                      {account.full_name}
+                                    </p>
+                                    <p className="text-xs text-gray-500 break-words">
+                                      {account.username}
+                                    </p>
                                   </div>
                                 </div>
-                              </td>
-                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {account.failed_attempts}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {account.locked_until
-                                  ? formatDate(account.locked_until)
-                                  : "Permanent (Admin unlock required)"}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {account.lockout_count}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {formatDate(account.last_attempt)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() =>
-                                      setExpandedLockedAccount(
-                                        expandedLockedAccount ===
-                                          account.user_id
-                                          ? null
-                                          : account.user_id
-                                      )
-                                    }
-                                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                                    title="View details"
-                                  >
-                                    <ChevronRightIcon
-                                      className={`w-4 h-4 transition-transform ${
-                                        expandedLockedAccount ===
-                                        account.user_id
-                                          ? "rotate-90"
-                                          : ""
-                                      }`}
-                                    />
-                                  </button>
-                                  <button
-                                    onClick={() => handleUnlockAccount(account)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                                  >
-                                    <LockOpenIcon className="w-4 h-4" />
-                                    Unlock
-                                  </button>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Failed Attempts</span>
+                                  <p className="text-sm text-gray-900 text-right">
+                                    {account.failed_attempts}
+                                  </p>
                                 </div>
-                              </td>
-                            </tr>
-                            {expandedLockedAccount === account.user_id && (
-                              <tr>
-                                <td
-                                  colSpan={6}
-                                  className="px-6 py-4 bg-gray-50"
-                                >
-                                  <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Locked Until</span>
+                                  <p className="text-sm text-gray-900 text-right break-words max-w-[60%]">
+                                    {account.locked_until
+                                      ? formatDate(account.locked_until)
+                                      : "Permanent (Admin unlock required)"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Lockout Count</span>
+                                  <p className="text-sm text-gray-900 text-right">
+                                    {account.lockout_count}
+                                  </p>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Last Attempt</span>
+                                  <p className="text-sm text-gray-900 text-right">
+                                    {formatDate(account.last_attempt)}
+                                  </p>
+                                </div>
+                                {expandedLockedAccount === account.user_id && (
+                                  <div className="pt-2 border-t border-gray-200 space-y-2">
                                     <h4 className="text-sm font-semibold text-gray-900">
                                       Lockout Details
                                     </h4>
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                      <div>
+                                    <div className="grid grid-cols-1 gap-2 text-sm">
+                                      <div className="flex items-center justify-between">
                                         <span className="font-medium text-gray-700">
                                           Lockout Type:
-                                        </span>{" "}
-                                        {account.locked_until
-                                          ? "Temporary"
-                                          : "Permanent"}
+                                        </span>
+                                        <span className="text-right">
+                                          {account.locked_until
+                                            ? "Temporary"
+                                            : "Permanent"}
+                                        </span>
                                       </div>
-                                      <div>
+                                      <div className="flex items-center justify-between">
                                         <span className="font-medium text-gray-700">
                                           Failed Attempts:
-                                        </span>{" "}
-                                        {account.failed_attempts}
+                                        </span>
+                                        <span className="text-right">
+                                          {account.failed_attempts}
+                                        </span>
                                       </div>
-                                      <div>
+                                      <div className="flex items-center justify-between">
                                         <span className="font-medium text-gray-700">
                                           Lockout Count:
-                                        </span>{" "}
-                                        {account.lockout_count}
+                                        </span>
+                                        <span className="text-right">
+                                          {account.lockout_count}
+                                        </span>
                                       </div>
-                                      <div>
+                                      <div className="flex items-center justify-between">
                                         <span className="font-medium text-gray-700">
                                           Last Attempt:
-                                        </span>{" "}
-                                        {formatDate(
-                                          account.locked_until ||
-                                            account.last_attempt
-                                        )}
+                                        </span>
+                                        <span className="text-right">
+                                          {formatDate(
+                                            account.locked_until ||
+                                              account.last_attempt
+                                          )}
+                                        </span>
                                       </div>
                                       {account.locked_until && (
-                                        <div className="col-span-2">
+                                        <div className="flex items-center justify-between">
                                           <span className="font-medium text-gray-700">
                                             Auto-unlocks at:
-                                          </span>{" "}
-                                          {formatDate(account.locked_until)}
+                                          </span>
+                                          <span className="text-right">
+                                            {formatDate(account.locked_until)}
+                                          </span>
                                         </div>
                                       )}
                                       {!account.locked_until && (
-                                        <div className="col-span-2 text-amber-600">
+                                        <div className="text-amber-600 text-sm">
                                           This account requires admin unlock. It
                                           has been locked{" "}
                                           {account.lockout_count} time(s).
@@ -978,14 +1125,292 @@ function AdminSettingsPageContent() {
                                       )}
                                     </div>
                                   </div>
+                                )}
+                              </div>
+                              <div className="pt-2 border-t border-gray-200 flex flex-col gap-2">
+                                <button
+                                  onClick={() =>
+                                    setExpandedLockedAccount(
+                                      expandedLockedAccount === account.user_id
+                                        ? null
+                                        : account.user_id
+                                    )
+                                  }
+                                  className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                >
+                                  <ChevronRightIcon
+                                    className={`w-4 h-4 transition-transform ${
+                                      expandedLockedAccount === account.user_id
+                                        ? "rotate-90"
+                                        : ""
+                                    }`}
+                                  />
+                                  {expandedLockedAccount === account.user_id
+                                    ? "Hide Details"
+                                    : "Show Details"}
+                                </button>
+                                <button
+                                  onClick={() => handleUnlockAccount(account)}
+                                  className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                >
+                                  <LockOpenIcon className="w-4 h-4" />
+                                  Unlock
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Table View */}
+                    <div
+                      className={`bg-white rounded-lg shadow-md overflow-hidden ${
+                        lockedAccountsViewMode === "cards" ? "hidden md:block" : ""
+                      }`}
+                    >
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[900px] divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th
+                              className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => {
+                                const newOrder =
+                                  lockedAccountsSort.field === "user" &&
+                                  lockedAccountsSort.order === "asc"
+                                    ? "desc"
+                                    : "asc";
+                                setLockedAccountsSort({
+                                  field: "user",
+                                  order: newOrder,
+                                });
+                                setLockedAccountsPage(1);
+                              }}
+                            >
+                              <div className="flex items-center gap-1">
+                                User
+                                {lockedAccountsSort.field === "user" &&
+                                  (lockedAccountsSort.order === "asc" ? (
+                                    <ChevronUpIcon className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDownIcon className="w-4 h-4" />
+                                  ))}
+                              </div>
+                            </th>
+                            <th
+                              className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-32"
+                              onClick={() => {
+                                const newOrder =
+                                  lockedAccountsSort.field ===
+                                    "failed_attempts" &&
+                                  lockedAccountsSort.order === "asc"
+                                    ? "desc"
+                                    : "asc";
+                                setLockedAccountsSort({
+                                  field: "failed_attempts",
+                                  order: newOrder,
+                                });
+                                setLockedAccountsPage(1);
+                              }}
+                            >
+                              <div className="flex items-center gap-1">
+                                Failed Attempts
+                                {lockedAccountsSort.field === "failed_attempts" &&
+                                  (lockedAccountsSort.order === "asc" ? (
+                                    <ChevronUpIcon className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDownIcon className="w-4 h-4" />
+                                  ))}
+                              </div>
+                            </th>
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Locked Until
+                            </th>
+                            <th
+                              className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => {
+                                const newOrder =
+                                  lockedAccountsSort.field === "lockout_count" &&
+                                  lockedAccountsSort.order === "asc"
+                                    ? "desc"
+                                    : "asc";
+                                setLockedAccountsSort({
+                                  field: "lockout_count",
+                                  order: newOrder,
+                                });
+                                setLockedAccountsPage(1);
+                              }}
+                            >
+                              <div className="flex items-center gap-1">
+                                Lockout Count
+                                {lockedAccountsSort.field === "lockout_count" &&
+                                  (lockedAccountsSort.order === "asc" ? (
+                                    <ChevronUpIcon className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDownIcon className="w-4 h-4" />
+                                  ))}
+                              </div>
+                            </th>
+                            <th
+                              className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => {
+                                const newOrder =
+                                  lockedAccountsSort.field === "last_attempt" &&
+                                  lockedAccountsSort.order === "asc"
+                                    ? "desc"
+                                    : "asc";
+                                setLockedAccountsSort({
+                                  field: "last_attempt",
+                                  order: newOrder,
+                                });
+                                setLockedAccountsPage(1);
+                              }}
+                            >
+                              <div className="flex items-center gap-1">
+                                Last Attempt
+                                {lockedAccountsSort.field === "last_attempt" &&
+                                  (lockedAccountsSort.order === "asc" ? (
+                                    <ChevronUpIcon className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDownIcon className="w-4 h-4" />
+                                  ))}
+                              </div>
+                            </th>
+                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {lockedAccounts.map((account) => (
+                            <>
+                              <tr key={account.user_id}>
+                                <td className="px-3 py-4 md:px-6 md:py-4">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium text-gray-900 break-words">
+                                      {account.full_name}
+                                    </div>
+                                    <div className="text-sm text-gray-500 break-words">
+                                      {account.username}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-4 text-sm text-gray-500">
+                                  {account.failed_attempts}
+                                </td>
+                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
+                                  {account.locked_until
+                                    ? formatDate(account.locked_until)
+                                    : "Permanent (Admin unlock required)"}
+                                </td>
+                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                                  {account.lockout_count}
+                                </td>
+                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                                  {formatDate(account.last_attempt)}
+                                </td>
+                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() =>
+                                        setExpandedLockedAccount(
+                                          expandedLockedAccount ===
+                                            account.user_id
+                                            ? null
+                                            : account.user_id
+                                        )
+                                      }
+                                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                      title="View details"
+                                    >
+                                      <ChevronRightIcon
+                                        className={`w-4 h-4 transition-transform ${
+                                          expandedLockedAccount ===
+                                          account.user_id
+                                            ? "rotate-90"
+                                            : ""
+                                        }`}
+                                      />
+                                    </button>
+                                    <button
+                                      onClick={() => handleUnlockAccount(account)}
+                                      className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                    >
+                                      <LockOpenIcon className="w-4 h-4" />
+                                      Unlock
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
-                            )}
-                          </>
-                        ))}
-                      </tbody>
-                    </table>
+                              {expandedLockedAccount === account.user_id && (
+                                <tr>
+                                  <td
+                                    colSpan={6}
+                                    className="px-3 py-4 md:px-6 md:py-4 bg-gray-50"
+                                  >
+                                    <div className="space-y-2">
+                                      <h4 className="text-sm font-semibold text-gray-900">
+                                        Lockout Details
+                                      </h4>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                          <span className="font-medium text-gray-700">
+                                            Lockout Type:
+                                          </span>{" "}
+                                          {account.locked_until
+                                            ? "Temporary"
+                                            : "Permanent"}
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-700">
+                                            Failed Attempts:
+                                          </span>{" "}
+                                          {account.failed_attempts}
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-700">
+                                            Lockout Count:
+                                          </span>{" "}
+                                          {account.lockout_count}
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-700">
+                                            Last Attempt:
+                                          </span>{" "}
+                                          {formatDate(
+                                            account.locked_until ||
+                                              account.last_attempt
+                                          )}
+                                        </div>
+                                        {account.locked_until && (
+                                          <div className="sm:col-span-2">
+                                            <span className="font-medium text-gray-700">
+                                              Auto-unlocks at:
+                                            </span>{" "}
+                                            {formatDate(account.locked_until)}
+                                          </div>
+                                        )}
+                                        {!account.locked_until && (
+                                          <div className="sm:col-span-2 text-amber-600">
+                                            This account requires admin unlock. It
+                                            has been locked{" "}
+                                            {account.lockout_count} time(s).
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
+                  )}
+                </>
                 )}
 
                 {/* Pagination */}
@@ -1013,9 +1438,38 @@ function AdminSettingsPageContent() {
             {/* Audit Logs Tab */}
             {activeTab === "audit-logs" && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-[#2D3748]">
-                  Audit Logs
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-[#2D3748]">
+                    Audit Logs
+                  </h2>
+                  {/* View Toggle - Mobile Only */}
+                  <div className="md:hidden flex items-center">
+                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => setAuditLogsViewMode("cards")}
+                        className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                          auditLogsViewMode === "cards"
+                            ? "bg-blue-500 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                        title="Card View"
+                      >
+                        <Squares2X2Icon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setAuditLogsViewMode("table")}
+                        className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                          auditLogsViewMode === "table"
+                            ? "bg-blue-500 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                        title="Table View"
+                      >
+                        <TableCellsIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Filters */}
                 <div className="bg-white rounded-lg shadow-md p-4">
@@ -1034,7 +1488,7 @@ function AdminSettingsPageContent() {
                           })
                         }
                         placeholder="Search by username or name..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       />
                     </div>
                     <div>
@@ -1051,7 +1505,7 @@ function AdminSettingsPageContent() {
                           })
                         }
                         placeholder="Filter by IP address..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       />
                     </div>
                     <div>
@@ -1107,7 +1561,7 @@ function AdminSettingsPageContent() {
                           }
                           e.target.value = "";
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       >
                         <option value="">Select preset...</option>
                         <option value="today">Today</option>
@@ -1130,7 +1584,7 @@ function AdminSettingsPageContent() {
                             action: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       >
                         <option value="">All Actions</option>
                         <option value="LOGIN_SUCCESS">Login Success</option>
@@ -1173,7 +1627,7 @@ function AdminSettingsPageContent() {
                             start_date: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       />
                     </div>
                     <div>
@@ -1189,7 +1643,7 @@ function AdminSettingsPageContent() {
                             end_date: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                       />
                     </div>
                     <div className="flex items-end">
@@ -1205,7 +1659,7 @@ function AdminSettingsPageContent() {
                           });
                           setAuditPage(1);
                         }}
-                        className="w-full"
+                        className="w-full sm:w-auto min-h-[44px]"
                       >
                         Reset
                       </Button>
@@ -1219,114 +1673,212 @@ function AdminSettingsPageContent() {
                   </div>
                 ) : (
                   <>
-                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Timestamp
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              User
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Action
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              IP Address
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Details
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {auditLogs.map((log) => (
-                            <>
-                              <tr key={log.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {formatDate(log.timestamp)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  <div>
-                                    {log.username || "Unknown"}
+                    {/* Card View - Mobile Only */}
+                    {auditLogsViewMode === "cards" && (
+                      <div className="md:hidden space-y-3">
+                        {auditLogs.map((log) => (
+                          <div
+                            key={log.id}
+                            className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                          >
+                            <div className="space-y-3">
+                              {/* First Row - Action Badge */}
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">Action</span>
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
+                                    log.action
+                                  )}`}
+                                >
+                                  {log.action.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Timestamp</span>
+                                  <p className="text-sm text-gray-900 text-right">
+                                    {formatDate(log.timestamp)}
+                                  </p>
+                                </div>
+                                <div className="flex items-start justify-between">
+                                  <span className="text-xs text-gray-500">User</span>
+                                  <div className="text-right">
+                                    <p className="text-sm font-medium text-gray-900 break-words">
+                                      {log.username || "Unknown"}
+                                    </p>
                                     {log.full_name && (
-                                      <div className="text-xs text-gray-500">
+                                      <p className="text-xs text-gray-500 break-words">
                                         {log.full_name}
-                                      </div>
+                                      </p>
                                     )}
                                   </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span
-                                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
-                                      log.action
-                                    )}`}
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">IP Address</span>
+                                  <p className="text-sm text-gray-900 text-right break-words">
+                                    {log.ip_address}
+                                  </p>
+                                </div>
+                                {expandedAuditLog === log.id &&
+                                  log.details &&
+                                  Object.keys(log.details).length > 0 && (
+                                    <div className="pt-2 border-t border-gray-200">
+                                      <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                                        Details
+                                      </h4>
+                                      <pre className="text-xs bg-gray-50 p-3 rounded border overflow-x-auto">
+                                        {JSON.stringify(log.details, null, 2)}
+                                      </pre>
+                                    </div>
+                                  )}
+                              </div>
+                              {log.details &&
+                              Object.keys(log.details).length > 0 ? (
+                                <div className="pt-2 border-t border-gray-200">
+                                  <button
+                                    onClick={() =>
+                                      setExpandedAuditLog(
+                                        expandedAuditLog === log.id
+                                          ? null
+                                          : log.id
+                                      )
+                                    }
+                                    className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                                   >
-                                    {log.action.replace(/_/g, " ")}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {log.ip_address}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                  <div className="flex items-center gap-2">
-                                    {log.details &&
-                                    Object.keys(log.details).length > 0 ? (
-                                      <>
-                                        <span className="text-gray-400">
-                                          {Object.keys(log.details).length}{" "}
-                                          field(s)
-                                        </span>
-                                        <button
-                                          onClick={() =>
-                                            setExpandedAuditLog(
-                                              expandedAuditLog === log.id
-                                                ? null
-                                                : log.id
-                                            )
-                                          }
-                                          className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                                          title="View details"
-                                        >
-                                          <ChevronRightIcon
-                                            className={`w-4 h-4 transition-transform ${
-                                              expandedAuditLog === log.id
-                                                ? "rotate-90"
-                                                : ""
-                                            }`}
-                                          />
-                                        </button>
-                                      </>
-                                    ) : (
-                                      "-"
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                              {expandedAuditLog === log.id &&
-                                log.details &&
-                                Object.keys(log.details).length > 0 && (
-                                  <tr>
-                                    <td
-                                      colSpan={5}
-                                      className="px-6 py-4 bg-gray-50"
+                                    <ChevronRightIcon
+                                      className={`w-4 h-4 transition-transform ${
+                                        expandedAuditLog === log.id
+                                          ? "rotate-90"
+                                          : ""
+                                      }`}
+                                    />
+                                    {expandedAuditLog === log.id
+                                      ? "Hide Details"
+                                      : `View Details (${Object.keys(log.details).length} field(s))`}
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Table View */}
+                    <div
+                      className={`bg-white rounded-lg shadow-md overflow-hidden ${
+                        auditLogsViewMode === "cards" ? "hidden md:block" : ""
+                      }`}
+                    >
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[800px] divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Timestamp
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                User
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Action
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                IP Address
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Details
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {auditLogs.map((log) => (
+                              <>
+                                <tr key={log.id}>
+                                  <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                                    {formatDate(log.timestamp)}
+                                  </td>
+                                  <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-900">
+                                    <div className="min-w-0">
+                                      <div className="break-words">{log.username || "Unknown"}</div>
+                                      {log.full_name && (
+                                        <div className="text-xs text-gray-500 break-words">
+                                          {log.full_name}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-4 md:px-6 md:py-4">
+                                    <span
+                                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
+                                        log.action
+                                      )}`}
                                     >
-                                      <div className="space-y-2">
-                                        <h4 className="text-sm font-semibold text-gray-900">
-                                          Details
-                                        </h4>
-                                        <pre className="text-xs bg-white p-3 rounded border overflow-x-auto">
-                                          {JSON.stringify(log.details, null, 2)}
-                                        </pre>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                            </>
-                          ))}
-                        </tbody>
-                      </table>
+                                      {log.action.replace(/_/g, " ")}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
+                                    {log.ip_address}
+                                  </td>
+                                  <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                                    <div className="flex items-center gap-2">
+                                      {log.details &&
+                                      Object.keys(log.details).length > 0 ? (
+                                        <>
+                                          <span className="text-gray-400 text-xs">
+                                            {Object.keys(log.details).length}{" "}
+                                            field(s)
+                                          </span>
+                                          <button
+                                            onClick={() =>
+                                              setExpandedAuditLog(
+                                                expandedAuditLog === log.id
+                                                  ? null
+                                                  : log.id
+                                              )
+                                            }
+                                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                            title="View details"
+                                          >
+                                            <ChevronRightIcon
+                                              className={`w-4 h-4 transition-transform ${
+                                                expandedAuditLog === log.id
+                                                  ? "rotate-90"
+                                                  : ""
+                                              }`}
+                                            />
+                                          </button>
+                                        </>
+                                      ) : (
+                                        "-"
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                                {expandedAuditLog === log.id &&
+                                  log.details &&
+                                  Object.keys(log.details).length > 0 && (
+                                    <tr>
+                                      <td
+                                        colSpan={5}
+                                        className="px-3 py-4 md:px-6 md:py-4 bg-gray-50"
+                                      >
+                                        <div className="space-y-2">
+                                          <h4 className="text-sm font-semibold text-gray-900">
+                                            Details
+                                          </h4>
+                                          <pre className="text-xs bg-white p-3 rounded border overflow-x-auto">
+                                            {JSON.stringify(log.details, null, 2)}
+                                          </pre>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                              </>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
 
                     {/* Pagination */}
@@ -1450,22 +2002,13 @@ function AdminSettingsPageContent() {
                       placeholder="Enter rejection reason..."
                       required
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                   </div>
                 </div>
               </div>
             </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <Button
-                onClick={confirmRejectReset}
-                disabled={
-                  rejectConfirmation.loading || !rejectConfirmation.notes.trim()
-                }
-                className="w-full sm:w-auto sm:ml-3 bg-red-600 hover:bg-red-700"
-              >
-                {rejectConfirmation.loading ? "Rejecting..." : "Reject"}
-              </Button>
+            <div className="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <Button
                 variant="tertiary"
                 onClick={() =>
@@ -1477,9 +2020,18 @@ function AdminSettingsPageContent() {
                   })
                 }
                 disabled={rejectConfirmation.loading}
-                className="w-full sm:w-auto mt-3 sm:mt-0"
+                className="w-full sm:w-auto min-h-[44px]"
               >
                 Cancel
+              </Button>
+              <Button
+                onClick={confirmRejectReset}
+                disabled={
+                  rejectConfirmation.loading || !rejectConfirmation.notes.trim()
+                }
+                className="w-full sm:w-auto min-h-[44px] bg-red-600 hover:bg-red-700"
+              >
+                {rejectConfirmation.loading ? "Rejecting..." : "Reject"}
               </Button>
             </div>
           </div>

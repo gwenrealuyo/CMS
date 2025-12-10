@@ -1,7 +1,7 @@
 "use client";
 
 import { AxiosError } from "axios";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
@@ -33,7 +33,9 @@ export default function MinistriesPage() {
     deleteMinistry,
   } = useMinistries();
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
-  const [searchValue, setSearchValue] = useState(filters.search ?? "");
+  const [searchQuery, setSearchQuery] = useState(filters.search ?? "");
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editMinistry, setEditMinistry] = useState<Ministry | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -76,12 +78,44 @@ export default function MinistriesPage() {
     return { total, active, byCadence };
   }, [ministries]);
 
-  const handleSearch = () => {
-    setFilter("search", searchValue);
-  };
+  // Debounced search for better performance
+  const handleSearchChange = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      setIsSearching(true);
+
+      // Clear existing timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      // Set new timeout for debounced search
+      searchTimeoutRef.current = setTimeout(() => {
+        setFilter("search", query);
+        setIsSearching(false);
+      }, 300); // 300ms delay
+    },
+    [setFilter]
+  );
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Sync searchQuery with filter when filter changes externally (e.g., reset)
+  useEffect(() => {
+    if (filters.search !== searchQuery) {
+      setSearchQuery(filters.search ?? "");
+    }
+  }, [filters.search, searchQuery]);
 
   const handleResetFilters = () => {
-    setSearchValue("");
+    setSearchQuery("");
     setFilter("search", "");
     setFilter("activity_cadence", "all");
     setFilter("category", "all");
@@ -208,22 +242,13 @@ export default function MinistriesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Search
                 </label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="search"
-                    value={searchValue}
-                    onChange={(event) => setSearchValue(event.target.value)}
-                    placeholder="Name, description, coordinator"
-                    className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <Button
-                    variant="primary"
-                    onClick={handleSearch}
-                    className="w-full sm:w-auto min-h-[44px]"
-                  >
-                    Search
-                  </Button>
-                </div>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => handleSearchChange(event.target.value)}
+                  placeholder="Name, description, coordinator"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
               </div>
 
               <div>

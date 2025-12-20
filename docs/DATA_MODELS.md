@@ -22,6 +22,12 @@ Notes
 
 - `__str__` returns `username`
 - Custom username generation handled in `PersonSerializer.create`
+- **Automatic Status Updates**: The `status` field is automatically updated based on attendance patterns within a rolling 4-week window:
+  - **ACTIVE**: ≥3 attendances for ALL THREE types (Sunday Service AND Clustering AND Doctrinal Class)
+  - **SEMIACTIVE**: ≥3 attendances for at least ONE type (but not all three). If person not in any cluster, maximum status is SEMIACTIVE.
+  - **INACTIVE**: <3 attendances for ALL types
+  - Status updates occur in real-time when attendance records are created/updated for Sunday Service or Doctrinal Class events, or when cluster attendance changes.
+  - When status changes, a Journey entry of type `NOTE` is automatically created with title "Status Update: {OLD_STATUS} → {NEW_STATUS}".
 
 ### Family
 
@@ -47,6 +53,7 @@ Notes
   - `CLUSTER` type journeys are automatically created when:
     - People attend cluster meetings (via ClusterWeeklyReport) - title: "Attended Cluster Meeting - {Cluster Code}"
     - People are added to or transferred between clusters - title: "Joined Cluster - {Cluster Code}" or "Transferred to Cluster - {Cluster Code}"
+  - `NOTE` type journeys are automatically created when a Person's status changes (ACTIVE/SEMIACTIVE/INACTIVE) - title: "Status Update: {OLD_STATUS} → {NEW_STATUS}". Only created when status changes from one value to another (not for first assignment), and only one journey entry per day (updates existing if multiple changes occur).
 
 ## Data Models (apps.ministries.models)
 

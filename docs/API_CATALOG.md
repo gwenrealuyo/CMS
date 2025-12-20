@@ -68,6 +68,12 @@ date_first_attended?, inviter (Person id)?, branch (Branch id)?, member_id?, sta
 
 Note: When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.
 
+- Update Status: `POST /api/people/people/{id}/update_status/`
+  - Access: ADMIN, PASTOR, or Senior Coordinator
+  - Manually trigger status update for a person based on attendance patterns
+  - Returns: `{"status": "ACTIVE|SEMIACTIVE|INACTIVE", "updated": true|false}`
+  - Note: Status is automatically updated in real-time when attendance records change. This endpoint allows manual triggering.
+
 ### Family
 
 - List: `GET /api/people/families/`

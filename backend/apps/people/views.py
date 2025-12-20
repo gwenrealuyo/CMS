@@ -410,6 +410,18 @@ class JourneyViewSet(viewsets.ModelViewSet):
         # 4. Otherwise - only own journeys
         return queryset.filter(user=user)
 
+    @action(detail=True, methods=['post'])
+    def update_status(self, request, pk=None):
+        """Manually trigger status update for a person"""
+        from apps.people.utils import update_person_status
+        
+        person = self.get_object()
+        updated = update_person_status(person, force=True)
+        return Response({
+            'status': person.status,
+            'updated': updated
+        })
+
 
 class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
     """

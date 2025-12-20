@@ -24,8 +24,8 @@ Notes
 - Custom username generation handled in `PersonSerializer.create`
 - **Automatic Status Updates**: The `status` field is automatically updated based on attendance patterns within a rolling 4-week window:
   - **ACTIVE**: ≥3 attendances for ALL THREE types (Sunday Service AND Clustering AND Doctrinal Class)
-  - **SEMIACTIVE**: ≥3 attendances for at least ONE type (but not all three). If person not in any cluster, maximum status is SEMIACTIVE.
-  - **INACTIVE**: <3 attendances for ALL types
+  - **SEMIACTIVE**: ≥1 attendance for at least ONE type (but not all three with ≥3 each). If person not in any cluster, maximum status is SEMIACTIVE.
+  - **INACTIVE**: 0 attendances for ALL types
   - Status updates occur in real-time when attendance records are created/updated for Sunday Service or Doctrinal Class events, or when cluster attendance changes.
   - When status changes, a Journey entry of type `NOTE` is automatically created with title "Status Update: {OLD_STATUS} → {NEW_STATUS}".
 

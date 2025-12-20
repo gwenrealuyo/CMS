@@ -15,8 +15,8 @@ def calculate_person_attendance_status(person, reference_date=None):
     
     Status Rules (Option A - Threshold-based):
     - ACTIVE: ≥3 attendances for ALL THREE types (Sunday Service AND Clustering AND Doctrinal Class)
-    - SEMIACTIVE: ≥3 attendances for at least ONE type (but not all three)
-    - INACTIVE: <3 attendances for ALL types
+    - SEMIACTIVE: ≥1 attendance for at least ONE type (but not all three with ≥3 each)
+    - INACTIVE: 0 attendances for ALL types
     - Special: If person not in any cluster, maximum status is SEMIACTIVE
     
     Args:
@@ -86,25 +86,31 @@ def calculate_person_attendance_status(person, reference_date=None):
     if total_sundays == 0 and total_cluster_meetings == 0 and total_doctrinal == 0:
         return None
     
-    # Apply threshold (≥3 = meets threshold)
-    THRESHOLD = 3
-    sunday_meets = sunday_attended >= THRESHOLD
-    cluster_meets = cluster_attended >= THRESHOLD
-    doctrinal_meets = doctrinal_attended >= THRESHOLD
+    # Apply thresholds
+    THRESHOLD_ACTIVE = 3  # For ACTIVE status (all three types need ≥3)
+    THRESHOLD_SEMIACTIVE = 1  # For SEMIACTIVE status (at least one type needs ≥1)
+    
+    sunday_meets_active = sunday_attended >= THRESHOLD_ACTIVE
+    cluster_meets_active = cluster_attended >= THRESHOLD_ACTIVE
+    doctrinal_meets_active = doctrinal_attended >= THRESHOLD_ACTIVE
+    
+    sunday_meets_semiactive = sunday_attended >= THRESHOLD_SEMIACTIVE
+    cluster_meets_semiactive = cluster_attended >= THRESHOLD_SEMIACTIVE
+    doctrinal_meets_semiactive = doctrinal_attended >= THRESHOLD_SEMIACTIVE
     
     # Determine status
-    # ACTIVE: All three types meet threshold
-    if sunday_meets and cluster_meets and doctrinal_meets:
+    # ACTIVE: All three types meet ACTIVE threshold (≥3)
+    if sunday_meets_active and cluster_meets_active and doctrinal_meets_active:
         return "ACTIVE"
     
-    # SEMIACTIVE: At least one type meets threshold (but not all three)
-    elif sunday_meets or cluster_meets or doctrinal_meets:
+    # SEMIACTIVE: At least one type has at least 1 attendance (but not all three with ≥3 each)
+    elif sunday_meets_semiactive or cluster_meets_semiactive or doctrinal_meets_semiactive:
         # If person not in any cluster, max is SEMIACTIVE (already satisfied)
         if not person_clusters.exists():
             return "SEMIACTIVE"
         return "SEMIACTIVE"
     
-    # INACTIVE: None of the types meet threshold
+    # INACTIVE: No attendances for any type (all are 0)
     else:
         return "INACTIVE"
 

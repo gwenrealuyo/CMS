@@ -45,3 +45,4 @@ class Command(BaseCommand):
                 f"{created_count} created, {updated_count} updated"
             )
         )
+

@@ -2253,6 +2253,11 @@ function AdminSettingsPageContent() {
                               <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
                                 {branch.name}
                               </h3>
+                              {branch.code && (
+                                <span className="inline-block text-xs font-medium bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full whitespace-nowrap">
+                                  {branch.code}
+                                </span>
+                              )}
                               {branch.is_headquarters && (
                                 <div
                                   className="flex items-center text-yellow-500"
@@ -2262,11 +2267,6 @@ function AdminSettingsPageContent() {
                                 </div>
                               )}
                             </div>
-                            {branch.code && (
-                              <span className="inline-block text-xs font-medium bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full whitespace-nowrap">
-                                {branch.code}
-                              </span>
-                            )}
                           </div>
                           <div className="flex items-center flex-shrink-0">
                             {branch.is_active ? (
@@ -2362,6 +2362,11 @@ function AdminSettingsPageContent() {
                               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                                 {viewingBranch.name}
                               </h2>
+                              {viewingBranch.code && (
+                                <span className="inline-block text-sm font-medium bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full">
+                                  {viewingBranch.code}
+                                </span>
+                              )}
                               {viewingBranch.is_headquarters && (
                                 <div
                                   className="flex items-center text-yellow-500"
@@ -2371,11 +2376,6 @@ function AdminSettingsPageContent() {
                                 </div>
                               )}
                             </div>
-                            {viewingBranch.code && (
-                              <span className="inline-block text-sm font-medium bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full mb-2">
-                                {viewingBranch.code}
-                              </span>
-                            )}
                             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:space-x-2 mt-2">
                               <span
                                 className={`px-2 py-1 rounded-full text-xs font-medium ${

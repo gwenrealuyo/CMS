@@ -31,12 +31,18 @@ Notes
 
 ### Cluster
 
-- Fields: `code` (unique, nullable), `name?`, `coordinator` → Person (nullable), `families` → ManyToMany(Family), `branch` → Branch (nullable), `description?`, `created_at`
+- Fields: `code` (unique, nullable), `name?`, `coordinator` → Person (nullable), `families` → ManyToMany(Family), `members` → ManyToMany(Person), `branch` → Branch (nullable), `location?`, `meeting_schedule?`, `description?`, `created_at`
+
+### ClusterComplianceNote
+
+- Fields: `cluster` → Cluster, `created_by` → Person (nullable), `note` (TextField), `period_start` (DateField), `period_end` (DateField), `created_at`, `updated_at`
+- Meta: Ordering by `-created_at`, indexes on `cluster` and `-created_at`
+- Notes: Used to track compliance notes/comments added by senior coordinators about cluster compliance issues
 
 ### Journey
 
 - Fields: `user` → Person, `title?`, `date`, `type` (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE|EVENT_ATTENDANCE|MINISTRY|BRANCH_TRANSFER), `description?`, `verified_by` → Person (nullable), `created_at`
-- Notes: 
+- Notes:
   - `BRANCH_TRANSFER` type is automatically created when a Person's branch changes
   - `CLUSTER` type journeys are automatically created when:
     - People attend cluster meetings (via ClusterWeeklyReport) - title: "Attended Cluster Meeting - {Cluster Code}"

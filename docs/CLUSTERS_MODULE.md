@@ -134,6 +134,59 @@ All ForeignKey and ManyToMany relationships use string references to avoid circu
 - `apps.clusters.migrations.0001_initial` – Creates Cluster and ClusterWeeklyReport tables with all relationships
 - There is no seed data in migrations; use the management command for sample data.
 
+## Compliance Monitoring
+
+The clusters module includes comprehensive compliance monitoring features accessible to ADMIN, PASTOR, and Senior Coordinators:
+
+### Compliance Features
+
+- **Compliance Tracking**: Monitor which clusters are submitting reports on time
+- **At-Risk Detection**: Identify clusters with missing reports, declining trends, or consecutive missing weeks
+- **Compliance Notes**: Add notes/comments about compliance issues for specific clusters and time periods
+- **Historical Trends**: View compliance trends over time (weekly or monthly)
+- **Export Functionality**: Export compliance data as CSV
+
+### Compliance Endpoints
+
+- `GET /api/clusters/cluster-weekly-reports/compliance/` - Get compliance data for all clusters
+  - Query params: `start_date`, `end_date`, `branch_id`, `coordinator_id`, `status`, `min_compliance_rate`
+  - Returns summary statistics and detailed compliance data per cluster
+  
+- `GET /api/clusters/cluster-weekly-reports/at_risk/` - Get clusters at risk of non-compliance
+  - Query params: `weeks_back` (default: 4)
+  - Returns clusters meeting at-risk criteria (2+ consecutive missing weeks, no reports in 2-3 weeks, declining trend)
+  
+- `GET /api/clusters/cluster-weekly-reports/compliance_history/` - Get historical compliance trends
+  - Query params: `months` (default: 3), `cluster_id`, `coordinator_id`, `group_by` (week|month)
+  - Returns historical compliance rates over time for trend analysis
+  
+- `POST /api/clusters/cluster-weekly-reports/add_compliance_note/` - Add a compliance note
+  - Body: `cluster_id`, `note`, `period_start`, `period_end`
+  
+- `GET /api/clusters/cluster-weekly-reports/compliance_notes/` - Get compliance notes
+  - Query params: `cluster_id`, `start_date`, `end_date`
+  
+- `GET /api/clusters/cluster-weekly-reports/compliance_export_csv/` - Export compliance data as CSV
+
+### Compliance Status
+
+Clusters are classified into three compliance statuses:
+- **COMPLIANT**: 100% compliance rate (all expected reports submitted)
+- **PARTIAL**: 1-99% compliance rate (some reports missing)
+- **NON_COMPLIANT**: 0% compliance rate (no reports submitted)
+
+### Compliance Trends
+
+Trends are calculated by comparing the current period with the previous period:
+- **IMPROVING**: Compliance rate increased by 5% or more
+- **STABLE**: Compliance rate changed by less than 5%
+- **DECLINING**: Compliance rate decreased by 5% or more
+
+### Frontend Components
+
+- **Compliance Tab**: Main compliance dashboard showing summary cards, filters, and compliance table
+- **Compliance Notes**: Notes panel for viewing and adding compliance-related comments
+
 ## API Surface
 
 All routes live under `/api/clusters/` (namespaced in `core.urls`):

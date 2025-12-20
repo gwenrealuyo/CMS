@@ -7,6 +7,10 @@ import {
   ClusterWeeklyReportInput,
   ClusterAnalytics,
   OverdueClusters,
+  ComplianceData,
+  ComplianceHistory,
+  AtRiskCluster,
+  ComplianceNote,
 } from "@/src/types/cluster";
 import {
   Lesson,
@@ -350,6 +354,49 @@ export const clusterReportsApi = {
     }),
   overdue: () =>
     api.get<OverdueClusters>("/clusters/cluster-weekly-reports/overdue/"),
+  compliance: (params?: {
+    start_date?: string;
+    end_date?: string;
+    branch_id?: number;
+    coordinator_id?: number;
+    status?: 'COMPLIANT' | 'NON_COMPLIANT' | 'PARTIAL';
+    min_compliance_rate?: number;
+  }) => api.get<ComplianceData>('/clusters/cluster-weekly-reports/compliance/', { params }),
+  atRisk: (params?: { weeks_back?: number }) => 
+    api.get<AtRiskCluster[]>('/clusters/cluster-weekly-reports/at_risk/', { params }),
+  complianceHistory: (params?: { 
+    months?: number; 
+    cluster_id?: number;
+    coordinator_id?: number;
+    group_by?: 'week' | 'month';
+  }) => api.get<ComplianceHistory>('/clusters/cluster-weekly-reports/compliance_history/', { params }),
+  addComplianceNote: (data: {
+    cluster_id: number;
+    note: string;
+    period_start: string;
+    period_end: string;
+  }) => api.post<ComplianceNote>('/clusters/cluster-weekly-reports/add_compliance_note/', data),
+  getComplianceNotes: (params?: {
+    cluster_id?: number;
+    start_date?: string;
+    end_date?: string;
+  }) => api.get<ComplianceNote[]>('/clusters/cluster-weekly-reports/compliance_notes/', { params }),
+  exportComplianceCSV: (params?: {
+    start_date?: string;
+    end_date?: string;
+    branch_id?: number;
+    coordinator_id?: number;
+    status?: 'COMPLIANT' | 'NON_COMPLIANT' | 'PARTIAL';
+    min_compliance_rate?: number;
+  }) => api.get('/clusters/cluster-weekly-reports/compliance_export_csv/', { params, responseType: 'blob' }),
+  exportCompliancePDF: (params?: {
+    start_date?: string;
+    end_date?: string;
+    branch_id?: number;
+    coordinator_id?: number;
+    status?: 'COMPLIANT' | 'NON_COMPLIANT' | 'PARTIAL';
+    min_compliance_rate?: number;
+  }) => api.get('/clusters/cluster-weekly-reports/compliance_export_pdf/', { params, responseType: 'blob' }),
 };
 
 export const eventsApi = {

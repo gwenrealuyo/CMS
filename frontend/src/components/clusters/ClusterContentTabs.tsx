@@ -1,4 +1,4 @@
-export type ClusterContentTab = "clusters" | "reports";
+export type ClusterContentTab = "clusters" | "reports" | "compliance";
 
 interface ClusterContentTabsProps {
   activeTab: ClusterContentTab;
@@ -15,6 +15,7 @@ export default function ClusterContentTabs({
   }> = [
     { id: "clusters", label: "Clusters" },
     { id: "reports", label: "Reports" },
+    { id: "compliance", label: "Compliance" },
   ];
 
   return (

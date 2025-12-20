@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cluster, ClusterWeeklyReport
+from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
 
 @admin.register(Cluster)
@@ -104,3 +104,41 @@ class ClusterWeeklyReportAdmin(admin.ModelAdmin):
         ),
     )
     readonly_fields = ("submitted_at", "updated_at")
+
+
+@admin.register(ClusterComplianceNote)
+class ClusterComplianceNoteAdmin(admin.ModelAdmin):
+    list_display = ("cluster", "created_by", "period_start", "period_end", "created_at")
+    list_filter = ("created_at", "period_start", "period_end")
+    search_fields = ("cluster__name", "cluster__code", "note")
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        (
+            "Note Information",
+            {
+                "fields": (
+                    "cluster",
+                    "note",
+                    "created_by",
+                )
+            },
+        ),
+        (
+            "Period",
+            {
+                "fields": (
+                    "period_start",
+                    "period_end",
+                )
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )

@@ -4,6 +4,7 @@ import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ClusterContentTabs, {
   ClusterContentTab,
 } from "@/src/components/clusters/ClusterContentTabs";
+import ClusterComplianceTab from "@/src/components/clusters/ClusterComplianceTab";
 import ClusterCard from "@/src/components/clusters/ClusterCard";
 import ClusterView from "@/src/components/clusters/ClusterView";
 import ClusterForm from "@/src/components/clusters/ClusterForm";
@@ -704,6 +705,9 @@ export default function ClustersPageView({
             )}
           </div>
         )}
+
+        {activeTab === "compliance" && <ClusterComplianceTab />}
+
 
         {activeTab === "reports" && (
           <ClusterReportsDashboard

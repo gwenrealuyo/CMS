@@ -131,3 +131,32 @@ class ClusterWeeklyReport(models.Model):
 
     def __str__(self):
         return f"{self.cluster.name} - {self.year} Week {self.week_number}"
+
+
+class ClusterComplianceNote(models.Model):
+    """Notes/comments added by senior coordinators about cluster compliance issues"""
+    cluster = models.ForeignKey(
+        Cluster,
+        on_delete=models.CASCADE,
+        related_name="compliance_notes"
+    )
+    created_by = models.ForeignKey(
+        "people.Person",
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_compliance_notes"
+    )
+    note = models.TextField(help_text="Note about compliance issue or follow-up action")
+    period_start = models.DateField(help_text="Start date of compliance period this note refers to")
+    period_end = models.DateField(help_text="End date of compliance period this note refers to")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["cluster", "-created_at"]),
+        ]
+    
+    def __str__(self):
+        return f"Note for {self.cluster} - {self.period_start} to {self.period_end}"

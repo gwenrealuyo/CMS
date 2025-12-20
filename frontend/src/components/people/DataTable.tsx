@@ -90,6 +90,7 @@ export default function DataTable({
     { key: "country", label: "Country", default: false },
     { key: "role", label: "Role", default: true },
     { key: "status", label: "Status", default: true },
+    { key: "branch", label: "Branch", default: false },
     { key: "dateOfBirth", label: "Date of Birth", default: false },
     { key: "dateFirstAttended", label: "First Attended", default: true },
     { key: "waterBaptismDate", label: "Water Baptism", default: false },
@@ -1057,6 +1058,14 @@ export default function DataTable({
                               {person.status}
                             </span>
                           )}
+                          {field === "branch" && (
+                            <div className="text-sm text-gray-900">
+                              {person.branch_name ||
+                                (person.branch
+                                  ? `Branch ${person.branch}`
+                                  : "-")}
+                            </div>
+                          )}
                           {field === "dateFirstAttended" && (
                             <div className="text-sm text-gray-900">
                               {person.dateFirstAttended
@@ -1276,6 +1285,12 @@ export default function DataTable({
                           >
                             {person.status.toLowerCase()}
                           </span>
+                        )}
+                        {field === "branch" && (
+                          <div className="text-sm text-gray-900">
+                            {person.branch_name ||
+                              (person.branch ? `Branch ${person.branch}` : "-")}
+                          </div>
                         )}
                         {field === "dateFirstAttended" && (
                           <div className="text-sm text-gray-900">

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Person, Family, Journey, ModuleCoordinator
+from .models import Branch, Person, Family, Journey, ModuleCoordinator
 
 
 class PersonAdmin(UserAdmin):
@@ -30,6 +30,7 @@ class PersonAdmin(UserAdmin):
                     "date_first_attended",
                     "has_finished_lessons",
                     "inviter",
+                    "branch",
                     "member_id",
                     "status",
                 )
@@ -75,6 +76,7 @@ class PersonAdmin(UserAdmin):
                     "date_first_attended",
                     "has_finished_lessons",
                     "inviter",
+                    "branch",
                     "member_id",
                     "status",
                 ),
@@ -106,7 +108,7 @@ class ModuleCoordinatorAdmin(admin.ModelAdmin):
     raw_id_fields = ("person",)
     ordering = ("person", "module", "level")
     date_hierarchy = "created_at"
-    
+
     fieldsets = (
         (
             "Assignment",
@@ -128,11 +130,12 @@ class ModuleCoordinatorAdmin(admin.ModelAdmin):
             },
         ),
     )
-    
+
     readonly_fields = ("created_at",)
 
 
 # Register with custom admin
+admin.site.register(Branch)
 admin.site.register(Person, PersonAdmin)
 admin.site.register(Family)
 admin.site.register(Journey)

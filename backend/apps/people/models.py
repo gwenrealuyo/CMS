@@ -2,6 +2,38 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 
 
+class Branch(models.Model):
+    """Represents a church branch/location"""
+
+    name = models.CharField(max_length=200)
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="Short code for the branch (e.g., 'HQ', 'BRANCH1')",
+    )
+    address = models.TextField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
+    is_headquarters = models.BooleanField(
+        default=False, help_text="Mark this branch as the headquarters"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Branches"
+        ordering = ["name"]
+        indexes = [
+            models.Index(fields=["is_headquarters"]),
+            models.Index(fields=["is_active"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Person(AbstractUser):
     middle_name = models.CharField(blank=True, max_length=150)
     suffix = models.CharField(blank=True, max_length=150)
@@ -59,6 +91,14 @@ class Person(AbstractUser):
         on_delete=models.SET_NULL,
         related_name="invited_people",
     )
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="members",
+        help_text="The church branch this person belongs to",
+    )
     member_id = models.CharField(max_length=20, blank=True)  # LAMP ID
     status = models.CharField(
         blank=True,
@@ -89,6 +129,19 @@ class Person(AbstractUser):
 
     def __str__(self):
         return self.username  # or full name if you prefer
+
+    def can_see_all_branches(self):
+        """
+        Check if this user can see all branches.
+        Returns True for:
+        - ADMIN users
+        - PASTOR users from headquarters branch
+        """
+        if self.role == "ADMIN":
+            return True
+        if self.role == "PASTOR" and self.branch and self.branch.is_headquarters:
+            return True
+        return False
 
     def is_module_coordinator(self, module_type, level=None, resource_id=None):
         """Check if user is a coordinator for a specific module"""
@@ -140,6 +193,7 @@ class Journey(models.Model):
             ("NOTE", "Note"),
             ("EVENT_ATTENDANCE", "Event Attendance"),
             ("MINISTRY", "Ministry"),
+            ("BRANCH_TRANSFER", "Branch Transfer"),
         ],
     )
     description = models.TextField(blank=True)

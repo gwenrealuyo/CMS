@@ -5,14 +5,23 @@ class Cluster(models.Model):
     code = models.CharField(max_length=100, unique=True, null=True)
     name = models.CharField(max_length=100, null=True)
     coordinator = models.ForeignKey(
-        'people.Person',
+        "people.Person",
         on_delete=models.SET_NULL,
         null=True,
         related_name="coordinated_clusters",
     )
     # A cluster can include families and/or individual people
-    families = models.ManyToManyField('people.Family', blank=True)
-    members = models.ManyToManyField('people.Person', related_name="clusters", blank=True)
+    families = models.ManyToManyField("people.Family", blank=True)
+    members = models.ManyToManyField(
+        "people.Person", related_name="clusters", blank=True
+    )
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="clusters",
+    )
     location = models.CharField(max_length=150, blank=True)
     meeting_schedule = models.CharField(max_length=200, blank=True)
     description = models.TextField(blank=True)
@@ -22,12 +31,12 @@ class Cluster(models.Model):
     def member_count(self):
         """Count members excluding ADMIN users"""
         return self.members.exclude(role="ADMIN").count()
-    
+
     @property
     def visitor_count(self):
         """Count visitors excluding ADMIN users"""
         return self.members.filter(role="VISITOR").exclude(role="ADMIN").count()
-    
+
     def __str__(self):
         return self.name or self.code or f"Cluster {self.id}"
 
@@ -46,13 +55,13 @@ class ClusterWeeklyReport(models.Model):
 
     # Attendance
     members_attended = models.ManyToManyField(
-        'people.Person',
+        "people.Person",
         blank=True,
         related_name="cluster_reports_as_member",
         limit_choices_to={"role": "MEMBER"},
     )
     visitors_attended = models.ManyToManyField(
-        'people.Person',
+        "people.Person",
         blank=True,
         related_name="cluster_reports_as_visitor",
         limit_choices_to={"role": "VISITOR"},
@@ -88,7 +97,7 @@ class ClusterWeeklyReport(models.Model):
 
     # Submission Info
     submitted_by = models.ForeignKey(
-        'people.Person',
+        "people.Person",
         on_delete=models.SET_NULL,
         null=True,
         related_name="submitted_cluster_reports",

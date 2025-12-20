@@ -48,6 +48,7 @@ export interface Ministry {
   name: string;
   description: string;
   category: MinistryCategory;
+  branch?: number | null;
   activity_cadence: MinistryCadence;
   primary_coordinator: UserSummary | null;
   support_coordinators: UserSummary[];

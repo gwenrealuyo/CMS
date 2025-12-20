@@ -15,6 +15,31 @@ Base URL: `/api/people/`
 - **VISITOR Exclusion**: VISITOR role cannot log in
 - See `docs/AUTHENTICATION_MODULE.md` for detailed documentation
 
+### Branch
+
+- List: `GET /api/people/branches/`
+  - Query: `is_headquarters`, `is_active`, `search` (name, code)
+  - Access: All authenticated non-visitor users
+  - Returns: Array of branch objects
+- Retrieve: `GET /api/people/branches/{id}/`
+  - Access: All authenticated non-visitor users
+- Create: `POST /api/people/branches/`
+  - Required: `name`
+  - Optional: `code`, `address`, `phone`, `email`, `is_headquarters` (default=False), `is_active` (default=True)
+  - Access: ADMIN only
+- Update: `PUT /api/people/branches/{id}/`
+  - Access: ADMIN only
+- Partial Update: `PATCH /api/people/branches/{id}/`
+  - Access: ADMIN only
+- Delete: `DELETE /api/people/branches/{id}/`
+  - Access: ADMIN only
+
+Branch fields (serializer)
+
+```
+id, name, code?, address?, phone?, email?, is_headquarters, is_active, created_at (read-only)
+```
+
 ### Person
 
 - List: `GET /api/people/`
@@ -38,8 +63,10 @@ Person fields (serializer)
 ```
 id, username (read-only), first_name, last_name, middle_name?, suffix?, gender?,
 facebook_name?, photo?, role, phone?, address?, country?, date_of_birth?,
-date_first_attended?, inviter (Person id)?, member_id?, status?
+date_first_attended?, inviter (Person id)?, branch (Branch id)?, member_id?, status?
 ```
+
+Note: When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.
 
 ### Family
 
@@ -75,7 +102,7 @@ Cluster fields (serializer)
 
 ```
 id, code, name, coordinator (Person id | null), families (Family ids[]),
-description?, created_at (read-only)
+branch (Branch id)?, description?, created_at (read-only)
 ```
 
 ### Journey
@@ -93,9 +120,11 @@ description?, created_at (read-only)
 Journey fields (serializer)
 
 ```
-id, user (Person ID), title?, date, type (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE),
+id, user (Person ID), title?, date, type (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE|EVENT_ATTENDANCE|MINISTRY|BRANCH_TRANSFER),
 description?, verified_by (Person ID | null), created_at (read-only)
 ```
+
+Note: `BRANCH_TRANSFER` type is automatically created when a Person's branch changes.
 
 ### Module Coordinator Assignments
 
@@ -147,7 +176,7 @@ id, name, description?, category? (worship|outreach|care|logistics|other),
 activity_cadence (weekly|monthly|seasonal|event_driven|holiday|ad_hoc),
 primary_coordinator (read-only, UserSummary), primary_coordinator_id (write-only),
 support_coordinators (read-only, UserSummary[]), support_coordinator_ids (write-only, Person ids[]),
-meeting_location?, meeting_schedule? (JSON object), communication_channel? (URL),
+branch (Branch id)?, meeting_location?, meeting_schedule? (JSON object), communication_channel? (URL),
 is_active, created_at (read-only), updated_at (read-only), memberships (read-only, MinistryMember[])
 ```
 
@@ -183,5 +212,7 @@ is_active, availability? (JSON object), skills?, notes?
 - Media uploads for `photo` use `MEDIA_URL = /media/` and `MEDIA_ROOT` from settings.
 - Pagination is default DRF (not explicitly configured).
 - Person serializer includes `journeys` field (read-only) with full journey data.
-- Access control: See `docs/ACCESS_CONTROL.md` for complete access matrix and permission rules.
+- Access control: See `docs/ACCESS_CONTROL.md` for complete access matrix and permission rules, including branch-based filtering.
+- Branch filtering: All data (People, Families, Clusters, Events, Ministries, Journeys) is filtered by branch based on user's branch assignment. ADMIN and PASTOR from headquarters see all branches.
+- Branch transfers: When a Person's `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.
 - Ministry coordinator sync: When `primary_coordinator` or `support_coordinators` are set on a Ministry, corresponding `MinistryMember` entries are automatically created/updated with roles `PRIMARY_COORDINATOR` or `COORDINATOR`. When coordinators are removed, their `MinistryMember` role is updated to `TEAM_MEMBER` if they still have a membership. See `docs/MINISTRIES_MODULE.md` for details.

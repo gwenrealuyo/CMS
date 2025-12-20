@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Branch } from "@/src/types/branch";
 
 interface FilterField {
   key: string;
@@ -12,6 +13,7 @@ interface FilterDropdownProps {
   onClose: () => void;
   onSelectField: (field: FilterField) => void;
   position: { top: number; left: number };
+  branches?: Branch[];
 }
 
 const FILTER_FIELDS: FilterField[] = [
@@ -58,6 +60,12 @@ const FILTER_FIELDS: FilterField[] = [
     ],
   },
   {
+    key: "branch",
+    label: "Branch",
+    type: "select",
+    options: [], // Will be populated dynamically
+  },
+  {
     key: "date_first_attended",
     label: "Join Date",
     type: "date",
@@ -74,8 +82,25 @@ export default function FilterDropdown({
   onClose,
   onSelectField,
   position,
+  branches = [],
 }: FilterDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Update branch filter options dynamically
+  const filterFieldsWithBranches = FILTER_FIELDS.map((field) => {
+    if (field.key === "branch") {
+      return {
+        ...field,
+        options: branches
+          .filter((b) => b.is_active)
+          .map((b) => ({
+            value: b.id.toString(),
+            label: b.name + (b.is_headquarters ? " (HQ)" : ""),
+          })),
+      };
+    }
+    return field;
+  });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -112,7 +137,7 @@ export default function FilterDropdown({
       </div>
 
       <div className="max-h-64 overflow-y-auto">
-        {FILTER_FIELDS.map((field) => (
+        {filterFieldsWithBranches.map((field) => (
           <button
             key={field.key}
             onClick={() => {
@@ -120,6 +145,9 @@ export default function FilterDropdown({
               onClose();
             }}
             className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+            disabled={
+              field.key === "branch" && (!branches || branches.length === 0)
+            }
           >
             <span>{field.label}</span>
             <span className="text-xs text-gray-400 capitalize">

@@ -24,7 +24,8 @@ export type JourneyType =
   | "CLUSTER"
   | "NOTE"
   | "EVENT_ATTENDANCE"
-  | "MINISTRY";
+  | "MINISTRY"
+  | "BRANCH_TRANSFER";
 
 export interface Journey {
   id: string;
@@ -74,6 +75,8 @@ export interface Person {
     | "CONFERENCE"
     | "CONCERT_CRUSADE";
   inviter?: string; // ID of another Person
+  branch?: number; // Branch ID
+  branch_name?: string; // Branch name (if nested data included)
   member_id?: string;
   status: PersonStatus;
   journeys?: Journey[];

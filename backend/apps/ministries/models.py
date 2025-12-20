@@ -50,6 +50,13 @@ class Ministry(models.Model):
         blank=True,
         related_name="ministries_supporting",
     )
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ministries",
+    )
     meeting_location = models.CharField(max_length=255, blank=True)
     meeting_schedule = models.JSONField(blank=True, null=True)
     communication_channel = models.URLField(blank=True)

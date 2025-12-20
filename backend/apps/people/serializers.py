@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Family, Journey, Person, ModuleCoordinator
+from django.utils import timezone
+from .models import Branch, Family, Journey, Person, ModuleCoordinator
 
 
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
@@ -158,9 +159,29 @@ class JourneySerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at"]
 
 
+class BranchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Branch
+        fields = [
+            "id",
+            "name",
+            "code",
+            "address",
+            "phone",
+            "email",
+            "is_headquarters",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["created_at"]
+
+
 class PersonSerializer(serializers.ModelSerializer):
     inviter = serializers.PrimaryKeyRelatedField(
         queryset=Person.objects.all(), allow_null=True, required=False
+    )
+    branch = serializers.PrimaryKeyRelatedField(
+        queryset=Branch.objects.all(), allow_null=True, required=False
     )
     photo = serializers.ImageField(required=False, allow_null=True)
     journeys = JourneySerializer(many=True, read_only=True)
@@ -194,6 +215,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "spirit_baptism_date",
             "has_finished_lessons",
             "inviter",
+            "branch",
             "member_id",
             "status",
             "journeys",
@@ -226,6 +248,33 @@ class PersonSerializer(serializers.ModelSerializer):
 
         validated_data["username"] = username
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """Update person and track branch transfers"""
+        # Store old branch value before update
+        old_branch = instance.branch
+
+        # Perform the update
+        updated_instance = super().update(instance, validated_data)
+
+        # Check if branch changed
+        new_branch = updated_instance.branch
+        if (
+            old_branch != new_branch
+            and old_branch is not None
+            and new_branch is not None
+        ):
+            # Create Journey entry for branch transfer
+            Journey.objects.create(
+                user=updated_instance,
+                type="BRANCH_TRANSFER",
+                title="Branch Transfer",
+                description=f"Transferred from {old_branch.name} to {new_branch.name}",
+                date=timezone.now().date(),
+                verified_by=None,
+            )
+
+        return updated_instance
 
     def get_cluster_codes(self, obj: Person):
         from apps.clusters.models import Cluster

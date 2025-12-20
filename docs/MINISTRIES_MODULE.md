@@ -281,3 +281,6 @@ The module uses Django signals to ensure coordinator synchronization even when m
 - **`m2m_changed` signal**: Syncs when `support_coordinators` ManyToMany is modified
 
 Signals are registered in `apps.ministries.apps.MinistriesConfig.ready()`.
+
+
+

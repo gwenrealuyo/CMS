@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Person, JourneyType } from "@/src/types/person";
+import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
 import { journeysApi } from "@/src/lib/api";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import toast from "react-hot-toast";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { useBranches } from "@/src/hooks/useBranches";
 
 interface PersonFormProps {
   onSubmit: (data: Partial<Person>) => Promise<Person | void>;
@@ -43,6 +46,16 @@ export default function PersonForm({
   const [inviterSearch, setInviterSearch] = useState("");
   const [showInviterDropdown, setShowInviterDropdown] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const { user } = useAuth();
+  const { branches, getBranches } = useBranches();
+
+  // Check if user can edit branch (ADMIN or PASTOR only)
+  const canEditBranch = user?.role === "ADMIN" || user?.role === "PASTOR";
+
+  // Fetch branches on mount
+  useEffect(() => {
+    getBranches();
+  }, [getBranches]);
   const [tabSwitchConfirmation, setTabSwitchConfirmation] = useState<{
     isOpen: boolean;
     targetTab: "basic" | "timeline" | null;
@@ -774,6 +787,45 @@ export default function PersonForm({
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Branch
+                    </label>
+                    <select
+                      name="branch"
+                      value={formData.branch || ""}
+                      onChange={(e) => {
+                        const value =
+                          e.target.value === ""
+                            ? undefined
+                            : Number(e.target.value);
+                        setFormData((prev) => ({
+                          ...prev,
+                          branch: value,
+                        }));
+                        setHasUnsavedChanges(true);
+                      }}
+                      disabled={!canEditBranch}
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      <option value="">No branch</option>
+                      {branches
+                        .filter((b) => b.is_active)
+                        .map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name}
+                            {branch.is_headquarters ? " (HQ)" : ""}
+                          </option>
+                        ))}
+                    </select>
+                    {!canEditBranch && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Only ADMIN and PASTOR can edit branch
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center">
                     <input

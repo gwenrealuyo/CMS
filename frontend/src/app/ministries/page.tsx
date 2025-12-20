@@ -703,6 +703,7 @@ export default function MinistriesPage() {
                     ? Number(values.primary_coordinator_id)
                     : null,
                   support_coordinator_ids: supportIds,
+                  branch: values.branch_id ? Number(values.branch_id) : null,
                   meeting_location: values.meeting_location,
                   meeting_schedule:
                     Object.keys(meetingSchedule).length > 0
@@ -864,6 +865,7 @@ export default function MinistriesPage() {
                     ? Number(values.primary_coordinator_id)
                     : null,
                   support_coordinator_ids: supportIds,
+                  branch: values.branch_id ? Number(values.branch_id) : null,
                   meeting_location: values.meeting_location,
                   meeting_schedule:
                     Object.keys(meetingSchedule).length > 0

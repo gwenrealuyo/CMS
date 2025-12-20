@@ -12,6 +12,9 @@ import {
   MinistryMember,
 } from "@/src/types/ministry";
 import { Person } from "@/src/types/person";
+import { Branch } from "@/src/types/branch";
+import { useBranches } from "@/src/hooks/useBranches";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { formatPersonName } from "@/src/lib/name";
 
 export interface PendingMember {
@@ -28,6 +31,7 @@ export interface MinistryFormValues {
   activity_cadence: MinistryCadence;
   primary_coordinator_id: string;
   support_coordinator_ids: string[];
+  branch_id: string;
   meeting_location: string;
   meeting_schedule_day: string;
   meeting_schedule_time: string;
@@ -63,6 +67,7 @@ const DEFAULT_VALUES: MinistryFormValues = {
   activity_cadence: "weekly",
   primary_coordinator_id: "",
   support_coordinator_ids: [],
+  branch_id: "",
   meeting_location: "",
   meeting_schedule_day: "",
   meeting_schedule_time: "",
@@ -141,6 +146,7 @@ export default function MinistryForm({
         ? String(initialData.primary_coordinator.id)
         : "",
       support_coordinator_ids: supportCoordinatorIds,
+      branch_id: initialData.branch ? String(initialData.branch) : "",
       meeting_location: initialData.meeting_location ?? "",
       meeting_schedule_day: scheduleDay,
       meeting_schedule_time: scheduleTime,
@@ -152,6 +158,10 @@ export default function MinistryForm({
       removed_member_ids: [],
     };
   };
+
+  const { branches } = useBranches();
+  const { user } = useAuth();
+  const canEditBranch = user?.role === "ADMIN" || user?.role === "PASTOR";
 
   const [values, setValues] = useState<MinistryFormValues>(getInitialValues());
   const [supportSelectorValue, setSupportSelectorValue] = useState("");
@@ -194,6 +204,7 @@ export default function MinistryForm({
           ? String(initialData.primary_coordinator.id)
           : "",
         support_coordinator_ids: supportCoordinatorIds,
+        branch_id: initialData.branch ? String(initialData.branch) : "",
         meeting_location: initialData.meeting_location ?? "",
         meeting_schedule_day: scheduleDay,
         meeting_schedule_time: scheduleTime,

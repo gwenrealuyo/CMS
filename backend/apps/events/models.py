@@ -28,6 +28,13 @@ class Event(models.Model):
         default="SUNDAY_SERVICE",
     )
     location = models.CharField(max_length=200)
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="events",
+    )
     is_recurring = models.BooleanField(default=False)
     recurrence_pattern = models.JSONField(null=True, blank=True)
     volunteers = models.ManyToManyField(

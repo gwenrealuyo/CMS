@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import Modal from "@/src/components/ui/Modal";
 import Pagination from "@/src/components/ui/Pagination";
 import toast from "react-hot-toast";
 import {
@@ -18,21 +19,26 @@ import {
   ChevronRightIcon,
   Squares2X2Icon,
   TableCellsIcon,
+  StarIcon,
 } from "@heroicons/react/24/outline";
 import {
   authApi,
   PasswordResetRequest,
   LockedAccount,
   AuditLog,
+  branchesApi,
 } from "@/src/lib/api";
+import { Branch } from "@/src/types/branch";
 import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorManager";
+import BranchForm from "@/src/components/admin/BranchForm";
 
 type Tab =
   | "overview"
   | "password-resets"
   | "locked-accounts"
   | "audit-logs"
-  | "module-coordinators";
+  | "module-coordinators"
+  | "branches";
 
 export default function AdminSettingsPage() {
   return (
@@ -98,6 +104,36 @@ function AdminSettingsPageContent() {
     request: null,
     loading: false,
   });
+
+  // Branch management state
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [viewingBranch, setViewingBranch] = useState<Branch | null>(null);
+  const [showBranchForm, setShowBranchForm] = useState(false);
+  const [showBranchView, setShowBranchView] = useState(false);
+  const [branchDeleteConfirmation, setBranchDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    branch: Branch | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    branch: null,
+    loading: false,
+  });
+  const [branchSearch, setBranchSearch] = useState("");
+  const [branchSearchDebounced, setBranchSearchDebounced] = useState("");
+  const [branchFilter, setBranchFilter] = useState<{
+    is_active: string; // "ALL" | "ACTIVE" | "INACTIVE"
+    is_headquarters: string; // "ALL" | "HQ" | "NON_HQ"
+  }>({
+    is_active: "ALL",
+    is_headquarters: "ALL",
+  });
+  const [branchSort, setBranchSort] = useState<{
+    field: "name" | "code" | "created_at";
+    order: "asc" | "desc";
+  }>({ field: "name", order: "asc" });
   const [unlockConfirmation, setUnlockConfirmation] = useState<{
     isOpen: boolean;
     account: LockedAccount | null;
@@ -120,30 +156,38 @@ function AdminSettingsPageContent() {
   });
 
   // View mode states for tables - Initialize based on screen size
-  const [overviewViewMode, setOverviewViewMode] = useState<"table" | "cards">(() => {
+  const [overviewViewMode, setOverviewViewMode] = useState<"table" | "cards">(
+    () => {
+      if (typeof window !== "undefined") {
+        return window.innerWidth < 768 ? "cards" : "table";
+      }
+      return "table";
+    }
+  );
+  const [passwordResetsViewMode, setPasswordResetsViewMode] = useState<
+    "table" | "cards"
+  >(() => {
     if (typeof window !== "undefined") {
       return window.innerWidth < 768 ? "cards" : "table";
     }
     return "table";
   });
-  const [passwordResetsViewMode, setPasswordResetsViewMode] = useState<"table" | "cards">(() => {
+  const [lockedAccountsViewMode, setLockedAccountsViewMode] = useState<
+    "table" | "cards"
+  >(() => {
     if (typeof window !== "undefined") {
       return window.innerWidth < 768 ? "cards" : "table";
     }
     return "table";
   });
-  const [lockedAccountsViewMode, setLockedAccountsViewMode] = useState<"table" | "cards">(() => {
-    if (typeof window !== "undefined") {
-      return window.innerWidth < 768 ? "cards" : "table";
+  const [auditLogsViewMode, setAuditLogsViewMode] = useState<"table" | "cards">(
+    () => {
+      if (typeof window !== "undefined") {
+        return window.innerWidth < 768 ? "cards" : "table";
+      }
+      return "table";
     }
-    return "table";
-  });
-  const [auditLogsViewMode, setAuditLogsViewMode] = useState<"table" | "cards">(() => {
-    if (typeof window !== "undefined") {
-      return window.innerWidth < 768 ? "cards" : "table";
-    }
-    return "table";
-  });
+  );
 
   // Debounce search input for password reset requests
   useEffect(() => {
@@ -165,6 +209,15 @@ function AdminSettingsPageContent() {
     return () => clearTimeout(timer);
   }, [lockedAccountsSearch]);
 
+  // Debounce search input for branches
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBranchSearchDebounced(branchSearch);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [branchSearch]);
+
   useEffect(() => {
     fetchData();
   }, [
@@ -180,6 +233,9 @@ function AdminSettingsPageContent() {
     lockedAccountsSearchDebounced,
     lockedAccountsFilter,
     lockedAccountsSort,
+    branchSearchDebounced,
+    branchFilter,
+    branchSort,
   ]);
 
   const fetchData = async () => {
@@ -218,6 +274,62 @@ function AdminSettingsPageContent() {
         });
         setAuditLogs(response.data.results);
         setAuditTotal(response.data.count);
+      } else if (activeTab === "branches") {
+        setBranchesLoading(true);
+        try {
+          const params: {
+            is_headquarters?: boolean;
+            is_active?: boolean;
+            search?: string;
+          } = {};
+
+          if (branchSearchDebounced) {
+            params.search = branchSearchDebounced;
+          }
+          if (branchFilter.is_active !== "ALL") {
+            params.is_active = branchFilter.is_active === "ACTIVE";
+          }
+          if (branchFilter.is_headquarters !== "ALL") {
+            params.is_headquarters = branchFilter.is_headquarters === "HQ";
+          }
+
+          const response = await branchesApi.getAll(params);
+          let filteredBranches = response.data;
+
+          // Client-side sorting
+          filteredBranches = [...filteredBranches].sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+
+            switch (branchSort.field) {
+              case "name":
+                aValue = a.name?.toLowerCase() || "";
+                bValue = b.name?.toLowerCase() || "";
+                break;
+              case "code":
+                aValue = a.code?.toLowerCase() || "";
+                bValue = b.code?.toLowerCase() || "";
+                break;
+              case "created_at":
+                aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+                bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+                break;
+              default:
+                return 0;
+            }
+
+            if (aValue < bValue) return branchSort.order === "asc" ? -1 : 1;
+            if (aValue > bValue) return branchSort.order === "asc" ? 1 : -1;
+            return 0;
+          });
+
+          setBranches(filteredBranches);
+        } catch (err) {
+          console.error("Failed to fetch branches:", err);
+          setError("Failed to load branches");
+        } finally {
+          setBranchesLoading(false);
+        }
       }
     } catch (err: any) {
       setError(
@@ -416,6 +528,16 @@ function AdminSettingsPageContent() {
             >
               Module Coordinators
             </button>
+            <button
+              onClick={() => setActiveTab("branches")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
+                activeTab === "branches"
+                  ? "border-[#2563EB] text-[#2563EB]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Branches
+            </button>
           </nav>
         </div>
 
@@ -521,7 +643,9 @@ function AdminSettingsPageContent() {
                             <div className="space-y-3">
                               {/* First Row - Action Badge */}
                               <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500">Action</span>
+                                <span className="text-xs text-gray-500">
+                                  Action
+                                </span>
                                 <span
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
                                     log.action
@@ -532,13 +656,17 @@ function AdminSettingsPageContent() {
                               </div>
                               <div className="grid grid-cols-1 gap-2">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Timestamp</span>
+                                  <span className="text-xs text-gray-500">
+                                    Timestamp
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right">
                                     {formatDate(log.timestamp)}
                                   </p>
                                 </div>
                                 <div className="flex items-start justify-between">
-                                  <span className="text-xs text-gray-500">User</span>
+                                  <span className="text-xs text-gray-500">
+                                    User
+                                  </span>
                                   <div className="text-right">
                                     <p className="text-sm font-medium text-gray-900 break-words">
                                       {log.username || "Unknown"}
@@ -551,7 +679,9 @@ function AdminSettingsPageContent() {
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">IP Address</span>
+                                  <span className="text-xs text-gray-500">
+                                    IP Address
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right break-words">
                                     {log.ip_address}
                                   </p>
@@ -601,7 +731,9 @@ function AdminSettingsPageContent() {
                               </td>
                               <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-900">
                                 <div className="min-w-0">
-                                  <div className="break-words">{log.username || "Unknown"}</div>
+                                  <div className="break-words">
+                                    {log.username || "Unknown"}
+                                  </div>
                                   {log.full_name && (
                                     <div className="text-xs text-gray-500 break-words">
                                       {log.full_name}
@@ -741,7 +873,9 @@ function AdminSettingsPageContent() {
                             <div className="space-y-3">
                               {/* First Row - Status Badge */}
                               <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500">Status</span>
+                                <span className="text-xs text-gray-500">
+                                  Status
+                                </span>
                                 <span
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                     request.status === "APPROVED"
@@ -756,7 +890,9 @@ function AdminSettingsPageContent() {
                               </div>
                               <div className="grid grid-cols-1 gap-2">
                                 <div className="flex items-start justify-between">
-                                  <span className="text-xs text-gray-500">User</span>
+                                  <span className="text-xs text-gray-500">
+                                    User
+                                  </span>
                                   <div className="text-right">
                                     <p className="text-sm font-medium text-gray-900 break-words">
                                       {request.full_name}
@@ -767,14 +903,18 @@ function AdminSettingsPageContent() {
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Requested At</span>
+                                  <span className="text-xs text-gray-500">
+                                    Requested At
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right">
                                     {formatDate(request.requested_at)}
                                   </p>
                                 </div>
                                 {request.notes && (
                                   <div className="flex items-start justify-between">
-                                    <span className="text-xs text-gray-500">Notes</span>
+                                    <span className="text-xs text-gray-500">
+                                      Notes
+                                    </span>
                                     <p className="text-sm text-gray-900 text-right break-words max-w-[60%]">
                                       {request.notes}
                                     </p>
@@ -787,14 +927,18 @@ function AdminSettingsPageContent() {
                                     </span>
                                     <div className="flex flex-col gap-2">
                                       <button
-                                        onClick={() => handleApproveReset(request)}
+                                        onClick={() =>
+                                          handleApproveReset(request)
+                                        }
                                         className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
                                       >
                                         <CheckCircleIcon className="w-4 h-4" />
                                         Approve
                                       </button>
                                       <button
-                                        onClick={() => handleRejectReset(request)}
+                                        onClick={() =>
+                                          handleRejectReset(request)
+                                        }
                                         className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
                                       >
                                         <XCircleIcon className="w-4 h-4" />
@@ -813,89 +957,95 @@ function AdminSettingsPageContent() {
                     {/* Table View */}
                     <div
                       className={`bg-white rounded-lg shadow-md overflow-hidden ${
-                        passwordResetsViewMode === "cards" ? "hidden md:block" : ""
+                        passwordResetsViewMode === "cards"
+                          ? "hidden md:block"
+                          : ""
                       }`}
                     >
                       <div className="overflow-x-auto">
                         <table className="w-full min-w-[800px] divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              User
-                            </th>
-                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Requested At
-                            </th>
-                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
-                            </th>
-                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Notes
-                            </th>
-                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {passwordResetRequests.map((request) => (
-                            <tr key={request.id}>
-                              <td className="px-3 py-4 md:px-6 md:py-4">
-                                <div className="min-w-0">
-                                  <div className="text-sm font-medium text-gray-900 break-words">
-                                    {request.full_name}
-                                  </div>
-                                  <div className="text-sm text-gray-500 break-words">
-                                    {request.username}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
-                                {formatDate(request.requested_at)}
-                              </td>
-                              <td className="px-3 py-4 md:px-6 md:py-4">
-                                <span
-                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    request.status === "APPROVED"
-                                      ? "bg-green-100 text-green-800"
-                                      : request.status === "PENDING"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-red-100 text-red-800"
-                                  }`}
-                                >
-                                  {request.status}
-                                </span>
-                              </td>
-                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
-                                {request.notes || "-"}
-                              </td>
-                              <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
-                                {request.status === "PENDING" && (
-                                  <div className="flex flex-col sm:flex-row gap-2">
-                                    <button
-                                      onClick={() => handleApproveReset(request)}
-                                      className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
-                                    >
-                                      <CheckCircleIcon className="w-4 h-4" />
-                                      Approve
-                                    </button>
-                                    <button
-                                      onClick={() => handleRejectReset(request)}
-                                      className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                                    >
-                                      <XCircleIcon className="w-4 h-4" />
-                                      Reject
-                                    </button>
-                                  </div>
-                                )}
-                              </td>
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                User
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Requested At
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Status
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Notes
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {passwordResetRequests.map((request) => (
+                              <tr key={request.id}>
+                                <td className="px-3 py-4 md:px-6 md:py-4">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium text-gray-900 break-words">
+                                      {request.full_name}
+                                    </div>
+                                    <div className="text-sm text-gray-500 break-words">
+                                      {request.username}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                                  {formatDate(request.requested_at)}
+                                </td>
+                                <td className="px-3 py-4 md:px-6 md:py-4">
+                                  <span
+                                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                      request.status === "APPROVED"
+                                        ? "bg-green-100 text-green-800"
+                                        : request.status === "PENDING"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : "bg-red-100 text-red-800"
+                                    }`}
+                                  >
+                                    {request.status}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
+                                  {request.notes || "-"}
+                                </td>
+                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
+                                  {request.status === "PENDING" && (
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                      <button
+                                        onClick={() =>
+                                          handleApproveReset(request)
+                                        }
+                                        className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-green-500 text-green-600 rounded-md hover:bg-green-50 transition-colors"
+                                      >
+                                        <CheckCircleIcon className="w-4 h-4" />
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleRejectReset(request)
+                                        }
+                                        className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                      >
+                                        <XCircleIcon className="w-4 h-4" />
+                                        Reject
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                </>
+                  </>
                 )}
 
                 {/* Pagination */}
@@ -1027,7 +1177,9 @@ function AdminSettingsPageContent() {
                             <div className="space-y-3">
                               <div className="grid grid-cols-1 gap-2">
                                 <div className="flex items-start justify-between">
-                                  <span className="text-xs text-gray-500">User</span>
+                                  <span className="text-xs text-gray-500">
+                                    User
+                                  </span>
                                   <div className="text-right">
                                     <p className="text-sm font-medium text-gray-900 break-words">
                                       {account.full_name}
@@ -1038,13 +1190,17 @@ function AdminSettingsPageContent() {
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Failed Attempts</span>
+                                  <span className="text-xs text-gray-500">
+                                    Failed Attempts
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right">
                                     {account.failed_attempts}
                                   </p>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Locked Until</span>
+                                  <span className="text-xs text-gray-500">
+                                    Locked Until
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right break-words max-w-[60%]">
                                     {account.locked_until
                                       ? formatDate(account.locked_until)
@@ -1052,13 +1208,17 @@ function AdminSettingsPageContent() {
                                   </p>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Lockout Count</span>
+                                  <span className="text-xs text-gray-500">
+                                    Lockout Count
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right">
                                     {account.lockout_count}
                                   </p>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Last Attempt</span>
+                                  <span className="text-xs text-gray-500">
+                                    Last Attempt
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right">
                                     {formatDate(account.last_attempt)}
                                   </p>
@@ -1166,271 +1326,279 @@ function AdminSettingsPageContent() {
                     {/* Table View */}
                     <div
                       className={`bg-white rounded-lg shadow-md overflow-hidden ${
-                        lockedAccountsViewMode === "cards" ? "hidden md:block" : ""
+                        lockedAccountsViewMode === "cards"
+                          ? "hidden md:block"
+                          : ""
                       }`}
                     >
                       <div className="overflow-x-auto">
                         <table className="w-full min-w-[900px] divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th
-                              className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => {
-                                const newOrder =
-                                  lockedAccountsSort.field === "user" &&
-                                  lockedAccountsSort.order === "asc"
-                                    ? "desc"
-                                    : "asc";
-                                setLockedAccountsSort({
-                                  field: "user",
-                                  order: newOrder,
-                                });
-                                setLockedAccountsPage(1);
-                              }}
-                            >
-                              <div className="flex items-center gap-1">
-                                User
-                                {lockedAccountsSort.field === "user" &&
-                                  (lockedAccountsSort.order === "asc" ? (
-                                    <ChevronUpIcon className="w-4 h-4" />
-                                  ) : (
-                                    <ChevronDownIcon className="w-4 h-4" />
-                                  ))}
-                              </div>
-                            </th>
-                            <th
-                              className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-32"
-                              onClick={() => {
-                                const newOrder =
-                                  lockedAccountsSort.field ===
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th
+                                className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => {
+                                  const newOrder =
+                                    lockedAccountsSort.field === "user" &&
+                                    lockedAccountsSort.order === "asc"
+                                      ? "desc"
+                                      : "asc";
+                                  setLockedAccountsSort({
+                                    field: "user",
+                                    order: newOrder,
+                                  });
+                                  setLockedAccountsPage(1);
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  User
+                                  {lockedAccountsSort.field === "user" &&
+                                    (lockedAccountsSort.order === "asc" ? (
+                                      <ChevronUpIcon className="w-4 h-4" />
+                                    ) : (
+                                      <ChevronDownIcon className="w-4 h-4" />
+                                    ))}
+                                </div>
+                              </th>
+                              <th
+                                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-32"
+                                onClick={() => {
+                                  const newOrder =
+                                    lockedAccountsSort.field ===
+                                      "failed_attempts" &&
+                                    lockedAccountsSort.order === "asc"
+                                      ? "desc"
+                                      : "asc";
+                                  setLockedAccountsSort({
+                                    field: "failed_attempts",
+                                    order: newOrder,
+                                  });
+                                  setLockedAccountsPage(1);
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  Failed Attempts
+                                  {lockedAccountsSort.field ===
                                     "failed_attempts" &&
-                                  lockedAccountsSort.order === "asc"
-                                    ? "desc"
-                                    : "asc";
-                                setLockedAccountsSort({
-                                  field: "failed_attempts",
-                                  order: newOrder,
-                                });
-                                setLockedAccountsPage(1);
-                              }}
-                            >
-                              <div className="flex items-center gap-1">
-                                Failed Attempts
-                                {lockedAccountsSort.field === "failed_attempts" &&
-                                  (lockedAccountsSort.order === "asc" ? (
-                                    <ChevronUpIcon className="w-4 h-4" />
-                                  ) : (
-                                    <ChevronDownIcon className="w-4 h-4" />
-                                  ))}
-                              </div>
-                            </th>
-                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Locked Until
-                            </th>
-                            <th
-                              className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => {
-                                const newOrder =
-                                  lockedAccountsSort.field === "lockout_count" &&
-                                  lockedAccountsSort.order === "asc"
-                                    ? "desc"
-                                    : "asc";
-                                setLockedAccountsSort({
-                                  field: "lockout_count",
-                                  order: newOrder,
-                                });
-                                setLockedAccountsPage(1);
-                              }}
-                            >
-                              <div className="flex items-center gap-1">
-                                Lockout Count
-                                {lockedAccountsSort.field === "lockout_count" &&
-                                  (lockedAccountsSort.order === "asc" ? (
-                                    <ChevronUpIcon className="w-4 h-4" />
-                                  ) : (
-                                    <ChevronDownIcon className="w-4 h-4" />
-                                  ))}
-                              </div>
-                            </th>
-                            <th
-                              className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => {
-                                const newOrder =
-                                  lockedAccountsSort.field === "last_attempt" &&
-                                  lockedAccountsSort.order === "asc"
-                                    ? "desc"
-                                    : "asc";
-                                setLockedAccountsSort({
-                                  field: "last_attempt",
-                                  order: newOrder,
-                                });
-                                setLockedAccountsPage(1);
-                              }}
-                            >
-                              <div className="flex items-center gap-1">
-                                Last Attempt
-                                {lockedAccountsSort.field === "last_attempt" &&
-                                  (lockedAccountsSort.order === "asc" ? (
-                                    <ChevronUpIcon className="w-4 h-4" />
-                                  ) : (
-                                    <ChevronDownIcon className="w-4 h-4" />
-                                  ))}
-                              </div>
-                            </th>
-                            <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {lockedAccounts.map((account) => (
-                            <>
-                              <tr key={account.user_id}>
-                                <td className="px-3 py-4 md:px-6 md:py-4">
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-medium text-gray-900 break-words">
-                                      {account.full_name}
-                                    </div>
-                                    <div className="text-sm text-gray-500 break-words">
-                                      {account.username}
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-3 py-4 text-sm text-gray-500">
-                                  {account.failed_attempts}
-                                </td>
-                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
-                                  {account.locked_until
-                                    ? formatDate(account.locked_until)
-                                    : "Permanent (Admin unlock required)"}
-                                </td>
-                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
-                                  {account.lockout_count}
-                                </td>
-                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
-                                  {formatDate(account.last_attempt)}
-                                </td>
-                                <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() =>
-                                        setExpandedLockedAccount(
-                                          expandedLockedAccount ===
-                                            account.user_id
-                                            ? null
-                                            : account.user_id
-                                        )
-                                      }
-                                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                                      title="View details"
-                                    >
-                                      <ChevronRightIcon
-                                        className={`w-4 h-4 transition-transform ${
-                                          expandedLockedAccount ===
-                                          account.user_id
-                                            ? "rotate-90"
-                                            : ""
-                                        }`}
-                                      />
-                                    </button>
-                                    <button
-                                      onClick={() => handleUnlockAccount(account)}
-                                      className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                                    >
-                                      <LockOpenIcon className="w-4 h-4" />
-                                      Unlock
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                              {expandedLockedAccount === account.user_id && (
+                                    (lockedAccountsSort.order === "asc" ? (
+                                      <ChevronUpIcon className="w-4 h-4" />
+                                    ) : (
+                                      <ChevronDownIcon className="w-4 h-4" />
+                                    ))}
+                                </div>
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Locked Until
+                              </th>
+                              <th
+                                className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => {
+                                  const newOrder =
+                                    lockedAccountsSort.field ===
+                                      "lockout_count" &&
+                                    lockedAccountsSort.order === "asc"
+                                      ? "desc"
+                                      : "asc";
+                                  setLockedAccountsSort({
+                                    field: "lockout_count",
+                                    order: newOrder,
+                                  });
+                                  setLockedAccountsPage(1);
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  Lockout Count
+                                  {lockedAccountsSort.field ===
+                                    "lockout_count" &&
+                                    (lockedAccountsSort.order === "asc" ? (
+                                      <ChevronUpIcon className="w-4 h-4" />
+                                    ) : (
+                                      <ChevronDownIcon className="w-4 h-4" />
+                                    ))}
+                                </div>
+                              </th>
+                              <th
+                                className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => {
+                                  const newOrder =
+                                    lockedAccountsSort.field ===
+                                      "last_attempt" &&
+                                    lockedAccountsSort.order === "asc"
+                                      ? "desc"
+                                      : "asc";
+                                  setLockedAccountsSort({
+                                    field: "last_attempt",
+                                    order: newOrder,
+                                  });
+                                  setLockedAccountsPage(1);
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  Last Attempt
+                                  {lockedAccountsSort.field ===
+                                    "last_attempt" &&
+                                    (lockedAccountsSort.order === "asc" ? (
+                                      <ChevronUpIcon className="w-4 h-4" />
+                                    ) : (
+                                      <ChevronDownIcon className="w-4 h-4" />
+                                    ))}
+                                </div>
+                              </th>
+                              <th className="px-3 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {lockedAccounts.map((account) => (
+                              <Fragment key={account.user_id}>
                                 <tr>
-                                  <td
-                                    colSpan={6}
-                                    className="px-3 py-4 md:px-6 md:py-4 bg-gray-50"
-                                  >
-                                    <div className="space-y-2">
-                                      <h4 className="text-sm font-semibold text-gray-900">
-                                        Lockout Details
-                                      </h4>
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                          <span className="font-medium text-gray-700">
-                                            Lockout Type:
-                                          </span>{" "}
-                                          {account.locked_until
-                                            ? "Temporary"
-                                            : "Permanent"}
-                                        </div>
-                                        <div>
-                                          <span className="font-medium text-gray-700">
-                                            Failed Attempts:
-                                          </span>{" "}
-                                          {account.failed_attempts}
-                                        </div>
-                                        <div>
-                                          <span className="font-medium text-gray-700">
-                                            Lockout Count:
-                                          </span>{" "}
-                                          {account.lockout_count}
-                                        </div>
-                                        <div>
-                                          <span className="font-medium text-gray-700">
-                                            Last Attempt:
-                                          </span>{" "}
-                                          {formatDate(
-                                            account.locked_until ||
-                                              account.last_attempt
-                                          )}
-                                        </div>
-                                        {account.locked_until && (
-                                          <div className="sm:col-span-2">
-                                            <span className="font-medium text-gray-700">
-                                              Auto-unlocks at:
-                                            </span>{" "}
-                                            {formatDate(account.locked_until)}
-                                          </div>
-                                        )}
-                                        {!account.locked_until && (
-                                          <div className="sm:col-span-2 text-amber-600">
-                                            This account requires admin unlock. It
-                                            has been locked{" "}
-                                            {account.lockout_count} time(s).
-                                          </div>
-                                        )}
+                                  <td className="px-3 py-4 md:px-6 md:py-4">
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-medium text-gray-900 break-words">
+                                        {account.full_name}
+                                      </div>
+                                      <div className="text-sm text-gray-500 break-words">
+                                        {account.username}
                                       </div>
                                     </div>
                                   </td>
+                                  <td className="px-3 py-4 text-sm text-gray-500">
+                                    {account.failed_attempts}
+                                  </td>
+                                  <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
+                                    {account.locked_until
+                                      ? formatDate(account.locked_until)
+                                      : "Permanent (Admin unlock required)"}
+                                  </td>
+                                  <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                                    {account.lockout_count}
+                                  </td>
+                                  <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                                    {formatDate(account.last_attempt)}
+                                  </td>
+                                  <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() =>
+                                          setExpandedLockedAccount(
+                                            expandedLockedAccount ===
+                                              account.user_id
+                                              ? null
+                                              : account.user_id
+                                          )
+                                        }
+                                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                        title="View details"
+                                      >
+                                        <ChevronRightIcon
+                                          className={`w-4 h-4 transition-transform ${
+                                            expandedLockedAccount ===
+                                            account.user_id
+                                              ? "rotate-90"
+                                              : ""
+                                          }`}
+                                        />
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleUnlockAccount(account)
+                                        }
+                                        className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                      >
+                                        <LockOpenIcon className="w-4 h-4" />
+                                        Unlock
+                                      </button>
+                                    </div>
+                                  </td>
                                 </tr>
-                              )}
-                            </>
-                          ))}
-                        </tbody>
-                      </table>
+                                {expandedLockedAccount === account.user_id && (
+                                  <tr>
+                                    <td
+                                      colSpan={6}
+                                      className="px-3 py-4 md:px-6 md:py-4 bg-gray-50"
+                                    >
+                                      <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold text-gray-900">
+                                          Lockout Details
+                                        </h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                          <div>
+                                            <span className="font-medium text-gray-700">
+                                              Lockout Type:
+                                            </span>{" "}
+                                            {account.locked_until
+                                              ? "Temporary"
+                                              : "Permanent"}
+                                          </div>
+                                          <div>
+                                            <span className="font-medium text-gray-700">
+                                              Failed Attempts:
+                                            </span>{" "}
+                                            {account.failed_attempts}
+                                          </div>
+                                          <div>
+                                            <span className="font-medium text-gray-700">
+                                              Lockout Count:
+                                            </span>{" "}
+                                            {account.lockout_count}
+                                          </div>
+                                          <div>
+                                            <span className="font-medium text-gray-700">
+                                              Last Attempt:
+                                            </span>{" "}
+                                            {formatDate(
+                                              account.locked_until ||
+                                                account.last_attempt
+                                            )}
+                                          </div>
+                                          {account.locked_until && (
+                                            <div className="sm:col-span-2">
+                                              <span className="font-medium text-gray-700">
+                                                Auto-unlocks at:
+                                              </span>{" "}
+                                              {formatDate(account.locked_until)}
+                                            </div>
+                                          )}
+                                          {!account.locked_until && (
+                                            <div className="sm:col-span-2 text-amber-600">
+                                              This account requires admin
+                                              unlock. It has been locked{" "}
+                                              {account.lockout_count} time(s).
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                  )}
-                </>
-                )}
 
-                {/* Pagination */}
-                {lockedAccountsTotal > 0 && (
-                  <Pagination
-                    currentPage={lockedAccountsPage}
-                    totalPages={Math.ceil(
-                      lockedAccountsTotal / lockedAccountsItemsPerPage
+                    {/* Pagination */}
+                    {lockedAccountsTotal > 0 && (
+                      <Pagination
+                        currentPage={lockedAccountsPage}
+                        totalPages={Math.ceil(
+                          lockedAccountsTotal / lockedAccountsItemsPerPage
+                        )}
+                        onPageChange={(page) => {
+                          setLockedAccountsPage(page);
+                        }}
+                        itemsPerPage={lockedAccountsItemsPerPage}
+                        totalItems={lockedAccountsTotal}
+                        onItemsPerPageChange={(newItemsPerPage) => {
+                          setLockedAccountsItemsPerPage(newItemsPerPage);
+                          setLockedAccountsPage(1);
+                        }}
+                        showItemsPerPage={true}
+                      />
                     )}
-                    onPageChange={(page) => {
-                      setLockedAccountsPage(page);
-                    }}
-                    itemsPerPage={lockedAccountsItemsPerPage}
-                    totalItems={lockedAccountsTotal}
-                    onItemsPerPageChange={(newItemsPerPage) => {
-                      setLockedAccountsItemsPerPage(newItemsPerPage);
-                      setLockedAccountsPage(1);
-                    }}
-                    showItemsPerPage={true}
-                  />
+                  </>
                 )}
               </div>
             )}
@@ -1684,7 +1852,9 @@ function AdminSettingsPageContent() {
                             <div className="space-y-3">
                               {/* First Row - Action Badge */}
                               <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500">Action</span>
+                                <span className="text-xs text-gray-500">
+                                  Action
+                                </span>
                                 <span
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
                                     log.action
@@ -1695,13 +1865,17 @@ function AdminSettingsPageContent() {
                               </div>
                               <div className="grid grid-cols-1 gap-2">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Timestamp</span>
+                                  <span className="text-xs text-gray-500">
+                                    Timestamp
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right">
                                     {formatDate(log.timestamp)}
                                   </p>
                                 </div>
                                 <div className="flex items-start justify-between">
-                                  <span className="text-xs text-gray-500">User</span>
+                                  <span className="text-xs text-gray-500">
+                                    User
+                                  </span>
                                   <div className="text-right">
                                     <p className="text-sm font-medium text-gray-900 break-words">
                                       {log.username || "Unknown"}
@@ -1714,7 +1888,9 @@ function AdminSettingsPageContent() {
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">IP Address</span>
+                                  <span className="text-xs text-gray-500">
+                                    IP Address
+                                  </span>
                                   <p className="text-sm text-gray-900 text-right break-words">
                                     {log.ip_address}
                                   </p>
@@ -1754,7 +1930,9 @@ function AdminSettingsPageContent() {
                                     />
                                     {expandedAuditLog === log.id
                                       ? "Hide Details"
-                                      : `View Details (${Object.keys(log.details).length} field(s))`}
+                                      : `View Details (${
+                                          Object.keys(log.details).length
+                                        } field(s))`}
                                   </button>
                                 </div>
                               ) : null}
@@ -1793,14 +1971,16 @@ function AdminSettingsPageContent() {
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {auditLogs.map((log) => (
-                              <>
-                                <tr key={log.id}>
+                              <Fragment key={log.id}>
+                                <tr>
                                   <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
                                     {formatDate(log.timestamp)}
                                   </td>
                                   <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-900">
                                     <div className="min-w-0">
-                                      <div className="break-words">{log.username || "Unknown"}</div>
+                                      <div className="break-words">
+                                        {log.username || "Unknown"}
+                                      </div>
                                       {log.full_name && (
                                         <div className="text-xs text-gray-500 break-words">
                                           {log.full_name}
@@ -1825,11 +2005,15 @@ function AdminSettingsPageContent() {
                                       {log.details &&
                                       Object.keys(log.details).length > 0 ? (
                                         <>
-                                          <span className="text-gray-400 text-xs">
+                                          <span
+                                            key={`${log.id}-span`}
+                                            className="text-gray-400 text-xs"
+                                          >
                                             {Object.keys(log.details).length}{" "}
                                             field(s)
                                           </span>
                                           <button
+                                            key={`${log.id}-button`}
                                             onClick={() =>
                                               setExpandedAuditLog(
                                                 expandedAuditLog === log.id
@@ -1868,13 +2052,17 @@ function AdminSettingsPageContent() {
                                             Details
                                           </h4>
                                           <pre className="text-xs bg-white p-3 rounded border overflow-x-auto">
-                                            {JSON.stringify(log.details, null, 2)}
+                                            {JSON.stringify(
+                                              log.details,
+                                              null,
+                                              2
+                                            )}
                                           </pre>
                                         </div>
                                       </td>
                                     </tr>
                                   )}
-                              </>
+                              </Fragment>
                             ))}
                           </tbody>
                         </table>
@@ -1907,6 +2095,640 @@ function AdminSettingsPageContent() {
             {activeTab === "module-coordinators" && (
               <ModuleCoordinatorManager />
             )}
+
+            {/* Branches Tab */}
+            {activeTab === "branches" && (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                  <h2 className="text-lg sm:text-xl font-semibold text-[#2D3748]">
+                    Branch Management
+                  </h2>
+                  <Button
+                    onClick={() => {
+                      setEditingBranch(null);
+                      setShowBranchForm(true);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto min-h-[44px] sm:min-h-0"
+                  >
+                    Create Branch
+                  </Button>
+                </div>
+
+                {/* Filters */}
+                <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="sm:col-span-2 lg:col-span-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Search
+                      </label>
+                      <input
+                        type="text"
+                        value={branchSearch}
+                        onChange={(e) => {
+                          setBranchSearch(e.target.value);
+                        }}
+                        placeholder="Search by name or code..."
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Status
+                      </label>
+                      <select
+                        value={branchFilter.is_active}
+                        onChange={(e) => {
+                          setBranchFilter((prev) => ({
+                            ...prev,
+                            is_active: e.target.value,
+                          }));
+                        }}
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="ALL">All Statuses</option>
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Inactive</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Type
+                      </label>
+                      <select
+                        value={branchFilter.is_headquarters}
+                        onChange={(e) => {
+                          setBranchFilter((prev) => ({
+                            ...prev,
+                            is_headquarters: e.target.value,
+                          }));
+                        }}
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="ALL">All Types</option>
+                        <option value="HQ">Headquarters</option>
+                        <option value="NON_HQ">Non-Headquarters</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Sort By
+                      </label>
+                      <div className="flex gap-2">
+                        <select
+                          value={branchSort.field}
+                          onChange={(e) => {
+                            setBranchSort((prev) => ({
+                              ...prev,
+                              field: e.target.value as
+                                | "name"
+                                | "code"
+                                | "created_at",
+                            }));
+                          }}
+                          className="flex-1 min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-sm sm:text-base"
+                        >
+                          <option value="name">Name</option>
+                          <option value="code">Code</option>
+                          <option value="created_at">Date Created</option>
+                        </select>
+                        <button
+                          onClick={() => {
+                            setBranchSort((prev) => ({
+                              ...prev,
+                              order: prev.order === "asc" ? "desc" : "asc",
+                            }));
+                          }}
+                          className="min-h-[44px] min-w-[44px] px-2 sm:px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 active:bg-gray-100 flex items-center justify-center transition-colors"
+                          title={
+                            branchSort.order === "asc"
+                              ? "Sort Descending"
+                              : "Sort Ascending"
+                          }
+                        >
+                          {branchSort.order === "asc" ? (
+                            <ChevronUpIcon className="w-5 h-5 text-gray-600" />
+                          ) : (
+                            <ChevronDownIcon className="w-5 h-5 text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 sm:mt-4 flex justify-end">
+                    <Button
+                      variant="tertiary"
+                      onClick={() => {
+                        setBranchSearch("");
+                        setBranchFilter({
+                          is_active: "ALL",
+                          is_headquarters: "ALL",
+                        });
+                        setBranchSort({ field: "name", order: "asc" });
+                      }}
+                      className="w-full sm:w-auto min-h-[44px]"
+                    >
+                      Reset Filters
+                    </Button>
+                  </div>
+                </div>
+
+                {branchesLoading ? (
+                  <div className="flex justify-center py-8">
+                    <LoadingSpinner />
+                  </div>
+                ) : branches.length === 0 ? (
+                  <div className="text-center py-8 px-4 text-sm sm:text-base text-gray-500">
+                    No branches found. Create your first branch to get started.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-4">
+                    {branches.map((branch) => (
+                      <div
+                        key={branch.id}
+                        className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex flex-row items-start justify-between mb-3 gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
+                                {branch.name}
+                              </h3>
+                              {branch.is_headquarters && (
+                                <div
+                                  className="flex items-center text-yellow-500"
+                                  title="Headquarters"
+                                >
+                                  <StarIcon className="w-4 h-4 fill-yellow-500" />
+                                </div>
+                              )}
+                            </div>
+                            {branch.code && (
+                              <span className="inline-block text-xs font-medium bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full whitespace-nowrap">
+                                {branch.code}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center flex-shrink-0">
+                            {branch.is_active ? (
+                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full whitespace-nowrap">
+                                Active
+                              </span>
+                            ) : (
+                              <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full whitespace-nowrap">
+                                Inactive
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 mb-4">
+                          <p className="text-xs sm:text-sm text-gray-600 break-words">
+                            <span className="font-medium">Address:</span>{" "}
+                            <span
+                              className={
+                                branch.address ? "" : "text-gray-400 italic"
+                              }
+                            >
+                              {branch.address || "Not provided"}
+                            </span>
+                          </p>
+                          <p className="text-xs sm:text-sm text-gray-600 break-words">
+                            <span className="font-medium">Phone:</span>{" "}
+                            <span
+                              className={
+                                branch.phone ? "" : "text-gray-400 italic"
+                              }
+                            >
+                              {branch.phone || "Not provided"}
+                            </span>
+                          </p>
+                          <p className="text-xs sm:text-sm text-gray-600 break-words">
+                            <span className="font-medium">Email:</span>{" "}
+                            <span
+                              className={
+                                branch.email ? "" : "text-gray-400 italic"
+                              }
+                            >
+                              {branch.email || "Not provided"}
+                            </span>
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-4 pt-4 border-t border-gray-200">
+                          <button
+                            onClick={() => {
+                              setViewingBranch(branch);
+                              setShowBranchView(true);
+                            }}
+                            className="w-full min-h-[44px] flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-sm font-medium bg-white border border-gray-500 text-gray-600 rounded-md hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingBranch(branch);
+                              setShowBranchForm(true);
+                            }}
+                            className="w-full min-h-[44px] flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Branch View Modal */}
+                <Modal
+                  isOpen={showBranchView}
+                  onClose={() => {
+                    setShowBranchView(false);
+                    setViewingBranch(null);
+                  }}
+                  title="Branch Details"
+                >
+                  {viewingBranch && (
+                    <div className="space-y-4 sm:space-y-6">
+                      {/* Profile Header Card */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100">
+                        <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0">
+                            {viewingBranch.name[0]}
+                            {viewingBranch.name.split(" ")[1]?.[0] || ""}
+                          </div>
+                          <div className="flex-1 w-full sm:w-auto text-center sm:text-left">
+                            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-2">
+                              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
+                                {viewingBranch.name}
+                              </h2>
+                              {viewingBranch.is_headquarters && (
+                                <div
+                                  className="flex items-center text-yellow-500"
+                                  title="Headquarters"
+                                >
+                                  <StarIcon className="w-5 h-5 fill-yellow-500" />
+                                </div>
+                              )}
+                            </div>
+                            {viewingBranch.code && (
+                              <span className="inline-block text-sm font-medium bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full mb-2">
+                                {viewingBranch.code}
+                              </span>
+                            )}
+                            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:space-x-2 mt-2">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  viewingBranch.is_active
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {viewingBranch.is_active
+                                  ? "Active"
+                                  : "Inactive"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Main Content Grid */}
+                      <div className="grid grid-cols-1 gap-4">
+                        {/* Contact Information Card */}
+                        {(viewingBranch.address ||
+                          viewingBranch.phone ||
+                          viewingBranch.email) && (
+                          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
+                            <div className="flex items-center space-x-2 mb-4">
+                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg
+                                  className="w-4 h-4 text-blue-600"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                                  />
+                                </svg>
+                              </div>
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                                Contact Information
+                              </h3>
+                            </div>
+                            <div className="space-y-3">
+                              {viewingBranch.address && (
+                                <div className="flex items-start space-x-3">
+                                  <svg
+                                    className="w-4 h-4 text-gray-400 mt-0.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                                    />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                  </svg>
+                                  <p className="text-sm text-gray-900 flex-1 whitespace-pre-wrap">
+                                    {viewingBranch.address}
+                                  </p>
+                                </div>
+                              )}
+                              {viewingBranch.phone && (
+                                <div className="flex items-center space-x-3">
+                                  <svg
+                                    className="w-4 h-4 text-gray-400"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                                    />
+                                  </svg>
+                                  <p className="text-sm text-gray-900">
+                                    {viewingBranch.phone}
+                                  </p>
+                                </div>
+                              )}
+                              {viewingBranch.email && (
+                                <div className="flex items-center space-x-3">
+                                  <svg
+                                    className="w-4 h-4 text-gray-400"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                                    />
+                                  </svg>
+                                  <p className="text-sm text-gray-900">
+                                    {viewingBranch.email}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 pt-4 border-t border-gray-200">
+                        {/* Mobile buttons - full width with text */}
+                        <div className="flex flex-col md:hidden gap-3 w-full">
+                          <Button
+                            onClick={() => {
+                              setShowBranchView(false);
+                              setViewingBranch(null);
+                              setEditingBranch(viewingBranch);
+                              setShowBranchForm(true);
+                            }}
+                            variant="secondary"
+                            className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                            <span>Edit</span>
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setShowBranchView(false);
+                              setViewingBranch(null);
+                            }}
+                            variant="secondary"
+                            className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                            <span>Cancel</span>
+                          </Button>
+                          <div className="border-t border-gray-200 my-1"></div>
+                          <Button
+                            onClick={() => {
+                              setShowBranchView(false);
+                              setViewingBranch(null);
+                              setBranchDeleteConfirmation({
+                                isOpen: true,
+                                branch: viewingBranch,
+                                loading: false,
+                              });
+                            }}
+                            variant="secondary"
+                            className="!text-red-600 py-3 px-4 text-sm font-medium bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                            <span>Delete</span>
+                          </Button>
+                        </div>
+
+                        {/* Desktop/Tablet buttons */}
+                        <div className="hidden md:flex md:items-center md:justify-between md:w-full">
+                          <Button
+                            onClick={() => {
+                              setShowBranchView(false);
+                              setViewingBranch(null);
+                              setBranchDeleteConfirmation({
+                                isOpen: true,
+                                branch: viewingBranch,
+                                loading: false,
+                              });
+                            }}
+                            variant="secondary"
+                            className="!text-red-600 px-4 md:py-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </Button>
+                          <div className="flex items-center gap-3">
+                            <Button
+                              onClick={() => {
+                                setShowBranchView(false);
+                                setViewingBranch(null);
+                              }}
+                              variant="secondary"
+                              className="!text-black px-6 md:py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                              <span>Cancel</span>
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setShowBranchView(false);
+                                setViewingBranch(null);
+                                setEditingBranch(viewingBranch);
+                                setShowBranchForm(true);
+                              }}
+                              variant="secondary"
+                              className="!text-blue-600 px-6 md:py-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                              <span>Edit</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Modal>
+
+                {/* Branch Form Modal */}
+                {showBranchForm && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 !-mt-4">
+                    <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-xl font-semibold text-gray-900">
+                            {editingBranch ? "Edit Branch" : "Create Branch"}
+                          </h3>
+                          <button
+                            onClick={() => {
+                              setShowBranchForm(false);
+                              setEditingBranch(null);
+                            }}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <svg
+                              className="w-6 h-6"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <BranchForm
+                          branch={editingBranch}
+                          loading={branchesLoading}
+                          onSave={async (data) => {
+                            try {
+                              setBranchesLoading(true);
+                              if (editingBranch) {
+                                await branchesApi.patch(editingBranch.id, data);
+                                toast.success("Branch updated successfully");
+                              } else {
+                                await branchesApi.create(data);
+                                toast.success("Branch created successfully");
+                              }
+                              setShowBranchForm(false);
+                              setEditingBranch(null);
+                              await fetchData();
+                            } catch (err: any) {
+                              toast.error(
+                                err.response?.data?.message ||
+                                  err.message ||
+                                  "Failed to save branch"
+                              );
+                            } finally {
+                              setBranchesLoading(false);
+                            }
+                          }}
+                          onCancel={() => {
+                            setShowBranchForm(false);
+                            setEditingBranch(null);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -1932,6 +2754,52 @@ function AdminSettingsPageContent() {
         cancelText="Cancel"
         variant="info"
         loading={approveConfirmation.loading}
+      />
+
+      {/* Delete Branch Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={branchDeleteConfirmation.isOpen}
+        onClose={() =>
+          setBranchDeleteConfirmation({
+            isOpen: false,
+            branch: null,
+            loading: false,
+          })
+        }
+        onConfirm={async () => {
+          if (!branchDeleteConfirmation.branch) return;
+          setBranchDeleteConfirmation((prev) => ({ ...prev, loading: true }));
+          try {
+            await branchesApi.delete(branchDeleteConfirmation.branch.id);
+            toast.success("Branch deleted successfully");
+            setBranchDeleteConfirmation({
+              isOpen: false,
+              branch: null,
+              loading: false,
+            });
+            await fetchData();
+          } catch (err: any) {
+            toast.error(
+              err.response?.data?.message ||
+                err.message ||
+                "Failed to delete branch"
+            );
+            setBranchDeleteConfirmation((prev) => ({
+              ...prev,
+              loading: false,
+            }));
+          }
+        }}
+        title="Delete Branch"
+        message={
+          branchDeleteConfirmation.branch
+            ? `Are you sure you want to delete the branch "${branchDeleteConfirmation.branch.name}"? This action cannot be undone.`
+            : ""
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={branchDeleteConfirmation.loading}
       />
 
       {/* Unlock Account Confirmation Modal */}

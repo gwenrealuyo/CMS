@@ -2,8 +2,9 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Person, Family, Journey, ModuleCoordinator
+from .models import Branch, Person, Family, Journey, ModuleCoordinator
 from .serializers import (
+    BranchSerializer,
     PersonSerializer,
     FamilySerializer,
     JourneySerializer,
@@ -39,13 +40,23 @@ class PersonViewSet(viewsets.ModelViewSet):
         # Non-ADMIN users: Exclude ADMIN users (they're invisible to non-admins)
         queryset = queryset.exclude(role="ADMIN")
 
-        # PASTOR: All people (excluding ADMIN users)
-        if user.role == "PASTOR":
-            return queryset
+        # Apply branch filtering helper function
+        def apply_branch_filter(qs):
+            """Apply branch filtering based on user's branch access"""
+            if user.can_see_all_branches():
+                return qs
+            if user.branch:
+                return qs.filter(branch=user.branch)
+            # If user has no branch, return empty queryset for safety
+            return qs.none()
 
-        # Senior Coordinator: All people (any module senior coordinator has full people access)
+        # PASTOR: Filter by branch unless from headquarters
+        if user.role == "PASTOR":
+            return apply_branch_filter(queryset)
+
+        # Senior Coordinator: Filter by branch unless from headquarters
         if user.is_senior_coordinator():
-            return queryset
+            return apply_branch_filter(queryset)
 
         # Collect people from all module assignments
         people_querysets = []
@@ -180,7 +191,12 @@ class PersonViewSet(viewsets.ModelViewSet):
             combined_queryset = people_querysets[0]
             for qs in people_querysets[1:]:
                 combined_queryset = combined_queryset | qs
-            return combined_queryset.distinct()
+            # Apply branch filtering to combined queryset
+            if user.can_see_all_branches():
+                return combined_queryset.distinct()
+            if user.branch:
+                return combined_queryset.filter(branch=user.branch).distinct()
+            return combined_queryset.none()
 
         # MEMBER: Only themselves and family members
         if user.role == "MEMBER":
@@ -193,7 +209,11 @@ class PersonViewSet(viewsets.ModelViewSet):
             )
             # Include themselves and family members
             all_ids = list(family_member_ids) + [user.id]
-            return queryset.filter(id__in=all_ids)
+            member_queryset = queryset.filter(id__in=all_ids)
+            # Apply branch filtering
+            if user.branch:
+                return member_queryset.filter(branch=user.branch)
+            return member_queryset
 
         # Default: empty queryset for safety
         return queryset.none()
@@ -223,13 +243,28 @@ class FamilyViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
 
-        # ADMIN/PASTOR: All families
-        if user.role in ["ADMIN", "PASTOR"]:
+        # Helper function to filter families by branch
+        def filter_families_by_branch(qs):
+            """Filter families based on members' branches"""
+            if user.can_see_all_branches():
+                return qs
+            if user.branch:
+                # Filter families where most members belong to user's branch
+                # Get families where at least one member is from user's branch
+                return qs.filter(members__branch=user.branch).distinct()
+            return qs.none()
+
+        # ADMIN: All families
+        if user.role == "ADMIN":
             return queryset
 
-        # Senior Coordinator: All families
+        # PASTOR: Filter by branch unless from headquarters
+        if user.role == "PASTOR":
+            return filter_families_by_branch(queryset)
+
+        # Senior Coordinator: Filter by branch unless from headquarters
         if user.is_senior_coordinator():
-            return queryset
+            return filter_families_by_branch(queryset)
 
         # Cluster Coordinator: Families in their assigned cluster(s) + families of cluster members
         coordinator_assignments = user.module_coordinator_assignments.filter(
@@ -268,11 +303,21 @@ class FamilyViewSet(viewsets.ModelViewSet):
             ).distinct()
 
             # Return union of both
-            return (directly_connected_families | families_of_members).distinct()
+            combined_families = (
+                directly_connected_families | families_of_members
+            ).distinct()
+            # Apply branch filtering
+            if user.branch:
+                return combined_families.filter(members__branch=user.branch).distinct()
+            return combined_families
 
         # MEMBER: Only families they're members of
         if user.role == "MEMBER":
-            return queryset.filter(members=user).distinct()
+            member_families = queryset.filter(members=user).distinct()
+            # Apply branch filtering
+            if user.branch:
+                return member_families.filter(members__branch=user.branch).distinct()
+            return member_families
 
         # Default: empty queryset for safety
         return queryset.none()
@@ -312,11 +357,24 @@ class JourneyViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
 
-        # 1. ADMIN and PASTOR roles - full access
-        if user.role in ["ADMIN", "PASTOR"]:
+        # Helper function to filter journeys by branch
+        def filter_journeys_by_branch(qs):
+            """Filter journeys based on user's branch"""
+            if user.can_see_all_branches():
+                return qs
+            if user.branch:
+                return qs.filter(user__branch=user.branch)
+            return qs.none()
+
+        # 1. ADMIN - full access
+        if user.role == "ADMIN":
             return queryset
 
-        # 2. Senior Coordinators in allowed modules - full access
+        # PASTOR - filter by branch unless from headquarters
+        if user.role == "PASTOR":
+            return filter_journeys_by_branch(queryset)
+
+        # 2. Senior Coordinators in allowed modules - filter by branch unless from headquarters
         allowed_modules = [
             ModuleCoordinator.ModuleType.CLUSTER,
             ModuleCoordinator.ModuleType.EVANGELISM,
@@ -325,7 +383,7 @@ class JourneyViewSet(viewsets.ModelViewSet):
         ]
         for module in allowed_modules:
             if user.is_senior_coordinator(module):
-                return queryset
+                return filter_journeys_by_branch(queryset)
 
         # 3. Cluster Coordinator - can see journeys for members of their cluster(s) + their own
         if user.is_module_coordinator(
@@ -341,9 +399,13 @@ class JourneyViewSet(viewsets.ModelViewSet):
                 "members__id", flat=True
             ).distinct()
             # Return journeys for these members + own journeys
-            return queryset.filter(
+            cluster_journeys = queryset.filter(
                 user__id__in=list(cluster_member_ids) + [user.id]
             ).distinct()
+            # Apply branch filtering
+            if user.branch:
+                return cluster_journeys.filter(user__branch=user.branch)
+            return cluster_journeys
 
         # 4. Otherwise - only own journeys
         return queryset.filter(user=user)
@@ -388,3 +450,31 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BranchViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing church branches.
+    All authenticated non-visitors can view branches.
+    Only ADMIN can create/update/delete.
+    """
+
+    queryset = Branch.objects.all()
+    serializer_class = BranchSerializer
+    permission_classes = [IsAuthenticatedAndNotVisitor]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["is_headquarters", "is_active"]
+    search_fields = ["name", "code"]
+    ordering = ["name"]
+
+    def get_permissions(self):
+        """
+        Override to set permissions based on action.
+        """
+        if self.action in ["list", "retrieve"]:
+            # Read: All authenticated non-visitors
+            return [IsAuthenticatedAndNotVisitor()]
+        elif self.action in ["create", "update", "partial_update", "destroy"]:
+            # Write: Only ADMIN
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor()]

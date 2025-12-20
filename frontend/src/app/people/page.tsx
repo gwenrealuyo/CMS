@@ -18,6 +18,7 @@ import { Person, PersonUI, Family } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
+import { useBranches } from "@/src/hooks/useBranches";
 import { clustersApi, peopleApi } from "@/src/lib/api";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
@@ -101,6 +102,7 @@ export default function PeoplePage() {
     deleteFamily,
     refreshFamilies,
   } = useFamilies();
+  const { branches } = useBranches();
 
   // Clusters
   const [allClusters, setAllClusters] = useState<Cluster[]>([]);
@@ -736,6 +738,18 @@ export default function PeoplePage() {
       filtered = filtered.filter((person) => {
         return activeFilters.every((filter) => {
           const fieldValue = person[filter.field as keyof PersonUI];
+
+          // Special handling for branch filter (compare by ID)
+          if (filter.field === "branch") {
+            const personBranchId = person.branch?.toString();
+            const filterBranchId = filter.value.toString();
+            if (filter.operator === "is") {
+              return personBranchId === filterBranchId;
+            } else if (filter.operator === "is_not") {
+              return personBranchId !== filterBranchId;
+            }
+            return true;
+          }
 
           switch (filter.operator) {
             case "is":
@@ -2204,6 +2218,7 @@ export default function PeoplePage() {
         onClose={() => setShowFilterDropdown(false)}
         onSelectField={handleSelectField}
         position={filterDropdownPosition}
+        branches={branches}
       />
 
       {/* Filter Card */}

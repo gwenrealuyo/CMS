@@ -2,54 +2,76 @@
 
 This document describes the complete access control matrix for the Church Management System, including role-based permissions and module coordinator assignments.
 
+## Branch-Based Access Control
+
+The system supports multiple church branches. Access to data is filtered by branch based on the user's branch assignment:
+
+- **ADMIN**: See all branches and all data (no branch filtering)
+- **PASTOR from Headquarters**: See all branches and all data (no branch filtering)
+- **PASTOR from Regular Branch**: See only their branch's data
+- **Senior Coordinators from Headquarters**: See all branches
+- **Senior Coordinators from Regular Branch**: See only their branch's data
+- **Regular Coordinators**: See only their branch's data (module assignments also filtered by branch)
+- **MEMBER**: See only their branch's data
+
+Branch filtering applies to:
+
+- People (Person)
+- Families (derived from members' branches)
+- Clusters
+- Events
+- Ministries
+- Journeys (filtered by journey's user's branch)
+- Module Coordinator assignments (coordinators only see assignments/resources within their branch)
+
 ## Base Roles (No Module Assignments)
 
-| Role | People Access | Families Access | Clusters Access | Notes |
-|------|---------------|-----------------|-----------------|-------|
-| **ADMIN** | All people (including other ADMINS) | All families | All clusters | Full access, can edit/delete |
-| **PASTOR** | All people (excluding ADMINS) | All families | All clusters | Full access, can edit/delete |
-| **MEMBER** | Self + family members only | Own families only | Own cluster (read-only) | Limited access, no edit/delete on clusters |
-| **VISITOR** | Cannot log in | Cannot log in | Cannot log in | No access |
+| Role        | People Access                       | Families Access   | Clusters Access         | Notes                                                                      |
+| ----------- | ----------------------------------- | ----------------- | ----------------------- | -------------------------------------------------------------------------- |
+| **ADMIN**   | All people (including other ADMINS) | All families      | All clusters            | Full access, can edit/delete. No branch filtering.                         |
+| **PASTOR**  | All people (excluding ADMINS)       | All families      | All clusters            | Full access, can edit/delete. Filtered by branch unless from headquarters. |
+| **MEMBER**  | Self + family members only          | Own families only | Own cluster (read-only) | Limited access, no edit/delete on clusters. Filtered by branch.            |
+| **VISITOR** | Cannot log in                       | Cannot log in     | Cannot log in           | No access                                                                  |
 
 ## Senior Coordinators (Any Module)
 
-| Assignment | People Access | Families Access | Clusters Access | Notes |
-|------------|---------------|-----------------|-----------------|-------|
-| **Senior Coordinator** (any module) | All people (excluding ADMINS) | All families | All clusters | Full access regardless of module |
+| Assignment                          | People Access                 | Families Access | Clusters Access | Notes                                                                          |
+| ----------------------------------- | ----------------------------- | --------------- | --------------- | ------------------------------------------------------------------------------ |
+| **Senior Coordinator** (any module) | All people (excluding ADMINS) | All families    | All clusters    | Full access regardless of module. Filtered by branch unless from headquarters. |
 
 ## Module-Specific Assignments (Non-Senior)
 
-| Assignment Type | People Access | Families Access | Clusters Access | Notes |
-|-----------------|---------------|-----------------|-----------------|-------|
-| **Cluster Coordinator** | People in assigned cluster(s):<br>- Direct cluster members<br>- Members of families in cluster | Families in assigned cluster(s) + Families of cluster members (even if not directly connected) | Assigned cluster(s) only | Limited to assigned clusters |
-| **Sunday School Teacher** | Students in classes where they are teacher/assistant | Families of those students | N/A | Limited to their classes |
-| **Lessons Teacher** | Students in their lesson sessions | Families of those students | N/A | Limited to their students |
-| **Bible Sharer** | Members of assigned evangelism groups | Families of those members | N/A | Limited to assigned groups |
+| Assignment Type           | People Access                                                                                  | Families Access                                                                                | Clusters Access          | Notes                                             |
+| ------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------- |
+| **Cluster Coordinator**   | People in assigned cluster(s):<br>- Direct cluster members<br>- Members of families in cluster | Families in assigned cluster(s) + Families of cluster members (even if not directly connected) | Assigned cluster(s) only | Limited to assigned clusters. Filtered by branch. |
+| **Sunday School Teacher** | Students in classes where they are teacher/assistant                                           | Families of those students                                                                     | N/A                      | Limited to their classes                          |
+| **Lessons Teacher**       | Students in their lesson sessions                                                              | Families of those students                                                                     | N/A                      | Limited to their students                         |
+| **Bible Sharer**          | Members of assigned evangelism groups                                                          | Families of those members                                                                      | N/A                      | Limited to assigned groups                        |
 
 ## Frontend Module Access
 
-| Role/Assignment | Sunday School Module | Lessons Module | Notes |
-|----------------|---------------------|----------------|-------|
-| **ADMIN** | Full access + Stats/Summary cards | Full access + Stats cards | All features visible |
-| **PASTOR** | Full access + Stats/Summary cards | Full access + Stats cards | All features visible |
-| **Senior Coordinator** | Full access + Stats/Summary cards | Full access + Stats cards | All features visible |
-| **Cluster Coordinator** | Full access + Stats/Summary cards | Full access + Stats cards | Stats cards visible |
-| **Sunday School Teacher** | Full access + Stats/Summary cards | Limited access (no stats) | Can see their classes |
-| **Lessons Teacher** | Limited access (no stats) | Full access + Stats cards | Can see their students |
-| **MEMBER** | Limited access (no stats/summary cards) | Limited access (no stats) | Can see their own data only |
-| **Bible Sharer** | Limited access (no stats) | Limited access (no stats) | Can see their groups |
+| Role/Assignment           | Sunday School Module                    | Lessons Module            | Notes                       |
+| ------------------------- | --------------------------------------- | ------------------------- | --------------------------- |
+| **ADMIN**                 | Full access + Stats/Summary cards       | Full access + Stats cards | All features visible        |
+| **PASTOR**                | Full access + Stats/Summary cards       | Full access + Stats cards | All features visible        |
+| **Senior Coordinator**    | Full access + Stats/Summary cards       | Full access + Stats cards | All features visible        |
+| **Cluster Coordinator**   | Full access + Stats/Summary cards       | Full access + Stats cards | Stats cards visible         |
+| **Sunday School Teacher** | Full access + Stats/Summary cards       | Limited access (no stats) | Can see their classes       |
+| **Lessons Teacher**       | Limited access (no stats)               | Full access + Stats cards | Can see their students      |
+| **MEMBER**                | Limited access (no stats/summary cards) | Limited access (no stats) | Can see their own data only |
+| **Bible Sharer**          | Limited access (no stats)               | Limited access (no stats) | Can see their groups        |
 
 ## Multiple Assignments (Union)
 
 When a user has multiple assignments, they see the union of all applicable people/families:
 
-| Example Combinations | People Access | Families Access |
-|----------------------|---------------|-----------------|
-| **Cluster Coordinator + Sunday School Teacher** | People from clusters + Students from classes | Families from clusters + Families of students |
-| **Cluster Coordinator + Lessons Teacher** | People from clusters + Students from lessons | Families from clusters + Families of students |
-| **Cluster Coordinator + Bible Sharer** | People from clusters + Members from evangelism groups | Families from clusters + Families of members |
-| **Sunday School Teacher + Lessons Teacher** | Students from classes + Students from lessons | Families of all students |
-| **All three (Cluster + Sunday School + Lessons)** | Union of all three sources | Union of all three sources |
+| Example Combinations                              | People Access                                         | Families Access                               |
+| ------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------- |
+| **Cluster Coordinator + Sunday School Teacher**   | People from clusters + Students from classes          | Families from clusters + Families of students |
+| **Cluster Coordinator + Lessons Teacher**         | People from clusters + Students from lessons          | Families from clusters + Families of students |
+| **Cluster Coordinator + Bible Sharer**            | People from clusters + Members from evangelism groups | Families from clusters + Families of members  |
+| **Sunday School Teacher + Lessons Teacher**       | Students from classes + Students from lessons         | Families of all students                      |
+| **All three (Cluster + Sunday School + Lessons)** | Union of all three sources                            | Union of all three sources                    |
 
 ## Access Priority (Evaluation Order)
 
@@ -94,4 +116,3 @@ Admins can create multiple module coordinator assignments for a single person in
 - **Payload**: `{ assignments: [{ person, module, level, resource_id?, resource_type? }, ...] }`
 - **Validation**: All assignments validated before any are created (atomic operation)
 - **Duplicate Prevention**: Respects unique_together constraint (person + module + resource_id)
-

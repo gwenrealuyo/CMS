@@ -58,3 +58,6 @@ def sync_coordinators_to_members(ministry):
                 # They were removed from coordinator positions, update to TEAM_MEMBER
                 membership.role = MinistryRole.TEAM_MEMBER
                 membership.save(update_fields=["role"])
+
+
+

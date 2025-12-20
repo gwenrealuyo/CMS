@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { Cluster } from "@/src/types/cluster";
 import { Person, PersonUI } from "@/src/types/person";
+import { Branch } from "@/src/types/branch";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
+import { useBranches } from "@/src/hooks/useBranches";
+import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
@@ -42,6 +45,9 @@ export default function ClusterForm({
   const [description, setDescription] = useState(
     initialData?.description || ""
   );
+  const [branchId, setBranchId] = useState<string>(
+    initialData?.branch?.toString() || ""
+  );
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [familySearch, setFamilySearch] = useState("");
@@ -49,6 +55,9 @@ export default function ClusterForm({
 
   const { people, loading: peopleLoading } = usePeople();
   const { families, loading: familiesLoading } = useFamilies();
+  const { branches } = useBranches();
+  const { user } = useAuth();
+  const canEditBranch = user?.role === "ADMIN" || user?.role === "PASTOR";
 
   // Update memberIds when initialData changes
   useEffect(() => {
@@ -64,6 +73,13 @@ export default function ClusterForm({
     }
   }, [initialData?.families]);
 
+  // Update branchId when initialData changes
+  useEffect(() => {
+    if (initialData?.branch) {
+      setBranchId(initialData.branch.toString());
+    }
+  }, [initialData?.branch]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
@@ -72,6 +88,7 @@ export default function ClusterForm({
       coordinator_id: coordinatorId ? Number(coordinatorId) : undefined,
       families: familyIds.map(Number),
       members: memberIds.map(Number),
+      branch: branchId ? Number(branchId) : undefined,
       location: location || undefined,
       meeting_schedule: meetingSchedule || undefined,
       description: description || undefined,
@@ -483,6 +500,34 @@ export default function ClusterForm({
           />
         )}
       </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Branch
+        </label>
+        <select
+          value={branchId}
+          onChange={(e) => setBranchId(e.target.value)}
+          disabled={!canEditBranch}
+          className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+            !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
+          }`}
+        >
+          <option value="">No branch</option>
+          {branches
+            .filter((b) => b.is_active)
+            .map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+                {branch.is_headquarters ? " (HQ)" : ""}
+              </option>
+            ))}
+        </select>
+        {!canEditBranch && (
+          <p className="text-xs text-gray-500 mt-1">
+            Only ADMIN and PASTOR can edit branch
+          </p>
+        )}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -528,7 +573,11 @@ export default function ClusterForm({
         >
           Cancel
         </Button>
-        <Button className="w-full sm:flex-1 min-h-[44px]" disabled={submitting} type="submit">
+        <Button
+          className="w-full sm:flex-1 min-h-[44px]"
+          disabled={submitting}
+          type="submit"
+        >
           {submitting
             ? "Saving..."
             : initialData

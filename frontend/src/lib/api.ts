@@ -65,6 +65,7 @@ import {
   PledgeContribution,
   PledgeContributionInput,
 } from "@/src/types/finance";
+import { Branch } from "@/src/types/branch";
 
 const api = axios.create({
   baseURL: "http://localhost:8000/api",
@@ -280,6 +281,22 @@ export const moduleCoordinatorsApi = {
     }>
   ) => api.patch<ModuleCoordinator>(`/people/module-coordinators/${id}/`, data),
   delete: (id: number) => api.delete(`/people/module-coordinators/${id}/`),
+};
+
+export const branchesApi = {
+  getAll: (params?: {
+    is_headquarters?: boolean;
+    is_active?: boolean;
+    search?: string;
+  }) => api.get<Branch[]>("/people/branches/", { params }),
+  getById: (id: number | string) => api.get<Branch>(`/people/branches/${id}/`),
+  create: (data: Partial<Branch>) =>
+    api.post<Branch>("/people/branches/", data),
+  update: (id: number | string, data: Partial<Branch>) =>
+    api.put<Branch>(`/people/branches/${id}/`, data),
+  patch: (id: number | string, data: Partial<Branch>) =>
+    api.patch<Branch>(`/people/branches/${id}/`, data),
+  delete: (id: number | string) => api.delete(`/people/branches/${id}/`),
 };
 
 export const clustersApi = {

@@ -1,8 +1,9 @@
 import { Person, Journey, Family, JourneyType } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
+import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { journeysApi } from "@/src/lib/api";
+import { journeysApi, branchesApi } from "@/src/lib/api";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface PersonProfileProps {
@@ -49,10 +50,26 @@ export default function PersonProfile({
     "ALL"
   );
   const journeyListRef = useRef<HTMLDivElement>(null);
+  const [branch, setBranch] = useState<Branch | null>(null);
 
   useEffect(() => {
     setJourneys(((person.journeys as Journey[]) || []).slice());
   }, [person.id]);
+
+  // Fetch branch information if branch ID exists
+  useEffect(() => {
+    if (person.branch) {
+      branchesApi
+        .getById(person.branch)
+        .then((response) => setBranch(response.data))
+        .catch((err) => {
+          console.error("Failed to fetch branch:", err);
+          setBranch(null);
+        });
+    } else {
+      setBranch(null);
+    }
+  }, [person.branch]);
 
   // Redirect to overview if user doesn't have permission to view timeline tab
   useEffect(() => {
@@ -84,6 +101,10 @@ export default function PersonProfile({
         return "bg-green-100 text-green-800";
       case "EVENT_ATTENDANCE":
         return "bg-sky-100 text-sky-800";
+      case "MINISTRY":
+        return "bg-pink-100 text-pink-800";
+      case "BRANCH_TRANSFER":
+        return "bg-indigo-100 text-indigo-800";
       case "NOTE":
       default:
         return "bg-gray-100 text-gray-800";
@@ -231,6 +252,42 @@ export default function PersonProfile({
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M10 14h.01M14 14h.01M10 18h.01M14 18h.01"
+              />
+            </svg>
+          </div>
+        );
+      case "MINISTRY":
+        return (
+          <div className="w-6 h-6 rounded-lg bg-pink-100 border border-pink-200 flex items-center justify-center">
+            <svg
+              className="w-4 h-4 text-pink-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+          </div>
+        );
+      case "BRANCH_TRANSFER":
+        return (
+          <div className="w-6 h-6 rounded-lg bg-indigo-100 border border-indigo-200 flex items-center justify-center">
+            <svg
+              className="w-4 h-4 text-indigo-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
               />
             </svg>
           </div>
@@ -387,6 +444,12 @@ export default function PersonProfile({
                   >
                     {person.status}
                   </span>
+                  {branch && (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                      {branch.name}
+                      {branch.is_headquarters && " (HQ)"}
+                    </span>
+                  )}
                   {families &&
                     (() => {
                       const f = families.find((ff) =>

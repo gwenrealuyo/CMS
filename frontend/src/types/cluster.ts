@@ -13,6 +13,7 @@ export interface Cluster {
   coordinator_id?: number | null;
   families: number[];
   members: number[];
+  branch?: number | null;
   location: string;
   meeting_schedule: string;
   description: string;
@@ -25,6 +26,7 @@ export interface ClusterInput {
   coordinator_id?: number | null;
   families?: number[];
   members?: number[];
+  branch?: number | null;
   location?: string;
   meeting_schedule?: string;
   description?: string;

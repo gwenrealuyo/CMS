@@ -1,5 +1,12 @@
 ## Data Models (apps.people.models)
 
+### Branch
+
+- Fields: `name`, `code?` (unique, nullable), `address?`, `phone?`, `email?`, `is_headquarters` (default=False), `is_active` (default=True), `created_at`
+- Meta: `verbose_name_plural = "Branches"`, ordering by `name`
+- Indexes: `is_headquarters`, `is_active`
+- Notes: Represents a church branch/location. One branch should be marked as headquarters (`is_headquarters=True`)
+
 ### Person (extends AbstractUser)
 
 - Names: `first_name`, `last_name`, `middle_name?`, `suffix?`
@@ -7,8 +14,9 @@
 - Contact: `phone?`, `address?`, `facebook_name?`
 - Role: `role` (MEMBER|VISITOR|COORDINATOR|PASTOR|ADMIN)
 - Church-specific: `date_first_attended?`, `member_id?`, `status?` (ACTIVE|SEMIACTIVE|INACTIVE|DECEASED)
-- Relations: `inviter` → Person (nullable), standard `groups` and `user_permissions` with custom related_names
+- Relations: `inviter` → Person (nullable), `branch` → Branch (nullable), standard `groups` and `user_permissions` with custom related_names
 - Media: `photo` (ImageField → `profiles/`)
+- Methods: `can_see_all_branches()` - Returns True for ADMIN users or PASTOR users from headquarters branch
 
 Notes
 
@@ -19,20 +27,22 @@ Notes
 
 - Fields: `name`, `leader` → Person (nullable), `members` → ManyToMany(Person), `address?`, `created_at`
 - Meta: `verbose_name_plural = "Families"`
+- Notes: Branch is derived from members' branches (most common branch among family members). Family model does NOT have a direct branch field.
 
 ### Cluster
 
-- Fields: `code` (unique, nullable), `name?`, `coordinator` → Person (nullable), `families` → ManyToMany(Family), `description?`, `created_at`
+- Fields: `code` (unique, nullable), `name?`, `coordinator` → Person (nullable), `families` → ManyToMany(Family), `branch` → Branch (nullable), `description?`, `created_at`
 
 ### Journey
 
-- Fields: `user` → Person, `title?`, `date`, `type` (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE), `description?`, `verified_by` → Person (nullable), `created_at`
+- Fields: `user` → Person, `title?`, `date`, `type` (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE|EVENT_ATTENDANCE|MINISTRY|BRANCH_TRANSFER), `description?`, `verified_by` → Person (nullable), `created_at`
+- Notes: `BRANCH_TRANSFER` type is automatically created when a Person's branch changes
 
 ## Data Models (apps.ministries.models)
 
 ### Ministry
 
-- Fields: `name`, `description?`, `category?` (worship|outreach|care|logistics|other), `activity_cadence` (weekly|monthly|seasonal|event_driven|holiday|ad_hoc), `primary_coordinator` → Person (nullable), `support_coordinators` → ManyToMany(Person), `meeting_location?`, `meeting_schedule?` (JSONField), `communication_channel?` (URLField), `is_active` (default=True), `created_at`, `updated_at`
+- Fields: `name`, `description?`, `category?` (worship|outreach|care|logistics|other), `activity_cadence` (weekly|monthly|seasonal|event_driven|holiday|ad_hoc), `primary_coordinator` → Person (nullable), `support_coordinators` → ManyToMany(Person), `branch` → Branch (nullable), `meeting_location?`, `meeting_schedule?` (JSONField), `communication_channel?` (URLField), `is_active` (default=True), `created_at`, `updated_at`
 - Meta: `verbose_name_plural = "Ministries"`, ordering by `name`
 - Coordinator Sync: `primary_coordinator` and `support_coordinators` are automatically synced to `MinistryMember` entries with roles `PRIMARY_COORDINATOR` and `COORDINATOR` respectively
 

@@ -36,7 +36,11 @@ Notes
 ### Journey
 
 - Fields: `user` → Person, `title?`, `date`, `type` (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE|EVENT_ATTENDANCE|MINISTRY|BRANCH_TRANSFER), `description?`, `verified_by` → Person (nullable), `created_at`
-- Notes: `BRANCH_TRANSFER` type is automatically created when a Person's branch changes
+- Notes: 
+  - `BRANCH_TRANSFER` type is automatically created when a Person's branch changes
+  - `CLUSTER` type journeys are automatically created when:
+    - People attend cluster meetings (via ClusterWeeklyReport) - title: "Attended Cluster Meeting - {Cluster Code}"
+    - People are added to or transferred between clusters - title: "Joined Cluster - {Cluster Code}" or "Transferred to Cluster - {Cluster Code}"
 
 ## Data Models (apps.ministries.models)
 

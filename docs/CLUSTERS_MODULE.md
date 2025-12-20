@@ -64,6 +64,62 @@ The Clusters module manages church clusters (small groups) and their weekly meet
 - Default ordering: by `-year`, then `-week_number`
 - Unique constraint: `unique_together = ["cluster", "year", "week_number"]` – prevents duplicate reports for the same cluster/week
 
+### Automatic Journey Creation
+
+The Clusters module automatically creates `Journey` entries (type `CLUSTER`) in the people app to track cluster-related activities:
+
+#### Attendance-Based Journeys
+
+When a `ClusterWeeklyReport` is created or updated with attendance data:
+
+- **Trigger**: People are added to `members_attended` or `visitors_attended` fields
+- **Journey Details**:
+  - **Type**: `CLUSTER`
+  - **Title**: `"Attended Cluster Meeting - {Cluster Code}"` (uses cluster code, falls back to name or ID)
+  - **Date**: The report's `meeting_date`
+  - **Description**: Includes gathering type (Physical/Online/Hybrid)
+  - **Verified By**: The person who submitted the report (`submitted_by`)
+  - **User**: The person who attended
+- **Deletion**: When attendance is removed from a report, the corresponding journey is automatically deleted
+- **Duplicate Prevention**: Checks for existing journeys with same person, date, and type before creating
+
+#### Membership-Based Journeys
+
+When cluster memberships are created or updated:
+
+- **Trigger**: People are added to or transferred between clusters via the `Cluster.members` ManyToMany field
+- **Journey Details**:
+  - **Type**: `CLUSTER`
+  - **Title**: 
+    - New member: `"Joined Cluster - {Cluster Code}"`
+    - Transfer: `"Transferred to Cluster - {New Cluster Code}"`
+  - **Date**: Current date (when the change happens)
+  - **Description**: 
+    - New member: `"Assigned to cluster"`
+    - Transfer: `"Transferred from {Old Cluster Code}"`
+  - **Verified By**: The person who made the change (from request context)
+  - **User**: The person being added/transferred
+- **Transfer Detection**: Automatically detects when a person moves from one cluster to another and creates a single transfer journey
+- **Duplicate Prevention**: Checks for existing journeys on the same day before creating
+
+#### Historical Backfill
+
+A management command is available to backfill historical journey entries from existing cluster data:
+
+```bash
+python manage.py backfill_cluster_journeys
+```
+
+Options:
+- `--dry-run`: Show what would be created without actually creating journeys
+- `--cluster-id N`: Process only a specific cluster
+- `--start-date YYYY-MM-DD`: Only process reports/memberships after this date
+- `--end-date YYYY-MM-DD`: Only process reports/memberships before this date
+- `--skip-attendance`: Skip attendance journey creation
+- `--skip-membership`: Skip membership journey creation
+
+The command processes all existing `ClusterWeeklyReport` records to create attendance journeys and all current cluster memberships to create membership journeys.
+
 ### Cross-App References
 
 All ForeignKey and ManyToMany relationships use string references to avoid circular imports:
@@ -241,6 +297,7 @@ The command creates:
 **Important Notes:**
 - Ensure you have people (and optionally families) in the database first (run `populate_sample_data` if needed) as the command uses them as coordinators, members, and submitters.
 - The command automatically assigns coordinators, families, and members from existing data.
+- When sample data is populated, journey entries are automatically created for cluster attendance and membership changes (see "Automatic Journey Creation" section above).
 
 ## Django Admin
 

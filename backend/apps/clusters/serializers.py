@@ -1,6 +1,12 @@
 from rest_framework import serializers
-from apps.people.models import Person, Family
+from django.db import transaction
+from django.utils import timezone
+import logging
+
+from apps.people.models import Person, Family, Journey
 from .models import Cluster, ClusterWeeklyReport
+
+logger = logging.getLogger(__name__)
 
 
 class ClusterSerializer(serializers.ModelSerializer):
@@ -46,6 +52,123 @@ class ClusterSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def _get_cluster_display_name(self, cluster):
+        """Get cluster code, name, or fallback identifier"""
+        if cluster.code:
+            return cluster.code
+        if cluster.name:
+            return cluster.name
+        return f"Cluster {cluster.id}"
+
+    def _create_membership_journeys(self, cluster, new_member_ids, old_member_ids=None, verified_by=None, previous_cluster_map=None):
+        """
+        Create journey entries for cluster membership changes.
+        
+        Args:
+            cluster: The Cluster instance
+            new_member_ids: Set of member IDs that should be in the cluster
+            old_member_ids: Set of previous member IDs (for transfer detection)
+            verified_by: Person who made the change (from request context)
+            previous_cluster_map: Dict mapping person_id to their previous cluster IDs (for transfer detection)
+        """
+        if old_member_ids is None:
+            old_member_ids = set()
+        if previous_cluster_map is None:
+            previous_cluster_map = {}
+        
+        cluster_display = self._get_cluster_display_name(cluster)
+        today = timezone.now().date()
+        journeys_to_create = []
+        
+        # Find new members (added)
+        added_member_ids = new_member_ids - old_member_ids
+        
+        # Find removed members
+        removed_member_ids = old_member_ids - new_member_ids
+        
+        # Handle removed members - delete "Joined Cluster" journeys if they exist
+        if removed_member_ids:
+            removed_persons = Person.objects.filter(id__in=removed_member_ids)
+            title_to_delete = f"Joined Cluster - {cluster_display}"
+            
+            for person in removed_persons:
+                # Check if person is now in another cluster (transfer case)
+                current_clusters = person.clusters.exclude(id=cluster.id)
+                if not current_clusters.exists():
+                    # Person was removed and not transferred - delete journey for this specific cluster
+                    try:
+                        Journey.objects.filter(
+                            user=person,
+                            type='CLUSTER',
+                            title=title_to_delete,
+                            date=today
+                        ).delete()
+                    except Exception as e:
+                        logger.error(f"Error deleting journey for removed member {person.id}: {str(e)}")
+        
+        # Create journeys for new members
+        if added_member_ids:
+            new_members = Person.objects.filter(id__in=added_member_ids)
+            
+            for person in new_members:
+                # Check if this is a transfer
+                # First check previous_cluster_map (from before update)
+                prev_cluster_ids = previous_cluster_map.get(person.id, set())
+                # Also check current clusters (excluding this one) in case they're still in another cluster
+                current_other_clusters = person.clusters.exclude(id=cluster.id)
+                
+                is_transfer = bool(prev_cluster_ids) or current_other_clusters.exists()
+                
+                # Determine title and description first
+                if is_transfer:
+                    # Get the previous cluster for description
+                    prev_cluster = None
+                    if prev_cluster_ids:
+                        # Get the first previous cluster
+                        prev_cluster = Cluster.objects.filter(id__in=prev_cluster_ids).first()
+                    if not prev_cluster and current_other_clusters.exists():
+                        # Fallback to current other clusters
+                        prev_cluster = current_other_clusters.first()
+                    
+                    if prev_cluster:
+                        prev_cluster_display = self._get_cluster_display_name(prev_cluster)
+                        title = f"Transferred to Cluster - {cluster_display}"
+                        description = f"Transferred from {prev_cluster_display}"
+                    else:
+                        # Transfer detected but can't find previous cluster - use generic message
+                        title = f"Transferred to Cluster - {cluster_display}"
+                        description = "Transferred from another cluster"
+                else:
+                    title = f"Joined Cluster - {cluster_display}"
+                    description = "Assigned to cluster"
+                
+                # Check for duplicate journey (exact title match)
+                existing = Journey.objects.filter(
+                    user=person,
+                    date=today,
+                    type='CLUSTER',
+                    title=title
+                ).exists()
+                
+                if not existing:
+                    journeys_to_create.append(Journey(
+                        user=person,
+                        title=title,
+                        date=today,
+                        type='CLUSTER',
+                        description=description,
+                        verified_by=verified_by
+                    ))
+        
+        if journeys_to_create:
+            try:
+                with transaction.atomic():
+                    Journey.objects.bulk_create(journeys_to_create)
+                logger.info(f"Created {len(journeys_to_create)} membership journeys for cluster {cluster.id}")
+            except Exception as e:
+                logger.error(f"Error creating membership journeys for cluster {cluster.id}: {str(e)}", exc_info=True)
+                # Don't raise - allow cluster update to succeed even if journey creation fails
+
     def _add_family_members_to_cluster(self, instance, families):
         """
         Automatically add all members from assigned families to the cluster.
@@ -73,11 +196,18 @@ class ClusterSerializer(serializers.ModelSerializer):
         families = validated_data.pop('families', [])
         members = validated_data.pop('members', [])
         
+        # Get request user for verified_by
+        request = self.context.get('request')
+        verified_by = request.user if request and hasattr(request, 'user') else None
+        
         # Create the cluster instance
         instance = super().create(validated_data)
         
         # Set families first
         instance.families.set(families)
+        
+        # Track old memberships (empty for create)
+        old_member_ids = set()
         
         # Automatically add all family members to the cluster
         if families:
@@ -89,12 +219,34 @@ class ClusterSerializer(serializers.ModelSerializer):
             new_member_ids = set(member.id for member in members)
             all_member_ids = existing_member_ids | new_member_ids
             instance.members.set(all_member_ids)
+        else:
+            # Refresh to get final member list after family addition
+            instance.refresh_from_db()
+        
+        # Create journeys for initial members
+        final_member_ids = set(instance.members.values_list('id', flat=True))
+        if final_member_ids:
+            self._create_membership_journeys(instance, final_member_ids, old_member_ids, verified_by)
         
         return instance
 
     def update(self, instance, validated_data):
         families = validated_data.pop('families', None)
         members = validated_data.pop('members', None)
+        
+        # Get request user for verified_by
+        request = self.context.get('request')
+        verified_by = request.user if request and hasattr(request, 'user') else None
+        
+        # Capture previous memberships before any changes
+        old_member_ids = set(instance.members.values_list('id', flat=True))
+        
+        # Capture previous cluster memberships for each person (for transfer detection)
+        previous_cluster_map = {}
+        if old_member_ids:
+            old_members = Person.objects.filter(id__in=old_member_ids).prefetch_related('clusters')
+            for person in old_members:
+                previous_cluster_map[person.id] = set(person.clusters.values_list('id', flat=True))
         
         # Update other fields first
         instance = super().update(instance, validated_data)
@@ -126,6 +278,14 @@ class ClusterSerializer(serializers.ModelSerializer):
                 existing_member_ids = set(instance.members.values_list('id', flat=True))
                 all_member_ids = existing_member_ids | family_member_ids
                 instance.members.set(all_member_ids)
+        
+        # Refresh to get final member list
+        instance.refresh_from_db()
+        new_member_ids = set(instance.members.values_list('id', flat=True))
+        
+        # Create journeys for membership changes
+        if new_member_ids != old_member_ids:
+            self._create_membership_journeys(instance, new_member_ids, old_member_ids, verified_by, previous_cluster_map)
         
         return instance
 

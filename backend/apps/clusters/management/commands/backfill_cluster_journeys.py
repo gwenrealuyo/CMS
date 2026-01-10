@@ -251,3 +251,5 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS(f'\nSuccessfully created {attendance_created + membership_created} journeys.'))
 
+
+

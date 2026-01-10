@@ -80,6 +80,13 @@ export default function ClusterForm({
     }
   }, [initialData?.branch]);
 
+  // Clear coordinator if they're removed from members
+  useEffect(() => {
+    if (coordinatorId && !memberIds.includes(coordinatorId)) {
+      setCoordinatorId("");
+    }
+  }, [coordinatorId, memberIds]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
@@ -259,13 +266,64 @@ export default function ClusterForm({
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Coordinator
+          {memberIds.length === 0 && (
+            <span className="ml-2 text-xs font-normal text-gray-500">
+              (Add members first)
+            </span>
+          )}
         </label>
         <SearchableSelect
           options={coordinatorOptions as any}
           value={coordinatorId}
           onChange={setCoordinatorId}
-          placeholder="Select coordinator"
+          placeholder={
+            memberIds.length === 0
+              ? "Add members first to select coordinator"
+              : "Select coordinator from members"
+          }
+          disabled={memberIds.length === 0}
+          emptyMessage={
+            memberIds.length === 0 ? "No members added yet" : "No members found"
+          }
         />
+        {memberIds.length === 0 && (
+          <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+            <svg
+              className="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            Coordinator must be selected from cluster members. Add members above
+            first.
+          </p>
+        )}
+        {memberIds.length > 0 && coordinatorOptions.length === 0 && (
+          <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+            <svg
+              className="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            Selected members not found in system. Please refresh or re-add
+            members.
+          </p>
+        )}
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -500,35 +558,35 @@ export default function ClusterForm({
           />
         )}
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Branch
-        </label>
-        <select
-          value={branchId}
-          onChange={(e) => setBranchId(e.target.value)}
-          disabled={!canEditBranch}
-          className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
-            !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
-          }`}
-        >
-          <option value="">No branch</option>
-          {branches
-            .filter((b) => b.is_active)
-            .map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-                {branch.is_headquarters ? " (HQ)" : ""}
-              </option>
-            ))}
-        </select>
-        {!canEditBranch && (
-          <p className="text-xs text-gray-500 mt-1">
-            Only ADMIN and PASTOR can edit branch
-          </p>
-        )}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Branch
+          </label>
+          <select
+            value={branchId}
+            onChange={(e) => setBranchId(e.target.value)}
+            disabled={!canEditBranch}
+            className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+              !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
+            }`}
+          >
+            <option value="">No branch</option>
+            {branches
+              .filter((b) => b.is_active)
+              .map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                  {branch.is_headquarters ? " (HQ)" : ""}
+                </option>
+              ))}
+          </select>
+          {!canEditBranch && (
+            <p className="text-xs text-gray-500 mt-1">
+              Only ADMIN and PASTOR can edit branch
+            </p>
+          )}
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Location

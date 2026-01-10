@@ -110,6 +110,7 @@ export default function PeoplePage() {
   const [showReportForm, setShowReportForm] = useState(false);
   const [reportSelectedCluster, setReportSelectedCluster] =
     useState<Cluster | null>(null);
+  const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
   const [showPersonOverCluster, setShowPersonOverCluster] = useState(false);
   const [personOverCluster, setPersonOverCluster] = useState<Person | null>(
     null
@@ -1549,7 +1550,10 @@ export default function PeoplePage() {
         )}
 
         {activeTab === "reports" && (
-          <ClusterReportsDashboard clusters={clusters} />
+          <ClusterReportsDashboard
+            clusters={clusters}
+            refreshTrigger={reportsRefreshTrigger}
+          />
         )}
       </div>
       <Modal
@@ -1953,6 +1957,8 @@ export default function PeoplePage() {
               await clusterReportsApi.create(data as any);
               setShowReportForm(false);
               setReportSelectedCluster(null);
+              // Trigger refresh of reports dashboard
+              setReportsRefreshTrigger((prev) => prev + 1);
             }}
           />
         </Modal>

@@ -22,6 +22,7 @@ interface SearchableSelectProps {
   emptyMessage?: string;
   showEmptyOption?: boolean;
   emptyOptionLabel?: string;
+  disabled?: boolean;
 }
 
 export default function SearchableSelect({
@@ -33,6 +34,7 @@ export default function SearchableSelect({
   emptyMessage = "No results found",
   showEmptyOption = true,
   emptyOptionLabel = "All",
+  disabled = false,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,19 +86,21 @@ export default function SearchableSelect({
   }, [isOpen]);
 
   const handleSelect = (optionId: string | number | undefined) => {
-    if (optionId === undefined) return;
+    if (disabled || optionId === undefined) return;
     onChange(String(optionId));
     setIsOpen(false);
     setSearchQuery("");
   };
 
   const handleClear = () => {
+    if (disabled) return;
     onChange("");
     setIsOpen(false);
     setSearchQuery("");
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     setSearchQuery(e.target.value);
     if (!isOpen) {
       setIsOpen(true);
@@ -104,10 +108,13 @@ export default function SearchableSelect({
   };
 
   const handleInputFocus = () => {
-    setIsOpen(true);
+    if (!disabled) {
+      setIsOpen(true);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
     if (e.key === "Escape") {
       setIsOpen(false);
       setSearchQuery("");
@@ -115,6 +122,14 @@ export default function SearchableSelect({
       handleSelect(filteredOptions[0].id);
     }
   };
+
+  // Close dropdown if disabled while open
+  useEffect(() => {
+    if (disabled && isOpen) {
+      setIsOpen(false);
+      setSearchQuery("");
+    }
+  }, [disabled, isOpen]);
 
   return (
     <div className="space-y-1" ref={containerRef}>
@@ -125,9 +140,13 @@ export default function SearchableSelect({
       )}
       <div className="relative">
         <div
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus-within:border-blue-500 focus-within:outline-none focus-within:ring-1 focus-within:ring-blue-500 cursor-pointer bg-white"
+          className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white ${
+            disabled
+              ? "bg-gray-50 cursor-not-allowed opacity-60"
+              : "focus-within:border-blue-500 focus-within:outline-none focus-within:ring-1 focus-within:ring-blue-500 cursor-pointer"
+          }`}
           onClick={() => {
-            if (!isOpen) {
+            if (!disabled && !isOpen) {
               setIsOpen(true);
               inputRef.current?.focus();
             }
@@ -135,20 +154,22 @@ export default function SearchableSelect({
         >
           {!isOpen && selectedOption ? (
             <div className="flex items-center justify-between">
-              <span className="text-gray-900">
+              <span className={disabled ? "text-gray-500" : "text-gray-900"}>
                 {formatPersonName(selectedOption)}
               </span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleClear();
-                }}
-                className="text-gray-400 hover:text-gray-600 ml-2"
-                aria-label="Clear selection"
-              >
-                ×
-              </button>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClear();
+                  }}
+                  className="text-gray-400 hover:text-gray-600 ml-2"
+                  aria-label="Clear selection"
+                >
+                  ×
+                </button>
+              )}
             </div>
           ) : !isOpen && !selectedOption ? (
             <span className="text-gray-500">{placeholder}</span>
@@ -161,12 +182,13 @@ export default function SearchableSelect({
               onFocus={handleInputFocus}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              className="w-full outline-none bg-transparent text-gray-900"
+              disabled={disabled}
+              className="w-full outline-none bg-transparent text-gray-900 disabled:cursor-not-allowed disabled:text-gray-500"
             />
           )}
         </div>
 
-        {isOpen && (
+        {isOpen && !disabled && (
           <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
             {showEmptyOption && (
               <button

@@ -32,14 +32,42 @@ export default function ClusterView({
   onViewPerson,
   onViewFamily,
 }: ClusterViewProps) {
-  // Calculate member counts including coordinator
-  const totalMemberCount = clusterMembers.length + (coordinator ? 1 : 0);
-  const memberCount =
-    clusterMembers.filter((member) => member.role === "MEMBER").length +
-    (coordinator && coordinator.role === "MEMBER" ? 1 : 0);
-  const visitorCount =
-    clusterMembers.filter((member) => member.role === "VISITOR").length +
-    (coordinator && coordinator.role === "VISITOR" ? 1 : 0);
+  // Calculate member and visitor counts
+  // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, COORDINATOR, PASTOR, etc.)
+  // Visitors: role is "VISITOR"
+  // ADMIN is excluded from both counts
+  
+  // Check if coordinator is already in clusterMembers to avoid double counting
+  const coordinatorInMembers = coordinator 
+    ? clusterMembers.some(m => m.id === coordinator.id)
+    : false;
+  
+  // Calculate members: all people who are not ADMIN or VISITOR
+  const memberCountFromCluster = clusterMembers.filter(
+    (member) => member.role !== "ADMIN" && member.role !== "VISITOR"
+  ).length;
+  
+  // Add coordinator to member count only if not already in clusterMembers and is not ADMIN/VISITOR
+  const memberCount = memberCountFromCluster + (
+    coordinator && !coordinatorInMembers && coordinator.role !== "ADMIN" && coordinator.role !== "VISITOR"
+      ? 1
+      : 0
+  );
+  
+  // Calculate visitors: all people with VISITOR role
+  const visitorCountFromCluster = clusterMembers.filter(
+    (member) => member.role === "VISITOR"
+  ).length;
+  
+  // Add coordinator to visitor count only if not already in clusterMembers and is VISITOR
+  const visitorCount = visitorCountFromCluster + (
+    coordinator && !coordinatorInMembers && coordinator.role === "VISITOR"
+      ? 1
+      : 0
+  );
+  
+  // Total count includes all non-ADMIN people (members + visitors)
+  const totalMemberCount = memberCount + visitorCount;
 
   const formatFullName = (person: Person) => formatPersonName(person);
 

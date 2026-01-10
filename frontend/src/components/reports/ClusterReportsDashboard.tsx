@@ -49,6 +49,7 @@ interface ClusterReportsDashboardProps {
   onSubmitReport?: (data: Partial<ClusterWeeklyReport>) => Promise<void>;
   onEditReport?: (report: ClusterWeeklyReport) => void;
   onSetReportSelectedCluster?: (cluster: Cluster | null) => void;
+  refreshTrigger?: number; // Increment this to trigger a refresh
 }
 
 export default function ClusterReportsDashboard({
@@ -60,6 +61,7 @@ export default function ClusterReportsDashboard({
   onSubmitReport: externalOnSubmitReport,
   onEditReport: externalOnEditReport,
   onSetReportSelectedCluster: externalOnSetReportSelectedCluster,
+  refreshTrigger,
 }: ClusterReportsDashboardProps) {
   const [reports, setReports] = useState<ClusterWeeklyReport[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -269,6 +271,7 @@ export default function ClusterReportsDashboard({
     selectedYear,
     selectedGatheringType,
     selectedWeek,
+    refreshTrigger, // Refresh when trigger changes
   ]);
 
   useEffect(() => {
@@ -279,6 +282,7 @@ export default function ClusterReportsDashboard({
     selectedYear,
     selectedGatheringType,
     selectedWeek,
+    refreshTrigger, // Refresh analytics when trigger changes
   ]);
 
   // Reset to first page when filters change
@@ -438,6 +442,9 @@ export default function ClusterReportsDashboard({
       // Use external handler if provided
       if (externalOnSubmitReport) {
         await externalOnSubmitReport(data as Partial<ClusterWeeklyReportInput>);
+        // Refresh reports after external submission
+        await fetchReports();
+        await fetchAnalytics();
         if (onFormClose) {
           onFormClose();
         }

@@ -34,23 +34,33 @@ const ClusterCard = memo(
       [peopleUI, cluster]
     );
 
+    // Calculate member and visitor counts
+    // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, COORDINATOR, PASTOR, etc.)
+    // Visitors: role is "VISITOR"
+    // ADMIN is excluded from both counts
+    
+    // Check if coordinator is already in clusterMembers to avoid double counting
+    const coordinatorInMembers = coordinator 
+      ? clusterMembers.some(m => m.id === coordinator.id)
+      : false;
+    
     const memberCount = React.useMemo(() => {
       const members = clusterMembers.filter(
-        (member) => member.role === "MEMBER"
+        (member) => member.role !== "ADMIN" && member.role !== "VISITOR"
       );
-      // Only count coordinator if they're MEMBER (backend already filters out ADMIN users)
-      const coordinatorCount = coordinator && coordinator.role === "MEMBER" ? 1 : 0;
+      // Add coordinator to member count only if not already in clusterMembers and is not ADMIN/VISITOR
+      const coordinatorCount = coordinator && !coordinatorInMembers && coordinator.role !== "ADMIN" && coordinator.role !== "VISITOR" ? 1 : 0;
       return members.length + coordinatorCount;
-    }, [clusterMembers, coordinator]);
+    }, [clusterMembers, coordinator, coordinatorInMembers]);
 
     const visitorCount = React.useMemo(() => {
       const visitors = clusterMembers.filter(
         (member) => member.role === "VISITOR"
       );
-      // Only count coordinator if they're VISITOR (backend already filters out ADMIN users)
-      const coordinatorCount = coordinator && coordinator.role === "VISITOR" ? 1 : 0;
+      // Add coordinator to visitor count only if not already in clusterMembers and is VISITOR
+      const coordinatorCount = coordinator && !coordinatorInMembers && coordinator.role === "VISITOR" ? 1 : 0;
       return visitors.length + coordinatorCount;
-    }, [clusterMembers, coordinator]);
+    }, [clusterMembers, coordinator, coordinatorInMembers]);
 
     const coordinatorName = React.useMemo(() => {
       if (coordinator) {

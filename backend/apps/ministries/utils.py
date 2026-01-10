@@ -62,3 +62,5 @@ def sync_coordinators_to_members(ministry):
 
 
 
+
+

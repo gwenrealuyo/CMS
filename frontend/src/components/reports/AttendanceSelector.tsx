@@ -39,13 +39,23 @@ export default function AttendanceSelector({
   const clusterMemberIds =
     selectedCluster?.members?.map((id) => id.toString()) || [];
 
-  // Filter people by role
-  const peopleByRole = availablePeople.filter(
-    (person) => person.role === filterRole
-  );
+  // Filter people by role and cluster membership (for MEMBER role)
+  const peopleByRole = availablePeople.filter((person) => {
+    if (filterRole === "MEMBER") {
+      // For members: must be in selected cluster's members list, exclude VISITOR role
+      if (!selectedCluster) return false; // No cluster selected = no members shown
+      if (person.role === "VISITOR") return false; // Exclude visitors
+      return clusterMemberIds.includes(person.id); // Must be in cluster members list
+    } else if (filterRole === "VISITOR") {
+      // For visitors: only show VISITOR role, no cluster filtering
+      return person.role === "VISITOR";
+    }
+    return false;
+  });
 
   // For visitors: separate previously attended visitors from others
   // For members: separate previously attended members from others
+  // Note: peopleByRole is already filtered by cluster membership for MEMBER role
   let previouslyAttendedPeople: PersonUI[] = [];
   let otherPeople: PersonUI[] = [];
 
@@ -58,6 +68,7 @@ export default function AttendanceSelector({
     );
   } else if (filterRole === "MEMBER" && previouslyAttendedIds.length > 0) {
     // For members: use previouslyAttendedIds (members from all previous reports)
+    // peopleByRole is already filtered by cluster membership
     previouslyAttendedPeople = peopleByRole.filter((person) =>
       previouslyAttendedIds.includes(person.id)
     );
@@ -65,18 +76,14 @@ export default function AttendanceSelector({
       (person) => !previouslyAttendedIds.includes(person.id)
     );
   } else {
-    // Fallback: use cluster members if no previous attendance data
-    const clusterMembers = peopleByRole.filter((person) =>
-      clusterMemberIds.includes(person.id)
-    );
-    const otherMembers = peopleByRole.filter(
-      (person) => !clusterMemberIds.includes(person.id)
-    );
-    previouslyAttendedPeople = clusterMembers;
-    otherPeople = otherMembers;
+    // Fallback: if no previous attendance data, show all peopleByRole in "other" section
+    // For MEMBER role, peopleByRole is already filtered by cluster membership
+    // For VISITOR role, peopleByRole contains all visitors
+    previouslyAttendedPeople = [];
+    otherPeople = peopleByRole;
   }
 
-  // Filter by search term
+  // Filter by search term (already filtered by role and cluster membership in peopleByRole)
   const filteredPeople = peopleByRole.filter((person) => {
     if (searchTerm.trim().length === 0) return false;
     return person.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -162,18 +169,15 @@ export default function AttendanceSelector({
     const clusterKey = `${selectedCluster?.id}-${filterRole}`;
 
     // Only auto-select if cluster changed and we haven't auto-selected for this cluster/role combo yet
+    // For MEMBER role, also require selectedCluster to be present
     if (
-      selectedCluster &&
       selectedIds.length === 0 &&
       availablePeople.length > 0 &&
-      hasAutoSelectedRef.current !== clusterKey
+      hasAutoSelectedRef.current !== clusterKey &&
+      (filterRole === "VISITOR" || selectedCluster)
     ) {
-      const peopleByRole = availablePeople.filter(
-        (person) => person.role === filterRole
-      );
-
       if (filterRole === "MEMBER") {
-        // For members: select all active members
+        // For members: select all active members from the cluster (peopleByRole is already filtered)
         const active = peopleByRole.filter(
           (person) => person.status === "ACTIVE"
         );
@@ -205,8 +209,8 @@ export default function AttendanceSelector({
       }
     }
 
-    // Reset ref if cluster is deselected
-    if (!selectedCluster) {
+    // Reset ref if cluster is deselected (for MEMBER role)
+    if (filterRole === "MEMBER" && !selectedCluster) {
       hasAutoSelectedRef.current = null;
     }
   }, [
@@ -216,20 +220,21 @@ export default function AttendanceSelector({
     previouslyAttendedIds.length,
     mostRecentAttendedIds.length,
     selectedIds.length,
+    peopleByRole.length,
   ]);
 
   // Detect which button matches the current selection when editing
   useEffect(() => {
     // Only run this check if we have selections, data is loaded, and we haven't just auto-selected
     // Skip if hasAutoSelectedRef is set (meaning we just auto-selected)
+    // For MEMBER role, also require selectedCluster
     if (
       selectedIds.length > 0 &&
       availablePeople.length > 0 &&
-      !hasAutoSelectedRef.current
+      !hasAutoSelectedRef.current &&
+      (filterRole === "VISITOR" || selectedCluster)
     ) {
-      const peopleByRole = availablePeople.filter(
-        (person) => person.role === filterRole
-      );
+      // peopleByRole is already filtered by role and cluster membership
 
       // Check if selection matches "Select All"
       const allIds = peopleByRole.map((p) => p.id);
@@ -307,9 +312,11 @@ export default function AttendanceSelector({
     selectedIds.join(","),
     availablePeople.length,
     filterRole,
+    selectedCluster?.id,
     mostRecentAttendedIds.join(","),
     previouslyAttendedPeople.length,
     previouslyAttendedPeople.map((p) => p.id).join(","),
+    peopleByRole.length,
   ]);
 
   // Close dropdown on outside click
@@ -359,67 +366,68 @@ export default function AttendanceSelector({
 
       {/* Bulk Action Buttons */}
       <div className="flex flex-wrap gap-2 mb-2">
-        {viewMode === "list" && (
-          <>
-            <button
-              type="button"
-              onClick={selectAll}
-              className={`text-xs px-2 py-1 border rounded transition-colors ${
-                lastClickedButton === "selectAll"
-                  ? "bg-blue-600 text-white border-blue-600 font-semibold"
-                  : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-              }`}
-            >
-              Select All
-            </button>
-            <button
-              type="button"
-              onClick={deselectAll}
-              className={`text-xs px-2 py-1 border rounded transition-colors ${
-                lastClickedButton === "deselectAll"
-                  ? "bg-gray-600 text-white border-gray-600 font-semibold"
-                  : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-              }`}
-            >
-              Deselect All
-            </button>
-            <button
-              type="button"
-              onClick={selectAllActive}
-              className={`text-xs px-2 py-1 border rounded transition-colors ${
-                lastClickedButton === "selectAllActive"
-                  ? "bg-green-600 text-white border-green-600 font-semibold"
-                  : "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-              }`}
-            >
-              Select All Active
-            </button>
-            {selectedCluster &&
-              ((filterRole === "VISITOR" &&
-                previouslyAttendedPeople.length > 0) ||
-                (filterRole === "MEMBER" &&
-                  (mostRecentAttendedIds.length > 0 ||
-                    previouslyAttendedPeople.length > 0))) && (
-                <button
-                  type="button"
-                  onClick={selectAllClusterMembers}
-                  className={`text-xs px-2 py-1 border rounded transition-colors ${
-                    lastClickedButton === "selectAllClusterMembers"
-                      ? "bg-purple-600 text-white border-purple-600 font-semibold"
-                      : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                  }`}
-                >
-                  {filterRole === "VISITOR"
-                    ? `Select All Previously Attended (${previouslyAttendedPeople.length})`
-                    : `Select All Previously Attended (${
-                        mostRecentAttendedIds.length > 0
-                          ? mostRecentAttendedIds.length
-                          : previouslyAttendedPeople.length
-                      })`}
-                </button>
-              )}
-          </>
-        )}
+        {viewMode === "list" &&
+          !(filterRole === "MEMBER" && !selectedCluster) && (
+            <>
+              <button
+                type="button"
+                onClick={selectAll}
+                className={`text-xs px-2 py-1 border rounded transition-colors ${
+                  lastClickedButton === "selectAll"
+                    ? "bg-blue-600 text-white border-blue-600 font-semibold"
+                    : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                }`}
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={deselectAll}
+                className={`text-xs px-2 py-1 border rounded transition-colors ${
+                  lastClickedButton === "deselectAll"
+                    ? "bg-gray-600 text-white border-gray-600 font-semibold"
+                    : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                }`}
+              >
+                Deselect All
+              </button>
+              <button
+                type="button"
+                onClick={selectAllActive}
+                className={`text-xs px-2 py-1 border rounded transition-colors ${
+                  lastClickedButton === "selectAllActive"
+                    ? "bg-green-600 text-white border-green-600 font-semibold"
+                    : "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                }`}
+              >
+                Select All Active
+              </button>
+              {selectedCluster &&
+                ((filterRole === "VISITOR" &&
+                  previouslyAttendedPeople.length > 0) ||
+                  (filterRole === "MEMBER" &&
+                    (mostRecentAttendedIds.length > 0 ||
+                      previouslyAttendedPeople.length > 0))) && (
+                  <button
+                    type="button"
+                    onClick={selectAllClusterMembers}
+                    className={`text-xs px-2 py-1 border rounded transition-colors ${
+                      lastClickedButton === "selectAllClusterMembers"
+                        ? "bg-purple-600 text-white border-purple-600 font-semibold"
+                        : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                    }`}
+                  >
+                    {filterRole === "VISITOR"
+                      ? `Select All Previously Attended (${previouslyAttendedPeople.length})`
+                      : `Select All Previously Attended (${
+                          mostRecentAttendedIds.length > 0
+                            ? mostRecentAttendedIds.length
+                            : previouslyAttendedPeople.length
+                        })`}
+                  </button>
+                )}
+            </>
+          )}
       </div>
 
       {/* Selected People Chips */}
@@ -469,7 +477,11 @@ export default function AttendanceSelector({
           {/* Dropdown */}
           {isDropdownOpen && searchTerm.trim().length >= 1 && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {filteredPeople.length > 0 ? (
+              {filterRole === "MEMBER" && !selectedCluster ? (
+                <div className="px-3 py-2 text-gray-500 text-sm">
+                  Please select a cluster first to view members
+                </div>
+              ) : filteredPeople.length > 0 ? (
                 filteredPeople.map((person) => {
                   const isSelected = selectedIds.includes(person.id);
                   return (
@@ -522,7 +534,9 @@ export default function AttendanceSelector({
                 })
               ) : (
                 <div className="px-3 py-2 text-gray-500 text-sm">
-                  No {filterRole.toLowerCase()}s found
+                  {filterRole === "MEMBER" && selectedCluster
+                    ? "No members found in this cluster"
+                    : `No ${filterRole.toLowerCase()}s found`}
                 </div>
               )}
             </div>
@@ -533,28 +547,24 @@ export default function AttendanceSelector({
       {/* List View with Checkboxes */}
       {viewMode === "list" && (
         <div className="border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
+          {/* Empty state for MEMBER role when no cluster selected */}
+          {filterRole === "MEMBER" && !selectedCluster && (
+            <div className="px-3 py-8 text-center text-gray-500 text-sm">
+              Please select a cluster first to view members
+            </div>
+          )}
+
           {/* Previously Attended Visitors / Cluster Members Section */}
-          {previouslyAttendedPeople.length > 0 && (
+          {((filterRole === "VISITOR" && previouslyAttendedPeople.length > 0) ||
+            (filterRole === "MEMBER" &&
+              selectedCluster &&
+              previouslyAttendedPeople.length > 0)) && (
             <>
-              <div
-                className={`p-2 border-b sticky top-0 ${
-                  filterRole === "VISITOR"
-                    ? "bg-purple-50 border-purple-200"
-                    : "bg-purple-50 border-purple-200"
-                }`}
-              >
-                <div
-                  className={`text-xs font-semibold ${
-                    filterRole === "VISITOR"
-                      ? "text-purple-900"
-                      : "text-purple-900"
-                  }`}
-                >
+              <div className="p-2 border-b sticky top-0 bg-purple-50 border-purple-200">
+                <div className="text-xs font-semibold text-purple-900">
                   {filterRole === "VISITOR"
                     ? `Previously Attended Visitors (${previouslyAttendedPeople.length})`
-                    : `Previously Attended ${
-                        filterRole === "MEMBER" ? "Members" : "Visitors"
-                      } (${previouslyAttendedPeople.length})`}
+                    : `Previously Attended Members (${previouslyAttendedPeople.length})`}
                 </div>
               </div>
               {previouslyAttendedPeople.map((person) => {
@@ -618,16 +628,22 @@ export default function AttendanceSelector({
           )}
 
           {/* Other Visitors / Members Section */}
-          {otherPeople.length > 0 && (
+          {((filterRole === "VISITOR" && otherPeople.length > 0) ||
+            (filterRole === "MEMBER" &&
+              selectedCluster &&
+              otherPeople.length > 0)) && (
             <>
-              {previouslyAttendedPeople.length > 0 && (
+              {(previouslyAttendedPeople.length > 0 ||
+                otherPeople.length > 0) && (
                 <div className="p-2 bg-gray-50 border-b border-gray-200 sticky top-0">
                   <div className="text-xs font-semibold text-gray-700">
                     {filterRole === "VISITOR"
-                      ? `Other Visitors (${otherPeople.length})`
-                      : `Other ${
-                          filterRole === "MEMBER" ? "Members" : "Visitors"
-                        } (${otherPeople.length})`}
+                      ? previouslyAttendedPeople.length > 0
+                        ? `Other Visitors (${otherPeople.length})`
+                        : `Visitors (${otherPeople.length})`
+                      : previouslyAttendedPeople.length > 0
+                      ? `Other Members (${otherPeople.length})`
+                      : `Members (${otherPeople.length})`}
                   </div>
                 </div>
               )}
@@ -691,9 +707,16 @@ export default function AttendanceSelector({
             </>
           )}
 
-          {peopleByRole.length === 0 && (
+          {filterRole === "MEMBER" &&
+            selectedCluster &&
+            peopleByRole.length === 0 && (
+              <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                No members found in this cluster
+              </div>
+            )}
+          {filterRole === "VISITOR" && peopleByRole.length === 0 && (
             <div className="px-3 py-4 text-center text-gray-500 text-sm">
-              No {filterRole.toLowerCase()}s available
+              No visitors available
             </div>
           )}
         </div>

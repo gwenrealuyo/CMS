@@ -41,3 +41,5 @@ def update_status_on_cluster_attendance(sender, instance, action, pk_set, **kwar
         except Exception as e:
             logger.error(f"Error updating person statuses after cluster attendance change: {str(e)}", exc_info=True)
 
+
+

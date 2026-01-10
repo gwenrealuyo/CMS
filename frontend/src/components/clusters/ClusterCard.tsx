@@ -2,6 +2,7 @@ import React, { memo } from "react";
 import { Cluster } from "@/src/types/cluster";
 import { PersonUI } from "@/src/types/person";
 import ActionMenu from "@/src/components/families/ActionMenu";
+import { useBranches } from "@/src/hooks/useBranches";
 
 interface ClusterCardProps {
   cluster: Cluster;
@@ -16,6 +17,14 @@ interface ClusterCardProps {
 
 const ClusterCard = memo(
   ({ cluster, peopleUI, isSelected = false, isSelectionMode = false, onSelect, onView, onEdit, onDelete }: ClusterCardProps) => {
+    const { branches } = useBranches();
+    
+    // Find the branch for this cluster
+    const clusterBranch = React.useMemo(() => {
+      if (!cluster.branch) return null;
+      return branches.find((b) => b.id === cluster.branch) || null;
+    }, [branches, cluster.branch]);
+
     // Memoize expensive calculations
     const coordinator = React.useMemo(
       () =>
@@ -114,6 +123,25 @@ const ClusterCard = memo(
               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 font-bold">
                 {cluster.code || "—"}
               </span>
+              {clusterBranch && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-medium">
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                    />
+                  </svg>
+                  {clusterBranch.name}
+                  {clusterBranch.is_headquarters && " (HQ)"}
+                </span>
+              )}
             </div>
             {/* Coordinator Name */}
             {(cluster as any).coordinator && (

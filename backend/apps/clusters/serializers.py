@@ -35,6 +35,7 @@ class ClusterSerializer(serializers.ModelSerializer):
             "coordinator_id",
             "families",
             "members",
+            "branch",
             "location",
             "meeting_schedule",
             "description",

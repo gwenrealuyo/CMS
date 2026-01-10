@@ -444,12 +444,6 @@ export default function PersonProfile({
                   >
                     {person.status}
                   </span>
-                  {branch && (
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                      {branch.name}
-                      {branch.is_headquarters && " (HQ)"}
-                    </span>
-                  )}
                   {families &&
                     (() => {
                       const f = families.find((ff) =>
@@ -528,6 +522,12 @@ export default function PersonProfile({
                       </span>
                     );
                   })()}
+                  {branch && (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                      {branch.name}
+                      {branch.is_headquarters && " (HQ)"}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

@@ -10,9 +10,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-your-secret-key-here")
 
-DEBUG = True
-
-ALLOWED_HOSTS = []
+# Production settings (DEBUG defaults to True for local development)
+DEBUG = os.getenv("DEBUG", "True") == "True"
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else []
 
 # Application definition
 INSTALLED_APPS = [
@@ -51,6 +51,10 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# Add WhiteNoise middleware only in production (when DEBUG=False)
+if not DEBUG:
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 
 ROOT_URLCONF = "core.urls"
 
@@ -104,14 +108,24 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_URL = "media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
+# WhiteNoise configuration (only in production)
+if not DEBUG:
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# CORS settings - allow frontend domain
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-]
+    FRONTEND_URL,
+] + ([origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin.strip()])
+
+# Allow credentials for JWT
+CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [

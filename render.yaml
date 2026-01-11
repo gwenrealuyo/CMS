@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: cms-backend
+    env: python
+    buildCommand: cd backend && chmod +x build.sh && ./build.sh
+    startCommand: cd backend && gunicorn core.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: DB_NAME
+        fromDatabase:
+          name: cms-database
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: cms-database
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: cms-database
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: cms-database
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: cms-database
+          property: port
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+  - type: web
+    name: cms-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/out
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+databases:
+  - name: cms-database
+    databaseName: church_management
+    user: cms_user
+    plan: free

@@ -101,7 +101,7 @@ export default function DataTable({
   ];
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(availableColumns.filter((col) => col.default).map((col) => col.key))
+    new Set(availableColumns.map((col) => col.key))
   );
 
   const handleSort = (field: keyof DisplayPerson) => {
@@ -1458,11 +1458,7 @@ export default function DataTable({
               <button
                 onClick={() => {
                   setVisibleColumns(
-                    new Set(
-                      availableColumns
-                        .filter((col) => col.default)
-                        .map((col) => col.key)
-                    )
+                    new Set(availableColumns.map((col) => col.key))
                   );
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"

@@ -75,12 +75,12 @@ export default function FamiliesTabContent({
   const handleUpdateFamily = async (familyData: Partial<Family>) => {
     if (!editFamily) return;
     try {
-      await updateFamily(editFamily.id, familyData);
+      const updatedFamily = await updateFamily(editFamily.id, familyData);
       await refreshFamilies();
       // If we are editing from view mode, return to view with updated data
-      const updated = families.find((f: Family) => f.id === editFamily.id);
-      if (updated) {
-        setViewFamily(updated);
+      // Use the API response to avoid stale families list reads.
+      if (updatedFamily) {
+        setViewFamily(updatedFamily);
         setFamilyViewMode("view");
         setEditFamily(null);
         setIsModalOpen(true);
@@ -124,15 +124,13 @@ export default function FamiliesTabContent({
   const handleAddFamilyMembers = async (memberIds: string[]) => {
     if (addFamilyMemberModal.family) {
       try {
-        await updateFamily(addFamilyMemberModal.family.id, {
+        const updatedFamily = await updateFamily(addFamilyMemberModal.family.id, {
           members: memberIds,
         });
 
         await refreshFamilies();
         if (viewFamily && viewFamily.id === addFamilyMemberModal.family.id) {
-          const updatedFamily = families.find(
-            (f: Family) => f.id === viewFamily.id
-          );
+          // Use API response to avoid stale families list reads.
           if (updatedFamily) {
             setViewFamily(updatedFamily);
           }

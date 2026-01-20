@@ -31,6 +31,8 @@ export default function AddFamilyMemberModal({
     }
   }, [isOpen, family]);
 
+  const formatFullName = (person: PersonUI) => formatPersonName(person);
+
   // Filter members based on search
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return peopleUI;
@@ -47,7 +49,7 @@ export default function AddFamilyMemberModal({
         memberId.includes(searchLower)
       );
     });
-  }, [peopleUI, memberSearch]);
+  }, [peopleUI, memberSearch, formatFullName]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -101,8 +103,6 @@ export default function AddFamilyMemberModal({
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
 
-  const formatFullName = (person: PersonUI) => formatPersonName(person);
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "ACTIVE":
@@ -143,7 +143,7 @@ export default function AddFamilyMemberModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] !mt-0">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -359,7 +359,7 @@ export default function AddFamilyMemberModal({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <span>Adding...</span>
+                <span>Saving...</span>
               </>
             ) : (
               <>
@@ -373,10 +373,10 @@ export default function AddFamilyMemberModal({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    d="M5 13l4 4L19 7"
                   />
                 </svg>
-                <span>Add Members</span>
+                <span>Save Changes</span>
               </>
             )}
           </Button>

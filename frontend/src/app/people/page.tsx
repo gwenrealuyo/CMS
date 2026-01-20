@@ -613,13 +613,8 @@ export default function PeoplePage() {
   const handleAddFamilyMembers = async (memberIds: string[]) => {
     if (addFamilyMemberModal.family) {
       try {
-        // Include the existing family data (name, leader) when updating members
         await updateFamily(addFamilyMemberModal.family.id, {
-          name: addFamilyMemberModal.family.name,
-          leader: addFamilyMemberModal.family.leader || undefined,
           members: memberIds,
-          address: addFamilyMemberModal.family.address,
-          notes: addFamilyMemberModal.family.notes,
         });
 
         // Refresh families and update viewFamily if it's the same family
@@ -873,9 +868,47 @@ export default function PeoplePage() {
 
   const handleUpdateFamily = async (familyData: Partial<Family>) => {
     if (!editFamily) return;
+    
+    // Capture current values to avoid stale closures
+    const currentEditFamilyId = editFamily.id;
+    const isInFamilyViewEditMode = familyViewMode === "edit";
+    
     try {
-      await updateFamily(editFamily.id, familyData);
-      setIsModalOpen(false);
+      // updateFamily returns the updated family data
+      const updatedFamily = await updateFamily(currentEditFamilyId, familyData);
+      
+      // Update viewFamily if we're editing from view mode (same pattern as Person and Cluster updates)
+      if (isInFamilyViewEditMode && viewFamily) {
+        // Update viewFamily with new data and return to view mode
+        // This matches the working pattern used in handleUpdateCluster and PersonForm onSubmit
+        setViewFamily(updatedFamily);
+        setFamilyViewMode("view");
+      }
+      
+      // Update familyOverCluster if it matches
+      setFamilyOverCluster((currentFamilyOverCluster) => {
+        if (currentFamilyOverCluster && currentFamilyOverCluster.id === currentEditFamilyId) {
+          return updatedFamily;
+        }
+        return currentFamilyOverCluster;
+      });
+      
+      // Note: setFamilyViewMode("view") is now called above when in edit mode
+      
+      // Refresh families list in the background (don't await - let it update in background)
+      // NOTE: We skip refreshFamilies when in edit mode within FamilyView because we already
+      // have the updated data from the API response, and calling refreshFamilies might trigger
+      // a re-render with stale data before viewFamily is updated
+      if (!isInFamilyViewEditMode) {
+        refreshFamilies().catch((err) => {
+          console.error("Error refreshing families:", err);
+        });
+      }
+      
+      // Only close modal if we're not in FamilyView edit mode
+      if (!isInFamilyViewEditMode) {
+        setIsModalOpen(false);
+      }
       setEditFamily(null);
     } catch (error) {
       console.error("Error updating family:", error);
@@ -1691,11 +1724,12 @@ export default function PeoplePage() {
           <>
             {viewFamily ? (
               familyViewMode === "view" ? (
-                <FamilyView
-                  family={viewFamily}
-                  familyMembers={peopleUI.filter((person) =>
-                    viewFamily.members.includes(person.id)
-                  )}
+                <>
+                  <FamilyView
+                    family={viewFamily}
+                    familyMembers={peopleUI.filter((person) =>
+                      viewFamily.members.includes(person.id)
+                    )}
                   clusters={clusters}
                   onViewPerson={(p) => {
                     setPersonOverCluster(p as Person);
@@ -1729,6 +1763,7 @@ export default function PeoplePage() {
                     });
                   }}
                 />
+                </>
               ) : (
                 <FamilyForm
                   onSubmit={handleUpdateFamily}
@@ -2178,8 +2213,23 @@ export default function PeoplePage() {
         >
           <FamilyForm
             onSubmit={async (data) => {
-              await handleUpdateFamily(data as any);
-              await refreshFamilies();
+              if (!editFamilyOverlay) return;
+              // updateFamily returns the updated family data
+              const updatedFamily = await updateFamily(editFamilyOverlay.id, data);
+              
+              // Update viewFamily/familyOverCluster immediately with the response (before refresh)
+              if (viewFamily && viewFamily.id === editFamilyOverlay.id) {
+                setViewFamily(updatedFamily);
+              }
+              if (familyOverCluster && familyOverCluster.id === editFamilyOverlay.id) {
+                setFamilyOverCluster(updatedFamily);
+              }
+              
+              // Refresh families list in the background (don't await - let it update in background)
+              refreshFamilies().catch((err) => {
+                console.error("Error refreshing families:", err);
+              });
+              
               setShowEditFamilyOverlay(false);
               setEditFamilyOverlay(null);
             }}

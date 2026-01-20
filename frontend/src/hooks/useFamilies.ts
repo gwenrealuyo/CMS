@@ -35,7 +35,8 @@ export function useFamilies() {
 
   const updateFamily = async (id: string, data: Partial<Family>) => {
     try {
-      const response = await familiesApi.update(id, data);
+      // Use PATCH for partial updates instead of PUT which requires all fields
+      const response = await familiesApi.patch(id, data);
       setFamilies((prev) =>
         prev.map((family) => (family.id === id ? response.data : family))
       );

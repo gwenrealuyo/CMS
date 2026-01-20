@@ -175,6 +175,17 @@ export default function FamilyView({
 
   const leader = getLeader();
 
+  // Get unique branch names from family members
+  const getFamilyBranches = () => {
+    const branches = familyMembers
+      .map((member) => member.branch_name)
+      .filter((branch): branch is string => Boolean(branch));
+    const uniqueBranches = Array.from(new Set(branches));
+    return uniqueBranches;
+  };
+
+  const familyBranches = getFamilyBranches();
+
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
@@ -222,6 +233,20 @@ export default function FamilyView({
                       familyMembers[0].dateFirstAttended
                     ).toLocaleDateString()
                   : "Unknown"}
+                {family.address && (
+                  <>
+                    {" • "}
+                    <span className="text-gray-700">{family.address}</span>
+                  </>
+                )}
+                {familyBranches.length > 0 && (
+                  <>
+                    {" • "}
+                    <span className="text-gray-700">
+                      Branch: {familyBranches.join(", ")}
+                    </span>
+                  </>
+                )}
               </p>
               {leader && (
                 <p className="text-[10px] sm:text-[11px] text-gray-500 mt-1">
@@ -230,16 +255,6 @@ export default function FamilyView({
               )}
             </div>
           </div>
-
-          {/* Family Address */}
-          {family.address && (
-            <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                Address
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-700 break-words">{family.address}</p>
-            </div>
-          )}
 
           {/* Family Members */}
           {(familyMembers.length > 0 || onAddMember) && (

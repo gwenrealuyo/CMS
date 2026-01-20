@@ -15,12 +15,21 @@ import EventCalendar from "@/src/components/events/EventCalendar";
 import EventCard from "@/src/components/events/EventCard";
 import EventForm from "@/src/components/events/EventForm";
 import EventView from "@/src/components/events/EventView";
-import { Event } from "@/src/types/event";
+import { Event, EventOccurrence } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
+
+type EventCardItem = {
+  id: string;
+  event: Event;
+  occurrence: EventOccurrence;
+};
 
 export default function EventsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewEditEvent, setViewEditEvent] = useState<Event | null>(null);
+  const [viewOccurrenceDate, setViewOccurrenceDate] = useState<string | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<"view" | "edit">("edit");
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -36,11 +45,35 @@ export default function EventsPage() {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [calendarMonthDate, setCalendarMonthDate] = useState<Date>(
+    () => new Date()
+  );
+  const [filterMonth, setFilterMonth] = useState<string>(
+    () => new Date().getMonth().toString()
+  );
   const [showCalendar, setShowCalendar] = useState(true);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
   const [yearFilterInitialized, setYearFilterInitialized] = useState(false);
   const currentYear = new Date().getFullYear().toString();
+  const isMonthFilterDefault =
+    filterMonth !== "all" &&
+    Number(filterMonth) === calendarMonthDate.getMonth();
+  const shouldShowMonthBadge = filterMonth !== "all";
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
 
   const {
     events,
@@ -83,19 +116,54 @@ export default function EventsPage() {
     };
   }, []);
 
+  const eventCardItems = useMemo<EventCardItem[]>(() => {
+    return events.flatMap((event) => {
+      if (event.occurrences && event.occurrences.length > 0) {
+        return event.occurrences.map((occurrence) => {
+          const occurrenceId =
+            occurrence.occurrence_id || `${event.id}:${occurrence.start_date}`;
+          return {
+            id: occurrenceId,
+            event,
+            occurrence: {
+              ...occurrence,
+              occurrence_id: occurrenceId,
+              event_id: occurrence.event_id ?? event.id,
+            },
+          };
+        });
+      }
+
+      const occurrenceId = `${event.id}:${event.start_date}`;
+      return [
+        {
+          id: occurrenceId,
+          event,
+          occurrence: {
+            event_id: event.id,
+            occurrence_id: occurrenceId,
+            start_date: event.start_date,
+            end_date: event.end_date,
+            is_base_occurrence: true,
+          },
+        },
+      ];
+    });
+  }, [events]);
+
   // Memoized search and filter function
-  const filteredEvents = useMemo(() => {
-    let filtered = events;
+  const filteredEventCards = useMemo(() => {
+    let filtered = eventCardItems;
 
     // Apply search query filter
     if (debouncedSearchQuery) {
       const lowerQuery = debouncedSearchQuery.toLowerCase();
-      filtered = filtered.filter((event) => {
+      filtered = filtered.filter((item) => {
         const searchableText = [
-          event.title,
-          event.description,
-          event.location,
-          event.type_display,
+          item.event.title,
+          item.event.description,
+          item.event.location,
+          item.event.type_display,
         ]
           .join(" ")
           .toLowerCase();
@@ -105,72 +173,60 @@ export default function EventsPage() {
 
     // Apply type filter
     if (filterType !== "all") {
-      filtered = filtered.filter((event) => event.type === filterType);
+      filtered = filtered.filter((item) => item.event.type === filterType);
     }
 
     if (filterYear !== "all") {
-      filtered = filtered.filter((event) => {
-        const years = new Set<string>();
-        if (event.start_date) {
-          const year = new Date(event.start_date).getFullYear();
-          if (!Number.isNaN(year)) years.add(year.toString());
-        }
-
-        if (event.next_occurrence?.start_date) {
-          const year = new Date(event.next_occurrence.start_date).getFullYear();
-          if (!Number.isNaN(year)) years.add(year.toString());
-        }
-
-        if (event.occurrences && event.occurrences.length > 0) {
-          event.occurrences.forEach((occurrence) => {
-            if (!occurrence?.start_date) return;
-            const year = new Date(occurrence.start_date).getFullYear();
-            if (!Number.isNaN(year)) years.add(year.toString());
-          });
-        }
-
-        return years.has(filterYear);
+      filtered = filtered.filter((item) => {
+        const year = new Date(item.occurrence.start_date).getFullYear();
+        if (Number.isNaN(year)) return false;
+        return year.toString() === filterYear;
       });
+    }
+
+    if (filterMonth !== "all") {
+      const monthValue = Number(filterMonth);
+      if (!Number.isNaN(monthValue)) {
+        const yearValue =
+          filterYear !== "all"
+            ? Number(filterYear)
+            : calendarMonthDate.getFullYear();
+        filtered = filtered.filter((item) => {
+          const occurrenceDate = new Date(item.occurrence.start_date);
+          return (
+            occurrenceDate.getMonth() === monthValue &&
+            occurrenceDate.getFullYear() === yearValue
+          );
+        });
+      }
     }
 
     // Apply date filter
     if (selectedDate) {
-      filtered = filtered.filter((event) => {
-        const matchesBaseDate = (() => {
-          const eventDate = new Date(event.start_date);
-          return (
-            eventDate.getDate() === selectedDate.getDate() &&
-            eventDate.getMonth() === selectedDate.getMonth() &&
-            eventDate.getFullYear() === selectedDate.getFullYear()
-          );
-        })();
-
-        if (matchesBaseDate) return true;
-
-        if (!event.occurrences || event.occurrences.length === 0) {
-          return false;
-        }
-
-        return event.occurrences.some((occurrence) => {
-          const occurrenceDate = new Date(occurrence.start_date);
-          return (
-            occurrenceDate.getDate() === selectedDate.getDate() &&
-            occurrenceDate.getMonth() === selectedDate.getMonth() &&
-            occurrenceDate.getFullYear() === selectedDate.getFullYear()
-          );
-        });
+      filtered = filtered.filter((item) => {
+        const occurrenceDate = new Date(item.occurrence.start_date);
+        return (
+          occurrenceDate.getDate() === selectedDate.getDate() &&
+          occurrenceDate.getMonth() === selectedDate.getMonth() &&
+          occurrenceDate.getFullYear() === selectedDate.getFullYear()
+        );
       });
     }
 
     // Sort by start date (most recent first)
     return filtered.sort((a, b) => {
-      const nextA = a.next_occurrence?.start_date || a.start_date;
-      const nextB = b.next_occurrence?.start_date || b.start_date;
-      const dateA = new Date(nextA).getTime();
-      const dateB = new Date(nextB).getTime();
+      const dateA = new Date(a.occurrence.start_date).getTime();
+      const dateB = new Date(b.occurrence.start_date).getTime();
       return dateB - dateA;
     });
-  }, [events, debouncedSearchQuery, filterType, filterYear, selectedDate]);
+  }, [
+    debouncedSearchQuery,
+    eventCardItems,
+    filterMonth,
+    filterType,
+    filterYear,
+    selectedDate,
+  ]);
 
   useEffect(() => {
     if (!viewEditEvent) return;
@@ -185,6 +241,7 @@ export default function EventsPage() {
       const result = await createEvent(eventData);
       setIsModalOpen(false);
       setViewEditEvent(null);
+      setViewOccurrenceDate(null);
       return result;
     } catch (err) {
       console.error(err);
@@ -199,6 +256,7 @@ export default function EventsPage() {
       const result = await updateEvent(viewEditEvent.id, eventData);
       setIsModalOpen(false);
       setViewEditEvent(null);
+      setViewOccurrenceDate(null);
       setViewMode("edit");
       return result;
     } catch (err) {
@@ -221,6 +279,7 @@ export default function EventsPage() {
       });
       setIsModalOpen(false);
       setViewEditEvent(null);
+      setViewOccurrenceDate(null);
     } catch (error) {
       console.error("Error deleting event:", error);
       alert("Failed to delete event. Please try again.");
@@ -237,8 +296,9 @@ export default function EventsPage() {
   };
 
   const handleViewEvent = useCallback(
-    async (selected: Event) => {
+    async (selected: Event, occurrenceStartDate?: string) => {
       setViewEditEvent(selected);
+      setViewOccurrenceDate(occurrenceStartDate ?? null);
       setViewMode("view");
       setIsModalOpen(true);
       try {
@@ -264,7 +324,46 @@ export default function EventsPage() {
     }
   };
 
+  const handleMonthChange = useCallback(
+    (date: Date) => {
+      const nextMonth = date.getMonth();
+      const nextYear = date.getFullYear();
+      if (
+        calendarMonthDate.getMonth() === nextMonth &&
+        calendarMonthDate.getFullYear() === nextYear
+      ) {
+        return;
+      }
+
+      setCalendarMonthDate(date);
+      setSelectedDate(null);
+    },
+    [calendarMonthDate]
+  );
+
+  const handleMonthFilterChange = (nextMonth: string) => {
+    setFilterMonth(nextMonth);
+    if (nextMonth !== "all") {
+      const monthValue = Number(nextMonth);
+      if (!Number.isNaN(monthValue)) {
+        const nextYear =
+          filterYear !== "all"
+            ? Number(filterYear)
+            : calendarMonthDate.getFullYear();
+        setCalendarMonthDate(new Date(nextYear, monthValue, 1));
+      }
+    } else if (filterYear === "all") {
+      setFilterYear(calendarMonthDate.getFullYear().toString());
+    }
+    setSelectedDate(null);
+  };
+
   const clearDateFilter = () => {
+    setSelectedDate(null);
+  };
+
+  const clearMonthFilter = () => {
+    setFilterMonth(calendarMonthDate.getMonth().toString());
     setSelectedDate(null);
   };
 
@@ -282,6 +381,9 @@ export default function EventsPage() {
     setFilterType("all");
     setFilterYear("all");
     setSelectedDate(null);
+    const now = new Date();
+    setFilterMonth(now.getMonth().toString());
+    setCalendarMonthDate(now);
   };
 
   const eventTypeOptions = [
@@ -348,6 +450,19 @@ export default function EventsPage() {
     }
   }, [availableYears, currentYear, filterYear, yearFilterInitialized]);
 
+  useEffect(() => {
+    if (filterYear === "all") return;
+    const nextYear = Number(filterYear);
+    if (Number.isNaN(nextYear)) return;
+    if (calendarMonthDate.getFullYear() !== nextYear) {
+      const monthValue =
+        filterMonth !== "all" && !Number.isNaN(Number(filterMonth))
+          ? Number(filterMonth)
+          : calendarMonthDate.getMonth();
+      setCalendarMonthDate(new Date(nextYear, monthValue, 1));
+    }
+  }, [calendarMonthDate, filterMonth, filterYear]);
+
   return (
     <DashboardLayout>
       {/* Page header with Add Event */}
@@ -400,7 +515,9 @@ export default function EventsPage() {
         {showCalendar && (
           <EventCalendar
             events={calendarEvents}
+            currentMonthDate={calendarMonthDate}
             onDateClick={handleDateClick}
+            onMonthChange={handleMonthChange}
             selectedDate={selectedDate}
           />
         )}
@@ -458,7 +575,7 @@ export default function EventsPage() {
             </div>
           </div>
 
-          {/* Type and Year Filters */}
+          {/* Type, Month, and Year Filters */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             {/* Type Filter */}
             <div className="flex-1 sm:w-[200px]">
@@ -470,6 +587,22 @@ export default function EventsPage() {
                 {eventTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Month Filter */}
+            <div className="flex-1 sm:w-[180px]">
+              <select
+                value={filterMonth}
+                onChange={(e) => handleMonthFilterChange(e.target.value)}
+                className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              >
+                <option value="all">All Months</option>
+                {monthNames.map((label, index) => (
+                  <option key={label} value={index.toString()}>
+                    {label}
                   </option>
                 ))}
               </select>
@@ -495,6 +628,7 @@ export default function EventsPage() {
             {(searchQuery ||
               filterType !== "all" ||
               filterYear !== "all" ||
+              !isMonthFilterDefault ||
               selectedDate) && (
               <button
                 onClick={clearAllFilters}
@@ -510,6 +644,7 @@ export default function EventsPage() {
         {(searchQuery ||
           filterType !== "all" ||
           filterYear !== "all" ||
+          shouldShowMonthBadge ||
           selectedDate) && (
           <div className="flex flex-wrap items-center gap-2 mt-4">
             {searchQuery && (
@@ -586,6 +721,29 @@ export default function EventsPage() {
                 </button>
               </span>
             )}
+            {shouldShowMonthBadge && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                Month: {monthNames[Number(filterMonth)]}
+                <button
+                  onClick={clearMonthFilter}
+                  className="ml-2 text-blue-600 hover:text-blue-800"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </span>
+            )}
             {selectedDate && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
                 Date: {selectedDate.toLocaleDateString()}
@@ -618,14 +776,16 @@ export default function EventsPage() {
         <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
           <div className="flex items-center gap-2">
             <span>
-              {isSearching
-                ? "Searching..."
-                : `${filteredEvents.length} event${
-                    filteredEvents.length !== 1 ? "s" : ""
-                  } found`}
+            {isSearching
+              ? "Searching..."
+              : `${filteredEventCards.length} event${
+                  filteredEventCards.length !== 1 ? "s" : ""
+                } found`}
             </span>
-            {filteredEvents.length !== events.length && (
-              <span className="text-gray-400">(of {events.length} total)</span>
+          {filteredEventCards.length !== eventCardItems.length && (
+            <span className="text-gray-400">
+              (of {eventCardItems.length} total)
+            </span>
             )}
           </div>
         </div>
@@ -657,7 +817,7 @@ export default function EventsPage() {
             <span>Loading events...</span>
           </div>
         </div>
-      ) : filteredEvents.length === 0 ? (
+      ) : filteredEventCards.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <svg
             className="w-16 h-16 text-gray-400 mx-auto mb-4"
@@ -695,20 +855,25 @@ export default function EventsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => (
+          {filteredEventCards.map((item) => (
             <EventCard
-              key={event.id}
-              event={event}
-              onView={() => handleViewEvent(event)}
+              key={item.id}
+              event={item.event}
+              occurrenceStartDate={item.occurrence.start_date}
+              occurrenceEndDate={item.occurrence.end_date}
+              onView={() =>
+                handleViewEvent(item.event, item.occurrence.start_date)
+              }
               onEdit={() => {
-                setViewEditEvent(event);
+                setViewEditEvent(item.event);
+                setViewOccurrenceDate(null);
                 setViewMode("edit");
                 setIsModalOpen(true);
               }}
               onDelete={() => {
                 setDeleteConfirmation({
                   isOpen: true,
-                  event,
+                  event: item.event,
                   loading: false,
                 });
               }}
@@ -723,6 +888,7 @@ export default function EventsPage() {
         onClose={() => {
           setIsModalOpen(false);
           setViewEditEvent(null);
+          setViewOccurrenceDate(null);
           setViewMode("edit");
         }}
         title={
@@ -737,7 +903,11 @@ export default function EventsPage() {
         {viewMode === "view" && viewEditEvent ? (
           <EventView
             event={viewEditEvent}
-            onEdit={() => setViewMode("edit")}
+            initialOccurrenceDate={viewOccurrenceDate}
+            onEdit={() => {
+              setViewOccurrenceDate(null);
+              setViewMode("edit");
+            }}
             onDelete={() => {
               setDeleteConfirmation({
                 isOpen: true,
@@ -748,11 +918,13 @@ export default function EventsPage() {
             onCancel={() => {
               setIsModalOpen(false);
               setViewEditEvent(null);
+              setViewOccurrenceDate(null);
               setViewMode("edit");
             }}
             onClose={() => {
               setIsModalOpen(false);
               setViewEditEvent(null);
+              setViewOccurrenceDate(null);
               setViewMode("edit");
             }}
             listAttendance={listAttendance}
@@ -766,6 +938,7 @@ export default function EventsPage() {
             onClose={() => {
               setIsModalOpen(false);
               setViewEditEvent(null);
+              setViewOccurrenceDate(null);
               setViewMode("edit");
             }}
           />

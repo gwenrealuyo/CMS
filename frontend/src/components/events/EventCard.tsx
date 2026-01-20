@@ -4,6 +4,8 @@ import Button from "../ui/Button";
 
 interface EventCardProps {
   event: Event;
+  occurrenceStartDate?: string;
+  occurrenceEndDate?: string;
   onEdit?: () => void;
   onDelete?: () => void;
   onView?: () => void;
@@ -11,12 +13,16 @@ interface EventCardProps {
 
 export default function EventCard({
   event,
+  occurrenceStartDate,
+  occurrenceEndDate,
   onEdit,
   onDelete,
   onView,
 }: EventCardProps) {
-  const nextStart = event.next_occurrence?.start_date || event.start_date;
-  const nextEnd = event.next_occurrence?.end_date || event.end_date;
+  const nextStart =
+    occurrenceStartDate || event.next_occurrence?.start_date || event.start_date;
+  const nextEnd =
+    occurrenceEndDate || event.next_occurrence?.end_date || event.end_date;
 
   const getEventTypeColor = (type: string) => {
     const colors: Record<string, string> = {

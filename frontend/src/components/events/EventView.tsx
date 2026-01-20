@@ -20,6 +20,7 @@ interface AddAttendanceInput {
 
 interface EventViewProps {
   event: Event;
+  initialOccurrenceDate?: string | null;
   onEdit: () => void;
   onDelete: () => void;
   onCancel?: () => void;
@@ -43,6 +44,7 @@ interface EventViewProps {
 
 export default function EventView({
   event,
+  initialOccurrenceDate,
   onEdit,
   onDelete,
   onCancel,
@@ -121,8 +123,43 @@ export default function EventView({
     [event.start_date]
   );
 
+  const initialOccurrenceKey = useMemo(() => {
+    if (initialOccurrenceDate) {
+      return toDateKey(initialOccurrenceDate);
+    }
+    return eventDateKey;
+  }, [eventDateKey, initialOccurrenceDate]);
+
   const [selectedOccurrenceDate, setSelectedOccurrenceDate] =
-    useState<string>(eventDateKey);
+    useState<string>(initialOccurrenceKey);
+
+  const selectedOccurrence = useMemo(() => {
+    if (!selectedOccurrenceDate) return null;
+    if (event.occurrences && event.occurrences.length > 0) {
+      const match = event.occurrences.find(
+        (occurrence) =>
+          toDateKey(occurrence.start_date) === selectedOccurrenceDate
+      );
+      if (match) return match;
+    }
+
+    if (toDateKey(event.start_date) === selectedOccurrenceDate) {
+      return {
+        start_date: event.start_date,
+        end_date: event.end_date,
+      };
+    }
+
+    return null;
+  }, [
+    event.end_date,
+    event.occurrences,
+    event.start_date,
+    selectedOccurrenceDate,
+  ]);
+
+  const displayStart = selectedOccurrence?.start_date ?? event.start_date;
+  const displayEnd = selectedOccurrence?.end_date ?? event.end_date;
   const [attendanceRecords, setAttendanceRecords] = useState<
     EventAttendanceRecord[]
   >(event.attendance_records ?? []);
@@ -136,8 +173,8 @@ export default function EventView({
   const { peopleUI, loading: peopleLoading } = usePeople();
 
   useEffect(() => {
-    setSelectedOccurrenceDate(eventDateKey);
-  }, [eventDateKey, event.id]);
+    setSelectedOccurrenceDate(initialOccurrenceKey);
+  }, [event.id, initialOccurrenceKey]);
 
   useEffect(() => {
     setAttendanceRecords(event.attendance_records ?? []);
@@ -196,8 +233,9 @@ export default function EventView({
   );
 
   useEffect(() => {
-    fetchAttendance(eventDateKey);
-  }, [eventDateKey, fetchAttendance]);
+    if (!selectedOccurrenceDate) return;
+    fetchAttendance(selectedOccurrenceDate);
+  }, [fetchAttendance, selectedOccurrenceDate]);
 
   const handleAddAttendance = async () => {
     if (!selectedOccurrenceDate || !selectedPersonId) return;
@@ -366,10 +404,10 @@ export default function EventView({
                 </svg>
                 <div>
                   <div className="text-sm font-medium text-gray-900">
-                    {formatDateTime(event.start_date)}
+                    {formatDateTime(displayStart)}
                   </div>
                   <div className="text-sm text-gray-500">
-                    to {formatTime(event.end_date)}
+                    to {formatTime(displayEnd)}
                   </div>
                 </div>
               </div>
@@ -451,7 +489,10 @@ export default function EventView({
                   Total recorded attendees: {totalAttendanceCount}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Showing attendees for {formatOccurrenceLabel(eventDateKey)}
+                  Showing attendees for{" "}
+                  {formatOccurrenceLabel(
+                    selectedOccurrenceDate || eventDateKey
+                  )}
                 </p>
               </div>
             </div>

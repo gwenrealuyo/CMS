@@ -31,6 +31,7 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 - `EventForm` (React) defaults new events to Sunday 9–11 AM Manila time, converts local picks to UTC before posting, and manages weekly recurrence options.
 - `EventCard`, `EventView`, and `EventCalendar` render dates in the viewer’s locale via `toLocaleDateString` / `toLocaleTimeString`.
+- The Events page filters support search, type, year, and month. Month defaults to the calendar’s current view and includes an “All Months” option; “All Months” requires a specific year (Year cannot be “All”).
 - Excluding a single week calls `POST /api/events/{id}/exclude-occurrence/` which updates the stored pattern and pushes back the refreshed occurrences.
 
 ## Attendance Tracking

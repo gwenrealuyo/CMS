@@ -1,20 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 interface EventCalendarProps {
   events: Array<{
     start_date: string;
   }>;
+  currentMonthDate?: Date | null;
   onDateClick?: (date: Date) => void;
+  onMonthChange?: (date: Date) => void;
   selectedDate?: Date | null;
 }
 
 export default function EventCalendar({
   events,
+  currentMonthDate,
   onDateClick,
+  onMonthChange,
   selectedDate,
 }: EventCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const isSyncingRef = useRef(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -98,6 +103,25 @@ export default function EventCalendar({
       onDateClick(new Date());
     }
   };
+
+  useEffect(() => {
+    if (!onMonthChange) return;
+    if (isSyncingRef.current) {
+      isSyncingRef.current = false;
+      return;
+    }
+    onMonthChange(currentDate);
+  }, [currentDate, onMonthChange]);
+
+  useEffect(() => {
+    if (!currentMonthDate) return;
+    const nextYear = currentMonthDate.getFullYear();
+    const nextMonth = currentMonthDate.getMonth();
+    if (nextYear !== year || nextMonth !== month) {
+      isSyncingRef.current = true;
+      setCurrentDate(new Date(nextYear, nextMonth, 1));
+    }
+  }, [currentMonthDate, month, year]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">

@@ -182,7 +182,7 @@ export default function EventView({
 
   const attendeeOptions = useMemo(
     () =>
-      peopleUI.map((person) => {
+      peopleUI.filter((person) => person.role !== "ADMIN").map((person) => {
         const clusterCode = person.cluster_codes?.[0];
         const familyName = person.family_names?.[0];
         return {

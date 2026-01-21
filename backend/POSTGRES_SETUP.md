@@ -2,16 +2,33 @@
 
 This guide will help you set up PostgreSQL for the Church Management System.
 
-## Prerequisites
+## Recommended: Docker (Cross-Platform)
 
-1. PostgreSQL installed on your system
+1. Install Docker Desktop:
+   - macOS/Windows: https://www.docker.com/products/docker-desktop/
 
+2. Start Postgres from repo root:
+   ```bash
+   docker compose up -d db
+   ```
+
+3. Ensure `backend/.env` matches the defaults:
+   ```env
+   DB_NAME=church_management
+   DB_USER=postgres
+   DB_PASSWORD=postgres
+   DB_HOST=localhost
+   DB_PORT=5432
+   ```
+
+## Alternative: Native Postgres
+
+1. Install PostgreSQL on your system:
    - macOS: `brew install postgresql`
    - Ubuntu/Debian: `sudo apt-get install postgresql`
-   - Windows: Download from https://www.postgresql.org/download/
+   - Windows: https://www.postgresql.org/download/
 
 2. Create a PostgreSQL database:
-
    ```bash
    # Connect to PostgreSQL
    psql postgres

@@ -4,17 +4,33 @@
 
 - Python 3.9+
 - Node.js 18+
+- Docker Desktop (for Postgres)
+
+macOS:
+- `brew install python@3.11 node@18`
+- Install Docker Desktop: https://www.docker.com/products/docker-desktop/
+
+Windows:
+- `winget install Python.Python.3.11 OpenJS.NodeJS.LTS Docker.DockerDesktop`
+
+### Database (Docker)
+
+From the repo root:
+- `docker compose up -d db` (or `docker-compose up -d db`)
 
 ### Backend (Django)
 
-1. Create and activate a venv (optional if using provided `backend/venv`):
-   - macOS/Linux: `python3 -m venv .venv && source .venv/bin/activate`
-2. Install deps:
+1. Create `.env`:
    - `cd backend`
+   - `cp env.example .env`
+2. Create and activate a venv:
+   - macOS/Linux: `python3 -m venv .venv && source .venv/bin/activate`
+   - Windows (PowerShell): `python -m venv .venv; .\.venv\Scripts\Activate.ps1`
+3. Install deps:
    - `pip install -r requirements.txt`
-3. Apply migrations:
+4. Apply migrations:
    - `python manage.py migrate`
-4. Run server:
+5. Run server:
    - `python manage.py runserver` → http://127.0.0.1:8000/
 
 Notes
@@ -32,9 +48,18 @@ Notes
 2. Run dev server:
    - `npm run dev` → http://localhost:3000
 
+### One-command bootstrap
+
+macOS/Linux:
+- `./scripts/bootstrap.sh`
+
+Windows (PowerShell):
+- `.\scripts\bootstrap.ps1`
+
 ### Environment
 
-- No `.env` required for dev by default. If you change the backend host/port, update API base URLs in frontend hooks (e.g., `usePeople`).
+- Backend requires `backend/.env` for DB credentials. Defaults match `docker-compose.yml`.
+- If you change the backend host/port, update API base URLs in frontend hooks (e.g., `usePeople`).
 
 ### Useful Commands
 

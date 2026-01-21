@@ -226,7 +226,23 @@ class PersonSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["username"]
 
+    def validate(self, attrs):
+        request = self.context.get("request")
+        if request and request.user and request.user.role == "MEMBER":
+            role = attrs.get("role")
+            if role != "VISITOR":
+                raise serializers.ValidationError(
+                    {"role": "Members can only create visitors."}
+                )
+        return attrs
+
     def create(self, validated_data):
+        request = self.context.get("request")
+        if request and request.user and request.user.role == "MEMBER":
+            validated_data["role"] = "VISITOR"
+            validated_data["inviter"] = request.user
+            validated_data["branch"] = request.user.branch
+
         first_name = validated_data.get("first_name", "")
         last_name = validated_data.get("last_name", "")
 

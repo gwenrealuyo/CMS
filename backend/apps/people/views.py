@@ -227,6 +227,10 @@ class PersonViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action in ["create", "update", "partial_update"]:
             # Write: ADMIN, PASTOR, or Senior Coordinator
+            if self.action == "create" and self.request.user.role == "MEMBER":
+                requested_role = (self.request.data or {}).get("role")
+                if requested_role == "VISITOR":
+                    return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
             return [IsAuthenticatedAndNotVisitor(), IsCoordinatorOrAbove()]
         elif self.action == "destroy":
             # Delete: Only ADMIN, PASTOR

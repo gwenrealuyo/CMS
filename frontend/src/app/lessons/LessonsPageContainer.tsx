@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { lessonsApi } from "@/src/lib/api";
 import {
   Lesson,
@@ -28,6 +29,10 @@ import { LessonContentTab } from "@/src/components/lessons/LessonContentTabs";
 import LessonsPageView from "./LessonsPageView";
 
 export default function LessonsPageContainer() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const action = searchParams.get("action");
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [lessonsLoading, setLessonsLoading] = useState(true);
   const [lessonsError, setLessonsError] = useState<string | null>(null);
@@ -113,6 +118,7 @@ export default function LessonsPageContainer() {
   const [sessionFormError, setSessionFormError] = useState<string | null>(null);
   const [editingSessionReport, setEditingSessionReport] =
     useState<LessonSessionReport | null>(null);
+  const [autoOpenSessionReport, setAutoOpenSessionReport] = useState(false);
   const [sessionDeleteTarget, setSessionDeleteTarget] =
     useState<LessonSessionReport | null>(null);
   const [sessionDeleteLoading, setSessionDeleteLoading] = useState(false);
@@ -246,6 +252,14 @@ export default function LessonsPageContainer() {
     fetchAllProgress();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (action === "log-session") {
+      setActiveContentTab("sessions");
+      setAutoOpenSessionReport(true);
+      router.replace(pathname);
+    }
+  }, [action, pathname, router]);
 
   useEffect(() => {
     if (selectedLessonId) {
@@ -728,7 +742,7 @@ export default function LessonsPageContainer() {
     URL.revokeObjectURL(url);
   };
 
-  const openSessionReportModal = (defaults?: {
+  const openSessionReportModal = useCallback((defaults?: {
     studentId?: string | number | null;
     progressId?: string | number | null;
   }) => {
@@ -744,7 +758,18 @@ export default function LessonsPageContainer() {
       progressId: defaults?.progressId ?? null,
     });
     setSessionModalOpen(true);
-  };
+  }, [currentTeacherId, selectedLessonId]);
+
+  useEffect(() => {
+    if (!autoOpenSessionReport) {
+      return;
+    }
+    if (!selectedLessonId) {
+      return;
+    }
+    openSessionReportModal();
+    setAutoOpenSessionReport(false);
+  }, [autoOpenSessionReport, openSessionReportModal, selectedLessonId]);
 
   const openSessionReportForEdit = (report: LessonSessionReport) => {
     setEditingSessionReport(report);

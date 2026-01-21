@@ -7,7 +7,7 @@ import Card from "@/src/components/ui/Card";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Button from "@/src/components/ui/Button";
-import { eventsApi, financeApi, lessonsApi } from "@/src/lib/api";
+import { clustersApi, clusterReportsApi, eventsApi, financeApi, lessonsApi } from "@/src/lib/api";
 import {
   LessonProgressSummary,
   LessonProgressSummaryByLesson,
@@ -21,6 +21,9 @@ import RecentActivity, {
 import { useAuth } from "@/src/contexts/AuthContext";
 import { Event } from "@/src/types/event";
 import { Donation, Offering } from "@/src/types/finance";
+import Modal from "@/src/components/ui/Modal";
+import ClusterWeeklyReportForm from "@/src/components/reports/ClusterWeeklyReportForm";
+import { Cluster } from "@/src/types/cluster";
 
 type UpcomingEvent = {
   id: string;
@@ -98,6 +101,11 @@ export default function Dashboard() {
   const [financeError, setFinanceError] = useState<string | null>(null);
   const [recentDonations, setRecentDonations] = useState<Donation[]>([]);
   const [recentOfferings, setRecentOfferings] = useState<Offering[]>([]);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportClusters, setReportClusters] = useState<Cluster[]>([]);
+  const [reportClustersLoading, setReportClustersLoading] = useState(false);
+  const [reportSelectedCluster, setReportSelectedCluster] =
+    useState<Cluster | null>(null);
 
   const isCoordinatorPlus = useMemo(() => {
     if (!user) return false;
@@ -137,6 +145,17 @@ export default function Dashboard() {
       isModuleCoordinator("FINANCE")
     );
   }, [user, isModuleCoordinator]);
+
+  const canSubmitClusterReport = useMemo(() => {
+    if (!user) return false;
+    return (
+      user.role === "COORDINATOR" ||
+      user.role === "PASTOR" ||
+      user.role === "ADMIN" ||
+      isModuleCoordinator("CLUSTER") ||
+      isSeniorCoordinator("CLUSTER")
+    );
+  }, [isModuleCoordinator, isSeniorCoordinator, user]);
 
   const allowPeopleMetrics = isCoordinatorPlus && canViewPeople;
   const allowFinanceWidgets = isCoordinatorPlus && canViewFinance;
@@ -599,6 +618,22 @@ export default function Dashboard() {
       ? "No recent activity for your accessible modules."
       : "Activity isn't available for your access level.";
 
+  const openReportForm = async () => {
+    setShowReportForm(true);
+    if (reportClusters.length > 0 || reportClustersLoading) {
+      return;
+    }
+    try {
+      setReportClustersLoading(true);
+      const response = await clustersApi.getAll();
+      setReportClusters(response.data);
+    } catch (error) {
+      setReportClusters([]);
+    } finally {
+      setReportClustersLoading(false);
+    }
+  };
+
   const topLessons: LessonProgressSummaryByLesson[] = useMemo(() => {
     if (!lessonSummary || !canViewLessons) {
       return [];
@@ -625,9 +660,15 @@ export default function Dashboard() {
               for the week.
             </p>
           </div>
-          <Button variant="primary" className="w-full md:w-auto">
-            Generate Report
-          </Button>
+          {canSubmitClusterReport && (
+            <Button
+              variant="primary"
+              className="w-full md:w-auto"
+              onClick={openReportForm}
+            >
+              Submit Report
+            </Button>
+          )}
         </div>
 
         {(lessonSummaryError ||
@@ -907,6 +948,43 @@ export default function Dashboard() {
             </div>
           </Card>
         </div>
+
+        {showReportForm && (
+          <Modal
+            isOpen={showReportForm}
+            onClose={() => {
+              setShowReportForm(false);
+              setReportSelectedCluster(null);
+            }}
+            title="Submit Report"
+            className="!mt-0"
+          >
+            <ClusterWeeklyReportForm
+              cluster={reportSelectedCluster}
+              clusters={reportClusters}
+              isOpen={showReportForm}
+              onClose={() => {
+                setShowReportForm(false);
+                setReportSelectedCluster(null);
+              }}
+              onSubmit={async (data) => {
+                await clusterReportsApi.create(data as any);
+                setShowReportForm(false);
+                setReportSelectedCluster(null);
+              }}
+            />
+            {reportClustersLoading && (
+              <p className="text-xs text-gray-500 mt-2">
+                Loading clusters for report submission...
+              </p>
+            )}
+            {!reportClustersLoading && reportClusters.length === 0 && (
+              <p className="text-xs text-gray-500 mt-2">
+                No clusters available for reporting.
+              </p>
+            )}
+          </Modal>
+        )}
       </div>
     </DashboardLayout>
     </ProtectedRoute>

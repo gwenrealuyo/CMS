@@ -28,14 +28,18 @@ export default function PersonForm({
   startOnTimelineTab = false,
   peopleOptions = [],
 }: PersonFormProps) {
+  const { user } = useAuth();
+  const isMember = user?.role === "MEMBER";
+
   // Determine initial tab: use timeline only if user has permission and startOnTimelineTab is true
   const canViewTimeline = initialData?.can_view_journey_timeline !== false;
   const initialTab =
     startOnTimelineTab && canViewTimeline ? "timeline" : "basic";
   const [activeTab, setActiveTab] = useState<"basic" | "timeline">(initialTab);
 
+  const defaultRole = initialData?.role ?? (isMember ? "VISITOR" : "MEMBER");
   const [formData, setFormData] = useState<Partial<Person>>({
-    role: "MEMBER",
+    role: defaultRole,
     status: "ACTIVE",
     journeys: [],
     ...initialData,
@@ -46,7 +50,6 @@ export default function PersonForm({
   const [inviterSearch, setInviterSearch] = useState("");
   const [showInviterDropdown, setShowInviterDropdown] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const { user } = useAuth();
   const { branches, getBranches } = useBranches();
 
   // Check if user can edit branch (ADMIN or PASTOR only)
@@ -56,6 +59,12 @@ export default function PersonForm({
   useEffect(() => {
     getBranches();
   }, [getBranches]);
+
+  useEffect(() => {
+    if (isMember && !initialData?.id && formData.role !== "VISITOR") {
+      setFormData((prev) => ({ ...prev, role: "VISITOR" }));
+    }
+  }, [formData.role, initialData?.id, isMember]);
   const [tabSwitchConfirmation, setTabSwitchConfirmation] = useState<{
     isOpen: boolean;
     targetTab: "basic" | "timeline" | null;
@@ -739,6 +748,11 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Membership and system roles.
                 </p>
+                {isMember && (
+                  <p className="text-xs text-blue-600 mb-4">
+                    Members can only add visitors. The role is fixed to Visitor.
+                  </p>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -748,15 +762,17 @@ export default function PersonForm({
                       name="role"
                       value={formData.role}
                       onChange={handleChange}
+                      disabled={isMember}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      {"MEMBER,VISITOR,COORDINATOR,PASTOR,ADMIN"
-                        .split(",")
-                        .map((role) => (
-                          <option key={role} value={role}>
-                            {role.charAt(0) + role.slice(1).toLowerCase()}
-                          </option>
-                        ))}
+                      {(isMember
+                        ? ["VISITOR"]
+                        : ["MEMBER", "VISITOR", "COORDINATOR", "PASTOR", "ADMIN"]
+                      ).map((role) => (
+                        <option key={role} value={role}>
+                          {role.charAt(0) + role.slice(1).toLowerCase()}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -993,6 +1009,11 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Link to the inviter.
                 </p>
+                {isMember && (
+                  <p className="text-xs text-blue-600 mb-4">
+                    Inviter defaults to you. Coordinators can edit this later.
+                  </p>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Inviter

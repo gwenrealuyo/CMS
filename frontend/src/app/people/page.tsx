@@ -49,6 +49,8 @@ export default function PeoplePage() {
   const [modalType, setModalType] = useState<"person" | "family" | "cluster">(
     "person"
   );
+  const [createInitialData, setCreateInitialData] =
+    useState<Partial<Person> | undefined>(undefined);
   const [viewEditPerson, setViewEditPerson] = useState<Person | null>(null);
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
   const [startOnTimelineTab, setStartOnTimelineTab] = useState(false);
@@ -67,6 +69,15 @@ export default function PeoplePage() {
 
   useEffect(() => {
     if (action === "create") {
+      setCreateInitialData(undefined);
+      setModalType("person");
+      setViewEditPerson(null);
+      setViewMode("view");
+      setIsModalOpen(true);
+      router.replace(pathname);
+    }
+    if (action === "add-visitor") {
+      setCreateInitialData({ role: "VISITOR", status: "ACTIVE" });
       setModalType("person");
       setViewEditPerson(null);
       setViewMode("view");
@@ -1068,6 +1079,7 @@ export default function PeoplePage() {
             setModalType("person");
             setViewEditPerson(null);
             setViewMode("view");
+            setCreateInitialData(undefined);
             setIsModalOpen(true);
           }}
           className="w-full sm:w-auto"
@@ -1731,7 +1743,11 @@ export default function PeoplePage() {
             ) : (
               <PersonForm
                 onSubmit={handleCreatePerson}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                  setIsModalOpen(false);
+                  setCreateInitialData(undefined);
+                }}
+                initialData={createInitialData}
               />
             )}
           </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useClusters, useClusterReports } from "@/src/hooks/useClusters";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
@@ -13,6 +14,10 @@ import { clustersApi } from "@/src/lib/api";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 
 export default function ClustersPageContainer() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const action = searchParams.get("action");
   const [activeTab, setActiveTab] = useState<ClusterContentTab>("clusters");
   
   // Cluster state
@@ -103,6 +108,17 @@ export default function ClustersPageContainer() {
   
   const { people, peopleUI } = usePeople();
   const { families } = useFamilies();
+
+  useEffect(() => {
+    if (action !== "submit-report") {
+      return;
+    }
+    setActiveTab("reports");
+    setEditingReport(null);
+    setReportSelectedCluster(null);
+    setReportFormOpen(true);
+    router.replace(pathname);
+  }, [action, pathname, router]);
   
   // Fetch clusters
   const fetchClusters = useCallback(async () => {

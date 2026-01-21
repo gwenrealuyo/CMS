@@ -2,6 +2,29 @@
 
 This document outlines planned improvements and feature recommendations for the CMS clusters module that have not yet been implemented.
 
+## Dashboard Future Enhancements
+
+**Status**: Planned - Not Implemented
+
+### Quick Actions Ideas (Role-Gated)
+
+- Add Visitor (members) — visitor-only creation flow
+- Submit Cluster Report (cluster coordinators+)
+- Log Lesson Session Report (lessons coordinators+)
+- Create Event (events coordinators+ / pastors+)
+- Record Donation / Offering (finance coordinators+ / pastors+)
+- Start Evangelism Follow-up (evangelism coordinators+)
+- Create Sunday School Session (sunday school teachers/coordinators+)
+- Add Ministry Member (ministries coordinators+)
+- Assign Lesson (lessons coordinators+)
+- Create Cluster (cluster coordinators+)
+- Update Profile (self-service for all users)
+
+### Notes
+
+- Quick actions should respect backend create/write permissions to avoid dead-end flows.
+- Member-visible actions should avoid global metrics or privileged write operations.
+
 ## 1. Attendance History and Insights
 
 **Status**: Planned - Not Implemented  

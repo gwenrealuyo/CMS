@@ -93,6 +93,17 @@ All ForeignKey relationships use string references to avoid circular imports:
 - `apps.sunday_school.migrations.0001_initial` – Creates all Sunday School tables with relationships
 - `apps.sunday_school.migrations.0002_initial_categories` – Populates initial categories with age brackets
 
+## Management Commands
+
+### Create Default Classes
+
+Creates one default Sunday School class per active category, using the category name
+as the class name. Existing classes with the same category and name are skipped.
+
+```
+python manage.py create_default_sunday_school_classes
+```
+
 ## API Surface
 
 All routes live under `/api/sunday-school/` (namespaced in `core.urls`):

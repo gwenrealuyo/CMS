@@ -7,7 +7,6 @@ interface EventCardProps {
   occurrenceStartDate?: string;
   occurrenceEndDate?: string;
   onEdit?: () => void;
-  onDelete?: () => void;
   onView?: () => void;
 }
 
@@ -16,7 +15,6 @@ export default function EventCard({
   occurrenceStartDate,
   occurrenceEndDate,
   onEdit,
-  onDelete,
   onView,
 }: EventCardProps) {
   const nextStart =
@@ -55,15 +53,6 @@ export default function EventCard({
               </span>
             )}
           </div>
-          {onView && (
-            <Button 
-              variant="tertiary" 
-              onClick={onView} 
-              className="text-xs min-h-[44px]"
-            >
-              View
-            </Button>
-          )}
         </div>
 
         {event.description && (
@@ -172,7 +161,7 @@ export default function EventCard({
           )}
         </div>
 
-        {(onEdit || onDelete) && (
+        {(onEdit || onView) && (
           <div className="flex gap-2 pt-2 border-t">
             {onEdit && (
               <Button
@@ -183,13 +172,13 @@ export default function EventCard({
                 Edit
               </Button>
             )}
-            {onDelete && (
+            {onView && (
               <Button
                 variant="tertiary"
-                onClick={onDelete}
-                className="flex-1 text-xs min-h-[44px] text-red-600 hover:bg-red-50"
+                onClick={onView}
+                className="flex-1 text-xs min-h-[44px] !text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300"
               >
-                Delete
+                View
               </Button>
             )}
           </div>

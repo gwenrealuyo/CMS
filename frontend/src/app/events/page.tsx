@@ -486,51 +486,352 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Calendar View */}
-      <div className="mb-6">
-        <div className="flex items-center mb-3 gap-2">
-          <h2 className="text-lg font-semibold text-gray-700">Calendar</h2>
-          <Button
-            variant="tertiary"
-            onClick={() => setShowCalendar((prev) => !prev)}
-            className="flex items-center gap-1 text-xs !px-2 !py-1 min-h-[44px]"
-          >
-            <svg
-              className={`w-4 h-4 transition-transform ${
-                showCalendar ? "rotate-90" : "rotate-0"
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1 min-w-0">
+          {/* Calendar View */}
+          <div className="mb-6 lg:mb-0">
+            <div className="flex items-center mb-3 gap-2">
+              <h2 className="text-lg font-semibold text-gray-700">Calendar</h2>
+              <Button
+                variant="tertiary"
+                onClick={() => setShowCalendar((prev) => !prev)}
+                className="flex items-center gap-1 text-xs !px-2 !py-1 min-h-[44px] lg:hidden"
+              >
+                <svg
+                  className={`w-4 h-4 transition-transform ${
+                    showCalendar ? "rotate-90" : "rotate-0"
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </Button>
+            </div>
+            {!showCalendar && (
+              <div className="lg:hidden mb-3 text-xs text-gray-500">
+                Calendar hidden. Tap the arrow to show it.
+              </div>
+            )}
+            <div className={showCalendar ? "block" : "hidden lg:block"}>
+              <EventCalendar
+                events={calendarEvents}
+                currentMonthDate={calendarMonthDate}
+                onDateClick={handleDateClick}
+                onMonthChange={handleMonthChange}
+                selectedDate={selectedDate}
               />
-            </svg>
-          </Button>
+            </div>
+          </div>
         </div>
-        {showCalendar && (
-          <EventCalendar
-            events={calendarEvents}
-            currentMonthDate={calendarMonthDate}
-            onDateClick={handleDateClick}
-            onMonthChange={handleMonthChange}
-            selectedDate={selectedDate}
-          />
-        )}
-      </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm mb-6">
-        <div className="flex flex-col gap-4">
-          {/* Search */}
-          <div className="w-full">
-            <div className="relative">
+        <div className="w-full lg:w-96 shrink-0 space-y-6 lg:sticky lg:top-6 self-start">
+          {/* Filters */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
+            <div className="flex flex-col gap-4">
+              {/* Search */}
+              <div className="w-full">
+                <div className="relative">
+                  <svg
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search events..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className={`w-full pl-10 pr-10 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+                      searchQuery ? "pr-10" : "pr-4"
+                    }`}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => handleSearchChange("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Type, Month, and Year Filters */}
+              <div className="flex flex-col gap-3">
+                {/* Type Filter */}
+                <div className="w-full">
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+                  >
+                    {eventTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Month Filter */}
+                  <div className="w-full">
+                    <select
+                      value={filterMonth}
+                      onChange={(e) => handleMonthFilterChange(e.target.value)}
+                      className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+                    >
+                      <option value="all">All Months</option>
+                      {monthNames.map((label, index) => (
+                        <option key={label} value={index.toString()}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Year Filter */}
+                  <div className="w-full">
+                    <select
+                      value={filterYear}
+                      onChange={(e) => setFilterYear(e.target.value)}
+                      className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+                    >
+                      <option value="all">All Years</option>
+                      {availableYears.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Clear Filters */}
+                {(searchQuery ||
+                  filterType !== "all" ||
+                  filterYear !== "all" ||
+                  !isMonthFilterDefault ||
+                  selectedDate) && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="px-4 py-2.5 md:py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg border border-gray-300 transition-colors min-h-[44px] md:min-h-0 w-full"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Active Filters Display */}
+            {(searchQuery ||
+              filterType !== "all" ||
+              filterYear !== "all" ||
+              shouldShowMonthBadge ||
+              selectedDate) && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                {searchQuery && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    <span className="mr-1">Search:</span>
+                    <span className="font-medium">{searchQuery}</span>
+                    <button
+                      onClick={() => handleSearchChange("")}
+                      className="ml-2 text-blue-600 hover:text-blue-800"
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+                {filterType !== "all" && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    Type:{" "}
+                    {
+                      eventTypeOptions.find((opt) => opt.value === filterType)
+                        ?.label
+                    }
+                    <button
+                      onClick={clearTypeFilter}
+                      className="ml-2 text-blue-600 hover:text-blue-800"
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+                {filterYear !== "all" && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    Year: {filterYear}
+                    <button
+                      onClick={clearYearFilter}
+                      className="ml-2 text-blue-600 hover:text-blue-800"
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+                {shouldShowMonthBadge && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    Month: {monthNames[Number(filterMonth)]}
+                    <button
+                      onClick={clearMonthFilter}
+                      className="ml-2 text-blue-600 hover:text-blue-800"
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+                {selectedDate && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    Date: {selectedDate.toLocaleDateString()}
+                    <button
+                      onClick={clearDateFilter}
+                      className="ml-2 text-blue-600 hover:text-blue-800"
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Search Results Count */}
+          {(searchQuery || filterType !== "all" || selectedDate) && (
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <span>
+                  {isSearching
+                    ? "Searching..."
+                    : `${filteredEventCards.length} event${
+                        filteredEventCards.length !== 1 ? "s" : ""
+                      } found`}
+                </span>
+                {filteredEventCards.length !== eventCardItems.length && (
+                  <span className="text-gray-400">
+                    (of {eventCardItems.length} total)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Events Grid */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex items-center gap-2 text-gray-500">
+                <svg
+                  className="animate-spin h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                <span>Loading events...</span>
+              </div>
+            </div>
+          ) : filteredEventCards.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
               <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                className="w-12 h-12 text-gray-400 mx-auto mb-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -539,348 +840,53 @@ export default function EventsPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              <input
-                type="text"
-                placeholder="Search events..."
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className={`w-full pl-10 pr-10 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
-                  searchQuery ? "pr-10" : "pr-4"
-                }`}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => handleSearchChange("")}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              <p className="text-lg font-medium text-gray-900 mb-2">
+                No events found
+              </p>
+              <p className="text-gray-500 mb-6">
+                {searchQuery || filterType !== "all" || selectedDate
+                  ? "Try adjusting your filters"
+                  : "Get started by creating your first church event"}
+              </p>
+              {!(searchQuery || filterType !== "all" || selectedDate) && (
+                <Button
+                  onClick={() => {
+                    setViewEditEvent(null);
+                    setViewMode("edit");
+                    setIsModalOpen(true);
+                  }}
+                  className="w-full min-h-[44px]"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                  Create Event
+                </Button>
               )}
             </div>
-          </div>
-
-          {/* Type, Month, and Year Filters */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            {/* Type Filter */}
-            <div className="flex-1 sm:w-[200px]">
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-              >
-                {eventTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {filteredEventCards.map((item) => (
+                <EventCard
+                  key={item.id}
+                  event={item.event}
+                  occurrenceStartDate={item.occurrence.start_date}
+                  occurrenceEndDate={item.occurrence.end_date}
+                  onView={() =>
+                    handleViewEvent(item.event, item.occurrence.start_date)
+                  }
+                  onEdit={() => {
+                    setViewEditEvent(item.event);
+                    setViewOccurrenceDate(null);
+                    setViewMode("edit");
+                    setIsModalOpen(true);
+                  }}
+                />
+              ))}
             </div>
-
-            {/* Month Filter */}
-            <div className="flex-1 sm:w-[180px]">
-              <select
-                value={filterMonth}
-                onChange={(e) => handleMonthFilterChange(e.target.value)}
-                className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-              >
-                <option value="all">All Months</option>
-                {monthNames.map((label, index) => (
-                  <option key={label} value={index.toString()}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Year Filter */}
-            <div className="flex-1 sm:w-[160px]">
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-              >
-                <option value="all">All Years</option>
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Clear Filters */}
-            {(searchQuery ||
-              filterType !== "all" ||
-              filterYear !== "all" ||
-              !isMonthFilterDefault ||
-              selectedDate) && (
-              <button
-                onClick={clearAllFilters}
-                className="px-4 py-2.5 md:py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg border border-gray-300 transition-colors min-h-[44px] md:min-h-0 w-full sm:w-auto"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Active Filters Display */}
-        {(searchQuery ||
-          filterType !== "all" ||
-          filterYear !== "all" ||
-          shouldShowMonthBadge ||
-          selectedDate) && (
-          <div className="flex flex-wrap items-center gap-2 mt-4">
-            {searchQuery && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                <span className="mr-1">Search:</span>
-                <span className="font-medium">{searchQuery}</span>
-                <button
-                  onClick={() => handleSearchChange("")}
-                  className="ml-2 text-blue-600 hover:text-blue-800"
-                >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </span>
-            )}
-            {filterType !== "all" && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                Type:{" "}
-                {
-                  eventTypeOptions.find((opt) => opt.value === filterType)
-                    ?.label
-                }
-                <button
-                  onClick={clearTypeFilter}
-                  className="ml-2 text-blue-600 hover:text-blue-800"
-                >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </span>
-            )}
-            {filterYear !== "all" && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                Year: {filterYear}
-                <button
-                  onClick={clearYearFilter}
-                  className="ml-2 text-blue-600 hover:text-blue-800"
-                >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </span>
-            )}
-            {shouldShowMonthBadge && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                Month: {monthNames[Number(filterMonth)]}
-                <button
-                  onClick={clearMonthFilter}
-                  className="ml-2 text-blue-600 hover:text-blue-800"
-                >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </span>
-            )}
-            {selectedDate && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                Date: {selectedDate.toLocaleDateString()}
-                <button
-                  onClick={clearDateFilter}
-                  className="ml-2 text-blue-600 hover:text-blue-800"
-                >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Search Results Count */}
-      {(searchQuery || filterType !== "all" || selectedDate) && (
-        <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-          <div className="flex items-center gap-2">
-            <span>
-            {isSearching
-              ? "Searching..."
-              : `${filteredEventCards.length} event${
-                  filteredEventCards.length !== 1 ? "s" : ""
-                } found`}
-            </span>
-          {filteredEventCards.length !== eventCardItems.length && (
-            <span className="text-gray-400">
-              (of {eventCardItems.length} total)
-            </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Events Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-2 text-gray-500">
-            <svg
-              className="animate-spin h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            <span>Loading events...</span>
-          </div>
-        </div>
-      ) : filteredEventCards.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <svg
-            className="w-16 h-16 text-gray-400 mx-auto mb-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <p className="text-lg font-medium text-gray-900 mb-2">
-            No events found
-          </p>
-          <p className="text-gray-500 mb-6">
-            {searchQuery || filterType !== "all" || selectedDate
-              ? "Try adjusting your filters"
-              : "Get started by creating your first church event"}
-          </p>
-          {!(searchQuery || filterType !== "all" || selectedDate) && (
-            <Button
-              onClick={() => {
-                setViewEditEvent(null);
-                setViewMode("edit");
-                setIsModalOpen(true);
-              }}
-              className="w-full sm:w-auto min-h-[44px]"
-            >
-              Create Event
-            </Button>
           )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEventCards.map((item) => (
-            <EventCard
-              key={item.id}
-              event={item.event}
-              occurrenceStartDate={item.occurrence.start_date}
-              occurrenceEndDate={item.occurrence.end_date}
-              onView={() =>
-                handleViewEvent(item.event, item.occurrence.start_date)
-              }
-              onEdit={() => {
-                setViewEditEvent(item.event);
-                setViewOccurrenceDate(null);
-                setViewMode("edit");
-                setIsModalOpen(true);
-              }}
-              onDelete={() => {
-                setDeleteConfirmation({
-                  isOpen: true,
-                  event: item.event,
-                  loading: false,
-                });
-              }}
-            />
-          ))}
-        </div>
-      )}
+      </div>
 
       {/* Modal for View/Create/Edit Event */}
       <Modal

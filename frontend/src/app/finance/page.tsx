@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import DonationForm from "@/src/components/finance/DonationForm";
@@ -66,6 +67,10 @@ const formatDate = (value: string) => {
 };
 
 export default function FinancePage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const action = searchParams.get("action");
   const [donations, setDonations] = useState<Donation[]>([]);
   const [donationStats, setDonationStats] =
     useState<DonationStatsType>(INITIAL_STATS);
@@ -135,6 +140,19 @@ export default function FinancePage() {
   const [contributionForm, setContributionForm] = useState(() =>
     createEmptyContributionForm()
   );
+
+  useEffect(() => {
+    if (action === "add-donation") {
+      setEditingDonation(null);
+      setIsDonationModalOpen(true);
+      router.replace(pathname);
+    }
+    if (action === "add-offering") {
+      setEditingOffering(null);
+      setIsOfferingModalOpen(true);
+      router.replace(pathname);
+    }
+  }, [action, pathname, router]);
 
   type DateRangePeriod =
     | "thisWeek"

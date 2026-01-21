@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Person, PersonUI } from "@/src/types/person";
 import { peopleApi } from "@/src/lib/api";
 
-export const usePeople = () => {
+export const usePeople = (enabled: boolean = true) => {
   const [people, setPeople] = useState<Person[]>([]);
   const peopleUI: PersonUI[] = people.map((p) => ({
     ...p,
@@ -12,7 +12,10 @@ export const usePeople = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPeople = async () => {
+  const fetchPeople = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
     try {
       setLoading(true);
       const response = await peopleApi.getAll();
@@ -23,7 +26,7 @@ export const usePeople = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [enabled]);
 
   const createPerson = async (personData: Partial<Person>) => {
     try {
@@ -55,8 +58,14 @@ export const usePeople = () => {
   };
 
   useEffect(() => {
+    if (!enabled) {
+      setPeople([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     fetchPeople();
-  }, []);
+  }, [enabled, fetchPeople]);
 
   return {
     people,

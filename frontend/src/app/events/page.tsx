@@ -7,6 +7,7 @@ import React, {
   useRef,
   useEffect,
 } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
@@ -25,6 +26,10 @@ type EventCardItem = {
 };
 
 export default function EventsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const action = searchParams.get("action");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewEditEvent, setViewEditEvent] = useState<Event | null>(null);
   const [viewOccurrenceDate, setViewOccurrenceDate] = useState<string | null>(
@@ -89,6 +94,15 @@ export default function EventsPage() {
     addAttendance,
     removeAttendance,
   } = useEvents();
+
+  useEffect(() => {
+    if (action === "create") {
+      setViewEditEvent(null);
+      setViewMode("edit");
+      setIsModalOpen(true);
+      router.replace(pathname);
+    }
+  }, [action, pathname, router]);
 
   // Debounced search for better performance
   const handleSearchChange = useCallback((query: string) => {

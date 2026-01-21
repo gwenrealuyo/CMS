@@ -1,49 +1,44 @@
 import Card from "@/src/components/ui/Card";
 
-interface Activity {
+export interface Activity {
   id: string;
-  type: string;
+  type: "people" | "event" | "finance";
   description: string;
   timestamp: string;
 }
 
-export default function RecentActivity() {
-  const activities: Activity[] = [
-    {
-      id: "1",
-      type: "member",
-      description: "New member John Doe registered",
-      timestamp: "2 hours ago",
-    },
-    {
-      id: "2",
-      type: "event",
-      description: "Sunday Service attendance recorded",
-      timestamp: "5 hours ago",
-    },
-    {
-      id: "3",
-      type: "finance",
-      description: "Finance entry recorded for Building Fund",
-      timestamp: "1 day ago",
-    },
-  ];
+interface RecentActivityProps {
+  activities: Activity[];
+  isLoading?: boolean;
+  emptyMessage?: string;
+}
 
+export default function RecentActivity({
+  activities,
+  isLoading = false,
+  emptyMessage = "No recent activity available.",
+}: RecentActivityProps) {
   return (
     <Card>
       <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
         Recent Activity
       </h3>
-      <div className="space-y-4">
-        {activities.map((activity) => (
-          <div key={activity.id} className="flex items-start space-x-3">
-            <div className="flex-1">
-              <p className="text-sm text-[#2D3748]">{activity.description}</p>
-              <p className="text-xs text-gray-500">{activity.timestamp}</p>
+      {isLoading ? (
+        <p className="text-sm text-gray-500">Loading activity...</p>
+      ) : activities.length === 0 ? (
+        <p className="text-sm text-gray-500">{emptyMessage}</p>
+      ) : (
+        <div className="space-y-4">
+          {activities.map((activity) => (
+            <div key={activity.id} className="flex items-start space-x-3">
+              <div className="flex-1">
+                <p className="text-sm text-[#2D3748]">{activity.description}</p>
+                <p className="text-xs text-gray-500">{activity.timestamp}</p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

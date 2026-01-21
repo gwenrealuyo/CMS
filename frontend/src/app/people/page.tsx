@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import PersonForm from "@/src/components/people/PersonForm";
 import PersonProfile from "@/src/components/people/PersonProfile";
@@ -33,6 +34,10 @@ import ClusterReportsDashboard from "@/src/components/reports/ClusterReportsDash
 import ClusterWeeklyReportForm from "@/src/components/reports/ClusterWeeklyReportForm";
 
 export default function PeoplePage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const action = searchParams.get("action");
   const [activeTab, setActiveTab] = useState<
     "people" | "families" | "clusters" | "reports"
   >("people");
@@ -59,6 +64,16 @@ export default function PeoplePage() {
     family: null,
     loading: false,
   });
+
+  useEffect(() => {
+    if (action === "create") {
+      setModalType("person");
+      setViewEditPerson(null);
+      setViewMode("view");
+      setIsModalOpen(true);
+      router.replace(pathname);
+    }
+  }, [action, pathname, router]);
   const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState<{
     isOpen: boolean;
     people: Person[];

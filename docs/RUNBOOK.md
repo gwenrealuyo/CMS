@@ -70,17 +70,26 @@ Windows (PowerShell):
 
 ### Initial Setup (First Time)
 
-1. **Create admin user**:
+1. **Apply migrations** (this automatically seeds default data):
+   ```bash
+   python manage.py migrate
+   ```
+   This will automatically create:
+   - Default branches (Muntinlupa HQ, Biñan, Pateros, etc.)
+   - Default Sunday School categories
+   - Default lessons
+
+2. **Create admin user**:
    ```bash
    python manage.py create_admin
    ```
 
-2. **Set default passwords for existing users**:
+3. **Set default passwords for existing users**:
    ```bash
    python manage.py set_default_passwords
    ```
 
-3. **Login**:
+4. **Login**:
    - Navigate to `http://localhost:3000`
    - Use admin credentials to log in
 

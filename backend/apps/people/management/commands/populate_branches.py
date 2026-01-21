@@ -3,7 +3,7 @@ from apps.people.models import Branch
 
 
 class Command(BaseCommand):
-    help = "Populate sample branch data"
+    help = "Populate default branch data (seed data). Note: Branches are automatically seeded via data migration 0008_seed_branches.py when migrations are applied. This command can be used to update/reset branch data."
 
     def handle(self, *args, **options):
         branches_data = [
@@ -45,6 +45,3 @@ class Command(BaseCommand):
                 f"{created_count} created, {updated_count} updated"
             )
         )
-
-
-

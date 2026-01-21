@@ -54,7 +54,7 @@ export default function PersonProfile({
 
   useEffect(() => {
     setJourneys(((person.journeys as Journey[]) || []).slice());
-  }, [person.id]);
+  }, [person.id, person.journeys]);
 
   // Fetch branch information if branch ID exists
   useEffect(() => {

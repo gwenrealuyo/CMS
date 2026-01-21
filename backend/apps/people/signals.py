@@ -6,7 +6,8 @@ from django.dispatch import receiver
 from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import ClusterWeeklyReport
 from apps.people.utils import update_person_status
-from apps.people.models import Person, Journey
+from django.utils import timezone
+from apps.people.models import Person, Journey, Family
 import logging
 
 logger = logging.getLogger(__name__)
@@ -223,5 +224,34 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
             )
             logger.debug(f"Created First Attended journey for person {person.id}")
 
+
+def _get_person_label(person: Person) -> str:
+    return person.get_full_name() or person.username
+
+
+@receiver(m2m_changed, sender=Family.members.through)
+def create_family_member_journeys(sender, instance: Family, action, pk_set, **kwargs):
+    if action != "post_add" or not pk_set:
+        return
+    if getattr(instance, "_suppress_member_journeys", False):
+        return
+    leader_name = _get_person_label(instance.leader) if instance.leader else None
+    if leader_name:
+        description = f"Added to family led by {leader_name}."
+    else:
+        description = "Added to family."
+    journey_date = timezone.now().date()
+    Journey.objects.bulk_create(
+        [
+            Journey(
+                user_id=person_id,
+                title=f"Added to family: {instance.name}",
+                description=description,
+                date=journey_date,
+                type="NOTE",
+            )
+            for person_id in pk_set
+        ]
+    )
 
 

@@ -15,12 +15,12 @@ import FilterDropdown from "@/src/components/people/FilterDropdown";
 import FilterCard from "@/src/components/people/FilterCard";
 import Pagination from "@/src/components/ui/Pagination";
 import DataTable from "@/src/components/people/DataTable";
-import { Person, PersonUI, Family } from "@/src/types/person";
+import { Person, PersonUI, Family, Journey } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
-import { clustersApi, peopleApi } from "@/src/lib/api";
+import { clustersApi, peopleApi, journeysApi } from "@/src/lib/api";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
 import ClusterFilterDropdown from "@/src/components/clusters/ClusterFilterDropdown";
@@ -2435,6 +2435,42 @@ export default function PeoplePage() {
                             notes: target.notes,
                           });
                           await refreshFamilies();
+                          await refreshPeople();
+                          let updatedJourneys: Journey[] = [];
+                          try {
+                            const journeysResponse = await journeysApi.getByUser(
+                              String(selectFamilyModal.person!.id)
+                            );
+                            updatedJourneys = journeysResponse.data;
+                          } catch (error) {
+                            console.error(
+                              "Failed to refresh journeys after family update:",
+                              error
+                            );
+                          }
+                          const updatedPerson = people.find(
+                            (p) => p.id === selectFamilyModal.person!.id
+                          );
+                          if (updatedPerson) {
+                            const nextPerson = {
+                              ...updatedPerson,
+                              journeys: updatedJourneys.length
+                                ? updatedJourneys
+                                : updatedPerson.journeys,
+                            };
+                            if (
+                              viewEditPerson &&
+                              viewEditPerson.id === updatedPerson.id
+                            ) {
+                              setViewEditPerson(nextPerson);
+                            }
+                            if (
+                              personOverCluster &&
+                              personOverCluster.id === updatedPerson.id
+                            ) {
+                              setPersonOverCluster(nextPerson);
+                            }
+                          }
                           setSelectFamilyModal({ isOpen: false, person: null });
                         }}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"

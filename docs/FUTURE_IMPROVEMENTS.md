@@ -284,7 +284,6 @@ This document outlines planned improvements and feature recommendations for the 
 - **Needed**:
   - More chart types (heatmaps, scatter plots)
   - Customizable date ranges
-  - Export charts as images
   - Dashboard customization
 
 #### Advanced Metrics

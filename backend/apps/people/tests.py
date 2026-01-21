@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIRequestFactory
 from rest_framework.test import APIClient
 from rest_framework import status
 from .models import Branch, Person, Journey, Family
@@ -178,6 +179,138 @@ class BranchTransferTest(TestCase):
         self.assertIn("Branch 1", transfer_journey.description)
         self.assertIn("Branch 2", transfer_journey.description)
         self.assertIsNone(transfer_journey.verified_by)
+
+
+class FamilyJourneyTest(TestCase):
+    """Test family journey creation in serializer hooks"""
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.admin = Person.objects.create_user(
+            username="admin",
+            email="admin@test.com",
+            password="testpass123",
+            first_name="Admin",
+            last_name="User",
+            role="ADMIN",
+        )
+        self.leader = Person.objects.create_user(
+            username="leader",
+            email="leader@test.com",
+            password="testpass123",
+            first_name="Leader",
+            last_name="Person",
+            role="MEMBER",
+        )
+        self.member1 = Person.objects.create_user(
+            username="member1",
+            email="member1@test.com",
+            password="testpass123",
+            first_name="Member",
+            last_name="One",
+            role="MEMBER",
+        )
+        self.member2 = Person.objects.create_user(
+            username="member2",
+            email="member2@test.com",
+            password="testpass123",
+            first_name="Member",
+            last_name="Two",
+            role="MEMBER",
+        )
+
+    def _build_request(self):
+        request = self.factory.post("/api/people/families/")
+        request.user = self.admin
+        return request
+
+    def test_family_create_creates_journeys_for_members_and_leader(self):
+        from .serializers import FamilySerializer
+
+        serializer = FamilySerializer(
+            data={
+                "name": "Test Family",
+                "leader": self.leader.id,
+                "members": [self.member1.id, self.member2.id],
+                "address": "123 Main St",
+            },
+            context={"request": self._build_request()},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        family = serializer.save()
+
+        self.assertEqual(family.members.count(), 2)
+        self.assertEqual(
+            Journey.objects.filter(user=self.leader, type="NOTE").count(), 1
+        )
+        self.assertEqual(
+            Journey.objects.filter(user=self.member1, type="NOTE").count(), 1
+        )
+        self.assertEqual(
+            Journey.objects.filter(user=self.member2, type="NOTE").count(), 1
+        )
+        journey = Journey.objects.filter(user=self.member1).first()
+        self.assertEqual(journey.title, "Family created: Test Family")
+        self.assertIn("Leader: Leader Person", journey.description)
+
+    def test_family_member_added_creates_journey_for_new_member(self):
+        from .serializers import FamilySerializer
+
+        family = Family.objects.create(
+            name="Test Family",
+            leader=self.leader,
+            address="123 Main St",
+        )
+        family.members.set([self.member1])
+
+        serializer = FamilySerializer(
+            family,
+            data={"members": [self.member1.id, self.member2.id]},
+            partial=True,
+            context={"request": self._build_request()},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.assertEqual(
+            Journey.objects.filter(user=self.member1, type="NOTE").count(), 0
+        )
+        self.assertEqual(
+            Journey.objects.filter(user=self.member2, type="NOTE").count(), 1
+        )
+        journey = Journey.objects.filter(user=self.member2).first()
+        self.assertEqual(journey.title, "Added to family: Test Family")
+        self.assertIn("Leader Person", journey.description)
+
+    def test_family_address_update_creates_journeys_for_members(self):
+        from .serializers import FamilySerializer
+
+        family = Family.objects.create(
+            name="Test Family",
+            leader=None,
+            address="Old Address",
+        )
+        family.members.set([self.member1, self.member2])
+
+        serializer = FamilySerializer(
+            family,
+            data={"address": "New Address"},
+            partial=True,
+            context={"request": self._build_request()},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.assertEqual(
+            Journey.objects.filter(user=self.member1, type="NOTE").count(), 1
+        )
+        self.assertEqual(
+            Journey.objects.filter(user=self.member2, type="NOTE").count(), 1
+        )
+        journey = Journey.objects.filter(user=self.member1).first()
+        self.assertEqual(journey.title, "Family address updated: Test Family")
+        self.assertIn("Old Address", journey.description)
+        self.assertIn("New Address", journey.description)
 
 
 class BranchAPITest(TestCase):

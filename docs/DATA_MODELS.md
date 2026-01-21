@@ -34,6 +34,7 @@ Notes
 - Fields: `name`, `leader` → Person (nullable), `members` → ManyToMany(Person), `address?`, `created_at`
 - Meta: `verbose_name_plural = "Families"`
 - Notes: Branch is derived from members' branches (most common branch among family members). Family model does NOT have a direct branch field.
+- Journeys: NOTE journeys are created when a family is created, when members are added, and when the family address is updated.
 
 ### Cluster
 

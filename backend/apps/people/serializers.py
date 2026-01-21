@@ -363,3 +363,74 @@ class FamilySerializer(serializers.ModelSerializer):
         model = Family
         fields = ["id", "name", "leader", "members", "address", "notes", "created_at"]
         read_only_fields = ["created_at"]
+
+    def _get_person_label(self, person: Person) -> str:
+        return person.get_full_name() or person.username
+
+    def _create_family_journeys(self, people, title: str, description: str) -> None:
+        if not people:
+            return
+        journey_date = timezone.now().date()
+        Journey.objects.bulk_create(
+            [
+                Journey(
+                    user=person,
+                    title=title,
+                    description=description,
+                    date=journey_date,
+                    type="NOTE",
+                )
+                for person in people
+            ]
+        )
+
+    def _build_family_created_description(self, family: Family) -> str:
+        leader_name = (
+            self._get_person_label(family.leader) if family.leader else "Unassigned"
+        )
+        member_count = family.members.count()
+        return f"Leader: {leader_name}. Members: {member_count}."
+
+    def _build_member_added_description(self, family: Family) -> str:
+        leader_name = self._get_person_label(family.leader) if family.leader else None
+        if leader_name:
+            return f"Added to family led by {leader_name}."
+        return "Added to family."
+
+    def _build_address_updated_description(
+        self, old_address: str, new_address: str
+    ) -> str:
+        old_value = old_address or "Not set"
+        new_value = new_address or "Not set"
+        return f'Address updated from "{old_value}" to "{new_value}".'
+
+    def create(self, validated_data):
+        members = validated_data.pop("members", [])
+        family = super().create(validated_data)
+        family._suppress_member_journeys = True
+        if members:
+            family.members.set(members)
+        family._suppress_member_journeys = False
+        people = list(family.members.all())
+        if family.leader and family.leader not in people:
+            people.append(family.leader)
+        title = f"Family created: {family.name}"
+        description = self._build_family_created_description(family)
+        self._create_family_journeys(people, title, description)
+        return family
+
+    def update(self, instance, validated_data):
+        previous_address = instance.address
+        family = super().update(instance, validated_data)
+
+        if previous_address != family.address:
+            people = list(family.members.all())
+            if family.leader and family.leader not in people:
+                people.append(family.leader)
+            title = f"Family address updated: {family.name}"
+            description = self._build_address_updated_description(
+                previous_address, family.address
+            )
+            self._create_family_journeys(people, title, description)
+
+        return family

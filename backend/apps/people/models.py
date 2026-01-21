@@ -192,6 +192,7 @@ class Journey(models.Model):
             ("CLUSTER", "Cluster"),
             ("NOTE", "Note"),
             ("EVENT_ATTENDANCE", "Event Attendance"),
+            ("SUNDAY_SCHOOL", "Sunday School"),
             ("MINISTRY", "Ministry"),
             ("BRANCH_TRANSFER", "Branch Transfer"),
         ],

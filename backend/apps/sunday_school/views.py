@@ -157,7 +157,6 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
         sunday_school_class = self.get_object()
         serializer = SundaySchoolBulkEnrollSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         person_ids = serializer.validated_data["person_ids"]
         role = serializer.validated_data["role"]
 

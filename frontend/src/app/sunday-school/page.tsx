@@ -22,7 +22,6 @@ import RecurringSessionForm from "@/src/components/sunday-school/RecurringSessio
 import AttendanceReportComponent from "@/src/components/sunday-school/AttendanceReport";
 import SessionView from "@/src/components/sunday-school/SessionView";
 import UnenrolledByCategory from "@/src/components/sunday-school/UnenrolledByCategory";
-import SundaySchoolSummary from "@/src/components/sunday-school/SundaySchoolSummary";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   useSundaySchoolCategories,
@@ -591,12 +590,6 @@ export default function SundaySchoolPage() {
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Active classes</p>
-                <p className="text-3xl font-semibold text-green-600">
-                  {summary.active_classes}
-                </p>
-              </Card>
-              <Card>
                 <p className="text-sm text-gray-500">Total students</p>
                 <p className="text-3xl font-semibold text-blue-600">
                   {summary.total_students}
@@ -606,6 +599,15 @@ export default function SundaySchoolPage() {
                 <p className="text-sm text-gray-500">Total teachers</p>
                 <p className="text-3xl font-semibold text-purple-600">
                   {summary.total_teachers}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Average attendance rate</p>
+                <p className="text-3xl font-semibold text-orange-500">
+                  {summary.average_attendance_rate !== null &&
+                  summary.average_attendance_rate !== undefined
+                    ? `${summary.average_attendance_rate.toFixed(1)}%`
+                    : "—"}
                 </p>
               </Card>
             </div>
@@ -714,22 +716,13 @@ export default function SundaySchoolPage() {
           </Card>
 
           {summary && (
-            <div className="space-y-6">
-              {user?.role !== "MEMBER" && (
-                <SundaySchoolSummary
-                  summary={summary}
-                  loading={summaryLoading}
-                  error={summaryError}
-                />
-              )}
-              <UnenrolledByCategory
-                unenrolled={unenrolled}
-                loading={unenrolledLoading}
-                error={unenrolledError}
-                classes={classes}
-                onBulkEnroll={handleBulkEnrollFromCategory}
-              />
-            </div>
+            <UnenrolledByCategory
+              unenrolled={unenrolled}
+              loading={unenrolledLoading}
+              error={unenrolledError}
+              classes={classes}
+              onBulkEnroll={handleBulkEnrollFromCategory}
+            />
           )}
         </div>
       </DashboardLayout>

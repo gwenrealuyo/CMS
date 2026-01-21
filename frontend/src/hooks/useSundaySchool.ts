@@ -127,7 +127,10 @@ export const useSundaySchoolClasses = () => {
     personIds: number[],
     role: string
   ) => {
-    const response = await sundaySchoolApi.enroll(classId, { person_ids: personIds, role });
+    const response = await sundaySchoolApi.enroll(classId, {
+      person_ids: personIds,
+      role,
+    });
     // Refresh the class to get updated members
     const updatedClass = await sundaySchoolApi.getClass(classId);
     setClasses((prev) =>

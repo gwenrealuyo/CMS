@@ -12,6 +12,28 @@ def _build_journey_defaults(record: AttendanceRecord) -> dict:
     event_type = (
         event.get_type_display() if callable(type_display) else event.type or ""
     )
+    if event.type == "SUNDAY_SCHOOL":
+        session = getattr(event, "sunday_school_session", None)
+        class_name = event.title
+        lesson_title = ""
+        if session:
+            class_name = session.sunday_school_class.name
+            lesson_title = session.lesson_title
+        description_parts = [
+            "Sunday School",
+            f"on {record.occurrence_date.isoformat()}",
+        ]
+        if lesson_title:
+            description_parts.append(f"lesson {lesson_title}")
+        if event.location:
+            description_parts.append(f"at {event.location}")
+        description = " ".join(part for part in description_parts if part)
+        return {
+            "title": f"Attended Sunday School - {class_name}",
+            "date": record.occurrence_date,
+            "type": "SUNDAY_SCHOOL",
+            "description": description,
+        }
     description_parts = [
         event_type,
         f"on {record.occurrence_date.isoformat()}",

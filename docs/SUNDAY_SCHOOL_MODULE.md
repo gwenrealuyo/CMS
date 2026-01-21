@@ -11,6 +11,7 @@ The Sunday School module manages Sunday School classes, student enrollments, ses
 - **Attendance Tracking**: Integration with the Events module for automatic attendance tracking
 - **Analytics & Reports**: Summary statistics, attendance reports, and identification of unenrolled students by category
 - **Event Integration**: Sessions automatically create calendar events for attendance tracking
+- **Journey Integration**: Attendance for Sunday School sessions creates `SUNDAY_SCHOOL` journeys when marked Present
 
 ## Data Model & Storage
 

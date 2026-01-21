@@ -9,6 +9,11 @@ from rest_framework.test import APIClient
 from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event
 from apps.people.models import Journey, Person
+from apps.sunday_school.models import (
+    SundaySchoolCategory,
+    SundaySchoolClass,
+    SundaySchoolSession,
+)
 
 
 def make_aware(year, month, day, hour=0, minute=0):
@@ -27,6 +32,14 @@ class AttendanceIntegrationTests(TestCase):
             type="SUNDAY_SERVICE",
             location="Main Hall",
         )
+        self.admin_user = Person.objects.create_user(
+            username="adminuser",
+            password="password",
+            first_name="Admin",
+            last_name="User",
+            role="ADMIN",
+            status="ACTIVE",
+        )
         self.person = Person.objects.create_user(
             username="jdoe",
             password="password",
@@ -35,6 +48,7 @@ class AttendanceIntegrationTests(TestCase):
             role="MEMBER",
             status="ACTIVE",
         )
+        self.client.force_authenticate(user=self.admin_user)
         self.occurrence_date = self.event.start_date.date().isoformat()
 
     def test_add_attendance_creates_record_and_journey(self):
@@ -124,5 +138,68 @@ class AttendanceIntegrationTests(TestCase):
         record = data["attendance_records"][0]
         self.assertEqual(record["person"]["id"], self.person.pk)
         self.assertEqual(record["status"], "PRESENT")
+
+    def test_sunday_school_attendance_creates_sunday_school_journey(self):
+        category, _ = SundaySchoolCategory.objects.get_or_create(
+            name="Kids Primary",
+            defaults={
+                "min_age": 3,
+                "max_age": 7,
+                "order": 1,
+            },
+        )
+        class_obj = SundaySchoolClass.objects.create(
+            name="Kids Primary Class A",
+            category=category,
+            room_location="Room 1",
+            meeting_time=datetime(2025, 1, 5, 9).time(),
+        )
+        event = Event.objects.create(
+            title="Sunday School Session",
+            description="Weekly class",
+            start_date=make_aware(2025, 1, 5, 9),
+            end_date=make_aware(2025, 1, 5, 10),
+            type="SUNDAY_SCHOOL",
+            location="Room 1",
+        )
+        session = SundaySchoolSession.objects.create(
+            sunday_school_class=class_obj,
+            event=event,
+            session_date=event.start_date.date(),
+            session_time=class_obj.meeting_time,
+            lesson_title="Lesson 1",
+        )
+        occurrence_date = event.start_date.date().isoformat()
+
+        url = reverse("events:event-attendance", kwargs={"pk": event.pk})
+        payload = {
+            "person_id": str(self.person.pk),
+            "occurrence_date": occurrence_date,
+            "status": "PRESENT",
+        }
+        response = self.client.post(
+            url,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertIn(response.status_code, (200, 201))
+        record = AttendanceRecord.objects.get(
+            event=event,
+            person=self.person,
+            occurrence_date=occurrence_date,
+        )
+        journey = record.journey
+        self.assertIsNotNone(journey)
+        self.assertEqual(journey.type, "SUNDAY_SCHOOL")
+        self.assertEqual(
+            journey.title,
+            f"Attended Sunday School - {class_obj.name}",
+        )
+        expected_description = (
+            f"Sunday School on {occurrence_date} lesson {session.lesson_title} "
+            f"at {event.location}"
+        )
+        self.assertEqual(journey.description, expected_description)
 
 

@@ -174,7 +174,6 @@ class SundaySchoolBulkEnrollSerializer(serializers.Serializer):
         min_length=1,
     )
     role = serializers.ChoiceField(choices=SundaySchoolClassMember.Role.choices)
-    class_id = serializers.IntegerField()
 
 
 class SundaySchoolSessionSerializer(serializers.ModelSerializer):

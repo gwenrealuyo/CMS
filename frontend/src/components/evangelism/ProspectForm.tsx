@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
@@ -11,6 +11,7 @@ import { EvangelismGroup } from "@/src/types/evangelism";
 export interface ProspectFormValues {
   name: string;
   contact_info: string;
+  facebook_name: string;
   invited_by_id: string;
   evangelism_group_id?: string;
   notes: string;
@@ -25,11 +26,13 @@ interface ProspectFormProps {
   error?: string | null;
   submitLabel?: string;
   initialData?: Prospect;
+  defaultGroupId?: string;
 }
 
 const DEFAULT_VALUES: ProspectFormValues = {
   name: "",
   contact_info: "",
+  facebook_name: "",
   invited_by_id: "",
   evangelism_group_id: "",
   notes: "",
@@ -42,20 +45,34 @@ export default function ProspectForm({
   onCancel,
   isSubmitting,
   error,
-  submitLabel = "Create Prospect",
+  submitLabel = "Create Visitor",
   initialData,
+  defaultGroupId,
 }: ProspectFormProps) {
   const [values, setValues] = useState<ProspectFormValues>(
     initialData
       ? {
           name: initialData.name,
           contact_info: initialData.contact_info || "",
+          facebook_name: initialData.facebook_name || "",
           invited_by_id: initialData.invited_by?.id || "",
           evangelism_group_id: initialData.evangelism_group?.id || "",
           notes: initialData.notes || "",
         }
-      : DEFAULT_VALUES
+      : {
+          ...DEFAULT_VALUES,
+          evangelism_group_id: defaultGroupId || "",
+        }
   );
+
+  useEffect(() => {
+    if (!initialData && defaultGroupId) {
+      setValues((prev) => ({
+        ...prev,
+        evangelism_group_id: defaultGroupId,
+      }));
+    }
+  }, [defaultGroupId, initialData]);
 
   const handleChange =
     (field: keyof ProspectFormValues) =>
@@ -118,7 +135,7 @@ export default function ProspectForm({
           value={values.name}
           onChange={handleChange("name")}
           required
-          placeholder="Prospect's name"
+          placeholder="Visitor's name"
           className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
@@ -132,6 +149,19 @@ export default function ProspectForm({
           value={values.contact_info}
           onChange={handleChange("contact_info")}
           placeholder="Phone or email"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-sm font-medium text-gray-700">
+          Facebook Name
+        </label>
+        <input
+          type="text"
+          value={values.facebook_name}
+          onChange={handleChange("facebook_name")}
+          placeholder="Facebook name"
           className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>

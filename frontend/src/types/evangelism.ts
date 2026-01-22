@@ -74,6 +74,31 @@ export interface EvangelismWeeklyReport {
   updated_at: string;
 }
 
+export interface EvangelismTallyRow {
+  cluster_id?: number;
+  cluster_name?: string;
+  year: number;
+  week_number: number;
+  meeting_date?: string;
+  gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID" | "MIXED" | "UNKNOWN";
+  members_count: number;
+  visitors_count: number;
+  evangelism_reports_count: number;
+  cluster_reports_count: number;
+  new_prospects: number;
+  conversions_this_week: number;
+}
+
+export interface EvangelismPeopleTallyRow {
+  month: number;
+  year: number;
+  invited_count: number;
+  attended_count: number;
+  students_count: number;
+  baptized_count: number;
+  received_hg_count: number;
+}
+
 export type PipelineStage = "INVITED" | "ATTENDED" | "BAPTIZED" | "RECEIVED_HG" | "CONVERTED";
 export type FastTrackReason = "NONE" | "GOING_ABROAD" | "HEALTH_ISSUES" | "OTHER";
 
@@ -81,6 +106,7 @@ export interface Prospect {
   id: string;
   name: string;
   contact_info?: string;
+  facebook_name?: string;
   invited_by: Person;
   invited_by_id: string;
   inviter_cluster?: Cluster;

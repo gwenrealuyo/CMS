@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from django.db.models import Q, Count
 from django.utils import timezone
 
-from apps.people.models import Person
+from apps.people.models import Person, Journey
 from apps.clusters.models import Cluster
 
 from .models import (
@@ -94,6 +94,7 @@ def create_person_from_prospect(
         "username": username,
         "first_name": first_name,
         "last_name": last_name,
+        "facebook_name": prospect.facebook_name,
         "role": "VISITOR",
         "status": "ATTENDED",
         "inviter": prospect.invited_by,
@@ -327,7 +328,9 @@ def check_lesson_completion(prospect: Prospect) -> bool:
     return prospect.has_finished_lessons
 
 
-def update_person_baptism_dates(conversion: Conversion) -> None:
+def update_person_baptism_dates(
+    conversion: Conversion, notes: Optional[str] = None
+) -> None:
     """
     Sync conversion data to Person model.
     """
@@ -337,6 +340,24 @@ def update_person_baptism_dates(conversion: Conversion) -> None:
     if conversion.spirit_baptism_date:
         person.spirit_baptism_date = conversion.spirit_baptism_date
     person.save(update_fields=["water_baptism_date", "spirit_baptism_date"])
+
+    if not notes:
+        return
+
+    if person.date_first_attended:
+        Journey.objects.filter(
+            user=person, type="NOTE", date=person.date_first_attended
+        ).update(description=notes)
+
+    if conversion.water_baptism_date:
+        Journey.objects.filter(
+            user=person, type="BAPTISM", date=conversion.water_baptism_date
+        ).update(description=notes)
+
+    if conversion.spirit_baptism_date:
+        Journey.objects.filter(
+            user=person, type="SPIRIT", date=conversion.spirit_baptism_date
+        ).update(description=notes)
 
 
 def update_each1reach1_goal(conversion: Conversion) -> None:

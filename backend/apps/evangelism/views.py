@@ -11,8 +11,9 @@ from rest_framework.response import Response
 
 from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event
-from apps.people.models import Person
-from apps.clusters.models import Cluster
+from apps.people.models import Person, Journey
+from apps.clusters.models import Cluster, ClusterWeeklyReport
+from apps.lessons.models import LessonSessionReport
 from apps.authentication.permissions import (
     IsMemberOrAbove,
     IsAuthenticatedAndNotVisitor,
@@ -41,6 +42,8 @@ from .serializers import (
     EvangelismSessionSerializer,
     EvangelismRecurringSessionSerializer,
     EvangelismWeeklyReportSerializer,
+    EvangelismTallySerializer,
+    EvangelismPeopleTallySerializer,
     ProspectSerializer,
     FollowUpTaskSerializer,
     DropOffSerializer,
@@ -528,6 +531,171 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     ordering_fields = ("year", "week_number", "meeting_date")
     ordering = ("-year", "-week_number")
 
+    @action(detail=False, methods=["get"])
+    def tally(self, request):
+        """Unified weekly tally for evangelism + cluster reports."""
+        cluster_id = request.query_params.get("cluster")
+        year = request.query_params.get("year")
+        week_number = request.query_params.get("week_number")
+
+        evangelism_qs = EvangelismWeeklyReport.objects.select_related(
+            "evangelism_group", "evangelism_group__cluster"
+        ).prefetch_related("members_attended", "visitors_attended")
+        cluster_qs = ClusterWeeklyReport.objects.select_related("cluster").prefetch_related(
+            "members_attended", "visitors_attended"
+        )
+
+        if year:
+            evangelism_qs = evangelism_qs.filter(year=year)
+            cluster_qs = cluster_qs.filter(year=year)
+        if week_number:
+            evangelism_qs = evangelism_qs.filter(week_number=week_number)
+            cluster_qs = cluster_qs.filter(week_number=week_number)
+
+        cluster = None
+        if cluster_id:
+            try:
+                cluster = Cluster.objects.get(id=cluster_id)
+            except Cluster.DoesNotExist:
+                cluster = None
+
+        if cluster:
+            evangelism_qs = evangelism_qs.filter(evangelism_group__cluster=cluster)
+            cluster_qs = cluster_qs.filter(cluster=cluster)
+
+        tallies = {}
+
+        def get_entry(cluster_obj, year_val, week_val):
+            key = (cluster_obj.id if cluster_obj else None, int(year_val), int(week_val))
+            if key not in tallies:
+                tallies[key] = {
+                    "cluster_id": cluster_obj.id if cluster_obj else None,
+                    "cluster_name": cluster_obj.name if cluster_obj else "Unassigned",
+                    "year": int(year_val),
+                    "week_number": int(week_val),
+                    "meeting_dates": [],
+                    "gathering_types": set(),
+                    "members_set": set(),
+                    "visitors_set": set(),
+                    "evangelism_reports_count": 0,
+                    "cluster_reports_count": 0,
+                    "new_prospects": 0,
+                    "conversions_this_week": 0,
+                }
+            return tallies[key]
+
+        for report in evangelism_qs:
+            entry = get_entry(report.evangelism_group.cluster, report.year, report.week_number)
+            entry["meeting_dates"].append(report.meeting_date)
+            entry["gathering_types"].add(report.gathering_type)
+            entry["members_set"].update(report.members_attended.values_list("id", flat=True))
+            entry["visitors_set"].update(report.visitors_attended.values_list("id", flat=True))
+            entry["evangelism_reports_count"] += 1
+            entry["new_prospects"] += report.new_prospects or 0
+            entry["conversions_this_week"] += report.conversions_this_week or 0
+
+        for report in cluster_qs:
+            entry = get_entry(report.cluster, report.year, report.week_number)
+            entry["meeting_dates"].append(report.meeting_date)
+            entry["gathering_types"].add(report.gathering_type)
+            entry["members_set"].update(report.members_attended.values_list("id", flat=True))
+            entry["visitors_set"].update(report.visitors_attended.values_list("id", flat=True))
+            entry["cluster_reports_count"] += 1
+
+        rows = []
+        for entry in tallies.values():
+            gathering_types = entry["gathering_types"]
+            if not gathering_types:
+                gathering_type = "UNKNOWN"
+            elif len(gathering_types) == 1:
+                gathering_type = next(iter(gathering_types))
+            else:
+                gathering_type = "MIXED"
+
+            meeting_date = min(entry["meeting_dates"]) if entry["meeting_dates"] else None
+
+            rows.append(
+                {
+                    "cluster_id": entry["cluster_id"],
+                    "cluster_name": entry["cluster_name"],
+                    "year": entry["year"],
+                    "week_number": entry["week_number"],
+                    "meeting_date": meeting_date,
+                    "gathering_type": gathering_type,
+                    "members_count": len(entry["members_set"]),
+                    "visitors_count": len(entry["visitors_set"]),
+                    "evangelism_reports_count": entry["evangelism_reports_count"],
+                    "cluster_reports_count": entry["cluster_reports_count"],
+                    "new_prospects": entry["new_prospects"],
+                    "conversions_this_week": entry["conversions_this_week"],
+                }
+            )
+
+        rows.sort(key=lambda r: (r["year"], r["week_number"]), reverse=True)
+        serializer = EvangelismTallySerializer(rows, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="people_tally")
+    def people_tally(self, request):
+        """Monthly tally based on person attendance/baptism dates."""
+        year = request.query_params.get("year")
+        year_int = int(year) if year else timezone.now().year
+
+        base_qs = Person.objects.exclude(role="ADMIN")
+        rows = []
+        for month in range(1, 13):
+            invited_count = base_qs.filter(
+                role="VISITOR",
+                status="INVITED",
+                date_joined__year=year_int,
+                date_joined__month=month,
+            ).count()
+            attended_count = base_qs.filter(
+                role="VISITOR",
+                status="ATTENDED",
+                date_first_attended__year=year_int,
+                date_first_attended__month=month,
+            ).count()
+            student_ids = (
+                LessonSessionReport.objects.filter(
+                    session_date__year=year_int,
+                    session_date__month=month,
+                )
+                .values_list("student_id", flat=True)
+                .distinct()
+            )
+            students_count = (
+                Prospect.objects.filter(
+                    person_id__in=student_ids,
+                    commitment_form_signed=False,
+                )
+                .values_list("person_id", flat=True)
+                .distinct()
+                .count()
+            )
+            baptized_count = base_qs.filter(
+                water_baptism_date__year=year_int,
+                water_baptism_date__month=month,
+            ).count()
+            received_hg_count = base_qs.filter(
+                spirit_baptism_date__year=year_int,
+                spirit_baptism_date__month=month,
+            ).count()
+            rows.append(
+                {
+                    "month": month,
+                    "year": year_int,
+                    "invited_count": invited_count,
+                    "attended_count": attended_count,
+                    "students_count": students_count,
+                    "baptized_count": baptized_count,
+                    "received_hg_count": received_hg_count,
+                }
+            )
+
+        serializer = EvangelismPeopleTallySerializer(rows, many=True)
+        return Response(serializer.data)
+
 
 class ProspectViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
@@ -558,7 +726,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Auto-set inviter_cluster based on inviter's cluster membership."""
-        prospect = serializer.save()
+        prospect = serializer.save(pipeline_stage=Prospect.PipelineStage.INVITED)
         if not prospect.inviter_cluster:
             cluster = get_inviter_cluster(prospect.invited_by)
             if cluster:
@@ -594,6 +762,10 @@ class ProspectViewSet(viewsets.ModelViewSet):
         pipeline_stage = request.data.get("pipeline_stage")
         last_activity_date = request.data.get("last_activity_date")
 
+        if pipeline_stage == Prospect.PipelineStage.ATTENDED:
+            return self.mark_attended(request, pk=pk)
+
+        activity_date = last_activity_date or timezone.now().date()
         if pipeline_stage:
             prospect.pipeline_stage = pipeline_stage
         if last_activity_date:
@@ -602,6 +774,31 @@ class ProspectViewSet(viewsets.ModelViewSet):
             prospect.last_activity_date = timezone.now().date()
 
         prospect.save()
+
+        if prospect.person and prospect.person.role == "VISITOR":
+            person = prospect.person
+            fields_to_update = []
+            if pipeline_stage in [
+                Prospect.PipelineStage.INVITED,
+                Prospect.PipelineStage.ATTENDED,
+            ]:
+                person.status = pipeline_stage
+                fields_to_update.append("status")
+
+            if pipeline_stage == Prospect.PipelineStage.ATTENDED:
+                person.date_first_attended = activity_date
+                fields_to_update.append("date_first_attended")
+
+            if pipeline_stage == Prospect.PipelineStage.BAPTIZED:
+                person.water_baptism_date = activity_date
+                fields_to_update.append("water_baptism_date")
+
+            if pipeline_stage == Prospect.PipelineStage.RECEIVED_HG:
+                person.spirit_baptism_date = activity_date
+                fields_to_update.append("spirit_baptism_date")
+
+            if fields_to_update:
+                person.save(update_fields=fields_to_update)
 
         # Update monthly tracking if stage changed
         if pipeline_stage and pipeline_stage in [
@@ -623,6 +820,15 @@ class ProspectViewSet(viewsets.ModelViewSet):
     def mark_attended(self, request, pk=None):
         """Mark prospect as attended (auto-creates/links Person, updates monthly tracking)."""
         prospect = self.get_object()
+        last_activity_date = request.data.get("last_activity_date")
+        activity_date = None
+        if last_activity_date:
+            try:
+                activity_date = date.fromisoformat(last_activity_date)
+            except ValueError:
+                activity_date = None
+        if activity_date is None:
+            activity_date = timezone.now().date()
 
         # Create or link Person if not exists
         if not prospect.person:
@@ -640,14 +846,49 @@ class ProspectViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            person = create_person_from_prospect(prospect, first_name, last_name)
+            person = create_person_from_prospect(
+                prospect,
+                first_name,
+                last_name,
+                date_first_attended=activity_date,
+            )
         else:
             person = prospect.person
+            if person and person.role == "VISITOR":
+                updates = []
+                if person.status != "ATTENDED":
+                    person.status = "ATTENDED"
+                    updates.append("status")
+                if not person.date_first_attended:
+                    person.date_first_attended = activity_date
+                    updates.append("date_first_attended")
+                if prospect.facebook_name and not person.facebook_name:
+                    person.facebook_name = prospect.facebook_name
+                    updates.append("facebook_name")
+                if updates:
+                    person.save(update_fields=updates)
 
         # Update prospect stage and activity
         prospect.pipeline_stage = Prospect.PipelineStage.ATTENDED
-        prospect.last_activity_date = timezone.now().date()
+        prospect.last_activity_date = activity_date
         prospect.save()
+
+        if prospect.notes and person:
+            note_date = person.date_first_attended or activity_date
+            note_qs = Journey.objects.filter(
+                user=person, type="NOTE", date=note_date
+            )
+            if note_qs.exists():
+                note_qs.update(description=prospect.notes)
+            else:
+                Journey.objects.create(
+                    user=person,
+                    type="NOTE",
+                    title="Visitor note",
+                    description=prospect.notes,
+                    date=note_date,
+                    verified_by=None,
+                )
 
         # Update monthly tracking
         cluster = prospect.inviter_cluster or prospect.endorsed_cluster
@@ -868,6 +1109,19 @@ class ConversionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Auto-update Person's baptism dates and prospect pipeline stage."""
         conversion = serializer.save()
+        updates = []
+        if not conversion.converted_by_id:
+            conversion.converted_by = self.request.user
+            updates.append("converted_by")
+        if not conversion.conversion_date:
+            conversion.conversion_date = (
+                conversion.water_baptism_date
+                or conversion.spirit_baptism_date
+                or timezone.now().date()
+            )
+            updates.append("conversion_date")
+        if updates:
+            conversion.save(update_fields=updates)
 
         # Validate lesson completion if baptized
         if conversion.water_baptism_date or conversion.spirit_baptism_date:
@@ -878,7 +1132,7 @@ class ConversionViewSet(viewsets.ModelViewSet):
                     )
 
         # Update Person's baptism dates
-        update_person_baptism_dates(conversion)
+        update_person_baptism_dates(conversion, conversion.notes or None)
 
         # Update prospect pipeline stage
         if conversion.prospect:
@@ -928,7 +1182,7 @@ class ConversionViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """Update Person's baptism dates and prospect pipeline stage."""
         conversion = serializer.save()
-        update_person_baptism_dates(conversion)
+        update_person_baptism_dates(conversion, conversion.notes or None)
 
         if conversion.is_complete:
             update_each1reach1_goal(conversion)

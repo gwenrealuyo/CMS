@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
@@ -11,43 +12,43 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import {
   useEvangelismGroups,
   useEvangelismGroup,
-  useEvangelismSessions,
+  useEvangelismWeeklyReports,
   useProspects,
   useConversions,
   useEvangelismSummary,
-  useMonthlyStatistics,
 } from "@/src/hooks/useEvangelism";
-import { evangelismApi } from "@/src/lib/api";
-import { peopleApi } from "@/src/lib/api";
-import { clustersApi } from "@/src/lib/api";
+import { branchesApi, clustersApi, evangelismApi, peopleApi } from "@/src/lib/api";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   EvangelismGroup,
-  EvangelismSession,
+  EvangelismWeeklyReport,
   Prospect,
   Conversion,
   EvangelismGroupFormValues,
+  ClassMemberRole,
+  EvangelismGroupMember,
 } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
+import { Branch } from "@/src/types/branch";
 import EvangelismGroupForm from "@/src/components/evangelism/EvangelismGroupForm";
 import GroupMembersSection from "@/src/components/evangelism/GroupMembersSection";
-import GroupSessionsSection from "@/src/components/evangelism/GroupSessionsSection";
+import GroupReportsSection from "@/src/components/evangelism/GroupReportsSection";
 import GroupProspectsSection from "@/src/components/evangelism/GroupProspectsSection";
 import GroupConversionsSection from "@/src/components/evangelism/GroupConversionsSection";
-import SessionForm, {
-  SessionFormValues,
-} from "@/src/components/evangelism/SessionForm";
-import RecurringSessionForm from "@/src/components/evangelism/RecurringSessionForm";
 import ProspectForm, {
   ProspectFormValues,
 } from "@/src/components/evangelism/ProspectForm";
 import ConversionForm, {
   ConversionFormValues,
 } from "@/src/components/evangelism/ConversionForm";
+import EvangelismWeeklyReportForm, {
+  EvangelismWeeklyReportFormValues,
+} from "@/src/components/evangelism/EvangelismWeeklyReportForm";
 import EvangelismSummary from "@/src/components/evangelism/EvangelismSummary";
 import Each1Reach1Dashboard from "@/src/components/evangelism/Each1Reach1Dashboard";
-import MonthlyStatisticsReport from "@/src/components/evangelism/MonthlyStatisticsReport";
+import PeopleTallyReport from "@/src/components/evangelism/PeopleTallyReport";
+import TallyReport from "@/src/components/evangelism/TallyReport";
 import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
 
 export default function EvangelismPage() {
@@ -104,6 +105,17 @@ export default function EvangelismPage() {
     memberName: null,
     loading: false,
   });
+  const [roleChangeConfirmation, setRoleChangeConfirmation] = useState<{
+    isOpen: boolean;
+    member: EvangelismGroupMember | null;
+    nextRole: ClassMemberRole | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    member: null,
+    nextRole: null,
+    loading: false,
+  });
 
   const {
     groupData,
@@ -111,14 +123,13 @@ export default function EvangelismPage() {
     fetchGroup,
   } = useEvangelismGroup(viewEditGroup?.id || null);
   const {
-    sessions,
-    loading: sessionsLoading,
-    fetchSessions,
-    createSession,
-    updateSession,
-    deleteSession,
-    createRecurringSessions,
-  } = useEvangelismSessions(viewEditGroup?.id || null);
+    reports,
+    loading: reportsLoading,
+    fetchReports,
+    createReport,
+    updateReport,
+    deleteReport,
+  } = useEvangelismWeeklyReports(viewEditGroup?.id || null);
 
   // Memoize filters to prevent unnecessary re-renders
   const prospectsFilters = useMemo(
@@ -144,29 +155,45 @@ export default function EvangelismPage() {
     createConversion,
   } = useConversions(conversionsFilters);
 
+  const conversionVisitors = useMemo(() => {
+    const visitors = prospects
+      .map((prospect) => prospect.person)
+      .filter((person): person is Person => Boolean(person))
+      .filter((person) => person.role === "VISITOR");
+    const seen = new Set<string>();
+    return visitors.filter((person) => {
+      if (seen.has(person.id)) return false;
+      seen.add(person.id);
+      return true;
+    });
+  }, [prospects]);
+
   const [coordinators, setCoordinators] = useState<Person[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
-  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
-  const [isViewSessionModalOpen, setIsViewSessionModalOpen] = useState(false);
-  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isProspectModalOpen, setIsProspectModalOpen] = useState(false);
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isBulkEnrollModalOpen, setIsBulkEnrollModalOpen] = useState(false);
   const [isUpdateProgressModalOpen, setIsUpdateProgressModalOpen] =
     useState(false);
-  const [isEndorseModalOpen, setIsEndorseModalOpen] = useState(false);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(
     null
   );
-  const [selectedSession, setSelectedSession] =
-    useState<EvangelismSession | null>(null);
-  const [editingSession, setEditingSession] =
-    useState<EvangelismSession | null>(null);
+  const [editingReport, setEditingReport] =
+    useState<EvangelismWeeklyReport | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "groups" | "each1reach1" | "reports" | "bible_sharers"
+    "groups" | "each1reach1" | "tally" | "reports" | "bible_sharers"
   >("groups");
+  const [tallyYear, setTallyYear] = useState(new Date().getFullYear());
+
+  const roleLabels: Record<ClassMemberRole, string> = {
+    LEADER: "Leader",
+    ASSISTANT_LEADER: "Assistant Leader",
+    MEMBER: "Member",
+  };
 
   // Debounced search
   const handleSearchChange = useCallback(
@@ -191,18 +218,21 @@ export default function EvangelismPage() {
     };
   }, []);
 
-  // Load coordinators and clusters for forms
+  // Load coordinators, clusters, branches, and people for forms
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [coordinatorsRes, clustersRes, peopleRes] = await Promise.all([
+        const [coordinatorsRes, clustersRes, branchesRes, peopleRes] =
+          await Promise.all([
           peopleApi.search({ role: "COORDINATOR" }),
           clustersApi.getAll(),
+          branchesApi.getAll(),
           peopleApi.getAll(),
         ]);
         setCoordinators(coordinatorsRes.data);
         setClusters(clustersRes.data);
-        setPeople(peopleRes.data);
+        setBranches(branchesRes.data);
+        setPeople(peopleRes.data.filter((person) => person.role !== "ADMIN"));
       } catch (err) {
         console.error("Error loading form data:", err);
       }
@@ -216,9 +246,9 @@ export default function EvangelismPage() {
   useEffect(() => {
     if (viewEditGroup) {
       fetchGroup();
-      fetchSessions();
+      fetchReports();
     }
-  }, [viewEditGroup?.id, fetchGroup, fetchSessions]);
+  }, [viewEditGroup?.id, fetchGroup, fetchReports]);
 
   const handleResetFilters = () => {
     setSearchValue("");
@@ -272,21 +302,49 @@ export default function EvangelismPage() {
     }
   };
 
-  const handleCreateSession = async (values: SessionFormValues) => {
+  const handleSubmitReport = async (
+    values: EvangelismWeeklyReportFormValues
+  ) => {
     if (!viewEditGroup) return;
     try {
       setIsSubmitting(true);
       setFormError(null);
-      if (editingSession) {
-        await updateSession(editingSession.id, values);
-        setSuccessMessage("Session updated successfully.");
-      } else {
-        await createSession(values);
-        setSuccessMessage("Session created successfully.");
+      const prospectIds = values.visitors_attended
+        .filter((id) => id.startsWith("prospect:"))
+        .map((id) => id.replace("prospect:", ""));
+      const existingVisitorIds = values.visitors_attended.filter(
+        (id) => !id.startsWith("prospect:")
+      );
+      const createdVisitorIds: string[] = [];
+
+      for (const prospectId of prospectIds) {
+        const response = await evangelismApi.markAttended(prospectId, {
+          last_activity_date: values.meeting_date,
+        });
+        const personId = response.data?.person?.id;
+        if (personId) {
+          createdVisitorIds.push(String(personId));
+        }
       }
-      setIsSessionModalOpen(false);
-      setEditingSession(null);
-      fetchSessions();
+
+      const payload = {
+        ...values,
+        conversions_this_week: 0,
+        members_attended: values.members_attended.map((id) => Number(id)),
+        visitors_attended: [...existingVisitorIds, ...createdVisitorIds].map(
+          (id) => Number(id)
+        ),
+      };
+      if (editingReport) {
+        await updateReport(editingReport.id, payload);
+        setSuccessMessage("Report updated successfully.");
+      } else {
+        await createReport(payload);
+        setSuccessMessage("Report submitted successfully.");
+      }
+      setIsReportModalOpen(false);
+      setEditingReport(null);
+      fetchReports();
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
       const errorData = err.response?.data || {};
@@ -294,7 +352,7 @@ export default function EvangelismPage() {
       setFormError(
         err.response?.data?.detail ||
           firstError?.[0] ||
-          "Failed to create session"
+          "Failed to submit report"
       );
     } finally {
       setIsSubmitting(false);
@@ -312,7 +370,7 @@ export default function EvangelismPage() {
           : values.evangelism_group_id,
       };
       await createProspect(prospectData);
-      setSuccessMessage("Prospect created successfully.");
+      setSuccessMessage("Visitor created successfully.");
       setIsProspectModalOpen(false);
       if (viewEditGroup) {
         fetchProspects();
@@ -324,7 +382,7 @@ export default function EvangelismPage() {
       setFormError(
         err.response?.data?.detail ||
           firstError?.[0] ||
-          "Failed to create prospect"
+          "Failed to create visitor"
       );
     } finally {
       setIsSubmitting(false);
@@ -335,8 +393,13 @@ export default function EvangelismPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
+      const { lesson_start_date, ...conversionValues } = values;
+      const prospectMatch = prospects.find(
+        (prospect) => prospect.person?.id === values.person_id
+      );
       const conversionData = {
-        ...values,
+        ...conversionValues,
+        prospect_id: prospectMatch?.id,
         evangelism_group_id: viewEditGroup?.id
           ? String(viewEditGroup.id)
           : undefined,
@@ -444,6 +507,16 @@ export default function EvangelismPage() {
                 }`}
               >
                 Each 1 Reach 1
+              </button>
+              <button
+                onClick={() => setActiveTab("tally")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
+                  activeTab === "tally"
+                    ? "border-[#2563EB] text-[#2563EB]"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Tally
               </button>
               <button
                 onClick={() => setActiveTab("reports")}
@@ -607,10 +680,17 @@ export default function EvangelismPage() {
           </div>
         )}
 
+        {/* Tally Tab */}
+        {activeTab === "tally" && (
+          <div className="space-y-6">
+            <PeopleTallyReport year={tallyYear} onYearChange={setTallyYear} />
+          </div>
+        )}
+
         {/* Reports Tab */}
         {activeTab === "reports" && (
           <div className="space-y-6">
-            <MonthlyStatisticsReport year={new Date().getFullYear()} />
+            <TallyReport year={new Date().getFullYear()} />
           </div>
         )}
 
@@ -633,6 +713,7 @@ export default function EvangelismPage() {
           >
             <EvangelismGroupForm
               coordinators={coordinators}
+              people={people}
               clusters={clusters}
               onSubmit={handleCreateGroup}
               onCancel={() => {
@@ -663,6 +744,7 @@ export default function EvangelismPage() {
             {viewMode === "edit" ? (
               <EvangelismGroupForm
                 coordinators={coordinators}
+                people={people}
                 clusters={clusters}
                 onSubmit={handleUpdateGroup}
                 onCancel={() => {
@@ -680,7 +762,7 @@ export default function EvangelismPage() {
                   <LoadingSpinner />
                 ) : (
                   <>
-                    <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 mt-0.5">
                           <svg
@@ -724,6 +806,38 @@ export default function EvangelismPage() {
                           <p className="text-sm text-gray-500">Cluster</p>
                           <p className="font-medium">
                             {groupData?.cluster?.name || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <svg
+                            className="w-5 h-5 text-indigo-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M7 7h10M7 11h10M7 15h10M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"
+                            />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-500">Branch Code</p>
+                          <p className="font-medium">
+                            {(() => {
+                              const clusterId = groupData?.cluster?.id;
+                              const clusterMatch = clusters.find(
+                                (cluster) => cluster.id === clusterId
+                              );
+                              const branchMatch = branches.find(
+                                (branch) => branch.id === clusterMatch?.branch
+                              );
+                              return branchMatch?.code || "N/A";
+                            })()}
                           </p>
                         </div>
                       </div>
@@ -821,22 +935,26 @@ export default function EvangelismPage() {
                           loading: false,
                         });
                       }}
+                      onUpdateRole={(member, role) => {
+                        if (role === member.role) return;
+                        setRoleChangeConfirmation({
+                          isOpen: true,
+                          member,
+                          nextRole: role,
+                          loading: false,
+                        });
+                      }}
                       loading={groupLoading}
                     />
 
-                    <GroupSessionsSection
-                      sessions={sessions}
-                      onAddSession={() => setIsSessionModalOpen(true)}
-                      onCreateRecurring={() => setIsRecurringModalOpen(true)}
-                      onViewSession={(session) => {
-                        setSelectedSession(session);
-                        setIsViewSessionModalOpen(true);
+                    <GroupReportsSection
+                      reports={reports}
+                      onAddReport={() => setIsReportModalOpen(true)}
+                      onEditReport={(report) => {
+                        setEditingReport(report);
+                        setIsReportModalOpen(true);
                       }}
-                      onEditSession={(session) => {
-                        setEditingSession(session);
-                        setIsSessionModalOpen(true);
-                      }}
-                      loading={sessionsLoading}
+                      loading={reportsLoading}
                     />
 
                     <GroupProspectsSection
@@ -845,10 +963,6 @@ export default function EvangelismPage() {
                       onUpdateProgress={(prospect) => {
                         setSelectedProspect(prospect);
                         setIsUpdateProgressModalOpen(true);
-                      }}
-                      onEndorseToCluster={(prospect) => {
-                        setSelectedProspect(prospect);
-                        setIsEndorseModalOpen(true);
                       }}
                       loading={prospectsLoading}
                     />
@@ -1019,288 +1133,29 @@ export default function EvangelismPage() {
           </Modal>
         )}
 
-        {/* Session Modal */}
-        {isSessionModalOpen && viewEditGroup && (
+        {/* Report Modal */}
+        {isReportModalOpen && viewEditGroup && (
           <Modal
-            isOpen={isSessionModalOpen}
+            isOpen={isReportModalOpen}
             onClose={() => {
-              setIsSessionModalOpen(false);
-              setSelectedSession(null);
-              setEditingSession(null);
+              setIsReportModalOpen(false);
+              setEditingReport(null);
               setFormError(null);
             }}
-            title={editingSession ? "Edit Session" : "Create Session"}
+            title={editingReport ? "Edit Report" : "Submit Report"}
           >
-            <SessionForm
-              groupId={String(viewEditGroup.id)}
-              onSubmit={handleCreateSession}
+            <EvangelismWeeklyReportForm
+              group={viewEditGroup}
+              prospects={prospects}
+              onSubmit={handleSubmitReport}
               onCancel={() => {
-                setIsSessionModalOpen(false);
-                setSelectedSession(null);
-                setEditingSession(null);
+                setIsReportModalOpen(false);
+                setEditingReport(null);
                 setFormError(null);
               }}
               isSubmitting={isSubmitting}
               error={formError}
-              initialData={editingSession || undefined}
-              submitLabel={editingSession ? "Update Session" : "Create Session"}
-            />
-          </Modal>
-        )}
-
-        {/* View Session Modal */}
-        {isViewSessionModalOpen && selectedSession && (
-          <Modal
-            isOpen={isViewSessionModalOpen}
-            onClose={() => {
-              setIsViewSessionModalOpen(false);
-              setSelectedSession(null);
-            }}
-            title="Session Details"
-          >
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5">
-                  <svg
-                    className="w-5 h-5 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-500">Date</p>
-                  <p className="font-medium">
-                    {selectedSession.session_date
-                      ? new Date(
-                          selectedSession.session_date
-                        ).toLocaleDateString()
-                      : "N/A"}
-                  </p>
-                </div>
-              </div>
-              {selectedSession.session_time && (
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-purple-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">Time</p>
-                    <p className="font-medium">
-                      {(() => {
-                        const [hours, minutes] =
-                          selectedSession.session_time.split(":");
-                        const date = new Date(`2000-01-01T${hours}:${minutes}`);
-                        return date.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        });
-                      })()}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {selectedSession.topic && (
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-green-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">Topic</p>
-                    <p className="font-medium">{selectedSession.topic}</p>
-                  </div>
-                </div>
-              )}
-              {selectedSession.event_id && (
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-orange-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">Event</p>
-                    <p className="font-medium">
-                      <a
-                        href={`/events?event=${selectedSession.event_id}`}
-                        className="text-blue-600 hover:underline inline-flex items-center gap-1"
-                      >
-                        <span>View Event</span>
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-              {selectedSession.notes && (
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-amber-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">Notes</p>
-                    <p className="font-medium whitespace-pre-wrap">
-                      {selectedSession.notes}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {selectedSession.is_recurring_instance && (
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-indigo-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">Type</p>
-                    <p className="font-medium">Recurring Session Instance</p>
-                  </div>
-                </div>
-              )}
-              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
-                <Button
-                  variant="tertiary"
-                  className="flex-1 min-h-[44px]"
-                  onClick={() => {
-                    setIsViewSessionModalOpen(false);
-                    setSelectedSession(null);
-                  }}
-                >
-                  Close
-                </Button>
-                <Button
-                  className="flex-1 min-h-[44px]"
-                  onClick={() => {
-                    setIsViewSessionModalOpen(false);
-                    setEditingSession(selectedSession);
-                    setIsSessionModalOpen(true);
-                    setSelectedSession(null);
-                  }}
-                >
-                  Edit Session
-                </Button>
-              </div>
-            </div>
-          </Modal>
-        )}
-
-        {/* Recurring Session Modal */}
-        {isRecurringModalOpen && viewEditGroup && (
-          <Modal
-            isOpen={isRecurringModalOpen}
-            onClose={() => {
-              setIsRecurringModalOpen(false);
-              setFormError(null);
-            }}
-            title="Create Recurring Sessions"
-          >
-            <RecurringSessionForm
-              groupId={String(viewEditGroup.id)}
-              onSubmit={async (values) => {
-                try {
-                  setIsSubmitting(true);
-                  setFormError(null);
-                  await createRecurringSessions(values);
-                  setSuccessMessage("Recurring sessions created successfully.");
-                  setIsRecurringModalOpen(false);
-                  setTimeout(() => setSuccessMessage(null), 5000);
-                } catch (err: any) {
-                  const errorData = err.response?.data || {};
-                  const firstError = Object.values(errorData)[0] as
-                    | string[]
-                    | undefined;
-                  setFormError(
-                    err.response?.data?.detail ||
-                      firstError?.[0] ||
-                      "Failed to create recurring sessions"
-                  );
-                } finally {
-                  setIsSubmitting(false);
-                }
-              }}
-              onCancel={() => {
-                setIsRecurringModalOpen(false);
-                setFormError(null);
-              }}
-              isSubmitting={isSubmitting}
-              error={formError}
+              initialData={editingReport || undefined}
             />
           </Modal>
         )}
@@ -1313,10 +1168,12 @@ export default function EvangelismPage() {
               setIsProspectModalOpen(false);
               setFormError(null);
             }}
-            title="Add Prospect"
+            title="Add Visitor"
           >
             <ProspectForm
-              inviters={people.length > 0 ? people : coordinators}
+              inviters={(people.length > 0 ? people : coordinators).filter(
+                (person) => person.role !== "ADMIN"
+              )}
               groups={groups}
               onSubmit={handleCreateProspect}
               onCancel={() => {
@@ -1325,15 +1182,7 @@ export default function EvangelismPage() {
               }}
               isSubmitting={isSubmitting}
               error={formError}
-              initialData={
-                viewEditGroup
-                  ? {
-                      ...({} as Prospect),
-                      evangelism_group: viewEditGroup,
-                      evangelism_group_id: String(viewEditGroup.id),
-                    }
-                  : undefined
-              }
+              defaultGroupId={viewEditGroup ? String(viewEditGroup.id) : undefined}
             />
           </Modal>
         )}
@@ -1349,7 +1198,7 @@ export default function EvangelismPage() {
             title="Record Conversion"
           >
             <ConversionForm
-              people={people}
+              people={conversionVisitors}
               onSubmit={handleCreateConversion}
               onCancel={() => {
                 setIsConversionModalOpen(false);
@@ -1388,33 +1237,6 @@ export default function EvangelismPage() {
           </Modal>
         )}
 
-        {/* Endorse to Cluster Modal */}
-        {isEndorseModalOpen && selectedProspect && (
-          <Modal
-            isOpen={isEndorseModalOpen}
-            onClose={() => {
-              setIsEndorseModalOpen(false);
-              setSelectedProspect(null);
-              setFormError(null);
-            }}
-            title="Endorse to Cluster"
-          >
-            <EndorseToClusterModalContent
-              prospect={selectedProspect}
-              clusters={clusters}
-              onSuccess={async () => {
-                setIsEndorseModalOpen(false);
-                setSelectedProspect(null);
-                await fetchProspects();
-              }}
-              onCancel={() => {
-                setIsEndorseModalOpen(false);
-                setSelectedProspect(null);
-                setFormError(null);
-              }}
-            />
-          </Modal>
-        )}
 
         {/* Delete Confirmation */}
         <ConfirmationModal
@@ -1501,6 +1323,63 @@ export default function EvangelismPage() {
           loading={removeMemberConfirmation.loading}
         />
 
+        {/* Role Change Confirmation */}
+        <ConfirmationModal
+          isOpen={roleChangeConfirmation.isOpen}
+          onClose={() =>
+            setRoleChangeConfirmation({
+              isOpen: false,
+              member: null,
+              nextRole: null,
+              loading: false,
+            })
+          }
+          onConfirm={() => {
+            if (roleChangeConfirmation.member && roleChangeConfirmation.nextRole) {
+              (async () => {
+                try {
+                  setRoleChangeConfirmation((prev) => ({
+                    ...prev,
+                    loading: true,
+                  }));
+                  const member = roleChangeConfirmation.member!;
+                  await evangelismApi.updateMember(member.id, {
+                    evangelism_group: member.evangelism_group,
+                    person_id: member.person?.id,
+                    role: roleChangeConfirmation.nextRole,
+                    is_active: member.is_active,
+                    notes: member.notes ?? "",
+                  });
+                  setRoleChangeConfirmation({
+                    isOpen: false,
+                    member: null,
+                    nextRole: null,
+                    loading: false,
+                  });
+                  await fetchGroup();
+                  toast.success("Member role updated successfully.");
+                } catch (error) {
+                  console.error("Error updating member role:", error);
+                  toast.error("Failed to update member role.");
+                  setRoleChangeConfirmation((prev) => ({
+                    ...prev,
+                    loading: false,
+                  }));
+                }
+              })();
+            }
+          }}
+          title="Change Member Role"
+          message={
+            roleChangeConfirmation.member && roleChangeConfirmation.nextRole
+              ? `Change "${roleChangeConfirmation.member.person?.full_name || roleChangeConfirmation.member.person?.username || "this member"}" to ${roleLabels[roleChangeConfirmation.nextRole]}?`
+              : "Change this member's role?"
+          }
+          confirmText="Update Role"
+          cancelText="Cancel"
+          loading={roleChangeConfirmation.loading}
+        />
+
         {/* Add Member Modal */}
         {isAddMemberModalOpen && viewEditGroup && (
           <Modal
@@ -1581,7 +1460,11 @@ function AddMemberModalContent({
   };
 
   const availablePeople = useMemo(
-    () => people.filter((p) => !existingMemberIds.includes(p.id.toString())),
+    () =>
+      people.filter(
+        (p) =>
+          p.role !== "VISITOR" && !existingMemberIds.includes(p.id.toString())
+      ),
     [people, existingMemberIds]
   );
 
@@ -1678,7 +1561,11 @@ function BulkEnrollModalContent({
   };
 
   const availablePeople = useMemo(
-    () => people.filter((p) => !existingMemberIds.includes(p.id.toString())),
+    () =>
+      people.filter(
+        (p) =>
+          p.role !== "VISITOR" && !existingMemberIds.includes(p.id.toString())
+      ),
     [people, existingMemberIds]
   );
 
@@ -1819,18 +1706,18 @@ function UpdateProgressModalContent({
   onSuccess: () => void;
   onCancel: () => void;
 }) {
-  const [selectedStage, setSelectedStage] = useState<string>(
-    prospect.pipeline_stage || "INVITED"
+  const [selectedStage, setSelectedStage] = useState<string>("ATTENDED");
+  const [activityDate, setActivityDate] = useState<string>(
+    prospect.last_activity_date || new Date().toISOString().split("T")[0]
   );
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pipelineStages: { value: string; label: string }[] = [
     { value: "INVITED", label: "Invited" },
     { value: "ATTENDED", label: "Attended" },
-    { value: "BAPTIZED", label: "Baptized" },
-    { value: "RECEIVED_HG", label: "Received HG" },
-    { value: "CONVERTED", label: "Converted" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1840,12 +1727,29 @@ function UpdateProgressModalContent({
       return;
     }
 
+    const nameParts = prospect.name?.trim().split(/\s+/) || [];
+    const needsName =
+      selectedStage === "ATTENDED" && !prospect.person && nameParts.length < 2;
+    if (needsName && (!firstName.trim() || !lastName.trim())) {
+      setError("First name and last name are required for attendance.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      await evangelismApi.updateProgress(prospect.id, {
-        pipeline_stage: selectedStage,
-      });
+      if (selectedStage === "ATTENDED") {
+        await evangelismApi.markAttended(prospect.id, {
+          last_activity_date: activityDate,
+          first_name: needsName ? firstName.trim() : undefined,
+          last_name: needsName ? lastName.trim() : undefined,
+        });
+      } else {
+        await evangelismApi.updateProgress(prospect.id, {
+          pipeline_stage: selectedStage,
+          last_activity_date: activityDate,
+        });
+      }
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to update progress");
@@ -1874,6 +1778,51 @@ function UpdateProgressModalContent({
           ))}
         </select>
       </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Activity Date <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="date"
+          value={activityDate}
+          onChange={(e) => setActivityDate(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          disabled={loading}
+          required
+        />
+      </div>
+      {selectedStage === "ATTENDED" &&
+        !prospect.person &&
+        (prospect.name?.trim().split(/\s+/).length || 0) < 2 && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                First Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loading}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Last Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loading}
+                required
+              />
+            </div>
+          </div>
+        )}
       <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"
@@ -1895,87 +1844,3 @@ function UpdateProgressModalContent({
   );
 }
 
-// Endorse to Cluster Modal Content Component
-function EndorseToClusterModalContent({
-  prospect,
-  clusters,
-  onSuccess,
-  onCancel,
-}: {
-  prospect: Prospect;
-  clusters: Cluster[];
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
-  const [selectedClusterId, setSelectedClusterId] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const clusterOptions = useMemo(
-    () =>
-      clusters
-        .map((cluster) => ({
-          label: cluster.name || cluster.code || `Cluster ${cluster.id}`,
-          value: String(cluster.id),
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [clusters]
-  );
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedClusterId) {
-      setError("Please select a cluster.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      await evangelismApi.endorseToCluster(prospect.id, {
-        cluster_id: Number(selectedClusterId),
-      });
-      onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to endorse to cluster");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <ErrorMessage message={error} />}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Select Cluster <span className="text-red-500">*</span>
-        </label>
-        <ScalableSelect
-          options={clusterOptions}
-          value={selectedClusterId}
-          onChange={setSelectedClusterId}
-          placeholder="Select a cluster"
-          className="w-full"
-          showSearch
-        />
-      </div>
-      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
-        <Button
-          variant="tertiary"
-          className="flex-1 min-h-[44px]"
-          onClick={onCancel}
-          disabled={loading}
-        >
-          Cancel
-        </Button>
-        <Button
-          className="flex-1 min-h-[44px]"
-          disabled={loading || !selectedClusterId}
-          type="submit"
-        >
-          {loading ? "Endorsing..." : "Endorse to Cluster"}
-        </Button>
-      </div>
-    </form>
-  );
-}

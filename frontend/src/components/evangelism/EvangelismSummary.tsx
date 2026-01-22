@@ -63,7 +63,7 @@ export default function EvangelismSummary({
           subtitle="Currently active Bible Study groups"
         />
         <SummaryCard
-          title="Total Prospects"
+          title="Total Visitors"
           value={formatNumber(summary.total_prospects)}
           subtitle="People being evangelized"
         />

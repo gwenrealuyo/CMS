@@ -45,6 +45,8 @@ import {
   EvangelismGroupMember,
   EvangelismSession,
   EvangelismWeeklyReport,
+  EvangelismPeopleTallyRow,
+  EvangelismTallyRow,
   Prospect,
   FollowUpTask,
   DropOff,
@@ -1049,6 +1051,19 @@ export const evangelismApi = {
     api.put<EvangelismWeeklyReport>(`/evangelism/weekly-reports/${id}/`, data),
   deleteWeeklyReport: (id: number | string) =>
     api.delete(`/evangelism/weekly-reports/${id}/`),
+  getTally: (params?: {
+    cluster?: number | string;
+    year?: number;
+    week_number?: number;
+  }) =>
+    api.get<EvangelismTallyRow[]>("/evangelism/weekly-reports/tally/", {
+      params,
+    }),
+  getPeopleTally: (params?: { year?: number }) =>
+    api.get<EvangelismPeopleTallyRow[]>(
+      "/evangelism/weekly-reports/people_tally/",
+      { params }
+    ),
 
   // Prospects
   listProspects: (params?: {
@@ -1079,7 +1094,7 @@ export const evangelismApi = {
     api.post<Prospect>(`/evangelism/prospects/${id}/update_progress/`, payload),
   markAttended: (
     id: number | string,
-    payload?: { first_name?: string; last_name?: string }
+    payload?: { first_name?: string; last_name?: string; last_activity_date?: string }
   ) =>
     api.post<Prospect>(
       `/evangelism/prospects/${id}/mark_attended/`,

@@ -11,6 +11,7 @@ interface AttendanceSelectorProps {
   onSelectionChange: (ids: string[]) => void;
   className?: string;
   selectedCluster?: Cluster | null;
+  allowedIds?: string[];
   previouslyAttendedIds?: string[]; // All visitors who have attended this cluster (for list filtering)
   mostRecentAttendedIds?: string[]; // Visitors from most recent report only (for auto-selection)
 }
@@ -23,6 +24,7 @@ export default function AttendanceSelector({
   onSelectionChange,
   className = "",
   selectedCluster,
+  allowedIds = [],
   previouslyAttendedIds = [],
   mostRecentAttendedIds = [],
 }: AttendanceSelectorProps) {
@@ -38,9 +40,15 @@ export default function AttendanceSelector({
   // Get cluster member IDs if cluster is selected
   const clusterMemberIds =
     selectedCluster?.members?.map((id) => id.toString()) || [];
+  const allowedIdSet = new Set(allowedIds);
 
   // Filter people by role and cluster membership (for MEMBER role)
+  const hasMemberSource = Boolean(selectedCluster) || allowedIds.length > 0;
+
   const peopleByRole = availablePeople.filter((person) => {
+    if (filterRole === "MEMBER" && allowedIds.length > 0) {
+      return person.role !== "VISITOR" && allowedIdSet.has(person.id);
+    }
     if (filterRole === "MEMBER") {
       // For members: must be in selected cluster's members list, exclude VISITOR role
       if (!selectedCluster) return false; // No cluster selected = no members shown
@@ -174,7 +182,7 @@ export default function AttendanceSelector({
       selectedIds.length === 0 &&
       availablePeople.length > 0 &&
       hasAutoSelectedRef.current !== clusterKey &&
-      (filterRole === "VISITOR" || selectedCluster)
+      (filterRole === "VISITOR" || hasMemberSource)
     ) {
       if (filterRole === "MEMBER") {
         // For members: select all active members from the cluster (peopleByRole is already filtered)
@@ -210,7 +218,7 @@ export default function AttendanceSelector({
     }
 
     // Reset ref if cluster is deselected (for MEMBER role)
-    if (filterRole === "MEMBER" && !selectedCluster) {
+    if (filterRole === "MEMBER" && !hasMemberSource) {
       hasAutoSelectedRef.current = null;
     }
   }, [
@@ -232,7 +240,7 @@ export default function AttendanceSelector({
       selectedIds.length > 0 &&
       availablePeople.length > 0 &&
       !hasAutoSelectedRef.current &&
-      (filterRole === "VISITOR" || selectedCluster)
+      (filterRole === "VISITOR" || hasMemberSource)
     ) {
       // peopleByRole is already filtered by role and cluster membership
 
@@ -366,8 +374,8 @@ export default function AttendanceSelector({
 
       {/* Bulk Action Buttons */}
       <div className="flex flex-wrap gap-2 mb-2">
-        {viewMode === "list" &&
-          !(filterRole === "MEMBER" && !selectedCluster) && (
+      {viewMode === "list" &&
+        !(filterRole === "MEMBER" && !hasMemberSource) && (
             <>
               <button
                 type="button"
@@ -477,7 +485,7 @@ export default function AttendanceSelector({
           {/* Dropdown */}
           {isDropdownOpen && searchTerm.trim().length >= 1 && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {filterRole === "MEMBER" && !selectedCluster ? (
+              {filterRole === "MEMBER" && !hasMemberSource ? (
                 <div className="px-3 py-2 text-gray-500 text-sm">
                   Please select a cluster first to view members
                 </div>
@@ -517,25 +525,17 @@ export default function AttendanceSelector({
                           })()}
                         </div>
                       ) : (
-                        person.status && (
-                          <div className="text-sm">
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                person.status
-                              )}`}
-                            >
-                              {person.status.toLowerCase()}
-                            </span>
-                          </div>
-                        )
+                        <div className="text-sm text-gray-500">
+                          {(person.status || "active").toLowerCase()}
+                        </div>
                       )}
                     </button>
                   );
                 })
               ) : (
                 <div className="px-3 py-2 text-gray-500 text-sm">
-                  {filterRole === "MEMBER" && selectedCluster
-                    ? "No members found in this cluster"
+                  {filterRole === "MEMBER" && hasMemberSource
+                    ? "No members found"
                     : `No ${filterRole.toLowerCase()}s found`}
                 </div>
               )}
@@ -548,7 +548,7 @@ export default function AttendanceSelector({
       {viewMode === "list" && (
         <div className="border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
           {/* Empty state for MEMBER role when no cluster selected */}
-          {filterRole === "MEMBER" && !selectedCluster && (
+          {filterRole === "MEMBER" && !hasMemberSource && (
             <div className="px-3 py-8 text-center text-gray-500 text-sm">
               Please select a cluster first to view members
             </div>
@@ -557,7 +557,7 @@ export default function AttendanceSelector({
           {/* Previously Attended Visitors / Cluster Members Section */}
           {((filterRole === "VISITOR" && previouslyAttendedPeople.length > 0) ||
             (filterRole === "MEMBER" &&
-              selectedCluster &&
+              hasMemberSource &&
               previouslyAttendedPeople.length > 0)) && (
             <>
               <div className="p-2 border-b sticky top-0 bg-purple-50 border-purple-200">
@@ -608,17 +608,9 @@ export default function AttendanceSelector({
                           })()}
                         </div>
                       ) : (
-                        person.status && (
-                          <div className="text-xs mt-0.5">
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                person.status
-                              )}`}
-                            >
-                              {person.status.toLowerCase()}
-                            </span>
-                          </div>
-                        )
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {(person.status || "active").toLowerCase()}
+                        </div>
                       )}
                     </div>
                   </label>
@@ -688,17 +680,9 @@ export default function AttendanceSelector({
                           })()}
                         </div>
                       ) : (
-                        person.status && (
-                          <div className="text-xs mt-0.5">
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                person.status
-                              )}`}
-                            >
-                              {person.status.toLowerCase()}
-                            </span>
-                          </div>
-                        )
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {(person.status || "active").toLowerCase()}
+                        </div>
                       )}
                     </div>
                   </label>

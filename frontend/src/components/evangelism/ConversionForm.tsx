@@ -1,18 +1,18 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { Conversion } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
+import { lessonsApi } from "@/src/lib/api";
 
 export interface ConversionFormValues {
   person_id: string;
-  converted_by_id: string;
-  conversion_date: string;
   water_baptism_date?: string;
   spirit_baptism_date?: string;
+  lesson_start_date?: string;
   notes: string;
 }
 
@@ -37,18 +37,17 @@ export default function ConversionForm({
 }: ConversionFormProps) {
   const [values, setValues] = useState<ConversionFormValues>({
     person_id: initialData?.person_id || "",
-    converted_by_id: initialData?.converted_by_id || "",
-    conversion_date: initialData?.conversion_date
-      ? new Date(initialData.conversion_date).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0],
     water_baptism_date: initialData?.water_baptism_date
       ? new Date(initialData.water_baptism_date).toISOString().split("T")[0]
       : "",
     spirit_baptism_date: initialData?.spirit_baptism_date
       ? new Date(initialData.spirit_baptism_date).toISOString().split("T")[0]
       : "",
+    lesson_start_date: "",
     notes: initialData?.notes || "",
   });
+  const [lessonDateTouched, setLessonDateTouched] = useState(false);
+  const [loadingLessonDate, setLoadingLessonDate] = useState(false);
 
   const handleChange =
     (field: keyof ConversionFormValues) =>
@@ -65,11 +64,7 @@ export default function ConversionForm({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (
-      !values.person_id ||
-      !values.converted_by_id ||
-      !values.conversion_date
-    ) {
+    if (!values.person_id) {
       return;
     }
     await onSubmit(values);
@@ -90,6 +85,46 @@ export default function ConversionForm({
         .sort((a, b) => a.label.localeCompare(b.label)),
     [people]
   );
+
+  useEffect(() => {
+    const fetchLessonStartDate = async () => {
+      if (!values.person_id) {
+        setValues((prev) => ({ ...prev, lesson_start_date: "" }));
+        return;
+      }
+      try {
+        setLoadingLessonDate(true);
+        const response = await lessonsApi.getProgress({
+          person: values.person_id,
+        });
+        const progress = response.data;
+        if (!progress.length) {
+          if (!lessonDateTouched) {
+            setValues((prev) => ({ ...prev, lesson_start_date: "" }));
+          }
+          return;
+        }
+        const earliest = [...progress]
+          .sort((a, b) => a.assigned_at.localeCompare(b.assigned_at))[0];
+        const assignedDate = earliest.assigned_at
+          ? new Date(earliest.assigned_at).toISOString().split("T")[0]
+          : "";
+        if (!lessonDateTouched) {
+          setValues((prev) => ({
+            ...prev,
+            lesson_start_date: assignedDate,
+          }));
+        }
+      } catch (error) {
+        console.error("Error loading lesson start date:", error);
+      } finally {
+        setLoadingLessonDate(false);
+      }
+    };
+
+    fetchLessonStartDate();
+    setLessonDateTouched(false);
+  }, [values.person_id]);
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
@@ -116,34 +151,20 @@ export default function ConversionForm({
 
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Invited By <span className="text-red-500">*</span>
-        </label>
-        <ScalableSelect
-          options={personOptions}
-          value={values.converted_by_id}
-          onChange={(value) =>
-            setValues((prev) => ({
-              ...prev,
-              converted_by_id: value,
-            }))
-          }
-          placeholder="Select inviter"
-          className="w-full"
-          showSearch
-        />
-      </div>
-
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Conversion Date <span className="text-red-500">*</span>
+          Lesson Start Date
         </label>
         <input
           type="date"
-          value={values.conversion_date}
-          onChange={handleChange("conversion_date")}
-          required
+          value={values.lesson_start_date || ""}
+          onChange={(event) => {
+            setLessonDateTouched(true);
+            handleChange("lesson_start_date")(event);
+          }}
           className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
+        {loadingLessonDate && (
+          <p className="text-xs text-gray-500">Loading lesson assignment...</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

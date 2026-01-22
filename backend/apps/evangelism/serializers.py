@@ -76,7 +76,7 @@ class EvangelismGroupMemberSerializer(serializers.ModelSerializer):
     person = PersonSummarySerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
         source="person",
-        queryset=Person.objects.exclude(role="ADMIN"),
+        queryset=Person.objects.exclude(role__in=["ADMIN", "VISITOR"]),
         write_only=True,
     )
     role_display = serializers.CharField(source="get_role_display", read_only=True)
@@ -95,6 +95,13 @@ class EvangelismGroupMemberSerializer(serializers.ModelSerializer):
             "notes",
         )
         read_only_fields = ("joined_date",)
+
+    def validate_person(self, person: Person) -> Person:
+        if person.role == "VISITOR":
+            raise serializers.ValidationError(
+                "Visitors cannot be added as evangelism group members."
+            )
+        return person
 
 
 class EvangelismGroupSerializer(serializers.ModelSerializer):
@@ -154,6 +161,13 @@ class EvangelismBulkEnrollSerializer(serializers.Serializer):
         min_length=1,
     )
     role = serializers.ChoiceField(choices=EvangelismGroupMember.Role.choices)
+
+    def validate_person_ids(self, person_ids):
+        if Person.objects.filter(id__in=person_ids, role="VISITOR").exists():
+            raise serializers.ValidationError(
+                "Visitors cannot be added as evangelism group members."
+            )
+        return person_ids
 
 
 class EvangelismSessionSerializer(serializers.ModelSerializer):
@@ -216,6 +230,11 @@ class EvangelismRecurringSessionSerializer(serializers.Serializer):
 
 class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     evangelism_group = EvangelismGroupSerializer(read_only=True)
+    evangelism_group_id = serializers.PrimaryKeyRelatedField(
+        source="evangelism_group",
+        queryset=EvangelismGroup.objects.all(),
+        write_only=True,
+    )
     members_attended_details = serializers.SerializerMethodField()
     visitors_attended_details = serializers.SerializerMethodField()
     submitted_by_details = PersonSummarySerializer(source="submitted_by", read_only=True)
@@ -225,6 +244,7 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "evangelism_group",
+            "evangelism_group_id",
             "year",
             "week_number",
             "meeting_date",
@@ -252,6 +272,31 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
 
     def get_visitors_attended_details(self, obj):
         return PersonSummarySerializer(obj.visitors_attended.all(), many=True).data
+
+
+class EvangelismTallySerializer(serializers.Serializer):
+    cluster_id = serializers.IntegerField(allow_null=True, required=False)
+    cluster_name = serializers.CharField(allow_blank=True, required=False)
+    year = serializers.IntegerField()
+    week_number = serializers.IntegerField()
+    meeting_date = serializers.DateField(required=False, allow_null=True)
+    gathering_type = serializers.CharField()
+    members_count = serializers.IntegerField()
+    visitors_count = serializers.IntegerField()
+    evangelism_reports_count = serializers.IntegerField()
+    cluster_reports_count = serializers.IntegerField()
+    new_prospects = serializers.IntegerField()
+    conversions_this_week = serializers.IntegerField()
+
+
+class EvangelismPeopleTallySerializer(serializers.Serializer):
+    month = serializers.IntegerField()
+    year = serializers.IntegerField()
+    invited_count = serializers.IntegerField()
+    attended_count = serializers.IntegerField()
+    students_count = serializers.IntegerField()
+    baptized_count = serializers.IntegerField()
+    received_hg_count = serializers.IntegerField()
 
 
 class ProspectSerializer(serializers.ModelSerializer):
@@ -288,6 +333,7 @@ class ProspectSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "contact_info",
+            "facebook_name",
             "invited_by",
             "invited_by_id",
             "inviter_cluster",
@@ -413,6 +459,8 @@ class ConversionSerializer(serializers.ModelSerializer):
         source="converted_by",
         queryset=Person.objects.exclude(role="ADMIN"),
         write_only=True,
+        required=False,
+        allow_null=True,
     )
     evangelism_group = EvangelismGroupSerializer(read_only=True)
     evangelism_group_id = serializers.PrimaryKeyRelatedField(
@@ -464,6 +512,9 @@ class ConversionSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("created_at", "updated_at")
+        extra_kwargs = {
+            "conversion_date": {"required": False, "allow_null": True}
+        }
 
 
 class MonthlyConversionTrackingSerializer(serializers.ModelSerializer):

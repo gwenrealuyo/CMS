@@ -9,7 +9,6 @@ interface GroupProspectsSectionProps {
   prospects: Prospect[];
   onAddProspect: () => void;
   onUpdateProgress: (prospect: Prospect) => void;
-  onEndorseToCluster: (prospect: Prospect) => void;
   loading?: boolean;
 }
 
@@ -17,7 +16,6 @@ export default function GroupProspectsSection({
   prospects,
   onAddProspect,
   onUpdateProgress,
-  onEndorseToCluster,
   loading = false,
 }: GroupProspectsSectionProps) {
   const [showAll, setShowAll] = useState(false);
@@ -36,19 +34,19 @@ export default function GroupProspectsSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h3 className="text-lg font-semibold text-gray-900">Prospects</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Visitors</h3>
         <Button
           onClick={onAddProspect}
           className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto min-h-[44px]"
         >
-          Add Prospect
+          Add Visitor
         </Button>
       </div>
 
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading...</div>
       ) : prospects.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No prospects</div>
+        <div className="text-center py-8 text-gray-500">No visitors</div>
       ) : (
         <>
           {/* Mobile Card View */}
@@ -101,13 +99,6 @@ export default function GroupProspectsSection({
                       className="!text-amber-600 bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 flex-1 min-h-[44px]"
                     >
                       Update
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => onEndorseToCluster(prospect)}
-                      className="!text-teal-600 bg-white border border-teal-200 hover:bg-teal-50 hover:border-teal-300 flex-1 min-h-[44px]"
-                    >
-                      Endorse
                     </Button>
                   </div>
                 </div>
@@ -179,13 +170,6 @@ export default function GroupProspectsSection({
                           className="!text-amber-600 bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 text-xs py-1 px-2"
                         >
                           Update
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() => onEndorseToCluster(prospect)}
-                          className="!text-teal-600 bg-white border border-teal-200 hover:bg-teal-50 hover:border-teal-300 text-xs py-1 px-2"
-                        >
-                          Endorse
                         </Button>
                       </div>
                     </td>

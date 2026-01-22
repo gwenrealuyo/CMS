@@ -69,7 +69,7 @@ class EvangelismGroupMember(models.Model):
         related_name="evangelism_group_memberships",
     )
     role = models.CharField(max_length=20, choices=Role.choices)
-    joined_date = models.DateField(default=timezone.now)
+    joined_date = models.DateField(default=timezone.localdate)
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True)
 
@@ -193,6 +193,7 @@ class Prospect(models.Model):
 
     name = models.CharField(max_length=200)
     contact_info = models.CharField(max_length=200, blank=True)
+    facebook_name = models.CharField(max_length=200, blank=True)
     invited_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

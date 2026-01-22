@@ -1,17 +1,20 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   EvangelismGroup,
   EvangelismGroupFormValues,
 } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
+import { formatPersonName } from "@/src/lib/name";
 
 interface EvangelismGroupFormProps {
   coordinators?: Person[];
+  people?: Person[];
   clusters?: Cluster[];
   onSubmit: (values: EvangelismGroupFormValues) => Promise<void>;
   onCancel: () => void;
@@ -35,6 +38,7 @@ const DEFAULT_VALUES: EvangelismGroupFormValues = {
 
 export default function EvangelismGroupForm({
   coordinators = [],
+  people = [],
   clusters = [],
   onSubmit,
   onCancel,
@@ -48,7 +52,9 @@ export default function EvangelismGroupForm({
       ? {
           name: initialData.name,
           description: initialData.description || "",
-          coordinator_id: initialData.coordinator?.id || "",
+          coordinator_id: initialData.coordinator?.id
+            ? String(initialData.coordinator.id)
+            : "",
           cluster_id: initialData.cluster?.id
             ? String(initialData.cluster.id)
             : "",
@@ -114,6 +120,39 @@ export default function EvangelismGroupForm({
     { value: "SUNDAY", label: "Sunday" },
   ];
 
+  const coordinatorOptions = useMemo(() => {
+    const base = people.length > 0 ? people : coordinators;
+    return base
+      .filter(
+        (person) => person.role !== "ADMIN" && person.username !== "admin"
+      )
+      .map((person) => ({
+        label: formatPersonName(person),
+        value: String(person.id),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [people, coordinators]);
+
+  const clusterOptions = useMemo(
+    () =>
+      [
+        { label: "No cluster", value: "" },
+        ...clusters
+          .map((cluster) => {
+            const name = cluster.name?.trim();
+            const code = cluster.code?.trim();
+            const label =
+              name && code ? `${name} (${code})` : name || code || "Cluster";
+            return {
+              label,
+              value: String(cluster.id),
+            };
+          })
+          .sort((a, b) => a.label.localeCompare(b.label)),
+      ],
+    [clusters]
+  );
+
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       {error && <ErrorMessage message={error} />}
@@ -150,36 +189,38 @@ export default function EvangelismGroupForm({
           <label className="block text-sm font-medium text-gray-700">
             Coordinator
           </label>
-          <select
+          <ScalableSelect
+            options={[{ label: "Not set", value: "" }, ...coordinatorOptions]}
             value={values.coordinator_id}
-            onChange={handleChange("coordinator_id")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="">Select coordinator</option>
-            {coordinators.map((coordinator) => (
-              <option key={coordinator.id} value={coordinator.id}>
-                {coordinator.full_name || coordinator.username}
-              </option>
-            ))}
-          </select>
+            onChange={(value) =>
+              setValues((prev) => ({
+                ...prev,
+                coordinator_id: value,
+              }))
+            }
+            placeholder="Select coordinator"
+            className="w-full"
+            showSearch
+          />
         </div>
 
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
             Cluster (Optional)
           </label>
-          <select
+          <ScalableSelect
+            options={clusterOptions}
             value={values.cluster_id}
-            onChange={handleChange("cluster_id")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="">No cluster</option>
-            {clusters.map((cluster) => (
-              <option key={cluster.id} value={cluster.id}>
-                {cluster.name || cluster.code}
-              </option>
-            ))}
-          </select>
+            onChange={(value) =>
+              setValues((prev) => ({
+                ...prev,
+                cluster_id: value,
+              }))
+            }
+            placeholder="Select cluster"
+            className="w-full"
+            showSearch
+          />
         </div>
       </div>
 

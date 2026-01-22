@@ -184,6 +184,7 @@ class PersonSerializer(serializers.ModelSerializer):
         queryset=Branch.objects.all(), allow_null=True, required=False
     )
     photo = serializers.ImageField(required=False, allow_null=True)
+    note = serializers.CharField(write_only=True, required=False, allow_blank=True)
     journeys = JourneySerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
@@ -211,6 +212,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "country",
             "date_of_birth",
             "date_first_attended",
+            "first_activity_attended",
             "water_baptism_date",
             "spirit_baptism_date",
             "has_finished_lessons",
@@ -218,6 +220,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "branch",
             "member_id",
             "status",
+            "note",
             "journeys",
             "cluster_codes",
             "family_names",
@@ -243,6 +246,8 @@ class PersonSerializer(serializers.ModelSerializer):
             validated_data["inviter"] = request.user
             validated_data["branch"] = request.user.branch
 
+        note = validated_data.pop("note", "").strip() if "note" in validated_data else ""
+
         first_name = validated_data.get("first_name", "")
         last_name = validated_data.get("last_name", "")
 
@@ -263,7 +268,19 @@ class PersonSerializer(serializers.ModelSerializer):
             counter += 1
 
         validated_data["username"] = username
-        return super().create(validated_data)
+        person = super().create(validated_data)
+
+        if note:
+            Journey.objects.create(
+                user=person,
+                type="NOTE",
+                title="Visitor note",
+                description=note,
+                date=person.date_first_attended or timezone.now().date(),
+                verified_by=None,
+            )
+
+        return person
 
     def update(self, instance, validated_data):
         """Update person and track branch transfers"""

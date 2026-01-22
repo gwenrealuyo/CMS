@@ -8,12 +8,16 @@ interface AddVisitorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (visitorData: Partial<Person>) => Promise<Person>;
+  defaultDateFirstAttended?: string;
+  defaultFirstActivityAttended?: string;
 }
 
 export default function AddVisitorModal({
   isOpen,
   onClose,
   onAdd,
+  defaultDateFirstAttended,
+  defaultFirstActivityAttended,
 }: AddVisitorModalProps) {
   const [formData, setFormData] = useState({
     first_name: "",
@@ -22,9 +26,12 @@ export default function AddVisitorModal({
     last_name: "",
     facebook_name: "",
     inviter: "",
-    date_first_attended: new Date().toISOString().split("T")[0],
-    first_activity_attended: "CLUSTERING" as any,
+    date_first_attended:
+      defaultDateFirstAttended || new Date().toISOString().split("T")[0],
+    first_activity_attended:
+      (defaultFirstActivityAttended as any) || ("CLUSTERING" as any),
     gender: "" as "MALE" | "FEMALE" | "",
+    note: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +39,17 @@ export default function AddVisitorModal({
   const [inviterSearch, setInviterSearch] = useState("");
   const [showInviterDropdown, setShowInviterDropdown] = useState(false);
   const inviterDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData((prev) => ({
+      ...prev,
+      date_first_attended:
+        defaultDateFirstAttended || new Date().toISOString().split("T")[0],
+      first_activity_attended:
+        (defaultFirstActivityAttended as any) || "CLUSTERING",
+    }));
+  }, [isOpen, defaultDateFirstAttended, defaultFirstActivityAttended]);
 
   // Fetch people for inviter selection
   useEffect(() => {
@@ -53,7 +71,7 @@ export default function AddVisitorModal({
             dateFirstAttended: p.date_first_attended,
           };
         });
-        setPeople(peopleUI);
+        setPeople(peopleUI.filter((person) => person.role !== "ADMIN"));
       } catch (error) {
         console.error("Error fetching people:", error);
       }
@@ -78,6 +96,7 @@ export default function AddVisitorModal({
         role: "VISITOR" as const,
         status: "ACTIVE" as const,
         gender: formData.gender || undefined,
+        note: formData.note?.trim() || undefined,
       };
 
       await onAdd(visitorData);
@@ -90,9 +109,12 @@ export default function AddVisitorModal({
         last_name: "",
         facebook_name: "",
         inviter: "",
-        date_first_attended: new Date().toISOString().split("T")[0],
-        first_activity_attended: "CLUSTERING",
+        date_first_attended:
+          defaultDateFirstAttended || new Date().toISOString().split("T")[0],
+        first_activity_attended:
+          (defaultFirstActivityAttended as any) || "CLUSTERING",
         gender: "",
+        note: "",
       });
       onClose();
     } catch (err) {
@@ -111,9 +133,12 @@ export default function AddVisitorModal({
         last_name: "",
         facebook_name: "",
         inviter: "",
-        date_first_attended: new Date().toISOString().split("T")[0],
-        first_activity_attended: "CLUSTERING",
+        date_first_attended:
+          defaultDateFirstAttended || new Date().toISOString().split("T")[0],
+        first_activity_attended:
+          (defaultFirstActivityAttended as any) || "CLUSTERING",
         gender: "",
+        note: "",
       });
       setError(null);
       onClose();
@@ -261,6 +286,21 @@ export default function AddVisitorModal({
               <option value="FEMALE">Female</option>
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Notes
+          </label>
+          <textarea
+            value={formData.note}
+            onChange={(e) =>
+              setFormData({ ...formData, note: e.target.value })
+            }
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Add notes about this visitor..."
+          />
         </div>
 
         {/* Date First Attended and First Activity Attended - 2 columns */}

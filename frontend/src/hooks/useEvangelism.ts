@@ -5,6 +5,8 @@ import {
   EvangelismGroupMember,
   EvangelismSession,
   EvangelismWeeklyReport,
+  EvangelismPeopleTallyRow,
+  EvangelismTallyRow,
   Prospect,
   FollowUpTask,
   DropOff,
@@ -201,6 +203,69 @@ export const useEvangelismSessions = (groupId: number | string | null) => {
     updateSession,
     deleteSession,
     createRecurringSessions,
+  };
+};
+
+export const useEvangelismWeeklyReports = (groupId: number | string | null) => {
+  const [reports, setReports] = useState<EvangelismWeeklyReport[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchReports = useCallback(
+    async (params?: { year?: number; week_number?: number; gathering_type?: string }) => {
+      if (!groupId) return;
+      try {
+        setLoading(true);
+        const response = await evangelismApi.listWeeklyReports({
+          evangelism_group: groupId,
+          ...params,
+        });
+        setReports(response.data);
+        setError(null);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load reports");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [groupId]
+  );
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  const createReport = async (data: Partial<EvangelismWeeklyReport>) => {
+    const response = await evangelismApi.createWeeklyReport(data);
+    setReports((prev) => [response.data, ...prev]);
+    return response.data;
+  };
+
+  const updateReport = async (
+    id: number | string,
+    data: Partial<EvangelismWeeklyReport>
+  ) => {
+    const response = await evangelismApi.updateWeeklyReport(id, data);
+    setReports((prev) =>
+      prev.map((report) => (report.id === response.data.id ? response.data : report))
+    );
+    return response.data;
+  };
+
+  const deleteReport = async (id: number | string) => {
+    await evangelismApi.deleteWeeklyReport(id);
+    setReports((prev) => prev.filter((report) => report.id !== String(id)));
+  };
+
+  return {
+    reports,
+    loading,
+    error,
+    fetchReports,
+    createReport,
+    updateReport,
+    deleteReport,
   };
 };
 
@@ -500,6 +565,68 @@ export const useMonthlyStatistics = (params?: {
   }, [fetchStatistics]);
 
   return { statistics, loading, error, fetchStatistics };
+};
+
+export const useEvangelismTally = (params?: {
+  cluster?: number | string;
+  year?: number;
+  week_number?: number;
+}) => {
+  const [rows, setRows] = useState<EvangelismTallyRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cluster = params?.cluster;
+  const year = params?.year;
+  const week_number = params?.week_number;
+
+  const fetchTally = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await evangelismApi.getTally({ cluster, year, week_number });
+      setRows(response.data);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load tally data");
+    } finally {
+      setLoading(false);
+    }
+  }, [cluster, year, week_number]);
+
+  useEffect(() => {
+    fetchTally();
+  }, [fetchTally]);
+
+  return { rows, loading, error, fetchTally };
+};
+
+export const useEvangelismPeopleTally = (params?: { year?: number }) => {
+  const [rows, setRows] = useState<EvangelismPeopleTallyRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const year = params?.year;
+
+  const fetchPeopleTally = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await evangelismApi.getPeopleTally({ year });
+      setRows(response.data);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load people tally");
+    } finally {
+      setLoading(false);
+    }
+  }, [year]);
+
+  useEffect(() => {
+    fetchPeopleTally();
+  }, [fetchPeopleTally]);
+
+  return { rows, loading, error, fetchPeopleTally };
 };
 
 export const useFollowUpTasks = (filters?: {

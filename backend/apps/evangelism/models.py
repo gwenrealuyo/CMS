@@ -338,9 +338,7 @@ class DropOff(models.Model):
         choices=Prospect.PipelineStage.choices,
     )
     days_inactive = models.IntegerField()
-    reason = models.CharField(
-        max_length=20, choices=DropOffReason.choices, blank=True
-    )
+    reason = models.CharField(max_length=20, choices=DropOffReason.choices, blank=True)
     reason_details = models.TextField(blank=True)
     recovery_attempted = models.BooleanField(default=False)
     recovery_date = models.DateField(null=True, blank=True)
@@ -355,7 +353,9 @@ class DropOff(models.Model):
         verbose_name_plural = "Drop-offs"
 
     def __str__(self):
-        return f"{self.prospect.name} - {self.drop_off_date} ({self.get_reason_display()})"
+        return (
+            f"{self.prospect.name} - {self.drop_off_date} ({self.get_reason_display()})"
+        )
 
 
 class Conversion(models.Model):
@@ -493,4 +493,3 @@ class Each1Reach1Goal(models.Model):
 
     def __str__(self):
         return f"{self.cluster.name} - {self.year} ({self.achieved_conversions}/{self.target_conversions})"
-

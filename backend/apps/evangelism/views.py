@@ -102,6 +102,9 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
+        branch_id = self.request.query_params.get("branch")
+        if branch_id:
+            queryset = queryset.filter(cluster__branch=branch_id)
         
         # ADMIN/PASTOR: All groups
         if user.role in ["ADMIN", "PASTOR"]:

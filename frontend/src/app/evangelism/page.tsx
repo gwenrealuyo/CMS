@@ -255,6 +255,7 @@ export default function EvangelismPage() {
     setDebouncedSearchQuery("");
     setFilter("search", "");
     setFilter("cluster", "all");
+    setFilter("branch", "all");
     setFilter("is_active", true);
   };
 
@@ -546,22 +547,52 @@ export default function EvangelismPage() {
         {activeTab === "groups" && (
           <div className="space-y-6">
             {/* Filters */}
-            <Card title="Search & Filter">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <input
-                  type="text"
-                  placeholder="Search groups by name or description..."
-                  value={searchValue}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="flex-1 w-full px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                />
-                <Button
-                  variant="tertiary"
-                  onClick={handleResetFilters}
-                  className="w-full sm:w-auto min-h-[44px]"
-                >
-                  Reset
-                </Button>
+            <Card>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Name, description"
+                    value={searchValue}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="w-full px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  />
+                </div>
+                <div className="w-full lg:w-56">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Branch
+                  </label>
+                  <select
+                    value={
+                      filters.branch === undefined ? "" : String(filters.branch)
+                    }
+                    onChange={(e) =>
+                      setFilter("branch", e.target.value || "all")
+                    }
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  >
+                    <option value="all">All branches</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={String(branch.id)}>
+                        {branch.code
+                          ? `${branch.code} - ${branch.name}`
+                          : branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-full lg:w-auto">
+                  <Button
+                    variant="tertiary"
+                    onClick={handleResetFilters}
+                    className="w-full lg:w-auto min-h-[44px]"
+                  >
+                    Reset
+                  </Button>
+                </div>
               </div>
             </Card>
 

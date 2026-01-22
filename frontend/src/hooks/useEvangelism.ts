@@ -23,6 +23,7 @@ import { Person } from "@/src/types/person";
 export interface EvangelismFilters {
   search?: string;
   cluster?: number | string | "all";
+  branch?: number | string | "all";
   is_active?: boolean | "all";
 }
 
@@ -31,6 +32,7 @@ export const useEvangelismGroups = () => {
   const [filters, setFilters] = useState<EvangelismFilters>({
     search: "",
     cluster: "all",
+    branch: "all",
     is_active: true,
   });
   const [loading, setLoading] = useState(false);
@@ -43,6 +45,9 @@ export const useEvangelismGroups = () => {
       if (filters.search) params.search = filters.search;
       if (filters.cluster && filters.cluster !== "all") {
         params.cluster = filters.cluster;
+      }
+      if (filters.branch && filters.branch !== "all") {
+        params.branch = filters.branch;
       }
       if (filters.is_active !== "all") {
         params.is_active = filters.is_active ?? undefined;

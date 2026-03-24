@@ -3,6 +3,7 @@ import { Person, JourneyType } from "@/src/types/person";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
 import { journeysApi } from "@/src/lib/api";
+import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import toast from "react-hot-toast";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -386,12 +387,7 @@ export default function PersonForm({
       filtered = filtered.filter((j) => j.type === journeyFilter);
     }
 
-    // Sort by date (newest first)
-    return [...filtered].sort((a, b) => {
-      const dateA = new Date(a.date || 0).getTime();
-      const dateB = new Date(b.date || 0).getTime();
-      return dateB - dateA;
-    });
+    return [...filtered].sort(compareJourneysNewestFirst);
   }, [formData.journeys, journeySearch, journeyFilter]);
 
   // Virtualizer for journey list

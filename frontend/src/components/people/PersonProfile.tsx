@@ -4,6 +4,7 @@ import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { journeysApi, branchesApi } from "@/src/lib/api";
+import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface PersonProfileProps {
@@ -131,12 +132,8 @@ export default function PersonProfile({
       filtered = filtered.filter((j) => j.type === journeyFilter);
     }
 
-    // Sort by date (newest first)
-    return [...filtered].sort((a, b) => {
-      const dateA = new Date(a.date || 0).getTime();
-      const dateB = new Date(b.date || 0).getTime();
-      return dateB - dateA;
-    });
+    // Newest first: date, then created_at, then id (same-day tie-break)
+    return [...filtered].sort(compareJourneysNewestFirst);
   }, [journeys, journeySearch, journeyFilter]);
 
   // Virtualizer for journey list
@@ -1244,7 +1241,7 @@ export default function PersonProfile({
                 d="M12 6v6m0 0v6m0-6h6m-6 0H6"
               />
             </svg>
-            <span>Add Timeline</span>
+            <span>Add/Edit Timeline</span>
           </Button>
         )}
       </div>

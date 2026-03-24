@@ -52,6 +52,10 @@ export default function PeoplePage() {
   const [createInitialData, setCreateInitialData] =
     useState<Partial<Person> | undefined>(undefined);
   const [viewEditPerson, setViewEditPerson] = useState<Person | null>(null);
+  const viewEditPersonRef = useRef<Person | null>(null);
+  useEffect(() => {
+    viewEditPersonRef.current = viewEditPerson;
+  }, [viewEditPerson]);
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
   const [startOnTimelineTab, setStartOnTimelineTab] = useState(false);
   const [editFamily, setEditFamily] = useState<Family | null>(null);
@@ -141,6 +145,10 @@ export default function PeoplePage() {
   const [personOverCluster, setPersonOverCluster] = useState<Person | null>(
     null
   );
+  const personOverClusterRef = useRef<Person | null>(null);
+  useEffect(() => {
+    personOverClusterRef.current = personOverCluster;
+  }, [personOverCluster]);
   const [showFamilyOverCluster, setShowFamilyOverCluster] = useState(false);
   const [familyOverCluster, setFamilyOverCluster] = useState<Family | null>(
     null
@@ -298,6 +306,39 @@ export default function PeoplePage() {
       console.error("Failed to load clusters", e);
     } finally {
       setClustersLoading(false);
+    }
+  };
+
+  /** Refetch open person profiles when cluster membership changes so journey timelines stay in sync. */
+  const refreshOpenPersonProfilesAfterClusterMemberChange = async (
+    previousMemberIds: Array<string | number> | undefined,
+    nextMemberIds: Array<string | number> | undefined
+  ) => {
+    const prev = new Set((previousMemberIds ?? []).map((id) => String(id)));
+    const next = new Set((nextMemberIds ?? []).map((id) => String(id)));
+    const affected = new Set<string>();
+    Array.from(next).forEach((id) => {
+      if (!prev.has(id)) affected.add(id);
+    });
+    Array.from(prev).forEach((id) => {
+      if (!next.has(id)) affected.add(id);
+    });
+    const viewId = viewEditPersonRef.current?.id;
+    const overId = personOverClusterRef.current?.id;
+    // Member ids from API may be string or number; use == so "7" matches 7.
+    const idsToFetch = Array.from(affected).filter(
+      (id) =>
+        (viewId != null && id == viewId) || (overId != null && id == overId)
+    );
+    for (const pid of idsToFetch) {
+      try {
+        const res = await peopleApi.getById(String(pid));
+        const p = res.data;
+        setViewEditPerson((cur) => (cur != null && cur.id == pid ? p : cur));
+        setPersonOverCluster((cur) => (cur != null && cur.id == pid ? p : cur));
+      } catch (e) {
+        console.error("Failed to refresh person after cluster change:", e);
+      }
     }
   };
 
@@ -572,8 +613,10 @@ export default function PeoplePage() {
 
   const handleCreateCluster = async (data: Partial<Cluster>) => {
     try {
+      const nextMembers = (data as { members?: Array<string | number> }).members;
       await clustersApi.create(data as any);
       await fetchClusters();
+      await refreshOpenPersonProfilesAfterClusterMemberChange([], nextMembers);
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error creating cluster:", error);
@@ -585,11 +628,20 @@ export default function PeoplePage() {
   const handleUpdateCluster = async (data: Partial<Cluster>) => {
     if (editCluster) {
       try {
+        const prevMembers = (editCluster as { members?: unknown }).members as
+          | Array<string | number>
+          | undefined;
         const updatedCluster = await clustersApi.update(
           editCluster.id,
           data as any
         );
         await fetchClusters();
+        if ((data as { members?: unknown }).members !== undefined) {
+          await refreshOpenPersonProfilesAfterClusterMemberChange(
+            prevMembers,
+            (data as { members?: Array<string | number> }).members
+          );
+        }
 
         if (viewCluster) {
           // If editing from view, update the viewCluster with new data and return to view mode
@@ -614,12 +666,19 @@ export default function PeoplePage() {
   const handleAssignMembers = async (memberIds: string[]) => {
     if (assignMembersModal.cluster) {
       try {
+        const prevMembers =
+          (assignMembersModal.cluster as unknown as { members?: Array<string | number> })
+            .members || [];
         // Include existing families so backend validators that require it won't fail
         await clustersApi.update(assignMembersModal.cluster.id, {
           members: memberIds,
           families: (assignMembersModal.cluster as any).families || [],
         } as any);
         await fetchClusters();
+        await refreshOpenPersonProfilesAfterClusterMemberChange(
+          prevMembers,
+          memberIds
+        );
 
         // Update viewCluster if it's the same cluster
         if (viewCluster && viewCluster.id === assignMembersModal.cluster.id) {
@@ -2208,8 +2267,16 @@ export default function PeoplePage() {
             onSubmit={async (data) => {
               // Directly update the cluster in overlay context
               if (editClusterOverlay) {
+                const prevMembers =
+                  (editClusterOverlay as { members?: unknown }).members || [];
                 await clustersApi.update(editClusterOverlay.id, data as any);
                 await fetchClusters();
+                if ((data as { members?: unknown }).members !== undefined) {
+                  await refreshOpenPersonProfilesAfterClusterMemberChange(
+                    prevMembers as Array<string | number>,
+                    (data as { members?: Array<string | number> }).members
+                  );
+                }
                 try {
                   const refreshed = await clustersApi.getById(
                     editClusterOverlay.id
@@ -2641,6 +2708,10 @@ export default function PeoplePage() {
                               description: c.description,
                             } as any);
                             await fetchClusters();
+                            await refreshOpenPersonProfilesAfterClusterMemberChange(
+                              members,
+                              updatedMembers
+                            );
                             setSelectClusterModal({
                               isOpen: false,
                               person: null,

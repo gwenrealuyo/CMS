@@ -9,15 +9,24 @@ interface EvangelismSummaryProps {
   summary: SummaryType | null;
   loading?: boolean;
   error?: string | null;
+  each1Reach1Progress?: {
+    year: number;
+    achieved: number;
+    target: number;
+    percentage: number;
+    loading?: boolean;
+    error?: string | null;
+  };
 }
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat().format(value ?? 0);
 
-export default function EvangelismSummary({ 
-  summary, 
+export default function EvangelismSummary({
+  summary,
   loading = false,
-  error = null 
+  error = null,
+  each1Reach1Progress,
 }: EvangelismSummaryProps) {
   if (loading) {
     return (
@@ -48,6 +57,22 @@ export default function EvangelismSummary({
   }
 
   const inactiveGroups = summary.total_groups - summary.active_groups;
+  const progressValue = each1Reach1Progress?.loading
+    ? "..."
+    : each1Reach1Progress?.error
+    ? "N/A"
+    : `${(each1Reach1Progress?.percentage ?? 0).toFixed(1)}%`;
+  const progressSubtitle = each1Reach1Progress?.loading
+    ? "Loading goal progress..."
+    : each1Reach1Progress?.error
+    ? "Unable to load goal progress"
+    : each1Reach1Progress && each1Reach1Progress.target > 0
+    ? `${formatNumber(each1Reach1Progress.achieved)} / ${formatNumber(
+        each1Reach1Progress.target
+      )} conversions in ${each1Reach1Progress.year}`
+    : each1Reach1Progress
+    ? `No goals set for ${each1Reach1Progress.year}`
+    : "No goals set";
 
   return (
     <div className="space-y-6">
@@ -58,11 +83,6 @@ export default function EvangelismSummary({
           subtitle={`${summary.active_groups} active, ${inactiveGroups} inactive`}
         />
         <SummaryCard
-          title="Active Groups"
-          value={formatNumber(summary.active_groups)}
-          subtitle="Currently active Bible Study groups"
-        />
-        <SummaryCard
           title="Total Visitors"
           value={formatNumber(summary.total_prospects)}
           subtitle="People being evangelized"
@@ -71,6 +91,11 @@ export default function EvangelismSummary({
           title="Total Conversions"
           value={formatNumber(summary.total_conversions)}
           subtitle="Completed conversions"
+        />
+        <SummaryCard
+          title="Each 1 Reach 1 Goal"
+          value={progressValue}
+          subtitle={progressSubtitle}
         />
       </div>
     </div>

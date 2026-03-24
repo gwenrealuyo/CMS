@@ -15,6 +15,7 @@ import {
   useEvangelismWeeklyReports,
   useProspects,
   useConversions,
+  useEach1Reach1Goals,
   useEvangelismSummary,
 } from "@/src/hooks/useEvangelism";
 import { branchesApi, clustersApi, evangelismApi, peopleApi } from "@/src/lib/api";
@@ -71,6 +72,17 @@ export default function EvangelismPage() {
     error: summaryError,
     fetchSummary,
   } = useEvangelismSummary();
+
+  const currentYear = new Date().getFullYear();
+  const each1Reach1Filters = useMemo(
+    () => ({ year: currentYear }),
+    [currentYear]
+  );
+  const {
+    goals: each1Reach1Goals,
+    loading: each1Reach1Loading,
+    error: each1Reach1Error,
+  } = useEach1Reach1Goals(each1Reach1Filters);
 
   const [searchValue, setSearchValue] = useState(filters.search ?? "");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(
@@ -168,6 +180,19 @@ export default function EvangelismPage() {
     });
   }, [prospects]);
 
+  const each1Reach1Totals = useMemo(() => {
+    const totals = each1Reach1Goals.reduce(
+      (acc, goal) => ({
+        target: acc.target + (goal.target_conversions || 0),
+        achieved: acc.achieved + (goal.achieved_conversions || 0),
+      }),
+      { target: 0, achieved: 0 }
+    );
+    const percentage =
+      totals.target > 0 ? (totals.achieved / totals.target) * 100 : 0;
+    return { ...totals, percentage };
+  }, [each1Reach1Goals]);
+
   const [coordinators, setCoordinators] = useState<Person[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -187,7 +212,7 @@ export default function EvangelismPage() {
   const [activeTab, setActiveTab] = useState<
     "groups" | "each1reach1" | "tally" | "reports" | "bible_sharers"
   >("groups");
-  const [tallyYear, setTallyYear] = useState(new Date().getFullYear());
+  const [tallyYear, setTallyYear] = useState(currentYear);
 
   const roleLabels: Record<ClassMemberRole, string> = {
     LEADER: "Leader",
@@ -483,6 +508,14 @@ export default function EvangelismPage() {
           summary={summary}
           loading={summaryLoading}
           error={summaryError}
+          each1Reach1Progress={{
+            year: currentYear,
+            achieved: each1Reach1Totals.achieved,
+            target: each1Reach1Totals.target,
+            percentage: each1Reach1Totals.percentage,
+            loading: each1Reach1Loading,
+            error: each1Reach1Error,
+          }}
         />
 
         {/* Tabs */}

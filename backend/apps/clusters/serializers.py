@@ -91,32 +91,7 @@ class ClusterSerializer(serializers.ModelSerializer):
         # Find new members (added)
         added_member_ids = new_member_ids - old_member_ids
 
-        # Find removed members
-        removed_member_ids = old_member_ids - new_member_ids
-
-        # Handle removed members - delete "Joined Cluster" journeys if they exist
-        if removed_member_ids:
-            removed_persons = Person.objects.filter(id__in=removed_member_ids)
-            title_to_delete = f"Joined Cluster - {cluster_display}"
-
-            for person in removed_persons:
-                # Check if person is now in another cluster (transfer case)
-                current_clusters = person.clusters.exclude(id=cluster.id)
-                if not current_clusters.exists():
-                    # Person was removed and not transferred - delete journey for this specific cluster
-                    try:
-                        Journey.objects.filter(
-                            user=person,
-                            type="CLUSTER",
-                            title=title_to_delete,
-                            date=today,
-                        ).delete()
-                    except Exception as e:
-                        logger.error(
-                            f"Error deleting journey for removed member {person.id}: {str(e)}"
-                        )
-
-        # Create journeys for new members
+        # Create journeys for new members (do not delete past "Added to cluster" rows when someone leaves)
         if added_member_ids:
             new_members = Person.objects.filter(id__in=added_member_ids)
 
@@ -129,49 +104,38 @@ class ClusterSerializer(serializers.ModelSerializer):
 
                 is_transfer = bool(prev_cluster_ids) or current_other_clusters.exists()
 
-                # Determine title and description first
+                title = f"Added to cluster: {cluster_display}"
                 if is_transfer:
-                    # Get the previous cluster for description
                     prev_cluster = None
                     if prev_cluster_ids:
-                        # Get the first previous cluster
                         prev_cluster = Cluster.objects.filter(
                             id__in=prev_cluster_ids
                         ).first()
                     if not prev_cluster and current_other_clusters.exists():
-                        # Fallback to current other clusters
                         prev_cluster = current_other_clusters.first()
 
                     if prev_cluster:
                         prev_cluster_display = self._get_cluster_display_name(
                             prev_cluster
                         )
-                        title = f"Transferred to Cluster - {cluster_display}"
-                        description = f"Transferred from {prev_cluster_display}"
+                        description = f"Transferred from {prev_cluster_display}."
                     else:
-                        # Transfer detected but can't find previous cluster - use generic message
-                        title = f"Transferred to Cluster - {cluster_display}"
-                        description = "Transferred from another cluster"
+                        description = "Transferred from another cluster."
                 else:
-                    title = f"Joined Cluster - {cluster_display}"
-                    description = "Assigned to cluster"
+                    description = "Added to this cluster."
 
-                # Check for duplicate journey (exact title match)
-                existing = Journey.objects.filter(
-                    user=person, date=today, type="CLUSTER", title=title
-                ).exists()
-
-                if not existing:
-                    journeys_to_create.append(
-                        Journey(
-                            user=person,
-                            title=title,
-                            date=today,
-                            type="CLUSTER",
-                            description=description,
-                            verified_by=verified_by,
-                        )
+                # Do not de-dupe by same title+date: past rows are kept when someone leaves, so
+                # re-joining the same cluster the same day must still create a new journey.
+                journeys_to_create.append(
+                    Journey(
+                        user=person,
+                        title=title,
+                        date=today,
+                        type="CLUSTER",
+                        description=description,
+                        verified_by=verified_by,
                     )
+                )
 
         if journeys_to_create:
             try:

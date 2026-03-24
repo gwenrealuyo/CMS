@@ -117,4 +117,3 @@ function SummaryCard({ title, value, subtitle }: SummaryCardProps) {
     </Card>
   );
 }
-

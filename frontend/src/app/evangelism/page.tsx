@@ -18,7 +18,12 @@ import {
   useEach1Reach1Goals,
   useEvangelismSummary,
 } from "@/src/hooks/useEvangelism";
-import { branchesApi, clustersApi, evangelismApi, peopleApi } from "@/src/lib/api";
+import {
+  branchesApi,
+  clustersApi,
+  evangelismApi,
+  peopleApi,
+} from "@/src/lib/api";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   EvangelismGroup,
@@ -249,11 +254,11 @@ export default function EvangelismPage() {
       try {
         const [coordinatorsRes, clustersRes, branchesRes, peopleRes] =
           await Promise.all([
-          peopleApi.search({ role: "COORDINATOR" }),
-          clustersApi.getAll(),
-          branchesApi.getAll(),
-          peopleApi.getAll(),
-        ]);
+            peopleApi.search({ role: "COORDINATOR" }),
+            clustersApi.getAll(),
+            branchesApi.getAll(),
+            peopleApi.getAll(),
+          ]);
         setCoordinators(coordinatorsRes.data);
         setClusters(clustersRes.data);
         setBranches(branchesRes.data);
@@ -1246,7 +1251,9 @@ export default function EvangelismPage() {
               }}
               isSubmitting={isSubmitting}
               error={formError}
-              defaultGroupId={viewEditGroup ? String(viewEditGroup.id) : undefined}
+              defaultGroupId={
+                viewEditGroup ? String(viewEditGroup.id) : undefined
+              }
             />
           </Modal>
         )}
@@ -1300,7 +1307,6 @@ export default function EvangelismPage() {
             />
           </Modal>
         )}
-
 
         {/* Delete Confirmation */}
         <ConfirmationModal
@@ -1399,7 +1405,10 @@ export default function EvangelismPage() {
             })
           }
           onConfirm={() => {
-            if (roleChangeConfirmation.member && roleChangeConfirmation.nextRole) {
+            if (
+              roleChangeConfirmation.member &&
+              roleChangeConfirmation.nextRole
+            ) {
               (async () => {
                 try {
                   setRoleChangeConfirmation((prev) => ({
@@ -1436,7 +1445,11 @@ export default function EvangelismPage() {
           title="Change Member Role"
           message={
             roleChangeConfirmation.member && roleChangeConfirmation.nextRole
-              ? `Change "${roleChangeConfirmation.member.person?.full_name || roleChangeConfirmation.member.person?.username || "this member"}" to ${roleLabels[roleChangeConfirmation.nextRole]}?`
+              ? `Change "${
+                  roleChangeConfirmation.member.person?.full_name ||
+                  roleChangeConfirmation.member.person?.username ||
+                  "this member"
+                }" to ${roleLabels[roleChangeConfirmation.nextRole]}?`
               : "Change this member's role?"
           }
           confirmText="Update Role"
@@ -1907,4 +1920,3 @@ function UpdateProgressModalContent({
     </form>
   );
 }
-

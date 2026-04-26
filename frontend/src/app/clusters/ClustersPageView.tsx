@@ -14,6 +14,7 @@ import ClusterFilterCard from "@/src/components/clusters/ClusterFilterCard";
 import ClusterSortDropdown from "@/src/components/clusters/ClusterSortDropdown";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import PersonProfile from "@/src/components/people/PersonProfile";
+import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
 import FamilyView from "@/src/components/families/FamilyView";
 import BulkActionsMenu from "@/src/components/people/BulkActionsMenu";
 import Modal from "@/src/components/ui/Modal";
@@ -74,6 +75,15 @@ interface ClustersPageViewProps {
   clusterViewMode: "view" | "edit";
   isClusterModalOpen: boolean;
   onCloseClusterModal: () => void;
+  isDesktop: boolean;
+  panelOpen: boolean;
+  panelEntity: "cluster" | "person" | "family";
+  panelMode: "view" | "edit" | "create";
+  panelCluster: Cluster | null;
+  panelPerson: Person | null;
+  panelFamily: Family | null;
+  onCloseClusterPanel: () => void;
+  onBackClusterPanel: () => void;
   clusterDeleteConfirmation: {
     isOpen: boolean;
     cluster: Cluster | null;
@@ -185,6 +195,15 @@ export default function ClustersPageView({
   clusterViewMode,
   isClusterModalOpen,
   onCloseClusterModal,
+  isDesktop,
+  panelOpen,
+  panelEntity,
+  panelMode,
+  panelCluster,
+  panelPerson,
+  panelFamily,
+  onCloseClusterPanel,
+  onBackClusterPanel,
   clusterDeleteConfirmation,
   onConfirmDeleteCluster,
   onCloseDeleteConfirmation,
@@ -249,6 +268,160 @@ export default function ClustersPageView({
       !allClusters.some((c) => c.members?.includes(Number(p.id)))
   ).length;
 
+  const getPanelTitle = () => {
+    if (panelEntity === "cluster") {
+      if (panelMode === "create") return "Create Cluster";
+      if (panelMode === "edit") return "Edit Cluster";
+      return "Cluster";
+    }
+    if (panelEntity === "person") return "Profile";
+    return "Family";
+  };
+
+  const renderClusterFlow = (isPanel: boolean) => {
+    const currentViewCluster = isPanel ? panelCluster : viewCluster;
+    const isViewMode = isPanel ? panelMode === "view" : clusterViewMode === "view";
+    const currentEditCluster =
+      isPanel && panelMode === "edit"
+        ? panelCluster
+        : !isPanel
+        ? editCluster
+        : null;
+
+    if (isViewMode && currentViewCluster) {
+      return (
+        <ClusterView
+          cluster={currentViewCluster as any}
+          clusterMembers={peopleUI.filter((p) =>
+            (currentViewCluster.members || []).includes(Number(p.id))
+          )}
+          clusterFamilies={families.filter((f) =>
+            (currentViewCluster.families || []).includes(Number(f.id))
+          )}
+          coordinator={peopleUI.find(
+            (p) => p.id === currentViewCluster.coordinator?.id?.toString()
+          )}
+          onEdit={() => onEditCluster(currentViewCluster)}
+          onDelete={() => onDeleteCluster(currentViewCluster)}
+          onCancel={isPanel ? onBackClusterPanel : onCloseClusterModal}
+          onClose={isPanel ? onCloseClusterPanel : onCloseClusterModal}
+          onAssignMembers={() => onOpenAssignMembers(currentViewCluster)}
+          onSubmitReport={() => {
+            onTabChange("reports");
+            onOpenReportForm(currentViewCluster);
+            if (isPanel) {
+              onCloseClusterPanel();
+            }
+          }}
+          onViewFamily={onViewFamily}
+          onViewPerson={onViewPerson}
+          showTopHeader={!isPanel}
+        />
+      );
+    }
+
+    return (
+      <ClusterForm
+        initialData={currentEditCluster || undefined}
+        panelLayout={isPanel}
+        onSubmit={async (data) => {
+          if (currentEditCluster) {
+            await onUpdateClusterSubmit(data);
+          } else {
+            await onCreateClusterSubmit(data);
+          }
+        }}
+        onCancel={isPanel ? onBackClusterPanel : onCloseClusterModal}
+        error={null}
+        submitting={false}
+      />
+    );
+  };
+
+  const renderPersonFlow = (isPanel: boolean) => {
+    const selectedPerson = isPanel ? panelPerson : personOverCluster;
+    if (!selectedPerson) return null;
+
+    return (
+      <PersonProfile
+        person={selectedPerson}
+        clusters={allClusters as any}
+        families={families}
+        onViewFamily={(f) => {
+          if (onViewFamily) {
+            onViewFamily(f);
+          }
+        }}
+        onViewCluster={(c) => {
+          const cluster = allClusters.find((cl) => cl.id === (c as any).id);
+          if (cluster) {
+            onViewCluster(cluster);
+          }
+        }}
+        onNoFamilyClick={() => {}}
+        onNoClusterClick={() => {}}
+        onEdit={() => {
+          if (isPanel) {
+            onBackClusterPanel();
+          } else {
+            onClosePersonOverCluster();
+          }
+        }}
+        onDelete={() => {
+          if (isPanel) {
+            onBackClusterPanel();
+          } else {
+            onClosePersonOverCluster();
+          }
+        }}
+        onCancel={isPanel ? onBackClusterPanel : onClosePersonOverCluster}
+        onAddTimeline={() => {
+          if (isPanel) {
+            onBackClusterPanel();
+          } else {
+            onClosePersonOverCluster();
+          }
+        }}
+        onClose={isPanel ? onCloseClusterPanel : onClosePersonOverCluster}
+        hideEditButton={true}
+        hideDeleteButton={true}
+        showTopHeader={!isPanel}
+      />
+    );
+  };
+
+  const renderFamilyFlow = (isPanel: boolean) => {
+    const selectedFamily = isPanel ? panelFamily : familyOverCluster;
+    if (!selectedFamily) return null;
+
+    return (
+      <FamilyView
+        family={selectedFamily}
+        familyMembers={peopleUI.filter((p) => selectedFamily.members.includes(p.id))}
+        clusters={allClusters as any}
+        onEdit={() => {
+          if (isPanel) {
+            onBackClusterPanel();
+          } else {
+            onCloseFamilyOverCluster();
+          }
+        }}
+        onDelete={() => {
+          if (isPanel) {
+            onBackClusterPanel();
+          } else {
+            onCloseFamilyOverCluster();
+          }
+        }}
+        onCancel={isPanel ? onBackClusterPanel : onCloseFamilyOverCluster}
+        onClose={isPanel ? onCloseClusterPanel : onCloseFamilyOverCluster}
+        hideEditButton={true}
+        hideDeleteButton={true}
+        showTopHeader={!isPanel}
+      />
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -279,7 +452,14 @@ export default function ClustersPageView({
         <ClusterContentTabs activeTab={activeTab} onTabChange={onTabChange} />
 
         {activeTab === "clusters" && (
-          <div className="space-y-6">
+          <div
+            className={
+              isDesktop && panelOpen
+                ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_500px]"
+                : ""
+            }
+          >
+            <div className="space-y-6 min-w-0">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div
@@ -703,6 +883,19 @@ export default function ClustersPageView({
                 showItemsPerPage={true}
               />
             )}
+            </div>
+
+            {isDesktop && panelOpen && (
+              <PersonDetailPanel
+                isOpen={panelOpen}
+                title={getPanelTitle()}
+                onClose={onCloseClusterPanel}
+              >
+                {panelEntity === "cluster" && renderClusterFlow(true)}
+                {panelEntity === "person" && renderPersonFlow(true)}
+                {panelEntity === "family" && renderFamilyFlow(true)}
+              </PersonDetailPanel>
+            )}
           </div>
         )}
 
@@ -759,7 +952,7 @@ export default function ClustersPageView({
 
         {/* Cluster Modal */}
         <Modal
-          isOpen={isClusterModalOpen}
+          isOpen={!isDesktop && isClusterModalOpen}
           onClose={onCloseClusterModal}
           title={
             clusterViewMode === "view"
@@ -770,49 +963,7 @@ export default function ClustersPageView({
           }
           hideHeader={clusterViewMode === "view" && !!viewCluster}
         >
-          {clusterViewMode === "view" && viewCluster ? (
-            <ClusterView
-              cluster={viewCluster as any}
-              clusterMembers={peopleUI.filter((p) =>
-                (viewCluster.members || []).includes(Number(p.id))
-              )}
-              clusterFamilies={families.filter((f) =>
-                (viewCluster.families || []).includes(Number(f.id))
-              )}
-              coordinator={peopleUI.find(
-                (p) => p.id === viewCluster.coordinator?.id?.toString()
-              )}
-              onEdit={() => {
-                // This will be handled by the container
-                onEditCluster(viewCluster);
-              }}
-              onDelete={() => onDeleteCluster(viewCluster)}
-              onCancel={onCloseClusterModal}
-              onClose={onCloseClusterModal}
-              onAssignMembers={() => onOpenAssignMembers(viewCluster)}
-              onSubmitReport={() => {
-                // Switch to reports tab and open form with cluster selected
-                onTabChange("reports");
-                onOpenReportForm(viewCluster);
-              }}
-              onViewFamily={onViewFamily}
-              onViewPerson={onViewPerson}
-            />
-          ) : (
-            <ClusterForm
-              initialData={editCluster || undefined}
-              onSubmit={async (data) => {
-                if (editCluster) {
-                  await onUpdateClusterSubmit(data);
-                } else {
-                  await onCreateClusterSubmit(data);
-                }
-              }}
-              onCancel={onCloseClusterModal}
-              error={null}
-              submitting={false}
-            />
-          )}
+          {renderClusterFlow(false)}
         </Modal>
 
         {/* Delete Cluster Confirmation */}
@@ -942,7 +1093,7 @@ export default function ClustersPageView({
         />
 
         {/* Person Profile Modal (overlays View Cluster modal) */}
-        {showPersonOverCluster && personOverCluster && (
+        {!isDesktop && showPersonOverCluster && personOverCluster && (
           <Modal
             isOpen={showPersonOverCluster}
             onClose={onClosePersonOverCluster}
@@ -950,53 +1101,12 @@ export default function ClustersPageView({
             hideHeader
             className="!mt-0 z-[50]"
           >
-            <PersonProfile
-              person={personOverCluster}
-              clusters={allClusters as any}
-              families={families}
-              onViewFamily={(f) => {
-                if (onViewFamily) {
-                  onViewFamily(f);
-                }
-              }}
-              onViewCluster={(c) => {
-                // Open cluster view from person profile
-                // Find the cluster in allClusters by ID
-                const cluster = allClusters.find(
-                  (cl) => cl.id === (c as any).id
-                );
-                if (cluster) {
-                  onViewCluster(cluster);
-                }
-              }}
-              onNoFamilyClick={() => {
-                // No-op for now, can be implemented later if needed
-              }}
-              onNoClusterClick={() => {
-                // No-op for now, can be implemented later if needed
-              }}
-              onEdit={() => {
-                // Close person modal and could open edit modal if needed
-                onClosePersonOverCluster();
-              }}
-              onDelete={() => {
-                // Close person modal
-                onClosePersonOverCluster();
-              }}
-              onCancel={onClosePersonOverCluster}
-              onAddTimeline={() => {
-                // Close person modal
-                onClosePersonOverCluster();
-              }}
-              onClose={onClosePersonOverCluster}
-              hideEditButton={true}
-              hideDeleteButton={true}
-            />
+            {renderPersonFlow(false)}
           </Modal>
         )}
 
         {/* Family View Modal (overlays View Cluster modal) */}
-        {showFamilyOverCluster && familyOverCluster && (
+        {!isDesktop && showFamilyOverCluster && familyOverCluster && (
           <Modal
             isOpen={showFamilyOverCluster}
             onClose={onCloseFamilyOverCluster}
@@ -1004,25 +1114,7 @@ export default function ClustersPageView({
             hideHeader
             className="!mt-0 z-[50]"
           >
-            <FamilyView
-              family={familyOverCluster}
-              familyMembers={peopleUI.filter((p) =>
-                familyOverCluster.members.includes(p.id)
-              )}
-              clusters={allClusters as any}
-              onEdit={() => {
-                // Close family modal, could open edit modal if needed
-                onCloseFamilyOverCluster();
-              }}
-              onDelete={() => {
-                // Close family modal
-                onCloseFamilyOverCluster();
-              }}
-              onCancel={onCloseFamilyOverCluster}
-              onClose={onCloseFamilyOverCluster}
-              hideEditButton={true}
-              hideDeleteButton={true}
-            />
+            {renderFamilyFlow(false)}
           </Modal>
         )}
       </div>

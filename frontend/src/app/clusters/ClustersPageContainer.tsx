@@ -13,6 +13,16 @@ import { Person, PersonUI, Family } from "@/src/types/person";
 import { clustersApi } from "@/src/lib/api";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 
+type PanelEntity = "cluster" | "person" | "family";
+type PanelMode = "view" | "edit" | "create";
+type PanelSnapshot = {
+  entity: PanelEntity;
+  mode: PanelMode;
+  cluster: Cluster | null;
+  person: Person | null;
+  family: Family | null;
+};
+
 export default function ClustersPageContainer() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -81,6 +91,14 @@ export default function ClustersPageContainer() {
   const [personOverCluster, setPersonOverCluster] = useState<Person | null>(null);
   const [showEditClusterOverlay, setShowEditClusterOverlay] = useState(false);
   const [editClusterOverlay, setEditClusterOverlay] = useState<Cluster | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelEntity, setPanelEntity] = useState<PanelEntity>("cluster");
+  const [panelMode, setPanelMode] = useState<PanelMode>("view");
+  const [panelCluster, setPanelCluster] = useState<Cluster | null>(null);
+  const [panelPerson, setPanelPerson] = useState<Person | null>(null);
+  const [panelFamily, setPanelFamily] = useState<Family | null>(null);
+  const [panelHistory, setPanelHistory] = useState<PanelSnapshot[]>([]);
   
   // Reports state
   const {
@@ -137,6 +155,15 @@ export default function ClustersPageContainer() {
   useEffect(() => {
     fetchClusters();
   }, [fetchClusters]);
+
+  useEffect(() => {
+    const syncViewport = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
   
   // Apply cluster filters using useMemo for better performance
   const clusters = useMemo(() => {
@@ -365,6 +392,8 @@ export default function ClustersPageContainer() {
       await clustersApi.create(data);
       await fetchClusters();
       setIsClusterModalOpen(false);
+      setPanelOpen(false);
+      setPanelCluster(null);
     } catch (error) {
       console.error("Error creating cluster:", error);
       throw error;
@@ -372,24 +401,31 @@ export default function ClustersPageContainer() {
   };
   
   const handleUpdateCluster = async (data: Partial<ClusterInput>) => {
-    if (editCluster) {
+    const targetCluster = editCluster || panelCluster;
+    if (targetCluster) {
       try {
-        const updatedCluster = await clustersApi.update(editCluster.id, data);
+        const updatedCluster = await clustersApi.update(targetCluster.id, data);
         
         // Optimistically update the cluster in the list instead of refetching all
         setAllClusters((prev) =>
-          prev.map((c) => (c.id === editCluster.id ? updatedCluster.data : c))
+          prev.map((c) => (c.id === targetCluster.id ? updatedCluster.data : c))
         );
         
         if (viewCluster) {
           setViewCluster(updatedCluster.data);
           setEditCluster(null);
           setClusterViewMode("view");
+          setPanelCluster(updatedCluster.data);
+          setPanelMode("view");
         } else {
           setIsClusterModalOpen(false);
           setEditCluster(null);
           setViewCluster(null);
           setClusterViewMode("view");
+        }
+
+        if (panelCluster && panelCluster.id === targetCluster.id) {
+          setPanelCluster(updatedCluster.data);
         }
       } catch (error) {
         console.error("Error updating cluster:", error);
@@ -413,6 +449,8 @@ export default function ClustersPageContainer() {
         });
         setIsClusterModalOpen(false);
         setViewCluster(null);
+        setPanelOpen(false);
+        setPanelCluster(null);
       } catch (error) {
         console.error("Error deleting cluster:", error);
         setClusterDeleteConfirmation((prev) => ({ ...prev, loading: false }));
@@ -604,6 +642,123 @@ export default function ClustersPageContainer() {
       loading: false,
     });
   };
+
+  const closeClusterPanel = useCallback(() => {
+    setPanelOpen(false);
+    setPanelEntity("cluster");
+    setPanelMode("view");
+    setPanelCluster(null);
+    setPanelPerson(null);
+    setPanelFamily(null);
+    setPanelHistory([]);
+  }, []);
+
+  const pushCurrentPanelToHistory = useCallback(() => {
+    if (!panelOpen) return;
+    setPanelHistory((prev) => [
+      ...prev,
+      {
+        entity: panelEntity,
+        mode: panelMode,
+        cluster: panelCluster,
+        person: panelPerson,
+        family: panelFamily,
+      },
+    ]);
+  }, [panelOpen, panelEntity, panelMode, panelCluster, panelPerson, panelFamily]);
+
+  const restorePanelSnapshot = useCallback((snapshot: PanelSnapshot) => {
+    setPanelOpen(true);
+    setPanelEntity(snapshot.entity);
+    setPanelMode(snapshot.mode);
+    setPanelCluster(snapshot.cluster);
+    setPanelPerson(snapshot.person);
+    setPanelFamily(snapshot.family);
+  }, []);
+
+  const goBackClusterPanel = useCallback(() => {
+    let previousSnapshot: PanelSnapshot | null = null;
+    setPanelHistory((prev) => {
+      if (prev.length === 0) return prev;
+      previousSnapshot = prev[prev.length - 1];
+      return prev.slice(0, -1);
+    });
+
+    if (previousSnapshot) {
+      restorePanelSnapshot(previousSnapshot);
+      return;
+    }
+
+    closeClusterPanel();
+  }, [closeClusterPanel, restorePanelSnapshot]);
+
+  const openClusterInteraction = useCallback(
+    (mode: PanelMode, cluster?: Cluster | null) => {
+      if (isDesktop) {
+        pushCurrentPanelToHistory();
+        setIsClusterModalOpen(false);
+        setPanelOpen(true);
+        setPanelEntity("cluster");
+        setPanelMode(mode);
+        setPanelCluster(cluster || null);
+        setPanelPerson(null);
+        setPanelFamily(null);
+        return;
+      }
+
+      if (mode === "view" && cluster) {
+        setViewCluster(cluster);
+        setEditCluster(null);
+        setClusterViewMode("view");
+      } else if (mode === "edit" && cluster) {
+        setEditCluster(cluster);
+        setViewCluster(null);
+        setClusterViewMode("edit");
+      } else {
+        setEditCluster(null);
+        setViewCluster(null);
+        setClusterViewMode("edit");
+      }
+      setIsClusterModalOpen(true);
+    },
+    [isDesktop, pushCurrentPanelToHistory]
+  );
+
+  const openPersonInPanel = useCallback(
+    (person: Person) => {
+      if (isDesktop) {
+        pushCurrentPanelToHistory();
+        setPanelOpen(true);
+        setPanelEntity("person");
+        setPanelMode("view");
+        setPanelPerson(person);
+        setPanelCluster(null);
+        setPanelFamily(null);
+        return;
+      }
+      setPersonOverCluster(person);
+      setShowPersonOverCluster(true);
+    },
+    [isDesktop, pushCurrentPanelToHistory]
+  );
+
+  const openFamilyInPanel = useCallback(
+    (family: Family) => {
+      if (isDesktop) {
+        pushCurrentPanelToHistory();
+        setPanelOpen(true);
+        setPanelEntity("family");
+        setPanelMode("view");
+        setPanelFamily(family);
+        setPanelCluster(null);
+        setPanelPerson(null);
+        return;
+      }
+      setFamilyOverCluster(family);
+      setShowFamilyOverCluster(true);
+    },
+    [isDesktop, pushCurrentPanelToHistory]
+  );
   
   const handleAssignMembers = async (memberIds: number[]) => {
     if (assignMembersModal.cluster) {
@@ -798,21 +953,14 @@ export default function ClustersPageContainer() {
         setSelectedClusterField(null);
       }}
       onViewCluster={(cluster) => {
-        setViewCluster(cluster);
-        setClusterViewMode("view");
-        setIsClusterModalOpen(true);
+        openClusterInteraction("view", cluster);
       }}
       onEditCluster={(cluster) => {
-        setEditCluster(cluster);
-        setClusterViewMode("edit");
-        setIsClusterModalOpen(true);
+        openClusterInteraction("edit", cluster);
       }}
       onDeleteCluster={confirmClusterDelete}
       onCreateCluster={() => {
-        setEditCluster(null);
-        setViewCluster(null);
-        setClusterViewMode("edit");
-        setIsClusterModalOpen(true);
+        openClusterInteraction("create");
       }}
       viewCluster={viewCluster}
       editCluster={editCluster}
@@ -823,7 +971,17 @@ export default function ClustersPageContainer() {
         setViewCluster(null);
         setEditCluster(null);
         setClusterViewMode("view");
+        closeClusterPanel();
       }}
+      isDesktop={isDesktop}
+      panelOpen={panelOpen}
+      panelEntity={panelEntity}
+      panelMode={panelMode}
+      panelCluster={panelCluster}
+      panelPerson={panelPerson}
+      panelFamily={panelFamily}
+      onCloseClusterPanel={closeClusterPanel}
+      onBackClusterPanel={goBackClusterPanel}
       clusterDeleteConfirmation={clusterDeleteConfirmation}
       onConfirmDeleteCluster={handleDeleteCluster}
       onCloseDeleteConfirmation={() => {
@@ -935,12 +1093,10 @@ export default function ClustersPageContainer() {
         });
       }}
       onViewFamily={(f) => {
-        setFamilyOverCluster(f);
-        setShowFamilyOverCluster(true);
+        openFamilyInPanel(f);
       }}
       onViewPerson={(p) => {
-        setPersonOverCluster(p);
-        setShowPersonOverCluster(true);
+        openPersonInPanel(p);
       }}
       // Data
       people={people}

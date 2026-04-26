@@ -9,6 +9,7 @@ interface ModalProps {
   children: ReactNode;
   className?: string;
   hideHeader?: boolean;
+  headerClassName?: string;
 }
 
 export default function Modal({
@@ -18,6 +19,7 @@ export default function Modal({
   children,
   className = "",
   hideHeader = false,
+  headerClassName = "",
 }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
@@ -47,7 +49,9 @@ export default function Modal({
     >
       <div className="bg-white rounded-none md:rounded-lg max-w-3xl w-full h-full md:h-auto md:max-h-[95vh] md:mx-4 overflow-hidden flex flex-col">
         {!hideHeader && (
-          <div className="p-4 md:py-2 md:px-6 pb-0 flex-shrink-0 border-b border-gray-200">
+          <div
+            className={`p-4 md:py-2 md:px-6 pb-0 flex-shrink-0 border-b border-gray-200 ${headerClassName}`}
+          >
             <div className="flex justify-between items-center mb-4 md:mb-0">
               <h2 className="text-lg font-semibold text-[#2D3748]">{title}</h2>
               <button

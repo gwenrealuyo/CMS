@@ -18,6 +18,7 @@ interface PersonFormProps {
   isEditingFromProfile?: boolean;
   startOnTimelineTab?: boolean;
   peopleOptions?: Person[];
+  panelLayout?: boolean;
 }
 
 export default function PersonForm({
@@ -28,6 +29,7 @@ export default function PersonForm({
   isEditingFromProfile = false,
   startOnTimelineTab = false,
   peopleOptions = [],
+  panelLayout = false,
 }: PersonFormProps) {
   const { user } = useAuth();
   const isMember = user?.role === "MEMBER";
@@ -509,7 +511,9 @@ export default function PersonForm({
     <>
       <form
         onSubmit={handleSubmit}
-        className="overflow-y-auto space-y-6 text-sm max-w-3xl -mt-2 md:-mt-4"
+        className={`overflow-y-auto text-sm max-w-3xl ${
+          panelLayout ? "p-4 sm:p-5 space-y-6 mt-0" : "space-y-6 -mt-2 md:-mt-4"
+        }`}
       >
         {/* Tabs */}
         <div className="flex border-b mb-4">
@@ -541,7 +545,9 @@ export default function PersonForm({
 
         {/* BASIC INFO TAB */}
         {activeTab === "basic" && (
-          <div className="space-y-6 overflow-y-auto pr-1">
+          <div
+            className={`space-y-6 overflow-y-auto ${panelLayout ? "pr-0" : "pr-1"}`}
+          >
             <div>
               <div className="p-0">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">
@@ -1090,7 +1096,7 @@ export default function PersonForm({
                 }
                 disabled={loading}
               >
-                Cancel
+                {panelLayout ? "Back" : "Cancel"}
               </Button>
               <Button
                 className="w-full sm:flex-1 min-h-[44px]"
@@ -1109,7 +1115,11 @@ export default function PersonForm({
 
         {/* JOURNEY TIMELINE TAB */}
         {activeTab === "timeline" && (
-          <div className="space-y-4 overflow-y-auto pr-1 p-0">
+          <div
+            className={`space-y-4 overflow-y-auto p-0 ${
+              panelLayout ? "pr-0" : "pr-1"
+            }`}
+          >
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Event Title *

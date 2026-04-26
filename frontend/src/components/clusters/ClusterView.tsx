@@ -1,8 +1,17 @@
+import { useMemo } from "react";
 import { Cluster } from "@/src/types/cluster";
 import { Person, Family } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import { useBranches } from "@/src/hooks/useBranches";
+
+const ROLE_PRIORITY: Record<string, number> = {
+  ADMIN: 5,
+  PASTOR: 4,
+  COORDINATOR: 3,
+  MEMBER: 2,
+  VISITOR: 1,
+};
 
 interface ClusterViewProps {
   cluster: Cluster;
@@ -17,6 +26,7 @@ interface ClusterViewProps {
   onSubmitReport: () => void;
   onViewPerson?: (person: Person) => void;
   onViewFamily?: (family: Family) => void;
+  showTopHeader?: boolean;
 }
 
 export default function ClusterView({
@@ -32,9 +42,10 @@ export default function ClusterView({
   onSubmitReport,
   onViewPerson,
   onViewFamily,
+  showTopHeader = true,
 }: ClusterViewProps) {
   const { branches } = useBranches();
-  
+
   // Find the branch for this cluster
   const clusterBranch = cluster.branch
     ? branches.find((b) => b.id === cluster.branch)
@@ -44,80 +55,135 @@ export default function ClusterView({
   // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, COORDINATOR, PASTOR, etc.)
   // Visitors: role is "VISITOR"
   // ADMIN is excluded from both counts
-  
+
   // Check if coordinator is already in clusterMembers to avoid double counting
-  const coordinatorInMembers = coordinator 
-    ? clusterMembers.some(m => m.id === coordinator.id)
+  const coordinatorInMembers = coordinator
+    ? clusterMembers.some((m) => m.id === coordinator.id)
     : false;
-  
+
   // Calculate members: all people who are not ADMIN or VISITOR
   const memberCountFromCluster = clusterMembers.filter(
-    (member) => member.role !== "ADMIN" && member.role !== "VISITOR"
+    (member) => member.role !== "ADMIN" && member.role !== "VISITOR",
   ).length;
-  
+
   // Add coordinator to member count only if not already in clusterMembers and is not ADMIN/VISITOR
-  const memberCount = memberCountFromCluster + (
-    coordinator && !coordinatorInMembers && coordinator.role !== "ADMIN" && coordinator.role !== "VISITOR"
+  const memberCount =
+    memberCountFromCluster +
+    (coordinator &&
+    !coordinatorInMembers &&
+    coordinator.role !== "ADMIN" &&
+    coordinator.role !== "VISITOR"
       ? 1
-      : 0
-  );
-  
+      : 0);
+
   // Calculate visitors: all people with VISITOR role
   const visitorCountFromCluster = clusterMembers.filter(
-    (member) => member.role === "VISITOR"
+    (member) => member.role === "VISITOR",
   ).length;
-  
+
   // Add coordinator to visitor count only if not already in clusterMembers and is VISITOR
-  const visitorCount = visitorCountFromCluster + (
-    coordinator && !coordinatorInMembers && coordinator.role === "VISITOR"
+  const visitorCount =
+    visitorCountFromCluster +
+    (coordinator && !coordinatorInMembers && coordinator.role === "VISITOR"
       ? 1
-      : 0
-  );
-  
+      : 0);
+
   // Total count includes all non-ADMIN people (members + visitors)
   const totalMemberCount = memberCount + visitorCount;
 
   const formatFullName = (person: Person) => formatPersonName(person);
+  const isPanelMode = !showTopHeader;
+
+  const sortedDisplayMembers = useMemo(() => {
+    const combined = [...clusterMembers];
+    if (
+      coordinator &&
+      !combined.some((member) => member.id === coordinator.id)
+    ) {
+      combined.push(coordinator);
+    }
+
+    return combined.sort((a, b) => {
+      const roleDelta =
+        (ROLE_PRIORITY[b.role] || 0) - (ROLE_PRIORITY[a.role] || 0);
+      if (roleDelta !== 0) return roleDelta;
+
+      const lastNameDelta = (b.last_name || "").localeCompare(
+        a.last_name || "",
+        undefined,
+        {
+          sensitivity: "base",
+        },
+      );
+      if (lastNameDelta !== 0) return lastNameDelta;
+
+      return (b.first_name || "").localeCompare(a.first_name || "", undefined, {
+        sensitivity: "base",
+      });
+    });
+  }, [clusterMembers, coordinator]);
 
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 md:p-4 border-b border-gray-200">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-medium text-gray-900">Cluster Details</h2>
-          <p className="text-xs md:text-[11px] text-gray-600 mt-0.5 truncate">
-            {cluster.name || "Untitled Cluster"}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-red-600 hover:text-red-700 text-xl font-bold p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 ml-2"
-          aria-label="Close"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      {showTopHeader && (
+        <div className="flex items-center justify-between p-3 md:p-4 border-b border-gray-200">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-medium text-gray-900">
+              Cluster Details
+            </h2>
+            <p className="text-xs md:text-[11px] text-gray-600 mt-0.5 truncate">
+              {cluster.name || "Untitled Cluster"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-red-600 hover:text-red-700 text-xl font-bold p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 ml-2"
+            aria-label="Close"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Content */}
-      <div className="p-4 md:p-5 overflow-y-auto flex-1">
-        <div className="space-y-4 md:space-y-5">
+      <div
+        className={`${
+          isPanelMode ? "p-3 sm:p-4" : "p-4 md:p-5"
+        } overflow-y-auto flex-1`}
+      >
+        <div
+          className={`${isPanelMode ? "space-y-3 sm:space-y-4" : "space-y-4 md:space-y-5"}`}
+        >
           {/* Cluster Info Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+          <div
+            className={`rounded-lg p-4 border ${
+              isPanelMode
+                ? "bg-white border-gray-200 shadow-sm"
+                : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100"
+            }`}
+          >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
-                <h2 className="text-lg md:text-xl font-bold text-gray-900 truncate">
+                <h2
+                  className={`${
+                    isPanelMode
+                      ? "text-xl break-words"
+                      : "text-lg md:text-xl truncate"
+                  } font-bold text-gray-900`}
+                >
                   {cluster.name || "Untitled Cluster"}
                 </h2>
                 {cluster.code && (
@@ -170,8 +236,10 @@ export default function ClusterView({
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between text-sm text-gray-700">
-              <div className="flex items-center gap-4">
+            <div
+              className={`${isPanelMode ? "space-y-2" : "flex items-center justify-between"} text-sm text-gray-700`}
+            >
+              <div className="flex items-center gap-4 flex-wrap">
                 {(cluster as any).location && (
                   <div className="flex items-center gap-1">
                     <svg
@@ -250,7 +318,7 @@ export default function ClusterView({
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                     />
                   </svg>
-                  <span className="font-normal">
+                  <span className="font-normal break-words">
                     {formatFullName(coordinator)}
                   </span>
                 </div>
@@ -269,13 +337,17 @@ export default function ClusterView({
           )}
 
           {/* Members */}
-          {(clusterMembers.length > 0 || coordinator) && (
+          {sortedDisplayMembers.length > 0 && (
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <h3 className="text-base md:text-lg font-semibold text-gray-900">
                   Members ({totalMemberCount})
                 </h3>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div
+                  className={`flex ${
+                    isPanelMode ? "flex-row" : "flex-col sm:flex-row"
+                  } gap-2 w-full sm:w-auto`}
+                >
                   <Button
                     onClick={onAssignMembers}
                     variant="secondary"
@@ -318,85 +390,99 @@ export default function ClusterView({
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {/* Show coordinator first if exists */}
-                {coordinator && (
-                  <div
-                    className="flex items-center space-x-2 p-2 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
-                    onClick={() => onViewPerson && onViewPerson(coordinator)}
-                  >
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                      {coordinator.first_name?.[0] || ""}
-                      {coordinator.last_name?.[0] || ""}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate text-sm">
-                        {formatFullName(coordinator)}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {coordinator.email}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-800">
-                        Coordinator
-                      </span>
+              <div
+                className={`grid gap-2 ${
+                  isPanelMode
+                    ? "grid-cols-1 sm:grid-cols-2"
+                    : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                }`}
+              >
+                {sortedDisplayMembers.map((member) =>
+                  isPanelMode ? (
+                    (() => {
+                      const memberName = formatFullName(member);
+                      const isLongWrappedName = memberName.length > 20;
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
+                          onClick={() => onViewPerson && onViewPerson(member)}
+                        >
+                          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                            {member.first_name?.[0] || ""}
+                            {member.last_name?.[0] || ""}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`font-medium text-gray-900 break-words ${
+                                isLongWrappedName
+                                  ? "text-xs leading-5"
+                                  : "text-sm leading-5"
+                              }`}
+                            >
+                              {memberName}
+                            </p>
+                            <div className="">
+                              <span
+                                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${
+                                  member.role === "MEMBER"
+                                    ? "bg-green-100 text-green-800"
+                                    : member.role === "VISITOR"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : member.role === "COORDINATOR"
+                                        ? "bg-purple-100 text-purple-800"
+                                        : member.role === "PASTOR"
+                                          ? "bg-red-100 text-red-800"
+                                          : member.role === "ADMIN"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {member.role}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div
+                      key={member.id}
+                      className="p-2.5 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50 flex items-center space-x-2"
+                      onClick={() => onViewPerson && onViewPerson(member)}
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                        {member.first_name?.[0] || ""}
+                        {member.last_name?.[0] || ""}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate text-sm">
+                          {formatFullName(member)}
+                        </p>
+                        <p className="text-xs text-gray-600 truncate">
+                          {member.email}
+                        </p>
+                      </div>
                       <span
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                          coordinator.role === "MEMBER"
+                        className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${
+                          member.role === "MEMBER"
                             ? "bg-green-100 text-green-800"
-                            : coordinator.role === "VISITOR"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : coordinator.role === "COORDINATOR"
-                            ? "bg-purple-100 text-purple-800"
-                            : coordinator.role === "PASTOR"
-                            ? "bg-red-100 text-red-800"
-                            : coordinator.role === "ADMIN"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
+                            : member.role === "VISITOR"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : member.role === "COORDINATOR"
+                                ? "bg-purple-100 text-purple-800"
+                                : member.role === "PASTOR"
+                                  ? "bg-red-100 text-red-800"
+                                  : member.role === "ADMIN"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {coordinator.role}
+                        {member.role}
                       </span>
                     </div>
-                  </div>
+                  ),
                 )}
-                {/* Show other members */}
-                {clusterMembers.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center space-x-2 p-2 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
-                    onClick={() => onViewPerson && onViewPerson(member)}
-                  >
-                    <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                      {member.first_name?.[0] || ""}
-                      {member.last_name?.[0] || ""}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate text-sm">
-                        {formatFullName(member)}
-                      </p>
-                      <p className="text-xs text-gray-600">{member.email}</p>
-                    </div>
-                    <span
-                      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                        member.role === "MEMBER"
-                          ? "bg-green-100 text-green-800"
-                          : member.role === "VISITOR"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : member.role === "COORDINATOR"
-                          ? "bg-purple-100 text-purple-800"
-                          : member.role === "PASTOR"
-                          ? "bg-red-100 text-red-800"
-                          : member.role === "ADMIN"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {member.role}
-                    </span>
-                  </div>
-                ))}
               </div>
             </div>
           )}
@@ -407,7 +493,13 @@ export default function ClusterView({
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Families ({clusterFamilies.length})
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              <div
+                className={`grid gap-2 ${
+                  isPanelMode
+                    ? "grid-cols-1"
+                    : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                }`}
+              >
                 {clusterFamilies.map((family) => (
                   <div
                     key={family.id}
@@ -484,55 +576,12 @@ export default function ClusterView({
       </div>
 
       {/* Footer */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 md:p-6 border-t border-gray-200 bg-gray-50">
-        <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto sm:order-2">
-          <Button
-            onClick={onCancel}
-            variant="secondary"
-            className="!text-black md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-            <span>Cancel</span>
-          </Button>
-          <Button
-            onClick={onEdit}
-            variant="secondary"
-            className="!text-blue-600 md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-            <span>Edit</span>
-          </Button>
-        </div>
-        <div className="sm:order-1">
-          <div className="border-t border-gray-200 my-2 sm:hidden"></div>
+      {isPanelMode ? (
+        <div className="flex items-center justify-between gap-2 p-3 border-t border-gray-200 bg-white">
           <Button
             onClick={onDelete}
             variant="secondary"
-            className="!text-red-600 md:py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            className="!text-red-600 h-10 px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2"
             aria-label="Delete cluster"
           >
             <svg
@@ -548,9 +597,120 @@ export default function ClusterView({
                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
               />
             </svg>
+            <span>Delete</span>
           </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={onCancel}
+              variant="secondary"
+              className="!text-black h-10 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              <span>Back</span>
+            </Button>
+            <Button
+              onClick={onEdit}
+              variant="secondary"
+              className="!text-blue-600 h-10 px-4 text-sm font-medium bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              <span>Edit</span>
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 md:p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto sm:order-2">
+            <Button
+              onClick={onCancel}
+              variant="secondary"
+              className="!text-black md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              <span>Cancel</span>
+            </Button>
+            <Button
+              onClick={onEdit}
+              variant="secondary"
+              className="!text-blue-600 md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              <span>Edit</span>
+            </Button>
+          </div>
+          <div className="sm:order-1">
+            <div className="border-t border-gray-200 my-2 sm:hidden"></div>
+            <Button
+              onClick={onDelete}
+              variant="secondary"
+              className="!text-red-600 md:py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center min-h-[44px] md:min-h-0 w-full sm:w-auto"
+              aria-label="Delete cluster"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,7 @@ interface FamilyViewProps {
   onViewPerson?: (person: PersonUI) => void;
   hideEditButton?: boolean;
   hideDeleteButton?: boolean;
+  showTopHeader?: boolean;
 }
 
 type SortField =
@@ -36,6 +37,7 @@ export default function FamilyView({
   onViewPerson,
   hideEditButton = false,
   hideDeleteButton = false,
+  showTopHeader = true,
 }: FamilyViewProps) {
   const [sortBy, setSortBy] = useState<SortField>("last_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -174,6 +176,7 @@ export default function FamilyView({
   };
 
   const leader = getLeader();
+  const isPanelMode = !showTopHeader;
 
   // Get unique branch names from family members
   const getFamilyBranches = () => {
@@ -189,33 +192,35 @@ export default function FamilyView({
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-sm sm:text-base font-medium text-gray-900">Family Details</h2>
-          <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5 truncate">
-            The {family.name} Family
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-red-600 hover:text-red-700 text-xl font-bold p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 ml-2"
-          aria-label="Close"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      {showTopHeader && (
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm sm:text-base font-medium text-gray-900">Family Details</h2>
+            <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5 truncate">
+              The {family.name} Family
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-red-600 hover:text-red-700 text-xl font-bold p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 ml-2"
+            aria-label="Close"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       <div className="p-4 sm:p-5 overflow-y-auto flex-1">
@@ -468,102 +473,197 @@ export default function FamilyView({
       </div>
 
       {/* Footer */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
-        {/* Mobile: Primary actions on top */}
-        <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto sm:order-2">
-          <Button
-            onClick={onCancel}
-            variant="secondary"
-            className="!text-black md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-            <span>Cancel</span>
-          </Button>
-          {onAddMember && (
-            <Button
-              onClick={onAddMember}
-              variant="secondary"
-              className="!text-green-600 md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+      {isPanelMode ? (
+        <div className="flex items-center justify-between gap-2 p-3 border-t border-gray-200 bg-white">
+          <div>
+            {!hideDeleteButton && (
+              <Button
+                onClick={onDelete}
+                variant="secondary"
+                className="!text-red-600 h-10 px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-              <span>Add Member</span>
-            </Button>
-          )}
-          {!hideEditButton && (
-            <Button
-              onClick={onEdit}
-              variant="secondary"
-              className="!text-blue-600 md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-              <span>Edit</span>
-            </Button>
-          )}
-        </div>
-        {/* Mobile: Delete at bottom with divider */}
-        {!hideDeleteButton && (
-          <div className="sm:order-1">
-            <div className="border-t border-gray-200 my-2 sm:hidden"></div>
-            <Button
-              onClick={onDelete}
-              variant="secondary"
-              className="!text-red-600 md:py-4 px-4 sm:px-4 md:px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-              <span className="md:hidden">Delete</span>
-            </Button>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                <span>Delete</span>
+              </Button>
+            )}
           </div>
-        )}
-        {hideDeleteButton && <div className="sm:order-1" />}
-      </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={onCancel}
+              variant="secondary"
+              className="!text-black h-10 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              <span>Back</span>
+            </Button>
+            {onAddMember && (
+              <Button
+                onClick={onAddMember}
+                variant="secondary"
+                className="!text-green-600 h-10 px-4 text-sm font-medium bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                <span>Add</span>
+              </Button>
+            )}
+            {!hideEditButton && (
+              <Button
+                onClick={onEdit}
+                variant="secondary"
+                className="!text-blue-600 h-10 px-4 text-sm font-medium bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                <span>Edit</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+          {/* Mobile: Primary actions on top */}
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto sm:order-2">
+            <Button
+              onClick={onCancel}
+              variant="secondary"
+              className="!text-black md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              <span>Cancel</span>
+            </Button>
+            {onAddMember && (
+              <Button
+                onClick={onAddMember}
+                variant="secondary"
+                className="!text-green-600 md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                <span>Add Member</span>
+              </Button>
+            )}
+            {!hideEditButton && (
+              <Button
+                onClick={onEdit}
+                variant="secondary"
+                className="!text-blue-600 md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                <span>Edit</span>
+              </Button>
+            )}
+          </div>
+          {/* Mobile: Delete at bottom with divider */}
+          {!hideDeleteButton && (
+            <div className="sm:order-1">
+              <div className="border-t border-gray-200 my-2 sm:hidden"></div>
+              <Button
+                onClick={onDelete}
+                variant="secondary"
+                className="!text-red-600 md:py-4 px-4 sm:px-4 md:px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                <span className="md:hidden">Delete</span>
+              </Button>
+            </div>
+          )}
+          {hideDeleteButton && <div className="sm:order-1" />}
+        </div>
+      )}
     </div>
   );
 }

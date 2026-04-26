@@ -2,10 +2,9 @@ import { Person, Journey, Family, JourneyType } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { journeysApi, branchesApi } from "@/src/lib/api";
 import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
-import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface PersonProfileProps {
   person: Person;
@@ -22,6 +21,7 @@ interface PersonProfileProps {
   onClose: () => void;
   hideEditButton?: boolean;
   hideDeleteButton?: boolean;
+  showTopHeader?: boolean;
 }
 
 export default function PersonProfile({
@@ -39,6 +39,7 @@ export default function PersonProfile({
   onClose,
   hideEditButton = false,
   hideDeleteButton = false,
+  showTopHeader = true,
 }: PersonProfileProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(
     "overview"
@@ -50,7 +51,6 @@ export default function PersonProfile({
   const [journeyFilter, setJourneyFilter] = useState<JourneyType | "ALL">(
     "ALL"
   );
-  const journeyListRef = useRef<HTMLDivElement>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
 
   useEffect(() => {
@@ -112,6 +112,76 @@ export default function PersonProfile({
     }
   };
 
+  const ProfileFieldRow = ({
+    label,
+    value,
+    fallback = "Not specified",
+    renderAsBadge = false,
+    badgeClassName = "",
+    valueNode,
+  }: {
+    label: string;
+    value?: string | number | null;
+    fallback?: string;
+    renderAsBadge?: boolean;
+    badgeClassName?: string;
+    valueNode?: React.ReactNode;
+  }) => {
+    const isMissing =
+      value === null ||
+      value === undefined ||
+      (typeof value === "string" && value.trim() === "");
+    const displayValue = isMissing ? fallback : value;
+
+    return (
+      <div className="flex items-start justify-between gap-3 py-2">
+        <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          {label}
+        </dt>
+        <dd className="text-right break-words max-w-[65%]">
+          {valueNode ? (
+            valueNode
+          ) : renderAsBadge && !isMissing ? (
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badgeClassName}`}
+            >
+              {displayValue}
+            </span>
+          ) : (
+            <span
+              className={`text-sm ${
+                isMissing ? "text-red-600 font-medium" : "text-gray-800"
+              }`}
+            >
+              {displayValue}
+            </span>
+          )}
+        </dd>
+      </div>
+    );
+  };
+
+  const prettifyFirstActivity = (rawValue?: string) => {
+    if (!rawValue) return "Not specified";
+    return rawValue
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (ch: string) => ch.toUpperCase());
+  };
+
+  const formatDisplayDate = (rawValue?: string | null) => {
+    if (!rawValue) return rawValue;
+    const value = rawValue.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return rawValue;
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return rawValue;
+    return parsed.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   // Filter and sort journeys for virtualization
   const filteredAndSortedJourneys = useMemo(() => {
     let filtered = journeys || [];
@@ -135,14 +205,6 @@ export default function PersonProfile({
     // Newest first: date, then created_at, then id (same-day tie-break)
     return [...filtered].sort(compareJourneysNewestFirst);
   }, [journeys, journeySearch, journeyFilter]);
-
-  // Virtualizer for journey list
-  const virtualizer = useVirtualizer({
-    count: filteredAndSortedJourneys.length,
-    getScrollElement: () => journeyListRef.current,
-    estimateSize: () => 120, // Estimated height per journey item with spacing
-    overscan: 5, // Render 5 extra items outside viewport for smooth scrolling
-  });
 
   const renderTypeIcon = (type: string) => {
     // Small icons inspired by the header style, per event type
@@ -360,59 +422,62 @@ export default function PersonProfile({
         return "bg-gray-100 text-gray-800";
     }
   };
+  const isPanelMode = !showTopHeader;
 
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0 bg-white">
-        <div className="flex-1 min-w-0 pr-2">
-          <h2 className="text-sm sm:text-base font-medium text-gray-900 truncate">
-            Person Details
-          </h2>
-          <p className="text-xs text-gray-600 mt-0.5 truncate">
-            {person.first_name}
-            {(person as any).nickname
-              ? ` "${(person as any).nickname}"`
-              : ""}{" "}
-            {person.middle_name
-              ? `${person.middle_name[0].toUpperCase()}. `
-              : ""}
-            {person.last_name}
-            {person.suffix ? ` ${person.suffix}` : ""}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-red-600 hover:text-red-700 text-xl font-bold p-2 min-h-[44px] min-w-[44px] rounded-md hover:bg-red-50 transition-colors flex items-center justify-center flex-shrink-0"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      {showTopHeader && (
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0 bg-white">
+          <div className="flex-1 min-w-0 pr-2">
+            <h2 className="text-sm sm:text-base font-medium text-gray-900 truncate">
+              Person Details
+            </h2>
+            <p className="text-xs text-gray-600 mt-0.5 truncate">
+              {person.first_name}
+              {(person as any).nickname
+                ? ` "${(person as any).nickname}"`
+                : ""}{" "}
+              {person.middle_name
+                ? `${person.middle_name[0].toUpperCase()}. `
+                : ""}
+              {person.last_name}
+              {person.suffix ? ` ${person.suffix}` : ""}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-red-600 hover:text-red-700 text-xl font-bold p-2 min-h-[44px] min-w-[44px] rounded-md hover:bg-red-50 transition-colors flex items-center justify-center flex-shrink-0"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       <div className="p-4 sm:p-6 overflow-y-auto flex-1">
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4">
           {/* Profile Header Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0">
+          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-3">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
                 {person.first_name?.[0]}
                 {person.last_name?.[0]}
               </div>
               <div className="flex-1 w-full sm:w-auto text-center sm:text-left">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
+                <h2 className="text-lg font-semibold text-gray-900 break-words">
                   {person.first_name}
                   {(person as any).nickname
                     ? ` "${(person as any).nickname}"`
@@ -423,108 +488,22 @@ export default function PersonProfile({
                   {person.last_name}
                   {person.suffix ? ` ${person.suffix}` : ""}
                 </h2>
-                <p className="text-gray-600 text-sm sm:text-base">
-                  @{person.username}
-                </p>
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:space-x-2 mt-2">
+                <p className="text-gray-500 text-sm">@{person.username}</p>
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 mt-2">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${getRoleColor(
                       person.role
                     )}`}
                   >
                     {person.role}
                   </span>
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusColor(
                       person.status
                     )}`}
                   >
                     {person.status}
                   </span>
-                  {families &&
-                    (() => {
-                      const f = families.find((ff) =>
-                        ff.members.includes(person.id)
-                      );
-                      const label = f ? `Family: ${f.name}` : "No family";
-                      const badgeClass = f
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-red-100 text-red-800";
-                      return (
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${badgeClass} ${
-                            f && onViewFamily
-                              ? "cursor-pointer hover:bg-emerald-200 hover:text-emerald-900"
-                              : onNoFamilyClick
-                              ? "cursor-pointer hover:bg-red-200 hover:text-red-900"
-                              : ""
-                          }`}
-                          title="Family membership"
-                          onClick={() => {
-                            if (f && onViewFamily) onViewFamily(f);
-                            else if (!f && onNoFamilyClick)
-                              onNoFamilyClick(person);
-                          }}
-                        >
-                          {label}
-                        </span>
-                      );
-                    })()}
-                  {(() => {
-                    if (!clusters || clusters.length === 0) {
-                      return (
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ${
-                            onNoClusterClick
-                              ? "cursor-pointer hover:bg-red-200 hover:text-red-900"
-                              : ""
-                          }`}
-                          title="Cluster membership"
-                          onClick={() => {
-                            if (onNoClusterClick) onNoClusterClick(person);
-                          }}
-                        >
-                          No cluster
-                        </span>
-                      );
-                    }
-                    const c = clusters.find((cc) =>
-                      (cc as any).members?.includes(person.id)
-                    );
-                    const label = c
-                      ? c.code
-                        ? c.code
-                        : c.name ?? "Cluster"
-                      : "No cluster";
-                    const badgeClass = c
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-red-100 text-red-800";
-                    return (
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${badgeClass} ${
-                          c && onViewCluster
-                            ? "cursor-pointer hover:bg-blue-200 hover:text-blue-900"
-                            : onNoClusterClick
-                            ? "cursor-pointer hover:bg-red-200 hover:text-red-900"
-                            : ""
-                        }`}
-                        title="Cluster membership"
-                        onClick={() => {
-                          if (c && onViewCluster) onViewCluster(c);
-                          else if (!c && onNoClusterClick)
-                            onNoClusterClick(person);
-                        }}
-                      >
-                        {label}
-                      </span>
-                    );
-                  })()}
-                  {branch && (
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                      {branch.name}
-                      {branch.is_headquarters && " (HQ)"}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -532,10 +511,10 @@ export default function PersonProfile({
 
           {/* Tab Navigation */}
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-4 sm:space-x-8 overflow-x-auto">
+            <nav className="flex space-x-4 sm:space-x-6 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("overview")}
-                className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-sm min-h-[44px] sm:min-h-0 whitespace-nowrap ${
+                className={`py-2.5 px-1.5 border-b-2 font-medium text-sm min-h-[40px] whitespace-nowrap ${
                   activeTab === "overview"
                     ? "border-blue-500 text-blue-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -546,7 +525,7 @@ export default function PersonProfile({
               {person.can_view_journey_timeline !== false && (
                 <button
                   onClick={() => setActiveTab("timeline")}
-                  className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-sm min-h-[44px] sm:min-h-0 whitespace-nowrap ${
+                  className={`py-2.5 px-1.5 border-b-2 font-medium text-sm min-h-[40px] whitespace-nowrap ${
                     activeTab === "timeline"
                       ? "border-blue-500 text-blue-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -562,332 +541,253 @@ export default function PersonProfile({
           <div>
             {activeTab === "overview" && (
               <div className="space-y-6">
-                {/* Main Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Contact Information Card */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
-                    <div className="flex items-center space-x-2 mb-4">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg
-                          className="w-4 h-4 text-blue-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                          />
-                        </svg>
-                      </div>
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-                        Contact Information
-                      </h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          {person.email || "No email provided"}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          {person.phone || "No phone number provided"}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          {person.address || "No address provided"}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          {person.country || "No country specified"}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          {person.facebook_name || "No Facebook name provided"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Profile Details Card */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
-                    <div className="flex items-center space-x-2 mb-4">
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg
-                          className="w-4 h-4 text-green-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                          />
-                        </svg>
-                      </div>
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-                        Profile Details
-                      </h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          Gender: {person.gender || "Not specified"}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          Born: {person.date_of_birth || "Not specified"}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          First attended:{" "}
-                          {person.date_first_attended || "Not specified"}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 7h18M3 12h12M3 17h18"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          First activity attended:{" "}
-                          {(() => {
-                            const raw = (
-                              (person as any).first_activity_attended ||
-                              "Not specified"
-                            ).toString();
-                            const pretty = raw
-                              .replace(/_/g, " ")
-                              .toLowerCase()
-                              .replace(/\b\w/g, (ch: string) =>
-                                ch.toUpperCase()
-                              );
-                            return pretty;
-                          })()}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          Water baptism:{" "}
-                          {(person as any).water_baptism_date ||
-                            "Not specified"}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          Spirit baptism:{" "}
-                          {(person as any).spirit_baptism_date ||
-                            "Not specified"}
-                        </span>
-                      </div>
-                      {(person as any).nickname && (
-                        <div className="flex items-center space-x-3">
-                          <svg
-                            className="w-4 h-4 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                            />
-                          </svg>
-                          <span className="text-sm text-gray-600">
-                            Nickname: {(person as any).nickname}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex items-center space-x-3">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-600">
-                          Has Finished NC Lessons:{" "}
-                          {(person as any).has_finished_lessons ? (
-                            <span className="text-green-600 font-medium">
-                              Yes
+                <div className="space-y-4">
+                  <section className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                      Quick Facts
+                    </h3>
+                    <dl className="divide-y divide-gray-100">
+                      <ProfileFieldRow
+                        label="Status"
+                        value={person.status}
+                        renderAsBadge
+                        badgeClassName={getStatusColor(person.status)}
+                      />
+                      <ProfileFieldRow
+                        label="Role"
+                        value={person.role}
+                        renderAsBadge
+                        badgeClassName={getRoleColor(person.role)}
+                      />
+                      <ProfileFieldRow
+                        label="Branch"
+                        value={
+                          branch
+                            ? `${branch.name}${
+                                branch.is_headquarters ? " (HQ)" : ""
+                              }`
+                            : null
+                        }
+                        renderAsBadge
+                        badgeClassName="bg-indigo-100 text-indigo-800"
+                      />
+                      <ProfileFieldRow
+                        label="Family"
+                        value={
+                          person.family_names?.length
+                            ? person.family_names.join(", ")
+                            : null
+                        }
+                        valueNode={
+                          person.family_names?.length ? (
+                            <span className="text-sm text-gray-800">
+                              {person.family_names.join(", ")}
                             </span>
                           ) : (
-                            <span className="text-red-500">Not yet</span>
-                          )}
-                        </span>
-                      </div>
+                            <div className="inline-flex items-center gap-2 text-sm">
+                              <span className="text-red-600 font-medium">None</span>
+                              {onNoFamilyClick && (
+                                <button
+                                  type="button"
+                                  onClick={() => onNoFamilyClick(person)}
+                                  className="text-xs font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                                >
+                                  Assign family
+                                </button>
+                              )}
+                            </div>
+                          )
+                        }
+                      />
+                      <ProfileFieldRow
+                        label="Cluster"
+                        value={
+                          clusters?.find((cc) =>
+                            cc.members?.some(
+                              (memberId) =>
+                                String(memberId) === String(person.id)
+                            )
+                          )?.name || null
+                        }
+                        valueNode={
+                          clusters?.find((cc) =>
+                            cc.members?.some(
+                              (memberId) =>
+                                String(memberId) === String(person.id)
+                            )
+                          )?.name ? (
+                            <span className="text-sm text-gray-800">
+                              {
+                                clusters.find((cc) =>
+                                  cc.members?.some(
+                                    (memberId) =>
+                                      String(memberId) === String(person.id)
+                                  )
+                                )?.name
+                              }
+                            </span>
+                          ) : (
+                            <div className="inline-flex items-center gap-2 text-sm">
+                              <span className="text-red-600 font-medium">None</span>
+                              {onNoClusterClick && (
+                                <button
+                                  type="button"
+                                  onClick={() => onNoClusterClick(person)}
+                                  className="text-xs font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                                >
+                                  Assign cluster
+                                </button>
+                              )}
+                            </div>
+                          )
+                        }
+                      />
+                    </dl>
+                  </section>
+
+                  <section className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                      Contact
+                    </h3>
+                    <dl className="divide-y divide-gray-100">
+                      <ProfileFieldRow
+                        label="Email"
+                        value={person.email}
+                        fallback="No email provided"
+                      />
+                      <ProfileFieldRow
+                        label="Phone"
+                        value={person.phone}
+                        fallback="No phone number provided"
+                      />
+                      <ProfileFieldRow
+                        label="Address"
+                        value={person.address}
+                        fallback="No address provided"
+                      />
+                      <ProfileFieldRow
+                        label="Country"
+                        value={person.country}
+                        fallback="No country specified"
+                      />
+                      <ProfileFieldRow
+                        label="Facebook"
+                        value={person.facebook_name}
+                        fallback="No Facebook name provided"
+                      />
+                    </dl>
+                  </section>
+
+                  <section className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                      Personal
+                    </h3>
+                    <dl className="divide-y divide-gray-100">
+                      <ProfileFieldRow label="Gender" value={person.gender} />
+                      <ProfileFieldRow
+                        label="Birthday"
+                        value={formatDisplayDate(person.date_of_birth)}
+                      />
+                      <ProfileFieldRow
+                        label="First attended"
+                        value={formatDisplayDate(person.date_first_attended)}
+                      />
+                      <ProfileFieldRow
+                        label="First activity"
+                        value={prettifyFirstActivity(
+                          (person as any).first_activity_attended
+                        )}
+                      />
+                      <ProfileFieldRow
+                        label="Water baptism"
+                        value={formatDisplayDate((person as any).water_baptism_date)}
+                      />
+                      <ProfileFieldRow
+                        label="Spirit baptism"
+                        value={formatDisplayDate((person as any).spirit_baptism_date)}
+                      />
+                      <ProfileFieldRow
+                        label="Nickname"
+                        value={(person as any).nickname}
+                      />
+                      <ProfileFieldRow
+                        label="Lessons finished"
+                        value={
+                          (person as any).has_finished_lessons
+                            ? "Yes"
+                            : "Not yet"
+                        }
+                      />
+                    </dl>
+                  </section>
+
+                  <section className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                      Relationships
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const family = families?.find((f) =>
+                            f.members?.some(
+                              (memberId) =>
+                                String(memberId) === String(person.id)
+                            )
+                          );
+                          if (family && onViewFamily) onViewFamily(family);
+                          else if (onNoFamilyClick) onNoFamilyClick(person);
+                        }}
+                        className="w-full text-sm"
+                      >
+                        {families?.some((f) =>
+                          f.members?.some(
+                            (memberId) => String(memberId) === String(person.id)
+                          )
+                        )
+                          ? "View Family"
+                          : "Assign Family"}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (!clusters || clusters.length === 0) {
+                            if (onNoClusterClick) onNoClusterClick(person);
+                            return;
+                          }
+                          const cluster = clusters.find((cc) =>
+                            cc.members?.some(
+                              (memberId) =>
+                                String(memberId) === String(person.id)
+                            )
+                          );
+                          if (cluster && onViewCluster) onViewCluster(cluster);
+                          else if (onNoClusterClick) onNoClusterClick(person);
+                        }}
+                        className="w-full text-sm"
+                      >
+                        {clusters?.some((cc) =>
+                          cc.members?.some(
+                            (memberId) => String(memberId) === String(person.id)
+                          )
+                        )
+                          ? "View Cluster"
+                          : "Assign Cluster"}
+                      </Button>
                     </div>
-                  </div>
+                  </section>
                 </div>
               </div>
             )}
 
             {activeTab === "timeline" && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Timeline Events Card */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 shadow-sm">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-7 h-7 bg-purple-100 rounded-md flex items-center justify-center flex-shrink-0">
                       <svg
-                        className="w-4 h-4 text-purple-600"
+                        className="w-3.5 h-3.5 text-purple-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -900,15 +800,15 @@ export default function PersonProfile({
                         />
                       </svg>
                     </div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                    <h3 className="text-sm sm:text-base font-semibold text-gray-900">
                       Journey Timeline
                     </h3>
                   </div>
 
                   {/* Search and Filter Controls */}
                   {journeys && journeys.length > 0 && (
-                    <div className="space-y-3 mb-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {/* Search */}
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -919,7 +819,7 @@ export default function PersonProfile({
                             value={journeySearch}
                             onChange={(e) => setJourneySearch(e.target.value)}
                             placeholder="Search by title, description, or type..."
-                            className="w-full px-3 py-2 min-h-[44px] text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 min-h-[38px] text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                         {/* Filter by Type */}
@@ -934,7 +834,7 @@ export default function PersonProfile({
                                 e.target.value as JourneyType | "ALL"
                               )
                             }
-                            className="w-full px-3 py-2 min-h-[44px] text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 min-h-[38px] text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           >
                             <option value="ALL">All Types</option>
                             {[
@@ -964,76 +864,53 @@ export default function PersonProfile({
 
                   {filteredAndSortedJourneys.length > 0 ? (
                     <div
-                      ref={journeyListRef}
                       className={`relative ${
                         filteredAndSortedJourneys.length <= 3
                           ? "overflow-visible"
-                          : "h-[360px] overflow-auto"
+                          : "h-[300px] overflow-auto"
                       }`}
                     >
-                      <div className="relative pl-3 pt-4 pb-4">
+                      <div className="relative pl-3 pt-2 pb-2">
                         <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
-                        <div
-                          style={{
-                            height: `${virtualizer.getTotalSize()}px`,
-                            width: "100%",
-                            position: "relative",
-                          }}
-                        >
-                          {virtualizer.getVirtualItems().map((virtualRow) => {
-                            const journey =
-                              filteredAndSortedJourneys[virtualRow.index];
-
-                            return (
-                              <div
-                                key={virtualRow.key}
-                                style={{
-                                  position: "absolute",
-                                  top: 0,
-                                  left: 0,
-                                  width: "100%",
-                                  height: `${virtualRow.size}px`,
-                                  transform: `translateY(${virtualRow.start}px)`,
-                                }}
-                              >
-                                <div className="relative group my-3">
-                                  <div className="absolute left-1.5 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                                    {renderTypeIcon(journey.type)}
-                                  </div>
-                                  <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-                                    <div className="flex items-center justify-between">
-                                      <div className="font-medium text-gray-900">
-                                        {journey.title}
-                                      </div>
-                                      <span
-                                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${getJourneyBadgeClasses(
-                                          journey.type
-                                        )}`}
-                                      >
-                                        {journey.type_display ||
-                                          formatJourneyType(journey.type)}
-                                      </span>
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {journey.date}
-                                    </div>
-                                    {journey.description && (
-                                      <div className="text-sm text-gray-700 mt-2 line-clamp-3">
-                                        {journey.description}
-                                      </div>
-                                    )}
-                                  </div>
+                        {filteredAndSortedJourneys.map((journey, index) => (
+                          <div
+                            key={journey.id || `${journey.date}-${journey.title}-${index}`}
+                            className="relative group py-2"
+                          >
+                            <div className="absolute left-1.5 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                              {renderTypeIcon(journey.type)}
+                            </div>
+                            <div className="ml-8 p-3 bg-gray-50 rounded-md border border-gray-100 hover:border-gray-200 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div className="font-medium text-sm text-gray-900">
+                                  {journey.title}
                                 </div>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${getJourneyBadgeClasses(
+                                    journey.type
+                                  )}`}
+                                >
+                                  {journey.type_display ||
+                                    formatJourneyType(journey.type)}
+                                </span>
                               </div>
-                            );
-                          })}
-                        </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {formatDisplayDate(journey.date) || journey.date}
+                              </div>
+                              {journey.description && (
+                                <div className="text-sm text-gray-700 mt-1.5 line-clamp-2">
+                                  {journey.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ) : journeys &&
                     journeys.length > 0 &&
                     filteredAndSortedJourneys.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-6 text-gray-500">
                       <p className="text-sm">
                         No journey events match your search or filter criteria.
                       </p>
@@ -1049,9 +926,9 @@ export default function PersonProfile({
                       </button>
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-6 text-gray-500">
                       <svg
-                        className="w-12 h-12 mx-auto mb-4 text-gray-300"
+                        className="w-10 h-10 mx-auto mb-3 text-gray-300"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1078,8 +955,84 @@ export default function PersonProfile({
       </div>
 
       {/* Footer */}
-      <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+      <div
+        className={`border-t border-gray-200 ${
+          isPanelMode ? "bg-white p-3" : `bg-gray-50 ${activeTab === "timeline" ? "p-3 sm:p-4" : "p-4 sm:p-6"}`
+        }`}
+      >
         {activeTab === "overview" ? (
+          isPanelMode ? (
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                {!hideDeleteButton && (
+                  <Button
+                    onClick={onDelete}
+                    variant="secondary"
+                    className="!text-red-600 h-10 px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    <span>Delete</span>
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={onCancel}
+                  variant="secondary"
+                  className="!text-black h-10 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  <span>Back</span>
+                </Button>
+                {!hideEditButton && (
+                  <Button
+                    onClick={onEdit}
+                    variant="secondary"
+                    className="!text-blue-600 h-10 px-4 text-sm font-medium bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                    <span>Edit</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
             {/* Mobile buttons - full width with text */}
             <div className="flex flex-col md:hidden gap-3 w-full">
@@ -1222,11 +1175,14 @@ export default function PersonProfile({
               </div>
             </div>
           </div>
+          )
         ) : (
           <Button
             onClick={onAddTimeline}
             variant="secondary"
-            className="!text-gray-700 w-full py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px]"
+            className={`!text-gray-700 w-full bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 ${
+              isPanelMode ? "h-10 px-4 text-sm font-medium" : "py-3 px-4 text-sm font-medium min-h-[44px]"
+            }`}
           >
             <svg
               className="w-4 h-4"

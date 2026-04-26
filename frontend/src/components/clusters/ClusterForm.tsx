@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Cluster } from "@/src/types/cluster";
 import { Person, PersonUI } from "@/src/types/person";
 import { Branch } from "@/src/types/branch";
@@ -16,6 +16,7 @@ interface ClusterFormProps {
   onCancel: () => void;
   error?: string | null;
   submitting?: boolean;
+  panelLayout?: boolean;
 }
 
 export default function ClusterForm({
@@ -24,29 +25,46 @@ export default function ClusterForm({
   onCancel,
   error,
   submitting,
+  panelLayout = false,
 }: ClusterFormProps) {
-  const [code, setCode] = useState(initialData?.code || "");
-  const [name, setName] = useState(initialData?.name || "");
+  const getInitialFormData = useCallback(
+    () => ({
+      code: initialData?.code || "",
+      name: initialData?.name || "",
+      coordinatorId:
+        initialData?.coordinator_id?.toString() ||
+        initialData?.coordinator?.id?.toString() ||
+        "",
+      familyIds: (initialData?.families || []).map((id) => id.toString()),
+      memberIds: (initialData?.members || []).map((id) => id.toString()),
+      location: initialData?.location || "",
+      meetingSchedule: initialData?.meeting_schedule || "",
+      description: initialData?.description || "",
+      branchId: initialData?.branch?.toString() || "",
+    }),
+    [initialData]
+  );
+
+  const [code, setCode] = useState(getInitialFormData().code);
+  const [name, setName] = useState(getInitialFormData().name);
   const [coordinatorId, setCoordinatorId] = useState(
-    initialData?.coordinator_id?.toString() ||
-      initialData?.coordinator?.id?.toString() ||
-      ""
+    getInitialFormData().coordinatorId
   );
   const [familyIds, setFamilyIds] = useState<string[]>(
-    (initialData?.families || []).map((id) => id.toString())
+    getInitialFormData().familyIds
   );
   const [memberIds, setMemberIds] = useState<string[]>(
-    (initialData?.members || []).map((id) => id.toString())
+    getInitialFormData().memberIds
   );
-  const [location, setLocation] = useState(initialData?.location || "");
+  const [location, setLocation] = useState(getInitialFormData().location);
   const [meetingSchedule, setMeetingSchedule] = useState(
-    initialData?.meeting_schedule || ""
+    getInitialFormData().meetingSchedule
   );
   const [description, setDescription] = useState(
-    initialData?.description || ""
+    getInitialFormData().description
   );
   const [branchId, setBranchId] = useState<string>(
-    initialData?.branch?.toString() || ""
+    getInitialFormData().branchId
   );
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
@@ -59,26 +77,22 @@ export default function ClusterForm({
   const { user } = useAuth();
   const canEditBranch = user?.role === "ADMIN" || user?.role === "PASTOR";
 
-  // Update memberIds when initialData changes
   useEffect(() => {
-    if (initialData?.members) {
-      setMemberIds(initialData.members.map((id) => id.toString()));
-    }
-  }, [initialData?.members]);
-
-  // Update familyIds when initialData changes
-  useEffect(() => {
-    if (initialData?.families) {
-      setFamilyIds(initialData.families.map((id) => id.toString()));
-    }
-  }, [initialData?.families]);
-
-  // Update branchId when initialData changes
-  useEffect(() => {
-    if (initialData?.branch) {
-      setBranchId(initialData.branch.toString());
-    }
-  }, [initialData?.branch]);
+    const next = getInitialFormData();
+    setCode(next.code);
+    setName(next.name);
+    setCoordinatorId(next.coordinatorId);
+    setFamilyIds(next.familyIds);
+    setMemberIds(next.memberIds);
+    setLocation(next.location);
+    setMeetingSchedule(next.meetingSchedule);
+    setDescription(next.description);
+    setBranchId(next.branchId);
+    setMemberSearch("");
+    setShowMemberDropdown(false);
+    setFamilySearch("");
+    setShowFamilyDropdown(false);
+  }, [getInitialFormData]);
 
   // Clear coordinator if they're removed from members
   useEffect(() => {
@@ -235,9 +249,16 @@ export default function ClusterForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form
+      onSubmit={handleSubmit}
+      className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
+    >
       {error && <ErrorMessage message={error} />}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div
+        className={
+          panelLayout ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"
+        }
+      >
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Code
@@ -386,7 +407,9 @@ export default function ClusterForm({
             <p className="text-sm font-medium text-gray-700 mb-2">
               Selected Families:
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div
+              className={panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}
+            >
               {getSelectedFamilies().map((family) => (
                 <div
                   key={family.id}
@@ -512,7 +535,9 @@ export default function ClusterForm({
             <p className="text-sm font-medium text-gray-700 mb-2">
               Selected Members:
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div
+              className={panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}
+            >
               {getSelectedMembers().map((member) => (
                 <div
                   key={member.id}
@@ -558,7 +583,11 @@ export default function ClusterForm({
           />
         )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div
+        className={
+          panelLayout ? "space-y-4" : "grid grid-cols-1 md:grid-cols-3 gap-4"
+        }
+      >
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Branch
@@ -629,7 +658,7 @@ export default function ClusterForm({
           onClick={onCancel}
           disabled={submitting}
         >
-          Cancel
+          {panelLayout ? "Back" : "Cancel"}
         </Button>
         <Button
           className="w-full sm:flex-1 min-h-[44px]"

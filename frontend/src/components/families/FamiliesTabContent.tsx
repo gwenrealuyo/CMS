@@ -7,6 +7,7 @@ import FamilyView from "@/src/components/families/FamilyView";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
+import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
 import { PersonUI, Family, Person } from "@/src/types/person";
 
 interface FamiliesTabContentProps {
@@ -31,6 +32,13 @@ export default function FamiliesTabContent({
   createTrigger,
 }: FamiliesTabContentProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth >= 1024;
+  });
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<"view" | "edit" | "create">("view");
+  const [panelFamily, setPanelFamily] = useState<Family | null>(null);
   const [editFamily, setEditFamily] = useState<Family | null>(null);
   const [viewFamily, setViewFamily] = useState<Family | null>(null);
   const [familyViewMode, setFamilyViewMode] = useState<"view" | "edit">("view");
@@ -51,20 +59,79 @@ export default function FamiliesTabContent({
     family: null,
   });
 
-  // Open create modal when parent triggers
   React.useEffect(() => {
-    if (createTrigger && createTrigger > 0) {
+    const onResize = () => setIsDesktop(window.innerWidth >= 1024);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const closeFamilyPanel = () => {
+    setPanelOpen(false);
+    setPanelMode("view");
+    setPanelFamily(null);
+    setViewFamily(null);
+    setEditFamily(null);
+    setFamilyViewMode("view");
+  };
+
+  const openFamilyInteraction = (
+    mode: "view" | "edit" | "create",
+    family?: Family | null
+  ) => {
+    if (isDesktop) {
+      setPanelOpen(true);
+      setPanelMode(mode);
+      setPanelFamily(family || null);
+      setIsModalOpen(false);
+
+      if (mode === "view") {
+        setViewFamily(family || null);
+        setFamilyViewMode("view");
+        setEditFamily(null);
+      } else if (mode === "edit") {
+        setEditFamily(family || null);
+        setFamilyViewMode("edit");
+        setViewFamily(family || null);
+      } else {
+        setViewFamily(null);
+        setEditFamily(null);
+        setFamilyViewMode("view");
+      }
+      return;
+    }
+
+    setIsModalOpen(true);
+    if (mode === "view") {
+      setViewFamily(family || null);
+      setFamilyViewMode("view");
+      setEditFamily(null);
+    } else if (mode === "edit") {
+      setEditFamily(family || null);
+      setFamilyViewMode("edit");
+      setViewFamily(family || null);
+    } else {
       setViewFamily(null);
       setEditFamily(null);
       setFamilyViewMode("view");
-      setIsModalOpen(true);
     }
-  }, [createTrigger]);
+  };
+
+  // Open create modal when parent triggers
+  React.useEffect(() => {
+    if (createTrigger && createTrigger > 0) {
+      openFamilyInteraction("create");
+    }
+  }, [createTrigger, isDesktop]);
 
   const handleCreateFamily = async (familyData: Partial<Family>) => {
     try {
       await createFamily(familyData);
-      setIsModalOpen(false);
+      if (isDesktop) {
+        closeFamilyPanel();
+      } else {
+        setIsModalOpen(false);
+      }
       setEditFamily(null);
     } catch (error) {
       console.error("Error creating family:", error);
@@ -83,7 +150,13 @@ export default function FamiliesTabContent({
         setViewFamily(updatedFamily);
         setFamilyViewMode("view");
         setEditFamily(null);
-        setIsModalOpen(true);
+        setPanelFamily(updatedFamily);
+        if (isDesktop) {
+          setPanelOpen(true);
+          setPanelMode("view");
+        } else {
+          setIsModalOpen(true);
+        }
       } else {
         // Fallback: keep modal open in view mode
         setFamilyViewMode("view");
@@ -144,35 +217,176 @@ export default function FamiliesTabContent({
     }
   };
 
+  const renderFamilyFlow = (isPanel: boolean) => {
+    if (viewFamily) {
+      if (familyViewMode === "view") {
+        return (
+          <FamilyView
+            family={viewFamily}
+            familyMembers={peopleUI.filter((person) =>
+              viewFamily.members.includes(person.id)
+            )}
+            showTopHeader={!isPanel}
+            onEdit={() => {
+              setEditFamily(viewFamily);
+              setFamilyViewMode("edit");
+              if (isPanel) {
+                setPanelMode("edit");
+              }
+            }}
+            onDelete={() => {
+              setDeleteConfirmation({
+                isOpen: true,
+                family: viewFamily,
+                loading: false,
+              });
+            }}
+            onCancel={() => {
+              if (isPanel) {
+                closeFamilyPanel();
+              } else {
+                setIsModalOpen(false);
+                setViewFamily(null);
+                setFamilyViewMode("view");
+              }
+            }}
+            onClose={() => {
+              if (isPanel) {
+                closeFamilyPanel();
+              } else {
+                setIsModalOpen(false);
+                setViewFamily(null);
+                setFamilyViewMode("view");
+              }
+            }}
+            onAddMember={() => {
+              setAddFamilyMemberModal({
+                isOpen: true,
+                family: viewFamily,
+              });
+            }}
+          />
+        );
+      }
+
+      return (
+        <FamilyForm
+          key={
+            viewFamily?.id
+              ? `family-edit-${viewFamily.id}`
+              : `family-edit-${editFamily?.id || "none"}`
+          }
+          onSubmit={handleUpdateFamily}
+          onClose={() => {
+            setFamilyViewMode("view");
+            setEditFamily(null);
+            if (isPanel) {
+              setPanelMode("view");
+            }
+          }}
+          onDelete={(family) => {
+            setDeleteConfirmation({
+              isOpen: true,
+              family,
+              loading: false,
+            });
+          }}
+          initialData={editFamily || undefined}
+          availableMembers={peopleUI}
+          showDeleteButton={false}
+          compactLayout={isPanel}
+        />
+      );
+    }
+
+    if (editFamily) {
+      return (
+        <FamilyForm
+          key={`family-direct-edit-${editFamily.id}`}
+          onSubmit={handleUpdateFamily}
+          onClose={() => {
+            if (isPanel) {
+              closeFamilyPanel();
+            } else {
+              setIsModalOpen(false);
+              setEditFamily(null);
+            }
+          }}
+          onDelete={(family) => {
+            setDeleteConfirmation({
+              isOpen: true,
+              family,
+              loading: false,
+            });
+          }}
+          initialData={editFamily || undefined}
+          availableMembers={peopleUI}
+          showDeleteButton={false}
+          compactLayout={isPanel}
+        />
+      );
+    }
+
+    return (
+      <FamilyForm
+        key="family-create"
+        onSubmit={handleCreateFamily}
+        onClose={() => {
+          if (isPanel) {
+            closeFamilyPanel();
+          } else {
+            setIsModalOpen(false);
+          }
+        }}
+        initialData={undefined}
+        availableMembers={peopleUI}
+        compactLayout={isPanel}
+      />
+    );
+  };
+
   return (
     <>
-      <FamilyManagementDashboard
-        families={families}
-        people={peopleUI}
-        onCreateFamily={() => {
-          setIsModalOpen(true);
-        }}
-        onViewFamily={(family) => {
-          setViewFamily(family);
-          setFamilyViewMode("view");
-          setIsModalOpen(true);
-        }}
-        onEditFamily={(family) => {
-          setEditFamily(family);
-          setFamilyViewMode("edit");
-          setIsModalOpen(true);
-        }}
-        onDeleteFamily={(family) => {
-          setDeleteConfirmation({
-            isOpen: true,
-            family,
-            loading: false,
-          });
-        }}
-      />
+      <div
+        className={
+          panelOpen
+            ? "lg:grid lg:grid-cols-[minmax(0,1fr)_500px] lg:gap-6 lg:items-start"
+            : ""
+        }
+      >
+        <FamilyManagementDashboard
+          families={families}
+          people={peopleUI}
+          onCreateFamily={() => openFamilyInteraction("create")}
+          onViewFamily={(family) => openFamilyInteraction("view", family)}
+          onEditFamily={(family) => openFamilyInteraction("edit", family)}
+          onDeleteFamily={(family) => {
+            setDeleteConfirmation({
+              isOpen: true,
+              family,
+              loading: false,
+            });
+          }}
+        />
+        {isDesktop && panelOpen && (
+          <PersonDetailPanel
+            isOpen={panelOpen}
+            title={
+              panelMode === "create"
+                ? "Add New Family"
+                : panelMode === "edit"
+                ? "Edit Family"
+                : "Family"
+            }
+            onClose={closeFamilyPanel}
+          >
+            {renderFamilyFlow(true)}
+          </PersonDetailPanel>
+        )}
+      </div>
 
       <Modal
-        isOpen={isModalOpen}
+        isOpen={isModalOpen && !isDesktop}
         onClose={() => {
           setIsModalOpen(false);
           setEditFamily(null);
@@ -190,86 +404,7 @@ export default function FamiliesTabContent({
         }
         hideHeader={!!(viewFamily && familyViewMode === "view")}
       >
-        {viewFamily ? (
-          familyViewMode === "view" ? (
-            <FamilyView
-              family={viewFamily}
-              familyMembers={peopleUI.filter((person) =>
-                viewFamily.members.includes(person.id)
-              )}
-              onEdit={() => {
-                setEditFamily(viewFamily);
-                setFamilyViewMode("edit");
-              }}
-              onDelete={() => {
-                setDeleteConfirmation({
-                  isOpen: true,
-                  family: viewFamily,
-                  loading: false,
-                });
-              }}
-              onCancel={() => {
-                setIsModalOpen(false);
-                setViewFamily(null);
-                setFamilyViewMode("view");
-              }}
-              onClose={() => {
-                setIsModalOpen(false);
-                setViewFamily(null);
-                setFamilyViewMode("view");
-              }}
-              onAddMember={() => {
-                setAddFamilyMemberModal({
-                  isOpen: true,
-                  family: viewFamily,
-                });
-              }}
-            />
-          ) : (
-            <FamilyForm
-              onSubmit={handleUpdateFamily}
-              onClose={() => {
-                setFamilyViewMode("view");
-                setEditFamily(null);
-              }}
-              onDelete={(family) => {
-                setDeleteConfirmation({
-                  isOpen: true,
-                  family,
-                  loading: false,
-                });
-              }}
-              initialData={editFamily || undefined}
-              availableMembers={peopleUI}
-              showDeleteButton={false}
-            />
-          )
-        ) : editFamily ? (
-          <FamilyForm
-            onSubmit={handleUpdateFamily}
-            onClose={() => {
-              setIsModalOpen(false);
-              setEditFamily(null);
-            }}
-            onDelete={(family) => {
-              setDeleteConfirmation({
-                isOpen: true,
-                family,
-                loading: false,
-              });
-            }}
-            initialData={editFamily || undefined}
-            availableMembers={peopleUI}
-            showDeleteButton={false}
-          />
-        ) : (
-          <FamilyForm
-            onSubmit={handleCreateFamily}
-            onClose={() => setIsModalOpen(false)}
-            initialData={undefined}
-            availableMembers={peopleUI}
-          />
-        )}
+        {renderFamilyFlow(false)}
       </Modal>
 
       <ConfirmationModal

@@ -15,6 +15,7 @@ import FilterDropdown from "@/src/components/people/FilterDropdown";
 import FilterCard from "@/src/components/people/FilterCard";
 import Pagination from "@/src/components/ui/Pagination";
 import DataTable from "@/src/components/people/DataTable";
+import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
 import { Person, PersonUI, Family, Journey } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { usePeople } from "@/src/hooks/usePeople";
@@ -51,6 +52,18 @@ export default function PeoplePage() {
   );
   const [createInitialData, setCreateInitialData] =
     useState<Partial<Person> | undefined>(undefined);
+  const [personPanelOpen, setPersonPanelOpen] = useState(false);
+  const [personPanelMode, setPersonPanelMode] = useState<
+    "view" | "edit" | "create"
+  >("view");
+  const [personPanelPerson, setPersonPanelPerson] = useState<Person | null>(null);
+  const [personPanelInitialData, setPersonPanelInitialData] = useState<
+    Partial<Person> | undefined
+  >(undefined);
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth >= 1024;
+  });
   const [viewEditPerson, setViewEditPerson] = useState<Person | null>(null);
   const viewEditPersonRef = useRef<Person | null>(null);
   useEffect(() => {
@@ -72,23 +85,82 @@ export default function PeoplePage() {
   });
 
   useEffect(() => {
-    if (action === "create") {
-      setCreateInitialData(undefined);
+    const onResize = () => setIsDesktop(window.innerWidth >= 1024);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const openCreatePersonModal = useCallback(
+    (initialData?: Partial<Person>) => {
       setModalType("person");
+      setCreateInitialData(initialData);
       setViewEditPerson(null);
       setViewMode("view");
+      setPersonPanelOpen(false);
+      setPersonPanelMode("view");
+      setPersonPanelPerson(null);
+      setPersonPanelInitialData(undefined);
+      setStartOnTimelineTab(false);
       setIsModalOpen(true);
+    },
+    []
+  );
+
+  const openPersonInteraction = useCallback(
+    (
+      mode: "view" | "edit" | "create",
+      person?: Person | null,
+      initialData?: Partial<Person>
+    ) => {
+      if (mode === "create") {
+        openCreatePersonModal(initialData);
+        return;
+      }
+
+      if (person) {
+        setCreateInitialData(undefined);
+        setViewEditPerson(person);
+        setViewMode(mode);
+      }
+
+      if (isDesktop) {
+        setPersonPanelMode(mode);
+        setPersonPanelOpen(true);
+        setPersonPanelPerson(person || null);
+        setPersonPanelInitialData(undefined);
+        setStartOnTimelineTab(false);
+      } else {
+        setModalType("person");
+        setIsModalOpen(true);
+      }
+    },
+    [isDesktop, openCreatePersonModal]
+  );
+
+  const closePersonPanel = useCallback(() => {
+    setPersonPanelOpen(false);
+    setPersonPanelMode("view");
+    setPersonPanelPerson(null);
+    setPersonPanelInitialData(undefined);
+    setStartOnTimelineTab(false);
+    setViewMode("view");
+    setViewEditPerson(null);
+  }, []);
+
+  useEffect(() => {
+    if (action === "create") {
+      openCreatePersonModal();
       router.replace(pathname);
     }
     if (action === "add-visitor") {
-      setCreateInitialData({ role: "VISITOR", status: "ACTIVE" });
-      setModalType("person");
-      setViewEditPerson(null);
-      setViewMode("view");
-      setIsModalOpen(true);
+      openCreatePersonModal({
+        role: "VISITOR",
+        status: "ACTIVE",
+      });
       router.replace(pathname);
     }
-  }, [action, pathname, router]);
+  }, [action, openCreatePersonModal, pathname, router]);
   const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState<{
     isOpen: boolean;
     people: Person[];
@@ -769,6 +841,8 @@ export default function PeoplePage() {
           loading: false,
         });
         setIsModalOpen(false);
+        setPersonPanelOpen(false);
+        setPersonPanelPerson(null);
         setViewEditPerson(null);
       } catch (error) {
         console.error("Failed to delete person:", error);
@@ -931,7 +1005,9 @@ export default function PeoplePage() {
   const handleCreatePerson = async (personData: Partial<Person>) => {
     try {
       const result = await createPerson(personData);
-      setIsModalOpen(false);
+      if (!isDesktop) {
+        setIsModalOpen(false);
+      }
       return result; // Return the created person for journey handling
     } catch (err) {
       console.error(err);
@@ -1128,6 +1204,143 @@ export default function PeoplePage() {
     setActiveFilters([]);
   };
 
+  const personPanelTitle =
+    personPanelMode === "create"
+      ? "Create Person"
+      : personPanelMode === "edit"
+      ? "Edit Profile"
+      : personPanelPerson
+      ? "Profile"
+      : "Person Details";
+
+  const renderPersonFlow = (isPanel: boolean) => {
+    if (viewEditPerson) {
+      if (viewMode === "view") {
+        return (
+          <PersonProfile
+            person={viewEditPerson}
+            clusters={clusters}
+            families={families}
+            showTopHeader={!isPanel}
+            onViewFamily={(f) => {
+              setFamilyOverCluster(f);
+              setShowFamilyOverCluster(true);
+            }}
+            onViewCluster={(c) => {
+              setClusterOverPerson(c);
+              setShowClusterOverPerson(true);
+            }}
+            onNoFamilyClick={(p) => {
+              setSelectFamilyModal({ isOpen: true, person: p });
+            }}
+            onNoClusterClick={(p) => {
+              openSelectClusterForPerson(p);
+            }}
+            onEdit={() => {
+              setViewMode("edit");
+              if (isPanel) setPersonPanelMode("edit");
+            }}
+            onDelete={() => {
+              setPersonDeleteConfirmation({
+                isOpen: true,
+                person: viewEditPerson,
+                loading: false,
+              });
+            }}
+            onCancel={() => {
+              if (!isPanel && viewCluster) {
+                setViewEditPerson(null);
+                setModalType("cluster");
+                setClusterViewMode("view");
+                setIsModalOpen(true);
+              } else if (isPanel) {
+                closePersonPanel();
+              } else {
+                setIsModalOpen(false);
+                setViewEditPerson(null);
+              }
+            }}
+            onAddTimeline={() => {
+              setViewMode("edit");
+              setStartOnTimelineTab(true);
+              if (isPanel) setPersonPanelMode("edit");
+            }}
+            onClose={() => {
+              if (isPanel) {
+                closePersonPanel();
+              } else {
+                setIsModalOpen(false);
+                setViewEditPerson(null);
+              }
+            }}
+          />
+        );
+      }
+
+      return (
+        <PersonForm
+          initialData={viewEditPerson}
+          isEditingFromProfile={true}
+          startOnTimelineTab={startOnTimelineTab}
+          panelLayout={isPanel}
+          onSubmit={async (data) => {
+            const result = await updatePerson(viewEditPerson.id, data);
+            setViewEditPerson(result);
+            setViewMode("view");
+            setPersonPanelPerson(result);
+            setPersonPanelMode("view");
+            setStartOnTimelineTab(false);
+            await refreshPeople();
+            return result;
+          }}
+          onClose={() => {
+            if (isPanel) {
+              closePersonPanel();
+            } else {
+              setIsModalOpen(false);
+              setViewEditPerson(null);
+              setStartOnTimelineTab(false);
+            }
+          }}
+          onBackToProfile={() => {
+            setViewMode("view");
+            setPersonPanelMode("view");
+            setStartOnTimelineTab(false);
+          }}
+        />
+      );
+    }
+
+    return (
+      <PersonForm
+        onSubmit={async (data) => {
+          const created = await handleCreatePerson(data);
+          if (created) {
+            setViewEditPerson(created as Person);
+            setViewMode("view");
+            setPersonPanelPerson(created as Person);
+            setPersonPanelMode("view");
+            setPersonPanelOpen(true);
+            setCreateInitialData(undefined);
+            setPersonPanelInitialData(undefined);
+            await refreshPeople();
+          }
+          return created;
+        }}
+        onClose={() => {
+          if (isPanel) {
+            closePersonPanel();
+          } else {
+            setIsModalOpen(false);
+            setCreateInitialData(undefined);
+          }
+        }}
+        initialData={isPanel ? personPanelInitialData : createInitialData}
+        panelLayout={isPanel}
+      />
+    );
+  };
+
   return (
     <DashboardLayout>
       {/* Page header with Add Person */}
@@ -1135,11 +1348,7 @@ export default function PeoplePage() {
         <h1 className="text-2xl font-bold text-[#2D3748]">People</h1>
         <Button
           onClick={() => {
-            setModalType("person");
-            setViewEditPerson(null);
-            setViewMode("view");
-            setCreateInitialData(undefined);
-            setIsModalOpen(true);
+            openCreatePersonModal();
           }}
           className="w-full sm:w-auto"
         >
@@ -1199,13 +1408,11 @@ export default function PeoplePage() {
           {activeTab !== "reports" && (
             <Button
               onClick={() => {
-                setModalType(
-                  activeTab === "people"
-                    ? "person"
-                    : activeTab === "families"
-                    ? "family"
-                    : "cluster"
-                );
+                if (activeTab === "people") {
+                  openCreatePersonModal();
+                  return;
+                }
+                setModalType(activeTab === "families" ? "family" : "cluster");
                 setIsModalOpen(true);
               }}
             >
@@ -1222,61 +1429,67 @@ export default function PeoplePage() {
 
       <div className={SHOW_TABS ? "pt-20" : "pt-6"}>
         {activeTab === "people" && (
-          <div className="space-y-6">
-            <FilterBar
-              searchQuery={searchQuery}
-              onSearchChange={handleSearchChange}
-              activeFilters={activeFilters}
-              onRemoveFilter={handleRemoveFilter}
-              onClearAllFilters={handleClearAllFilters}
-              onAddFilter={handleAddFilter}
-              isSearching={isSearching}
-            />
+          <div
+            className={
+              personPanelOpen
+                ? "lg:grid lg:grid-cols-[minmax(0,1fr)_500px] lg:gap-6 lg:items-start"
+                : ""
+            }
+          >
+            <div className="space-y-6">
+              <FilterBar
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchChange}
+                activeFilters={activeFilters}
+                onRemoveFilter={handleRemoveFilter}
+                onClearAllFilters={handleClearAllFilters}
+                onAddFilter={handleAddFilter}
+                isSearching={isSearching}
+              />
 
-            {/* Search Results Count */}
-            {(searchQuery || activeFilters.length > 0) && (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-gray-600">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span>
-                    {isSearching
-                      ? "Searching..."
-                      : `${filteredPeopleUI.length} result${
-                          filteredPeopleUI.length !== 1 ? "s" : ""
-                        } found`}
-                  </span>
-                  {filteredPeopleUI.length !== peopleUI.length && (
-                    <span className="text-gray-400">
-                      (of {peopleUI.length} total)
+              {(searchQuery || activeFilters.length > 0) && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-gray-600">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>
+                      {isSearching
+                        ? "Searching..."
+                        : `${filteredPeopleUI.length} result${
+                            filteredPeopleUI.length !== 1 ? "s" : ""
+                          } found`}
                     </span>
-                  )}
+                    {filteredPeopleUI.length !== peopleUI.length && (
+                      <span className="text-gray-400">
+                        (of {peopleUI.length} total)
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <DataTable
-              people={filteredPeopleUI as unknown as Person[]}
-              onView={(p) => {
-                setViewEditPerson(p);
-                setViewMode("view");
-                setIsModalOpen(true);
-                setModalType("person");
-              }}
-              onEdit={(p) => {
-                setViewEditPerson(p);
-                setViewMode("edit");
-                setIsModalOpen(true);
-                setModalType("person");
-              }}
-              onDelete={(p) => {
-                setPersonDeleteConfirmation({
-                  isOpen: true,
-                  person: p,
-                  loading: false,
-                });
-              }}
-              onBulkDelete={handleBulkDelete}
-              onBulkExport={handleBulkExport}
-            />
+              <DataTable
+                people={filteredPeopleUI as unknown as Person[]}
+                onView={(p) => openPersonInteraction("view", p)}
+                onEdit={(p) => openPersonInteraction("edit", p)}
+                onDelete={(p) => {
+                  setPersonDeleteConfirmation({
+                    isOpen: true,
+                    person: p,
+                    loading: false,
+                  });
+                }}
+                onBulkDelete={handleBulkDelete}
+                onBulkExport={handleBulkExport}
+              />
+            </div>
+            {personPanelOpen && (
+              <PersonDetailPanel
+                isOpen={personPanelOpen}
+                title={personPanelTitle}
+                onClose={closePersonPanel}
+              >
+                {renderPersonFlow(true)}
+              </PersonDetailPanel>
+            )}
           </div>
         )}
 
@@ -1676,7 +1889,15 @@ export default function PeoplePage() {
         )}
       </div>
       <Modal
-        isOpen={isModalOpen}
+        isOpen={
+          isModalOpen &&
+          !(
+            isDesktop &&
+            modalType === "person" &&
+            activeTab === "people" &&
+            viewEditPerson !== null
+          )
+        }
         onClose={() => {
           setIsModalOpen(false);
           setViewEditPerson(null);
@@ -1710,6 +1931,9 @@ export default function PeoplePage() {
               : "Edit Cluster"
             : ""
         }
+        headerClassName={
+          modalType === "person" && viewEditPerson === null ? "pr-2 md:pr-2" : ""
+        }
         hideHeader={
           (modalType === "person" && !!viewEditPerson && viewMode === "view") ||
           (modalType === "family" &&
@@ -1720,97 +1944,7 @@ export default function PeoplePage() {
             clusterViewMode === "view")
         }
       >
-        {modalType === "person" ? (
-          <>
-            {viewEditPerson ? (
-              viewMode === "view" ? (
-                <PersonProfile
-                  person={viewEditPerson}
-                  clusters={clusters}
-                  families={families}
-                  onViewFamily={(f) => {
-                    setFamilyOverCluster(f);
-                    setShowFamilyOverCluster(true);
-                  }}
-                  onViewCluster={(c) => {
-                    setClusterOverPerson(c);
-                    setShowClusterOverPerson(true);
-                  }}
-                  onNoFamilyClick={(p) => {
-                    setSelectFamilyModal({ isOpen: true, person: p });
-                  }}
-                  onNoClusterClick={(p) => {
-                    openSelectClusterForPerson(p);
-                  }}
-                  onEdit={() => {
-                    setViewMode("edit");
-                  }}
-                  onDelete={() => {
-                    setPersonDeleteConfirmation({
-                      isOpen: true,
-                      person: viewEditPerson,
-                      loading: false,
-                    });
-                  }}
-                  onCancel={() => {
-                    // If a cluster is being viewed, return to that view instead of closing all modals
-                    if (viewCluster) {
-                      setViewEditPerson(null);
-                      setModalType("cluster");
-                      setClusterViewMode("view");
-                      setIsModalOpen(true);
-                    } else {
-                      setIsModalOpen(false);
-                      setViewEditPerson(null);
-                    }
-                  }}
-                  onAddTimeline={() => {
-                    setViewMode("edit");
-                    setStartOnTimelineTab(true);
-                  }}
-                  onClose={() => {
-                    setIsModalOpen(false);
-                    setViewEditPerson(null);
-                  }}
-                />
-              ) : (
-                <PersonForm
-                  initialData={viewEditPerson}
-                  isEditingFromProfile={true}
-                  startOnTimelineTab={startOnTimelineTab}
-                  onSubmit={async (data) => {
-                    const result = await updatePerson(viewEditPerson.id, data);
-                    // Switch back to profile view with updated data, keep modal open
-                    setViewEditPerson(result);
-                    setViewMode("view");
-                    setStartOnTimelineTab(false);
-                    // Optionally refresh list data
-                    await refreshPeople();
-                    return result; // Return for journey handling
-                  }}
-                  onClose={() => {
-                    setIsModalOpen(false);
-                    setViewEditPerson(null);
-                    setStartOnTimelineTab(false);
-                  }}
-                  onBackToProfile={() => {
-                    setViewMode("view");
-                    setStartOnTimelineTab(false);
-                  }}
-                />
-              )
-            ) : (
-              <PersonForm
-                onSubmit={handleCreatePerson}
-                onClose={() => {
-                  setIsModalOpen(false);
-                  setCreateInitialData(undefined);
-                }}
-                initialData={createInitialData}
-              />
-            )}
-          </>
-        ) : modalType === "family" ? (
+        {modalType === "person" ? renderPersonFlow(false) : modalType === "family" ? (
           <>
             {viewFamily ? (
               familyViewMode === "view" ? (
@@ -2503,40 +2637,50 @@ export default function PeoplePage() {
                           });
                           await refreshFamilies();
                           await refreshPeople();
+                          let latestPerson: Person | null = null;
                           let updatedJourneys: Journey[] = [];
                           try {
-                            const journeysResponse = await journeysApi.getByUser(
-                              String(selectFamilyModal.person!.id)
-                            );
+                            const [personResponse, journeysResponse] =
+                              await Promise.all([
+                                peopleApi.getById(
+                                  String(selectFamilyModal.person!.id)
+                                ),
+                                journeysApi.getByUser(
+                                  String(selectFamilyModal.person!.id)
+                                ),
+                              ]);
+                            latestPerson = personResponse.data;
                             updatedJourneys = journeysResponse.data;
                           } catch (error) {
                             console.error(
-                              "Failed to refresh journeys after family update:",
+                              "Failed to refresh person details after family update:",
                               error
                             );
                           }
-                          const updatedPerson = people.find(
-                            (p) => p.id === selectFamilyModal.person!.id
-                          );
-                          if (updatedPerson) {
-                            const nextPerson = {
-                              ...updatedPerson,
+
+                          if (latestPerson) {
+                            const nextPerson: Person = {
+                              ...latestPerson,
                               journeys: updatedJourneys.length
                                 ? updatedJourneys
-                                : updatedPerson.journeys,
+                                : latestPerson.journeys,
                             };
-                            if (
-                              viewEditPerson &&
-                              viewEditPerson.id === updatedPerson.id
-                            ) {
-                              setViewEditPerson(nextPerson);
-                            }
-                            if (
-                              personOverCluster &&
-                              personOverCluster.id === updatedPerson.id
-                            ) {
-                              setPersonOverCluster(nextPerson);
-                            }
+
+                            setViewEditPerson((current) =>
+                              current && current.id === nextPerson.id
+                                ? nextPerson
+                                : current
+                            );
+                            setPersonPanelPerson((current) =>
+                              current && current.id === nextPerson.id
+                                ? nextPerson
+                                : current
+                            );
+                            setPersonOverCluster((current) =>
+                              current && current.id === nextPerson.id
+                                ? nextPerson
+                                : current
+                            );
                           }
                           setSelectFamilyModal({ isOpen: false, person: null });
                         }}

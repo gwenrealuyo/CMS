@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Family, Person, PersonUI } from "@/src/types/person";
 import Button from "../ui/Button";
 
@@ -9,6 +9,7 @@ interface FamilyFormProps {
   initialData?: Family;
   availableMembers: PersonUI[];
   showDeleteButton?: boolean;
+  compactLayout?: boolean;
 }
 
 export default function FamilyForm({
@@ -18,17 +19,32 @@ export default function FamilyForm({
   initialData,
   availableMembers,
   showDeleteButton = true,
+  compactLayout = false,
 }: FamilyFormProps) {
+  const getInitialFormData = useCallback(
+    () => ({
+      name: initialData?.name || "",
+      members: initialData?.members || [],
+      address: initialData?.address || "",
+      notes: initialData?.notes || "",
+      leader: initialData?.leader || "",
+    }),
+    [initialData]
+  );
+
   const [formData, setFormData] = useState({
-    name: initialData?.name || "",
-    members: initialData?.members || [],
-    address: initialData?.address || "",
-    notes: initialData?.notes || "",
-    leader: initialData?.leader || "",
+    ...getInitialFormData(),
   });
   const [loading, setLoading] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+
+  useEffect(() => {
+    // Keep form state in sync when switching between edit/create targets.
+    setFormData(getInitialFormData());
+    setMemberSearch("");
+    setShowMemberDropdown(false);
+  }, [getInitialFormData]);
 
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return availableMembers;
@@ -123,10 +139,17 @@ export default function FamilyForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form
+      onSubmit={handleSubmit}
+      className={compactLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
+    >
+      <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label
+            className={`block text-sm font-medium text-gray-700 ${
+              compactLayout ? "mb-2" : "mb-2"
+            }`}
+          >
             Family Name *
           </label>
           <input
@@ -140,7 +163,11 @@ export default function FamilyForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label
+            className={`block text-sm font-medium text-gray-700 ${
+              compactLayout ? "mb-2" : "mb-2"
+            }`}
+          >
             Family Leader (Optional)
           </label>
           <select
@@ -164,7 +191,11 @@ export default function FamilyForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          className={`block text-sm font-medium text-gray-700 ${
+            compactLayout ? "mb-2" : "mb-2"
+          }`}
+        >
           Family Address
         </label>
         <textarea
@@ -174,12 +205,16 @@ export default function FamilyForm({
           }
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Enter family physical address..."
-          rows={2}
+          rows={compactLayout ? 2 : 2}
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          className={`block text-sm font-medium text-gray-700 ${
+            compactLayout ? "mb-2" : "mb-2"
+          }`}
+        >
           Family Notes
         </label>
         <textarea
@@ -187,12 +222,16 @@ export default function FamilyForm({
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Enter family notes or description..."
-          rows={3}
+          rows={compactLayout ? 3 : 3}
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          className={`block text-sm font-medium text-gray-700 ${
+            compactLayout ? "mb-2" : "mb-2"
+          }`}
+        >
           Add Members ({formData.members.length} selected)
         </label>
 
@@ -316,14 +355,18 @@ export default function FamilyForm({
         )}
       </div>
 
-      <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 pt-3">
+      <div
+        className={`flex flex-col-reverse sm:flex-row ${
+          compactLayout ? "gap-3 sm:gap-4 pt-4" : "gap-3 sm:gap-4 pt-3"
+        }`}
+      >
         <Button
           variant="tertiary"
           className="w-full sm:flex-1 min-h-[44px]"
           onClick={onClose}
           disabled={loading}
         >
-          Cancel
+          {compactLayout ? "Back" : "Cancel"}
         </Button>
         <Button
           className="w-full sm:flex-1 min-h-[44px]"

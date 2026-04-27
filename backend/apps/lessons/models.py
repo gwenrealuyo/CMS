@@ -208,8 +208,9 @@ class LessonSessionReport(models.Model):
         blank=True,
         related_name="session_reports",
     )
-    session_date = models.DateField()
-    session_start = models.DateTimeField()
+
+    session_date = models.DateField()  # Scheduled calendar date for the session plan.
+    session_start = models.DateTimeField()  # Actual date/time when the session started.
     score = models.CharField(max_length=100, blank=True)
     next_session_date = models.DateField(null=True, blank=True)
     remarks = models.TextField(blank=True)

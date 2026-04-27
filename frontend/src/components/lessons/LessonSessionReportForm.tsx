@@ -237,15 +237,15 @@ export default function LessonSessionReportForm({
     }
 
     if (!sessionDate) {
-      errors.sessionDate = "Provide the date when the session happened.";
+      errors.sessionDate = "Provide the scheduled session date.";
     }
 
     if (!sessionStart) {
-      errors.sessionStart = "Provide the start time for the session.";
+      errors.sessionStart = "Provide the actual session date.";
     } else {
       const sessionStartDate = new Date(sessionStart);
       if (Number.isNaN(sessionStartDate.getTime())) {
-        errors.sessionStart = "The session start time is invalid.";
+        errors.sessionStart = "The actual session date is invalid.";
       }
     }
 
@@ -259,7 +259,7 @@ export default function LessonSessionReportForm({
       ) {
         if (nextDate <= sessionDateObj) {
           errors.nextSessionDate =
-            "Next session date must be after the session date.";
+            "Next session date must be after the scheduled session date.";
         }
       }
     }
@@ -517,7 +517,7 @@ export default function LessonSessionReportForm({
             htmlFor="session-date"
             className="block text-sm font-medium text-gray-700"
           >
-            Session Date{" "}
+            Scheduled Session Date{" "}
             <span className="text-red-500" aria-label="required">
               *
             </span>
@@ -556,7 +556,7 @@ export default function LessonSessionReportForm({
             htmlFor="session-start"
             className="block text-sm font-medium text-gray-700"
           >
-            Session Start{" "}
+            Actual Session Date{" "}
             <span className="text-red-500" aria-label="required">
               *
             </span>
@@ -610,7 +610,7 @@ export default function LessonSessionReportForm({
             htmlFor="next-session-date"
             className="block text-sm font-medium text-gray-700"
           >
-            Next Session Date (optional)
+            Next Scheduled Session Date (optional)
           </label>
           <input
             id="next-session-date"

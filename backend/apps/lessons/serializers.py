@@ -230,7 +230,7 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Validate that next_session_date is after session_date."""
+        """Validate that next_session_date is after the scheduled session date."""
         session_date = attrs.get("session_date")
         next_session_date = attrs.get("next_session_date")
 
@@ -238,7 +238,7 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
             if next_session_date <= session_date:
                 raise serializers.ValidationError(
                     {
-                        "next_session_date": "Next session date must be after the session date."
+                        "next_session_date": "Next session date must be after the scheduled session date."
                     }
                 )
 

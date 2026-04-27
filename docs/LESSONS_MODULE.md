@@ -6,7 +6,7 @@
 - `LessonJourney` stores the default journey metadata (`journey_type`, `title_template`, `note_template`) that is applied when a participant finishes the lesson. The current default type is `LESSON`.
 - `PersonLessonProgress` links a `Person` to a specific lesson version and tracks status (`ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `SKIPPED`) along with timestamps, notes, and commitment-form flags (`commitment_signed`, `commitment_signed_at`, `commitment_signed_by`). Completing a lesson automatically creates (or updates) a `people.models.Journey` of type `LESSON`.
 - `LessonSettings` is a singleton row (id=1) that stores the globally uploaded commitment-form PDF (`commitment_form`) and who uploaded it.
-- `LessonSessionReport` captures the 1-on-1 teaching workflow: teacher, student, lesson version, optional linked `PersonLessonProgress`, session date/time, qualitative score, next schedule, remarks, and the submitting user. Reports are ordered by newest session first. Saving a report auto-links (or creates) the relevant `PersonLessonProgress` row so progress dashboards stay in sync.
+- `LessonSessionReport` captures the 1-on-1 teaching workflow: teacher, student, lesson version, optional linked `PersonLessonProgress`, `session_date` (Scheduled Session Date), `session_start` (Actual Session Date), qualitative score, next schedule, remarks, and the submitting user. Reports are ordered by newest session first. Saving a report auto-links (or creates) the relevant `PersonLessonProgress` row so progress dashboards stay in sync.
 
 Default data for the “New Converts Course” (7 lessons) is seeded via the `0002_default_lessons` migration. Re-running that migration after edits requires rolling back to `0001` first.
 

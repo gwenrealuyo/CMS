@@ -222,7 +222,7 @@ export default function SessionReportsSection({
                   </div>
                   <div className="flex flex-col items-start gap-2 md:items-end">
                     <span className="text-xs font-medium text-gray-600">
-                      {formatDateTime(report.session_start)}
+                      Actual Session Date: {formatDateTime(report.session_start)}
                     </span>
                     <div className="flex gap-2">
                       <Button
@@ -251,13 +251,13 @@ export default function SessionReportsSection({
                   </div>
                   <div>
                     <span className="block text-xs font-semibold uppercase text-gray-500">
-                      Session Date
+                      Scheduled Session Date
                     </span>
                     <span>{formatDateOnly(report.session_date)}</span>
                   </div>
                   <div>
                     <span className="block text-xs font-semibold uppercase text-gray-500">
-                      Next Session
+                      Next Scheduled Session Date
                     </span>
                     <span>{formatDateOnly(report.next_session_date)}</span>
                   </div>

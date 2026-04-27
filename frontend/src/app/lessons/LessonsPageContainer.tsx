@@ -699,10 +699,10 @@ export default function LessonsPageContainer() {
       "Lesson",
       "Student",
       "Teacher",
-      "Session Date",
-      "Session Start",
+      "Scheduled Session Date",
+      "Actual Session Date",
       "Score",
-      "Next Session",
+      "Next Scheduled Session Date",
       "Remarks",
       "Progress ID",
     ];
@@ -842,7 +842,7 @@ export default function LessonsPageContainer() {
       }
 
       if (!payload.session_start) {
-        setSessionFormError("Provide the start time for the session.");
+        setSessionFormError("Provide the actual session date.");
         return;
       }
 

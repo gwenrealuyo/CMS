@@ -958,6 +958,7 @@ export default function Dashboard() {
             }}
             title="Submit Report"
             className="!mt-0"
+            headerClassName="pr-2 md:pr-2"
           >
             <ClusterWeeklyReportForm
               cluster={reportSelectedCluster}

@@ -360,6 +360,15 @@ def update_person_baptism_dates(
         ).update(description=notes)
 
 
+def get_default_each1reach1_target(cluster: Cluster) -> int:
+    """
+    Compute default target conversions for a cluster.
+    Business rule: target is 2x all non-admin cluster members.
+    """
+    member_count = cluster.members.exclude(role="ADMIN").count()
+    return member_count * 2
+
+
 def update_each1reach1_goal(conversion: Conversion) -> None:
     """
     Update cluster goal progress when conversion is completed.
@@ -377,7 +386,7 @@ def update_each1reach1_goal(conversion: Conversion) -> None:
         cluster=cluster,
         year=year,
         defaults={
-            "target_conversions": 1,  # Default target
+            "target_conversions": get_default_each1reach1_target(cluster),
             "achieved_conversions": 0,
             "status": Each1Reach1Goal.Status.NOT_STARTED,
         }

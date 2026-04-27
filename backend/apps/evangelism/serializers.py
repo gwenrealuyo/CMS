@@ -18,6 +18,7 @@ from .models import (
     MonthlyConversionTracking,
     Each1Reach1Goal,
 )
+from .services import get_default_each1reach1_target
 
 User = get_user_model()
 
@@ -297,6 +298,7 @@ class EvangelismPeopleTallySerializer(serializers.Serializer):
     students_count = serializers.IntegerField()
     baptized_count = serializers.IntegerField()
     received_hg_count = serializers.IntegerField()
+    reached_count = serializers.IntegerField()
 
 
 class ProspectSerializer(serializers.ModelSerializer):
@@ -578,6 +580,15 @@ class Each1Reach1GoalSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("created_at", "updated_at", "progress_percentage")
+        extra_kwargs = {
+            "target_conversions": {"required": False},
+        }
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs.get("target_conversions") is None and attrs.get("cluster"):
+            attrs["target_conversions"] = get_default_each1reach1_target(attrs["cluster"])
+        return attrs
 
 
 class EvangelismSummarySerializer(serializers.Serializer):

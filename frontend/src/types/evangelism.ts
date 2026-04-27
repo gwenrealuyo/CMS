@@ -97,6 +97,7 @@ export interface EvangelismPeopleTallyRow {
   students_count: number;
   baptized_count: number;
   received_hg_count: number;
+  reached_count: number;
 }
 
 export type PipelineStage = "INVITED" | "ATTENDED" | "BAPTIZED" | "RECEIVED_HG" | "CONVERTED";

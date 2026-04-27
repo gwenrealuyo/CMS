@@ -1186,14 +1186,23 @@ export const evangelismApi = {
   // Each 1 Reach 1 Goals
   listGoals: (params?: {
     cluster?: number | string;
+    cluster__branch?: number | string;
     year?: number;
     status?: string;
+    search?: string;
+    page?: number;
+    page_size?: number;
   }) =>
-    api.get<Each1Reach1Goal[]>("/evangelism/each1reach1-goals/", { params }),
+    api.get<PaginatedResponse<Each1Reach1Goal>>("/evangelism/each1reach1-goals/", { params }),
   getGoal: (id: number | string) =>
     api.get<Each1Reach1Goal>(`/evangelism/each1reach1-goals/${id}/`),
   createGoal: (data: Partial<Each1Reach1Goal>) =>
     api.post<Each1Reach1Goal>("/evangelism/each1reach1-goals/", data),
+  getGoalDefaultTarget: (params: { cluster_id: number | string; year?: number }) =>
+    api.get<{ cluster_id: number; year: number; target_conversions: number }>(
+      "/evangelism/each1reach1-goals/default_target/",
+      { params }
+    ),
   updateGoal: (id: number | string, data: Partial<Each1Reach1Goal>) =>
     api.put<Each1Reach1Goal>(`/evangelism/each1reach1-goals/${id}/`, data),
   deleteGoal: (id: number | string) =>

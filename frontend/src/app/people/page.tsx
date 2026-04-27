@@ -2247,6 +2247,7 @@ export default function PeoplePage() {
           }}
           title="Submit Weekly Report"
           className="!mt-0"
+          headerClassName="pr-2 md:pr-2"
         >
           <ClusterWeeklyReportForm
             cluster={reportSelectedCluster}

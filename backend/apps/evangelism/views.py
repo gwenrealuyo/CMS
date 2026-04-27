@@ -2,8 +2,10 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 
 from django.db.models import Prefetch, Q
+from django.db.models.functions import Greatest
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.pagination import PageNumberPagination
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -66,6 +68,7 @@ from .services import (
     check_lesson_completion,
     update_person_baptism_dates,
     update_each1reach1_goal,
+    get_default_each1reach1_target,
     calculate_conversion_rate,
     get_group_statistics,
     get_cluster_statistics,
@@ -684,6 +687,23 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 spirit_baptism_date__year=year_int,
                 spirit_baptism_date__month=month,
             ).count()
+            reached_count = (
+                base_qs.filter(
+                    water_baptism_date__isnull=False,
+                    spirit_baptism_date__isnull=False,
+                )
+                .annotate(
+                    reached_date=Greatest(
+                        "water_baptism_date",
+                        "spirit_baptism_date",
+                    )
+                )
+                .filter(
+                    reached_date__year=year_int,
+                    reached_date__month=month,
+                )
+                .count()
+            )
             rows.append(
                 {
                     "month": month,
@@ -693,6 +713,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     "students_count": students_count,
                     "baptized_count": baptized_count,
                     "received_hg_count": received_hg_count,
+                    "reached_count": reached_count,
                 }
             )
 
@@ -1232,18 +1253,91 @@ class MonthlyConversionTrackingViewSet(viewsets.ModelViewSet):
 
 
 class Each1Reach1GoalViewSet(viewsets.ModelViewSet):
+    class GoalPagination(PageNumberPagination):
+        page_size = 20
+        page_size_query_param = "page_size"
+        max_page_size = 100
+
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = Each1Reach1Goal.objects.select_related("cluster").all()
     serializer_class = Each1Reach1GoalSerializer
+    pagination_class = GoalPagination
     filter_backends = (
         DjangoFilterBackend,
         filters.SearchFilter,
         filters.OrderingFilter,
     )
-    filterset_fields = ("cluster", "year", "status")
+    filterset_fields = ("cluster", "cluster__branch", "year", "status")
     search_fields = ("cluster__name",)
     ordering_fields = ("year", "achieved_conversions")
     ordering = ("-year", "cluster__name")
+
+    def _resolve_goal_year(self):
+        year = self.request.query_params.get("year")
+        if not year:
+            return timezone.now().year
+        try:
+            return int(year)
+        except (TypeError, ValueError):
+            raise ValidationError({"year": "Year must be a valid integer."})
+
+    def _ensure_yearly_goals(self, year: int) -> None:
+        existing_cluster_ids = set(
+            Each1Reach1Goal.objects.filter(year=year).values_list("cluster_id", flat=True)
+        )
+        missing_clusters = Cluster.objects.exclude(id__in=existing_cluster_ids)
+
+        for cluster in missing_clusters:
+            Each1Reach1Goal.objects.get_or_create(
+                cluster=cluster,
+                year=year,
+                defaults={
+                    "target_conversions": get_default_each1reach1_target(cluster),
+                    "achieved_conversions": 0,
+                    "status": Each1Reach1Goal.Status.NOT_STARTED,
+                },
+            )
+
+    def list(self, request, *args, **kwargs):
+        self._ensure_yearly_goals(self._resolve_goal_year())
+        return super().list(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"], url_path="default_target")
+    def default_target(self, request):
+        cluster_id = request.query_params.get("cluster_id") or request.query_params.get("cluster")
+        if not cluster_id:
+            return Response(
+                {"detail": "cluster_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            cluster = Cluster.objects.get(id=cluster_id)
+        except Cluster.DoesNotExist:
+            return Response(
+                {"detail": "Cluster not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        year = request.query_params.get("year")
+        if year:
+            try:
+                year_int = int(year)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "Year must be a valid integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            year_int = timezone.now().year
+
+        return Response(
+            {
+                "cluster_id": cluster.id,
+                "year": year_int,
+                "target_conversions": get_default_each1reach1_target(cluster),
+            }
+        )
 
     @action(detail=True, methods=["get"])
     def progress(self, request, pk=None):

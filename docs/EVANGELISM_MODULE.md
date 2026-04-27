@@ -16,7 +16,7 @@ Key features include:
 - **Conversion Recording**: Record water baptism and Holy Ghost reception with dates; update Person and Journey timelines
 - **Each 1 Reach 1 Goals**: Cluster-based goal tracking with automatic progress updates
 - **Monthly Conversion Tracking**: Track unique persons per month at each stage (INVITED, ATTENDED, BAPTIZED, RECEIVED_HG, CONVERTED)
-- **Reporting**: Monthly people tally (Invited, Attended, Students, Baptized, Received HG) and weekly unified tallies
+- **Reporting**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached) and weekly unified tallies
 
 ## Data Model & Storage
 
@@ -215,7 +215,7 @@ Key features include:
 - `apps.evangelism.models.Each1Reach1Goal` tracks cluster-based conversion goals with:
   - `cluster` (ForeignKey to `clusters.Cluster`) – cluster with the goal (cluster-level tracking)
   - `year` (IntegerField) – year for the goal
-  - `target_conversions` (IntegerField) – target conversions for the cluster (sum of member targets)
+  - `target_conversions` (IntegerField) – target conversions for the cluster (defaults to `2 ×` cluster members with `role=MEMBER`)
   - `achieved_conversions` (IntegerField, default 0) – actual conversions this year for cluster members
   - `status` (CharField, choices: IN_PROGRESS, COMPLETED, NOT_STARTED) – goal status
   - `created_at`, `updated_at` (DateTimeFields)
@@ -320,9 +320,10 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Counts by month:
       - **INVITED**: Person created in month with `role=VISITOR` and `status=INVITED`
       - **ATTENDED**: Person with `role=VISITOR`, `status=ATTENDED`, and `date_first_attended` in month
-      - **STUDENTS**: Unique people with Lesson Session Report in month and `commitment_form_signed=false`
+      - **NCC**: Unique people with Lesson Session Report in month and `commitment_form_signed=false`
       - **BAPTIZED**: `water_baptism_date` in month
       - **RECEIVED_HG**: `spirit_baptism_date` in month
+      - **REACHED**: Person has both `water_baptism_date` and `spirit_baptism_date`; counted in the month/year of the later date
 
 ### Prospects
 
@@ -423,7 +424,9 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?cluster={cluster_id}` – filter by cluster
     - Query params: `?year={year}` – filter by year
     - Query params: `?status={status}` – filter by status
-  - `POST` – Create a new goal (requires `cluster_id`, `year`, `target_conversions`)
+    - Lazy provisioning: ensures each cluster has one goal for requested year (defaults to current year if omitted)
+  - `POST` – Create a new goal (requires `cluster_id`, `year`; `target_conversions` is optional and defaults to `2 × non-admin cluster member` count)
+  - `GET /default_target/?cluster_id={cluster_id}&year={year}` – Returns computed default target for Create Goal UI prefill
   - `GET /{id}/` – Retrieve a specific goal
   - `PUT /{id}/` – Update a goal (full update)
   - `PATCH /{id}/` – Partial update
@@ -546,7 +549,7 @@ The main page includes tabs for different views:
 
 - **Groups Tab**: Manage evangelism groups
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
-- **Tally Tab**: Monthly people tally (Invited, Attended, Students, Baptized, Received HG) with year filter
+- **Tally Tab**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached) with year filter
 - **Reports Tab**: Weekly unified tally (evangelism + cluster weekly reports)
 - **Bible Sharers Tab**: Monitor Bible Sharers coverage across clusters
 
@@ -665,6 +668,8 @@ The main page includes tabs for different views:
 #### Each 1 Reach 1
 
 - **`Each1Reach1Dashboard`**: Main dashboard
+  - Create Goal modal (cluster, year, target conversions)
+  - Target is auto-prefilled from backend default rule (`2 × non-admin cluster member` count), but remains editable before save
   - Cluster cards with progress indicators
   - Overall statistics
   - Year selector
@@ -708,7 +713,7 @@ The main page includes tabs for different views:
   - Recovery statistics
   - Recommendations
 - **`PeopleTallyReport`**: Monthly people tally
-  - Columns: Month, Invited, Attended, Students, Baptized, Received HG
+  - Columns: Month, Invited, Attended, NCC, Baptized, Received HG, Reached
   - Year filter
 - **`TallyReport`**: Weekly unified tally
   - Combines evangelism weekly reports with cluster weekly reports

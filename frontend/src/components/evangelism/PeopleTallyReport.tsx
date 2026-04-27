@@ -99,7 +99,7 @@ export default function PeopleTallyReport({
                 ),
               },
               {
-                header: "Students",
+                header: "NCC",
                 accessor: "students_count" as keyof EvangelismPeopleTallyRow,
                 render: (value) => (
                   <span className="text-sm text-gray-700">{value || 0}</span>
@@ -115,6 +115,13 @@ export default function PeopleTallyReport({
               {
                 header: "Received HG",
                 accessor: "received_hg_count" as keyof EvangelismPeopleTallyRow,
+                render: (value) => (
+                  <span className="text-sm text-gray-700">{value || 0}</span>
+                ),
+              },
+              {
+                header: "REACHED",
+                accessor: "reached_count" as keyof EvangelismPeopleTallyRow,
                 render: (value) => (
                   <span className="text-sm text-gray-700">{value || 0}</span>
                 ),

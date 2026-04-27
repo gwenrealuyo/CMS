@@ -2102,6 +2102,7 @@ export default function ClusterReportsDashboard({
           formEditingReport ? "Edit Weekly Report" : "Submit Weekly Report"
         }
         className="!mt-0"
+        headerClassName="pr-2 md:pr-2"
       >
         <ClusterWeeklyReportForm
           cluster={formSelectedCluster as any}

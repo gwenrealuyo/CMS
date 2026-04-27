@@ -80,7 +80,7 @@ export default function EvangelismPage() {
 
   const currentYear = new Date().getFullYear();
   const each1Reach1Filters = useMemo(
-    () => ({ year: currentYear }),
+    () => ({ year: currentYear, page_size: 1000 }),
     [currentYear]
   );
   const {
@@ -779,6 +779,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title="Create Evangelism Group"
+            headerClassName="pr-2 md:pr-2"
           >
             <EvangelismGroupForm
               coordinators={coordinators}
@@ -809,6 +810,7 @@ export default function EvangelismPage() {
                 ? `View Group: ${viewEditGroup.name}`
                 : "Edit Group"
             }
+            headerClassName="pr-2 md:pr-2"
           >
             {viewMode === "edit" ? (
               <EvangelismGroupForm
@@ -1212,6 +1214,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title={editingReport ? "Edit Report" : "Submit Report"}
+            headerClassName="pr-2 md:pr-2"
           >
             <EvangelismWeeklyReportForm
               group={viewEditGroup}
@@ -1238,6 +1241,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title="Add Visitor"
+            headerClassName="pr-2 md:pr-2"
           >
             <ProspectForm
               inviters={(people.length > 0 ? people : coordinators).filter(
@@ -1267,6 +1271,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title="Record Conversion"
+            headerClassName="pr-2 md:pr-2"
           >
             <ConversionForm
               people={conversionVisitors}
@@ -1291,6 +1296,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title="Update Progress"
+            headerClassName="pr-2 md:pr-2"
           >
             <UpdateProgressModalContent
               prospect={selectedProspect}
@@ -1463,6 +1469,7 @@ export default function EvangelismPage() {
             isOpen={isAddMemberModalOpen}
             onClose={() => setIsAddMemberModalOpen(false)}
             title="Add Member to Group"
+            headerClassName="pr-2 md:pr-2"
           >
             <AddMemberModalContent
               groupId={String(viewEditGroup.id)}
@@ -1489,6 +1496,7 @@ export default function EvangelismPage() {
             isOpen={isBulkEnrollModalOpen}
             onClose={() => setIsBulkEnrollModalOpen(false)}
             title="Bulk Add Members"
+            headerClassName="pr-2 md:pr-2"
           >
             <BulkEnrollModalContent
               groupId={String(viewEditGroup.id)}

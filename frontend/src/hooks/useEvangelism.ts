@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { evangelismApi } from "@/src/lib/api";
 import {
   EvangelismGroup,
@@ -433,38 +433,97 @@ export const useConversions = (filters?: {
 
 export const useEach1Reach1Goals = (filters?: {
   cluster?: number | string;
+  cluster__branch?: number | string;
   year?: number;
   status?: string;
+  search?: string;
+  page_size?: number;
 }) => {
   const [goals, setGoals] = useState<Each1Reach1Goal[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const requestSeqRef = useRef(0);
+  const loadingMoreLockRef = useRef(false);
 
   // Extract individual filter values to use as dependencies
   // This prevents the callback from being recreated when the filters object reference changes
   const cluster = filters?.cluster;
+  const clusterBranch = filters?.cluster__branch;
   const year = filters?.year;
   const status = filters?.status;
+  const search = filters?.search;
+  const pageSize = filters?.page_size ?? 20;
+
+  const fetchPage = useCallback(
+    async (targetPage: number, append: boolean) => {
+      const requestSeq = ++requestSeqRef.current;
+      try {
+        if (append) {
+          setIsLoadingMore(true);
+        } else {
+          setLoading(true);
+          setError(null);
+        }
+
+        const apiFilters = {
+          cluster,
+          cluster__branch: clusterBranch,
+          year,
+          status,
+          search,
+          page: targetPage,
+          page_size: pageSize,
+        };
+        const response = await evangelismApi.listGoals(apiFilters);
+        if (requestSeq !== requestSeqRef.current) {
+          return;
+        }
+
+        const rows = response.data.results || [];
+        setGoals((prev) => (append ? [...prev, ...rows] : rows));
+        setPage(targetPage);
+        setHasMore(Boolean(response.data.next));
+        setError(null);
+      } catch (err) {
+        if (requestSeq === requestSeqRef.current) {
+          console.error(err);
+          setError("Failed to load goals");
+        }
+      } finally {
+        if (requestSeq === requestSeqRef.current) {
+          setLoading(false);
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [cluster, clusterBranch, year, status, search, pageSize]
+  );
 
   const fetchGoals = useCallback(async () => {
-    try {
-      setLoading(true);
-      // Reconstruct filters object from individual values
-      const apiFilters = { cluster, year, status };
-      const response = await evangelismApi.listGoals(apiFilters);
-      setGoals(response.data);
-      setError(null);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load goals");
-    } finally {
-      setLoading(false);
-    }
-  }, [cluster, year, status]);
+    setGoals([]);
+    setPage(1);
+    setHasMore(false);
+    await fetchPage(1, false);
+  }, [fetchPage]);
 
   useEffect(() => {
     fetchGoals();
   }, [fetchGoals]);
+
+  const loadMore = useCallback(async () => {
+    if (loading || isLoadingMore || !hasMore || loadingMoreLockRef.current) {
+      return;
+    }
+    loadingMoreLockRef.current = true;
+    try {
+      await fetchPage(page + 1, true);
+    } finally {
+      loadingMoreLockRef.current = false;
+    }
+  }, [fetchPage, hasMore, isLoadingMore, loading, page]);
 
   const createGoal = async (data: Partial<Each1Reach1Goal>) => {
     const response = await evangelismApi.createGoal(data);
@@ -488,8 +547,12 @@ export const useEach1Reach1Goals = (filters?: {
   return {
     goals,
     loading,
+    isLoadingMore,
+    hasMore,
     error,
+    page,
     fetchGoals,
+    loadMore,
     createGoal,
     updateGoal,
     deleteGoal,

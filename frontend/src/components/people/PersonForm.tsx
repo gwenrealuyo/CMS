@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
+import SearchableSelect from "@/src/components/ui/SearchableSelect";
 
 interface PersonFormProps {
   onSubmit: (data: Partial<Person>) => Promise<Person | void>;
@@ -50,8 +51,6 @@ export default function PersonForm({
   });
 
   const [loading, setLoading] = useState(false);
-  const [inviterSearch, setInviterSearch] = useState("");
-  const [showInviterDropdown, setShowInviterDropdown] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { branches, getBranches } = useBranches();
 
@@ -1020,66 +1019,24 @@ export default function PersonForm({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Inviter
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Type a name to search..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={inviterSearch}
-                      onChange={(e) => {
-                        setInviterSearch(e.target.value);
-                        setShowInviterDropdown(true);
-                      }}
-                      onFocus={() => setShowInviterDropdown(true)}
-                    />
-                    {showInviterDropdown && inviterSearch && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {peopleOptions
-                          .filter((p) => {
-                            // Exclude ADMIN users
-                            if (p.role === "ADMIN" || p.username === "admin") {
-                              return false;
-                            }
-                            const name = `${p.first_name ?? ""} ${
-                              p.last_name ?? ""
-                            }`.toLowerCase();
-                            const email = (p.email ?? "").toLowerCase();
-                            const q = inviterSearch.toLowerCase();
-                            return name.includes(q) || email.includes(q);
-                          })
-                          .slice(0, 20)
-                          .map((p) => (
-                            <button
-                              type="button"
-                              key={p.id}
-                              onClick={() => {
-                                setFormData(
-                                  (prev) => ({ ...prev, inviter: p.id } as any)
-                                );
-                                setHasUnsavedChanges(true);
-                                setInviterSearch(
-                                  `${p.first_name ?? ""} ${
-                                    p.last_name ?? ""
-                                  }`.trim()
-                                );
-                                setShowInviterDropdown(false);
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-50"
-                            >
-                              {`${p.first_name ?? ""} ${
-                                p.last_name ?? ""
-                              }`.trim()}
-                            </button>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                  {showInviterDropdown && (
-                    <div
-                      className="fixed inset-0 z-0"
-                      onClick={() => setShowInviterDropdown(false)}
-                    />
-                  )}
+                  <SearchableSelect
+                    value={formData.inviter ? String(formData.inviter) : ""}
+                    onChange={(value) => {
+                      setFormData((prev) => ({ ...prev, inviter: value } as any));
+                      setHasUnsavedChanges(true);
+                    }}
+                    options={peopleOptions
+                      .filter((p) => p.role !== "ADMIN" && p.username !== "admin")
+                      .map((p) => ({
+                        ...p,
+                        id: p.id,
+                        username: p.username || p.email || String(p.id),
+                      }))}
+                    placeholder="Type a name to search..."
+                    emptyMessage="No inviter found"
+                    showEmptyOption={true}
+                    emptyOptionLabel="No inviter"
+                  />
                 </div>
               </div>
             </div>
@@ -1275,91 +1232,150 @@ export default function PersonForm({
 
             {/* Virtualized Journey List */}
             {filteredAndSortedJourneys.length > 0 && (
-              <div
-                ref={journeyListRef}
-                className={`mt-4 rounded-lg border border-gray-200 ${
-                  filteredAndSortedJourneys.length <= 3
-                    ? "overflow-visible"
-                    : "h-[300px] overflow-auto"
-                }`}
-              >
-                <div
-                  style={{
-                    height: `${virtualizer.getTotalSize()}px`,
-                    width: "100%",
-                    position: "relative",
-                  }}
-                >
-                  {virtualizer.getVirtualItems().map((virtualRow) => {
-                    const journey = filteredAndSortedJourneys[virtualRow.index];
-                    const originalIndex = getOriginalJourneyIndex(
-                      virtualRow.index
-                    );
+              panelLayout ? (
+                <div className="mt-4 rounded-lg border border-gray-200 overflow-visible">
+                  {filteredAndSortedJourneys.map((journey, index) => {
+                    const originalIndex = getOriginalJourneyIndex(index);
                     const isEditing = editingJourneyIndex === originalIndex;
 
                     return (
                       <div
-                        key={virtualRow.key}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          height: `${virtualRow.size}px`,
-                          transform: `translateY(${virtualRow.start}px)`,
-                        }}
+                        key={journey.id || `${journey.date}-${journey.title}-${index}`}
+                        onClick={() => handleEditJourney(originalIndex)}
+                        className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all ${
+                          isEditing
+                            ? "border-2 border-blue-500 shadow-md"
+                            : "border border-transparent hover:border-gray-300 hover:shadow-sm"
+                        }`}
                       >
-                        <div
-                          onClick={() => handleEditJourney(originalIndex)}
-                          className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all h-full ${
-                            isEditing
-                              ? "border-2 border-blue-500 shadow-md"
-                              : "border border-transparent hover:border-gray-300 hover:shadow-sm"
-                          }`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-gray-900 truncate">
-                              {journey.title}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {journey.date} • {journey.type}
-                            </div>
-                            {journey.description && (
-                              <div className="text-sm text-gray-700 mt-1 line-clamp-2">
-                                {journey.description}
-                              </div>
-                            )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-900 truncate">
+                            {journey.title}
                           </div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openJourneyDelete(originalIndex);
-                            }}
-                            className="text-gray-400 hover:text-red-600 p-1 ml-2 flex-shrink-0"
-                            title="Remove journey"
-                            aria-label="Remove journey"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {journey.date} • {journey.type}
+                          </div>
+                          {journey.description && (
+                            <div className="text-sm text-gray-700 mt-1 line-clamp-2">
+                              {journey.description}
+                            </div>
+                          )}
                         </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openJourneyDelete(originalIndex);
+                          }}
+                          className="text-gray-400 hover:text-red-600 p-1 ml-2 flex-shrink-0"
+                          title="Remove journey"
+                          aria-label="Remove journey"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              ) : (
+                <div
+                  ref={journeyListRef}
+                  className={`mt-4 rounded-lg border border-gray-200 ${
+                    filteredAndSortedJourneys.length <= 3
+                      ? "overflow-visible"
+                      : "h-[300px] overflow-auto"
+                  }`}
+                >
+                  <div
+                    style={{
+                      height: `${virtualizer.getTotalSize()}px`,
+                      width: "100%",
+                      position: "relative",
+                    }}
+                  >
+                    {virtualizer.getVirtualItems().map((virtualRow) => {
+                      const journey = filteredAndSortedJourneys[virtualRow.index];
+                      const originalIndex = getOriginalJourneyIndex(
+                        virtualRow.index
+                      );
+                      const isEditing = editingJourneyIndex === originalIndex;
+
+                      return (
+                        <div
+                          key={virtualRow.key}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                        >
+                          <div
+                            onClick={() => handleEditJourney(originalIndex)}
+                            className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all h-full ${
+                              isEditing
+                                ? "border-2 border-blue-500 shadow-md"
+                                : "border border-transparent hover:border-gray-300 hover:shadow-sm"
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-gray-900 truncate">
+                                {journey.title}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {journey.date} • {journey.type}
+                              </div>
+                              {journey.description && (
+                                <div className="text-sm text-gray-700 mt-1 line-clamp-2">
+                                  {journey.description}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openJourneyDelete(originalIndex);
+                              }}
+                              className="text-gray-400 hover:text-red-600 p-1 ml-2 flex-shrink-0"
+                              title="Remove journey"
+                              aria-label="Remove journey"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )
             )}
 
             {/* Empty states */}

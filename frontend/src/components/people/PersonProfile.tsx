@@ -865,7 +865,7 @@ export default function PersonProfile({
                   {filteredAndSortedJourneys.length > 0 ? (
                     <div
                       className={`relative ${
-                        filteredAndSortedJourneys.length <= 3
+                        isPanelMode || filteredAndSortedJourneys.length <= 3
                           ? "overflow-visible"
                           : "h-[300px] overflow-auto"
                       }`}

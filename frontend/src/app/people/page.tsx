@@ -1283,6 +1283,7 @@ export default function PeoplePage() {
           isEditingFromProfile={true}
           startOnTimelineTab={startOnTimelineTab}
           panelLayout={isPanel}
+          peopleOptions={people}
           onSubmit={async (data) => {
             const result = await updatePerson(viewEditPerson.id, data);
             setViewEditPerson(result);
@@ -1337,6 +1338,7 @@ export default function PeoplePage() {
         }}
         initialData={isPanel ? personPanelInitialData : createInitialData}
         panelLayout={isPanel}
+        peopleOptions={people}
       />
     );
   };

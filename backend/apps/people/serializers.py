@@ -239,7 +239,14 @@ class PersonSerializer(serializers.ModelSerializer):
                 )
         return attrs
 
+    def _normalize_first_activity_attended(self, validated_data):
+        if "first_activity_attended" in validated_data and not validated_data.get(
+            "first_activity_attended"
+        ):
+            validated_data["first_activity_attended"] = ""
+
     def create(self, validated_data):
+        self._normalize_first_activity_attended(validated_data)
         request = self.context.get("request")
         if request and request.user and request.user.role == "MEMBER":
             validated_data["role"] = "VISITOR"
@@ -284,6 +291,7 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update person and track branch transfers"""
+        self._normalize_first_activity_attended(validated_data)
         # Store old branch value before update
         old_branch = instance.branch
 

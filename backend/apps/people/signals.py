@@ -1,6 +1,7 @@
 """
 Signal handlers for automatic person status updates based on attendance.
 """
+from django.db.models import Q
 from django.db.models.signals import post_save, pre_save, m2m_changed
 from django.dispatch import receiver
 from apps.attendance.models import AttendanceRecord
@@ -11,6 +12,8 @@ from apps.people.models import Person, Journey, Family
 import logging
 
 logger = logging.getLogger(__name__)
+INVITED_JOURNEY_TITLE = "Invited"
+INVITED_DESCRIPTION_PREFIX = "Invited"
 
 
 @receiver(post_save, sender=AttendanceRecord)
@@ -56,18 +59,27 @@ def store_person_original_values(sender, instance, **kwargs):
             instance._original_spirit_baptism_date = original.spirit_baptism_date
             instance._original_date_first_attended = original.date_first_attended
             instance._original_first_activity_attended = original.first_activity_attended
+            instance._original_role = original.role
+            instance._original_status = original.status
+            instance._original_inviter_id = original.inviter_id
         except Person.DoesNotExist:
             # New instance, no original values
             instance._original_water_baptism_date = None
             instance._original_spirit_baptism_date = None
             instance._original_date_first_attended = None
             instance._original_first_activity_attended = None
+            instance._original_role = None
+            instance._original_status = None
+            instance._original_inviter_id = None
     else:
         # New instance, no original values
         instance._original_water_baptism_date = None
         instance._original_spirit_baptism_date = None
         instance._original_date_first_attended = None
         instance._original_first_activity_attended = None
+        instance._original_role = None
+        instance._original_status = None
+        instance._original_inviter_id = None
 
 
 @receiver(post_save, sender=Person)
@@ -82,6 +94,9 @@ def manage_baptism_journeys(sender, instance, created, **kwargs):
         original_spirit_baptism = getattr(instance, '_original_spirit_baptism_date', None)
         original_first_attended = getattr(instance, '_original_date_first_attended', None)
         original_first_activity = getattr(instance, '_original_first_activity_attended', None)
+        original_role = getattr(instance, "_original_role", None)
+        original_status = getattr(instance, "_original_status", None)
+        original_inviter_id = getattr(instance, "_original_inviter_id", None)
         
         # Handle water_baptism_date
         _handle_baptism_date_journey(
@@ -110,6 +125,13 @@ def manage_baptism_journeys(sender, instance, created, **kwargs):
             original_first_attended,
             instance.first_activity_attended,
             original_first_activity
+        )
+        _handle_invited_journey(
+            instance,
+            created,
+            original_role,
+            original_status,
+            original_inviter_id,
         )
         
     except Exception as e:
@@ -177,16 +199,44 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
         current_activity: Current value of first_activity_attended
         original_activity: Original value of first_activity_attended (before save)
     """
+    first_attended_filter = Q(title="First Attended") | Q(
+        description__startswith="First attendance"
+    )
+
     # Check if date was cleared (changed from date to None)
     if original_date is not None and current_date is None:
         # Delete the journey if it exists
         Journey.objects.filter(
             user=person,
             type="NOTE",
-            title="First Attended"
-        ).delete()
+        ).filter(first_attended_filter).delete()
         logger.debug(f"Deleted First Attended journey for person {person.id}")
         return
+
+    def _get_first_attended_journey():
+        # Primary match: canonical title.
+        journey = (
+            Journey.objects.filter(
+                user=person,
+                type="NOTE",
+                title="First Attended",
+            )
+            .order_by("-updated_at", "-created_at", "-id")
+            .first()
+        )
+        if journey:
+            return journey
+
+        # Fallback for legacy rows that may not have canonical title.
+        return (
+            Journey.objects.filter(
+                user=person,
+                type="NOTE",
+                description__startswith="First attendance",
+            )
+            .order_by("-updated_at", "-created_at", "-id")
+            .first()
+        )
     
     # Build description with activity if available
     description = "First attendance"
@@ -200,15 +250,12 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
     
     if current_date is not None and (date_changed or activity_changed):
         # Check if journey already exists
-        journey = Journey.objects.filter(
-            user=person,
-            type="NOTE",
-            title="First Attended"
-        ).first()
+        journey = _get_first_attended_journey()
         
         if journey:
             # Update existing journey
             journey.date = current_date
+            journey.title = "First Attended"
             journey.description = description
             journey.save()
             logger.debug(f"Updated First Attended journey for person {person.id}")
@@ -227,6 +274,72 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
 
 def _get_person_label(person: Person) -> str:
     return person.get_full_name() or person.username
+
+
+def _build_invited_description(person: Person) -> str:
+    if person.inviter_id:
+        inviter_label = _get_person_label(person.inviter)
+        return f"Invited by {inviter_label}."
+    return "Invited."
+
+
+def _get_invited_journey(person: Person):
+    journey = (
+        Journey.objects.filter(
+            user=person,
+            type="NOTE",
+            title=INVITED_JOURNEY_TITLE,
+        )
+        .order_by("-updated_at", "-created_at", "-id")
+        .first()
+    )
+    if journey:
+        return journey
+    return (
+        Journey.objects.filter(
+            user=person,
+            type="NOTE",
+            description__startswith=INVITED_DESCRIPTION_PREFIX,
+        )
+        .order_by("-updated_at", "-created_at", "-id")
+        .first()
+    )
+
+
+def _handle_invited_journey(
+    person: Person,
+    created: bool,
+    original_role,
+    original_status,
+    original_inviter_id,
+):
+    qualifies_for_creation = person.role == "VISITOR" and person.status == "INVITED"
+    inviter_changed = original_inviter_id != person.inviter_id
+    role_changed = original_role != person.role
+    status_changed = original_status != person.status
+
+    journey = _get_invited_journey(person)
+
+    if qualifies_for_creation and not journey:
+        Journey.objects.create(
+            user=person,
+            type="NOTE",
+            title=INVITED_JOURNEY_TITLE,
+            description=_build_invited_description(person),
+            date=timezone.now().date(),
+            verified_by=None,
+        )
+        logger.debug(f"Created Invited journey for person {person.id}")
+        return
+
+    should_update_existing = journey and (
+        inviter_changed or (qualifies_for_creation and (created or role_changed or status_changed))
+    )
+    if should_update_existing:
+        journey.title = INVITED_JOURNEY_TITLE
+        journey.description = _build_invited_description(person)
+        journey.save()
+        logger.debug(f"Updated Invited journey for person {person.id}")
 
 
 @receiver(m2m_changed, sender=Family.members.through)

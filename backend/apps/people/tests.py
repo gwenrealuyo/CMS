@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from datetime import date
 from rest_framework.test import APIRequestFactory
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -179,6 +180,273 @@ class BranchTransferTest(TestCase):
         self.assertIn("Branch 1", transfer_journey.description)
         self.assertIn("Branch 2", transfer_journey.description)
         self.assertIsNone(transfer_journey.verified_by)
+
+
+class FirstAttendedJourneySyncTest(TestCase):
+    """Regression tests for first-attended journey synchronization."""
+
+    def setUp(self):
+        from .serializers import PersonSerializer
+
+        self.PersonSerializer = PersonSerializer
+        self.factory = APIRequestFactory()
+        self.admin = Person.objects.create_user(
+            username="admin_journey",
+            email="admin_journey@test.com",
+            password="testpass123",
+            first_name="Admin",
+            last_name="Journey",
+            role="ADMIN",
+        )
+
+    def _request(self):
+        request = self.factory.patch("/api/people/people/")
+        request.user = self.admin
+        return request
+
+    def _partial_update(self, person, payload):
+        serializer = self.PersonSerializer(
+            person,
+            data=payload,
+            partial=True,
+            context={"request": self._request()},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        return serializer.save()
+
+    def test_editing_activity_updates_same_first_attended_journey(self):
+        person = Person.objects.create_user(
+            username="activity_sync",
+            email="activity_sync@test.com",
+            password="testpass123",
+            first_name="Activity",
+            last_name="Sync",
+            role="MEMBER",
+            date_first_attended=date(2026, 1, 5),
+        )
+
+        original_journey = Journey.objects.get(
+            user=person, type="NOTE", title="First Attended"
+        )
+        self.assertEqual(original_journey.description, "First attendance")
+
+        self._partial_update(person, {"first_activity_attended": "SUNDAY_SERVICE"})
+        updated_journey = Journey.objects.get(id=original_journey.id)
+        self.assertEqual(updated_journey.description, "First attendance: Sunday Service")
+        self.assertEqual(
+            Journey.objects.filter(user=person, type="NOTE", title="First Attended").count(),
+            1,
+        )
+
+        self._partial_update(person, {"first_activity_attended": "DOCTRINAL_CLASS"})
+        updated_again = Journey.objects.get(id=original_journey.id)
+        self.assertEqual(updated_again.description, "First attendance: Doctrinal Class")
+        self.assertEqual(
+            Journey.objects.filter(user=person, type="NOTE", title="First Attended").count(),
+            1,
+        )
+
+    def test_clearing_first_attended_date_deletes_first_attended_journey(self):
+        person = Person.objects.create_user(
+            username="clear_first_attended",
+            email="clear_first_attended@test.com",
+            password="testpass123",
+            first_name="Clear",
+            last_name="Journey",
+            role="MEMBER",
+            date_first_attended=date(2026, 2, 2),
+            first_activity_attended="CLUSTERING",
+        )
+        self.assertTrue(
+            Journey.objects.filter(user=person, type="NOTE", title="First Attended").exists()
+        )
+
+        self._partial_update(person, {"date_first_attended": None})
+        self.assertFalse(
+            Journey.objects.filter(user=person, type="NOTE", title="First Attended").exists()
+        )
+
+    def test_updating_first_activity_does_not_modify_visitor_note(self):
+        serializer = self.PersonSerializer(
+            data={
+                "first_name": "Visitor",
+                "last_name": "Note",
+                "role": "VISITOR",
+                "status": "INVITED",
+                "date_first_attended": date(2026, 3, 3),
+                "note": "Initial visitor note",
+            },
+            context={"request": self._request()},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        person = serializer.save()
+
+        visitor_note = Journey.objects.get(user=person, type="NOTE", title="Visitor note")
+        self.assertEqual(visitor_note.description, "Initial visitor note")
+
+        self._partial_update(person, {"first_activity_attended": "PRAYER_MEETING"})
+
+        visitor_note.refresh_from_db()
+        self.assertEqual(visitor_note.description, "Initial visitor note")
+        first_attended = Journey.objects.get(user=person, type="NOTE", title="First Attended")
+        self.assertEqual(first_attended.description, "First attendance: Prayer Meeting")
+
+
+class InvitedJourneySyncTest(TestCase):
+    """Regression tests for invited journey lifecycle behavior."""
+
+    def setUp(self):
+        from .serializers import PersonSerializer
+
+        self.PersonSerializer = PersonSerializer
+        self.factory = APIRequestFactory()
+        self.admin = Person.objects.create_user(
+            username="admin_invited",
+            email="admin_invited@test.com",
+            password="testpass123",
+            first_name="Admin",
+            last_name="Invited",
+            role="ADMIN",
+        )
+        self.inviter1 = Person.objects.create_user(
+            username="inviter_one",
+            email="inviter_one@test.com",
+            password="testpass123",
+            first_name="Inviter",
+            last_name="One",
+            role="MEMBER",
+            status="ACTIVE",
+        )
+        self.inviter2 = Person.objects.create_user(
+            username="inviter_two",
+            email="inviter_two@test.com",
+            password="testpass123",
+            first_name="Inviter",
+            last_name="Two",
+            role="MEMBER",
+            status="ACTIVE",
+        )
+
+    def _request(self):
+        request = self.factory.patch("/api/people/people/")
+        request.user = self.admin
+        return request
+
+    def _partial_update(self, person, payload):
+        serializer = self.PersonSerializer(
+            person,
+            data=payload,
+            partial=True,
+            context={"request": self._request()},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        return serializer.save()
+
+    def test_create_visitor_invited_creates_invited_journey(self):
+        serializer = self.PersonSerializer(
+            data={
+                "first_name": "Visitor",
+                "last_name": "Invited",
+                "role": "VISITOR",
+                "status": "INVITED",
+                "inviter": self.inviter1.id,
+            },
+            context={"request": self._request()},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        person = serializer.save()
+
+        invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
+        self.assertEqual(invited_journey.description, "Invited by Inviter One.")
+
+    def test_inviter_update_updates_same_journey_for_invited_visitor(self):
+        person = Person.objects.create_user(
+            username="visitor_invited",
+            email="visitor_invited@test.com",
+            password="testpass123",
+            first_name="Visitor",
+            last_name="Person",
+            role="VISITOR",
+            status="INVITED",
+            inviter=self.inviter1,
+        )
+        original_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
+        self.assertEqual(original_journey.description, "Invited by Inviter One.")
+
+        self._partial_update(person, {"inviter": self.inviter2.id})
+
+        updated_journey = Journey.objects.get(id=original_journey.id)
+        self.assertEqual(updated_journey.description, "Invited by Inviter Two.")
+        self.assertEqual(
+            Journey.objects.filter(user=person, type="NOTE", title="Invited").count(),
+            1,
+        )
+
+    def test_inviter_update_on_non_visitor_still_updates_existing_invited_journey(self):
+        person = Person.objects.create_user(
+            username="visitor_for_transition",
+            email="visitor_for_transition@test.com",
+            password="testpass123",
+            first_name="Visitor",
+            last_name="Transition",
+            role="VISITOR",
+            status="INVITED",
+            inviter=self.inviter1,
+        )
+        invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
+
+        # Move away from visitor/invited and still expect inviter sync updates on existing journey.
+        self._partial_update(person, {"role": "MEMBER", "status": "ACTIVE"})
+        self._partial_update(person, {"inviter": self.inviter2.id})
+
+        invited_journey.refresh_from_db()
+        self.assertEqual(invited_journey.description, "Invited by Inviter Two.")
+        self.assertEqual(
+            Journey.objects.filter(user=person, type="NOTE", title="Invited").count(),
+            1,
+        )
+
+    def test_status_change_away_from_invited_keeps_invited_journey_history(self):
+        person = Person.objects.create_user(
+            username="visitor_history",
+            email="visitor_history@test.com",
+            password="testpass123",
+            first_name="Visitor",
+            last_name="History",
+            role="VISITOR",
+            status="INVITED",
+            inviter=self.inviter1,
+        )
+        invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
+
+        self._partial_update(person, {"status": "ATTENDED"})
+
+        invited_journey.refresh_from_db()
+        self.assertEqual(invited_journey.title, "Invited")
+        self.assertEqual(invited_journey.description, "Invited by Inviter One.")
+
+    def test_model_save_path_updates_inviter_on_existing_invited_journey(self):
+        person = Person.objects.create_user(
+            username="visitor_model_save",
+            email="visitor_model_save@test.com",
+            password="testpass123",
+            first_name="Visitor",
+            last_name="ModelSave",
+            role="VISITOR",
+            status="INVITED",
+            inviter=self.inviter1,
+        )
+        invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
+
+        person.inviter = self.inviter2
+        person.save(update_fields=["inviter"])
+
+        invited_journey.refresh_from_db()
+        self.assertEqual(invited_journey.description, "Invited by Inviter Two.")
+        self.assertEqual(
+            Journey.objects.filter(user=person, type="NOTE", title="Invited").count(),
+            1,
+        )
 
 
 class FamilyJourneyTest(TestCase):

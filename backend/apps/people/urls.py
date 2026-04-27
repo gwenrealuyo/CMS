@@ -6,6 +6,7 @@ from .views import (
     FamilyViewSet,
     JourneyViewSet,
     ModuleCoordinatorViewSet,
+    ModuleSettingViewSet,
 )
 
 app_name = "people"
@@ -18,6 +19,7 @@ router.register(r"journeys", JourneyViewSet, basename="journey")
 router.register(
     r"module-coordinators", ModuleCoordinatorViewSet, basename="module-coordinator"
 )
+router.register(r"module-settings", ModuleSettingViewSet, basename="module-setting")
 
 urlpatterns = [
     path("", include(router.urls)),

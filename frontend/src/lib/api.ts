@@ -72,6 +72,7 @@ import {
   PledgeContributionInput,
 } from "@/src/types/finance";
 import { Branch } from "@/src/types/branch";
+import { ModuleSetting } from "@/src/types/moduleSettings";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
@@ -287,6 +288,13 @@ export const moduleCoordinatorsApi = {
     }>
   ) => api.patch<ModuleCoordinator>(`/people/module-coordinators/${id}/`, data),
   delete: (id: number) => api.delete(`/people/module-coordinators/${id}/`),
+};
+
+export const moduleSettingsApi = {
+  getAll: () => api.get<ModuleSetting[]>("/people/module-settings/"),
+  getById: (id: number) => api.get<ModuleSetting>(`/people/module-settings/${id}/`),
+  patch: (id: number, data: Partial<Pick<ModuleSetting, "is_enabled">>) =>
+    api.patch<ModuleSetting>(`/people/module-settings/${id}/`, data),
 };
 
 export const branchesApi = {

@@ -3,9 +3,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { moduleSettingsApi } from "@/src/lib/api";
+import { ModuleType } from "@/src/types/moduleSettings";
 import {
   HomeIcon,
   UserGroupIcon,
@@ -54,17 +56,58 @@ const navigation = [
   },
 ];
 
+const moduleByNavName: Record<string, ModuleType> = {
+  Clusters: "CLUSTER",
+  Evangelism: "EVANGELISM",
+  Ministries: "MINISTRIES",
+  "Sunday School": "SUNDAY_SCHOOL",
+  Events: "EVENTS",
+  Finance: "FINANCE",
+  Lessons: "LESSONS",
+};
+
 export default function Sidebar() {
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [moduleEnabledState, setModuleEnabledState] = useState<
+    Partial<Record<ModuleType, boolean>>
+  >({});
   const { collapsed, mobileOpen, toggle, closeMobile } = useSidebar();
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+
+  useEffect(() => {
+    const fetchModuleSettings = async () => {
+      try {
+        const response = await moduleSettingsApi.getAll();
+        const nextState: Partial<Record<ModuleType, boolean>> = {};
+        response.data.forEach((setting) => {
+          nextState[setting.module] = setting.is_enabled;
+        });
+        setModuleEnabledState(nextState);
+      } catch (error) {
+        // Keep current defaults if settings endpoint is unavailable.
+      }
+    };
+
+    if (user) {
+      fetchModuleSettings();
+    }
+  }, [user]);
 
   // Filter navigation based on user role and module coordinator assignments
   const filteredNavigation = useMemo(() => {
     if (!user) return [];
 
     return navigation.filter((item) => {
+      const moduleType = moduleByNavName[item.name];
+      if (
+        moduleType &&
+        user.role !== "ADMIN" &&
+        moduleEnabledState[moduleType] === false
+      ) {
+        return false;
+      }
+
       // Admin Settings: Only ADMIN
       if (item.name === "Admin Settings") {
         return user.role === "ADMIN";
@@ -166,7 +209,7 @@ export default function Sidebar() {
       // All other items: All authenticated users (MEMBER and above)
       return true;
     });
-  }, [user, isModuleCoordinator, isSeniorCoordinator]);
+  }, [user, isModuleCoordinator, isSeniorCoordinator, moduleEnabledState]);
 
   const toggleSection = (sectionName: string) => {
     setExpandedSections((prev) =>

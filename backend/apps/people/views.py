@@ -2,13 +2,14 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Branch, Person, Family, Journey, ModuleCoordinator
+from .models import Branch, Person, Family, Journey, ModuleCoordinator, ModuleSetting
 from .serializers import (
     BranchSerializer,
     PersonSerializer,
     FamilySerializer,
     JourneySerializer,
     ModuleCoordinatorSerializer,
+    ModuleSettingSerializer,
     ModuleCoordinatorBulkCreateSerializer,
 )
 from apps.authentication.permissions import (
@@ -466,6 +467,22 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ModuleSettingViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for module enable/disable settings.
+    Only ADMIN users can view and modify module states.
+    """
+
+    queryset = ModuleSetting.objects.select_related("updated_by").all()
+    serializer_class = ModuleSettingSerializer
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsAdmin]
+    http_method_names = ["get", "put", "patch", "head", "options"]
+    ordering = ["module"]
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
 
 
 class BranchViewSet(viewsets.ModelViewSet):

@@ -262,3 +262,31 @@ class ModuleCoordinator(models.Model):
             f" ({self.resource_type}#{self.resource_id})" if self.resource_id else ""
         )
         return f"{self.person.username} - {self.get_module_display()} {self.get_level_display()}{resource_info}"
+
+
+class ModuleSetting(models.Model):
+    """Stores global on/off state for each module."""
+
+    module = models.CharField(
+        max_length=50,
+        choices=ModuleCoordinator.ModuleType.choices,
+        unique=True,
+    )
+    is_enabled = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_module_settings",
+    )
+
+    class Meta:
+        verbose_name = "Module Setting"
+        verbose_name_plural = "Module Settings"
+        ordering = ["module"]
+
+    def __str__(self):
+        status = "Enabled" if self.is_enabled else "Disabled"
+        return f"{self.get_module_display()}: {status}"

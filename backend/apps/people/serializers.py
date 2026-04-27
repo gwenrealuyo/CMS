@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Branch, Family, Journey, Person, ModuleCoordinator
+from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting
 
 
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
@@ -26,6 +26,29 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
 
     def get_person_name(self, obj):
         return obj.person.get_full_name() or obj.person.username
+
+
+class ModuleSettingSerializer(serializers.ModelSerializer):
+    module_display = serializers.CharField(source="get_module_display", read_only=True)
+    updated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ModuleSetting
+        fields = [
+            "id",
+            "module",
+            "module_display",
+            "is_enabled",
+            "updated_at",
+            "updated_by",
+            "updated_by_name",
+        ]
+        read_only_fields = ["id", "module", "updated_at", "updated_by", "updated_by_name"]
+
+    def get_updated_by_name(self, obj):
+        if not obj.updated_by:
+            return None
+        return obj.updated_by.get_full_name() or obj.updated_by.username
 
 
 class ModuleCoordinatorBulkCreateSerializer(serializers.Serializer):

@@ -31,6 +31,7 @@ import {
 import { Branch } from "@/src/types/branch";
 import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorManager";
 import BranchForm from "@/src/components/admin/BranchForm";
+import ModuleSettingsManager from "@/src/components/admin/ModuleSettingsManager";
 
 type Tab =
   | "overview"
@@ -38,6 +39,7 @@ type Tab =
   | "locked-accounts"
   | "audit-logs"
   | "module-coordinators"
+  | "module-controls"
   | "branches";
 
 export default function AdminSettingsPage() {
@@ -527,6 +529,16 @@ function AdminSettingsPageContent() {
               }`}
             >
               Module Coordinators
+            </button>
+            <button
+              onClick={() => setActiveTab("module-controls")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
+                activeTab === "module-controls"
+                  ? "border-[#2563EB] text-[#2563EB]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Module Controls
             </button>
             <button
               onClick={() => setActiveTab("branches")}
@@ -2095,6 +2107,9 @@ function AdminSettingsPageContent() {
             {activeTab === "module-coordinators" && (
               <ModuleCoordinatorManager />
             )}
+
+            {/* Module Controls Tab */}
+            {activeTab === "module-controls" && <ModuleSettingsManager />}
 
             {/* Branches Tab */}
             {activeTab === "branches" && (

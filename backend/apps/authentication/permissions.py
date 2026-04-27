@@ -1,5 +1,55 @@
 from rest_framework import permissions
-from apps.people.models import ModuleCoordinator
+from apps.people.models import ModuleCoordinator, ModuleSetting
+
+
+MODULE_APP_LABEL_MAP = {
+    "clusters": ModuleCoordinator.ModuleType.CLUSTER,
+    "finance": ModuleCoordinator.ModuleType.FINANCE,
+    "evangelism": ModuleCoordinator.ModuleType.EVANGELISM,
+    "sunday_school": ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+    "lessons": ModuleCoordinator.ModuleType.LESSONS,
+    "events": ModuleCoordinator.ModuleType.EVENTS,
+    "ministries": ModuleCoordinator.ModuleType.MINISTRIES,
+}
+
+
+def normalize_module_type(module_type):
+    if isinstance(module_type, str):
+        return module_type
+    if hasattr(module_type, "value"):
+        return module_type.value
+    return str(module_type) if module_type is not None else None
+
+
+def infer_module_type_from_view(view):
+    if hasattr(view, "get_module_type"):
+        module_type = view.get_module_type()
+        if module_type:
+            return normalize_module_type(module_type)
+
+    module_type_attr = getattr(view, "module_type", None)
+    if module_type_attr:
+        return normalize_module_type(module_type_attr)
+
+    queryset = getattr(view, "queryset", None)
+    model = getattr(queryset, "model", None)
+    if model is not None:
+        app_label = getattr(model._meta, "app_label", None)
+        if app_label in MODULE_APP_LABEL_MAP:
+            return MODULE_APP_LABEL_MAP[app_label]
+
+    return None
+
+
+def is_module_enabled(module_type):
+    module_key = normalize_module_type(module_type)
+    if not module_key:
+        return True
+    setting = ModuleSetting.objects.filter(module=module_key).values("is_enabled").first()
+    # Backward compatibility: if row does not exist yet, treat as enabled.
+    if setting is None:
+        return True
+    return setting["is_enabled"]
 
 
 class IsAuthenticatedAndNotVisitor(permissions.IsAuthenticated):
@@ -59,11 +109,43 @@ class IsMemberOrAbove(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        return (
+        if not (
             request.user
             and request.user.is_authenticated
             and request.user.role in ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"]
-        )
+        ):
+            return False
+
+        if request.user.role == "ADMIN":
+            return True
+
+        module_type = infer_module_type_from_view(view)
+        if module_type and not is_module_enabled(module_type):
+            return False
+
+        return True
+
+
+class IsModuleEnabled(permissions.BasePermission):
+    """
+    Blocks access when a module is globally disabled.
+    ADMIN users always bypass this restriction.
+    """
+
+    def __init__(self, module_type=None):
+        self.module_type = module_type
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if request.user.role == "ADMIN":
+            return True
+
+        module_type = self.module_type or infer_module_type_from_view(view)
+        if not module_type:
+            return True
+        return is_module_enabled(module_type)
 
 
 class IsModuleCoordinator(permissions.BasePermission):
@@ -201,9 +283,18 @@ class HasModuleAccess(permissions.BasePermission):
 
         user = request.user
 
-        # ADMIN and PASTOR have full access - check this first before any other logic
-        # Ensure role attribute exists and is checked correctly
-        if hasattr(user, "role") and user.role in ["ADMIN", "PASTOR"]:
+        module_type_str = normalize_module_type(self.module_type)
+
+        # ADMIN always has full access, even when module is disabled.
+        if hasattr(user, "role") and user.role == "ADMIN":
+            return True
+
+        # Disabled modules are blocked for all non-admin users.
+        if module_type_str and not is_module_enabled(module_type_str):
+            return False
+
+        # PASTOR has full access only when module is enabled.
+        if hasattr(user, "role") and user.role == "PASTOR":
             return True
 
         # Map DRF view actions to our permission actions
@@ -230,17 +321,6 @@ class HasModuleAccess(permissions.BasePermission):
             effective_action = "delete" if self.action == "delete" else "write"
         else:
             effective_action = self.action
-
-        # Normalize module_type to string for comparison (handle both enum and string)
-        module_type_str = (
-            self.module_type
-            if isinstance(self.module_type, str)
-            else (
-                self.module_type.value
-                if hasattr(self.module_type, "value")
-                else str(self.module_type)
-            )
-        )
 
         # Check module coordinator assignments
         if user.is_module_coordinator(module_type_str):

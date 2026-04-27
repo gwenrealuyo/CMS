@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Iterable
 
 from django.db.models import Count, Prefetch, Q
@@ -213,10 +214,80 @@ class PersonLessonProgressViewSet(
         if not include_superseded:
             queryset = queryset.filter(lesson__is_latest=True)
 
-        status_totals = {status: 0 for status, _ in PersonLessonProgress.Status.choices}
-
+        # Backward-compatible raw record totals.
+        record_status_totals = {
+            status: 0 for status, _ in PersonLessonProgress.Status.choices
+        }
         for entry in queryset.values("status").annotate(total=Count("id")):
-            status_totals[entry["status"]] = entry["total"]
+            record_status_totals[entry["status"]] = entry["total"]
+
+        year_param = request.query_params.get("year")
+        if year_param:
+            try:
+                target_year = int(year_param)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"year": "Year must be a valid number."}) from exc
+        else:
+            target_year = timezone.now().year
+
+        if target_year < 1900 or target_year > 3000:
+            raise ValidationError({"year": "Year must be between 1900 and 3000."})
+
+        if timezone.is_aware(timezone.now()):
+            year_start = timezone.make_aware(
+                datetime(target_year, 1, 1, 0, 0, 0),
+                timezone.get_current_timezone(),
+            )
+            year_end = timezone.make_aware(
+                datetime(target_year, 12, 31, 23, 59, 59, 999999),
+                timezone.get_current_timezone(),
+            )
+        else:
+            year_start = datetime(target_year, 1, 1, 0, 0, 0)
+            year_end = datetime(target_year, 12, 31, 23, 59, 59, 999999)
+
+        active_latest_queryset = queryset.filter(
+            lesson__is_latest=True,
+            lesson__is_active=True,
+        ).select_related("lesson")
+
+        # Include participants active in the selected year, including carry-over
+        # assignments from prior years that are still not completed in-year.
+        cohort_person_ids = list(
+            active_latest_queryset.filter(
+                assigned_at__lte=year_end
+            )
+            .filter(Q(completed_at__isnull=True) | Q(completed_at__gte=year_start))
+            .values_list("person_id", flat=True)
+            .distinct()
+        )
+
+        cohort_records = active_latest_queryset.filter(person_id__in=cohort_person_ids)
+        records_by_person = {}
+        for progress in cohort_records:
+            records_by_person.setdefault(progress.person_id, []).append(progress)
+
+        lessons_in_scope_count = (
+            active_latest_queryset.values("lesson_id").distinct().count()
+        )
+        person_status_totals = {
+            status: 0 for status, _ in PersonLessonProgress.Status.choices
+        }
+
+        for person_id in cohort_person_ids:
+            person_records = records_by_person.get(person_id, [])
+            completed_count = sum(
+                1
+                for record in person_records
+                if record.status == PersonLessonProgress.Status.COMPLETED
+            )
+
+            if completed_count == 0:
+                person_status_totals[PersonLessonProgress.Status.ASSIGNED] += 1
+            elif lessons_in_scope_count > 0 and completed_count >= lessons_in_scope_count:
+                person_status_totals[PersonLessonProgress.Status.COMPLETED] += 1
+            else:
+                person_status_totals[PersonLessonProgress.Status.IN_PROGRESS] += 1
 
         lesson_breakdown = (
             queryset.values(
@@ -236,7 +307,8 @@ class PersonLessonProgressViewSet(
             .order_by("lesson__order", "lesson__version_label")
         )
 
-        total_participants = queryset.count()
+        # Person-level total used by yearly summary cards.
+        total_participants = len(cohort_person_ids)
 
         unassigned_visitors = (
             Person.objects.filter(role="VISITOR")
@@ -247,8 +319,13 @@ class PersonLessonProgressViewSet(
 
         return Response(
             {
-                "overall": status_totals,
+                # Person-level status buckets for cards.
+                "overall": person_status_totals,
                 "total_participants": total_participants,
+                "year": target_year,
+                # Backward-compatible record-level totals.
+                "overall_records": record_status_totals,
+                "total_records": queryset.count(),
                 "lessons": [
                     {
                         "lesson_id": row["lesson_id"],

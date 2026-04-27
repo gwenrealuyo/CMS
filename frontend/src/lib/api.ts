@@ -535,6 +535,7 @@ export const lessonsApi = {
     lesson?: string | number;
     version_label?: string;
     include_superseded?: boolean;
+    year?: number;
   }) =>
     api.get<LessonProgressSummary>("/lessons/progress/summary/", { params }),
   listSessionReports: (params?: {

@@ -80,6 +80,9 @@ export interface LessonProgressSummaryByLesson {
 export interface LessonProgressSummary {
   overall: Record<LessonProgressStatus, number>;
   total_participants: number;
+  year?: number;
+  overall_records?: Record<LessonProgressStatus, number>;
+  total_records?: number;
   lessons: LessonProgressSummaryByLesson[];
   unassigned_visitors?: number;
 }

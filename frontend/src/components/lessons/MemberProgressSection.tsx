@@ -75,15 +75,15 @@ export default function MemberProgressSection({
   onPersonClick,
 }: MemberProgressSectionProps) {
   const activeLatestLessons = allLessons.filter(
-    (lesson) => lesson.is_latest && lesson.is_active
+    (lesson) => lesson.is_latest && lesson.is_active,
   );
 
   return (
-    <Card title="Participant Progress">
+    <Card title="Student Progress">
       <div className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-500 sm:max-w-md">
-            View all participants taking lessons and their overall progress.
+            View all students taking lessons and their overall progress.
           </p>
           <AssignLessonsDropdown
             allLessons={activeLatestLessons}
@@ -101,7 +101,9 @@ export default function MemberProgressSection({
             className="rounded-md border border-gray-200 px-3 py-2 text-sm"
             value={progressFilterLessonId || ""}
             onChange={(e) =>
-              onProgressFilterChange(e.target.value ? Number(e.target.value) : null)
+              onProgressFilterChange(
+                e.target.value ? Number(e.target.value) : null,
+              )
             }
             aria-label="Filter by lesson"
           >
@@ -115,7 +117,9 @@ export default function MemberProgressSection({
           <select
             value={progressStatusFilter}
             onChange={(e) =>
-              onProgressStatusFilterChange(e.target.value as ProgressStatusFilter)
+              onProgressStatusFilterChange(
+                e.target.value as ProgressStatusFilter,
+              )
             }
             className="rounded-md border border-gray-200 px-3 py-2 text-sm"
             aria-label="Filter by status"

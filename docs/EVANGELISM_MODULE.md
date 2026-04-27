@@ -443,7 +443,6 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
 Serializers (`apps.evangelism.serializers`) expose:
 
 - `EvangelismGroupSerializer`:
-
   - `leader` – nested person object (read-only)
   - `leader_id` – write-only field for setting leader
   - `cluster` – nested cluster object (read-only)
@@ -453,21 +452,18 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All group fields
 
 - `EvangelismGroupMemberSerializer`:
-
   - `person` – nested person object with full name formatting (read-only)
   - `person_id` – write-only field for setting person
   - `role_display` – human-readable role name (read-only)
   - All member fields
 
 - `EvangelismSessionSerializer`:
-
   - `evangelism_group` – nested group object (read-only)
   - `evangelism_group_id` – write-only field for setting group
   - `event_id` – read-only event ID if event exists
   - All session fields
 
 - `EvangelismWeeklyReportSerializer`:
-
   - `evangelism_group` – nested group object (read-only)
   - `members_attended_details` – read-only full person details for members
   - `visitors_attended_details` – read-only full person details for visitors
@@ -475,7 +471,6 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All report fields
 
 - `ProspectSerializer`:
-
   - `invited_by` – nested person object (read-only)
   - `invited_by_id` – write-only field for setting inviter
   - `inviter_cluster` – nested cluster object (read-only)
@@ -487,7 +482,6 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All prospect fields
 
 - `FollowUpTaskSerializer`:
-
   - `prospect` – nested prospect object (read-only)
   - `assigned_to` – nested person object (read-only)
   - `created_by` – nested person object (read-only)
@@ -497,14 +491,12 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All task fields
 
 - `DropOffSerializer`:
-
   - `prospect` – nested prospect object (read-only)
   - `drop_off_stage_display` – human-readable stage (read-only)
   - `reason_display` – human-readable reason (read-only)
   - All drop-off fields
 
 - `ConversionSerializer`:
-
   - `person` – nested person object (read-only)
   - `prospect` – nested prospect object (read-only)
   - `converted_by` – nested person object (read-only)
@@ -514,7 +506,6 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All conversion fields
 
 - `MonthlyConversionTrackingSerializer`:
-
   - `cluster` – nested cluster object (read-only)
   - `prospect` – nested prospect object (read-only)
   - `person` – nested person object (read-only, if linked)
@@ -522,7 +513,6 @@ Serializers (`apps.evangelism.serializers`) expose:
   - All tracking fields
 
 - `MonthlyStatisticsSerializer`:
-
   - `year` – year
   - `month` – month
   - `cluster_id` – cluster ID
@@ -702,7 +692,7 @@ The main page includes tabs for different views:
   - Charts and graphs
 - **`Each1Reach1Report`**: Goal progress report
   - Cluster goals and achievements
-  - Member progress
+  - Student progress
   - Yearly summary
 - **`VisitorProgressReport`**: Visitor progress through pipeline
   - Pipeline stage distribution
@@ -797,55 +787,46 @@ When viewing a group, a modal displays:
 All Evangelism models are registered in Django admin (`apps.evangelism.admin`):
 
 - **EvangelismGroupAdmin**:
-
   - List display: name, leader, cluster, location, meeting_time, is_active
   - Filterable by cluster, is_active
   - Searchable by name, description, leader name
 
 - **EvangelismGroupMemberAdmin**:
-
   - List display: evangelism_group, person, role, joined_date, is_active
   - Filterable by role, is_active, group
   - Searchable by group name, person name
 
 - **EvangelismSessionAdmin**:
-
   - List display: evangelism_group, session_date, session_time, topic, event
   - Filterable by group, session_date
   - Searchable by group name, topic
 
 - **EvangelismWeeklyReportAdmin**:
-
   - List display: evangelism_group, year, week_number, meeting_date, gathering_type
   - Filterable by group, year, week_number, gathering_type
   - Searchable by group name
 
 - **ProspectAdmin**:
-
   - List display: name, invited_by, pipeline_stage, last_activity_date, is_dropped_off
   - Filterable by pipeline_stage, inviter_cluster, group, is_dropped_off
   - Searchable by name, contact_info
 
 - **FollowUpTaskAdmin**:
-
   - List display: prospect, assigned_to, task_type, due_date, status, priority
   - Filterable by status, priority, assigned_to
   - Searchable by prospect name, assignee name
 
 - **DropOffAdmin**:
-
   - List display: prospect, drop_off_date, drop_off_stage, reason, recovered
   - Filterable by drop_off_stage, reason, recovered
   - Searchable by prospect name
 
 - **ConversionAdmin**:
-
   - List display: person, converted_by, conversion_date, water_baptism_date, spirit_baptism_date, is_complete
   - Filterable by cluster, group, year, is_complete
   - Searchable by person name, converter name
 
 - **MonthlyConversionTrackingAdmin**:
-
   - List display: cluster, prospect, year, month, stage, first_date_in_stage
   - Filterable by cluster, year, month, stage
   - Searchable by prospect name

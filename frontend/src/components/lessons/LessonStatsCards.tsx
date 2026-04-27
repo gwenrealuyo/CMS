@@ -50,43 +50,25 @@ export default function LessonStatsCards({
           title="Visitors Awaiting Lessons"
           value={formatNumber(visitorsAwaitingCount)}
           subtitle="Visitors not yet enrolled in any lesson"
+          valueClassName="text-red-600"
         />
         <SummaryCard
           title="Active Assignments"
           value={formatNumber(activeAssignments)}
-          subtitle="Currently assigned or in progress"
+          subtitle="Students currently in progress this year"
         />
         <SummaryCard
           title="Completed Lessons"
           value={formatNumber(completedCount)}
-          subtitle="Total completions"
+          subtitle="Students who completed all lessons"
+          valueClassName={
+            completedCount > 0 ? "text-green-600" : "text-[#2563EB]"
+          }
         />
         <SummaryCard
           title="Average Progress"
           value={`${averageProgress}%`}
-          subtitle="Across all assignments"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatusCard
-          label="Assigned"
-          value={formatNumber(assignedCount)}
-          description="Lessons waiting to be started"
-          colorClass="bg-gray-100 text-gray-700"
-        />
-
-        <StatusCard
-          label="In Progress"
-          value={formatNumber(inProgressCount)}
-          description="Lessons currently being studied"
-          colorClass="bg-blue-100 text-blue-700"
-        />
-        <StatusCard
-          label="Completed"
-          value={formatNumber(completedCount)}
-          description="Lessons completed successfully"
-          colorClass="bg-green-100 text-green-700"
+          subtitle="Completion rate across yearly participants"
         />
       </div>
     </div>
@@ -97,40 +79,20 @@ interface SummaryCardProps {
   title: string;
   value: string | number;
   subtitle: string;
+  valueClassName?: string;
 }
 
-function SummaryCard({ title, value, subtitle }: SummaryCardProps) {
+function SummaryCard({
+  title,
+  value,
+  subtitle,
+  valueClassName = "text-[#2563EB]",
+}: SummaryCardProps) {
   return (
     <Card>
       <p className="text-sm text-gray-500">{title}</p>
-      <p className="text-3xl font-bold text-[#2563EB] mt-2">{value}</p>
+      <p className={`text-3xl font-bold mt-2 ${valueClassName}`}>{value}</p>
       <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
-    </Card>
-  );
-}
-
-interface StatusCardProps {
-  label: string;
-  value: string | number;
-  description: string;
-  colorClass: string;
-}
-
-function StatusCard({
-  label,
-  value,
-  description,
-  colorClass,
-}: StatusCardProps) {
-  return (
-    <Card>
-      <span
-        className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${colorClass}`}
-      >
-        {label}
-      </span>
-      <p className="text-4xl font-bold text-[#1F2937] mt-3">{value}</p>
-      <p className="text-xs text-gray-500 mt-2">{description}</p>
     </Card>
   );
 }

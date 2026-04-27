@@ -431,7 +431,10 @@ export default function LessonsPageContainer() {
   const fetchSummary = async () => {
     try {
       setSummaryLoading(true);
-      const response = await lessonsApi.summary({ include_superseded: true });
+      const response = await lessonsApi.summary({
+        include_superseded: true,
+        year: new Date().getFullYear(),
+      });
       setSummary(response.data);
       setSummaryError(null);
     } catch (error) {

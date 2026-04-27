@@ -1,4 +1,8 @@
-export type LessonContentTab = "lesson" | "progress" | "sessions" | "commitment";
+export type LessonContentTab =
+  | "lesson"
+  | "progress"
+  | "sessions"
+  | "commitment";
 
 interface LessonContentTabsProps {
   activeTab: LessonContentTab;
@@ -23,7 +27,7 @@ export default function LessonContentTabs({
     { id: "lesson", label: "Lesson Content", disabled: false },
     {
       id: "progress",
-      label: "Member Progress",
+      label: "Student Progress",
       disabled: Boolean(disableProgress),
     },
     {
@@ -67,5 +71,3 @@ export default function LessonContentTabs({
     </div>
   );
 }
-
-

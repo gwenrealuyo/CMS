@@ -483,7 +483,7 @@ export default function ClusterWeeklyReportForm({
           e.stopPropagation();
         }
       }}
-      className="max-h-[85vh] overflow-y-auto text-sm max-w-3xl"
+      className="text-sm max-w-3xl"
     >
       {/* Cluster Selection */}
       <div className="mb-6">

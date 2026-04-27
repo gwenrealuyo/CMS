@@ -91,6 +91,17 @@ export default function AttendanceSelector({
     otherPeople = peopleByRole;
   }
 
+  // For VISITOR list view: prioritize visitors who are in selected cluster.members
+  const selectedClusterMemberIdSet = new Set(clusterMemberIds);
+  const clusterVisitors =
+    filterRole === "VISITOR" && selectedCluster
+      ? peopleByRole.filter((person) => selectedClusterMemberIdSet.has(person.id))
+      : [];
+  const otherVisitors =
+    filterRole === "VISITOR" && selectedCluster
+      ? peopleByRole.filter((person) => !selectedClusterMemberIdSet.has(person.id))
+      : peopleByRole;
+
   // Filter by search term (already filtered by role and cluster membership in peopleByRole)
   const filteredPeople = peopleByRole.filter((person) => {
     if (searchTerm.trim().length === 0) return false;
@@ -138,6 +149,13 @@ export default function AttendanceSelector({
     // Replace selection instead of adding to it
     onSelectionChange(activeIds);
     setLastClickedButton("selectAllActive");
+  };
+
+  const selectClusterVisitors = () => {
+    if (filterRole !== "VISITOR") return;
+    const clusterVisitorIds = clusterVisitors.map((p) => p.id);
+    onSelectionChange(clusterVisitorIds);
+    setLastClickedButton("selectClusterVisitors");
   };
 
   const selectAllClusterMembers = () => {
@@ -297,19 +315,30 @@ export default function AttendanceSelector({
             return;
           }
         }
-      } else if (
-        filterRole === "VISITOR" &&
-        previouslyAttendedPeople.length > 0
-      ) {
-        const previouslyAttendedIdsSet = new Set(
-          previouslyAttendedPeople.map((p) => p.id)
-        );
+      } else if (filterRole === "VISITOR") {
+        const clusterVisitorIds = clusterVisitors.map((p) => p.id);
+        const clusterVisitorSet = new Set(clusterVisitorIds);
         if (
-          selectedIds.length === previouslyAttendedPeople.length &&
-          selectedIds.every((id) => previouslyAttendedIdsSet.has(id))
+          selectedCluster &&
+          clusterVisitorIds.length > 0 &&
+          selectedIds.length === clusterVisitorIds.length &&
+          selectedIds.every((id) => clusterVisitorSet.has(id))
         ) {
-          setLastClickedButton("selectAllClusterMembers");
+          setLastClickedButton("selectClusterVisitors");
           return;
+        }
+
+        if (previouslyAttendedPeople.length > 0) {
+          const previouslyAttendedIdsSet = new Set(
+            previouslyAttendedPeople.map((p) => p.id)
+          );
+          if (
+            selectedIds.length === previouslyAttendedPeople.length &&
+            selectedIds.every((id) => previouslyAttendedIdsSet.has(id))
+          ) {
+            setLastClickedButton("selectAllClusterMembers");
+            return;
+          }
         }
       }
 
@@ -324,6 +353,8 @@ export default function AttendanceSelector({
     mostRecentAttendedIds.join(","),
     previouslyAttendedPeople.length,
     previouslyAttendedPeople.map((p) => p.id).join(","),
+    clusterVisitors.length,
+    clusterVisitors.map((p) => p.id).join(","),
     peopleByRole.length,
   ]);
 
@@ -410,6 +441,21 @@ export default function AttendanceSelector({
               >
                 Select All Active
               </button>
+              {filterRole === "VISITOR" &&
+                selectedCluster &&
+                clusterVisitors.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={selectClusterVisitors}
+                    className={`text-xs px-2 py-1 border rounded transition-colors ${
+                      lastClickedButton === "selectClusterVisitors"
+                        ? "bg-indigo-600 text-white border-indigo-600 font-semibold"
+                        : "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                    }`}
+                  >
+                    {`Select Cluster Visitors (${clusterVisitors.length})`}
+                  </button>
+                )}
               {selectedCluster &&
                 ((filterRole === "VISITOR" &&
                   previouslyAttendedPeople.length > 0) ||
@@ -554,17 +600,14 @@ export default function AttendanceSelector({
             </div>
           )}
 
-          {/* Previously Attended Visitors / Cluster Members Section */}
-          {((filterRole === "VISITOR" && previouslyAttendedPeople.length > 0) ||
-            (filterRole === "MEMBER" &&
-              hasMemberSource &&
-              previouslyAttendedPeople.length > 0)) && (
+          {/* Previously Attended Members Section */}
+          {filterRole === "MEMBER" &&
+            hasMemberSource &&
+            previouslyAttendedPeople.length > 0 && (
             <>
               <div className="p-2 border-b sticky top-0 bg-purple-50 border-purple-200">
                 <div className="text-xs font-semibold text-purple-900">
-                  {filterRole === "VISITOR"
-                    ? `Previously Attended Visitors (${previouslyAttendedPeople.length})`
-                    : `Previously Attended Members (${previouslyAttendedPeople.length})`}
+                  {`Previously Attended Members (${previouslyAttendedPeople.length})`}
                 </div>
               </div>
               {previouslyAttendedPeople.map((person) => {
@@ -590,28 +633,9 @@ export default function AttendanceSelector({
                           }`.trim() ||
                           "Unknown"}
                       </div>
-                      {filterRole === "VISITOR" ? (
-                        <div className="text-xs text-gray-500">
-                          {(() => {
-                            const inviter = person.inviter
-                              ? availablePeople.find(
-                                  (p) => p.id === person.inviter
-                                )
-                              : undefined;
-                            const inviterName = inviter
-                              ? inviter.name
-                              : "Unknown";
-                            const statusLabel = person.status
-                              ? person.status.toLowerCase()
-                              : "";
-                            return `invited by ${inviterName} • ${statusLabel}`;
-                          })()}
-                        </div>
-                      ) : (
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {(person.status || "active").toLowerCase()}
-                        </div>
-                      )}
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {(person.status || "active").toLowerCase()}
+                      </div>
                     </div>
                   </label>
                 );
@@ -619,21 +643,14 @@ export default function AttendanceSelector({
             </>
           )}
 
-          {/* Other Visitors / Members Section */}
-          {((filterRole === "VISITOR" && otherPeople.length > 0) ||
-            (filterRole === "MEMBER" &&
-              selectedCluster &&
-              otherPeople.length > 0)) && (
+          {/* Other Members Section */}
+          {filterRole === "MEMBER" && selectedCluster && otherPeople.length > 0 && (
             <>
               {(previouslyAttendedPeople.length > 0 ||
                 otherPeople.length > 0) && (
                 <div className="p-2 bg-gray-50 border-b border-gray-200 sticky top-0">
                   <div className="text-xs font-semibold text-gray-700">
-                    {filterRole === "VISITOR"
-                      ? previouslyAttendedPeople.length > 0
-                        ? `Other Visitors (${otherPeople.length})`
-                        : `Visitors (${otherPeople.length})`
-                      : previouslyAttendedPeople.length > 0
+                    {previouslyAttendedPeople.length > 0
                       ? `Other Members (${otherPeople.length})`
                       : `Members (${otherPeople.length})`}
                   </div>
@@ -662,34 +679,119 @@ export default function AttendanceSelector({
                           }`.trim() ||
                           "Unknown"}
                       </div>
-                      {filterRole === "VISITOR" ? (
-                        <div className="text-xs text-gray-500">
-                          {(() => {
-                            const inviter = person.inviter
-                              ? availablePeople.find(
-                                  (p) => p.id === person.inviter
-                                )
-                              : undefined;
-                            const inviterName = inviter
-                              ? inviter.name
-                              : "Unknown";
-                            const statusLabel = person.status
-                              ? person.status.toLowerCase()
-                              : "";
-                            return `invited by ${inviterName} • ${statusLabel}`;
-                          })()}
-                        </div>
-                      ) : (
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {(person.status || "active").toLowerCase()}
-                        </div>
-                      )}
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {(person.status || "active").toLowerCase()}
+                      </div>
                     </div>
                   </label>
                 );
               })}
             </>
           )}
+
+          {/* Visitors in selected cluster */}
+          {filterRole === "VISITOR" && selectedCluster && clusterVisitors.length > 0 && (
+            <>
+              <div className="p-2 border-b sticky top-0 bg-blue-50 border-blue-200">
+                <div className="text-xs font-semibold text-blue-900">
+                  {`Visitors in this cluster (${clusterVisitors.length})`}
+                </div>
+              </div>
+              {clusterVisitors.map((person) => {
+                const isSelected = selectedIds.includes(person.id);
+                return (
+                  <label
+                    key={person.id}
+                    className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
+                      isSelected ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => togglePerson(person.id)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 text-sm">
+                        {person.name ||
+                          `${person.first_name || ""} ${
+                            person.last_name || ""
+                          }`.trim() ||
+                          "Unknown"}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {(() => {
+                          const inviter = person.inviter
+                            ? availablePeople.find((p) => p.id === person.inviter)
+                            : undefined;
+                          const inviterName = inviter ? inviter.name : "Unknown";
+                          const statusLabel = person.status
+                            ? person.status.toLowerCase()
+                            : "";
+                          return `invited by ${inviterName} • ${statusLabel}`;
+                        })()}
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </>
+          )}
+
+          {/* Other visitors */}
+          {filterRole === "VISITOR" &&
+            ((selectedCluster && otherVisitors.length > 0) ||
+              (!selectedCluster && otherVisitors.length > 0)) && (
+              <>
+                <div className="p-2 bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <div className="text-xs font-semibold text-gray-700">
+                    {selectedCluster
+                      ? `Other visitors (${otherVisitors.length})`
+                      : `Visitors (${otherVisitors.length})`}
+                  </div>
+                </div>
+                {otherVisitors.map((person) => {
+                  const isSelected = selectedIds.includes(person.id);
+                  return (
+                    <label
+                      key={person.id}
+                      className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
+                        isSelected ? "bg-blue-50" : ""
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => togglePerson(person.id)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 text-sm">
+                          {person.name ||
+                            `${person.first_name || ""} ${
+                              person.last_name || ""
+                            }`.trim() ||
+                            "Unknown"}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {(() => {
+                            const inviter = person.inviter
+                              ? availablePeople.find((p) => p.id === person.inviter)
+                              : undefined;
+                            const inviterName = inviter ? inviter.name : "Unknown";
+                            const statusLabel = person.status
+                              ? person.status.toLowerCase()
+                              : "";
+                            return `invited by ${inviterName} • ${statusLabel}`;
+                          })()}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </>
+            )}
 
           {filterRole === "MEMBER" &&
             selectedCluster &&

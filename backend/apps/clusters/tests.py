@@ -379,6 +379,26 @@ class ClusterWeeklyReportAPITests(TestCase):
         report = ClusterWeeklyReport.objects.first()
         self.assertEqual(report.members_present, 1)
 
+    def test_create_report_allows_coordinator_in_members_attended(self):
+        today = date.today()
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [self.coordinator.id],
+                "visitors_attended": [],
+                "offerings": "1000.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        report = ClusterWeeklyReport.objects.first()
+        self.assertIn(self.coordinator.id, report.members_attended.values_list("id", flat=True))
+
     def test_analytics_endpoint(self):
         today = date.today()
         report = ClusterWeeklyReport.objects.create(

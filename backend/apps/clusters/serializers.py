@@ -292,7 +292,9 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     )
     members_attended = serializers.PrimaryKeyRelatedField(
         many=True,
-        queryset=Person.objects.filter(role="MEMBER").exclude(role="ADMIN"),
+        queryset=Person.objects.filter(role__in=["MEMBER", "COORDINATOR"]).exclude(
+            role="ADMIN"
+        ),
         required=False,
     )
     visitors_attended = serializers.PrimaryKeyRelatedField(

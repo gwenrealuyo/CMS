@@ -1972,11 +1972,6 @@ export default function PeoplePage() {
                   : "Edit Cluster"
                 : ""
         }
-        headerClassName={
-          modalType === "person" && viewEditPerson === null
-            ? "pr-2 md:pr-2"
-            : ""
-        }
         hideHeader={
           (modalType === "person" && !!viewEditPerson && viewMode === "view") ||
           (modalType === "family" &&
@@ -2247,7 +2242,6 @@ export default function PeoplePage() {
           }}
           title="Submit Weekly Report"
           className="!mt-0"
-          headerClassName="pr-2 md:pr-2"
         >
           <ClusterWeeklyReportForm
             cluster={reportSelectedCluster}

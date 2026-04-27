@@ -146,7 +146,7 @@ export default function AddFamilyMemberModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] !mt-0">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between border-b border-gray-200 py-4 pl-4 md:pl-6 pr-2">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
               Add Members to The {family.name} Family
@@ -156,11 +156,13 @@ export default function AddFamilyMemberModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1 rounded-md hover:bg-red-50 transition-colors"
+            className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
+            aria-label="Close modal"
           >
             <svg
-              className="w-6 h-6"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

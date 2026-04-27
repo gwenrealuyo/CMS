@@ -465,7 +465,6 @@ export default function LessonsPageView({
         isOpen={isLessonFormOpen}
         onClose={onCloseLessonForm}
         title={editingLesson ? "Edit Lesson" : "New Lesson"}
-        headerClassName="pr-2 md:pr-2"
       >
         {lessonFormError && (
           <div className="mb-4">
@@ -494,7 +493,6 @@ export default function LessonsPageView({
             ? "Confirm Commitment Signature"
             : "Remove Commitment Signature"
         }
-        headerClassName="pr-2 md:pr-2"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
@@ -552,7 +550,6 @@ export default function LessonsPageView({
         isOpen={isCommitmentModalOpen}
         onClose={onCloseCommitmentModal}
         title="Upload Commitment Form"
-        headerClassName="pr-2 md:pr-2"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
@@ -615,7 +612,6 @@ export default function LessonsPageView({
         title={
           editingSessionReport ? "Edit Lesson Session" : "Log Lesson Session"
         }
-        headerClassName="pr-2 md:pr-2"
       >
         <LessonSessionReportForm
           report={editingSessionReport}
@@ -639,7 +635,6 @@ export default function LessonsPageView({
         isOpen={Boolean(sessionDeleteTarget)}
         onClose={() => onSetSessionDeleteTarget(null)}
         title="Delete Session Report"
-        headerClassName="pr-2 md:pr-2"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">

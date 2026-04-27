@@ -148,7 +148,7 @@ export default function ViewWeeklyReportModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !mt-0 p-0 sm:p-4">
       <div className="bg-white rounded-none sm:rounded-lg shadow-xl w-full max-w-4xl h-full sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-gray-200">
+        <div className="flex items-center justify-between border-b border-gray-200 py-3 pl-3 sm:pl-6 pr-2">
           <div>
             <h2 className="text-sm font-medium text-gray-900">
               Weekly Report Details
@@ -159,8 +159,10 @@ export default function ViewWeeklyReportModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-red-600 hover:text-red-700 text-xl font-bold p-1 rounded-md hover:bg-red-50 transition-colors"
+            className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
+            aria-label="Close modal"
           >
             <svg
               className="w-5 h-5"

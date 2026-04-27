@@ -630,7 +630,6 @@ export default function Each1Reach1Dashboard({
             ? "Create Each 1 Reach 1 Goal"
             : "Edit Each 1 Reach 1 Goal"
         }
-        headerClassName="pr-2 md:pr-2"
       >
         <div className="space-y-4">
           <div>

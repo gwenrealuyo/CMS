@@ -50,9 +50,9 @@ export default function Modal({
       <div className="bg-white rounded-none md:rounded-lg max-w-3xl w-full h-full md:h-auto md:max-h-[95vh] md:mx-4 overflow-hidden flex flex-col">
         {!hideHeader && (
           <div
-            className={`p-4 md:py-2 md:px-6 pb-0 flex-shrink-0 border-b border-gray-200 ${headerClassName}`}
+            className={`pt-4 pl-4 pr-2 pb-0 md:pt-2 md:pl-6 md:pr-2 md:pb-0 flex-shrink-0 border-b border-gray-200 ${headerClassName}`}
           >
-            <div className="flex justify-between items-center mb-4 md:mb-0">
+            <div className="flex justify-between items-center mb-4 md:mb-1.5">
               <h2 className="text-lg font-semibold text-[#2D3748]">{title}</h2>
               <button
                 onClick={onClose}
@@ -85,6 +85,6 @@ export default function Modal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

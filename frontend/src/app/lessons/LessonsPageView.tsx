@@ -38,6 +38,14 @@ import PersonLessonProgressModal from "@/src/components/lessons/PersonLessonProg
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 
+type ProgressSortField =
+  | "person"
+  | "previousLesson"
+  | "progress"
+  | "nextLesson"
+  | "status";
+type ProgressStatusFilter = "ALL" | LessonProgressStatus;
+
 interface LessonsPageViewProps {
   // Lessons state
   lessons: Lesson[];
@@ -96,6 +104,10 @@ interface LessonsPageViewProps {
   allProgressError: string | null;
   groupedProgress: PersonProgressSummary[];
   progressFilterLessonId: number | null;
+  progressSearchQuery: string;
+  progressStatusFilter: ProgressStatusFilter;
+  progressSortField: ProgressSortField;
+  progressSortDirection: "asc" | "desc";
   activeLatestLessons: Lesson[];
   // Person progress modal
   personProgressModal: {
@@ -164,6 +176,10 @@ interface LessonsPageViewProps {
   ) => void;
   onAssignLessons: (personIds: string[], lessonIds: number[]) => void;
   onProgressFilterChange: (lessonId: number | null) => void;
+  onProgressSearchQueryChange: (value: string) => void;
+  onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
+  onResetProgressFilters: () => void;
+  onProgressSortChange: (field: ProgressSortField) => void;
   onOpenPersonProgressModal: (person: LessonPersonSummary) => void;
   onClosePersonProgressModal: () => void;
   onSetActiveContentTab: (tab: LessonContentTab) => void;
@@ -263,6 +279,10 @@ export default function LessonsPageView({
   onSetCommitmentConfirm,
   onAssignLessons,
   onProgressFilterChange,
+  onProgressSearchQueryChange,
+  onProgressStatusFilterChange,
+  onResetProgressFilters,
+  onProgressSortChange,
   onOpenPersonProgressModal,
   onClosePersonProgressModal,
   allProgress,
@@ -270,6 +290,10 @@ export default function LessonsPageView({
   allProgressError,
   groupedProgress,
   progressFilterLessonId,
+  progressSearchQuery,
+  progressStatusFilter,
+  progressSortField,
+  progressSortDirection,
   activeLatestLessons,
   personProgressModal,
   onSetActiveContentTab,
@@ -379,6 +403,14 @@ export default function LessonsPageView({
               progressActionError={progressActionError}
               progressFilterLessonId={progressFilterLessonId}
               onProgressFilterChange={onProgressFilterChange}
+              progressSearchQuery={progressSearchQuery}
+              onProgressSearchQueryChange={onProgressSearchQueryChange}
+              progressStatusFilter={progressStatusFilter}
+              onProgressStatusFilterChange={onProgressStatusFilterChange}
+              onResetProgressFilters={onResetProgressFilters}
+              progressSortField={progressSortField}
+              progressSortDirection={progressSortDirection}
+              onProgressSortChange={onProgressSortChange}
               people={people}
               peopleLoading={peopleLoading}
               peopleError={peopleError}
@@ -433,6 +465,7 @@ export default function LessonsPageView({
         isOpen={isLessonFormOpen}
         onClose={onCloseLessonForm}
         title={editingLesson ? "Edit Lesson" : "New Lesson"}
+        headerClassName="pr-2 md:pr-2"
       >
         {lessonFormError && (
           <div className="mb-4">
@@ -461,6 +494,7 @@ export default function LessonsPageView({
             ? "Confirm Commitment Signature"
             : "Remove Commitment Signature"
         }
+        headerClassName="pr-2 md:pr-2"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
@@ -475,19 +509,19 @@ export default function LessonsPageView({
               : ""}
           </p>
         </div>
-        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
+        <div className="flex flex-col-reverse sm:flex-row gap-4 mt-6">
           <Button
             variant="tertiary"
             onClick={() => onSetCommitmentConfirm(null)}
             disabled={isProgressUpdating}
-            className="w-full sm:w-auto min-h-[44px]"
+            className="w-full sm:flex-1 min-h-[44px]"
           >
             Cancel
           </Button>
           <Button
             onClick={onConfirmCommitmentToggle}
             disabled={isProgressUpdating}
-            className="w-full sm:w-auto min-h-[44px]"
+            className="w-full sm:flex-1 min-h-[44px]"
           >
             {isProgressUpdating ? "Updating..." : "Confirm"}
           </Button>
@@ -518,6 +552,7 @@ export default function LessonsPageView({
         isOpen={isCommitmentModalOpen}
         onClose={onCloseCommitmentModal}
         title="Upload Commitment Form"
+        headerClassName="pr-2 md:pr-2"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
@@ -535,13 +570,18 @@ export default function LessonsPageView({
           {commitmentUploadError && (
             <ErrorMessage message={commitmentUploadError} />
           )}
-          <div className="flex justify-end gap-2">
-            <Button variant="tertiary" onClick={onCloseCommitmentModal}>
+          <div className="flex flex-col-reverse sm:flex-row gap-4 pt-2">
+            <Button
+              variant="tertiary"
+              onClick={onCloseCommitmentModal}
+              className="w-full sm:flex-1 min-h-[44px]"
+            >
               Cancel
             </Button>
             <Button
               onClick={onCommitmentUpload}
               disabled={commitmentUploading || !commitmentFile}
+              className="w-full sm:flex-1 min-h-[44px]"
             >
               {commitmentUploading ? "Uploading..." : "Upload PDF"}
             </Button>
@@ -575,6 +615,7 @@ export default function LessonsPageView({
         title={
           editingSessionReport ? "Edit Lesson Session" : "Log Lesson Session"
         }
+        headerClassName="pr-2 md:pr-2"
       >
         <LessonSessionReportForm
           report={editingSessionReport}
@@ -598,6 +639,7 @@ export default function LessonsPageView({
         isOpen={Boolean(sessionDeleteTarget)}
         onClose={() => onSetSessionDeleteTarget(null)}
         title="Delete Session Report"
+        headerClassName="pr-2 md:pr-2"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
@@ -610,17 +652,19 @@ export default function LessonsPageView({
           </p>
           {sessionDeleteError && <ErrorMessage message={sessionDeleteError} />}
         </div>
-        <div className="flex justify-end gap-2 mt-6">
+        <div className="flex flex-col-reverse sm:flex-row gap-4 mt-6">
           <Button
             variant="tertiary"
             onClick={() => onSetSessionDeleteTarget(null)}
             disabled={sessionDeleteLoading}
+            className="w-full sm:flex-1 min-h-[44px]"
           >
             Cancel
           </Button>
           <Button
             onClick={onConfirmDeleteSessionReport}
             disabled={sessionDeleteLoading}
+            className="w-full sm:flex-1 min-h-[44px]"
           >
             {sessionDeleteLoading ? "Deleting..." : "Delete"}
           </Button>

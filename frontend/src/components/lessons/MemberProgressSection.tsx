@@ -2,8 +2,20 @@ import Card from "@/src/components/ui/Card";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LessonProgressTable from "./LessonProgressTable";
 import AssignLessonsDropdown from "./AssignLessonsDropdown";
-import { Lesson, PersonProgressSummary } from "@/src/types/lesson";
+import {
+  Lesson,
+  LessonProgressStatus,
+  PersonProgressSummary,
+} from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
+
+type ProgressSortField =
+  | "person"
+  | "previousLesson"
+  | "progress"
+  | "nextLesson"
+  | "status";
+type ProgressStatusFilter = "ALL" | LessonProgressStatus;
 
 interface MemberProgressSectionProps {
   allLessons: Lesson[];
@@ -13,6 +25,14 @@ interface MemberProgressSectionProps {
   progressActionError: string | null;
   progressFilterLessonId: number | null;
   onProgressFilterChange: (lessonId: number | null) => void;
+  progressSearchQuery: string;
+  onProgressSearchQueryChange: (value: string) => void;
+  progressStatusFilter: ProgressStatusFilter;
+  onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
+  onResetProgressFilters: () => void;
+  progressSortField: ProgressSortField;
+  progressSortDirection: "asc" | "desc";
+  onProgressSortChange: (field: ProgressSortField) => void;
   people: Person[];
   peopleLoading: boolean;
   peopleError: string | null;
@@ -38,6 +58,14 @@ export default function MemberProgressSection({
   progressActionError,
   progressFilterLessonId,
   onProgressFilterChange,
+  progressSearchQuery,
+  onProgressSearchQueryChange,
+  progressStatusFilter,
+  onProgressStatusFilterChange,
+  onResetProgressFilters,
+  progressSortField,
+  progressSortDirection,
+  onProgressSortChange,
   people,
   peopleLoading,
   peopleError,
@@ -57,33 +85,62 @@ export default function MemberProgressSection({
           <p className="text-sm text-gray-500 sm:max-w-md">
             View all participants taking lessons and their overall progress.
           </p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <select
-              className="w-full sm:w-auto min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={progressFilterLessonId || ""}
-              onChange={(e) =>
-                onProgressFilterChange(
-                  e.target.value ? Number(e.target.value) : null
-                )
-              }
-            >
-              <option value="">All Participants</option>
-              {activeLatestLessons.map((lesson) => (
-                <option key={lesson.id} value={lesson.id}>
-                  {lesson.title}
-                </option>
-              ))}
-            </select>
-            <AssignLessonsDropdown
-              allLessons={activeLatestLessons}
-              people={people}
-              peopleLoading={peopleLoading}
-              peopleError={peopleError}
-              assigning={assigning}
-              assignError={assignError}
-              onAssignLessons={onAssignLessons}
-            />
-          </div>
+          <AssignLessonsDropdown
+            allLessons={activeLatestLessons}
+            people={people}
+            peopleLoading={peopleLoading}
+            peopleError={peopleError}
+            assigning={assigning}
+            assignError={assignError}
+            onAssignLessons={onAssignLessons}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+          <select
+            className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+            value={progressFilterLessonId || ""}
+            onChange={(e) =>
+              onProgressFilterChange(e.target.value ? Number(e.target.value) : null)
+            }
+            aria-label="Filter by lesson"
+          >
+            <option value="">All lessons</option>
+            {activeLatestLessons.map((lesson) => (
+              <option key={lesson.id} value={lesson.id}>
+                {lesson.title}
+              </option>
+            ))}
+          </select>
+          <select
+            value={progressStatusFilter}
+            onChange={(e) =>
+              onProgressStatusFilterChange(e.target.value as ProgressStatusFilter)
+            }
+            className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+            aria-label="Filter by status"
+          >
+            <option value="ALL">All status</option>
+            <option value="ASSIGNED">Assigned</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="SKIPPED">Skipped</option>
+          </select>
+          <input
+            type="text"
+            value={progressSearchQuery}
+            onChange={(e) => onProgressSearchQueryChange(e.target.value)}
+            className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+            placeholder="Search participant..."
+            aria-label="Search participant"
+          />
+          <button
+            type="button"
+            onClick={onResetProgressFilters}
+            className="min-h-[44px] rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Reset
+          </button>
         </div>
 
         {progressActionError && <ErrorMessage message={progressActionError} />}
@@ -93,6 +150,9 @@ export default function MemberProgressSection({
           groupedProgress={groupedProgress}
           loading={progressLoading}
           error={progressError}
+          sortField={progressSortField}
+          sortDirection={progressSortDirection}
+          onSortChange={onProgressSortChange}
           onPersonClick={onPersonClick}
         />
       </div>

@@ -63,6 +63,7 @@ export interface Person {
   water_baptism_date?: string; // ISO date string
   spirit_baptism_date?: string; // ISO date string
   has_finished_lessons?: boolean;
+  lessons_finished_at?: string; // ISO date string
   first_activity_attended?:
     | "CLUSTER_BS_EVANGELISM"
     | "CLUSTERING"

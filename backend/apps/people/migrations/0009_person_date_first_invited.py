@@ -13,4 +13,9 @@ class Migration(migrations.Migration):
             name="date_first_invited",
             field=models.DateField(blank=True, null=True),
         ),
+        migrations.AddField(
+            model_name="person",
+            name="lessons_finished_at",
+            field=models.DateField(blank=True, null=True),
+        ),
     ]

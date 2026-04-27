@@ -28,6 +28,14 @@ import { LessonFormValues } from "@/src/components/lessons/LessonForm";
 import { LessonContentTab } from "@/src/components/lessons/LessonContentTabs";
 import LessonsPageView from "./LessonsPageView";
 
+type ProgressSortField =
+  | "person"
+  | "previousLesson"
+  | "progress"
+  | "nextLesson"
+  | "status";
+type ProgressStatusFilter = "ALL" | LessonProgressStatus;
+
 export default function LessonsPageContainer() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -52,6 +60,14 @@ export default function LessonsPageContainer() {
   const [progressFilterLessonId, setProgressFilterLessonId] = useState<
     number | null
   >(null);
+  const [progressSearchQuery, setProgressSearchQuery] = useState("");
+  const [progressStatusFilter, setProgressStatusFilter] =
+    useState<ProgressStatusFilter>("ALL");
+  const [progressSortField, setProgressSortField] =
+    useState<ProgressSortField>("person");
+  const [progressSortDirection, setProgressSortDirection] = useState<
+    "asc" | "desc"
+  >("asc");
 
   const [summary, setSummary] = useState<LessonProgressSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -235,15 +251,120 @@ export default function LessonsPageContainer() {
     return groupProgressByPerson(allProgress, lessons);
   }, [allProgress, lessons, allProgressLoading]);
 
-  // Filter grouped progress by lesson if filter is set
-  const filteredGroupedProgress = useMemo(() => {
-    if (!progressFilterLessonId) {
-      return groupedProgress;
-    }
-    return groupedProgress.filter((summary) =>
-      summary.allProgress.some((p) => p.lesson.id === progressFilterLessonId)
-    );
-  }, [groupedProgress, progressFilterLessonId]);
+  const getRelevantProgressRecords = useCallback(
+    (summary: PersonProgressSummary) =>
+      progressFilterLessonId
+        ? summary.allProgress.filter((p) => p.lesson.id === progressFilterLessonId)
+        : summary.allProgress,
+    [progressFilterLessonId]
+  );
+
+  const getStatusForSort = useCallback(
+    (summary: PersonProgressSummary): LessonProgressStatus | "ASSIGNED" => {
+      const relevant = getRelevantProgressRecords(summary);
+      if (relevant.length === 0) {
+        return "ASSIGNED";
+      }
+      const latestRecord = [...relevant].sort((a, b) => {
+        if (a.lesson.order !== b.lesson.order) {
+          return b.lesson.order - a.lesson.order;
+        }
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      })[0];
+      return latestRecord.status;
+    },
+    [getRelevantProgressRecords]
+  );
+
+  const displayedGroupedProgress = useMemo(() => {
+    const normalizedQuery = progressSearchQuery.trim().toLowerCase();
+    const statusRank: Record<LessonProgressStatus | "ASSIGNED", number> = {
+      SKIPPED: 0,
+      ASSIGNED: 1,
+      IN_PROGRESS: 2,
+      COMPLETED: 3,
+    };
+
+    const filtered = groupedProgress.filter((summary) => {
+      const relevantRecords = getRelevantProgressRecords(summary);
+
+      if (relevantRecords.length === 0) {
+        return false;
+      }
+
+      if (
+        progressStatusFilter !== "ALL" &&
+        !relevantRecords.some((record) => record.status === progressStatusFilter)
+      ) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const fullName = formatPersonName(summary.person).toLowerCase();
+      const memberId = (summary.person.member_id || "").toLowerCase();
+      return fullName.includes(normalizedQuery) || memberId.includes(normalizedQuery);
+    });
+
+    return [...filtered].sort((first, second) => {
+      const direction = progressSortDirection === "asc" ? 1 : -1;
+      switch (progressSortField) {
+        case "person":
+          return (
+            formatPersonName(first.person).localeCompare(
+              formatPersonName(second.person)
+            ) * direction
+          );
+        case "previousLesson": {
+          const firstOrder = first.previousLesson?.order ?? Number.POSITIVE_INFINITY;
+          const secondOrder = second.previousLesson?.order ?? Number.POSITIVE_INFINITY;
+          if (firstOrder !== secondOrder) {
+            return (firstOrder - secondOrder) * direction;
+          }
+          return (
+            (first.previousLesson?.title || "").localeCompare(
+              second.previousLesson?.title || ""
+            ) * direction
+          );
+        }
+        case "progress":
+          if (first.progressPercentage !== second.progressPercentage) {
+            return (first.progressPercentage - second.progressPercentage) * direction;
+          }
+          return (first.completedCount - second.completedCount) * direction;
+        case "nextLesson": {
+          const firstOrder = first.nextLesson?.order ?? Number.POSITIVE_INFINITY;
+          const secondOrder = second.nextLesson?.order ?? Number.POSITIVE_INFINITY;
+          if (firstOrder !== secondOrder) {
+            return (firstOrder - secondOrder) * direction;
+          }
+          return (
+            (first.nextLesson?.title || "").localeCompare(
+              second.nextLesson?.title || ""
+            ) * direction
+          );
+        }
+        case "status":
+          return (
+            (statusRank[getStatusForSort(first)] -
+              statusRank[getStatusForSort(second)]) *
+            direction
+          );
+        default:
+          return 0;
+      }
+    });
+  }, [
+    getRelevantProgressRecords,
+    getStatusForSort,
+    groupedProgress,
+    progressSearchQuery,
+    progressSortDirection,
+    progressSortField,
+    progressStatusFilter,
+  ]);
 
   useEffect(() => {
     fetchLessons();
@@ -654,6 +775,31 @@ export default function LessonsPageContainer() {
     setProgressFilterLessonId(lessonId);
   };
 
+  const handleProgressSearchQueryChange = (value: string) => {
+    setProgressSearchQuery(value);
+  };
+
+  const handleProgressStatusFilterChange = (value: ProgressStatusFilter) => {
+    setProgressStatusFilter(value);
+  };
+
+  const handleResetProgressFilters = () => {
+    setProgressFilterLessonId(null);
+    setProgressStatusFilter("ALL");
+    setProgressSearchQuery("");
+  };
+
+  const handleProgressSortChange = (field: ProgressSortField) => {
+    if (progressSortField === field) {
+      setProgressSortDirection((previous) =>
+        previous === "asc" ? "desc" : "asc"
+      );
+      return;
+    }
+    setProgressSortField(field);
+    setProgressSortDirection("asc");
+  };
+
   const openPersonProgressModal = (person: LessonPersonSummary) => {
     setPersonProgressModal({
       isOpen: true,
@@ -855,6 +1001,7 @@ export default function LessonsPageContainer() {
       closeSessionModal();
       await fetchSessionReports(lessonIdForRefresh);
       await fetchProgress(lessonIdForRefresh);
+      await fetchAllProgress();
       fetchSummary();
     } catch (error) {
       setSessionFormError(
@@ -897,6 +1044,7 @@ export default function LessonsPageContainer() {
       if (selectedLessonId) {
         await fetchSessionReports(selectedLessonId);
         await fetchProgress(selectedLessonId);
+        await fetchAllProgress();
         fetchSummary();
       }
       setSessionDeleteTarget(null);
@@ -956,8 +1104,12 @@ export default function LessonsPageContainer() {
       allProgress={allProgress}
       allProgressLoading={allProgressLoading}
       allProgressError={allProgressError}
-      groupedProgress={filteredGroupedProgress}
+      groupedProgress={displayedGroupedProgress}
       progressFilterLessonId={progressFilterLessonId}
+      progressSearchQuery={progressSearchQuery}
+      progressStatusFilter={progressStatusFilter}
+      progressSortField={progressSortField}
+      progressSortDirection={progressSortDirection}
       activeLatestLessons={activeLatestLessons}
       // Person progress modal
       personProgressModal={personProgressModal}
@@ -1016,6 +1168,10 @@ export default function LessonsPageContainer() {
       onSetCommitmentConfirm={(confirm) => setCommitmentConfirm(confirm)}
       onAssignLessons={handleAssignLessons}
       onProgressFilterChange={handleProgressFilterChange}
+      onProgressSearchQueryChange={handleProgressSearchQueryChange}
+      onProgressStatusFilterChange={handleProgressStatusFilterChange}
+      onResetProgressFilters={handleResetProgressFilters}
+      onProgressSortChange={handleProgressSortChange}
       onOpenPersonProgressModal={openPersonProgressModal}
       onClosePersonProgressModal={closePersonProgressModal}
       onSetActiveContentTab={setActiveContentTab}

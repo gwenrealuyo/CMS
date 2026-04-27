@@ -479,6 +479,13 @@ export default function PersonForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (formData.has_finished_lessons && !formData.lessons_finished_at) {
+      toast.error(
+        "Set Lessons Finished Date when marking this person as finished in NC lessons."
+      );
+      return;
+    }
+
     // Extract journeys from formData before submitting person
     const journeys = formData.journeys || [];
     const personData = { ...formData };
@@ -904,6 +911,14 @@ export default function PersonForm({
                       Has Finished NC Lessons
                     </label>
                   </div>
+                  {formData.has_finished_lessons && (
+                    <div className="md:col-span-2">
+                      <p className="text-xs text-gray-500">
+                        Saving this with a lessons finished date auto-creates missing
+                        completed lesson progress records for active lessons.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -976,6 +991,23 @@ export default function PersonForm({
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Lessons Finished Date
+                    </label>
+                    <input
+                      type="date"
+                      name="lessons_finished_at"
+                      value={(formData as any).lessons_finished_at || ""}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {formData.has_finished_lessons && !formData.lessons_finished_at && (
+                      <p className="mt-1 text-xs text-red-600">
+                        Required when Has Finished NC Lessons is enabled.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

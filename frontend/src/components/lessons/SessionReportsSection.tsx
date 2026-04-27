@@ -7,6 +7,12 @@ import Pagination from "@/src/components/ui/Pagination";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import { Lesson, LessonSessionReport } from "@/src/types/lesson";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  Squares2X2Icon,
+  TableCellsIcon,
+} from "@heroicons/react/24/outline";
 
 export type LessonPersonLike = {
   id?: string | number;
@@ -25,6 +31,15 @@ export type SessionFilterValues = {
 };
 
 const DEFAULT_SESSION_ITEMS_PER_PAGE = 10;
+type SessionReportsViewMode = "cards" | "table";
+type SessionReportsSortField =
+  | "student"
+  | "teacher"
+  | "scheduledDate"
+  | "actualDate"
+  | "nextScheduledDate"
+  | "score"
+  | "linkedProgress";
 
 interface SessionReportsSectionProps {
   selectedLesson: Lesson | null;
@@ -69,14 +84,91 @@ export default function SessionReportsSection({
 }: SessionReportsSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_SESSION_ITEMS_PER_PAGE);
+  const [viewMode, setViewMode] = useState<SessionReportsViewMode>("cards");
+  const [sortField, setSortField] =
+    useState<SessionReportsSortField>("actualDate");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const sortedReports = useMemo(() => {
+    if (viewMode !== "table") {
+      return sessionReports;
+    }
+
+    return [...sessionReports].sort((first, second) => {
+      const direction = sortDirection === "asc" ? 1 : -1;
+
+      if (sortField === "student") {
+        return (
+          formatPersonName(first.student).localeCompare(
+            formatPersonName(second.student)
+          ) * direction
+        );
+      }
+      if (sortField === "teacher") {
+        return (
+          formatPersonName(first.teacher).localeCompare(
+            formatPersonName(second.teacher)
+          ) * direction
+        );
+      }
+      if (sortField === "scheduledDate") {
+        return (
+          (new Date(first.session_date).getTime() -
+            new Date(second.session_date).getTime()) *
+          direction
+        );
+      }
+      if (sortField === "actualDate") {
+        return (
+          (new Date(first.session_start).getTime() -
+            new Date(second.session_start).getTime()) *
+          direction
+        );
+      }
+      if (sortField === "nextScheduledDate") {
+        const firstValue = first.next_session_date
+          ? new Date(first.next_session_date).getTime()
+          : Number.POSITIVE_INFINITY;
+        const secondValue = second.next_session_date
+          ? new Date(second.next_session_date).getTime()
+          : Number.POSITIVE_INFINITY;
+        return (firstValue - secondValue) * direction;
+      }
+      if (sortField === "score") {
+        return ((first.score || "").localeCompare(second.score || "") || 0) * direction;
+      }
+
+      const firstProgress = first.progress ?? Number.POSITIVE_INFINITY;
+      const secondProgress = second.progress ?? Number.POSITIVE_INFINITY;
+      return (firstProgress - secondProgress) * direction;
+    });
+  }, [sessionReports, sortDirection, sortField, viewMode]);
+
+  const handleSort = (field: SessionReportsSortField) => {
+    if (sortField === field) {
+      setSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortField(field);
+    setSortDirection("asc");
+  };
+
+  const SortIcon = ({ field }: { field: SessionReportsSortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === "asc" ? (
+      <ChevronUpIcon className="h-4 w-4 text-gray-500" />
+    ) : (
+      <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+    );
+  };
 
   const paginatedReports = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return sessionReports.slice(startIndex, endIndex);
-  }, [sessionReports, currentPage, itemsPerPage]);
+    return sortedReports.slice(startIndex, endIndex);
+  }, [sortedReports, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(sessionReports.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedReports.length / itemsPerPage);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -102,23 +194,51 @@ export default function SessionReportsSection({
             Log 1-on-1 lesson sessions to capture coaching notes beyond
             journey updates and export them for follow-up.
           </p>
-          <div className="flex flex-col-reverse sm:flex-row gap-3">
-            <Button
-              variant="secondary"
-              onClick={onExport}
-              disabled={!canExport}
-              className="w-full sm:w-auto min-h-[44px] text-sm"
-            >
-              Download CSV
-            </Button>
-            <Button
-              variant="primary"
-              onClick={onOpenSessionModal}
-              disabled={!canLogSession}
-              className="w-full sm:w-auto min-h-[44px] text-sm"
-            >
-              Log Session
-            </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  viewMode === "table"
+                    ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                    : "bg-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <TableCellsIcon className="h-3.5 w-3.5" />
+                Table
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("cards")}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  viewMode === "cards"
+                    ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                    : "bg-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <Squares2X2Icon className="h-3.5 w-3.5" />
+                Cards
+              </button>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:ml-2">
+              <Button
+                variant="secondary"
+                onClick={onExport}
+                disabled={!canExport}
+                className="w-full sm:w-auto min-h-[44px] text-sm"
+              >
+                Download CSV
+              </Button>
+              <Button
+                variant="primary"
+                onClick={onOpenSessionModal}
+                disabled={!canLogSession}
+                className="w-full sm:w-auto min-h-[44px] text-sm"
+              >
+                Log Session
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -197,6 +317,135 @@ export default function SessionReportsSection({
         ) : sessionReports.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-gray-500">
             No session reports recorded for this lesson yet.
+          </div>
+        ) : viewMode === "table" ? (
+          <div className="overflow-hidden rounded-md border border-gray-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort("student")}
+                      >
+                        Student
+                        <SortIcon field="student" />
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort("teacher")}
+                      >
+                        Teacher
+                        <SortIcon field="teacher" />
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort("scheduledDate")}
+                      >
+                        Scheduled Session Date
+                        <SortIcon field="scheduledDate" />
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort("actualDate")}
+                      >
+                        Actual Session Date
+                        <SortIcon field="actualDate" />
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort("nextScheduledDate")}
+                      >
+                        Next Scheduled Session Date
+                        <SortIcon field="nextScheduledDate" />
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort("score")}
+                      >
+                        Score / Rating
+                        <SortIcon field="score" />
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-gray-700"
+                        onClick={() => handleSort("linkedProgress")}
+                      >
+                        Linked Progress
+                        <SortIcon field="linkedProgress" />
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {paginatedReports.map((report) => (
+                    <tr key={report.id}>
+                      <td className="px-3 py-2 text-sm text-gray-700">
+                        {formatPersonName(report.student)}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-700">
+                        {formatPersonName(report.teacher)}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-700">
+                        {formatDateOnly(report.session_date)}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-700">
+                        {formatDateTime(report.session_start)}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-700">
+                        {formatDateOnly(report.next_session_date)}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-700">
+                        {report.score || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-700">
+                        {report.progress ? `Record #${report.progress}` : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right text-sm">
+                        <div className="inline-flex items-center gap-2">
+                          <Button
+                            variant="tertiary"
+                            className="min-h-[32px] px-2 py-1 text-xs"
+                            onClick={() => onEditSession(report)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="tertiary"
+                            className="min-h-[32px] px-2 py-1 text-xs"
+                            onClick={() => onRequestDelete(report)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

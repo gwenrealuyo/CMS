@@ -304,7 +304,7 @@ export default function LessonForm({
         </div>
       )}
 
-      <div className="flex flex-col-reverse sm:flex-row gap-3">
+      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           type="button"
           variant="tertiary"

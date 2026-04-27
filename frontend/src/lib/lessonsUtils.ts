@@ -111,13 +111,13 @@ export function calculatePersonProgress(
 
   const totalLessons = activeLatestLessons.length;
 
-  // Find current lesson (highest order IN_PROGRESS)
-  const inProgressLessons = personProgress
-    .filter((p) => p.status === "IN_PROGRESS")
+  // Find previous lesson (highest order COMPLETED)
+  const completedLessonsByOrder = personProgress
+    .filter((p) => p.status === "COMPLETED")
     .map((p) => p.lesson)
     .sort((a, b) => b.order - a.order);
-  const currentLesson =
-    inProgressLessons.length > 0 ? inProgressLessons[0] : null;
+  const previousLesson =
+    completedLessonsByOrder.length > 0 ? completedLessonsByOrder[0] : null;
 
   // Count completed lessons
   const completedCount = personProgress.filter(
@@ -141,7 +141,7 @@ export function calculatePersonProgress(
 
   return {
     person,
-    currentLesson,
+    previousLesson,
     completedCount,
     totalLessons,
     nextLesson,

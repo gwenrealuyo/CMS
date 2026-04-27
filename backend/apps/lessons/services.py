@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, time
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
@@ -15,6 +16,16 @@ from .models import Lesson, LessonJourney, PersonLessonProgress
 class LessonCompletionResult:
     progress: PersonLessonProgress
     journey: Journey
+
+
+def _as_aware_datetime(value) -> datetime:
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = datetime.combine(value, time.min)
+    if timezone.is_naive(dt):
+        return timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
 
 
 def _get_or_create_journey_config(lesson: Lesson) -> LessonJourney:
@@ -207,4 +218,41 @@ def bulk_assign_lessons(
                 for field, value in updates.items():
                     setattr(progress, field, value)
                 progress.save(update_fields=[*updates.keys(), "updated_at"])
+    return created_count
+
+
+@transaction.atomic
+def backfill_missing_completed_lessons_for_person(
+    person: Person,
+    *,
+    lessons_finished_at,
+    completed_by: Optional[Person] = None,
+) -> int:
+    """
+    Create missing progress records as COMPLETED for active latest lessons.
+    Existing progress records are left unchanged.
+    """
+    completed_at = _as_aware_datetime(lessons_finished_at)
+    created_count = 0
+
+    lessons = Lesson.objects.filter(is_latest=True, is_active=True).order_by("order", "id")
+    for lesson in lessons:
+        progress, created = PersonLessonProgress.objects.get_or_create(
+            person=person,
+            lesson=lesson,
+            defaults={
+                "status": PersonLessonProgress.Status.ASSIGNED,
+                "assigned_by": completed_by,
+            },
+        )
+        if not created:
+            continue
+
+        mark_progress_completed(
+            progress,
+            completed_by=completed_by,
+            completed_at=completed_at,
+        )
+        created_count += 1
+
     return created_count

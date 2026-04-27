@@ -14,7 +14,16 @@ Default data for the “New Converts Course” (7 lessons) is seeded via the `00
 
 - `apps.lessons.services.mark_progress_completed` generates the `LESSON` journey when a progress record transitions to `COMPLETED`. Rolling a lesson back triggers `revert_progress_completion`.
 - Commitment form signatures call `mark_commitment_signed`, which writes a `NOTE`-type journey titled “Commitment Form Signed” and timestamps the signer. Reverting the checkbox removes the journey through `revert_commitment_signed`.
-- Session reports call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` doesn’t exist it is created and moved to `IN_PROGRESS`, ensuring the participant’s timeline reflects the tutoring activity.
+- Session reports call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` doesn’t exist it is created, then completion is applied using `mark_progress_completed`. This means the first logged session for a student+lesson marks that lesson progress as `COMPLETED`.
+
+## Legacy Completion Backfill
+
+- Some members may have completed lessons before the app was used. This is handled through people fields:
+  - `people.Person.has_finished_lessons`
+  - `people.Person.lessons_finished_at`
+- When a person is saved with `has_finished_lessons=True` and `lessons_finished_at` present, the system creates missing `PersonLessonProgress` rows for active latest lessons and marks those new rows as `COMPLETED`.
+- Backfill behavior is non-destructive: existing lesson progress records are not overwritten (create-missing-only).
+- If `has_finished_lessons=True` but `lessons_finished_at` is missing, legacy backfill does not run.
 
 ## Commitment Form Management
 
@@ -26,7 +35,7 @@ Default data for the “New Converts Course” (7 lessons) is seeded via the `00
 
 - `LessonSessionReportViewSet` is mounted at `/api/lessons/session-reports/` with full CRUD. Query params `lesson`, `teacher`, `student`, `date_from`, `date_to` filter the list view.
 - Teachers default to the submitting user when no `teacher_id` is provided (any role except `VISITOR` is accepted). When historical data is imported, an explicit `teacher_id` can be supplied.
-- Creating or updating a report either associates the latest matching `PersonLessonProgress` or creates one in `IN_PROGRESS` state if none exists.
+- Creating or updating a report associates the latest matching `PersonLessonProgress` (or creates one if none exists) and then marks it as `COMPLETED`.
 - Deleting a report does **not** roll back progress automatically; use the progress API if the completion status needs to change.
 
 ## API Surface

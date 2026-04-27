@@ -658,19 +658,19 @@ export default function LessonSessionReportForm({
       {formError && <ErrorMessage message={formError} />}
       {error && <ErrorMessage message={error} />}
 
-      <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
+      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           type="button"
           variant="tertiary"
           onClick={onCancel}
-          className="w-full sm:w-auto min-h-[44px]"
+          className="w-full sm:flex-1 min-h-[44px]"
         >
           Cancel
         </Button>
         <Button
           type="submit"
           disabled={submitting}
-          className="w-full sm:w-auto min-h-[44px]"
+          className="w-full sm:flex-1 min-h-[44px]"
         >
           {submitting ? "Saving..." : report ? "Update Report" : "Save Report"}
         </Button>

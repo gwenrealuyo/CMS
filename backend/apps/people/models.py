@@ -67,6 +67,7 @@ class Person(AbstractUser):
     water_baptism_date = models.DateField(null=True, blank=True)
     spirit_baptism_date = models.DateField(null=True, blank=True)
     has_finished_lessons = models.BooleanField(default=False)
+    lessons_finished_at = models.DateField(null=True, blank=True)
     first_activity_attended = models.CharField(
         blank=True,
         max_length=50,

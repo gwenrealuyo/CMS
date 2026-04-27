@@ -114,7 +114,7 @@ export interface LessonSessionReportInput {
 
 export interface PersonProgressSummary {
   person: LessonPersonSummary;
-  currentLesson: Lesson | null;
+  previousLesson: Lesson | null;
   completedCount: number;
   totalLessons: number;
   nextLesson: Lesson | null;

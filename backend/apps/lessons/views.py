@@ -380,24 +380,28 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
             progress = PersonLessonProgress.objects.create(
                 person=student,
                 lesson=lesson,
-                status=PersonLessonProgress.Status.IN_PROGRESS,
+                status=PersonLessonProgress.Status.ASSIGNED,
                 assigned_by=report.teacher,
                 started_at=report.session_start,
             )
         else:
             updated_fields = []
-            if (
-                progress.status == PersonLessonProgress.Status.ASSIGNED
-                and progress.status != PersonLessonProgress.Status.COMPLETED
-            ):
-                progress.status = PersonLessonProgress.Status.IN_PROGRESS
-                updated_fields.append("status")
             if progress.started_at is None and report.session_start:
                 progress.started_at = report.session_start
                 updated_fields.append("started_at")
             if updated_fields:
                 updated_fields.append("updated_at")
                 progress.save(update_fields=updated_fields)
+
+        completed_by = progress.completed_by or report.teacher or report.submitted_by
+        completed_at = progress.completed_at or report.session_start or timezone.now()
+        completion_note = progress.notes or report.remarks
+        mark_progress_completed(
+            progress,
+            completed_by=completed_by,
+            note=completion_note,
+            completed_at=completed_at,
+        )
 
         if report.progress_id != progress.id:
             report.progress = progress

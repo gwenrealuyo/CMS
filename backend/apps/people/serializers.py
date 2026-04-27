@@ -217,6 +217,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "water_baptism_date",
             "spirit_baptism_date",
             "has_finished_lessons",
+            "lessons_finished_at",
             "inviter",
             "branch",
             "member_id",
@@ -238,6 +239,31 @@ class PersonSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"role": "Members can only create visitors."}
                 )
+
+        instance = getattr(self, "instance", None)
+        has_finished_lessons = attrs.get(
+            "has_finished_lessons",
+            instance.has_finished_lessons if instance else False,
+        )
+        lessons_finished_at = attrs.get(
+            "lessons_finished_at",
+            instance.lessons_finished_at if instance else None,
+        )
+        toggling_lessons_complete_on = (
+            bool(instance)
+            and attrs.get("has_finished_lessons") is True
+            and not instance.has_finished_lessons
+        )
+
+        if (not instance and has_finished_lessons) or toggling_lessons_complete_on:
+            if not lessons_finished_at:
+                raise serializers.ValidationError(
+                    {
+                        "lessons_finished_at": (
+                            "Set lessons finished date when marking lessons as finished."
+                        )
+                    }
+                )
         return attrs
 
     def _normalize_first_activity_attended(self, validated_data):
@@ -245,6 +271,34 @@ class PersonSerializer(serializers.ModelSerializer):
             "first_activity_attended"
         ):
             validated_data["first_activity_attended"] = ""
+
+    def _trigger_legacy_lessons_backfill(
+        self,
+        *,
+        person: Person,
+        previous_has_finished_lessons: bool,
+        previous_lessons_finished_at,
+    ) -> None:
+        if not person.has_finished_lessons or not person.lessons_finished_at:
+            return
+
+        should_backfill = (
+            not previous_has_finished_lessons
+            or previous_lessons_finished_at != person.lessons_finished_at
+        )
+        if not should_backfill:
+            return
+
+        request = self.context.get("request")
+        completed_by = request.user if request and isinstance(request.user, Person) else None
+
+        from apps.lessons.services import backfill_missing_completed_lessons_for_person
+
+        backfill_missing_completed_lessons_for_person(
+            person,
+            lessons_finished_at=person.lessons_finished_at,
+            completed_by=completed_by,
+        )
 
     def create(self, validated_data):
         self._normalize_first_activity_attended(validated_data)
@@ -277,6 +331,11 @@ class PersonSerializer(serializers.ModelSerializer):
 
         validated_data["username"] = username
         person = super().create(validated_data)
+        self._trigger_legacy_lessons_backfill(
+            person=person,
+            previous_has_finished_lessons=False,
+            previous_lessons_finished_at=None,
+        )
 
         if note:
             Journey.objects.create(
@@ -293,11 +352,18 @@ class PersonSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Update person and track branch transfers"""
         self._normalize_first_activity_attended(validated_data)
+        previous_has_finished_lessons = instance.has_finished_lessons
+        previous_lessons_finished_at = instance.lessons_finished_at
         # Store old branch value before update
         old_branch = instance.branch
 
         # Perform the update
         updated_instance = super().update(instance, validated_data)
+        self._trigger_legacy_lessons_backfill(
+            person=updated_instance,
+            previous_has_finished_lessons=previous_has_finished_lessons,
+            previous_lessons_finished_at=previous_lessons_finished_at,
+        )
 
         # Check if branch changed
         new_branch = updated_instance.branch

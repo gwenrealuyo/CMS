@@ -20,6 +20,7 @@ import {
 
 interface DataTableProps {
   people: Person[];
+  highlightedPersonId?: string | null;
   onView?: (person: Person) => void;
   onEdit?: (person: Person) => void;
   onDelete?: (person: Person) => void;
@@ -29,6 +30,7 @@ interface DataTableProps {
 
 export default function DataTable({
   people,
+  highlightedPersonId = null,
   onView,
   onEdit,
   onDelete,
@@ -784,7 +786,11 @@ export default function DataTable({
             {paginatedPeople.map((person) => (
               <div
                 key={person.id}
-                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                className={`rounded-lg p-4 shadow-sm transition-colors ${
+                  highlightedPersonId === person.id
+                    ? "bg-blue-50 border border-blue-200 ring-1 ring-blue-100"
+                    : "bg-white border border-gray-200"
+                }`}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -924,7 +930,11 @@ export default function DataTable({
                 {paginatedPeople.map((person) => (
                   <tr
                     key={person.id}
-                    className="hover:bg-gray-50 transition-colors"
+                    className={`transition-colors ${
+                      highlightedPersonId === person.id
+                        ? "bg-blue-50 hover:bg-blue-100"
+                        : "hover:bg-gray-50"
+                    }`}
                   >
                     <td className="px-4 py-3 whitespace-nowrap">
                       <input
@@ -1158,7 +1168,11 @@ export default function DataTable({
               {paginatedPeople.map((person) => (
                 <tr
                   key={person.id}
-                  className="hover:bg-gray-50 transition-colors"
+                  className={`transition-colors ${
+                    highlightedPersonId === person.id
+                      ? "bg-blue-50 hover:bg-blue-100"
+                      : "hover:bg-gray-50"
+                  }`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input

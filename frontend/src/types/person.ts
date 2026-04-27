@@ -24,6 +24,7 @@ export type JourneyType =
   | "CLUSTER"
   | "NOTE"
   | "EVENT_ATTENDANCE"
+  | "SUNDAY_SCHOOL"
   | "MINISTRY"
   | "BRANCH_TRANSFER";
 
@@ -57,6 +58,7 @@ export interface Person {
   address?: string;
   country?: string;
   date_of_birth?: string; // ISO date string
+  date_first_invited?: string; // ISO date string
   date_first_attended?: string; // ISO date string
   water_baptism_date?: string; // ISO date string
   spirit_baptism_date?: string; // ISO date string

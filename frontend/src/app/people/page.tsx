@@ -48,15 +48,18 @@ export default function PeoplePage() {
   }, []);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"person" | "family" | "cluster">(
-    "person"
+    "person",
   );
-  const [createInitialData, setCreateInitialData] =
-    useState<Partial<Person> | undefined>(undefined);
+  const [createInitialData, setCreateInitialData] = useState<
+    Partial<Person> | undefined
+  >(undefined);
   const [personPanelOpen, setPersonPanelOpen] = useState(false);
   const [personPanelMode, setPersonPanelMode] = useState<
     "view" | "edit" | "create"
   >("view");
-  const [personPanelPerson, setPersonPanelPerson] = useState<Person | null>(null);
+  const [personPanelPerson, setPersonPanelPerson] = useState<Person | null>(
+    null,
+  );
   const [personPanelInitialData, setPersonPanelInitialData] = useState<
     Partial<Person> | undefined
   >(undefined);
@@ -91,27 +94,24 @@ export default function PeoplePage() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const openCreatePersonModal = useCallback(
-    (initialData?: Partial<Person>) => {
-      setModalType("person");
-      setCreateInitialData(initialData);
-      setViewEditPerson(null);
-      setViewMode("view");
-      setPersonPanelOpen(false);
-      setPersonPanelMode("view");
-      setPersonPanelPerson(null);
-      setPersonPanelInitialData(undefined);
-      setStartOnTimelineTab(false);
-      setIsModalOpen(true);
-    },
-    []
-  );
+  const openCreatePersonModal = useCallback((initialData?: Partial<Person>) => {
+    setModalType("person");
+    setCreateInitialData(initialData);
+    setViewEditPerson(null);
+    setViewMode("view");
+    setPersonPanelOpen(false);
+    setPersonPanelMode("view");
+    setPersonPanelPerson(null);
+    setPersonPanelInitialData(undefined);
+    setStartOnTimelineTab(false);
+    setIsModalOpen(true);
+  }, []);
 
   const openPersonInteraction = useCallback(
     (
       mode: "view" | "edit" | "create",
       person?: Person | null,
-      initialData?: Partial<Person>
+      initialData?: Partial<Person>,
     ) => {
       if (mode === "create") {
         openCreatePersonModal(initialData);
@@ -135,7 +135,7 @@ export default function PeoplePage() {
         setIsModalOpen(true);
       }
     },
-    [isDesktop, openCreatePersonModal]
+    [isDesktop, openCreatePersonModal],
   );
 
   const closePersonPanel = useCallback(() => {
@@ -215,7 +215,7 @@ export default function PeoplePage() {
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
   const [showPersonOverCluster, setShowPersonOverCluster] = useState(false);
   const [personOverCluster, setPersonOverCluster] = useState<Person | null>(
-    null
+    null,
   );
   const personOverClusterRef = useRef<Person | null>(null);
   useEffect(() => {
@@ -223,19 +223,19 @@ export default function PeoplePage() {
   }, [personOverCluster]);
   const [showFamilyOverCluster, setShowFamilyOverCluster] = useState(false);
   const [familyOverCluster, setFamilyOverCluster] = useState<Family | null>(
-    null
+    null,
   );
   const [showClusterOverPerson, setShowClusterOverPerson] = useState(false);
   const [clusterOverPerson, setClusterOverPerson] = useState<Cluster | null>(
-    null
+    null,
   );
   const [showEditClusterOverlay, setShowEditClusterOverlay] = useState(false);
   const [editClusterOverlay, setEditClusterOverlay] = useState<Cluster | null>(
-    null
+    null,
   );
   const [showEditFamilyOverlay, setShowEditFamilyOverlay] = useState(false);
   const [editFamilyOverlay, setEditFamilyOverlay] = useState<Family | null>(
-    null
+    null,
   );
   const [clustersLoading, setClustersLoading] = useState<boolean>(false);
   const [clusterSearchQuery, setClusterSearchQuery] = useState<string>("");
@@ -244,7 +244,7 @@ export default function PeoplePage() {
   >([]);
   const [clusterSortBy, setClusterSortBy] = useState<string>("name");
   const [clusterSortOrder, setClusterSortOrder] = useState<"asc" | "desc">(
-    "asc"
+    "asc",
   );
   const [showClusterFilterDropdown, setShowClusterFilterDropdown] =
     useState(false);
@@ -271,7 +271,7 @@ export default function PeoplePage() {
   const [viewCluster, setViewCluster] = useState<Cluster | null>(null);
   const [editCluster, setEditCluster] = useState<Cluster | null>(null);
   const [clusterViewMode, setClusterViewMode] = useState<"view" | "edit">(
-    "view"
+    "view",
   );
   const [clusterDeleteConfirmation, setClusterDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -384,7 +384,7 @@ export default function PeoplePage() {
   /** Refetch open person profiles when cluster membership changes so journey timelines stay in sync. */
   const refreshOpenPersonProfilesAfterClusterMemberChange = async (
     previousMemberIds: Array<string | number> | undefined,
-    nextMemberIds: Array<string | number> | undefined
+    nextMemberIds: Array<string | number> | undefined,
   ) => {
     const prev = new Set((previousMemberIds ?? []).map((id) => String(id)));
     const next = new Set((nextMemberIds ?? []).map((id) => String(id)));
@@ -400,7 +400,7 @@ export default function PeoplePage() {
     // Member ids from API may be string or number; use == so "7" matches 7.
     const idsToFetch = Array.from(affected).filter(
       (id) =>
-        (viewId != null && id == viewId) || (overId != null && id == overId)
+        (viewId != null && id == viewId) || (overId != null && id == overId),
     );
     for (const pid of idsToFetch) {
       try {
@@ -447,13 +447,13 @@ export default function PeoplePage() {
           switch (filter.field) {
             case "coordinator":
               const coordinator = peopleUI.find(
-                (person) => person.id === (cluster as any).coordinator
+                (person) => person.id === (cluster as any).coordinator,
               );
               const coordinatorName = coordinator
                 ? `${coordinator.first_name} ${coordinator.last_name}`.toLowerCase()
                 : "";
               return coordinatorName.includes(
-                (filter.value as string).toLowerCase()
+                (filter.value as string).toLowerCase(),
               );
 
             case "location":
@@ -510,13 +510,13 @@ export default function PeoplePage() {
               (memberId: string) => {
                 const person = peopleUI.find((p) => p.id === memberId);
                 return person?.role === "VISITOR";
-              }
+              },
             ).length;
             const bVisitors = ((b as any).members || []).filter(
               (memberId: string) => {
                 const person = peopleUI.find((p) => p.id === memberId);
                 return person?.role === "VISITOR";
-              }
+              },
             ).length;
             aValue = aVisitors;
             bValue = bVisitors;
@@ -550,7 +550,7 @@ export default function PeoplePage() {
   const clusterEndIndex = clusterStartIndex + clusterItemsPerPage;
   const clusterPaginatedData = clusters.slice(
     clusterStartIndex,
-    clusterEndIndex
+    clusterEndIndex,
   );
 
   // Reset to first page when filters change
@@ -569,7 +569,7 @@ export default function PeoplePage() {
 
   const handleClusterSortChange = (
     sortBy: string,
-    sortOrder: "asc" | "desc"
+    sortOrder: "asc" | "desc",
   ) => {
     setClusterSortBy(sortBy);
     setClusterSortOrder(sortOrder);
@@ -640,7 +640,7 @@ export default function PeoplePage() {
 
   const handleClusterSelectSort = (
     sortBy: string,
-    sortOrder: "asc" | "desc"
+    sortOrder: "asc" | "desc",
   ) => {
     setClusterSortBy(sortBy);
     setClusterSortOrder(sortOrder);
@@ -685,7 +685,8 @@ export default function PeoplePage() {
 
   const handleCreateCluster = async (data: Partial<Cluster>) => {
     try {
-      const nextMembers = (data as { members?: Array<string | number> }).members;
+      const nextMembers = (data as { members?: Array<string | number> })
+        .members;
       await clustersApi.create(data as any);
       await fetchClusters();
       await refreshOpenPersonProfilesAfterClusterMemberChange([], nextMembers);
@@ -705,13 +706,13 @@ export default function PeoplePage() {
           | undefined;
         const updatedCluster = await clustersApi.update(
           editCluster.id,
-          data as any
+          data as any,
         );
         await fetchClusters();
         if ((data as { members?: unknown }).members !== undefined) {
           await refreshOpenPersonProfilesAfterClusterMemberChange(
             prevMembers,
-            (data as { members?: Array<string | number> }).members
+            (data as { members?: Array<string | number> }).members,
           );
         }
 
@@ -739,8 +740,11 @@ export default function PeoplePage() {
     if (assignMembersModal.cluster) {
       try {
         const prevMembers =
-          (assignMembersModal.cluster as unknown as { members?: Array<string | number> })
-            .members || [];
+          (
+            assignMembersModal.cluster as unknown as {
+              members?: Array<string | number>;
+            }
+          ).members || [];
         // Include existing families so backend validators that require it won't fail
         await clustersApi.update(assignMembersModal.cluster.id, {
           members: memberIds,
@@ -749,7 +753,7 @@ export default function PeoplePage() {
         await fetchClusters();
         await refreshOpenPersonProfilesAfterClusterMemberChange(
           prevMembers,
-          memberIds
+          memberIds,
         );
 
         // Update viewCluster if it's the same cluster
@@ -778,7 +782,7 @@ export default function PeoplePage() {
         await refreshFamilies();
         if (viewFamily && viewFamily.id === addFamilyMemberModal.family.id) {
           const updatedFamily = families.find(
-            (f: Family) => f.id === viewFamily.id
+            (f: Family) => f.id === viewFamily.id,
           );
           if (updatedFamily) {
             setViewFamily(updatedFamily);
@@ -985,7 +989,7 @@ export default function PeoplePage() {
     // Filter out admin users and users without a name (always last)
     filtered = filtered.filter(
       (person) =>
-        person.username !== "admin" && (person.first_name || person.last_name)
+        person.username !== "admin" && (person.first_name || person.last_name),
     );
 
     return filtered;
@@ -1029,15 +1033,15 @@ export default function PeoplePage() {
 
   const handleUpdateFamily = async (familyData: Partial<Family>) => {
     if (!editFamily) return;
-    
+
     // Capture current values to avoid stale closures
     const currentEditFamilyId = editFamily.id;
     const isInFamilyViewEditMode = familyViewMode === "edit";
-    
+
     try {
       // updateFamily returns the updated family data
       const updatedFamily = await updateFamily(currentEditFamilyId, familyData);
-      
+
       // Update viewFamily if we're editing from view mode (same pattern as Person and Cluster updates)
       if (isInFamilyViewEditMode && viewFamily) {
         // Update viewFamily with new data and return to view mode
@@ -1045,17 +1049,20 @@ export default function PeoplePage() {
         setViewFamily(updatedFamily);
         setFamilyViewMode("view");
       }
-      
+
       // Update familyOverCluster if it matches
       setFamilyOverCluster((currentFamilyOverCluster) => {
-        if (currentFamilyOverCluster && currentFamilyOverCluster.id === currentEditFamilyId) {
+        if (
+          currentFamilyOverCluster &&
+          currentFamilyOverCluster.id === currentEditFamilyId
+        ) {
           return updatedFamily;
         }
         return currentFamilyOverCluster;
       });
-      
+
       // Note: setFamilyViewMode("view") is now called above when in edit mode
-      
+
       // Refresh families list in the background (don't await - let it update in background)
       // NOTE: We skip refreshFamilies when in edit mode within FamilyView because we already
       // have the updated data from the API response, and calling refreshFamilies might trigger
@@ -1065,7 +1072,7 @@ export default function PeoplePage() {
           console.error("Error refreshing families:", err);
         });
       }
-      
+
       // Only close modal if we're not in FamilyView edit mode
       if (!isInFamilyViewEditMode) {
         setIsModalOpen(false);
@@ -1121,7 +1128,7 @@ export default function PeoplePage() {
     try {
       setBulkDeleteConfirmation((prev) => ({ ...prev, loading: true }));
       await Promise.all(
-        bulkDeleteConfirmation.people.map((person) => deletePerson(person.id))
+        bulkDeleteConfirmation.people.map((person) => deletePerson(person.id)),
       );
       setBulkDeleteConfirmation({
         isOpen: false,
@@ -1145,7 +1152,7 @@ export default function PeoplePage() {
 
   const handleBulkExport = (
     people: Person[],
-    format: "excel" | "pdf" | "csv"
+    format: "excel" | "pdf" | "csv",
   ) => {
     // The export functionality is handled within DataTable component
     console.log(`Exporting ${people.length} people to ${format}`);
@@ -1159,7 +1166,7 @@ export default function PeoplePage() {
       const desiredLeft = Math.round(anchorRect.left + window.scrollX);
       const clampedLeft = Math.max(
         8,
-        Math.min(desiredLeft, viewportWidth - dropdownWidth - 8)
+        Math.min(desiredLeft, viewportWidth - dropdownWidth - 8),
       );
       setFilterDropdownPosition({
         top: Math.round(anchorRect.bottom + window.scrollY + 8),
@@ -1181,7 +1188,7 @@ export default function PeoplePage() {
     const desiredLeft = filterDropdownPosition.left;
     const clampedLeft = Math.max(
       8,
-      Math.min(desiredLeft, viewportWidth - cardWidth - 8)
+      Math.min(desiredLeft, viewportWidth - cardWidth - 8),
     );
     setFilterCardPosition({
       top: filterDropdownPosition.top + 8,
@@ -1208,10 +1215,35 @@ export default function PeoplePage() {
     personPanelMode === "create"
       ? "Create Person"
       : personPanelMode === "edit"
-      ? "Edit Profile"
-      : personPanelPerson
-      ? "Profile"
-      : "Person Details";
+        ? "Edit Profile"
+        : personPanelPerson
+          ? "Profile"
+          : "Person Details";
+
+  const refreshPersonJourneyData = async (personId: string) => {
+    try {
+      const [personResponse, journeysResponse] = await Promise.all([
+        peopleApi.getById(personId),
+        journeysApi.getByUser(personId),
+      ]);
+      const refreshedPerson: Person = {
+        ...personResponse.data,
+        journeys: journeysResponse.data,
+      };
+      setViewEditPerson((current) =>
+        current && String(current.id) === personId ? refreshedPerson : current,
+      );
+      setPersonPanelPerson((current) =>
+        current && String(current.id) === personId ? refreshedPerson : current,
+      );
+      setPersonOverCluster((current) =>
+        current && String(current.id) === personId ? refreshedPerson : current,
+      );
+      await refreshPeople();
+    } catch (error) {
+      console.error("Failed to refresh person journey data:", error);
+    }
+  };
 
   const renderPersonFlow = (isPanel: boolean) => {
     if (viewEditPerson) {
@@ -1284,6 +1316,7 @@ export default function PeoplePage() {
           startOnTimelineTab={startOnTimelineTab}
           panelLayout={isPanel}
           peopleOptions={people}
+          onJourneySaved={refreshPersonJourneyData}
           onSubmit={async (data) => {
             const result = await updatePerson(viewEditPerson.id, data);
             setViewEditPerson(result);
@@ -1314,6 +1347,7 @@ export default function PeoplePage() {
 
     return (
       <PersonForm
+        onJourneySaved={refreshPersonJourneyData}
         onSubmit={async (data) => {
           const created = await handleCreatePerson(data);
           if (created) {
@@ -1422,8 +1456,8 @@ export default function PeoplePage() {
               {activeTab === "people"
                 ? "Person"
                 : activeTab === "families"
-                ? "Family"
-                : "Cluster"}
+                  ? "Family"
+                  : "Cluster"}
             </Button>
           )}
         </div>
@@ -1470,6 +1504,11 @@ export default function PeoplePage() {
 
               <DataTable
                 people={filteredPeopleUI as unknown as Person[]}
+                highlightedPersonId={
+                  personPanelOpen
+                    ? personPanelPerson?.id || viewEditPerson?.id || null
+                    : null
+                }
                 onView={(p) => openPersonInteraction("view", p)}
                 onEdit={(p) => openPersonInteraction("edit", p)}
                 onDelete={(p) => {
@@ -1601,7 +1640,7 @@ export default function PeoplePage() {
                         <p className="text-2xl font-semibold text-gray-900">
                           {allClusters.reduce(
                             (acc, c) => acc + ((c as any).members?.length ?? 0),
-                            0
+                            0,
                           )}
                         </p>
                       </div>
@@ -1637,8 +1676,8 @@ export default function PeoplePage() {
                                 p.username !== "admin" &&
                                 p.role !== "ADMIN" &&
                                 !allClusters.some((c) =>
-                                  (c as any).members?.includes(p.id)
-                                )
+                                  (c as any).members?.includes(p.id),
+                                ),
                             ).length
                           }
                         </p>
@@ -1715,7 +1754,7 @@ export default function PeoplePage() {
                                 onClick={() => {
                                   const newFilters =
                                     clusterActiveFilters.filter(
-                                      (f) => f.id !== filter.id
+                                      (f) => f.id !== filter.id,
                                     );
                                   setClusterActiveFilters(newFilters);
                                 }}
@@ -1752,7 +1791,7 @@ export default function PeoplePage() {
                           handleClusterSortDropdown(
                             (
                               e.currentTarget as HTMLButtonElement
-                            ).getBoundingClientRect()
+                            ).getBoundingClientRect(),
                           )
                         }
                         className="inline-flex items-center px-3 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
@@ -1783,7 +1822,7 @@ export default function PeoplePage() {
                           handleClusterAddFilter(
                             (
                               e.currentTarget as HTMLButtonElement
-                            ).getBoundingClientRect()
+                            ).getBoundingClientRect(),
                           )
                         }
                         className="inline-flex items-center px-3 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
@@ -1921,20 +1960,22 @@ export default function PeoplePage() {
             ? viewEditPerson === null
               ? "Create Person"
               : viewMode === "view"
-              ? ""
-              : "Edit Profile"
+                ? ""
+                : "Edit Profile"
             : modalType === "family"
-            ? familyViewMode === "view"
-              ? ""
-              : "Edit Family"
-            : modalType === "cluster"
-            ? clusterViewMode === "view"
-              ? ""
-              : "Edit Cluster"
-            : ""
+              ? familyViewMode === "view"
+                ? ""
+                : "Edit Family"
+              : modalType === "cluster"
+                ? clusterViewMode === "view"
+                  ? ""
+                  : "Edit Cluster"
+                : ""
         }
         headerClassName={
-          modalType === "person" && viewEditPerson === null ? "pr-2 md:pr-2" : ""
+          modalType === "person" && viewEditPerson === null
+            ? "pr-2 md:pr-2"
+            : ""
         }
         hideHeader={
           (modalType === "person" && !!viewEditPerson && viewMode === "view") ||
@@ -1946,7 +1987,9 @@ export default function PeoplePage() {
             clusterViewMode === "view")
         }
       >
-        {modalType === "person" ? renderPersonFlow(false) : modalType === "family" ? (
+        {modalType === "person" ? (
+          renderPersonFlow(false)
+        ) : modalType === "family" ? (
           <>
             {viewFamily ? (
               familyViewMode === "view" ? (
@@ -1954,41 +1997,41 @@ export default function PeoplePage() {
                   <FamilyView
                     family={viewFamily}
                     familyMembers={peopleUI.filter((person) =>
-                      viewFamily.members.includes(person.id)
+                      viewFamily.members.includes(person.id),
                     )}
-                  clusters={clusters}
-                  onViewPerson={(p) => {
-                    setPersonOverCluster(p as Person);
-                    setShowPersonOverCluster(true);
-                  }}
-                  onEdit={() => {
-                    setEditFamily(viewFamily);
-                    setFamilyViewMode("edit");
-                  }}
-                  onDelete={() => {
-                    setDeleteConfirmation({
-                      isOpen: true,
-                      family: viewFamily,
-                      loading: false,
-                    });
-                  }}
-                  onCancel={() => {
-                    setIsModalOpen(false);
-                    setViewFamily(null);
-                    setFamilyViewMode("view");
-                  }}
-                  onClose={() => {
-                    setIsModalOpen(false);
-                    setViewFamily(null);
-                    setFamilyViewMode("view");
-                  }}
-                  onAddMember={() => {
-                    setAddFamilyMemberModal({
-                      isOpen: true,
-                      family: viewFamily,
-                    });
-                  }}
-                />
+                    clusters={clusters}
+                    onViewPerson={(p) => {
+                      setPersonOverCluster(p as Person);
+                      setShowPersonOverCluster(true);
+                    }}
+                    onEdit={() => {
+                      setEditFamily(viewFamily);
+                      setFamilyViewMode("edit");
+                    }}
+                    onDelete={() => {
+                      setDeleteConfirmation({
+                        isOpen: true,
+                        family: viewFamily,
+                        loading: false,
+                      });
+                    }}
+                    onCancel={() => {
+                      setIsModalOpen(false);
+                      setViewFamily(null);
+                      setFamilyViewMode("view");
+                    }}
+                    onClose={() => {
+                      setIsModalOpen(false);
+                      setViewFamily(null);
+                      setFamilyViewMode("view");
+                    }}
+                    onAddMember={() => {
+                      setAddFamilyMemberModal({
+                        isOpen: true,
+                        family: viewFamily,
+                      });
+                    }}
+                  />
                 </>
               ) : (
                 <FamilyForm
@@ -2042,13 +2085,13 @@ export default function PeoplePage() {
               <ClusterView
                 cluster={viewCluster}
                 clusterMembers={peopleUI.filter((person) =>
-                  (viewCluster as any).members?.includes(person.id)
+                  (viewCluster as any).members?.includes(person.id),
                 )}
                 clusterFamilies={families.filter((family) =>
-                  (viewCluster as any).families?.includes(family.id)
+                  (viewCluster as any).families?.includes(family.id),
                 )}
                 coordinator={peopleUI.find(
-                  (person) => person.id === (viewCluster as any).coordinator
+                  (person) => person.id === (viewCluster as any).coordinator,
                 )}
                 onEdit={() => {
                   setEditCluster(viewCluster);
@@ -2308,7 +2351,7 @@ export default function PeoplePage() {
           <FamilyView
             family={familyOverCluster}
             familyMembers={peopleUI.filter((p) =>
-              familyOverCluster.members.includes(p.id)
+              familyOverCluster.members.includes(p.id),
             )}
             clusters={clusters}
             onEdit={() => {
@@ -2349,13 +2392,13 @@ export default function PeoplePage() {
           <ClusterView
             cluster={clusterOverPerson}
             clusterMembers={peopleUI.filter((p) =>
-              ((clusterOverPerson as any).members || []).includes(p.id)
+              ((clusterOverPerson as any).members || []).includes(p.id),
             )}
             clusterFamilies={families.filter((f) =>
-              ((clusterOverPerson as any).families || []).includes(f.id)
+              ((clusterOverPerson as any).families || []).includes(f.id),
             )}
             coordinator={peopleUI.find(
-              (p) => p.id === (clusterOverPerson as any).coordinator
+              (p) => p.id === (clusterOverPerson as any).coordinator,
             )}
             onEdit={() => {
               setEditClusterOverlay(clusterOverPerson);
@@ -2410,12 +2453,12 @@ export default function PeoplePage() {
                 if ((data as { members?: unknown }).members !== undefined) {
                   await refreshOpenPersonProfilesAfterClusterMemberChange(
                     prevMembers as Array<string | number>,
-                    (data as { members?: Array<string | number> }).members
+                    (data as { members?: Array<string | number> }).members,
                   );
                 }
                 try {
                   const refreshed = await clustersApi.getById(
-                    editClusterOverlay.id
+                    editClusterOverlay.id,
                   );
                   setClusterOverPerson(refreshed.data);
                 } catch (e) {
@@ -2449,21 +2492,27 @@ export default function PeoplePage() {
             onSubmit={async (data) => {
               if (!editFamilyOverlay) return;
               // updateFamily returns the updated family data
-              const updatedFamily = await updateFamily(editFamilyOverlay.id, data);
-              
+              const updatedFamily = await updateFamily(
+                editFamilyOverlay.id,
+                data,
+              );
+
               // Update viewFamily/familyOverCluster immediately with the response (before refresh)
               if (viewFamily && viewFamily.id === editFamilyOverlay.id) {
                 setViewFamily(updatedFamily);
               }
-              if (familyOverCluster && familyOverCluster.id === editFamilyOverlay.id) {
+              if (
+                familyOverCluster &&
+                familyOverCluster.id === editFamilyOverlay.id
+              ) {
                 setFamilyOverCluster(updatedFamily);
               }
-              
+
               // Refresh families list in the background (don't await - let it update in background)
               refreshFamilies().catch((err) => {
                 console.error("Error refreshing families:", err);
               });
-              
+
               setShowEditFamilyOverlay(false);
               setEditFamilyOverlay(null);
             }}
@@ -2608,12 +2657,12 @@ export default function PeoplePage() {
                 .sort((a, b) => a.name.localeCompare(b.name));
               const totalPages = Math.max(
                 1,
-                Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE)
+                Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE),
               );
               const start = (familySelectPage - 1) * FAMILY_SELECT_PAGE_SIZE;
               const pageItems = filtered.slice(
                 start,
-                start + FAMILY_SELECT_PAGE_SIZE
+                start + FAMILY_SELECT_PAGE_SIZE,
               );
 
               return (
@@ -2628,7 +2677,7 @@ export default function PeoplePage() {
                             new Set([
                               ...target.members,
                               selectFamilyModal.person!.id,
-                            ])
+                            ]),
                           );
                           await updateFamily(target.id, {
                             name: target.name,
@@ -2645,10 +2694,10 @@ export default function PeoplePage() {
                             const [personResponse, journeysResponse] =
                               await Promise.all([
                                 peopleApi.getById(
-                                  String(selectFamilyModal.person!.id)
+                                  String(selectFamilyModal.person!.id),
                                 ),
                                 journeysApi.getByUser(
-                                  String(selectFamilyModal.person!.id)
+                                  String(selectFamilyModal.person!.id),
                                 ),
                               ]);
                             latestPerson = personResponse.data;
@@ -2656,7 +2705,7 @@ export default function PeoplePage() {
                           } catch (error) {
                             console.error(
                               "Failed to refresh person details after family update:",
-                              error
+                              error,
                             );
                           }
 
@@ -2671,17 +2720,17 @@ export default function PeoplePage() {
                             setViewEditPerson((current) =>
                               current && current.id === nextPerson.id
                                 ? nextPerson
-                                : current
+                                : current,
                             );
                             setPersonPanelPerson((current) =>
                               current && current.id === nextPerson.id
                                 ? nextPerson
-                                : current
+                                : current,
                             );
                             setPersonOverCluster((current) =>
                               current && current.id === nextPerson.id
                                 ? nextPerson
-                                : current
+                                : current,
                             );
                           }
                           setSelectFamilyModal({ isOpen: false, person: null });
@@ -2705,7 +2754,7 @@ export default function PeoplePage() {
                       Page {familySelectPage} of{" "}
                       {Math.max(
                         1,
-                        Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE)
+                        Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE),
                       )}
                     </span>
                     <div className="flex items-center gap-1">
@@ -2725,18 +2774,20 @@ export default function PeoplePage() {
                               Math.max(
                                 1,
                                 Math.ceil(
-                                  filtered.length / FAMILY_SELECT_PAGE_SIZE
-                                )
+                                  filtered.length / FAMILY_SELECT_PAGE_SIZE,
+                                ),
                               ),
-                              p + 1
-                            )
+                              p + 1,
+                            ),
                           )
                         }
                         disabled={
                           familySelectPage ===
                           Math.max(
                             1,
-                            Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE)
+                            Math.ceil(
+                              filtered.length / FAMILY_SELECT_PAGE_SIZE,
+                            ),
                           )
                         }
                         className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
@@ -2811,18 +2862,18 @@ export default function PeoplePage() {
                   ? clusters.filter(
                       (c) =>
                         (c.name || "").toLowerCase().includes(term) ||
-                        ((c as any).code || "").toLowerCase().includes(term)
+                        ((c as any).code || "").toLowerCase().includes(term),
                     )
                   : clusters;
                 const totalPages = Math.max(
                   1,
-                  Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE)
+                  Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE),
                 );
                 const start =
                   (clusterSelectPage - 1) * CLUSTER_SELECT_PAGE_SIZE;
                 const pageItems = filtered.slice(
                   start,
-                  start + CLUSTER_SELECT_PAGE_SIZE
+                  start + CLUSTER_SELECT_PAGE_SIZE,
                 );
 
                 return (
@@ -2841,7 +2892,7 @@ export default function PeoplePage() {
                               new Set([
                                 ...members,
                                 selectClusterModal.person!.id,
-                              ])
+                              ]),
                             );
                             await clustersApi.update(c.id, {
                               name: c.name,
@@ -2856,7 +2907,7 @@ export default function PeoplePage() {
                             await fetchClusters();
                             await refreshOpenPersonProfilesAfterClusterMemberChange(
                               members,
-                              updatedMembers
+                              updatedMembers,
                             );
                             setSelectClusterModal({
                               isOpen: false,
@@ -2890,7 +2941,7 @@ export default function PeoplePage() {
                         Page {clusterSelectPage} of{" "}
                         {Math.max(
                           1,
-                          Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE)
+                          Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE),
                         )}
                       </span>
                       <div className="flex items-center gap-2">
@@ -2910,11 +2961,11 @@ export default function PeoplePage() {
                                 Math.max(
                                   1,
                                   Math.ceil(
-                                    filtered.length / CLUSTER_SELECT_PAGE_SIZE
-                                  )
+                                    filtered.length / CLUSTER_SELECT_PAGE_SIZE,
+                                  ),
                                 ),
-                                p + 1
-                              )
+                                p + 1,
+                              ),
                             )
                           }
                           disabled={
@@ -2922,8 +2973,8 @@ export default function PeoplePage() {
                             Math.max(
                               1,
                               Math.ceil(
-                                filtered.length / CLUSTER_SELECT_PAGE_SIZE
-                              )
+                                filtered.length / CLUSTER_SELECT_PAGE_SIZE,
+                              ),
                             )
                           }
                           className="px-3 py-2 min-h-[44px] border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50 flex-1 sm:flex-initial"
@@ -2963,7 +3014,7 @@ export default function PeoplePage() {
                 coordinator: p.id,
               };
               const personFamilies = families.filter((f) =>
-                f.members.includes(p.id)
+                f.members.includes(p.id),
               );
               const unattachedFamilyIds = personFamilies
                 .filter((f) => {
@@ -2971,7 +3022,7 @@ export default function PeoplePage() {
                   // 1) It is directly associated via cluster.families, or
                   // 2) Any of its members appear in any cluster's members
                   const isDirectlyAttached = clusters.some((c) =>
-                    ((c as any).families || []).includes(f.id)
+                    ((c as any).families || []).includes(f.id),
                   );
                   if (isDirectlyAttached) return false;
                   const anyMemberInAnyCluster = clusters.some((c) => {

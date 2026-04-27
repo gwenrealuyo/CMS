@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from datetime import date
+from django.utils import timezone
 from rest_framework.test import APIRequestFactory
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -226,7 +227,7 @@ class FirstAttendedJourneySyncTest(TestCase):
         )
 
         original_journey = Journey.objects.get(
-            user=person, type="NOTE", title="First Attended"
+            user=person, type="EVENT_ATTENDANCE", title="First Attended"
         )
         self.assertEqual(original_journey.description, "First attendance")
 
@@ -234,7 +235,9 @@ class FirstAttendedJourneySyncTest(TestCase):
         updated_journey = Journey.objects.get(id=original_journey.id)
         self.assertEqual(updated_journey.description, "First attendance: Sunday Service")
         self.assertEqual(
-            Journey.objects.filter(user=person, type="NOTE", title="First Attended").count(),
+            Journey.objects.filter(
+                user=person, type="EVENT_ATTENDANCE", title="First Attended"
+            ).count(),
             1,
         )
 
@@ -242,7 +245,9 @@ class FirstAttendedJourneySyncTest(TestCase):
         updated_again = Journey.objects.get(id=original_journey.id)
         self.assertEqual(updated_again.description, "First attendance: Doctrinal Class")
         self.assertEqual(
-            Journey.objects.filter(user=person, type="NOTE", title="First Attended").count(),
+            Journey.objects.filter(
+                user=person, type="EVENT_ATTENDANCE", title="First Attended"
+            ).count(),
             1,
         )
 
@@ -258,12 +263,16 @@ class FirstAttendedJourneySyncTest(TestCase):
             first_activity_attended="CLUSTERING",
         )
         self.assertTrue(
-            Journey.objects.filter(user=person, type="NOTE", title="First Attended").exists()
+            Journey.objects.filter(
+                user=person, type="EVENT_ATTENDANCE", title="First Attended"
+            ).exists()
         )
 
         self._partial_update(person, {"date_first_attended": None})
         self.assertFalse(
-            Journey.objects.filter(user=person, type="NOTE", title="First Attended").exists()
+            Journey.objects.filter(
+                user=person, type="EVENT_ATTENDANCE", title="First Attended"
+            ).exists()
         )
 
     def test_updating_first_activity_does_not_modify_visitor_note(self):
@@ -288,7 +297,9 @@ class FirstAttendedJourneySyncTest(TestCase):
 
         visitor_note.refresh_from_db()
         self.assertEqual(visitor_note.description, "Initial visitor note")
-        first_attended = Journey.objects.get(user=person, type="NOTE", title="First Attended")
+        first_attended = Journey.objects.get(
+            user=person, type="EVENT_ATTENDANCE", title="First Attended"
+        )
         self.assertEqual(first_attended.description, "First attendance: Prayer Meeting")
 
 
@@ -343,6 +354,7 @@ class InvitedJourneySyncTest(TestCase):
         return serializer.save()
 
     def test_create_visitor_invited_creates_invited_journey(self):
+        invited_date = date(2026, 4, 20)
         serializer = self.PersonSerializer(
             data={
                 "first_name": "Visitor",
@@ -350,6 +362,7 @@ class InvitedJourneySyncTest(TestCase):
                 "role": "VISITOR",
                 "status": "INVITED",
                 "inviter": self.inviter1.id,
+                "date_first_invited": invited_date,
             },
             context={"request": self._request()},
         )
@@ -358,8 +371,10 @@ class InvitedJourneySyncTest(TestCase):
 
         invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
         self.assertEqual(invited_journey.description, "Invited by Inviter One.")
+        self.assertEqual(invited_journey.date, invited_date)
 
     def test_inviter_update_updates_same_journey_for_invited_visitor(self):
+        invited_date = date(2026, 4, 21)
         person = Person.objects.create_user(
             username="visitor_invited",
             email="visitor_invited@test.com",
@@ -369,20 +384,48 @@ class InvitedJourneySyncTest(TestCase):
             role="VISITOR",
             status="INVITED",
             inviter=self.inviter1,
+            date_first_invited=invited_date,
         )
         original_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
         self.assertEqual(original_journey.description, "Invited by Inviter One.")
+        self.assertEqual(original_journey.date, invited_date)
 
         self._partial_update(person, {"inviter": self.inviter2.id})
 
         updated_journey = Journey.objects.get(id=original_journey.id)
         self.assertEqual(updated_journey.description, "Invited by Inviter Two.")
+        self.assertEqual(updated_journey.date, invited_date)
+        self.assertEqual(
+            Journey.objects.filter(user=person, type="NOTE", title="Invited").count(),
+            1,
+        )
+
+    def test_updating_date_first_invited_updates_existing_journey_date(self):
+        person = Person.objects.create_user(
+            username="visitor_date_update",
+            email="visitor_date_update@test.com",
+            password="testpass123",
+            first_name="Visitor",
+            last_name="DateUpdate",
+            role="VISITOR",
+            status="INVITED",
+            inviter=self.inviter1,
+            date_first_invited=date(2026, 4, 10),
+        )
+        invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
+        self.assertEqual(invited_journey.date, date(2026, 4, 10))
+
+        self._partial_update(person, {"date_first_invited": date(2026, 4, 15)})
+
+        invited_journey.refresh_from_db()
+        self.assertEqual(invited_journey.date, date(2026, 4, 15))
         self.assertEqual(
             Journey.objects.filter(user=person, type="NOTE", title="Invited").count(),
             1,
         )
 
     def test_inviter_update_on_non_visitor_still_updates_existing_invited_journey(self):
+        invited_date = date(2026, 4, 8)
         person = Person.objects.create_user(
             username="visitor_for_transition",
             email="visitor_for_transition@test.com",
@@ -392,6 +435,7 @@ class InvitedJourneySyncTest(TestCase):
             role="VISITOR",
             status="INVITED",
             inviter=self.inviter1,
+            date_first_invited=invited_date,
         )
         invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
 
@@ -401,6 +445,7 @@ class InvitedJourneySyncTest(TestCase):
 
         invited_journey.refresh_from_db()
         self.assertEqual(invited_journey.description, "Invited by Inviter Two.")
+        self.assertEqual(invited_journey.date, invited_date)
         self.assertEqual(
             Journey.objects.filter(user=person, type="NOTE", title="Invited").count(),
             1,
@@ -425,7 +470,22 @@ class InvitedJourneySyncTest(TestCase):
         self.assertEqual(invited_journey.title, "Invited")
         self.assertEqual(invited_journey.description, "Invited by Inviter One.")
 
+    def test_invited_journey_uses_today_when_date_first_invited_not_set(self):
+        person = Person.objects.create_user(
+            username="visitor_no_invited_date",
+            email="visitor_no_invited_date@test.com",
+            password="testpass123",
+            first_name="Visitor",
+            last_name="NoDate",
+            role="VISITOR",
+            status="INVITED",
+            inviter=self.inviter1,
+        )
+        invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
+        self.assertEqual(invited_journey.date, timezone.now().date())
+
     def test_model_save_path_updates_inviter_on_existing_invited_journey(self):
+        invited_date = date(2026, 4, 22)
         person = Person.objects.create_user(
             username="visitor_model_save",
             email="visitor_model_save@test.com",
@@ -435,6 +495,7 @@ class InvitedJourneySyncTest(TestCase):
             role="VISITOR",
             status="INVITED",
             inviter=self.inviter1,
+            date_first_invited=invited_date,
         )
         invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
 
@@ -443,6 +504,7 @@ class InvitedJourneySyncTest(TestCase):
 
         invited_journey.refresh_from_db()
         self.assertEqual(invited_journey.description, "Invited by Inviter Two.")
+        self.assertEqual(invited_journey.date, invited_date)
         self.assertEqual(
             Journey.objects.filter(user=person, type="NOTE", title="Invited").count(),
             1,

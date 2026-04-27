@@ -211,6 +211,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "address",
             "country",
             "date_of_birth",
+            "date_first_invited",
             "date_first_attended",
             "first_activity_attended",
             "water_baptism_date",

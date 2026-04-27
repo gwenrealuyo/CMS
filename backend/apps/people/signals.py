@@ -57,6 +57,7 @@ def store_person_original_values(sender, instance, **kwargs):
             original = Person.objects.get(pk=instance.pk)
             instance._original_water_baptism_date = original.water_baptism_date
             instance._original_spirit_baptism_date = original.spirit_baptism_date
+            instance._original_date_first_invited = original.date_first_invited
             instance._original_date_first_attended = original.date_first_attended
             instance._original_first_activity_attended = original.first_activity_attended
             instance._original_role = original.role
@@ -66,6 +67,7 @@ def store_person_original_values(sender, instance, **kwargs):
             # New instance, no original values
             instance._original_water_baptism_date = None
             instance._original_spirit_baptism_date = None
+            instance._original_date_first_invited = None
             instance._original_date_first_attended = None
             instance._original_first_activity_attended = None
             instance._original_role = None
@@ -75,6 +77,7 @@ def store_person_original_values(sender, instance, **kwargs):
         # New instance, no original values
         instance._original_water_baptism_date = None
         instance._original_spirit_baptism_date = None
+        instance._original_date_first_invited = None
         instance._original_date_first_attended = None
         instance._original_first_activity_attended = None
         instance._original_role = None
@@ -92,6 +95,7 @@ def manage_baptism_journeys(sender, instance, created, **kwargs):
         # Get original values (stored in pre_save)
         original_water_baptism = getattr(instance, '_original_water_baptism_date', None)
         original_spirit_baptism = getattr(instance, '_original_spirit_baptism_date', None)
+        original_first_invited = getattr(instance, "_original_date_first_invited", None)
         original_first_attended = getattr(instance, '_original_date_first_attended', None)
         original_first_activity = getattr(instance, '_original_first_activity_attended', None)
         original_role = getattr(instance, "_original_role", None)
@@ -132,6 +136,7 @@ def manage_baptism_journeys(sender, instance, created, **kwargs):
             original_role,
             original_status,
             original_inviter_id,
+            original_first_invited,
         )
         
     except Exception as e:
@@ -206,9 +211,8 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
     # Check if date was cleared (changed from date to None)
     if original_date is not None and current_date is None:
         # Delete the journey if it exists
-        Journey.objects.filter(
-            user=person,
-            type="NOTE",
+        Journey.objects.filter(user=person).filter(
+            Q(type="EVENT_ATTENDANCE") | Q(type="NOTE")
         ).filter(first_attended_filter).delete()
         logger.debug(f"Deleted First Attended journey for person {person.id}")
         return
@@ -218,7 +222,7 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
         journey = (
             Journey.objects.filter(
                 user=person,
-                type="NOTE",
+                type="EVENT_ATTENDANCE",
                 title="First Attended",
             )
             .order_by("-updated_at", "-created_at", "-id")
@@ -255,6 +259,7 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
         if journey:
             # Update existing journey
             journey.date = current_date
+            journey.type = "EVENT_ATTENDANCE"
             journey.title = "First Attended"
             journey.description = description
             journey.save()
@@ -263,7 +268,7 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
             # Create new journey
             Journey.objects.create(
                 user=person,
-                type="NOTE",
+                type="EVENT_ATTENDANCE",
                 date=current_date,
                 title="First Attended",
                 description=description,
@@ -312,11 +317,14 @@ def _handle_invited_journey(
     original_role,
     original_status,
     original_inviter_id,
+    original_invited_date,
 ):
     qualifies_for_creation = person.role == "VISITOR" and person.status == "INVITED"
     inviter_changed = original_inviter_id != person.inviter_id
     role_changed = original_role != person.role
     status_changed = original_status != person.status
+    invited_date_changed = original_invited_date != person.date_first_invited
+    invited_journey_date = person.date_first_invited or timezone.now().date()
 
     journey = _get_invited_journey(person)
 
@@ -326,18 +334,22 @@ def _handle_invited_journey(
             type="NOTE",
             title=INVITED_JOURNEY_TITLE,
             description=_build_invited_description(person),
-            date=timezone.now().date(),
+            date=invited_journey_date,
             verified_by=None,
         )
         logger.debug(f"Created Invited journey for person {person.id}")
         return
 
     should_update_existing = journey and (
-        inviter_changed or (qualifies_for_creation and (created or role_changed or status_changed))
+        inviter_changed
+        or invited_date_changed
+        or (qualifies_for_creation and (created or role_changed or status_changed))
     )
     if should_update_existing:
         journey.title = INVITED_JOURNEY_TITLE
         journey.description = _build_invited_description(person)
+        if invited_date_changed:
+            journey.date = invited_journey_date
         journey.save()
         logger.debug(f"Updated Invited journey for person {person.id}")
 

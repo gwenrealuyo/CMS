@@ -11,10 +11,30 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 
+const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
+  "BAPTISM",
+  "SPIRIT",
+  "CLUSTER",
+  "LESSON",
+  "NOTE",
+  "EVENT_ATTENDANCE",
+  "SUNDAY_SCHOOL",
+  "MINISTRY",
+  "BRANCH_TRANSFER",
+];
+
+const formatJourneyTypeLabel = (type: JourneyType) =>
+  type
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
 interface PersonFormProps {
   onSubmit: (data: Partial<Person>) => Promise<Person | void>;
   onClose: () => void;
   onBackToProfile?: () => void;
+  onJourneySaved?: (personId: string) => Promise<void> | void;
   initialData?: Partial<Person>;
   isEditingFromProfile?: boolean;
   startOnTimelineTab?: boolean;
@@ -26,6 +46,7 @@ export default function PersonForm({
   onSubmit,
   onClose,
   onBackToProfile,
+  onJourneySaved,
   initialData,
   isEditingFromProfile = false,
   startOnTimelineTab = false,
@@ -153,11 +174,13 @@ export default function PersonForm({
     type: JourneyType;
     title: string;
     description: string;
+    verified_by: string;
   }>({
     date: new Date().toISOString().slice(0, 10),
     type: "NOTE",
     title: "",
     description: "",
+    verified_by: "",
   });
 
   const [editingJourneyIndex, setEditingJourneyIndex] = useState<number | null>(
@@ -227,7 +250,9 @@ export default function PersonForm({
             date: newJourney.date,
             type: newJourney.type,
             description: newJourney.description,
+            verified_by: newJourney.verified_by || undefined,
           });
+          await onJourneySaved?.(existingUserId);
           // optimistic append so it shows instantly
           const createdId = (created?.data as any)?.id || crypto.randomUUID();
           setFormData((prev) => ({
@@ -273,6 +298,7 @@ export default function PersonForm({
       type: "NOTE",
       title: "",
       description: "",
+      verified_by: "",
     });
   };
 
@@ -285,6 +311,7 @@ export default function PersonForm({
         type: journey.type || "NOTE",
         title: journey.title || "",
         description: journey.description || "",
+        verified_by: journey.verified_by ? String(journey.verified_by) : "",
       });
     }
   };
@@ -308,11 +335,14 @@ export default function PersonForm({
       (async () => {
         try {
           await journeysApi.update(journeyToUpdate.id, {
+            user: existingUserId,
             title: newJourney.title,
             date: newJourney.date,
             type: newJourney.type,
             description: newJourney.description,
+            verified_by: newJourney.verified_by || undefined,
           });
+          await onJourneySaved?.(existingUserId);
 
           // Update the journey in the form data
           setFormData((prev) => {
@@ -365,6 +395,7 @@ export default function PersonForm({
       type: "NOTE",
       title: "",
       description: "",
+      verified_by: "",
     });
   };
 
@@ -425,10 +456,14 @@ export default function PersonForm({
     const idx = journeyDeleteConfirm.index;
     const current = formData.journeys || [];
     const toDelete = current[idx] as any;
+    const existingUserId = (initialData?.id || (formData as any).id) as
+      | string
+      | undefined;
     try {
       setJourneyDeleteConfirm((p) => ({ ...p, loading: true }));
-      if (toDelete?.id && (initialData?.id || (formData as any).id)) {
+      if (toDelete?.id && existingUserId) {
         await journeysApi.delete(toDelete.id);
+        await onJourneySaved?.(existingUserId);
       }
       setFormData((prev) => ({
         ...prev,
@@ -458,7 +493,9 @@ export default function PersonForm({
       // If person was created/updated successfully and we have new journeys, save only new/changed ones
       if (result && typeof result === "object" && "id" in result) {
         const keyOf = (m: any) =>
-          `${m.date}|${m.type}|${m.title ?? ""}|${m.description ?? ""}`;
+          `${m.date}|${m.type}|${m.title ?? ""}|${m.description ?? ""}|${
+            m.verified_by ?? ""
+          }`;
         const newOrChanged = (journeys || []).filter((m: any) => {
           const key = keyOf(m);
           return !initialJourneyKeysRef.current.has(key);
@@ -475,6 +512,7 @@ export default function PersonForm({
                 date: journey.date,
                 type: journey.type,
                 description: journey.description,
+                verified_by: journey.verified_by || undefined,
               });
             }
           } catch (error) {
@@ -893,6 +931,18 @@ export default function PersonForm({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Date First Invited
+                    </label>
+                    <input
+                      type="date"
+                      name="date_first_invited"
+                      value={(formData as any).date_first_invited || ""}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Date First Attended
                     </label>
                     <input
@@ -1121,13 +1171,11 @@ export default function PersonForm({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {["BAPTISM", "SPIRIT", "CLUSTER", "LESSON", "NOTE"].map(
-                  (type) => (
-                    <option key={type} value={type}>
-                      {type.charAt(0) + type.slice(1).toLowerCase()}
-                    </option>
-                  )
-                )}
+                {JOURNEY_TYPE_OPTIONS.map((type) => (
+                  <option key={type} value={type}>
+                    {formatJourneyTypeLabel(type)}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -1144,6 +1192,28 @@ export default function PersonForm({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Event description..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Verified By
+              </label>
+              <SearchableSelect
+                value={newJourney.verified_by || ""}
+                onChange={(value) =>
+                  setNewJourney((prev) => ({ ...prev, verified_by: value }))
+                }
+                options={peopleOptions
+                  .filter((p) => p.role !== "ADMIN" && p.username !== "admin")
+                  .map((p) => ({
+                    ...p,
+                    id: p.id,
+                    username: p.username || p.email || String(p.id),
+                  }))}
+                placeholder="Type a name to search..."
+                emptyMessage="No verifier found"
+                showEmptyOption={true}
+                emptyOptionLabel="No verifier"
               />
             </div>
             <div className="flex gap-3">
@@ -1204,16 +1274,9 @@ export default function PersonForm({
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="ALL">All Types</option>
-                      {[
-                        "BAPTISM",
-                        "SPIRIT",
-                        "CLUSTER",
-                        "LESSON",
-                        "NOTE",
-                        "EVENT_ATTENDANCE",
-                      ].map((type) => (
+                      {JOURNEY_TYPE_OPTIONS.map((type) => (
                         <option key={type} value={type}>
-                          {type.charAt(0) + type.slice(1).toLowerCase()}
+                          {formatJourneyTypeLabel(type)}
                         </option>
                       ))}
                     </select>

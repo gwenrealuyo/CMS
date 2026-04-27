@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Squares2X2Icon, TableCellsIcon } from "@heroicons/react/24/outline";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ClusterContentTabs, {
   ClusterContentTab,
@@ -16,6 +18,7 @@ import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
 import FamilyView from "@/src/components/families/FamilyView";
+import ActionMenu from "@/src/components/families/ActionMenu";
 import BulkActionsMenu from "@/src/components/people/BulkActionsMenu";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
@@ -256,6 +259,10 @@ export default function ClustersPageView({
   onBulkDelete,
   onBulkExport,
 }: ClustersPageViewProps) {
+  const [clusterListViewMode, setClusterListViewMode] = useState<"cards" | "table">(
+    "cards"
+  );
+
   // Calculate stats
   const totalMembers = allClusters.reduce(
     (acc, c) => acc + (c.members?.length || 0),
@@ -662,6 +669,33 @@ export default function ClustersPageView({
 
                 {/* Bulk Actions and Filter/Sort Buttons */}
                 <div className="flex flex-wrap items-center gap-2 md:gap-3 md:ml-4">
+                  <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
+                    <button
+                      type="button"
+                      onClick={() => setClusterListViewMode("table")}
+                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                        clusterListViewMode === "table"
+                          ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                          : "bg-transparent text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      <TableCellsIcon className="h-3.5 w-3.5" />
+                      Table
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClusterListViewMode("cards")}
+                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                        clusterListViewMode === "cards"
+                          ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                          : "bg-transparent text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      <Squares2X2Icon className="h-3.5 w-3.5" />
+                      Cards
+                    </button>
+                  </div>
+
                   {/* Selection Mode Toggle */}
                   <button
                     onClick={onToggleSelectionMode}
@@ -853,21 +887,162 @@ export default function ClustersPageView({
                     </label>
                   </div>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {clusterPaginatedData.map((c) => (
-                    <ClusterCard
-                      key={c.id}
-                      cluster={c as any}
-                      peopleUI={peopleUI}
-                      isSelected={selectedClusters.has(c.id.toString())}
-                      isSelectionMode={isSelectionMode}
-                      onSelect={() => onSelectCluster(c.id.toString())}
-                      onView={() => onViewCluster(c)}
-                      onEdit={() => onEditCluster(c)}
-                      onDelete={() => onDeleteCluster(c)}
-                    />
-                  ))}
-                </div>
+                {clusterListViewMode === "table" ? (
+                  <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {isSelectionMode && (
+                            <th className="px-4 py-3 text-left">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selectedClusters.size === clusterPaginatedData.length &&
+                                  clusterPaginatedData.length > 0
+                                }
+                                onChange={onSelectAllClusters}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                            </th>
+                          )}
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">
+                            Cluster
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">
+                            Coordinator
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">
+                            Members
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">
+                            Visitors
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">
+                            Families
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">
+                            Location / Schedule
+                          </th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {clusterPaginatedData.map((c) => {
+                          const coordinator = peopleUI.find(
+                            (person) =>
+                              person.id === c.coordinator?.id?.toString() ||
+                              person.id === (c as any).coordinator_id?.toString()
+                          );
+                          const clusterMembers = peopleUI.filter((person) =>
+                            (c.members || []).includes(Number(person.id))
+                          );
+                          const coordinatorInMembers = coordinator
+                            ? clusterMembers.some((member) => member.id === coordinator.id)
+                            : false;
+                          const memberCount =
+                            clusterMembers.filter(
+                              (member) =>
+                                member.role !== "ADMIN" && member.role !== "VISITOR"
+                            ).length +
+                            (coordinator &&
+                            !coordinatorInMembers &&
+                            coordinator.role !== "ADMIN" &&
+                            coordinator.role !== "VISITOR"
+                              ? 1
+                              : 0);
+                          const visitorCount =
+                            clusterMembers.filter((member) => member.role === "VISITOR")
+                              .length +
+                            (coordinator &&
+                            !coordinatorInMembers &&
+                            coordinator.role === "VISITOR"
+                              ? 1
+                              : 0);
+
+                          return (
+                            <tr key={c.id} className="hover:bg-gray-50">
+                              {isSelectionMode && (
+                                <td className="px-4 py-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedClusters.has(c.id.toString())}
+                                    onChange={() => onSelectCluster(c.id.toString())}
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                </td>
+                              )}
+                              <td className="px-4 py-3">
+                                <button
+                                  type="button"
+                                  onClick={() => onViewCluster(c)}
+                                  className="text-left text-blue-600 hover:text-blue-700 hover:underline"
+                                >
+                                  {c.name || "Untitled Cluster"}
+                                </button>
+                                <div className="mt-1 text-xs text-gray-500">
+                                  {c.code || "—"}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                {coordinator
+                                  ? `${coordinator.first_name} ${coordinator.last_name}`
+                                  : c.coordinator?.first_name && c.coordinator?.last_name
+                                  ? `${c.coordinator.first_name} ${c.coordinator.last_name}`
+                                  : "Unknown Coordinator"}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">{memberCount}</td>
+                              <td className="px-4 py-3 text-gray-700">{visitorCount}</td>
+                              <td className="px-4 py-3 text-gray-700">
+                                {c.families?.length || 0}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                <div className="space-y-1">
+                                  <div>{c.location || "—"}</div>
+                                  <div className="text-xs text-gray-500">
+                                    {c.meeting_schedule || "No schedule"}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-end">
+                                  <ActionMenu
+                                    onView={() => onViewCluster(c)}
+                                    onEdit={() => onEditCluster(c)}
+                                    onDelete={() => onDeleteCluster(c)}
+                                    labels={{
+                                      view: "View Cluster",
+                                      edit: "Edit Cluster",
+                                      delete: "Delete Cluster",
+                                      title: "Cluster Actions",
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {clusterPaginatedData.map((c) => (
+                      <ClusterCard
+                        key={c.id}
+                        cluster={c as any}
+                        peopleUI={peopleUI}
+                        isSelected={selectedClusters.has(c.id.toString())}
+                        isSelectionMode={isSelectionMode}
+                        onSelect={() => onSelectCluster(c.id.toString())}
+                        onView={() => onViewCluster(c)}
+                        onEdit={() => onEditCluster(c)}
+                        onDelete={() => onDeleteCluster(c)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

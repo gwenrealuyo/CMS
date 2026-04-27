@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { Squares2X2Icon, TableCellsIcon } from "@heroicons/react/24/outline";
 import { Family, Person, PersonUI } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
 import ActionMenu from "./ActionMenu";
@@ -48,6 +49,7 @@ export default function FamilyManagementDashboard({
   const FAMILY_PAGE_SIZE = 10; // Show 10 families per page
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortButtonRef = React.useRef<HTMLButtonElement>(null);
   const sortDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -336,6 +338,13 @@ export default function FamilyManagementDashboard({
     return people.find((person) => person.id === id);
   };
 
+  const getFamilyVisitorCount = (family: Family) => {
+    return family.members.filter((memberId) => {
+      const person = people.find((p) => p.id === memberId);
+      return person?.role === "VISITOR";
+    }).length;
+  };
+
   // Get initials for avatar
   const getInitials = (person: PersonUI) => {
     return `${person.first_name?.[0] || ""}${
@@ -531,6 +540,33 @@ export default function FamilyManagementDashboard({
 
           {/* Sort and Filter Buttons */}
           <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  viewMode === "table"
+                    ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                    : "bg-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <TableCellsIcon className="h-3.5 w-3.5" />
+                Table
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("cards")}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  viewMode === "cards"
+                    ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                    : "bg-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <Squares2X2Icon className="h-3.5 w-3.5" />
+                Cards
+              </button>
+            </div>
+
             <button
               ref={sortButtonRef}
               onClick={() => setShowSortDropdown(!showSortDropdown)}
@@ -835,91 +871,163 @@ export default function FamilyManagementDashboard({
         <h2 className="text-xl font-semibold text-gray-900">
           Families ({sortedFamilies.length})
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {visibleFamilies.map((family) => {
-            const familyMembers = family.members
-              .map((id) => getPersonById(id))
-              .filter(Boolean) as PersonUI[];
+        {viewMode === "table" ? (
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">
+                    Family
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">
+                    Members
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">
+                    Visitors
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">
+                    Since
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">
+                    Notes
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-600">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {visibleFamilies.map((family) => {
+                  const familyMembers = family.members
+                    .map((id) => getPersonById(id))
+                    .filter(Boolean) as PersonUI[];
+                  const sinceText = familyMembers[0]?.dateFirstAttended
+                    ? new Date(familyMembers[0].dateFirstAttended).toLocaleDateString()
+                    : "Unknown";
 
-            return (
-              <div
-                key={family.id}
-                className="bg-white rounded-lg shadow-md p-4 transition-all hover:shadow-lg hover:border-blue-200 hover:bg-blue-50/30 border-2 border-transparent cursor-pointer"
-                onClick={() => onViewFamily(family)}
-              >
-                <div className="space-y-3">
-                  {/* Family Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-all">
-                        The {family.name} Family
-                      </h3>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {familyMembers.length} members • Since{" "}
-                        {familyMembers[0]?.dateFirstAttended
-                          ? new Date(
-                              familyMembers[0].dateFirstAttended
-                            ).toLocaleDateString()
-                          : "Unknown"}
-                      </p>
-                    </div>
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="relative z-10"
-                    >
-                      <ActionMenu
-                        onView={() => onViewFamily(family)}
-                        onEdit={() => onEditFamily(family)}
-                        onDelete={() => onDeleteFamily(family)}
-                      />
-                    </div>
-                  </div>
+                  return (
+                    <tr key={family.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => onViewFamily(family)}
+                          className="text-left text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          The {family.name} Family
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{familyMembers.length}</td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {getFamilyVisitorCount(family)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{sinceText}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        <p className="max-w-xs truncate">
+                          {family.notes || "No notes available for this family."}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end">
+                          <ActionMenu
+                            onView={() => onViewFamily(family)}
+                            onEdit={() => onEditFamily(family)}
+                            onDelete={() => onDeleteFamily(family)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {visibleFamilies.map((family) => {
+              const familyMembers = family.members
+                .map((id) => getPersonById(id))
+                .filter(Boolean) as PersonUI[];
 
-                  {/* Family Members */}
-                  {familyMembers.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-medium text-gray-700 mb-2">
-                        Members ({familyMembers.length})
-                      </h4>
-                      <div className="space-y-1.5">
-                        {familyMembers.slice(0, 5).map((member) => (
-                          <div
-                            key={member.id}
-                            className="flex items-center space-x-3"
-                          >
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                              {getInitials(member)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 text-sm truncate">
-                                {member.first_name} {member.last_name}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">
-                                {member.role}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                        {familyMembers.length > 5 && (
-                          <p className="text-xs text-gray-400 text-center py-1">
-                            +{familyMembers.length - 5} more
-                          </p>
-                        )}
+              return (
+                <div
+                  key={family.id}
+                  className="bg-white rounded-lg shadow-md p-4 transition-all hover:shadow-lg hover:border-blue-200 hover:bg-blue-50/30 border-2 border-transparent cursor-pointer"
+                  onClick={() => onViewFamily(family)}
+                >
+                  <div className="space-y-3">
+                    {/* Family Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-all">
+                          The {family.name} Family
+                        </h3>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {familyMembers.length} members • Since{" "}
+                          {familyMembers[0]?.dateFirstAttended
+                            ? new Date(
+                                familyMembers[0].dateFirstAttended
+                              ).toLocaleDateString()
+                            : "Unknown"}
+                        </p>
+                      </div>
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="relative z-10"
+                      >
+                        <ActionMenu
+                          onView={() => onViewFamily(family)}
+                          onEdit={() => onEditFamily(family)}
+                          onDelete={() => onDeleteFamily(family)}
+                        />
                       </div>
                     </div>
-                  )}
 
-                  {/* Notes */}
-                  <div className="pt-1.5 border-t border-gray-100">
-                    <p className="text-xs text-gray-500 italic line-clamp-2">
-                      {family.notes || "No notes available for this family."}
-                    </p>
+                    {/* Family Members */}
+                    {familyMembers.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-medium text-gray-700 mb-2">
+                          Members ({familyMembers.length})
+                        </h4>
+                        <div className="space-y-1.5">
+                          {familyMembers.slice(0, 5).map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center space-x-3"
+                            >
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                                {getInitials(member)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 text-sm truncate">
+                                  {member.first_name} {member.last_name}
+                                </p>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {member.role}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                          {familyMembers.length > 5 && (
+                            <p className="text-xs text-gray-400 text-center py-1">
+                              +{familyMembers.length - 5} more
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    <div className="pt-1.5 border-t border-gray-100">
+                      <p className="text-xs text-gray-500 italic line-clamp-2">
+                        {family.notes || "No notes available for this family."}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Family Pagination Controls */}
         {sortedFamilies.length > FAMILY_PAGE_SIZE && (

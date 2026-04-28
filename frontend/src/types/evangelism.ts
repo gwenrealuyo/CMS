@@ -10,30 +10,20 @@ export interface EvangelismGroup {
   cluster?: Cluster;
   cluster_id?: string;
   location?: string;
-  meeting_time?: string;
+  meeting_time?: string | null;
   meeting_day?: string;
   is_active: boolean;
   is_bible_sharers_group?: boolean;
   created_at: string;
   updated_at: string;
-  members?: EvangelismGroupMember[];
+  members?: Person[];
   members_count?: number;
   conversions_count?: number;
 }
 
-export type ClassMemberRole = "LEADER" | "MEMBER" | "ASSISTANT_LEADER";
-
-export interface EvangelismGroupMember {
-  id: string;
-  evangelism_group: string;
-  person: Person;
-  person_id: string;
-  role: ClassMemberRole;
-  role_display: string;
-  joined_date: string;
-  is_active: boolean;
-  notes?: string;
-}
+export type EvangelismGroupWrite = Partial<Omit<EvangelismGroup, "members">> & {
+  members?: number[];
+};
 
 export interface EvangelismSession {
   id: string;
@@ -301,7 +291,6 @@ export interface RecurringSessionData {
 
 export interface BulkEnrollData {
   person_ids: number[];
-  role: ClassMemberRole;
 }
 
 export interface EvangelismGroupFormValues {
@@ -314,6 +303,8 @@ export interface EvangelismGroupFormValues {
   meeting_day: string;
   is_active: boolean;
   is_bible_sharers_group?: boolean;
+  /** Person IDs to add on create (optional) */
+  initial_member_ids?: string[];
 }
 
 export interface BibleSharersGroupInfo {

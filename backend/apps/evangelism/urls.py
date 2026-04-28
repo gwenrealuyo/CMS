@@ -3,7 +3,6 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     EvangelismGroupViewSet,
-    EvangelismGroupMemberViewSet,
     EvangelismSessionViewSet,
     EvangelismWeeklyReportViewSet,
     ProspectViewSet,
@@ -18,7 +17,6 @@ app_name = "evangelism"
 
 router = DefaultRouter()
 router.register(r"groups", EvangelismGroupViewSet, basename="evangelism-group")
-router.register(r"members", EvangelismGroupMemberViewSet, basename="evangelism-group-member")
 router.register(r"sessions", EvangelismSessionViewSet, basename="evangelism-session")
 router.register(r"weekly-reports", EvangelismWeeklyReportViewSet, basename="evangelism-weekly-report")
 router.register(r"prospects", ProspectViewSet, basename="prospect")

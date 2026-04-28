@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from django.db.models import Min, Prefetch, Q
+from django.db.models import Min, Q
 from django.db.models.functions import Greatest
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -27,7 +27,6 @@ from apps.people.models import ModuleCoordinator
 
 from .models import (
     EvangelismGroup,
-    EvangelismGroupMember,
     EvangelismSession,
     EvangelismWeeklyReport,
     Prospect,
@@ -39,7 +38,6 @@ from .models import (
 )
 from .serializers import (
     EvangelismGroupSerializer,
-    EvangelismGroupMemberSerializer,
     EvangelismBulkEnrollSerializer,
     EvangelismSessionSerializer,
     EvangelismRecurringSessionSerializer,
@@ -82,14 +80,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
         EvangelismGroup.objects.select_related("coordinator", "cluster")
-        .prefetch_related(
-            Prefetch(
-                "members",
-                queryset=EvangelismGroupMember.objects.select_related("person").filter(
-                    is_active=True
-                ),
-            )
-        )
+        .prefetch_related("members")
         .all()
     )
     serializer_class = EvangelismGroupSerializer
@@ -130,11 +121,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         
         # MEMBER: Only groups they're members of
         if user.role == "MEMBER":
-            member_groups = EvangelismGroup.objects.filter(
-                members__person=user,
-                members__is_active=True
-            ).distinct()
-            return member_groups
+            return queryset.filter(members=user).distinct()
         
         # Default: empty queryset for safety
         return queryset.none()
@@ -165,11 +152,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
                 level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
             )):
             # Check if user is a member of this group
-            if not EvangelismGroupMember.objects.filter(
-                evangelism_group=obj,
-                person=user,
-                is_active=True
-            ).exists():
+            if not obj.members.filter(pk=user.pk).exists():
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied("You can only edit groups you are a member of.")
         
@@ -183,9 +166,8 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         person_ids = serializer.validated_data["person_ids"]
-        role = serializer.validated_data["role"]
 
-        created_count = bulk_enroll_members(evangelism_group, person_ids, role)
+        created_count = bulk_enroll_members(evangelism_group, person_ids)
 
         return Response(
             {"created": created_count, "message": f"Enrolled {created_count} people"},
@@ -287,7 +269,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
                 groups_data = []
                 total_members = 0
                 for group in bible_sharers_by_cluster[cluster.id]["groups"]:
-                    members_count = group.members.filter(is_active=True).count()
+                    members_count = group.members.exclude(role="ADMIN").count()
                     total_members += members_count
                     groups_data.append(
                         {
@@ -321,28 +303,6 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
                 },
             }
         )
-
-
-class EvangelismGroupMemberViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
-    queryset = EvangelismGroupMember.objects.select_related(
-        "evangelism_group", "person"
-    ).all()
-    serializer_class = EvangelismGroupMemberSerializer
-    filter_backends = (
-        DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    )
-    filterset_fields = ("evangelism_group", "role", "is_active")
-    search_fields = (
-        "person__first_name",
-        "person__last_name",
-        "person__username",
-        "evangelism_group__name",
-    )
-    ordering_fields = ("joined_date", "role")
-    ordering = ("evangelism_group__name", "role", "person__last_name")
 
 
 class EvangelismSessionViewSet(viewsets.ModelViewSet):
@@ -445,7 +405,7 @@ class EvangelismSessionViewSet(viewsets.ModelViewSet):
             )
 
         # Get enrolled members
-        enrolled_members = session.evangelism_group.members.filter(is_active=True)
+        enrolled_members = session.evangelism_group.members.exclude(role="ADMIN")
 
         # Get attendance records
         attendance_records = AttendanceRecord.objects.filter(
@@ -586,10 +546,11 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _person_ids_for_evangelism_group(evangelism_group_id: int) -> frozenset:
-        member_ids = EvangelismGroupMember.objects.filter(
-            evangelism_group_id=evangelism_group_id,
-            is_active=True,
-        ).values_list("person_id", flat=True)
+        member_ids = (
+            EvangelismGroup.objects.filter(pk=evangelism_group_id).values_list(
+                "members__id", flat=True
+            ).distinct()
+        )
         prospect_person_ids = Prospect.objects.filter(
             evangelism_group_id=evangelism_group_id,
             person_id__isnull=False,

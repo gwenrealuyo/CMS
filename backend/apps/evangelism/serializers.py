@@ -8,7 +8,6 @@ from apps.clusters.models import Cluster
 
 from .models import (
     EvangelismGroup,
-    EvangelismGroupMember,
     EvangelismSession,
     EvangelismWeeklyReport,
     Prospect,
@@ -73,38 +72,6 @@ class ClusterSummarySerializer(serializers.ModelSerializer):
         fields = ("id", "name", "code")
 
 
-class EvangelismGroupMemberSerializer(serializers.ModelSerializer):
-    person = PersonSummarySerializer(read_only=True)
-    person_id = serializers.PrimaryKeyRelatedField(
-        source="person",
-        queryset=Person.objects.exclude(role__in=["ADMIN", "VISITOR"]),
-        write_only=True,
-    )
-    role_display = serializers.CharField(source="get_role_display", read_only=True)
-
-    class Meta:
-        model = EvangelismGroupMember
-        fields = (
-            "id",
-            "evangelism_group",
-            "person",
-            "person_id",
-            "role",
-            "role_display",
-            "joined_date",
-            "is_active",
-            "notes",
-        )
-        read_only_fields = ("joined_date",)
-
-    def validate_person(self, person: Person) -> Person:
-        if person.role == "VISITOR":
-            raise serializers.ValidationError(
-                "Visitors cannot be added as evangelism group members."
-            )
-        return person
-
-
 class EvangelismGroupSerializer(serializers.ModelSerializer):
     coordinator = PersonSummarySerializer(read_only=True)
     coordinator_id = serializers.PrimaryKeyRelatedField(
@@ -122,7 +89,12 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
-    members = EvangelismGroupMemberSerializer(many=True, read_only=True)
+    members = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Person.objects.exclude(role__in=["ADMIN", "VISITOR"]),
+        required=False,
+        allow_empty=True,
+    )
     members_count = serializers.SerializerMethodField()
     conversions_count = serializers.SerializerMethodField()
 
@@ -149,8 +121,33 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("created_at", "updated_at")
 
+    def validate_meeting_time(self, value):
+        if value in ("", None):
+            return None
+        return value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        members_qs = instance.members.exclude(role__in=["ADMIN", "VISITOR"])
+        data["members"] = PersonSummarySerializer(members_qs, many=True).data
+        return data
+
+    def create(self, validated_data):
+        members = validated_data.pop("members", None)
+        instance = EvangelismGroup.objects.create(**validated_data)
+        if members is not None:
+            instance.members.set(members)
+        return instance
+
+    def update(self, instance, validated_data):
+        members = validated_data.pop("members", None)
+        instance = super().update(instance, validated_data)
+        if members is not None:
+            instance.members.set(members)
+        return instance
+
     def get_members_count(self, obj):
-        return obj.members.filter(is_active=True).count()
+        return obj.members.exclude(role__in=["ADMIN", "VISITOR"]).count()
 
     def get_conversions_count(self, obj):
         return obj.conversions.count()
@@ -161,7 +158,6 @@ class EvangelismBulkEnrollSerializer(serializers.Serializer):
         child=serializers.IntegerField(),
         min_length=1,
     )
-    role = serializers.ChoiceField(choices=EvangelismGroupMember.Role.choices)
 
     def validate_person_ids(self, person_ids):
         if Person.objects.filter(id__in=person_ids, role="VISITOR").exists():
@@ -276,11 +272,7 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         if group is None or members is None:
             return attrs
 
-        allowed_ids = set(
-            EvangelismGroupMember.objects.filter(
-                evangelism_group=group, is_active=True
-            ).values_list("person_id", flat=True)
-        )
+        allowed_ids = set(group.members.values_list("id", flat=True))
         if group.coordinator_id:
             allowed_ids.add(group.coordinator_id)
 

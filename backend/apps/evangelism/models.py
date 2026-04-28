@@ -40,6 +40,11 @@ class EvangelismGroup(models.Model):
         default=False,
         help_text="Mark this group as a Bible Sharers group. Bible Sharers are capable of facilitating bible studies and can step in when a cluster doesn't have someone to facilitate.",
     )
+    members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="evangelism_groups",
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -50,42 +55,6 @@ class EvangelismGroup(models.Model):
 
     def __str__(self):
         return self.name
-
-
-class EvangelismGroupMember(models.Model):
-    class Role(models.TextChoices):
-        LEADER = "LEADER", "Leader"
-        MEMBER = "MEMBER", "Member"
-        ASSISTANT_LEADER = "ASSISTANT_LEADER", "Assistant Leader"
-
-    evangelism_group = models.ForeignKey(
-        EvangelismGroup,
-        on_delete=models.CASCADE,
-        related_name="members",
-    )
-    person = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="evangelism_group_memberships",
-    )
-    role = models.CharField(max_length=20, choices=Role.choices)
-    joined_date = models.DateField(default=timezone.localdate)
-    is_active = models.BooleanField(default=True)
-    notes = models.TextField(blank=True)
-
-    class Meta:
-        unique_together = ("evangelism_group", "person")
-        ordering = (
-            "evangelism_group",
-            "role",
-            "person__last_name",
-            "person__first_name",
-        )
-        verbose_name = "Evangelism Group Member"
-        verbose_name_plural = "Evangelism Group Members"
-
-    def __str__(self):
-        return f"{self.person.get_full_name() or self.person.username} - {self.evangelism_group.name} ({self.get_role_display()})"
 
 
 class EvangelismSession(models.Model):

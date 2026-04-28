@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
@@ -32,8 +31,6 @@ import {
   Prospect,
   Conversion,
   EvangelismGroupFormValues,
-  ClassMemberRole,
-  EvangelismGroupMember,
 } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
@@ -114,24 +111,13 @@ export default function EvangelismPage() {
   });
   const [removeMemberConfirmation, setRemoveMemberConfirmation] = useState<{
     isOpen: boolean;
-    memberId: string | null;
+    personId: string | null;
     memberName: string | null;
     loading: boolean;
   }>({
     isOpen: false,
-    memberId: null,
+    personId: null,
     memberName: null,
-    loading: false,
-  });
-  const [roleChangeConfirmation, setRoleChangeConfirmation] = useState<{
-    isOpen: boolean;
-    member: EvangelismGroupMember | null;
-    nextRole: ClassMemberRole | null;
-    loading: boolean;
-  }>({
-    isOpen: false,
-    member: null,
-    nextRole: null,
     loading: false,
   });
 
@@ -222,12 +208,6 @@ export default function EvangelismPage() {
   const [tallyBranch, setTallyBranch] = useState<number | "">("");
   const [tallyScope, setTallyScope] = useState("");
 
-  const roleLabels: Record<ClassMemberRole, string> = {
-    LEADER: "Leader",
-    ASSISTANT_LEADER: "Assistant Leader",
-    MEMBER: "Member",
-  };
-
   // Debounced search
   const handleSearchChange = useCallback(
     (query: string) => {
@@ -296,7 +276,27 @@ export default function EvangelismPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
-      await createGroup(values);
+      const memberIds =
+        values.initial_member_ids?.map((id) => Number(id)).filter(Number.isFinite) ??
+        [];
+      await createGroup({
+        name: values.name,
+        description: values.description,
+        ...(values.coordinator_id
+          ? { coordinator_id: values.coordinator_id }
+          : {}),
+        ...(values.cluster_id ? { cluster_id: values.cluster_id } : {}),
+        location: values.location,
+        ...(values.meeting_time
+          ? { meeting_time: values.meeting_time }
+          : { meeting_time: null }),
+        ...(values.meeting_day ? { meeting_day: values.meeting_day } : {}),
+        is_active: values.is_active,
+        ...(values.is_bible_sharers_group !== undefined
+          ? { is_bible_sharers_group: values.is_bible_sharers_group }
+          : {}),
+        ...(memberIds.length > 0 ? { members: memberIds } : {}),
+      });
       setSuccessMessage(`Group "${values.name}" has been created.`);
       setIsCreateOpen(false);
       setTimeout(() => setSuccessMessage(null), 5000);
@@ -318,7 +318,23 @@ export default function EvangelismPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
-      await updateGroup(viewEditGroup.id, values);
+      await updateGroup(viewEditGroup.id, {
+        name: values.name,
+        description: values.description,
+        ...(values.coordinator_id
+          ? { coordinator_id: values.coordinator_id }
+          : {}),
+        ...(values.cluster_id ? { cluster_id: values.cluster_id } : {}),
+        location: values.location,
+        ...(values.meeting_time
+          ? { meeting_time: values.meeting_time }
+          : { meeting_time: null }),
+        ...(values.meeting_day ? { meeting_day: values.meeting_day } : {}),
+        is_active: values.is_active,
+        ...(values.is_bible_sharers_group !== undefined
+          ? { is_bible_sharers_group: values.is_bible_sharers_group }
+          : {}),
+      });
       setSuccessMessage(`Group "${values.name}" has been updated.`);
       setViewEditGroup(null);
       setViewMode("view");
@@ -364,9 +380,9 @@ export default function EvangelismPage() {
       const payload = {
         ...values,
         conversions_this_week: 0,
-        members_attended: values.members_attended.map((id) => Number(id)),
+        members_attended: values.members_attended.map(String),
         visitors_attended: [...existingVisitorIds, ...createdVisitorIds].map(
-          (id) => Number(id)
+          String
         ),
       };
       if (editingReport) {
@@ -1006,24 +1022,13 @@ export default function EvangelismPage() {
                       members={groupData?.members || []}
                       onAddMember={() => setIsAddMemberModalOpen(true)}
                       onBulkEnroll={() => setIsBulkEnrollModalOpen(true)}
-                      onRemoveMember={(member) => {
+                      onRemoveMember={(person) => {
                         const memberName =
-                          member.person?.full_name ||
-                          member.person?.username ||
-                          "this member";
+                          person.full_name || person.username || "this member";
                         setRemoveMemberConfirmation({
                           isOpen: true,
-                          memberId: member.id,
+                          personId: String(person.id),
                           memberName,
-                          loading: false,
-                        });
-                      }}
-                      onUpdateRole={(member, role) => {
-                        if (role === member.role) return;
-                        setRoleChangeConfirmation({
-                          isOpen: true,
-                          member,
-                          nextRole: role,
                           loading: false,
                         });
                       }}
@@ -1367,29 +1372,42 @@ export default function EvangelismPage() {
           onClose={() =>
             setRemoveMemberConfirmation({
               isOpen: false,
-              memberId: null,
+              personId: null,
               memberName: null,
               loading: false,
             })
           }
           onConfirm={() => {
-            if (removeMemberConfirmation.memberId) {
+            if (
+              removeMemberConfirmation.personId &&
+              viewEditGroup &&
+              groupData?.members
+            ) {
               (async () => {
                 try {
                   setRemoveMemberConfirmation((prev) => ({
                     ...prev,
                     loading: true,
                   }));
-                  await evangelismApi.deleteMember(
-                    removeMemberConfirmation.memberId!
-                  );
+                  const members = groupData.members;
+                  if (!members) return;
+                  const remaining = members
+                    .filter(
+                      (p) =>
+                        String(p.id) !== removeMemberConfirmation.personId
+                    )
+                    .map((p) => Number(p.id));
+                  await evangelismApi.updateGroup(viewEditGroup.id, {
+                    members: remaining,
+                  });
                   setRemoveMemberConfirmation({
                     isOpen: false,
-                    memberId: null,
+                    personId: null,
                     memberName: null,
                     loading: false,
                   });
                   fetchGroup();
+                  fetchGroups();
                 } catch (error) {
                   console.error("Error removing member:", error);
                   setRemoveMemberConfirmation((prev) => ({
@@ -1407,70 +1425,6 @@ export default function EvangelismPage() {
           loading={removeMemberConfirmation.loading}
         />
 
-        {/* Role Change Confirmation */}
-        <ConfirmationModal
-          isOpen={roleChangeConfirmation.isOpen}
-          onClose={() =>
-            setRoleChangeConfirmation({
-              isOpen: false,
-              member: null,
-              nextRole: null,
-              loading: false,
-            })
-          }
-          onConfirm={() => {
-            if (
-              roleChangeConfirmation.member &&
-              roleChangeConfirmation.nextRole
-            ) {
-              (async () => {
-                try {
-                  setRoleChangeConfirmation((prev) => ({
-                    ...prev,
-                    loading: true,
-                  }));
-                  const member = roleChangeConfirmation.member!;
-                  await evangelismApi.updateMember(member.id, {
-                    evangelism_group: member.evangelism_group,
-                    person_id: member.person?.id,
-                    role: roleChangeConfirmation.nextRole,
-                    is_active: member.is_active,
-                    notes: member.notes ?? "",
-                  });
-                  setRoleChangeConfirmation({
-                    isOpen: false,
-                    member: null,
-                    nextRole: null,
-                    loading: false,
-                  });
-                  await fetchGroup();
-                  toast.success("Member role updated successfully.");
-                } catch (error) {
-                  console.error("Error updating member role:", error);
-                  toast.error("Failed to update member role.");
-                  setRoleChangeConfirmation((prev) => ({
-                    ...prev,
-                    loading: false,
-                  }));
-                }
-              })();
-            }
-          }}
-          title="Change Member Role"
-          message={
-            roleChangeConfirmation.member && roleChangeConfirmation.nextRole
-              ? `Change "${
-                  roleChangeConfirmation.member.person?.full_name ||
-                  roleChangeConfirmation.member.person?.username ||
-                  "this member"
-                }" to ${roleLabels[roleChangeConfirmation.nextRole]}?`
-              : "Change this member's role?"
-          }
-          confirmText="Update Role"
-          cancelText="Cancel"
-          loading={roleChangeConfirmation.loading}
-        />
-
         {/* Add Member Modal */}
         {isAddMemberModalOpen && viewEditGroup && (
           <Modal
@@ -1481,9 +1435,7 @@ export default function EvangelismPage() {
             <AddMemberModalContent
               groupId={String(viewEditGroup.id)}
               existingMemberIds={
-                groupData?.members?.map(
-                  (m) => m.person?.id?.toString() || ""
-                ) || []
+                groupData?.members?.map((m) => String(m.id)) || []
               }
               people={people}
               onSuccess={() => {
@@ -1507,9 +1459,7 @@ export default function EvangelismPage() {
             <BulkEnrollModalContent
               groupId={String(viewEditGroup.id)}
               existingMemberIds={
-                groupData?.members?.map(
-                  (m) => m.person?.id?.toString() || ""
-                ) || []
+                groupData?.members?.map((m) => String(m.id)) || []
               }
               people={people}
               onSuccess={() => {
@@ -1577,11 +1527,10 @@ function AddMemberModalContent({
     try {
       setLoading(true);
       setError(null);
-      await evangelismApi.createMember({
-        evangelism_group: Number(groupId),
-        person_id: Number(selectedPersonId),
-        role: "MEMBER",
-      } as any);
+      const next = Array.from(
+        new Set([...existingMemberIds.map(Number), Number(selectedPersonId)])
+      ).filter((n) => Number.isFinite(n));
+      await evangelismApi.updateGroup(groupId, { members: next });
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to add member");
@@ -1693,7 +1642,6 @@ function BulkEnrollModalContent({
       setError(null);
       await evangelismApi.enroll(groupId, {
         person_ids: selectedPersonIds.map(Number),
-        role: "MEMBER",
       });
       onSuccess();
     } catch (err: any) {

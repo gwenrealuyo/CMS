@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { evangelismApi } from "@/src/lib/api";
 import {
   EvangelismGroup,
-  EvangelismGroupMember,
+  EvangelismGroupWrite,
   EvangelismSession,
   EvangelismWeeklyReport,
   EvangelismPeopleTallyRow,
@@ -64,13 +64,13 @@ export const useEvangelismGroups = () => {
     }
   }, [filters]);
 
-  const createGroup = async (data: Partial<EvangelismGroup>) => {
+  const createGroup = async (data: EvangelismGroupWrite) => {
     const response = await evangelismApi.createGroup(data);
     setGroups((prev) => [...prev, response.data]);
     return response.data;
   };
 
-  const updateGroup = async (id: number | string, data: Partial<EvangelismGroup>) => {
+  const updateGroup = async (id: number | string, data: EvangelismGroupWrite) => {
     const response = await evangelismApi.updateGroup(id, data);
     setGroups((prev) =>
       prev.map((group) => (group.id === response.data.id ? response.data : group))

@@ -7,7 +7,6 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from apps.evangelism.models import (
     EvangelismGroup,
-    EvangelismGroupMember,
     EvangelismSession,
     Prospect,
     Conversion,
@@ -67,7 +66,6 @@ class Command(BaseCommand):
             Prospect.objects.all().delete()
             EvangelismWeeklyReport.objects.all().delete()
             EvangelismSession.objects.all().delete()
-            EvangelismGroupMember.objects.all().delete()
             Each1Reach1Goal.objects.all().delete()
             EvangelismGroup.objects.all().delete()
 
@@ -159,21 +157,8 @@ class Command(BaseCommand):
             num_members = random.randint(3, min(8, len(available_people)))
             members = random.sample(available_people, num_members) if available_people else []
 
-            for idx, member in enumerate(members):
-                role = (
-                    "ASSISTANT_LEADER"
-                    if idx == 0 and coordinator
-                    else "MEMBER"
-                )
-                EvangelismGroupMember.objects.get_or_create(
-                    evangelism_group=group,
-                    person=member,
-                    defaults={
-                        "role": role,
-                        "joined_date": timezone.now().date() - timedelta(days=random.randint(30, 365)),
-                        "is_active": True,
-                    },
-                )
+            if members:
+                group.members.add(*members)
 
             groups.append(group)
             if is_bible_sharers:
@@ -555,7 +540,9 @@ class Command(BaseCommand):
         ]
 
         for group in groups:
-            group_members = list(group.members.filter(is_active=True).values_list("person", flat=True))
+            group_members = list(
+                group.members.exclude(role="ADMIN").values_list("id", flat=True)
+            )
             group_prospects = list(group.prospects.all())
 
             for week_offset in range(12):
@@ -613,7 +600,8 @@ class Command(BaseCommand):
         # Summary
         self.stdout.write(self.style.SUCCESS("\n✓ Evangelism data population complete!"))
         self.stdout.write(f"  • Groups: {EvangelismGroup.objects.count()}")
-        self.stdout.write(f"  • Group Members: {EvangelismGroupMember.objects.count()}")
+        member_link_count = sum(g.members.count() for g in EvangelismGroup.objects.all())
+        self.stdout.write(f"  • Group member links (M2M total): {member_link_count}")
         self.stdout.write(f"  • Sessions: {EvangelismSession.objects.count()}")
         self.stdout.write(f"  • Prospects: {Prospect.objects.count()}")
         self.stdout.write(f"  • Conversions: {Conversion.objects.count()}")

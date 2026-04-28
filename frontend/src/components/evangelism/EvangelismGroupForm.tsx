@@ -35,7 +35,14 @@ const DEFAULT_VALUES: EvangelismGroupFormValues = {
   meeting_day: "",
   is_active: true,
   is_bible_sharers_group: false,
+  initial_member_ids: [],
 };
+
+/** HTML time input expects HH:mm; API may return HH:MM:SS — strip seconds for the input. */
+function toTimeInputValue(apiTime: string | null | undefined): string {
+  if (!apiTime) return "";
+  return apiTime.length >= 5 ? apiTime.slice(0, 5) : "";
+}
 
 export default function EvangelismGroupForm({
   coordinators = [],
@@ -48,6 +55,7 @@ export default function EvangelismGroupForm({
   submitLabel = "Create Group",
   initialData,
 }: EvangelismGroupFormProps) {
+  const isCreate = !initialData;
   const [values, setValues] = useState<EvangelismGroupFormValues>(
     initialData
       ? {
@@ -60,12 +68,18 @@ export default function EvangelismGroupForm({
             ? String(initialData.cluster.id)
             : "",
           location: initialData.location || "",
-          meeting_time: initialData.meeting_time || "",
+          meeting_time: toTimeInputValue(initialData.meeting_time),
           meeting_day: initialData.meeting_day || "",
           is_active: initialData.is_active,
           is_bible_sharers_group: initialData.is_bible_sharers_group || false,
         }
-      : DEFAULT_VALUES
+      : DEFAULT_VALUES,
+  );
+
+  const [initialPickerValue, setInitialPickerValue] = useState("");
+  const memberPool = useMemo(
+    () => (people.length ? people : coordinators).filter(isSelectablePerson),
+    [people, coordinators],
   );
 
   const handleChange =
@@ -73,7 +87,7 @@ export default function EvangelismGroupForm({
     (
       event: ChangeEvent<
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-      >
+      >,
     ) => {
       const value =
         event.target.type === "checkbox"
@@ -90,24 +104,42 @@ export default function EvangelismGroupForm({
     await onSubmit(values);
   };
 
-  const generateTimeOptions = () => {
-    const options = [];
-    for (let hour = 6; hour < 24; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, "0")}:${minute
-          .toString()
-          .padStart(2, "0")}`;
-        const displayTime = new Date(
-          `2000-01-01T${timeString}`
-        ).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        });
-        options.push({ value: timeString, label: displayTime });
-      }
-    }
-    return options;
+  const initialMemberOptions = useMemo(
+    () =>
+      memberPool
+        .filter(
+          (person) =>
+            person.role !== "VISITOR" &&
+            !(values.initial_member_ids || []).includes(String(person.id)),
+        )
+        .map((person) => ({
+          label: formatPersonName(person),
+          value: String(person.id),
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [memberPool, values.initial_member_ids],
+  );
+
+  const addInitialMember = () => {
+    if (!initialPickerValue) return;
+    if ((values.initial_member_ids || []).includes(initialPickerValue)) return;
+    setValues((prev) => ({
+      ...prev,
+      initial_member_ids: [
+        ...(prev.initial_member_ids || []),
+        initialPickerValue,
+      ],
+    }));
+    setInitialPickerValue("");
+  };
+
+  const removeInitialMember = (id: string) => {
+    setValues((prev) => ({
+      ...prev,
+      initial_member_ids: (prev.initial_member_ids || []).filter(
+        (x) => x !== id,
+      ),
+    }));
   };
 
   const dayOptions = [
@@ -133,23 +165,22 @@ export default function EvangelismGroupForm({
   }, [people, coordinators]);
 
   const clusterOptions = useMemo(
-    () =>
-      [
-        { label: "No cluster", value: "" },
-        ...clusters
-          .map((cluster) => {
-            const name = cluster.name?.trim();
-            const code = cluster.code?.trim();
-            const label =
-              name && code ? `${name} (${code})` : name || code || "Cluster";
-            return {
-              label,
-              value: String(cluster.id),
-            };
-          })
-          .sort((a, b) => a.label.localeCompare(b.label)),
-      ],
-    [clusters]
+    () => [
+      { label: "No cluster", value: "" },
+      ...clusters
+        .map((cluster) => {
+          const name = cluster.name?.trim();
+          const code = cluster.code?.trim();
+          const label =
+            name && code ? `${name} (${code})` : name || code || "Cluster";
+          return {
+            label,
+            value: String(cluster.id),
+          };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [clusters],
   );
 
   return (
@@ -190,7 +221,7 @@ export default function EvangelismGroupForm({
           </label>
           <ScalableSelect
             options={[{ label: "Not set", value: "" }, ...coordinatorOptions]}
-            value={values.coordinator_id}
+            value={values.coordinator_id || ""}
             onChange={(value) =>
               setValues((prev) => ({
                 ...prev,
@@ -209,7 +240,7 @@ export default function EvangelismGroupForm({
           </label>
           <ScalableSelect
             options={clusterOptions}
-            value={values.cluster_id}
+            value={values.cluster_id || ""}
             onChange={(value) =>
               setValues((prev) => ({
                 ...prev,
@@ -223,20 +254,20 @@ export default function EvangelismGroupForm({
         </div>
       </div>
 
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Location
-        </label>
-        <input
-          type="text"
-          value={values.location}
-          onChange={handleChange("location")}
-          placeholder="Meeting location"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Location
+          </label>
+          <input
+            type="text"
+            value={values.location}
+            onChange={handleChange("location")}
+            placeholder="Meeting location"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
             Meeting Day
@@ -258,20 +289,76 @@ export default function EvangelismGroupForm({
           <label className="block text-sm font-medium text-gray-700">
             Meeting Time
           </label>
-          <select
-            value={values.meeting_time}
+          <input
+            type="time"
+            value={values.meeting_time || ""}
             onChange={handleChange("meeting_time")}
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="">Select time</option>
-            {generateTimeOptions().map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
+      <p className="text-xs text-gray-500">
+        Leave meeting time empty if the group does not have a fixed time.
+      </p>
+
+      {isCreate && (
+        <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
+          <p className="text-sm font-medium text-gray-800">
+            Initial members (optional)
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <ScalableSelect
+                options={[
+                  { label: "Select people to enroll", value: "" },
+                  ...initialMemberOptions,
+                ]}
+                value={initialPickerValue}
+                onChange={(value) => setInitialPickerValue(value)}
+                placeholder="Add member"
+                className="w-full"
+                showSearch
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={addInitialMember}
+              disabled={!initialPickerValue}
+              className="sm:w-auto"
+            >
+              Add
+            </Button>
+          </div>
+          {(values.initial_member_ids?.length ?? 0) > 0 ? (
+            <ul className="flex flex-wrap gap-2 mt-2">
+              {(values.initial_member_ids ?? []).map((id) => {
+                const personObj = memberPool.find((p) => String(p.id) === id);
+                const label = personObj ? formatPersonName(personObj) : id;
+                return (
+                  <li key={id}>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 border border-blue-200">
+                      {label}
+                      <button
+                        type="button"
+                        className="text-blue-600 hover:text-blue-900"
+                        onClick={() => removeInitialMember(id)}
+                        aria-label={`Remove ${label}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-500">
+              You can add people now or enroll them later from the group view.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-start">

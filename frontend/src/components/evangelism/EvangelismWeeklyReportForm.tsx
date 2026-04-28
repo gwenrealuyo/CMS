@@ -10,7 +10,7 @@ import {
   Prospect,
 } from "@/src/types/evangelism";
 import { Person, PersonUI } from "@/src/types/person";
-import { evangelismApi, peopleApi } from "@/src/lib/api";
+import { peopleApi } from "@/src/lib/api";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 export interface EvangelismWeeklyReportFormValues {
@@ -77,9 +77,7 @@ export default function EvangelismWeeklyReportForm({
   error,
 }: EvangelismWeeklyReportFormProps) {
   const [people, setPeople] = useState<PersonUI[]>([]);
-  const [groupMembers, setGroupMembers] = useState<PersonUI[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(false);
-  const [loadingMembers, setLoadingMembers] = useState(false);
   const [showAddVisitorModal, setShowAddVisitorModal] = useState(false);
 
   const defaultDate = new Date().toISOString().split("T")[0];
@@ -153,43 +151,14 @@ export default function EvangelismWeeklyReportForm({
     fetchPeople();
   }, []);
 
-  useEffect(() => {
-    const fetchGroupMembers = async () => {
-      try {
-        setLoadingMembers(true);
-        const response = await evangelismApi.listMembers({
-          evangelism_group: group.id,
-          is_active: true,
-        });
-        const membersUI: PersonUI[] = response.data
-          .filter((member) => member.person)
-          .map((member) => {
-            return personToMemberOption(member.person as Person);
-          });
-        setGroupMembers(membersUI);
-      } catch (err) {
-        console.error("Error loading group members:", err);
-      } finally {
-        setLoadingMembers(false);
-      }
-    };
-
-    fetchGroupMembers();
-  }, [group.id]);
-
   const allowedMemberIds = useMemo(() => {
     const inlineIds =
-      group.members
-        ?.filter((member) => member.is_active)
-        .map((member) => String(member.person.id)) || [];
-    const fetchedIds = groupMembers.map((member) => member.id);
+      group.members?.map((member) => String(member.id)) || [];
     const coordinatorIds = group.coordinator?.id
       ? [String(group.coordinator.id)]
       : [];
-    return Array.from(
-      new Set([...inlineIds, ...fetchedIds, ...coordinatorIds]),
-    );
-  }, [group.members, groupMembers, group.coordinator?.id]);
+    return Array.from(new Set([...inlineIds, ...coordinatorIds]));
+  }, [group.members, group.coordinator?.id]);
 
   const coordinatorOption = useMemo(
     () =>
@@ -201,11 +170,9 @@ export default function EvangelismWeeklyReportForm({
 
   const memberOptions = useMemo(() => {
     const inlineMembers =
-      group.members
-        ?.filter((member) => member.is_active)
-        .map((member) => personToMemberOption(member.person)) || [];
+      group.members?.map((member) => personToMemberOption(member)) || [];
 
-    const combined = [...people, ...inlineMembers, ...groupMembers];
+    const combined = [...people, ...inlineMembers];
     if (coordinatorOption) {
       const hasCoordinator = combined.some(
         (p) => p.id === coordinatorOption.id,
@@ -220,7 +187,7 @@ export default function EvangelismWeeklyReportForm({
       seen.add(person.id);
       return true;
     });
-  }, [coordinatorOption, group.members, people, groupMembers]);
+  }, [coordinatorOption, group.members, people]);
 
   const visitorOptions = useMemo(() => {
     const attendedVisitors = prospects
@@ -403,10 +370,6 @@ export default function EvangelismWeeklyReportForm({
           }
           allowedIds={allowedMemberIds}
         />
-        {loadingMembers && (
-          <div className="text-xs text-gray-500">Loading group members...</div>
-        )}
-
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-gray-700">
             Visitors Attended

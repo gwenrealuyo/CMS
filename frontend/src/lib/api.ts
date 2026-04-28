@@ -42,7 +42,7 @@ import {
 } from "@/src/types/sundaySchool";
 import {
   EvangelismGroup,
-  EvangelismGroupMember,
+  EvangelismGroupWrite,
   EvangelismSession,
   EvangelismWeeklyReport,
   EvangelismPeopleTallyRow,
@@ -1003,9 +1003,9 @@ export const evangelismApi = {
   },
   getGroup: (id: number | string) =>
     api.get<EvangelismGroup>(`/evangelism/groups/${id}/`),
-  createGroup: (data: Partial<EvangelismGroup>) =>
+  createGroup: (data: EvangelismGroupWrite) =>
     api.post<EvangelismGroup>("/evangelism/groups/", data),
-  updateGroup: (id: number | string, data: Partial<EvangelismGroup>) =>
+  updateGroup: (id: number | string, data: EvangelismGroupWrite) =>
     api.put<EvangelismGroup>(`/evangelism/groups/${id}/`, data),
   deleteGroup: (id: number | string) => api.delete(`/evangelism/groups/${id}/`),
   enroll: (groupId: number | string, payload: BulkEnrollData) =>
@@ -1028,21 +1028,6 @@ export const evangelismApi = {
     api.get<any>(`/evangelism/groups/${groupId}/summary/`),
   getBibleSharersCoverage: () =>
     api.get<BibleSharersCoverage>("/evangelism/groups/bible_sharers_coverage/"),
-
-  // Members
-  listMembers: (params?: {
-    evangelism_group?: number | string;
-    role?: string;
-    is_active?: boolean;
-  }) => api.get<EvangelismGroupMember[]>("/evangelism/members/", { params }),
-  getMember: (id: number | string) =>
-    api.get<EvangelismGroupMember>(`/evangelism/members/${id}/`),
-  createMember: (data: Partial<EvangelismGroupMember>) =>
-    api.post<EvangelismGroupMember>("/evangelism/members/", data),
-  updateMember: (id: number | string, data: Partial<EvangelismGroupMember>) =>
-    api.put<EvangelismGroupMember>(`/evangelism/members/${id}/`, data),
-  deleteMember: (id: number | string) =>
-    api.delete(`/evangelism/members/${id}/`),
 
   // Sessions
   listSessions: (params?: {

@@ -9,7 +9,6 @@ from apps.clusters.models import Cluster
 
 from .models import (
     EvangelismGroup,
-    EvangelismGroupMember,
     EvangelismSession,
     Prospect,
     Conversion,
@@ -20,41 +19,20 @@ from .models import (
 )
 
 
-def bulk_enroll_members(
-    evangelism_group: EvangelismGroup,
-    person_ids: List[int],
-    role: str,
-    joined_date: Optional[date] = None,
-) -> int:
+def bulk_enroll_members(evangelism_group: EvangelismGroup, person_ids: List[int]) -> int:
     """
-    Bulk enroll members into an evangelism group.
-    Returns the number of enrollments created.
+    Bulk add people to the group's members M2M.
+    Returns the number of new links added (not already in the group).
     """
-    if joined_date is None:
-        joined_date = timezone.now().date()
-
-    created_count = 0
-    for person_id in person_ids:
-        member, created = EvangelismGroupMember.objects.get_or_create(
-            evangelism_group=evangelism_group,
-            person_id=person_id,
-            defaults={
-                "role": role,
-                "joined_date": joined_date,
-                "is_active": True,
-            },
-        )
-        if created:
-            created_count += 1
-        else:
-            # Update existing membership if inactive
-            if not member.is_active:
-                member.is_active = True
-                member.role = role
-                member.save()
-                created_count += 1
-
-    return created_count
+    if not person_ids:
+        return 0
+    before = set(evangelism_group.members.values_list("id", flat=True))
+    qs = Person.objects.filter(id__in=person_ids).exclude(role__in=["ADMIN", "VISITOR"])
+    ids_to_add = [pid for pid in qs.values_list("id", flat=True) if pid not in before]
+    if not ids_to_add:
+        return 0
+    evangelism_group.members.add(*ids_to_add)
+    return len(ids_to_add)
 
 
 def get_inviter_cluster(inviter: Person) -> Optional[Cluster]:
@@ -444,7 +422,7 @@ def get_group_statistics(group: EvangelismGroup) -> Dict:
     """
     Get group-level analytics.
     """
-    members_count = group.members.filter(is_active=True).count()
+    members_count = group.members.exclude(role__in=["ADMIN", "VISITOR"]).count()
     prospects_count = group.prospects.count()
     conversions_count = group.conversions.filter(is_complete=True).count()
     conversion_rate = calculate_conversion_rate(group=group)

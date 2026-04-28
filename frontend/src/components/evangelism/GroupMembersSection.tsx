@@ -3,14 +3,13 @@
 import { useState } from "react";
 import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
-import { ClassMemberRole, EvangelismGroupMember } from "@/src/types/evangelism";
+import { Person } from "@/src/types/person";
 
 interface GroupMembersSectionProps {
-  members: EvangelismGroupMember[];
+  members: Person[];
   onAddMember: () => void;
   onBulkEnroll: () => void;
-  onRemoveMember: (member: EvangelismGroupMember) => void;
-  onUpdateRole?: (member: EvangelismGroupMember, role: ClassMemberRole) => void;
+  onRemoveMember: (person: Person) => void;
   loading?: boolean;
 }
 
@@ -19,7 +18,6 @@ export default function GroupMembersSection({
   onAddMember,
   onBulkEnroll,
   onRemoveMember,
-  onUpdateRole,
   loading = false,
 }: GroupMembersSectionProps) {
   const [showMembers, setShowMembers] = useState(false);
@@ -83,63 +81,17 @@ export default function GroupMembersSection({
               columns={[
                 {
                   header: "Name",
-                  accessor: "person" as keyof EvangelismGroupMember,
-                  render: (_value, row) => (
+                  accessor: "id",
+                  render: (_value, row: Person) => (
                     <span className="text-sm font-medium text-gray-900">
-                      {row.person?.full_name || row.person?.username || "N/A"}
-                    </span>
-                  ),
-                },
-                {
-                  header: "Role",
-                  accessor: "role" as keyof EvangelismGroupMember,
-                  render: (_value, row) =>
-                    onUpdateRole ? (
-                      <select
-                        value={row.role}
-                        onChange={(event) =>
-                          onUpdateRole(
-                            row,
-                            event.target.value as ClassMemberRole
-                          )
-                        }
-                        className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        disabled={loading}
-                      >
-                        <option value="LEADER">Leader</option>
-                        <option value="ASSISTANT_LEADER">Assistant Leader</option>
-                        <option value="MEMBER">Member</option>
-                      </select>
-                    ) : (
-                      <span className="text-sm text-gray-700">
-                        {row.role_display || row.role}
-                      </span>
-                    ),
-                },
-                {
-                  header: "Joined Date",
-                  accessor: "joined_date" as keyof EvangelismGroupMember,
-                  render: (value) => (
-                    <span className="text-sm text-gray-700">
-                      {value
-                        ? new Date(value as string).toLocaleDateString()
-                        : "N/A"}
-                    </span>
-                  ),
-                },
-                {
-                  header: "Status",
-                  accessor: "is_active" as keyof EvangelismGroupMember,
-                  render: (value) => (
-                    <span className="text-sm text-gray-700">
-                      {value ? "Active" : "Inactive"}
+                      {row.full_name || row.username || "N/A"}
                     </span>
                   ),
                 },
                 {
                   header: "Actions",
-                  accessor: "id" as keyof EvangelismGroupMember,
-                  render: (_value, row) => (
+                  accessor: "id",
+                  render: (_value, row: Person) => (
                     <Button
                       variant="secondary"
                       onClick={() => onRemoveMember(row)}

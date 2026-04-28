@@ -2,7 +2,6 @@ from django.contrib import admin
 
 from .models import (
     EvangelismGroup,
-    EvangelismGroupMember,
     EvangelismSession,
     EvangelismWeeklyReport,
     Prospect,
@@ -28,25 +27,7 @@ class EvangelismGroupAdmin(admin.ModelAdmin):
     list_filter = ("cluster", "is_active")
     search_fields = ("name", "description", "location", "coordinator__username")
     raw_id_fields = ("coordinator", "cluster")
-
-
-@admin.register(EvangelismGroupMember)
-class EvangelismGroupMemberAdmin(admin.ModelAdmin):
-    list_display = (
-        "evangelism_group",
-        "person",
-        "role",
-        "joined_date",
-        "is_active",
-    )
-    list_filter = ("role", "is_active", "evangelism_group")
-    search_fields = (
-        "evangelism_group__name",
-        "person__username",
-        "person__first_name",
-        "person__last_name",
-    )
-    raw_id_fields = ("person", "evangelism_group")
+    filter_horizontal = ("members",)
 
 
 @admin.register(EvangelismSession)

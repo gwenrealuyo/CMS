@@ -167,21 +167,17 @@ class PersonViewSet(viewsets.ModelViewSet):
             level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
         )
         if bible_sharer_assignments.exists():
-            from apps.evangelism.models import EvangelismGroupMember
+            from apps.evangelism.models import EvangelismGroup
 
-            # Get group IDs from assignments
             group_ids = [
                 assignment.resource_id
                 for assignment in bible_sharer_assignments
                 if assignment.resource_id
             ]
             if group_ids:
-                # Get members from these groups
                 member_ids = (
-                    EvangelismGroupMember.objects.filter(
-                        evangelism_group_id__in=group_ids, is_active=True
-                    )
-                    .values_list("person_id", flat=True)
+                    EvangelismGroup.objects.filter(id__in=group_ids)
+                    .values_list("members__id", flat=True)
                     .distinct()
                 )
                 if member_ids:

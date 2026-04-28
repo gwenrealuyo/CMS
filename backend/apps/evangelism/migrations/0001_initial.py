@@ -79,6 +79,15 @@ class Migration(migrations.Migration):
                 "ordering": ("name",),
             },
         ),
+        migrations.AddField(
+            model_name="evangelismgroup",
+            name="members",
+            field=models.ManyToManyField(
+                blank=True,
+                related_name="evangelism_groups",
+                to=settings.AUTH_USER_MODEL,
+            ),
+        ),
         migrations.CreateModel(
             name="Prospect",
             fields=[
@@ -639,61 +648,6 @@ class Migration(migrations.Migration):
                 "verbose_name_plural": "Evangelism Weekly Reports",
                 "ordering": ["-year", "-week_number"],
                 "unique_together": {("evangelism_group", "year", "week_number")},
-            },
-        ),
-        migrations.CreateModel(
-            name="EvangelismGroupMember",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                (
-                    "role",
-                    models.CharField(
-                        choices=[
-                            ("LEADER", "Leader"),
-                            ("MEMBER", "Member"),
-                            ("ASSISTANT_LEADER", "Assistant Leader"),
-                        ],
-                        max_length=20,
-                    ),
-                ),
-                ("joined_date", models.DateField(default=django.utils.timezone.now)),
-                ("is_active", models.BooleanField(default=True)),
-                ("notes", models.TextField(blank=True)),
-                (
-                    "evangelism_group",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="members",
-                        to="evangelism.evangelismgroup",
-                    ),
-                ),
-                (
-                    "person",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="evangelism_group_memberships",
-                        to=settings.AUTH_USER_MODEL,
-                    ),
-                ),
-            ],
-            options={
-                "verbose_name": "Evangelism Group Member",
-                "verbose_name_plural": "Evangelism Group Members",
-                "ordering": (
-                    "evangelism_group",
-                    "role",
-                    "person__last_name",
-                    "person__first_name",
-                ),
-                "unique_together": {("evangelism_group", "person")},
             },
         ),
         migrations.CreateModel(

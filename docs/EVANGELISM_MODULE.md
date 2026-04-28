@@ -25,34 +25,25 @@ Key features include:
 - `apps.evangelism.models.EvangelismGroup` represents a Bible Study/Evangelism group with:
   - `name` (string, max 200 chars) – group name (e.g., "North Bible Study")
   - `description` (text field, blank) – group description
-  - `leader` (ForeignKey to `people.Person`, nullable) – group leader/coordinator
+  - `coordinator` (ForeignKey to `people.Person`, nullable) – group coordinator
   - `cluster` (ForeignKey to `clusters.Cluster`, nullable) – associated cluster (if any)
   - `location` (string, max 200 chars, blank) – meeting location
   - `meeting_time` (TimeField, nullable) – regular meeting time
   - `meeting_day` (CharField, choices: MONDAY-SUNDAY, blank) – day of week
   - `is_active` (BooleanField, default True) – whether the group is active
   - `is_bible_sharers_group` (BooleanField, default False) – marks this as a "Bible Sharers" group. Bible Sharers are capable of facilitating bible studies and can step in when a cluster doesn't have someone to facilitate. Ideally, each cluster should have at least one Bible Sharer.
+  - `members` (ManyToManyField to `people.Person`, blank) – people enrolled in the group; reverse accessor on Person is `person.evangelism_groups`
   - `created_at`, `updated_at` (DateTimeFields)
-- Default ordering: by `name`
 - **Event Type Logic**: When sessions are created, event type is:
   - `CLUSTER_BS_EVANGELISM` if `cluster` is not null
   - `BIBLE_STUDY` if `cluster` is null
 - **Bible Sharers**: The "Bible Sharers" group is a special group that is monitored closely. These are people who are capable of doing bible studies and can step in when a cluster doesn't have someone to facilitate. The system provides coverage monitoring to track which clusters have Bible Sharers and which don't.
 
-### EvangelismGroupMember Model
+### Evangelism group membership (`members`)
 
-- `apps.evangelism.models.EvangelismGroupMember` links a Person to a Group with:
-  - `evangelism_group` (ForeignKey to EvangelismGroup, CASCADE delete) – the group
-  - `person` (ForeignKey to `people.Person`, CASCADE delete) – the enrolled person
-  - `role` (CharField, choices: LEADER, MEMBER, ASSISTANT_LEADER) – person's role in the group
-  - `joined_date` (DateField, default timezone.localdate) – when the person joined
-  - `is_active` (BooleanField, default True) – whether the membership is active
-  - `notes` (text field, blank) – additional notes
-- Unique constraint: `unique_together = ("evangelism_group", "person")` – prevents duplicate memberships
-- Default ordering: by `evangelism_group`, `role`, `person__last_name`, `person__first_name`
-- **Member Rules**:
-  - Evangelism group members must be non-VISITOR Persons
-  - API validation rejects VISITORs for single add and bulk enroll
+- `EvangelismGroup.members` is a **ManyToManyField** to `people.Person` (`related_name="evangelism_groups"` on `Person`), mirroring `Cluster.members`: a person may belong to **multiple** evangelism groups at once.
+- Enrollment is managed via the **group** API: include `members` as a list of Person primary keys on `POST/PATCH/PUT` to `EvangelismGroup`, or use `POST /api/evangelism/groups/{id}/enroll/` with `{ "person_ids": [1, 2, 3] }` to add people without replacing the full list.
+- Writers exclude `ADMIN` and `VISITOR` Persons from the queryset (same rule as before for enroll).
 
 ### EvangelismSession Model
 
@@ -253,8 +244,8 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `PUT /{id}/` – Update a group (full update)
   - `PATCH /{id}/` – Partial update
   - `DELETE /{id}/` – Delete a group (cascades to members, sessions, prospects)
-  - `POST /{id}/enroll/` – Bulk enroll members (VISITORs rejected)
-    - Payload: `{ "person_ids": [1, 2, 3], "role": "MEMBER" }`
+  - `POST /{id}/enroll/` – Append members by person id (VISITORs rejected)
+    - Payload: `{ "person_ids": [1, 2, 3] }`
   - `GET /{id}/sessions/` – List sessions for a group
     - Query params: `?start_date={date}`, `?end_date={date}` – filter by date range
   - `GET /{id}/conversions/` – List conversions for a group
@@ -266,19 +257,10 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
       - `coverage`: Array of cluster coverage items with Bible Sharers groups and counts
       - `summary`: Overall statistics (total clusters, clusters with/without Bible Sharers, etc.)
 
-### Members
+### Group membership (API)
 
-- `/api/evangelism/members/` – EvangelismGroupMemberViewSet CRUD
-  - `GET` – List all group members
-    - Query params: `?evangelism_group={group_id}` – filter by group
-    - Query params: `?person={person_id}` – filter by person
-    - Query params: `?role={role}` – filter by role
-    - Query params: `?is_active=true` – filter by active status
-  - `POST` – Create a new membership (requires `evangelism_group_id`, `person_id`, `role`; VISITORs rejected)
-  - `GET /{id}/` – Retrieve a specific membership
-  - `PUT /{id}/` – Update a membership (full update)
-  - `PATCH /{id}/` – Partial update
-  - `DELETE /{id}/` – Delete a membership
+- Membership is not a separate `/members/` resource. Use **`/api/evangelism/groups/`** with a `members` write field (list of Person PKs) or:
+  - `POST /api/evangelism/groups/{id}/enroll/` – body `{ "person_ids": [...] }` to append memberships (existing members kept)
 
 ### Sessions
 
@@ -321,7 +303,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?year={year}` (optional)
     - Query params: `?branch={branch_id}` – limit people to that branch
     - Query params: `?cluster={cluster_id}` – cluster scope (formal `Cluster` membership on `Person`)
-    - Query params: `?evangelism_group={group_id}` – evangelism-group scope (union of active `EvangelismGroupMember` people and prospects with a linked `Person` for that group); **do not send `cluster` and `evangelism_group` together**
+    - Query params: `?evangelism_group={group_id}` – evangelism-group scope (union of people in `EvangelismGroup.members` and prospects with a linked `Person` for that group); **do not send `cluster` and `evangelism_group` together**
     - Counts by month:
       - **INVITED**: Person created in month with `role=VISITOR` and `status=INVITED`
       - **ATTENDED**: Person with `role=VISITOR`, `status=ATTENDED`, and `date_first_attended` in month
@@ -451,19 +433,10 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
 Serializers (`apps.evangelism.serializers`) expose:
 
 - `EvangelismGroupSerializer`:
-  - `leader` – nested person object (read-only)
-  - `leader_id` – write-only field for setting leader
-  - `cluster` – nested cluster object (read-only)
-  - `cluster_id` – write-only field for setting cluster
-  - `members_count` – computed count of active members
-  - `conversions_count` – computed count of conversions
-  - All group fields
-
-- `EvangelismGroupMemberSerializer`:
-  - `person` – nested person object with full name formatting (read-only)
-  - `person_id` – write-only field for setting person
-  - `role_display` – human-readable role name (read-only)
-  - All member fields
+  - `coordinator` – nested person summary (read-only); `coordinator_id` for writes
+  - `cluster` – nested cluster object (read-only); `cluster_id` for writes
+  - `members` – nested person summaries on **read**; **write** with list of Person PKs (same pattern as `ClusterSerializer.members`)
+  - `members_count`, `conversions_count` – computed
 
 - `EvangelismSessionSerializer`:
   - `evangelism_group` – nested group object (read-only)
@@ -796,14 +769,9 @@ When viewing a group, a modal displays:
 All Evangelism models are registered in Django admin (`apps.evangelism.admin`):
 
 - **EvangelismGroupAdmin**:
-  - List display: name, leader, cluster, location, meeting_time, is_active
+  - List display: name, coordinator, cluster, location, meeting_time, is_active
+  - `filter_horizontal` for **members** (M2M widget)
   - Filterable by cluster, is_active
-  - Searchable by name, description, leader name
-
-- **EvangelismGroupMemberAdmin**:
-  - List display: evangelism_group, person, role, joined_date, is_active
-  - Filterable by role, is_active, group
-  - Searchable by group name, person name
 
 - **EvangelismSessionAdmin**:
   - List display: evangelism_group, session_date, session_time, topic, event

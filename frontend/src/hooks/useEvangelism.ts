@@ -217,15 +217,22 @@ export const useEvangelismWeeklyReports = (groupId: number | string | null) => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchReports = useCallback(
-    async (params?: { year?: number; week_number?: number; gathering_type?: string }) => {
+    async (params?: {
+      year?: number;
+      week_number?: number;
+      gathering_type?: string;
+    }) => {
       if (!groupId) return;
       try {
         setLoading(true);
         const response = await evangelismApi.listWeeklyReports({
           evangelism_group: groupId,
           ...params,
+          page_size: 500,
         });
-        setReports(response.data);
+        const data = response.data;
+        const rows = Array.isArray(data) ? data : data.results ?? [];
+        setReports(rows);
         setError(null);
       } catch (err) {
         console.error(err);
@@ -559,28 +566,18 @@ export const useEach1Reach1Goals = (filters?: {
   };
 };
 
-export const useEvangelismSummary = () => {
+export const useEvangelismSummary = (year?: number) => {
   const [summary, setSummary] = useState<EvangelismSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const statsYear = year ?? new Date().getFullYear();
+
   const fetchSummary = useCallback(async () => {
     try {
       setLoading(true);
-      // Note: Summary endpoint may need to be added to the API
-      // For now, we'll calculate from groups
-      const groupsResponse = await evangelismApi.listGroups();
-      const prospectsResponse = await evangelismApi.listProspects();
-      const conversionsResponse = await evangelismApi.listConversions();
-
-      const activeGroups = groupsResponse.data.filter((g) => g.is_active);
-
-      setSummary({
-        total_groups: groupsResponse.data.length,
-        active_groups: activeGroups.length,
-        total_prospects: prospectsResponse.data.length,
-        total_conversions: conversionsResponse.data.filter((c) => c.is_complete).length,
-      });
+      const response = await evangelismApi.getDashboardStats({ year: statsYear });
+      setSummary(response.data);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -588,7 +585,7 @@ export const useEvangelismSummary = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [statsYear]);
 
   useEffect(() => {
     fetchSummary();

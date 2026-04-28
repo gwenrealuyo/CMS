@@ -60,19 +60,19 @@ export default function EvangelismSummary({
   const progressValue = each1Reach1Progress?.loading
     ? "..."
     : each1Reach1Progress?.error
-    ? "N/A"
-    : `${(each1Reach1Progress?.percentage ?? 0).toFixed(1)}%`;
+      ? "N/A"
+      : `${(each1Reach1Progress?.percentage ?? 0).toFixed(1)}%`;
   const progressSubtitle = each1Reach1Progress?.loading
     ? "Loading goal progress..."
     : each1Reach1Progress?.error
-    ? "Unable to load goal progress"
-    : each1Reach1Progress && each1Reach1Progress.target > 0
-    ? `${formatNumber(each1Reach1Progress.achieved)} / ${formatNumber(
-        each1Reach1Progress.target
-      )} conversions in ${each1Reach1Progress.year}`
-    : each1Reach1Progress
-    ? `No goals set for ${each1Reach1Progress.year}`
-    : "No goals set";
+      ? "Unable to load goal progress"
+      : each1Reach1Progress && each1Reach1Progress.target > 0
+        ? `${formatNumber(each1Reach1Progress.achieved)} / ${formatNumber(
+            each1Reach1Progress.target,
+          )} conversions in ${each1Reach1Progress.year}`
+        : each1Reach1Progress
+          ? `No goals set for ${each1Reach1Progress.year}`
+          : "No goals set";
 
   return (
     <div className="space-y-6">
@@ -84,13 +84,15 @@ export default function EvangelismSummary({
         />
         <SummaryCard
           title="Total Visitors"
-          value={formatNumber(summary.total_prospects)}
-          subtitle="People being evangelized"
+          value={formatNumber(summary.total_visitors)}
+          subtitle="Visitors who have already attended"
         />
         <SummaryCard
-          title="Total Conversions"
-          value={formatNumber(summary.total_conversions)}
-          subtitle="Completed conversions"
+          title="Total Reached"
+          value={formatNumber(summary.total_reached)}
+          subtitle={`${formatNumber(
+            summary.completed_conversions,
+          )} completed conversions in ${summary.year}`}
         />
         <SummaryCard
           title="Each 1 Reach 1 Goal"

@@ -1028,6 +1028,8 @@ export const evangelismApi = {
     api.get<any>(`/evangelism/groups/${groupId}/summary/`),
   getBibleSharersCoverage: () =>
     api.get<BibleSharersCoverage>("/evangelism/groups/bible_sharers_coverage/"),
+  getDashboardStats: (params?: { year?: number }) =>
+    api.get<EvangelismSummary>("/evangelism/groups/dashboard-stats/", { params }),
 
   // Sessions
   listSessions: (params?: {
@@ -1054,13 +1056,23 @@ export const evangelismApi = {
   // Weekly Reports
   listWeeklyReports: (params?: {
     evangelism_group?: number | string;
+    cluster?: number | string;
+    branch?: number | string;
     year?: number;
     week_number?: number;
+    month?: number;
     gathering_type?: string;
+    search?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
   }) =>
-    api.get<EvangelismWeeklyReport[]>("/evangelism/weekly-reports/", {
-      params,
-    }),
+    api.get<PaginatedResponse<EvangelismWeeklyReport>>(
+      "/evangelism/weekly-reports/",
+      {
+        params,
+      }
+    ),
   getWeeklyReport: (id: number | string) =>
     api.get<EvangelismWeeklyReport>(`/evangelism/weekly-reports/${id}/`),
   createWeeklyReport: (data: Partial<EvangelismWeeklyReport>) =>

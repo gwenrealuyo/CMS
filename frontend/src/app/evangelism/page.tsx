@@ -54,6 +54,8 @@ import Each1Reach1Dashboard from "@/src/components/evangelism/Each1Reach1Dashboa
 import PeopleTallyReport from "@/src/components/evangelism/PeopleTallyReport";
 import TallyReport from "@/src/components/evangelism/TallyReport";
 import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
+import EvangelismReportsDashboard from "@/src/components/evangelism/EvangelismReportsDashboard";
+import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
 
 export default function EvangelismPage() {
   const {
@@ -69,14 +71,13 @@ export default function EvangelismPage() {
     bulkEnroll,
   } = useEvangelismGroups();
 
+  const currentYear = new Date().getFullYear();
   const {
     summary,
     loading: summaryLoading,
     error: summaryError,
     fetchSummary,
-  } = useEvangelismSummary();
-
-  const currentYear = new Date().getFullYear();
+  } = useEvangelismSummary(currentYear);
   const each1Reach1Filters = useMemo(
     () => ({ year: currentYear, page_size: 1000 }),
     [currentYear]
@@ -204,6 +205,8 @@ export default function EvangelismPage() {
   const [activeTab, setActiveTab] = useState<
     "groups" | "each1reach1" | "tally" | "reports" | "bible_sharers"
   >("groups");
+  const [reportsSubmitNonce, setReportsSubmitNonce] = useState(0);
+  const [reportsListRefresh, setReportsListRefresh] = useState(0);
   const [tallyYear, setTallyYear] = useState(currentYear);
   const [tallyBranch, setTallyBranch] = useState<number | "">("");
   const [tallyScope, setTallyScope] = useState("");
@@ -359,32 +362,7 @@ export default function EvangelismPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
-      const prospectIds = values.visitors_attended
-        .filter((id) => id.startsWith("prospect:"))
-        .map((id) => id.replace("prospect:", ""));
-      const existingVisitorIds = values.visitors_attended.filter(
-        (id) => !id.startsWith("prospect:")
-      );
-      const createdVisitorIds: string[] = [];
-
-      for (const prospectId of prospectIds) {
-        const response = await evangelismApi.markAttended(prospectId, {
-          last_activity_date: values.meeting_date,
-        });
-        const personId = response.data?.person?.id;
-        if (personId) {
-          createdVisitorIds.push(String(personId));
-        }
-      }
-
-      const payload = {
-        ...values,
-        conversions_this_week: 0,
-        members_attended: values.members_attended.map(String),
-        visitors_attended: [...existingVisitorIds, ...createdVisitorIds].map(
-          String
-        ),
-      };
+      const payload = await buildEvangelismWeeklyReportPayloadFromFormValues(values);
       if (editingReport) {
         await updateReport(editingReport.id, payload);
         setSuccessMessage("Report updated successfully.");
@@ -395,6 +373,7 @@ export default function EvangelismPage() {
       setIsReportModalOpen(false);
       setEditingReport(null);
       fetchReports();
+      setReportsListRefresh((n) => n + 1);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
       const errorData = err.response?.data || {};
@@ -510,13 +489,25 @@ export default function EvangelismPage() {
               progress.
             </p>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => setIsCreateOpen(true)}
-            className="w-full sm:w-auto min-h-[44px]"
-          >
-            Create Group
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {activeTab === "groups" ? (
+              <Button
+                variant="primary"
+                onClick={() => setIsCreateOpen(true)}
+                className="w-full sm:w-auto min-h-[44px]"
+              >
+                Create Group
+              </Button>
+            ) : activeTab === "reports" ? (
+              <Button
+                variant="primary"
+                onClick={() => setReportsSubmitNonce((n) => n + 1)}
+                className="w-full sm:w-auto min-h-[44px]"
+              >
+                Submit Report
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         {successMessage && (
@@ -783,14 +774,28 @@ export default function EvangelismPage() {
               tallyScope={tallyScope}
               onTallyScopeChange={setTallyScope}
             />
+            <Card>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Weekly cluster tally
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Unified weekly tally by cluster and ISO week (evangelism plus
+                cluster reports). Click a cell for attendance drill-down.
+              </p>
+              <TallyReport year={new Date().getFullYear()} />
+            </Card>
           </div>
         )}
 
         {/* Reports Tab */}
         {activeTab === "reports" && (
-          <div className="space-y-6">
-            <TallyReport year={new Date().getFullYear()} />
-          </div>
+          <EvangelismReportsDashboard
+            groups={groups}
+            clusters={clusters}
+            branches={branches}
+            openSubmitNonce={reportsSubmitNonce}
+            refreshTrigger={reportsListRefresh}
+          />
         )}
 
         {/* Bible Sharers Tab */}

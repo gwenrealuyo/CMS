@@ -644,6 +644,15 @@ class EvangelismSummarySerializer(serializers.Serializer):
     monthly_statistics = MonthlyStatisticsSerializer(many=True, required=False)
 
 
+class EvangelismDashboardStatsSerializer(serializers.Serializer):
+    total_groups = serializers.IntegerField()
+    active_groups = serializers.IntegerField()
+    total_visitors = serializers.IntegerField()
+    total_reached = serializers.IntegerField()
+    completed_conversions = serializers.IntegerField()
+    year = serializers.IntegerField()
+
+
 class VisitorProgressSerializer(serializers.Serializer):
     prospect_id = serializers.IntegerField()
     prospect_name = serializers.CharField()

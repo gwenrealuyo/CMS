@@ -381,7 +381,7 @@ export default function ScalableSelect({
         onClick={handleToggle}
         disabled={disabled}
         className={`
-          w-full px-3 py-2 min-h-[44px] text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm
+          flex h-11 w-full shrink-0 items-center px-3 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm
           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
           ${
             disabled
@@ -391,15 +391,15 @@ export default function ScalableSelect({
           ${isOpen ? "ring-2 ring-blue-500 border-transparent" : ""}
         `}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex w-full min-w-0 items-center justify-between gap-2">
           <span
-            className={`block truncate ${
+            className={`block min-w-0 flex-1 truncate ${
               !selectedOption ? "text-gray-500" : "text-gray-900"
             }`}
           >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <div className="flex items-center space-x-1">
+          <div className="flex shrink-0 items-center space-x-1">
             {value && !disabled && (
               <button
                 type="button"

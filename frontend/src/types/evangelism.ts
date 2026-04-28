@@ -274,8 +274,10 @@ export interface Each1Reach1Goal {
 export interface EvangelismSummary {
   total_groups: number;
   active_groups: number;
-  total_prospects: number;
-  total_conversions: number;
+  total_visitors: number;
+  total_reached: number;
+  completed_conversions: number;
+  year: number;
   monthly_statistics?: MonthlyStatistics[];
 }
 

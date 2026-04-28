@@ -1,7 +1,12 @@
-import { ReactNode } from "react";
+import { ReactNode, KeyboardEvent as ReactKeyboardEvent } from "react";
 
 interface TableColumn<T> {
   header: string;
+  /** Desktop table header cell content; defaults to plain `header` text */
+  desktopHeader?: ReactNode;
+  /** Sortable/table header interaction (desktop only); adds keyboard support */
+  onHeaderClick?: () => void;
+  headerClassName?: string;
   accessor: keyof T;
   render?: (value: any, row: T) => ReactNode;
   hideOnMobile?: boolean;
@@ -13,6 +18,24 @@ interface TableProps<T> {
   mobileCardView?: boolean;
 }
 
+function renderDesktopThClasses<T>(
+  column: Pick<
+    TableColumn<T>,
+    "headerClassName" | "onHeaderClick"
+  >,
+  baseDesktop: string,
+) {
+  return [
+    baseDesktop,
+    column.onHeaderClick
+      ? "cursor-pointer transition-colors hover:bg-gray-100 select-none outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-0"
+      : "",
+    column.headerClassName ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export default function Table<T>({
   data = [],
   columns = [],
@@ -21,6 +44,21 @@ export default function Table<T>({
   if (!columns || columns.length === 0) {
     return null;
   }
+
+  /* Match Cluster reports / People table: muted uppercase headers, gray-50 strip */
+  const desktopThCommon =
+    "px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500";
+
+  const handleHeaderKeyDown = (
+    e: ReactKeyboardEvent<HTMLTableCellElement>,
+    onClick?: () => void,
+  ) => {
+    if (!onClick) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick();
+    }
+  };
 
   if (!data || data.length === 0) {
     return (
@@ -31,9 +69,13 @@ export default function Table<T>({
               {columns.map((column, i) => (
                 <th
                   key={i}
-                  className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  scope="col"
+                  className={renderDesktopThClasses(column, desktopThCommon)}
+                  onClick={column.onHeaderClick}
+                  onKeyDown={(e) => handleHeaderKeyDown(e, column.onHeaderClick)}
+                  tabIndex={column.onHeaderClick ? 0 : undefined}
                 >
-                  {column.header}
+                  {column.desktopHeader ?? column.header}
                 </th>
               ))}
             </tr>
@@ -93,16 +135,23 @@ export default function Table<T>({
                 {columns.map((column, i) => (
                   <th
                     key={i}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    scope="col"
+                    className={renderDesktopThClasses(column, desktopThCommon)}
+                    onClick={column.onHeaderClick}
+                    onKeyDown={(e) => handleHeaderKeyDown(e, column.onHeaderClick)}
+                    tabIndex={column.onHeaderClick ? 0 : undefined}
                   >
-                    {column.header}
+                    {column.desktopHeader ?? column.header}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {data.map((row, i) => (
-                <tr key={i}>
+                <tr
+                  key={i}
+                  className="transition-colors duration-150 hover:bg-gray-50"
+                >
                   {columns.map((column, j) => (
                     <td
                       key={j}
@@ -130,20 +179,28 @@ export default function Table<T>({
           <thead className="bg-gray-50">
             <tr>
               {columns.map((column, i) => (
-                <th
+              <th
                   key={i}
-                  className={`px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                    column.hideOnMobile ? "hidden md:table-cell" : ""
-                  }`}
+                  scope="col"
+                  className={`${renderDesktopThClasses(
+                    column,
+                    desktopThCommon,
+                  )} ${column.hideOnMobile ? "hidden md:table-cell" : ""}`}
+                  onClick={column.onHeaderClick}
+                  onKeyDown={(e) => handleHeaderKeyDown(e, column.onHeaderClick)}
+                  tabIndex={column.onHeaderClick ? 0 : undefined}
                 >
-                  {column.header}
+                  {column.desktopHeader ?? column.header}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {data.map((row, i) => (
-              <tr key={i}>
+              <tr
+                key={i}
+                className="transition-colors duration-150 hover:bg-gray-50"
+              >
                 {columns.map((column, j) => (
                   <td
                     key={j}

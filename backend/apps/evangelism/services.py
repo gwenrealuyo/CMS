@@ -594,3 +594,79 @@ def generate_each1reach1_report(cluster: Optional[Cluster] = None, year: Optiona
         ],
     }
 
+
+def get_evangelism_dashboard_stats(year: int) -> Dict:
+    """
+    Aggregate counts for evangelism dashboard stat cards.
+
+    - total_visitors: distinct VISITOR people who have already attended — listed on
+      evangelism or cluster weekly reports as visitors_attended, or a linked
+      non-dropped prospect at pipeline stage ATTENDED or beyond (not INVITED).
+    - total_reached: distinct non-admin people with both baptism dates in `year`.
+    - completed_conversions: Conversion records with is_complete for `year`.
+    """
+    total_groups = EvangelismGroup.objects.count()
+    active_groups = EvangelismGroup.objects.filter(is_active=True).count()
+
+    attended_prospect_person_ids = set(
+        Prospect.objects.filter(
+            is_dropped_off=False,
+            person_id__isnull=False,
+            pipeline_stage__in=[
+                Prospect.PipelineStage.ATTENDED,
+                Prospect.PipelineStage.BAPTIZED,
+                Prospect.PipelineStage.RECEIVED_HG,
+                Prospect.PipelineStage.CONVERTED,
+            ],
+        ).values_list("person_id", flat=True)
+    )
+
+    ev_visitor_ids = set(
+        Person.objects.filter(
+            role="VISITOR",
+            evangelism_reports_as_visitor__isnull=False,
+        )
+        .values_list("id", flat=True)
+        .distinct()
+    )
+
+    cluster_visitor_ids = set(
+        Person.objects.filter(
+            role="VISITOR",
+            cluster_reports_as_visitor__isnull=False,
+        )
+        .values_list("id", flat=True)
+        .distinct()
+    )
+
+    total_visitors = len(
+        attended_prospect_person_ids | ev_visitor_ids | cluster_visitor_ids
+    )
+
+    total_reached = (
+        Person.objects.exclude(role="ADMIN")
+        .filter(
+            water_baptism_date__isnull=False,
+            spirit_baptism_date__isnull=False,
+            water_baptism_date__year=year,
+            spirit_baptism_date__year=year,
+        )
+        .values("id")
+        .distinct()
+        .count()
+    )
+
+    completed_conversions = Conversion.objects.filter(
+        is_complete=True,
+        conversion_date__year=year,
+    ).count()
+
+    return {
+        "total_groups": total_groups,
+        "active_groups": active_groups,
+        "total_visitors": total_visitors,
+        "total_reached": total_reached,
+        "completed_conversions": completed_conversions,
+        "year": year,
+    }
+

@@ -53,6 +53,7 @@ from .serializers import (
     MonthlyStatisticsSerializer,
     Each1Reach1GoalSerializer,
     EvangelismSummarySerializer,
+    EvangelismDashboardStatsSerializer,
 )
 from .services import (
     bulk_enroll_members,
@@ -73,6 +74,7 @@ from .services import (
     get_cluster_statistics,
     create_recurring_sessions,
     generate_each1reach1_report,
+    get_evangelism_dashboard_stats,
 )
 
 
@@ -130,7 +132,15 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         """
         Override to set permissions based on action.
         """
-        if self.action in ["list", "retrieve", "sessions", "conversions", "visitors", "summary"]:
+        if self.action in [
+            "list",
+            "retrieve",
+            "sessions",
+            "conversions",
+            "visitors",
+            "summary",
+            "dashboard_stats",
+        ]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action in ["create", "update", "partial_update", "enroll"]:
@@ -173,6 +183,21 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
             {"created": created_count, "message": f"Enrolled {created_count} people"},
             status=status.HTTP_201_CREATED if created_count else status.HTTP_200_OK,
         )
+
+    @action(detail=False, methods=["get"], url_path="dashboard-stats")
+    def dashboard_stats(self, request):
+        """Organization-wide evangelism dashboard counts (groups, visitors, reached)."""
+        year_param = request.query_params.get("year")
+        try:
+            year = int(year_param) if year_param is not None and year_param != "" else timezone.now().year
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "year must be a valid integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        stats = get_evangelism_dashboard_stats(year)
+        serializer = EvangelismDashboardStatsSerializer(instance=stats)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["get"])
     def sessions(self, request, pk=None):
@@ -502,6 +527,38 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     search_fields = ("topic", "notes", "evangelism_group__name")
     ordering_fields = ("year", "week_number", "meeting_date")
     ordering = ("-year", "-week_number")
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        month = self.request.query_params.get("month")
+        if month:
+            try:
+                month_int = int(month)
+                if 1 <= month_int <= 12:
+                    queryset = queryset.filter(meeting_date__month=month_int)
+            except (TypeError, ValueError):
+                pass
+
+        cluster = self.request.query_params.get("cluster")
+        if cluster:
+            try:
+                cluster_int = int(cluster)
+                queryset = queryset.filter(evangelism_group__cluster_id=cluster_int)
+            except (TypeError, ValueError):
+                pass
+
+        branch = self.request.query_params.get("branch")
+        if branch:
+            try:
+                branch_int = int(branch)
+                queryset = queryset.filter(
+                    evangelism_group__cluster__branch_id=branch_int
+                )
+            except (TypeError, ValueError):
+                pass
+
+        return queryset
 
     def _resolve_branch_id(self) -> Optional[int]:
         branch = self.request.query_params.get("branch")

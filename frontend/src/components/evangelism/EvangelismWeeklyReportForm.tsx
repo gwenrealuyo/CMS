@@ -472,10 +472,10 @@ export default function EvangelismWeeklyReportForm({
         </div>
       </div>
 
-      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
+      <div className="mt-8 flex w-full flex-row gap-3 border-t border-gray-200 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1 min-h-[44px]"
+          className="flex-1 min-h-[44px] rounded-md border border-[#d9d9d9] bg-white px-4 py-2.5 text-sm font-medium text-[#262626] shadow-none hover:bg-gray-50 md:min-h-0"
           onClick={onCancel}
           disabled={isSubmitting}
           type="button"
@@ -483,7 +483,8 @@ export default function EvangelismWeeklyReportForm({
           Cancel
         </Button>
         <Button
-          className="flex-1 min-h-[44px]"
+          variant="primary"
+          className="flex-1 min-h-[44px] rounded-md bg-[#2f68e6] px-4 py-2.5 text-sm font-medium text-white shadow-none hover:bg-[#255adb] md:min-h-0"
           disabled={isSubmitting}
           type="submit"
         >

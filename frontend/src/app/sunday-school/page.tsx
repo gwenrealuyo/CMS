@@ -613,87 +613,68 @@ export default function SundaySchoolPage() {
             </div>
           )}
 
-          <Card title="Filter classes">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Search
-                </label>
-                <input
-                  type="search"
-                  value={searchValue}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Name, description, category"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <select
-                  value={filters.category === "all" ? "all" : filters.category}
-                  onChange={(e) =>
-                    setFilter(
-                      "category",
-                      e.target.value === "all" ? "all" : e.target.value
-                    )
-                  }
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="all">All Categories</option>
-                  {(categories || [])
-                    .filter((cat) => cat.is_active)
-                    .map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  value={
-                    filters.is_active === "all"
-                      ? "all"
-                      : filters.is_active
-                      ? "active"
-                      : "inactive"
-                  }
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "all") {
-                      setFilter("is_active", "all");
-                    } else {
-                      setFilter("is_active", value === "active");
-                    }
-                  }}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="all">All</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-
-              <div className="w-full sm:w-auto md:ml-auto">
-                <Button
-                  variant="tertiary"
-                  onClick={handleResetFilters}
-                  className="w-full sm:w-auto min-h-[44px]"
-                >
-                  Reset
-                </Button>
-              </div>
-            </div>
-          </Card>
-
           <Card title="Classes">
+            <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+              <select
+                value={filters.category === "all" ? "all" : filters.category}
+                onChange={(e) =>
+                  setFilter(
+                    "category",
+                    e.target.value === "all" ? "all" : e.target.value
+                  )
+                }
+                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+                aria-label="Filter by category"
+                disabled={categoriesLoading}
+              >
+                <option value="all">All categories</option>
+                {(categories || [])
+                  .filter((cat) => cat.is_active)
+                  .map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+              </select>
+              <select
+                value={
+                  filters.is_active === "all"
+                    ? "all"
+                    : filters.is_active
+                    ? "active"
+                    : "inactive"
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "all") {
+                    setFilter("is_active", "all");
+                  } else {
+                    setFilter("is_active", value === "active");
+                  }
+                }}
+                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+                aria-label="Filter by active status"
+              >
+                <option value="all">All status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <input
+                type="text"
+                value={searchValue}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Name, description, category..."
+                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+                aria-label="Search classes by name, description, category, or theme"
+              />
+              <Button
+                variant="tertiary"
+                onClick={handleResetFilters}
+                className="min-h-[44px] text-sm"
+              >
+                Reset
+              </Button>
+            </div>
             {classesLoading ? (
               <div className="py-12 flex justify-center">
                 <LoadingSpinner />

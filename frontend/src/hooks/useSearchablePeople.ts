@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Person } from "@/src/types/person";
 import { peopleApi } from "@/src/lib/api";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 interface UseSearchablePeopleOptions {
   searchQuery?: string;
@@ -73,13 +74,14 @@ export const useSearchablePeople = (
           ? { results: response.data, count: response.data.length, next: null, previous: null }
           : response.data;
 
+        const selectableResults = (data.results || []).filter(isSelectablePerson);
         if (reset) {
-          setPeople(data.results || []);
+          setPeople(selectableResults);
         } else {
-          setPeople((prev) => [...prev, ...(data.results || [])]);
+          setPeople((prev) => [...prev, ...selectableResults]);
         }
 
-        setTotalCount(data.count || 0);
+        setTotalCount(data.count || selectableResults.length);
         setHasMore(!!data.next);
         setCurrentPage(page);
       } catch (err: any) {

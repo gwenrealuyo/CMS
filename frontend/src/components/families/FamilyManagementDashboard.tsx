@@ -6,6 +6,7 @@ import ActionMenu from "./ActionMenu";
 import FamilyFilterDropdown from "./FamilyFilterDropdown";
 import ClusterFilterCard from "../clusters/ClusterFilterCard";
 import { FilterCondition } from "../people/FilterBar";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 interface SortOption {
   key: string;
@@ -99,8 +100,7 @@ export default function FamilyManagementDashboard({
     return people.filter(
       (person) =>
         !assignedMemberIds.has(person.id) &&
-        person.role !== "ADMIN" &&
-        person.username !== "admin"
+        isSelectablePerson(person)
     );
   }, [families, people]);
 

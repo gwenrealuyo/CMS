@@ -10,6 +10,7 @@ import {
   EventAttendanceRecord,
 } from "@/src/types/event";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 interface AddAttendanceInput {
   person_id: string;
@@ -182,7 +183,7 @@ export default function EventView({
 
   const attendeeOptions = useMemo(
     () =>
-      peopleUI.filter((person) => person.role !== "ADMIN").map((person) => {
+      peopleUI.filter(isSelectablePerson).map((person) => {
         const clusterCode = person.cluster_codes?.[0];
         const familyName = person.family_names?.[0];
         return {

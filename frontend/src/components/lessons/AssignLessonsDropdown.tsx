@@ -7,6 +7,7 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import { Lesson } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 interface AssignLessonsDropdownProps {
   allLessons: Lesson[];
@@ -40,8 +41,7 @@ export default function AssignLessonsDropdown({
     return people.filter(
       (person) =>
         !person.has_finished_lessons &&
-        person.role !== "ADMIN" &&
-        person.username !== "admin"
+        isSelectablePerson(person)
     );
   }, [people]);
 

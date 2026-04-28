@@ -17,6 +17,8 @@ interface SearchableSelectProps {
   value: string;
   onChange: (value: string) => void;
   options: SearchableOption[];
+  className?: string;
+  controlClassName?: string;
   placeholder?: string;
   label?: string;
   emptyMessage?: string;
@@ -29,6 +31,8 @@ export default function SearchableSelect({
   value,
   onChange,
   options,
+  className = "",
+  controlClassName = "",
   placeholder = "Search...",
   label,
   emptyMessage = "No results found",
@@ -132,7 +136,7 @@ export default function SearchableSelect({
   }, [disabled, isOpen]);
 
   return (
-    <div className="space-y-1" ref={containerRef}>
+    <div className={`space-y-1 ${className}`} ref={containerRef}>
       {label && (
         <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
           {label}
@@ -140,7 +144,7 @@ export default function SearchableSelect({
       )}
       <div className="relative">
         <div
-          className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white ${
+          className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white ${controlClassName} ${
             disabled
               ? "bg-gray-50 cursor-not-allowed opacity-60"
               : "focus-within:border-blue-500 focus-within:outline-none focus-within:ring-1 focus-within:ring-blue-500 cursor-pointer"

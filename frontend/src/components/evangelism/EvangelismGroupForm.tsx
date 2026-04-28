@@ -11,6 +11,7 @@ import {
 import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 interface EvangelismGroupFormProps {
   coordinators?: Person[];
@@ -123,9 +124,7 @@ export default function EvangelismGroupForm({
   const coordinatorOptions = useMemo(() => {
     const base = people.length > 0 ? people : coordinators;
     return base
-      .filter(
-        (person) => person.role !== "ADMIN" && person.username !== "admin"
-      )
+      .filter(isSelectablePerson)
       .map((person) => ({
         label: formatPersonName(person),
         value: String(person.id),
@@ -307,7 +306,7 @@ export default function EvangelismGroupForm({
             <span className="ml-2 text-xs text-gray-500 font-normal">
               (Mark this group as a Bible Sharers group. Bible Sharers are
               capable of facilitating bible studies and can step in when a
-              cluster doesn't have someone to facilitate.)
+              cluster doesn&rsquo;t have someone to facilitate.)
             </span>
           </label>
         </div>

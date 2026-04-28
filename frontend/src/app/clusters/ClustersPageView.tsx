@@ -33,6 +33,7 @@ import {
 } from "@/src/types/cluster";
 import { Person, PersonUI, Family } from "@/src/types/person";
 import { FilterCondition } from "@/src/components/people/FilterBar";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 interface ClustersPageViewProps {
   activeTab: ClusterContentTab;
@@ -270,8 +271,7 @@ export default function ClustersPageView({
   );
   const unassignedMembers = people.filter(
     (p) =>
-      p.username !== "admin" &&
-      p.role !== "ADMIN" &&
+      isSelectablePerson(p) &&
       !allClusters.some((c) => c.members?.includes(Number(p.id)))
   ).length;
 

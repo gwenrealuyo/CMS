@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Cluster } from "@/src/types/cluster";
 import { Person, PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import Button from "@/src/components/ui/Button";
 
 interface AssignMembersModalProps {
@@ -33,11 +34,16 @@ export default function AssignMembersModal({
   }, [isOpen, cluster]);
 
   // Filter members based on search
+  const selectablePeople = useMemo(
+    () => peopleUI.filter(isSelectablePerson),
+    [peopleUI]
+  );
+
   const filteredMembers = useMemo(() => {
-    if (!memberSearch.trim()) return peopleUI;
+    if (!memberSearch.trim()) return selectablePeople;
 
     const searchLower = memberSearch.toLowerCase();
-    return peopleUI.filter((person) => {
+    return selectablePeople.filter((person) => {
       const fullName = formatPersonName(person).toLowerCase();
       const email = person.email?.toLowerCase() || "";
       const memberId = person.member_id?.toLowerCase() || "";
@@ -48,7 +54,7 @@ export default function AssignMembersModal({
         memberId.includes(searchLower)
       );
     });
-  }, [peopleUI, memberSearch]);
+  }, [memberSearch, selectablePeople]);
 
   // Handle click outside to close dropdown
   useEffect(() => {

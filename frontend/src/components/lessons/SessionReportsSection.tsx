@@ -5,6 +5,7 @@ import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Pagination from "@/src/components/ui/Pagination";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
+import { SessionFilterValues } from "@/src/lib/lessonsUtils";
 import { Lesson, LessonSessionReport } from "@/src/types/lesson";
 import { formatPersonName } from "@/src/lib/name";
 import {
@@ -21,13 +22,6 @@ export type LessonPersonLike = {
   last_name?: string;
   suffix?: string;
   username: string;
-};
-
-export type SessionFilterValues = {
-  teacherId: string;
-  studentId: string;
-  dateFrom: string;
-  dateTo: string;
 };
 
 const DEFAULT_SESSION_ITEMS_PER_PAGE = 10;
@@ -50,7 +44,6 @@ interface SessionReportsSectionProps {
   teacherChoices: LessonPersonLike[];
   studentChoices: LessonPersonLike[];
   onFilterChange: (field: keyof SessionFilterValues, value: string) => void;
-  onApplyFilters: () => void;
   onResetFilters: () => void;
   onExport: () => void;
   onOpenSessionModal: () => void;
@@ -71,7 +64,6 @@ export default function SessionReportsSection({
   teacherChoices,
   studentChoices,
   onFilterChange,
-  onApplyFilters,
   onResetFilters,
   onExport,
   onOpenSessionModal,
@@ -82,6 +74,32 @@ export default function SessionReportsSection({
   canLogSession,
   canExport,
 }: SessionReportsSectionProps) {
+  const monthOptions = useMemo(
+    () => [
+      { value: "", label: "All months" },
+      { value: "1", label: "January" },
+      { value: "2", label: "February" },
+      { value: "3", label: "March" },
+      { value: "4", label: "April" },
+      { value: "5", label: "May" },
+      { value: "6", label: "June" },
+      { value: "7", label: "July" },
+      { value: "8", label: "August" },
+      { value: "9", label: "September" },
+      { value: "10", label: "October" },
+      { value: "11", label: "November" },
+      { value: "12", label: "December" },
+    ],
+    []
+  );
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years: string[] = [];
+    for (let year = currentYear + 1; year >= currentYear - 7; year -= 1) {
+      years.push(String(year));
+    }
+    return years;
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_SESSION_ITEMS_PER_PAGE);
   const [viewMode, setViewMode] = useState<SessionReportsViewMode>("cards");
@@ -242,8 +260,9 @@ export default function SessionReportsSection({
           </div>
         </div>
 
-        <div className="space-y-3 rounded-lg border border-gray-200 bg-slate-50 p-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SearchableSelect
               value={sessionFilterDraft.teacherId}
               onChange={(value) => onFilterChange("teacherId", value)}
@@ -252,6 +271,7 @@ export default function SessionReportsSection({
               label="Teacher"
               emptyOptionLabel="All teachers"
               emptyMessage="No teachers found"
+              controlClassName="h-10"
             />
             <SearchableSelect
               value={sessionFilterDraft.studentId}
@@ -261,50 +281,55 @@ export default function SessionReportsSection({
               label="Student"
               emptyOptionLabel="All students"
               emptyMessage="No students found"
+              controlClassName="h-10"
             />
             <div className="space-y-1">
               <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                Date From
+                Month
               </label>
-              <input
-                type="date"
-                className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                value={sessionFilterDraft.dateFrom}
+              <select
+                className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={sessionFilterDraft.month}
                 onChange={(event) =>
-                  onFilterChange("dateFrom", event.target.value)
+                  onFilterChange("month", event.target.value)
                 }
-              />
+              >
+                {monthOptions.map((month) => (
+                  <option key={month.value || "all"} value={month.value}>
+                    {month.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                Date To
+                Year
               </label>
-              <input
-                type="date"
-                className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                value={sessionFilterDraft.dateTo}
+              <select
+                className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={sessionFilterDraft.year}
                 onChange={(event) =>
-                  onFilterChange("dateTo", event.target.value)
+                  onFilterChange("year", event.target.value)
                 }
-              />
+              >
+                <option value="">All years</option>
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
-            <Button 
+            <div className="flex justify-end">
+              <Button
               variant="tertiary" 
               onClick={onResetFilters}
-              className="w-full sm:w-auto min-h-[44px]"
+              className="w-full min-h-[44px] text-sm xl:w-auto"
             >
               Reset Filters
-            </Button>
-            <Button 
-              variant="secondary" 
-              onClick={onApplyFilters}
-              className="w-full sm:w-auto min-h-[44px]"
-            >
-              Apply Filters
-            </Button>
+              </Button>
+            </div>
           </div>
         </div>
 

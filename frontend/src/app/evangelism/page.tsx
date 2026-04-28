@@ -24,6 +24,7 @@ import {
   evangelismApi,
   peopleApi,
 } from "@/src/lib/api";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   EvangelismGroup,
@@ -264,7 +265,7 @@ export default function EvangelismPage() {
         setCoordinators(coordinatorsRes.data);
         setClusters(clustersRes.data);
         setBranches(branchesRes.data);
-        setPeople(peopleRes.data.filter((person) => person.role !== "ADMIN"));
+        setPeople(peopleRes.data.filter(isSelectablePerson));
       } catch (err) {
         console.error("Error loading form data:", err);
       }
@@ -1252,7 +1253,7 @@ export default function EvangelismPage() {
           >
             <ProspectForm
               inviters={(people.length > 0 ? people : coordinators).filter(
-                (person) => person.role !== "ADMIN"
+                isSelectablePerson
               )}
               groups={groups}
               onSubmit={handleCreateProspect}

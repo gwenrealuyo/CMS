@@ -14,6 +14,7 @@ import {
 } from "@/src/types/lesson";
 import { usePeople } from "@/src/hooks/usePeople";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import {
   createEmptySessionFilters,
   extractErrorMessage,
@@ -178,7 +179,9 @@ export default function LessonsPageContainer() {
     if (currentTeacherId) {
       return;
     }
-    const firstTeacher = people.find((person) => person.role !== "VISITOR");
+    const firstTeacher = people.find(
+      (person) => person.role !== "VISITOR" && isSelectablePerson(person)
+    );
     if (firstTeacher) {
       setCurrentTeacherId(firstTeacher.id);
     }
@@ -226,16 +229,20 @@ export default function LessonsPageContainer() {
 
   const teacherChoices = useMemo(() => {
     return [...people]
-      .filter((person) => person.role !== "VISITOR")
+      .filter(
+        (person) => person.role !== "VISITOR" && isSelectablePerson(person)
+      )
       .sort((first, second) =>
         formatPersonName(first).localeCompare(formatPersonName(second))
       );
   }, [people]);
 
   const studentChoices = useMemo(() => {
-    return [...people].sort((first, second) =>
+    return [...people]
+      .filter(isSelectablePerson)
+      .sort((first, second) =>
       formatPersonName(first).localeCompare(formatPersonName(second))
-    );
+      );
   }, [people]);
 
   // Get active latest lessons for grouping
@@ -251,29 +258,24 @@ export default function LessonsPageContainer() {
     return groupProgressByPerson(allProgress, lessons);
   }, [allProgress, lessons, allProgressLoading]);
 
-  const getRelevantProgressRecords = useCallback(
-    (summary: PersonProgressSummary) =>
-      progressFilterLessonId
-        ? summary.allProgress.filter((p) => p.lesson.id === progressFilterLessonId)
-        : summary.allProgress,
-    [progressFilterLessonId]
+  const getLifecycleStatus = useCallback(
+    (summary: PersonProgressSummary): LessonProgressStatus | "ASSIGNED" => {
+      if (summary.totalLessons <= 0 || summary.completedCount <= 0) {
+        return "ASSIGNED";
+      }
+      if (summary.completedCount >= summary.totalLessons) {
+        return "COMPLETED";
+      }
+      return "IN_PROGRESS";
+    },
+    []
   );
 
   const getStatusForSort = useCallback(
     (summary: PersonProgressSummary): LessonProgressStatus | "ASSIGNED" => {
-      const relevant = getRelevantProgressRecords(summary);
-      if (relevant.length === 0) {
-        return "ASSIGNED";
-      }
-      const latestRecord = [...relevant].sort((a, b) => {
-        if (a.lesson.order !== b.lesson.order) {
-          return b.lesson.order - a.lesson.order;
-        }
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-      })[0];
-      return latestRecord.status;
+      return getLifecycleStatus(summary);
     },
-    [getRelevantProgressRecords]
+    [getLifecycleStatus]
   );
 
   const displayedGroupedProgress = useMemo(() => {
@@ -286,17 +288,21 @@ export default function LessonsPageContainer() {
     };
 
     const filtered = groupedProgress.filter((summary) => {
-      const relevantRecords = getRelevantProgressRecords(summary);
-
-      if (relevantRecords.length === 0) {
+      if (
+        progressFilterLessonId &&
+        summary.nextLesson?.id !== progressFilterLessonId
+      ) {
         return false;
       }
 
-      if (
-        progressStatusFilter !== "ALL" &&
-        !relevantRecords.some((record) => record.status === progressStatusFilter)
-      ) {
-        return false;
+      if (progressStatusFilter !== "ALL") {
+        if (progressStatusFilter === "SKIPPED") {
+          if (!summary.allProgress.some((record) => record.status === "SKIPPED")) {
+            return false;
+          }
+        } else if (getLifecycleStatus(summary) !== progressStatusFilter) {
+          return false;
+        }
       }
 
       if (!normalizedQuery) {
@@ -357,14 +363,24 @@ export default function LessonsPageContainer() {
       }
     });
   }, [
-    getRelevantProgressRecords,
+    getLifecycleStatus,
     getStatusForSort,
     groupedProgress,
+    progressFilterLessonId,
     progressSearchQuery,
     progressSortDirection,
     progressSortField,
     progressStatusFilter,
   ]);
+
+  const ongoingStudentsCount = useMemo(() => {
+    return groupedProgress.filter((summary) => {
+      if (summary.totalLessons <= 0) {
+        return false;
+      }
+      return summary.completedCount < summary.totalLessons;
+    }).length;
+  }, [groupedProgress]);
 
   useEffect(() => {
     fetchLessons();
@@ -451,8 +467,8 @@ export default function LessonsPageContainer() {
     filtersOverride?: {
       teacherId?: string;
       studentId?: string;
-      dateFrom?: string;
-      dateTo?: string;
+      month?: string;
+      year?: string;
     }
   ) => {
     try {
@@ -478,12 +494,18 @@ export default function LessonsPageContainer() {
         params.student = studentValue;
       }
 
-      if (activeFilters.dateFrom) {
-        params.date_from = activeFilters.dateFrom;
-      }
-
-      if (activeFilters.dateTo) {
-        params.date_to = activeFilters.dateTo;
+      const monthValue = sanitizeNumericValue(activeFilters.month);
+      const yearValue = sanitizeNumericValue(activeFilters.year);
+      if (yearValue && monthValue && monthValue >= 1 && monthValue <= 12) {
+        const start = new Date(yearValue, monthValue - 1, 1);
+        const end = new Date(yearValue, monthValue, 0);
+        params.date_from = start.toISOString().slice(0, 10);
+        params.date_to = end.toISOString().slice(0, 10);
+      } else if (yearValue) {
+        const start = new Date(yearValue, 0, 1);
+        const end = new Date(yearValue, 11, 31);
+        params.date_from = start.toISOString().slice(0, 10);
+        params.date_to = end.toISOString().slice(0, 10);
       }
 
       const response = await lessonsApi.listSessionReports(params);
@@ -821,11 +843,11 @@ export default function LessonsPageContainer() {
     field: keyof SessionFilterValues,
     value: string
   ) => {
-    setSessionFilterDraft((previous) => ({ ...previous, [field]: value }));
-  };
-
-  const applySessionFilters = () => {
-    setSessionFilters(sessionFilterDraft);
+    setSessionFilterDraft((previous) => {
+      const next = { ...previous, [field]: value };
+      setSessionFilters(next);
+      return next;
+    });
   };
 
   const resetSessionFilters = () => {
@@ -1080,6 +1102,7 @@ export default function LessonsPageContainer() {
       summary={summary}
       summaryLoading={summaryLoading}
       summaryError={summaryError}
+      ongoingStudentsCount={ongoingStudentsCount}
       // Commitment state
       commitmentSettings={commitmentSettings}
       commitmentLoading={commitmentLoading}
@@ -1179,7 +1202,6 @@ export default function LessonsPageContainer() {
       onClosePersonProgressModal={closePersonProgressModal}
       onSetActiveContentTab={setActiveContentTab}
       onUpdateSessionFilterDraft={updateSessionFilterDraft}
-      onApplySessionFilters={applySessionFilters}
       onResetSessionFilters={resetSessionFilters}
       onExportSessionReports={handleExportSessionReports}
       onOpenSessionReportModal={() => openSessionReportModal()}

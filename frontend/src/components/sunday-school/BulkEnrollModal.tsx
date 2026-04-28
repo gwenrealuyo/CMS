@@ -8,6 +8,7 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import { ClassMemberRole } from "@/src/types/sundaySchool";
 import { formatPersonName } from "@/src/lib/name";
 import { peopleApi } from "@/src/lib/api";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { Person } from "@/src/types/person";
 
 interface BulkEnrollModalProps {
@@ -61,7 +62,7 @@ export default function BulkEnrollModal({
         setLoading(true);
         setError(null);
         const response = await peopleApi.search({ search: debouncedSearchQuery });
-        setPeople(response.data);
+        setPeople(response.data.filter(isSelectablePerson));
       } catch (err) {
         setError("Failed to search people");
         setPeople([]);

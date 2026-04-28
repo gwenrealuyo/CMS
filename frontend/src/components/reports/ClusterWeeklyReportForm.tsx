@@ -5,6 +5,7 @@ import {
   Cluster,
   GatheringType,
 } from "@/src/types/cluster";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { peopleApi, clusterReportsApi } from "@/src/lib/api";
 import Button from "@/src/components/ui/Button";
 import AttendanceSelector from "./AttendanceSelector";
@@ -88,7 +89,9 @@ export default function ClusterWeeklyReportForm({
       try {
         setLoadingPeople(true);
         const response = await peopleApi.getAll();
-        const peopleUI: PersonUI[] = response.data.map((p) => {
+        const peopleUI: PersonUI[] = response.data
+          .filter(isSelectablePerson)
+          .map((p) => {
           const middleInitial = p.middle_name
             ? ` ${p.middle_name.trim().charAt(0)}.`
             : "";
@@ -97,12 +100,12 @@ export default function ClusterWeeklyReportForm({
           const name = `${p.first_name ?? ""}${middleInitial} ${
             p.last_name ?? ""
           }${suffixPart}`.trim();
-          return {
-            ...p,
-            name,
-            dateFirstAttended: p.date_first_attended,
-          };
-        });
+            return {
+              ...p,
+              name,
+              dateFirstAttended: p.date_first_attended,
+            };
+          });
         // Normalize people IDs to strings
         const normalizedPeopleUI = peopleUI.map((p) => ({
           ...p,

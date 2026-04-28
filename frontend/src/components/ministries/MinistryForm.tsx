@@ -16,6 +16,7 @@ import { Branch } from "@/src/types/branch";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 export interface PendingMember {
   member_id: string;
@@ -225,9 +226,7 @@ export default function MinistryForm({
   const coordinatorOptions = useMemo(
     () =>
       people
-        .filter(
-          (person) => person.role !== "ADMIN" && person.username !== "admin"
-        )
+        .filter(isSelectablePerson)
         .map((person) => ({
           label: formatPersonName(person),
           value: String(person.id),
@@ -257,8 +256,7 @@ export default function MinistryForm({
       people
         .filter(
           (person) =>
-            person.role !== "ADMIN" &&
-            person.username !== "admin" &&
+            isSelectablePerson(person) &&
             !values.members.some((m) => m.member_id === String(person.id)) &&
             values.primary_coordinator_id !== String(person.id) &&
             !values.support_coordinator_ids.includes(String(person.id))

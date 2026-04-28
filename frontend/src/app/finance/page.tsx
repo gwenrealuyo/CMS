@@ -21,6 +21,7 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { financeApi, peopleApi } from "@/src/lib/api";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { Person } from "@/src/types/person";
 import {
   Donation,
@@ -325,8 +326,7 @@ export default function FinancePage() {
   const contributorOptions = useMemo(() => {
     const filtered = people.filter(
       (p) =>
-        p.role !== "ADMIN" &&
-        p.username !== "admin" &&
+        isSelectablePerson(p) &&
         ((p.first_name ?? "") !== "" || (p.last_name ?? "") !== "")
     );
     return filtered

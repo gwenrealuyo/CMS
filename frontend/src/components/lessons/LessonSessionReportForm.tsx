@@ -8,6 +8,7 @@ import {
 } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 export interface LessonSessionReportFormProps {
   report?: LessonSessionReport | null;
@@ -71,17 +72,14 @@ export default function LessonSessionReportForm({
       people.filter(
         (person) =>
           person.role !== "VISITOR" &&
-          person.role !== "ADMIN" &&
-          person.username !== "admin"
+          isSelectablePerson(person)
       ),
     [people]
   );
 
   const studentOptions = useMemo(() => {
     return [...people]
-      .filter(
-        (person) => person.role !== "ADMIN" && person.username !== "admin"
-      )
+      .filter(isSelectablePerson)
       .sort((first, second) => {
         const nameA = formatPersonName(first);
         const nameB = formatPersonName(second);

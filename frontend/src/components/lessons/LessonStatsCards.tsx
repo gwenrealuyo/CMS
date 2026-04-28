@@ -6,6 +6,7 @@ import { LessonProgressSummary } from "@/src/types/lesson";
 interface LessonStatsCardsProps {
   summary: LessonProgressSummary | null;
   visitorsAwaitingCount: number;
+  ongoingStudentsCount: number;
   loading: boolean;
   error?: string | null;
 }
@@ -16,6 +17,7 @@ const formatNumber = (value: number) =>
 export default function LessonStatsCards({
   summary,
   visitorsAwaitingCount,
+  ongoingStudentsCount,
   loading,
   error,
 }: LessonStatsCardsProps) {
@@ -35,13 +37,10 @@ export default function LessonStatsCards({
     );
   }
 
-  const assignedCount = summary?.overall?.ASSIGNED ?? 0;
-  const inProgressCount = summary?.overall?.IN_PROGRESS ?? 0;
   const completedCount = summary?.overall?.COMPLETED ?? 0;
   const totalRecords = summary?.total_participants ?? 0;
   const averageProgress =
     totalRecords > 0 ? Math.round((completedCount / totalRecords) * 100) : 0;
-  const activeAssignments = assignedCount + inProgressCount;
 
   return (
     <div className="space-y-6">
@@ -53,9 +52,9 @@ export default function LessonStatsCards({
           valueClassName="text-red-600"
         />
         <SummaryCard
-          title="Active Assignments"
-          value={formatNumber(activeAssignments)}
-          subtitle="Students currently in progress this year"
+          title="Ongoing Students"
+          value={formatNumber(ongoingStudentsCount)}
+          subtitle="Students with ongoing lessons this year"
         />
         <SummaryCard
           title="Completed Lessons"
@@ -68,7 +67,7 @@ export default function LessonStatsCards({
         <SummaryCard
           title="Average Progress"
           value={`${averageProgress}%`}
-          subtitle="Completion rate across yearly participants"
+          subtitle="Completion rate across yearly students"
         />
       </div>
     </div>

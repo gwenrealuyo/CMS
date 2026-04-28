@@ -11,6 +11,7 @@ import {
 } from "@/src/types/evangelism";
 import { Person, PersonUI } from "@/src/types/person";
 import { evangelismApi, peopleApi } from "@/src/lib/api";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 export interface EvangelismWeeklyReportFormValues {
   evangelism_group_id: string;
@@ -103,7 +104,7 @@ export default function EvangelismWeeklyReportForm({
         setLoadingPeople(true);
         const response = await peopleApi.getAll();
         const peopleUI: PersonUI[] = response.data
-          .filter((p) => p.role !== "ADMIN")
+          .filter(isSelectablePerson)
           .map((p) => {
             const middleInitial = p.middle_name
               ? ` ${p.middle_name.trim().charAt(0)}.`

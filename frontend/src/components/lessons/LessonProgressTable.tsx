@@ -8,10 +8,7 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Pagination from "@/src/components/ui/Pagination";
 import { formatPersonName } from "@/src/lib/name";
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from "@heroicons/react/24/outline";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
 type ProgressSortField =
   | "person"
@@ -79,21 +76,24 @@ export default function LessonProgressTable({
   if (groupedProgress.length === 0) {
     return (
       <div className="border border-dashed border-gray-200 rounded-lg p-4 sm:p-6 text-center text-gray-500 text-sm sm:text-base">
-        No participants have been assigned to lessons yet.
+        No students have been assigned here yet.
       </div>
     );
   }
 
   const getSummaryStatus = (
-    summary: PersonProgressSummary
+    summary: PersonProgressSummary,
   ): LessonProgressStatus | "ASSIGNED" => {
-    const latestRecord = [...summary.allProgress].sort((a, b) => {
-      if (a.lesson.order !== b.lesson.order) {
-        return b.lesson.order - a.lesson.order;
-      }
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    })[0];
-    return latestRecord?.status ?? "ASSIGNED";
+    if (summary.totalLessons <= 0) {
+      return "ASSIGNED";
+    }
+    if (summary.completedCount <= 0) {
+      return "ASSIGNED";
+    }
+    if (summary.completedCount >= summary.totalLessons) {
+      return "COMPLETED";
+    }
+    return "IN_PROGRESS";
   };
 
   const renderSortIcon = (field: ProgressSortField) => {
@@ -157,7 +157,7 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[10%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[14%] hover:bg-gray-100"
                 onClick={() => onSortChange("status")}
               >
                 <div className="flex items-center gap-1">
@@ -188,7 +188,7 @@ export default function LessonProgressTable({
                         Member ID:{" "}
                         {summary.person.member_id?.trim()
                           ? summary.person.member_id
-                          : summary.person.id ?? "N/A"}
+                          : (summary.person.id ?? "N/A")}
                       </span>
                     </div>
                   </td>
@@ -237,7 +237,7 @@ export default function LessonProgressTable({
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${
                         statusBadgeStyles[summaryStatus]
                       }`}
                     >

@@ -1,6 +1,7 @@
 import { useState, FormEvent, useEffect, useRef } from "react";
 import { Person, PersonUI } from "@/src/types/person";
 import { peopleApi } from "@/src/lib/api";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 
@@ -56,7 +57,9 @@ export default function AddVisitorModal({
     const fetchPeople = async () => {
       try {
         const response = await peopleApi.getAll();
-        const peopleUI: PersonUI[] = response.data.map((p) => {
+        const peopleUI: PersonUI[] = response.data
+          .filter(isSelectablePerson)
+          .map((p) => {
           const middleInitial = p.middle_name
             ? ` ${p.middle_name.trim().charAt(0)}.`
             : "";
@@ -65,13 +68,13 @@ export default function AddVisitorModal({
           const name = `${p.first_name ?? ""}${middleInitial} ${
             p.last_name ?? ""
           }${suffixPart}`.trim();
-          return {
-            ...p,
-            name,
-            dateFirstAttended: p.date_first_attended,
-          };
-        });
-        setPeople(peopleUI.filter((person) => person.role !== "ADMIN"));
+            return {
+              ...p,
+              name,
+              dateFirstAttended: p.date_first_attended,
+            };
+          });
+        setPeople(peopleUI);
       } catch (error) {
         console.error("Error fetching people:", error);
       }

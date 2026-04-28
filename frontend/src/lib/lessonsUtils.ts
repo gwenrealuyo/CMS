@@ -17,15 +17,15 @@ export type LessonPersonLike = {
 export type SessionFilterValues = {
   teacherId: string;
   studentId: string;
-  dateFrom: string;
-  dateTo: string;
+  month: string;
+  year: string;
 };
 
 export const createEmptySessionFilters = (): SessionFilterValues => ({
   teacherId: "",
   studentId: "",
-  dateFrom: "",
-  dateTo: "",
+  month: "",
+  year: "",
 });
 
 export function sanitizeNumericValue(value: unknown): number | undefined {

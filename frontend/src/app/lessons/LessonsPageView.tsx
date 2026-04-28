@@ -12,8 +12,8 @@ import LessonContentTabs, {
 import MemberProgressSection from "@/src/components/lessons/MemberProgressSection";
 import SessionReportsSection, {
   LessonPersonLike,
-  SessionFilterValues,
 } from "@/src/components/lessons/SessionReportsSection";
+import { SessionFilterValues } from "@/src/lib/lessonsUtils";
 import CommitmentFormSection from "@/src/components/lessons/CommitmentFormSection";
 import Modal from "@/src/components/ui/Modal";
 import Button from "@/src/components/ui/Button";
@@ -65,6 +65,7 @@ interface LessonsPageViewProps {
   summary: LessonProgressSummary | null;
   summaryLoading: boolean;
   summaryError: string | null;
+  ongoingStudentsCount: number;
   // Commitment state
   commitmentSettings: LessonCommitmentSettings | null;
   commitmentLoading: boolean;
@@ -187,7 +188,6 @@ interface LessonsPageViewProps {
     field: keyof SessionFilterValues,
     value: string
   ) => void;
-  onApplySessionFilters: () => void;
   onResetSessionFilters: () => void;
   onExportSessionReports: () => void;
   onOpenSessionReportModal: () => void;
@@ -218,6 +218,7 @@ export default function LessonsPageView({
   summary,
   summaryLoading,
   summaryError,
+  ongoingStudentsCount,
   commitmentSettings,
   commitmentLoading,
   commitmentError,
@@ -298,7 +299,6 @@ export default function LessonsPageView({
   personProgressModal,
   onSetActiveContentTab,
   onUpdateSessionFilterDraft,
-  onApplySessionFilters,
   onResetSessionFilters,
   onExportSessionReports,
   onOpenSessionReportModal,
@@ -352,6 +352,7 @@ export default function LessonsPageView({
             visitorsAwaitingCount={summary?.unassigned_visitors ?? 0}
             loading={summaryLoading}
             error={summaryError}
+            ongoingStudentsCount={ongoingStudentsCount}
           />
         )}
 
@@ -433,7 +434,6 @@ export default function LessonsPageView({
               teacherChoices={teacherChoices}
               studentChoices={studentChoices}
               onFilterChange={onUpdateSessionFilterDraft}
-              onApplyFilters={onApplySessionFilters}
               onResetFilters={onResetSessionFilters}
               onExport={onExportSessionReports}
               onOpenSessionModal={onOpenSessionReportModal}

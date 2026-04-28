@@ -673,6 +673,7 @@ export const useEvangelismPeopleTally = (params?: {
   year?: number;
   branch?: number | string;
   cluster?: number | string;
+  evangelism_group?: number | string;
 }) => {
   const [rows, setRows] = useState<EvangelismPeopleTallyRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -681,11 +682,17 @@ export const useEvangelismPeopleTally = (params?: {
   const year = params?.year;
   const branch = params?.branch;
   const cluster = params?.cluster;
+  const evangelism_group = params?.evangelism_group;
 
   const fetchPeopleTally = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await evangelismApi.getPeopleTally({ year, branch, cluster });
+      const response = await evangelismApi.getPeopleTally({
+        year,
+        branch,
+        cluster,
+        evangelism_group,
+      });
       setRows(response.data);
       setError(null);
     } catch (err) {
@@ -694,7 +701,7 @@ export const useEvangelismPeopleTally = (params?: {
     } finally {
       setLoading(false);
     }
-  }, [year, branch, cluster]);
+  }, [year, branch, cluster, evangelism_group]);
 
   useEffect(() => {
     fetchPeopleTally();

@@ -12,6 +12,8 @@ interface SelectOption {
   disabled?: boolean;
   clusterCode?: string | null;
   familyName?: string | null;
+  /** When set, renders a small Cluster vs Group badge (distinct styling). */
+  typeLabel?: "cluster" | "group";
 }
 
 interface ScalableSelectProps {
@@ -219,7 +221,17 @@ export default function ScalableSelect({
               >
                 <div className="flex items-center justify-between">
                   <span className="truncate">{option.label}</span>
-                  <span className="ml-2 flex shrink-0 items-center gap-1 text-xs">
+                  <span className="ml-2 flex shrink-0 flex-wrap items-center justify-end gap-1 text-xs">
+                    {option.typeLabel === "cluster" && (
+                      <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                        Cluster
+                      </span>
+                    )}
+                    {option.typeLabel === "group" && (
+                      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                        Group
+                      </span>
+                    )}
                     {option.clusterCode && (
                       <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
                         {option.clusterCode}
@@ -275,9 +287,30 @@ export default function ScalableSelect({
           ${option.value === value ? "bg-blue-50 text-blue-900" : ""}
         `}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <span className="truncate">{option.label}</span>
-          {option.value === value && (
+          <span className="ml-2 flex shrink-0 flex-wrap items-center justify-end gap-1 text-xs">
+            {option.typeLabel === "cluster" && (
+              <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                Cluster
+              </span>
+            )}
+            {option.typeLabel === "group" && (
+              <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                Group
+              </span>
+            )}
+            {option.clusterCode && (
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                {option.clusterCode}
+              </span>
+            )}
+            {option.familyName && (
+              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                {option.familyName}
+              </span>
+            )}
+            {option.value === value && (
             <svg
               className="w-4 h-4 text-blue-600"
               fill="currentColor"
@@ -289,7 +322,8 @@ export default function ScalableSelect({
                 clipRule="evenodd"
               />
             </svg>
-          )}
+            )}
+          </span>
         </div>
       </button>
     ));

@@ -245,6 +245,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
 - `/api/evangelism/groups/` – EvangelismGroupViewSet CRUD
   - `GET` – List all groups
     - Query params: `?cluster={cluster_id}` – filter by cluster
+    - Query params: `?branch={branch_id}` – filter to groups whose assigned cluster belongs to that branch
     - Query params: `?is_active=true` – filter by active status
     - Query params: `?search={term}` – search by name or description
   - `POST` – Create a new group (requires `name`, optional `leader_id`, `cluster_id`, `location`, `meeting_time`, `meeting_day`)
@@ -307,6 +308,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?week_number={week}` – filter by week number
     - Query params: `?gathering_type={type}` – filter by gathering type
   - `POST` – Create a new report (requires `evangelism_group`, `year`, `week_number`, `meeting_date`, `gathering_type`)
+    - **Members attended** may include active group members, the group’s **coordinator** (even if not enrolled as a group member), but not arbitrary people (validated server-side)
   - `GET /{id}/` – Retrieve a specific report
   - `PUT /{id}/` – Update a report (full update)
   - `PATCH /{id}/` – Partial update
@@ -316,7 +318,10 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Aggregates by cluster, year, week_number with deduped attendees
     - `gathering_type` can be `MIXED` when different sources report different types in the same week
   - `GET /people_tally/` – Monthly people tally
-    - Query params: `?year={year}`
+    - Query params: `?year={year}` (optional)
+    - Query params: `?branch={branch_id}` – limit people to that branch
+    - Query params: `?cluster={cluster_id}` – cluster scope (formal `Cluster` membership on `Person`)
+    - Query params: `?evangelism_group={group_id}` – evangelism-group scope (union of active `EvangelismGroupMember` people and prospects with a linked `Person` for that group); **do not send `cluster` and `evangelism_group` together**
     - Counts by month:
       - **INVITED**: Person created in month with `role=VISITOR` and `status=INVITED`
       - **ATTENDED**: Person with `role=VISITOR`, `status=ATTENDED`, and `date_first_attended` in month
@@ -324,8 +329,9 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
       - **BAPTIZED**: `water_baptism_date` in month
       - **RECEIVED_HG**: `spirit_baptism_date` in month
       - **REACHED**: Person has both `water_baptism_date` and `spirit_baptism_date`; counted in the month/year of the later date
-
-### Prospects
+    - Related actions (same query params for `branch`, `cluster`, `evangelism_group` as `/people_tally/`):
+      - `GET /people_tally_years/` – years present in tally-related data for the current scope
+      - `GET /people_tally_detail/` – paginated drill-down for a month + metric
 
 - `/api/evangelism/prospects/` – ProspectViewSet CRUD
   - `GET` – List all prospects
@@ -422,8 +428,10 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
 - `/api/evangelism/each1reach1-goals/` – Each1Reach1GoalViewSet CRUD
   - `GET` – List all goals
     - Query params: `?cluster={cluster_id}` – filter by cluster
+    - Query params: `?cluster__branch={branch_id}` – filter by cluster branch
     - Query params: `?year={year}` – filter by year
     - Query params: `?status={status}` – filter by status
+    - Query params: `?search={term}` – searches cluster name and related evangelism group names on that cluster (DRF `search` param)
     - Lazy provisioning: ensures each cluster has one goal for requested year (defaults to current year if omitted)
   - `POST` – Create a new goal (requires `cluster_id`, `year`; `target_conversions` is optional and defaults to `2 × non-admin cluster member` count)
   - `GET /default_target/?cluster_id={cluster_id}&year={year}` – Returns computed default target for Create Goal UI prefill
@@ -660,6 +668,7 @@ The main page includes tabs for different views:
 - **`Each1Reach1Dashboard`**: Main dashboard
   - Create Goal modal (cluster, year, target conversions)
   - Target is auto-prefilled from backend default rule (`2 × non-admin cluster member` count), but remains editable before save
+  - Search box filters goals by cluster name **or evangelism group name tied to that cluster** (placeholder “Search group…” with debounced querying)
   - Cluster cards with progress indicators
   - Overall statistics
   - Year selector
@@ -704,7 +713,7 @@ The main page includes tabs for different views:
   - Recommendations
 - **`PeopleTallyReport`**: Monthly people tally
   - Columns: Month, Invited, Attended, NCC, Baptized, Received HG, Reached
-  - Year filter
+  - Filters: year (dynamic options), branch, and a searchable combined **cluster or evangelism group** selector (shows **Cluster** vs **Group** badges); group list respects the selected branch server-side where applicable
 - **`TallyReport`**: Weekly unified tally
   - Combines evangelism weekly reports with cluster weekly reports
   - Week format: `YYYY W#`

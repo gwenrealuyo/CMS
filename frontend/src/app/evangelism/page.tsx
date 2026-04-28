@@ -220,7 +220,7 @@ export default function EvangelismPage() {
   >("groups");
   const [tallyYear, setTallyYear] = useState(currentYear);
   const [tallyBranch, setTallyBranch] = useState<number | "">("");
-  const [tallyCluster, setTallyCluster] = useState<number | "">("");
+  const [tallyScope, setTallyScope] = useState("");
 
   const roleLabels: Record<ClassMemberRole, string> = {
     LEADER: "Leader",
@@ -759,11 +759,13 @@ export default function EvangelismPage() {
               year={tallyYear}
               onYearChange={setTallyYear}
               branch={tallyBranch}
-              onBranchChange={setTallyBranch}
+              onBranchChange={(next) => {
+                setTallyBranch(next);
+                setTallyScope("");
+              }}
               branches={branches}
-              cluster={tallyCluster}
-              onClusterChange={setTallyCluster}
-              clusters={clusters}
+              tallyScope={tallyScope}
+              onTallyScopeChange={setTallyScope}
             />
           </div>
         )}

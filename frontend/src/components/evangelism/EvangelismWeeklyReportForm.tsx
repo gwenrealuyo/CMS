@@ -47,6 +47,26 @@ const getWeekNumber = (date: Date): number => {
   return Math.ceil((days + start.getDay() + 1) / 7);
 };
 
+/** Display list for members attended; includes coordinator alongside enrolled members. */
+function personToMemberOption(person: Person): PersonUI {
+  const middleInitial = person.middle_name
+    ? ` ${person.middle_name.trim().charAt(0)}.`
+    : "";
+  const suffixPart =
+    person.suffix && person.suffix.trim().length > 0
+      ? ` ${person.suffix.trim()}`
+      : "";
+  const name = `${person.first_name ?? ""}${middleInitial} ${
+    person.last_name ?? ""
+  }${suffixPart}`.trim();
+  return {
+    ...person,
+    name,
+    dateFirstAttended: person.date_first_attended,
+    id: person.id?.toString() || "",
+  };
+}
+
 export default function EvangelismWeeklyReportForm({
   group,
   initialData,
@@ -144,23 +164,7 @@ export default function EvangelismWeeklyReportForm({
         const membersUI: PersonUI[] = response.data
           .filter((member) => member.person)
           .map((member) => {
-            const person = member.person;
-            const middleInitial = person.middle_name
-              ? ` ${person.middle_name.trim().charAt(0)}.`
-              : "";
-            const suffixPart =
-              person.suffix && person.suffix.trim().length > 0
-                ? ` ${person.suffix.trim()}`
-                : "";
-            const name = `${person.first_name ?? ""}${middleInitial} ${
-              person.last_name ?? ""
-            }${suffixPart}`.trim();
-            return {
-              ...person,
-              name,
-              dateFirstAttended: person.date_first_attended,
-              id: person.id?.toString() || "",
-            } as PersonUI;
+            return personToMemberOption(member.person as Person);
           });
         setGroupMembers(membersUI);
       } catch (err) {
@@ -179,41 +183,44 @@ export default function EvangelismWeeklyReportForm({
         ?.filter((member) => member.is_active)
         .map((member) => String(member.person.id)) || [];
     const fetchedIds = groupMembers.map((member) => member.id);
-    return Array.from(new Set([...inlineIds, ...fetchedIds]));
-  }, [group.members, groupMembers]);
+    const coordinatorIds = group.coordinator?.id
+      ? [String(group.coordinator.id)]
+      : [];
+    return Array.from(
+      new Set([...inlineIds, ...fetchedIds, ...coordinatorIds]),
+    );
+  }, [group.members, groupMembers, group.coordinator?.id]);
+
+  const coordinatorOption = useMemo(
+    () =>
+      group.coordinator
+        ? personToMemberOption(group.coordinator as Person)
+        : null,
+    [group.coordinator],
+  );
 
   const memberOptions = useMemo(() => {
     const inlineMembers =
       group.members
         ?.filter((member) => member.is_active)
-        .map((member) => {
-          const person = member.person;
-          const middleInitial = person.middle_name
-            ? ` ${person.middle_name.trim().charAt(0)}.`
-            : "";
-          const suffixPart =
-            person.suffix && person.suffix.trim().length > 0
-              ? ` ${person.suffix.trim()}`
-              : "";
-          const name = `${person.first_name ?? ""}${middleInitial} ${
-            person.last_name ?? ""
-          }${suffixPart}`.trim();
-          return {
-            ...person,
-            name,
-            dateFirstAttended: person.date_first_attended,
-            id: person.id?.toString() || "",
-          } as PersonUI;
-        }) || [];
+        .map((member) => personToMemberOption(member.person)) || [];
 
     const combined = [...people, ...inlineMembers, ...groupMembers];
+    if (coordinatorOption) {
+      const hasCoordinator = combined.some(
+        (p) => p.id === coordinatorOption.id,
+      );
+      if (!hasCoordinator) {
+        combined.unshift(coordinatorOption);
+      }
+    }
     const seen = new Set<string>();
     return combined.filter((person) => {
       if (!person.id || seen.has(person.id)) return false;
       seen.add(person.id);
       return true;
     });
-  }, [group.members, people, groupMembers]);
+  }, [coordinatorOption, group.members, people, groupMembers]);
 
   const visitorOptions = useMemo(() => {
     const attendedVisitors = prospects

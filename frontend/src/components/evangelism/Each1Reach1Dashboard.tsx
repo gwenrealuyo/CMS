@@ -424,8 +424,8 @@ export default function Each1Reach1Dashboard({
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-          placeholder="Search cluster..."
-          aria-label="Search by cluster name"
+          placeholder="Search group..."
+          aria-label="Search by cluster or evangelism group name"
         />
         <Button
           variant="tertiary"

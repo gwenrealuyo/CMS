@@ -268,6 +268,34 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("submitted_at", "updated_at")
 
+    def validate(self, attrs):
+        group = attrs.get("evangelism_group")
+        if group is None and self.instance:
+            group = self.instance.evangelism_group
+        members = attrs.get("members_attended")
+        if group is None or members is None:
+            return attrs
+
+        allowed_ids = set(
+            EvangelismGroupMember.objects.filter(
+                evangelism_group=group, is_active=True
+            ).values_list("person_id", flat=True)
+        )
+        if group.coordinator_id:
+            allowed_ids.add(group.coordinator_id)
+
+        invalid = [p.pk for p in members if p.pk not in allowed_ids]
+        if invalid:
+            raise serializers.ValidationError(
+                {
+                    "members_attended": (
+                        "Members attended must be active group members or the group coordinator. "
+                        f"Invalid IDs: {invalid}"
+                    )
+                }
+            )
+        return attrs
+
     def get_members_attended_details(self, obj):
         return PersonSummarySerializer(obj.members_attended.all(), many=True).data
 

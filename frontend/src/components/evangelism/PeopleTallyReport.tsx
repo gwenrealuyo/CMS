@@ -4,14 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   EvangelismPeopleTallyRow,
   EvangelismTallyDrilldownMetric,
+  EvangelismGroup,
 } from "@/src/types/evangelism";
 import { Branch } from "@/src/types/branch";
 import { Cluster } from "@/src/types/cluster";
 import { useEvangelismPeopleTally } from "@/src/hooks/useEvangelism";
-import { evangelismApi } from "@/src/lib/api";
+import { evangelismApi, clustersApi } from "@/src/lib/api";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 
 const MONTH_NAMES = [
@@ -29,15 +31,31 @@ const MONTH_NAMES = [
   "December",
 ];
 
+export interface TallyScopeParams {
+  cluster?: number;
+  evangelism_group?: number;
+}
+
+export function parseTallyScope(encoded: string): TallyScopeParams {
+  if (!encoded) return {};
+  const idx = encoded.indexOf(":");
+  if (idx <= 0) return {};
+  const kind = encoded.slice(0, idx);
+  const id = Number(encoded.slice(idx + 1));
+  if (Number.isNaN(id)) return {};
+  if (kind === "cluster") return { cluster: id };
+  if (kind === "group") return { evangelism_group: id };
+  return {};
+}
+
 interface PeopleTallyReportProps {
   year?: number;
   onYearChange?: (year: number) => void;
   branch?: number | "";
   onBranchChange?: (branch: number | "") => void;
   branches?: Branch[];
-  cluster?: number | "";
-  onClusterChange?: (cluster: number | "") => void;
-  clusters?: Cluster[];
+  tallyScope?: string;
+  onTallyScopeChange?: (scope: string) => void;
 }
 
 type PeopleTallyMetric = Extract<
@@ -51,32 +69,112 @@ export default function PeopleTallyReport({
   branch = "",
   onBranchChange,
   branches = [],
-  cluster = "",
-  onClusterChange,
-  clusters = [],
+  tallyScope = "",
+  onTallyScopeChange,
 }: PeopleTallyReportProps) {
   const selectedYear = year || new Date().getFullYear();
-  const selectedBranch = branch || "";
-  const selectedCluster = cluster || "";
+  const selectedBranch = branch === "" ? "" : Number(branch);
+
+  const scopeParams = useMemo(
+    () => parseTallyScope(tallyScope),
+    [tallyScope],
+  );
+
   const [yearOptions, setYearOptions] = useState<number[]>([]);
   const [yearsLoading, setYearsLoading] = useState(false);
+
+  const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [evangelismGroups, setEvangelismGroups] = useState<
+    EvangelismGroup[]
+  >([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadClusters = async () => {
+      try {
+        const res = await clustersApi.getAll({ page_size: 500 });
+        if (!cancelled) setClusters(res.data);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadClusters();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadGroups = async () => {
+      try {
+        setGroupsLoading(true);
+        const params: Record<string, string | number | boolean | undefined> = {
+          is_active: true,
+          page_size: 500,
+        };
+        if (selectedBranch !== "") {
+          params.branch = selectedBranch;
+        }
+        const res = await evangelismApi.listGroups(params);
+        if (!cancelled) setEvangelismGroups(res.data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (!cancelled) setGroupsLoading(false);
+      }
+    };
+    loadGroups();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBranch]);
+
+  const scopeSelectOptions = useMemo(() => {
+    const clustersScoped =
+      selectedBranch === ""
+        ? clusters
+        : clusters.filter((c) => c.branch === selectedBranch);
+
+    const clusterOpts = clustersScoped.map((c) => ({
+      value: `cluster:${c.id}`,
+      label: (c.name || c.code || `Cluster ${c.id}`).trim(),
+      typeLabel: "cluster" as const,
+    }));
+
+    const groupOpts = evangelismGroups.map((g) => ({
+      value: `group:${g.id}`,
+      label: g.name || `Group ${g.id}`,
+      typeLabel: "group" as const,
+    }));
+
+    const combined = [...clusterOpts, ...groupOpts];
+    combined.sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+    );
+    return combined;
+  }, [clusters, evangelismGroups, selectedBranch]);
+
   const { rows, loading, error } = useEvangelismPeopleTally({
     year: selectedYear,
-    branch: selectedBranch || undefined,
-    cluster: selectedCluster || undefined,
+    branch: selectedBranch === "" ? undefined : selectedBranch,
+    ...scopeParams,
   });
+
   const [drilldown, setDrilldown] = useState<{
     month: number;
     metric: PeopleTallyMetric;
     label: string;
   } | null>(null);
-  const hasFilterControls = Boolean(onYearChange || onBranchChange || onClusterChange);
+
+  const hasFilterControls = Boolean(onYearChange || onBranchChange || onTallyScopeChange);
 
   const openDrilldown = (
     row: EvangelismPeopleTallyRow,
     metric: PeopleTallyMetric,
     label: string,
-    value: number
+    value: number,
   ) => {
     if (!value) {
       return;
@@ -87,9 +185,11 @@ export default function PeopleTallyReport({
   const renderDrilldownCell = (
     row: EvangelismPeopleTallyRow,
     metric: PeopleTallyMetric,
-    label: string
+    label: string,
   ) => {
-    const count = Number(row[`${metric}_count` as keyof EvangelismPeopleTallyRow] ?? 0);
+    const count = Number(
+      row[`${metric}_count` as keyof EvangelismPeopleTallyRow] ?? 0,
+    );
     if (count <= 0) {
       return <span className="text-sm text-gray-400">{count}</span>;
     }
@@ -117,8 +217,8 @@ export default function PeopleTallyReport({
       try {
         setYearsLoading(true);
         const response = await evangelismApi.getPeopleTallyYears({
-          branch: selectedBranch || undefined,
-          cluster: selectedCluster || undefined,
+          branch: selectedBranch === "" ? undefined : selectedBranch,
+          ...scopeParams,
         });
         const years = response.data.years || [];
         const fallbackYear = response.data.default_year || new Date().getFullYear();
@@ -133,7 +233,7 @@ export default function PeopleTallyReport({
     };
 
     fetchAvailableYears();
-  }, [selectedBranch, selectedCluster]);
+  }, [selectedBranch, scopeParams]);
 
   useEffect(() => {
     if (!onYearChange || yearOptions.length === 0) {
@@ -151,8 +251,8 @@ export default function PeopleTallyReport({
       }
       const response = await evangelismApi.getPeopleTallyDetail({
         year: selectedYear,
-        branch: selectedBranch || undefined,
-        cluster: selectedCluster || undefined,
+        branch: selectedBranch === "" ? undefined : selectedBranch,
+        ...scopeParams,
         month: drilldown.month,
         metric: drilldown.metric,
         page,
@@ -160,15 +260,15 @@ export default function PeopleTallyReport({
       });
       return response.data;
     },
-    [drilldown, selectedYear, selectedBranch, selectedCluster]
+    [drilldown, selectedYear, selectedBranch, scopeParams],
   );
 
   const handleResetFilters = () => {
     if (onBranchChange) {
       onBranchChange("");
     }
-    if (onClusterChange) {
-      onClusterChange("");
+    if (onTallyScopeChange) {
+      onTallyScopeChange("");
     }
     if (onYearChange) {
       const fallbackYear = yearOptions[0] || new Date().getFullYear();
@@ -199,7 +299,7 @@ export default function PeopleTallyReport({
             )}
             {onBranchChange && (
               <select
-                value={selectedBranch}
+                value={selectedBranch === "" ? "" : selectedBranch}
                 onChange={(e) => onBranchChange(Number(e.target.value) || "")}
                 className="rounded-md border border-gray-200 px-3 py-2 text-sm"
                 aria-label="Filter by branch"
@@ -212,20 +312,24 @@ export default function PeopleTallyReport({
                 ))}
               </select>
             )}
-            {onClusterChange && (
-              <select
-                value={selectedCluster}
-                onChange={(e) => onClusterChange(Number(e.target.value) || "")}
-                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-                aria-label="Filter by cluster"
-              >
-                <option value="">All clusters</option>
-                {clusters.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name || `Cluster ${item.id}`}
-                  </option>
-                ))}
-              </select>
+            {onTallyScopeChange && (
+              <div className="min-w-0">
+                <label className="sr-only">Cluster or evangelism group</label>
+                <ScalableSelect
+                  options={scopeSelectOptions}
+                  value={tallyScope}
+                  onChange={onTallyScopeChange}
+                  placeholder={
+                    groupsLoading ? "Loading groups…" : "Cluster or group..."
+                  }
+                  searchPlaceholder="Search..."
+                  loading={groupsLoading}
+                  disabled={groupsLoading && scopeSelectOptions.length === 0}
+                  emptyMessage="No clusters or groups match"
+                  virtualizeThreshold={80}
+                  className="w-full text-sm"
+                />
+              </div>
             )}
             <Button
               variant="tertiary"
@@ -259,22 +363,26 @@ export default function PeopleTallyReport({
               {
                 header: "Invited",
                 accessor: "invited_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) => renderDrilldownCell(row, "invited", "Invited"),
+                render: (_value, row) =>
+                  renderDrilldownCell(row, "invited", "Invited"),
               },
               {
                 header: "Attended",
                 accessor: "attended_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) => renderDrilldownCell(row, "attended", "Attended"),
+                render: (_value, row) =>
+                  renderDrilldownCell(row, "attended", "Attended"),
               },
               {
                 header: "NCC",
                 accessor: "students_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) => renderDrilldownCell(row, "students", "NCC"),
+                render: (_value, row) =>
+                  renderDrilldownCell(row, "students", "NCC"),
               },
               {
                 header: "Baptized",
                 accessor: "baptized_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) => renderDrilldownCell(row, "baptized", "Baptized"),
+                render: (_value, row) =>
+                  renderDrilldownCell(row, "baptized", "Baptized"),
               },
               {
                 header: "Received HG",
@@ -285,7 +393,8 @@ export default function PeopleTallyReport({
               {
                 header: "REACHED",
                 accessor: "reached_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) => renderDrilldownCell(row, "reached", "Reached"),
+                render: (_value, row) =>
+                  renderDrilldownCell(row, "reached", "Reached"),
               },
             ]}
             data={rows}
@@ -296,7 +405,9 @@ export default function PeopleTallyReport({
         isOpen={Boolean(drilldown)}
         title={drilldownTitle}
         requestKey={
-          drilldown ? `${selectedYear}-${drilldown.month}-${drilldown.metric}` : null
+          drilldown
+            ? `${selectedYear}-${drilldown.month}-${drilldown.metric}-${tallyScope || "all"}`
+            : null
         }
         onClose={() => setDrilldown(null)}
         fetchPage={fetchDrilldownPage}

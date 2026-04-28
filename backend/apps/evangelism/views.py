@@ -569,6 +569,61 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             raise ValidationError({"cluster": "Cluster not found."})
         return cluster_id
 
+    def _resolve_evangelism_group_id(self) -> Optional[int]:
+        raw = self.request.query_params.get("evangelism_group")
+        if raw in (None, ""):
+            return None
+        try:
+            eg_id = int(raw)
+        except (TypeError, ValueError):
+            raise ValidationError(
+                {"evangelism_group": "Evangelism group must be a valid integer."}
+            )
+
+        if not EvangelismGroup.objects.filter(id=eg_id).exists():
+            raise ValidationError({"evangelism_group": "Evangelism group not found."})
+        return eg_id
+
+    @staticmethod
+    def _person_ids_for_evangelism_group(evangelism_group_id: int) -> frozenset:
+        member_ids = EvangelismGroupMember.objects.filter(
+            evangelism_group_id=evangelism_group_id,
+            is_active=True,
+        ).values_list("person_id", flat=True)
+        prospect_person_ids = Prospect.objects.filter(
+            evangelism_group_id=evangelism_group_id,
+            person_id__isnull=False,
+        ).values_list("person_id", flat=True)
+        return frozenset(member_ids) | frozenset(prospect_person_ids)
+
+    def _branch_cluster_group_scope(self):
+        """Branch optional; at most one of cluster vs evangelism group scope."""
+        branch_id = self._resolve_branch_id()
+        cluster_id = self._resolve_cluster_id()
+        eg_id = self._resolve_evangelism_group_id()
+
+        if cluster_id is not None and eg_id is not None:
+            raise ValidationError(
+                {"detail": "Specify at most one of cluster or evangelism_group."}
+            )
+
+        group_person_ids = None
+        if eg_id is not None:
+            eg_obj = EvangelismGroup.objects.select_related("cluster").get(pk=eg_id)
+            if branch_id is not None and getattr(eg_obj, "cluster_id", None):
+                if eg_obj.cluster.branch_id != branch_id:
+                    raise ValidationError(
+                        {
+                            "evangelism_group": (
+                                "Evangelism group is not under the selected branch."
+                            ),
+                        },
+                    )
+
+            group_person_ids = self._person_ids_for_evangelism_group(eg_id)
+
+        return branch_id, cluster_id, eg_id, group_person_ids
+
     @staticmethod
     def _person_display_name(person: Person) -> str:
         if hasattr(person, "get_full_name"):
@@ -801,14 +856,18 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         """Monthly tally based on person attendance/baptism dates."""
         year = request.query_params.get("year")
         year_int = int(year) if year else timezone.now().year
-        branch_id = self._resolve_branch_id()
-        cluster_id = self._resolve_cluster_id()
+
+        branch_id, cluster_id, eg_id, group_person_ids = self._branch_cluster_group_scope()
 
         base_qs = Person.objects.exclude(role="ADMIN")
         if branch_id is not None:
             base_qs = base_qs.filter(branch_id=branch_id)
         if cluster_id is not None:
             base_qs = base_qs.filter(clusters__id=cluster_id)
+        elif eg_id is not None:
+            gp_ids = group_person_ids or frozenset()
+            base_qs = base_qs.filter(id__in=gp_ids) if gp_ids else base_qs.none()
+
         rows = []
         for month in range(1, 13):
             invited_count = base_qs.filter(
@@ -823,16 +882,24 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 date_first_attended__year=year_int,
                 date_first_attended__month=month,
             ).count()
-            student_ids = (
-                LessonSessionReport.objects.filter(
-                    session_date__year=year_int,
-                    session_date__month=month,
-                    **({"student__branch_id": branch_id} if branch_id is not None else {}),
-                    **({"student__clusters__id": cluster_id} if cluster_id is not None else {}),
-                )
-                .values_list("student_id", flat=True)
-                .distinct()
+
+            student_lsr = LessonSessionReport.objects.filter(
+                session_date__year=year_int,
+                session_date__month=month,
             )
+            if branch_id is not None:
+                student_lsr = student_lsr.filter(student__branch_id=branch_id)
+            if cluster_id is not None:
+                student_lsr = student_lsr.filter(student__clusters__id=cluster_id)
+            elif eg_id is not None:
+                gp_ids = group_person_ids or frozenset()
+                if gp_ids:
+                    student_lsr = student_lsr.filter(student_id__in=gp_ids)
+                else:
+                    student_lsr = student_lsr.none()
+
+            student_ids = student_lsr.values_list("student_id", flat=True).distinct()
+
             student_qs = Prospect.objects.filter(
                 person_id__in=student_ids,
                 commitment_form_signed=False,
@@ -841,7 +908,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 student_qs = student_qs.filter(person__branch_id=branch_id)
             if cluster_id is not None:
                 student_qs = student_qs.filter(person__clusters__id=cluster_id)
+            elif eg_id is not None:
+                gp_ids = group_person_ids or frozenset()
+                if gp_ids:
+                    student_qs = student_qs.filter(person_id__in=gp_ids)
+                else:
+                    student_qs = student_qs.none()
             students_count = student_qs.values_list("person_id", flat=True).distinct().count()
+
             baptized_count = base_qs.filter(
                 water_baptism_date__year=year_int,
                 water_baptism_date__month=month,
@@ -885,8 +959,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="people_tally_years")
     def people_tally_years(self, request):
-        branch_id = self._resolve_branch_id()
-        cluster_id = self._resolve_cluster_id()
+        branch_id, cluster_id, eg_id, group_person_ids = self._branch_cluster_group_scope()
         years = set()
 
         people_qs = Person.objects.exclude(role="ADMIN")
@@ -894,6 +967,9 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             people_qs = people_qs.filter(branch_id=branch_id)
         if cluster_id is not None:
             people_qs = people_qs.filter(clusters__id=cluster_id)
+        elif eg_id is not None:
+            gp_ids = group_person_ids or frozenset()
+            people_qs = people_qs.filter(id__in=gp_ids) if gp_ids else people_qs.none()
 
         years.update(
             people_qs.filter(
@@ -920,12 +996,18 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             .dates("spirit_baptism_date", "year")
         )
 
-        eligible_person_ids = Prospect.objects.filter(
-            commitment_form_signed=False,
-            person__isnull=False,
-            **({"person__branch_id": branch_id} if branch_id is not None else {}),
-            **({"person__clusters__id": cluster_id} if cluster_id is not None else {}),
-        ).values_list("person_id", flat=True)
+        eligible_q = Prospect.objects.filter(commitment_form_signed=False, person__isnull=False)
+        if branch_id is not None:
+            eligible_q = eligible_q.filter(person__branch_id=branch_id)
+        if cluster_id is not None:
+            eligible_q = eligible_q.filter(person__clusters__id=cluster_id)
+        elif eg_id is not None:
+            gp_ids = group_person_ids or frozenset()
+            eligible_q = (
+                eligible_q.filter(person_id__in=gp_ids) if gp_ids else eligible_q.none()
+            )
+
+        eligible_person_ids = eligible_q.values_list("person_id", flat=True)
 
         lesson_qs = LessonSessionReport.objects.filter(
             student_id__in=eligible_person_ids,
@@ -935,9 +1017,16 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             lesson_qs = lesson_qs.filter(student__branch_id=branch_id)
         if cluster_id is not None:
             lesson_qs = lesson_qs.filter(student__clusters__id=cluster_id)
+        elif eg_id is not None:
+            gp_ids = group_person_ids or frozenset()
+            lesson_qs = (
+                lesson_qs.filter(student_id__in=gp_ids)
+                if gp_ids
+                else lesson_qs.none()
+            )
         years.update(lesson_qs.dates("session_date", "year"))
 
-        sorted_years = sorted([year.year for year in years], reverse=True)
+        sorted_years = sorted([y.year for y in years], reverse=True)
         current_year = timezone.now().year
         return Response(
             {
@@ -951,8 +1040,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         year = request.query_params.get("year")
         month = request.query_params.get("month")
         metric = request.query_params.get("metric")
-        branch_id = self._resolve_branch_id()
-        cluster_id = self._resolve_cluster_id()
+        branch_id, cluster_id, eg_id, group_person_ids = self._branch_cluster_group_scope()
 
         valid_metrics = {
             "invited",
@@ -988,6 +1076,9 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             base_people = base_people.filter(branch_id=branch_id)
         if cluster_id is not None:
             base_people = base_people.filter(clusters__id=cluster_id)
+        elif eg_id is not None:
+            gp_ids = group_person_ids or frozenset()
+            base_people = base_people.filter(id__in=gp_ids) if gp_ids else base_people.none()
 
         if metric == "invited":
             rows = self._serialize_people_rows(
@@ -1012,37 +1103,43 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 date_attr="date_first_attended",
             )
         elif metric == "students":
+            lesson_base = LessonSessionReport.objects.filter(
+                session_date__year=year_int,
+                session_date__month=month_int,
+            )
+            if branch_id is not None:
+                lesson_base = lesson_base.filter(student__branch_id=branch_id)
+            if cluster_id is not None:
+                lesson_base = lesson_base.filter(student__clusters__id=cluster_id)
+            elif eg_id is not None:
+                gp_ids = group_person_ids or frozenset()
+                if gp_ids:
+                    lesson_base = lesson_base.filter(student_id__in=gp_ids)
+                else:
+                    lesson_base = lesson_base.none()
+
             student_dates = {
                 entry["student_id"]: entry["event_date"]
-                for entry in LessonSessionReport.objects.filter(
-                    session_date__year=year_int,
-                    session_date__month=month_int,
-                    **({"student__branch_id": branch_id} if branch_id is not None else {}),
-                    **({"student__clusters__id": cluster_id} if cluster_id is not None else {}),
-                )
-                .values("student_id")
+                for entry in lesson_base.values("student_id")
                 .annotate(event_date=Min("session_date"))
             }
-            student_ids = (
-                LessonSessionReport.objects.filter(
-                    session_date__year=year_int,
-                    session_date__month=month_int,
-                    **({"student__branch_id": branch_id} if branch_id is not None else {}),
-                    **({"student__clusters__id": cluster_id} if cluster_id is not None else {}),
-                )
-                .values_list("student_id", flat=True)
-                .distinct()
+            student_ids = lesson_base.values_list("student_id", flat=True).distinct()
+            student_qs = Prospect.objects.filter(
+                person_id__in=student_ids,
+                commitment_form_signed=False,
             )
-            student_prospects = (
-                Prospect.objects.filter(
-                    person_id__in=student_ids,
-                    commitment_form_signed=False,
-                    **({"person__branch_id": branch_id} if branch_id is not None else {}),
-                    **({"person__clusters__id": cluster_id} if cluster_id is not None else {}),
-                )
-                .select_related("person")
-                .order_by("person_id", "id")
-            )
+            if branch_id is not None:
+                student_qs = student_qs.filter(person__branch_id=branch_id)
+            if cluster_id is not None:
+                student_qs = student_qs.filter(person__clusters__id=cluster_id)
+            elif eg_id is not None:
+                gp_ids = group_person_ids or frozenset()
+                if gp_ids:
+                    student_qs = student_qs.filter(person_id__in=gp_ids)
+                else:
+                    student_qs = student_qs.none()
+
+            student_prospects = student_qs.select_related("person").order_by("person_id", "id")
             unique_prospects = []
             seen_person_ids = set()
             for prospect in student_prospects:
@@ -1731,9 +1828,16 @@ class Each1Reach1GoalViewSet(viewsets.ModelViewSet):
         filters.OrderingFilter,
     )
     filterset_fields = ("cluster", "cluster__branch", "year", "status")
-    search_fields = ("cluster__name",)
+    search_fields = ("cluster__name", "cluster__evangelism_groups__name")
     ordering_fields = ("year", "achieved_conversions")
     ordering = ("-year", "cluster__name")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Joining evangelism group names can duplicate goal rows; DISTINCT keeps pagination correct.
+        if self.request.query_params.get("search"):
+            return qs.distinct()
+        return qs
 
     def _resolve_goal_year(self):
         year = self.request.query_params.get("year")

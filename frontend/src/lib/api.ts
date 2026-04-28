@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { type AxiosResponse } from "axios";
 import { Person, Family, Journey, ModuleCoordinator } from "@/src/types/person";
 import {
   Cluster,
@@ -315,7 +315,20 @@ export const branchesApi = {
 };
 
 export const clustersApi = {
-  getAll: () => api.get<Cluster[]>("/clusters/clusters/"),
+  getAll: async (
+    params?: { page?: number; page_size?: number }
+  ): Promise<AxiosResponse<Cluster[]>> => {
+    const response = await api.get<Cluster[] | { results: Cluster[] }>(
+      "/clusters/clusters/",
+      { params },
+    );
+    const raw = response.data;
+    const rows = Array.isArray(raw) ? raw : raw.results;
+    return {
+      ...response,
+      data: rows,
+    };
+  },
   getById: (id: string | number) =>
     api.get<Cluster>(`/clusters/clusters/${id}/`),
   create: (data: ClusterInput) =>
@@ -970,11 +983,24 @@ export const sundaySchoolApi = {
 
 export const evangelismApi = {
   // Groups
-  listGroups: (params?: {
+  listGroups: async (params?: {
     cluster?: number | string;
+    branch?: number | string;
     is_active?: boolean;
     search?: string;
-  }) => api.get<EvangelismGroup[]>("/evangelism/groups/", { params }),
+    page?: number;
+    page_size?: number;
+  }): Promise<AxiosResponse<EvangelismGroup[]>> => {
+    const response = await api.get<
+      EvangelismGroup[] | { results: EvangelismGroup[] }
+    >("/evangelism/groups/", { params });
+    const raw = response.data;
+    const rows = Array.isArray(raw) ? raw : raw.results;
+    return {
+      ...response,
+      data: rows,
+    };
+  },
   getGroup: (id: number | string) =>
     api.get<EvangelismGroup>(`/evangelism/groups/${id}/`),
   createGroup: (data: Partial<EvangelismGroup>) =>
@@ -1073,6 +1099,7 @@ export const evangelismApi = {
     year?: number;
     branch?: number | string;
     cluster?: number | string;
+    evangelism_group?: number | string;
   }) =>
     api.get<EvangelismPeopleTallyRow[]>(
       "/evangelism/weekly-reports/people_tally/",
@@ -1081,6 +1108,7 @@ export const evangelismApi = {
   getPeopleTallyYears: (params?: {
     branch?: number | string;
     cluster?: number | string;
+    evangelism_group?: number | string;
   }) =>
     api.get<{ years: number[]; default_year: number }>(
       "/evangelism/weekly-reports/people_tally_years/",
@@ -1090,6 +1118,7 @@ export const evangelismApi = {
     year?: number;
     branch?: number | string;
     cluster?: number | string;
+    evangelism_group?: number | string;
     month: number;
     metric: "invited" | "attended" | "students" | "baptized" | "received_hg" | "reached";
     page?: number;

@@ -1,9 +1,12 @@
 "use client";
 
+import { useCallback, useMemo, useState } from "react";
 import Card from "@/src/components/ui/Card";
 import Table from "@/src/components/ui/Table";
-import { EvangelismTallyRow } from "@/src/types/evangelism";
+import { EvangelismTallyDrilldownMetric, EvangelismTallyRow } from "@/src/types/evangelism";
 import { useEvangelismTally } from "@/src/hooks/useEvangelism";
+import { evangelismApi } from "@/src/lib/api";
+import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 
 interface TallyReportProps {
   year?: number;
@@ -11,10 +14,19 @@ interface TallyReportProps {
 }
 
 export default function TallyReport({ year, clusterId }: TallyReportProps) {
+  const selectedYear = year || new Date().getFullYear();
   const { rows, loading, error } = useEvangelismTally({
-    year: year || new Date().getFullYear(),
+    year: selectedYear,
     cluster: clusterId,
   });
+  const [drilldown, setDrilldown] = useState<{
+    year: number;
+    weekNumber: number;
+    clusterId: number | string | null;
+    clusterName: string;
+    metric: Extract<EvangelismTallyDrilldownMetric, "members" | "visitors">;
+    label: string;
+  } | null>(null);
 
   const getGatheringTypeColor = (type?: string) => {
     switch (type) {
@@ -29,13 +41,71 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-8 text-gray-500">Loading tally...</div>;
-  }
+  const openWeeklyDrilldown = (
+    row: EvangelismTallyRow,
+    metric: Extract<EvangelismTallyDrilldownMetric, "members" | "visitors">,
+    label: string,
+    value: number
+  ) => {
+    if (!value) {
+      return;
+    }
+    setDrilldown({
+      year: row.year,
+      weekNumber: row.week_number,
+      clusterId: row.cluster_id ?? null,
+      clusterName: row.cluster_name || "Unassigned",
+      metric,
+      label,
+    });
+  };
 
-  if (error) {
-    return <div className="text-center py-8 text-red-500">Error: {error}</div>;
-  }
+  const renderWeeklyClickableCell = (
+    row: EvangelismTallyRow,
+    metric: Extract<EvangelismTallyDrilldownMetric, "members" | "visitors">,
+    label: string
+  ) => {
+    const count = Number(
+      metric === "members" ? row.members_count || 0 : row.visitors_count || 0
+    );
+    if (count <= 0) {
+      return <span className="text-sm text-gray-400">{count}</span>;
+    }
+    return (
+      <button
+        type="button"
+        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        onClick={() => openWeeklyDrilldown(row, metric, label, count)}
+      >
+        {count}
+      </button>
+    );
+  };
+
+  const drilldownTitle = useMemo(() => {
+    if (!drilldown) {
+      return "Weekly Tally Records";
+    }
+    return `${drilldown.label} - ${drilldown.clusterName} (${drilldown.year} W${drilldown.weekNumber})`;
+  }, [drilldown]);
+
+  const fetchDrilldownPage = useCallback(
+    async (page: number) => {
+      if (!drilldown) {
+        return { count: 0, next: null, previous: null, results: [] };
+      }
+      const response = await evangelismApi.getWeeklyTallyPeopleDetail({
+        year: drilldown.year,
+        week_number: drilldown.weekNumber,
+        cluster_id: drilldown.clusterId ?? "unassigned",
+        metric: drilldown.metric,
+        page,
+        page_size: 20,
+      });
+      return response.data;
+    },
+    [drilldown]
+  );
 
   return (
     <Card>
@@ -43,7 +113,11 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Weekly Tally
         </h3>
-        {rows.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Loading tally...</div>
+        ) : error ? (
+          <div className="text-center py-8 text-red-500">Error: {error}</div>
+        ) : rows.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             No tally data available
           </div>
@@ -91,16 +165,14 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
               {
                 header: "Members",
                 accessor: "members_count" as keyof EvangelismTallyRow,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">{value || 0}</span>
-                ),
+                render: (_value, row) =>
+                  renderWeeklyClickableCell(row, "members", "Members"),
               },
               {
                 header: "Visitors",
                 accessor: "visitors_count" as keyof EvangelismTallyRow,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">{value || 0}</span>
-                ),
+                render: (_value, row) =>
+                  renderWeeklyClickableCell(row, "visitors", "Visitors"),
               },
               {
                 header: "New Visitors",
@@ -130,6 +202,17 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
           />
         )}
       </div>
+      <TallyDrilldownModal
+        isOpen={Boolean(drilldown)}
+        title={drilldownTitle}
+        requestKey={
+          drilldown
+            ? `${drilldown.year}-${drilldown.weekNumber}-${drilldown.clusterId}-${drilldown.metric}`
+            : null
+        }
+        onClose={() => setDrilldown(null)}
+        fetchPage={fetchDrilldownPage}
+      />
     </Card>
   );
 }

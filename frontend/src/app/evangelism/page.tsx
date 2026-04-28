@@ -218,6 +218,8 @@ export default function EvangelismPage() {
     "groups" | "each1reach1" | "tally" | "reports" | "bible_sharers"
   >("groups");
   const [tallyYear, setTallyYear] = useState(currentYear);
+  const [tallyBranch, setTallyBranch] = useState<number | "">("");
+  const [tallyCluster, setTallyCluster] = useState<number | "">("");
 
   const roleLabels: Record<ClassMemberRole, string> = {
     LEADER: "Leader",
@@ -752,7 +754,16 @@ export default function EvangelismPage() {
         {/* Tally Tab */}
         {activeTab === "tally" && (
           <div className="space-y-6">
-            <PeopleTallyReport year={tallyYear} onYearChange={setTallyYear} />
+            <PeopleTallyReport
+              year={tallyYear}
+              onYearChange={setTallyYear}
+              branch={tallyBranch}
+              onBranchChange={setTallyBranch}
+              branches={branches}
+              cluster={tallyCluster}
+              onClusterChange={setTallyCluster}
+              clusters={clusters}
+            />
           </div>
         )}
 

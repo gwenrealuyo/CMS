@@ -301,6 +301,31 @@ class EvangelismPeopleTallySerializer(serializers.Serializer):
     reached_count = serializers.IntegerField()
 
 
+class EvangelismTallyDrilldownSerializer(serializers.Serializer):
+    entity_type = serializers.ChoiceField(choices=["person", "prospect"])
+    id = serializers.IntegerField()
+    display_name = serializers.CharField()
+    first_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    middle_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    last_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    suffix = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    nickname = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    username = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    member_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    role = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    pipeline_stage = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    person_id = serializers.IntegerField(required=False, allow_null=True)
+    event_date = serializers.DateField(required=False, allow_null=True)
+    date_first_invited = serializers.DateField(required=False, allow_null=True)
+    date_first_attended = serializers.DateField(required=False, allow_null=True)
+    lessons_finished_at = serializers.DateField(required=False, allow_null=True)
+    water_baptism_date = serializers.DateField(required=False, allow_null=True)
+    spirit_baptism_date = serializers.DateField(required=False, allow_null=True)
+    reached_date = serializers.DateField(required=False, allow_null=True)
+    metric = serializers.CharField()
+
+
 class ProspectSerializer(serializers.ModelSerializer):
     invited_by = PersonSummarySerializer(read_only=True)
     invited_by_id = serializers.PrimaryKeyRelatedField(

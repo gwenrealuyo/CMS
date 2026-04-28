@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from django.db.models import Prefetch, Q
+from django.db.models import Min, Prefetch, Q
 from django.db.models.functions import Greatest
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -13,7 +13,7 @@ from rest_framework.response import Response
 
 from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event
-from apps.people.models import Person, Journey
+from apps.people.models import Branch, Person, Journey
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.lessons.models import LessonSessionReport
 from apps.authentication.permissions import (
@@ -46,6 +46,7 @@ from .serializers import (
     EvangelismWeeklyReportSerializer,
     EvangelismTallySerializer,
     EvangelismPeopleTallySerializer,
+    EvangelismTallyDrilldownSerializer,
     ProspectSerializer,
     FollowUpTaskSerializer,
     DropOffSerializer,
@@ -518,6 +519,11 @@ class EvangelismSessionViewSet(viewsets.ModelViewSet):
 
 
 class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
+    class DrilldownPagination(PageNumberPagination):
+        page_size = 20
+        page_size_query_param = "page_size"
+        max_page_size = 100
+
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = (
         EvangelismWeeklyReport.objects.select_related(
@@ -536,6 +542,155 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     search_fields = ("topic", "notes", "evangelism_group__name")
     ordering_fields = ("year", "week_number", "meeting_date")
     ordering = ("-year", "-week_number")
+
+    def _resolve_branch_id(self) -> Optional[int]:
+        branch = self.request.query_params.get("branch")
+        if branch in (None, ""):
+            return None
+        try:
+            branch_id = int(branch)
+        except (TypeError, ValueError):
+            raise ValidationError({"branch": "Branch must be a valid integer."})
+
+        if not Branch.objects.filter(id=branch_id).exists():
+            raise ValidationError({"branch": "Branch not found."})
+        return branch_id
+
+    def _resolve_cluster_id(self) -> Optional[int]:
+        cluster = self.request.query_params.get("cluster")
+        if cluster in (None, ""):
+            return None
+        try:
+            cluster_id = int(cluster)
+        except (TypeError, ValueError):
+            raise ValidationError({"cluster": "Cluster must be a valid integer."})
+
+        if not Cluster.objects.filter(id=cluster_id).exists():
+            raise ValidationError({"cluster": "Cluster not found."})
+        return cluster_id
+
+    @staticmethod
+    def _person_display_name(person: Person) -> str:
+        if hasattr(person, "get_full_name"):
+            full_name = person.get_full_name()
+            if full_name:
+                return full_name
+        fallback = f"{person.first_name or ''} {person.last_name or ''}".strip()
+        return fallback or person.username
+
+    def _serialize_people_rows(
+        self,
+        people_qs,
+        metric: str,
+        date_attr: Optional[str] = None,
+        date_map: Optional[dict] = None,
+    ):
+        def get_reached_date(person):
+            if hasattr(person, "reached_date") and getattr(person, "reached_date", None):
+                return person.reached_date
+            if person.water_baptism_date and person.spirit_baptism_date:
+                return max(person.water_baptism_date, person.spirit_baptism_date)
+            return None
+
+        rows = []
+        for person in people_qs:
+            event_date = None
+            if date_map is not None:
+                event_date = date_map.get(person.id)
+            elif date_attr:
+                event_date = getattr(person, date_attr, None)
+            rows.append(
+                {
+                    "entity_type": "person",
+                    "id": person.id,
+                    "display_name": self._person_display_name(person),
+                    "first_name": person.first_name,
+                    "middle_name": person.middle_name,
+                    "last_name": person.last_name,
+                    "suffix": person.suffix,
+                    "nickname": person.nickname,
+                    "username": person.username,
+                    "member_id": person.member_id,
+                    "role": person.role,
+                    "status": person.status,
+                    "pipeline_stage": None,
+                    "person_id": person.id,
+                    "event_date": event_date,
+                    "date_first_invited": person.date_first_invited,
+                    "date_first_attended": person.date_first_attended,
+                    "lessons_finished_at": person.lessons_finished_at,
+                    "water_baptism_date": person.water_baptism_date,
+                    "spirit_baptism_date": person.spirit_baptism_date,
+                    "reached_date": get_reached_date(person),
+                    "metric": metric,
+                }
+            )
+        return rows
+
+    def _serialize_prospect_rows(
+        self,
+        prospects_qs,
+        metric: str,
+        date_map_by_person_id: Optional[dict] = None,
+    ):
+        def get_reached_date(person):
+            if not person:
+                return None
+            if person.water_baptism_date and person.spirit_baptism_date:
+                return max(person.water_baptism_date, person.spirit_baptism_date)
+            return None
+
+        return [
+            {
+                "entity_type": "prospect",
+                "id": prospect.id,
+                "display_name": (
+                    self._person_display_name(prospect.person)
+                    if prospect.person
+                    else prospect.name
+                ),
+                "first_name": prospect.person.first_name if prospect.person else None,
+                "middle_name": prospect.person.middle_name if prospect.person else None,
+                "last_name": prospect.person.last_name if prospect.person else None,
+                "suffix": prospect.person.suffix if prospect.person else None,
+                "nickname": prospect.person.nickname if prospect.person else None,
+                "username": prospect.person.username if prospect.person else None,
+                "member_id": prospect.person.member_id if prospect.person else None,
+                "role": prospect.person.role if prospect.person else None,
+                "status": prospect.person.status if prospect.person else None,
+                "pipeline_stage": prospect.pipeline_stage,
+                "person_id": prospect.person.id if prospect.person else None,
+                "event_date": (
+                    date_map_by_person_id.get(prospect.person_id)
+                    if date_map_by_person_id and prospect.person_id
+                    else None
+                ),
+                "date_first_invited": (
+                    prospect.person.date_first_invited if prospect.person else None
+                ),
+                "date_first_attended": (
+                    prospect.person.date_first_attended if prospect.person else None
+                ),
+                "lessons_finished_at": (
+                    prospect.person.lessons_finished_at if prospect.person else None
+                ),
+                "water_baptism_date": (
+                    prospect.person.water_baptism_date if prospect.person else None
+                ),
+                "spirit_baptism_date": (
+                    prospect.person.spirit_baptism_date if prospect.person else None
+                ),
+                "reached_date": get_reached_date(prospect.person),
+                "metric": metric,
+            }
+            for prospect in prospects_qs
+        ]
+
+    def _paginated_drilldown_response(self, rows):
+        paginator = self.DrilldownPagination()
+        page = paginator.paginate_queryset(rows, self.request, view=self)
+        serializer = EvangelismTallyDrilldownSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     @action(detail=False, methods=["get"])
     def tally(self, request):
@@ -646,8 +801,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         """Monthly tally based on person attendance/baptism dates."""
         year = request.query_params.get("year")
         year_int = int(year) if year else timezone.now().year
+        branch_id = self._resolve_branch_id()
+        cluster_id = self._resolve_cluster_id()
 
         base_qs = Person.objects.exclude(role="ADMIN")
+        if branch_id is not None:
+            base_qs = base_qs.filter(branch_id=branch_id)
+        if cluster_id is not None:
+            base_qs = base_qs.filter(clusters__id=cluster_id)
         rows = []
         for month in range(1, 13):
             invited_count = base_qs.filter(
@@ -666,19 +827,21 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 LessonSessionReport.objects.filter(
                     session_date__year=year_int,
                     session_date__month=month,
+                    **({"student__branch_id": branch_id} if branch_id is not None else {}),
+                    **({"student__clusters__id": cluster_id} if cluster_id is not None else {}),
                 )
                 .values_list("student_id", flat=True)
                 .distinct()
             )
-            students_count = (
-                Prospect.objects.filter(
-                    person_id__in=student_ids,
-                    commitment_form_signed=False,
-                )
-                .values_list("person_id", flat=True)
-                .distinct()
-                .count()
+            student_qs = Prospect.objects.filter(
+                person_id__in=student_ids,
+                commitment_form_signed=False,
             )
+            if branch_id is not None:
+                student_qs = student_qs.filter(person__branch_id=branch_id)
+            if cluster_id is not None:
+                student_qs = student_qs.filter(person__clusters__id=cluster_id)
+            students_count = student_qs.values_list("person_id", flat=True).distinct().count()
             baptized_count = base_qs.filter(
                 water_baptism_date__year=year_int,
                 water_baptism_date__month=month,
@@ -719,6 +882,306 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
         serializer = EvangelismPeopleTallySerializer(rows, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="people_tally_years")
+    def people_tally_years(self, request):
+        branch_id = self._resolve_branch_id()
+        cluster_id = self._resolve_cluster_id()
+        years = set()
+
+        people_qs = Person.objects.exclude(role="ADMIN")
+        if branch_id is not None:
+            people_qs = people_qs.filter(branch_id=branch_id)
+        if cluster_id is not None:
+            people_qs = people_qs.filter(clusters__id=cluster_id)
+
+        years.update(
+            people_qs.filter(
+                role="VISITOR",
+                status="INVITED",
+                date_joined__isnull=False,
+            )
+            .dates("date_joined", "year")
+        )
+        years.update(
+            people_qs.filter(
+                role="VISITOR",
+                status="ATTENDED",
+                date_first_attended__isnull=False,
+            )
+            .dates("date_first_attended", "year")
+        )
+        years.update(
+            people_qs.filter(water_baptism_date__isnull=False)
+            .dates("water_baptism_date", "year")
+        )
+        years.update(
+            people_qs.filter(spirit_baptism_date__isnull=False)
+            .dates("spirit_baptism_date", "year")
+        )
+
+        eligible_person_ids = Prospect.objects.filter(
+            commitment_form_signed=False,
+            person__isnull=False,
+            **({"person__branch_id": branch_id} if branch_id is not None else {}),
+            **({"person__clusters__id": cluster_id} if cluster_id is not None else {}),
+        ).values_list("person_id", flat=True)
+
+        lesson_qs = LessonSessionReport.objects.filter(
+            student_id__in=eligible_person_ids,
+            session_date__isnull=False,
+        )
+        if branch_id is not None:
+            lesson_qs = lesson_qs.filter(student__branch_id=branch_id)
+        if cluster_id is not None:
+            lesson_qs = lesson_qs.filter(student__clusters__id=cluster_id)
+        years.update(lesson_qs.dates("session_date", "year"))
+
+        sorted_years = sorted([year.year for year in years], reverse=True)
+        current_year = timezone.now().year
+        return Response(
+            {
+                "years": sorted_years,
+                "default_year": sorted_years[0] if sorted_years else current_year,
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="people_tally_detail")
+    def people_tally_detail(self, request):
+        year = request.query_params.get("year")
+        month = request.query_params.get("month")
+        metric = request.query_params.get("metric")
+        branch_id = self._resolve_branch_id()
+        cluster_id = self._resolve_cluster_id()
+
+        valid_metrics = {
+            "invited",
+            "attended",
+            "students",
+            "baptized",
+            "received_hg",
+            "reached",
+        }
+        if metric not in valid_metrics:
+            return Response(
+                {"detail": "metric must be one of invited, attended, students, baptized, received_hg, reached."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            year_int = int(year) if year else timezone.now().year
+            month_int = int(month)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "year and month must be valid integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if month_int < 1 or month_int > 12:
+            return Response(
+                {"detail": "month must be between 1 and 12."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        base_people = Person.objects.exclude(role="ADMIN")
+        if branch_id is not None:
+            base_people = base_people.filter(branch_id=branch_id)
+        if cluster_id is not None:
+            base_people = base_people.filter(clusters__id=cluster_id)
+
+        if metric == "invited":
+            rows = self._serialize_people_rows(
+                base_people.filter(
+                    role="VISITOR",
+                    status="INVITED",
+                    date_joined__year=year_int,
+                    date_joined__month=month_int,
+                ).order_by("first_name", "last_name", "username"),
+                metric,
+                date_attr="date_joined",
+            )
+        elif metric == "attended":
+            rows = self._serialize_people_rows(
+                base_people.filter(
+                    role="VISITOR",
+                    status="ATTENDED",
+                    date_first_attended__year=year_int,
+                    date_first_attended__month=month_int,
+                ).order_by("first_name", "last_name", "username"),
+                metric,
+                date_attr="date_first_attended",
+            )
+        elif metric == "students":
+            student_dates = {
+                entry["student_id"]: entry["event_date"]
+                for entry in LessonSessionReport.objects.filter(
+                    session_date__year=year_int,
+                    session_date__month=month_int,
+                    **({"student__branch_id": branch_id} if branch_id is not None else {}),
+                    **({"student__clusters__id": cluster_id} if cluster_id is not None else {}),
+                )
+                .values("student_id")
+                .annotate(event_date=Min("session_date"))
+            }
+            student_ids = (
+                LessonSessionReport.objects.filter(
+                    session_date__year=year_int,
+                    session_date__month=month_int,
+                    **({"student__branch_id": branch_id} if branch_id is not None else {}),
+                    **({"student__clusters__id": cluster_id} if cluster_id is not None else {}),
+                )
+                .values_list("student_id", flat=True)
+                .distinct()
+            )
+            student_prospects = (
+                Prospect.objects.filter(
+                    person_id__in=student_ids,
+                    commitment_form_signed=False,
+                    **({"person__branch_id": branch_id} if branch_id is not None else {}),
+                    **({"person__clusters__id": cluster_id} if cluster_id is not None else {}),
+                )
+                .select_related("person")
+                .order_by("person_id", "id")
+            )
+            unique_prospects = []
+            seen_person_ids = set()
+            for prospect in student_prospects:
+                if not prospect.person_id or prospect.person_id in seen_person_ids:
+                    continue
+                seen_person_ids.add(prospect.person_id)
+                unique_prospects.append(prospect)
+            rows = self._serialize_prospect_rows(
+                unique_prospects, metric, date_map_by_person_id=student_dates
+            )
+        elif metric == "baptized":
+            rows = self._serialize_people_rows(
+                base_people.filter(
+                    water_baptism_date__year=year_int,
+                    water_baptism_date__month=month_int,
+                ).order_by("first_name", "last_name", "username"),
+                metric,
+                date_attr="water_baptism_date",
+            )
+        elif metric == "received_hg":
+            rows = self._serialize_people_rows(
+                base_people.filter(
+                    spirit_baptism_date__year=year_int,
+                    spirit_baptism_date__month=month_int,
+                ).order_by("first_name", "last_name", "username"),
+                metric,
+                date_attr="spirit_baptism_date",
+            )
+        else:
+            rows = self._serialize_people_rows(
+                base_people.filter(
+                    water_baptism_date__isnull=False,
+                    spirit_baptism_date__isnull=False,
+                )
+                .annotate(
+                    reached_date=Greatest(
+                        "water_baptism_date",
+                        "spirit_baptism_date",
+                    )
+                )
+                .filter(
+                    reached_date__year=year_int,
+                    reached_date__month=month_int,
+                )
+                .order_by("first_name", "last_name", "username"),
+                metric,
+                date_attr="reached_date",
+            )
+
+        return self._paginated_drilldown_response(rows)
+
+    @action(detail=False, methods=["get"], url_path="tally_people_detail")
+    def tally_people_detail(self, request):
+        year = request.query_params.get("year")
+        week_number = request.query_params.get("week_number")
+        metric = request.query_params.get("metric")
+        cluster_id = request.query_params.get("cluster_id")
+
+        if metric not in {"members", "visitors"}:
+            return Response(
+                {"detail": "metric must be one of members, visitors."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if cluster_id is None:
+            return Response(
+                {"detail": "cluster_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            year_int = int(year) if year else timezone.now().year
+            week_int = int(week_number)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "year and week_number must be valid integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        evangelism_qs = EvangelismWeeklyReport.objects.select_related("evangelism_group").filter(
+            year=year_int,
+            week_number=week_int,
+        )
+        cluster_qs = ClusterWeeklyReport.objects.filter(
+            year=year_int,
+            week_number=week_int,
+        )
+
+        if str(cluster_id).lower() in {"null", "none", "unassigned"}:
+            evangelism_qs = evangelism_qs.filter(evangelism_group__cluster__isnull=True)
+            cluster_qs = cluster_qs.none()
+        else:
+            try:
+                cluster = Cluster.objects.get(id=cluster_id)
+            except Cluster.DoesNotExist:
+                return Response(
+                    {"detail": "Cluster not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            evangelism_qs = evangelism_qs.filter(evangelism_group__cluster=cluster)
+            cluster_qs = cluster_qs.filter(cluster=cluster)
+
+        person_ids = set()
+        person_dates = {}
+
+        def collect_ids_and_dates(ids, meeting_date):
+            for person_id in ids:
+                person_ids.add(person_id)
+                existing_date = person_dates.get(person_id)
+                if existing_date is None or meeting_date < existing_date:
+                    person_dates[person_id] = meeting_date
+
+        for report in evangelism_qs:
+            if metric == "members":
+                collect_ids_and_dates(
+                    report.members_attended.values_list("id", flat=True),
+                    report.meeting_date,
+                )
+            else:
+                collect_ids_and_dates(
+                    report.visitors_attended.values_list("id", flat=True),
+                    report.meeting_date,
+                )
+        for report in cluster_qs:
+            if metric == "members":
+                collect_ids_and_dates(
+                    report.members_attended.values_list("id", flat=True),
+                    report.meeting_date,
+                )
+            else:
+                collect_ids_and_dates(
+                    report.visitors_attended.values_list("id", flat=True),
+                    report.meeting_date,
+                )
+
+        people = Person.objects.exclude(role="ADMIN").filter(id__in=person_ids).order_by(
+            "first_name", "last_name", "username"
+        )
+        rows = self._serialize_people_rows(people, metric, date_map=person_dates)
+        return self._paginated_drilldown_response(rows)
 
 
 class ProspectViewSet(viewsets.ModelViewSet):

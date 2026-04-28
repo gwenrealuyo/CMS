@@ -46,6 +46,7 @@ import {
   EvangelismSession,
   EvangelismWeeklyReport,
   EvangelismPeopleTallyRow,
+  EvangelismTallyDrilldownRow,
   EvangelismTallyRow,
   Prospect,
   FollowUpTask,
@@ -1068,9 +1069,46 @@ export const evangelismApi = {
     api.get<EvangelismTallyRow[]>("/evangelism/weekly-reports/tally/", {
       params,
     }),
-  getPeopleTally: (params?: { year?: number }) =>
+  getPeopleTally: (params?: {
+    year?: number;
+    branch?: number | string;
+    cluster?: number | string;
+  }) =>
     api.get<EvangelismPeopleTallyRow[]>(
       "/evangelism/weekly-reports/people_tally/",
+      { params }
+    ),
+  getPeopleTallyYears: (params?: {
+    branch?: number | string;
+    cluster?: number | string;
+  }) =>
+    api.get<{ years: number[]; default_year: number }>(
+      "/evangelism/weekly-reports/people_tally_years/",
+      { params }
+    ),
+  getPeopleTallyDetail: (params: {
+    year?: number;
+    branch?: number | string;
+    cluster?: number | string;
+    month: number;
+    metric: "invited" | "attended" | "students" | "baptized" | "received_hg" | "reached";
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<EvangelismTallyDrilldownRow>>(
+      "/evangelism/weekly-reports/people_tally_detail/",
+      { params }
+    ),
+  getWeeklyTallyPeopleDetail: (params: {
+    year?: number;
+    week_number: number;
+    cluster_id: number | string;
+    metric: "members" | "visitors";
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<EvangelismTallyDrilldownRow>>(
+      "/evangelism/weekly-reports/tally_people_detail/",
       { params }
     ),
 

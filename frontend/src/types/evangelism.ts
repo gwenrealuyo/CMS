@@ -100,6 +100,41 @@ export interface EvangelismPeopleTallyRow {
   reached_count: number;
 }
 
+export type EvangelismTallyDrilldownMetric =
+  | "invited"
+  | "attended"
+  | "students"
+  | "baptized"
+  | "received_hg"
+  | "reached"
+  | "members"
+  | "visitors";
+
+export interface EvangelismTallyDrilldownRow {
+  entity_type: "person" | "prospect";
+  id: number;
+  display_name: string;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
+  suffix?: string | null;
+  nickname?: string | null;
+  username?: string | null;
+  member_id?: string | null;
+  role?: string | null;
+  status?: string | null;
+  pipeline_stage?: string | null;
+  person_id?: number | null;
+  event_date?: string | null;
+  date_first_invited?: string | null;
+  date_first_attended?: string | null;
+  lessons_finished_at?: string | null;
+  water_baptism_date?: string | null;
+  spirit_baptism_date?: string | null;
+  reached_date?: string | null;
+  metric: EvangelismTallyDrilldownMetric;
+}
+
 export type PipelineStage = "INVITED" | "ATTENDED" | "BAPTIZED" | "RECEIVED_HG" | "CONVERTED";
 export type FastTrackReason = "NONE" | "GOING_ABROAD" | "HEALTH_ISSUES" | "OTHER";
 

@@ -932,8 +932,10 @@ export const sundaySchoolApi = {
     api.get<any[]>(`/sunday-school/classes/${classId}/attendance/`, {
       params,
     }),
-  summary: () =>
-    api.get<SundaySchoolSummary>("/sunday-school/classes/summary/"),
+  summary: (params?: { year?: number; month?: number }) =>
+    api.get<SundaySchoolSummary>("/sunday-school/classes/summary/", {
+      params,
+    }),
   unenrolledByCategory: (params?: { status?: string; role?: string }) =>
     api.get<UnenrolledByCategory[]>(
       "/sunday-school/classes/unenrolled_by_category/",

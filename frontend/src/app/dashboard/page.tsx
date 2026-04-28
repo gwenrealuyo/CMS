@@ -7,7 +7,15 @@ import Card from "@/src/components/ui/Card";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Button from "@/src/components/ui/Button";
-import { clustersApi, clusterReportsApi, eventsApi, financeApi, lessonsApi } from "@/src/lib/api";
+import {
+  attendanceApi,
+  clustersApi,
+  clusterReportsApi,
+  evangelismApi,
+  eventsApi,
+  lessonsApi,
+  sundaySchoolApi,
+} from "@/src/lib/api";
 import {
   LessonProgressSummary,
   LessonProgressSummaryByLesson,
@@ -20,10 +28,11 @@ import RecentActivity, {
 } from "@/src/components/dashboard/RecentActivity";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { Event } from "@/src/types/event";
-import { Donation, Offering } from "@/src/types/finance";
+import { EvangelismPeopleTallyRow } from "@/src/types/evangelism";
+import { SundaySchoolSummary } from "@/src/types/sundaySchool";
 import Modal from "@/src/components/ui/Modal";
 import ClusterWeeklyReportForm from "@/src/components/reports/ClusterWeeklyReportForm";
-import { Cluster } from "@/src/types/cluster";
+import { Cluster, ClusterWeeklyReport } from "@/src/types/cluster";
 
 type UpcomingEvent = {
   id: string;
@@ -39,9 +48,6 @@ type EventActivity = {
   date: Date;
 };
 
-const formatCurrency = (value: number) =>
-  `₱${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-
 const formatEventSchedule = (date: Date) =>
   date.toLocaleString(undefined, {
     month: "short",
@@ -51,10 +57,56 @@ const formatEventSchedule = (date: Date) =>
     minute: "2-digit",
   });
 
-const formatMonthLabel = (date: Date) =>
-  date.toLocaleString(undefined, { month: "long", year: "numeric" });
-
 const formatApiDate = (date: Date) => date.toISOString().slice(0, 10);
+
+/** Sunday Service occurrences from API events that fall within [monthStart, throughDate] (month-to-date). */
+function collectSundayServiceOccurrencesThroughDate(
+  events: Event[],
+  monthStart: Date,
+  throughDate: Date
+): { eventId: string; occurrenceDate: Date }[] {
+  const monthEnd = new Date(
+    throughDate.getFullYear(),
+    throughDate.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999
+  );
+  const windowEnd = new Date(
+    Math.min(monthEnd.getTime(), throughDate.getTime())
+  );
+  const out: { eventId: string; occurrenceDate: Date }[] = [];
+
+  for (const event of events) {
+    if (event.type !== "SUNDAY_SERVICE") continue;
+    if (event.occurrences && event.occurrences.length > 0) {
+      for (const occ of event.occurrences) {
+        const d = new Date(occ.start_date);
+        if (
+          d >= monthStart &&
+          d <= windowEnd &&
+          !Number.isNaN(d.getTime())
+        ) {
+          out.push({ eventId: String(event.id), occurrenceDate: d });
+        }
+      }
+    } else {
+      const d = new Date(event.start_date);
+      if (
+        d >= monthStart &&
+        d <= windowEnd &&
+        !Number.isNaN(d.getTime())
+      ) {
+        out.push({ eventId: String(event.id), occurrenceDate: d });
+      }
+    }
+  }
+  return out.sort(
+    (a, b) => a.occurrenceDate.getTime() - b.occurrenceDate.getTime()
+  );
+}
 
 const formatRelativeTime = (date: Date) => {
   const now = new Date();
@@ -82,6 +134,149 @@ const formatRelativeTime = (date: Date) => {
   }).format(diffDays, "day");
 };
 
+type TrendDirection = "up" | "down" | "flat";
+
+type MetricTrend = {
+  direction: TrendDirection;
+  label: string;
+};
+
+// TODO: Remove dummy fallback when Sunday Service MTD attendance is consistently sourced from events — placeholder used when no eligible occurrences exist or the Events API fails.
+const DUMMY_SUNDAY_SERVICE_MTD_AVG = 48;
+
+/** Previous calendar month (handles January → December). */
+function getPriorCalendarMonth(now: Date): { year: number; month: number } {
+  const d = new Date(now.getFullYear(), now.getMonth() - 1, 15);
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}
+
+/** Same calendar day mapped into prior month, capped to that month's last day (MTD parity). */
+function getPriorMonthMtdThroughDate(now: Date): Date {
+  const dom = now.getDate();
+  const lastPrev = new Date(now.getFullYear(), now.getMonth(), 0);
+  const cap = Math.min(dom, lastPrev.getDate());
+  return new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    cap,
+    23,
+    59,
+    59,
+    999
+  );
+}
+
+async function computeSundayServiceMtdAverageHeadcount(
+  eventsList: Event[],
+  monthStart: Date,
+  throughDate: Date
+): Promise<number | null> {
+  const occs = collectSundayServiceOccurrencesThroughDate(
+    eventsList,
+    monthStart,
+    throughDate
+  );
+  if (occs.length === 0) return null;
+  const counts: number[] = [];
+  for (const o of occs) {
+    try {
+      const att = await attendanceApi.byEvent(o.eventId, {
+        occurrence_date: formatApiDate(o.occurrenceDate),
+      });
+      const list = att.data ?? [];
+      counts.push(
+        list.filter((rec) => rec.status === "PRESENT").length
+      );
+    } catch {
+      counts.push(0);
+    }
+  }
+  const sum = counts.reduce((a, b) => a + b, 0);
+  return counts.length
+    ? Math.round((sum / counts.length) * 10) / 10
+    : null;
+}
+
+function countMomTrend(
+  current: number | null | undefined,
+  previous: number | null | undefined,
+  loading: boolean
+): { direction: TrendDirection; label: string } | undefined {
+  if (loading) return undefined;
+  const cur = current ?? 0;
+  if (previous === null || previous === undefined) {
+    return { direction: "flat", label: "No data last month" };
+  }
+  if (cur === previous) {
+    return { direction: "flat", label: "Same as last month" };
+  }
+  const delta = cur - previous;
+  return delta > 0
+    ? { direction: "up", label: `+${delta} from last month` }
+    : { direction: "down", label: `${delta} from last month` };
+}
+
+function percentPointsMomTrend(
+  current: number | null | undefined,
+  previous: number | null | undefined,
+  loading: boolean
+): { direction: TrendDirection; label: string } | undefined {
+  if (loading) return undefined;
+  if (current === null || current === undefined) {
+    return { direction: "flat", label: "No data this month" };
+  }
+  if (previous === null || previous === undefined) {
+    return { direction: "flat", label: "No data last month" };
+  }
+  const delta = Math.round((current - previous) * 10) / 10;
+  if (delta === 0) {
+    return { direction: "flat", label: "Same as last month" };
+  }
+  return delta > 0
+    ? { direction: "up", label: `+${delta} pts from last month` }
+    : { direction: "down", label: `${delta} pts from last month` };
+}
+
+function avgAttendeesMomTrend(
+  current: number | null,
+  previous: number | null,
+  loading: boolean,
+  placeholder: boolean
+): { direction: TrendDirection; label: string } | undefined {
+  if (loading || placeholder) return undefined;
+  if (current === null || previous === null) {
+    return { direction: "flat", label: "Insufficient data to compare" };
+  }
+  const delta = Math.round((current - previous) * 10) / 10;
+  if (delta === 0) {
+    return {
+      direction: "flat",
+      label: "Same avg. as last month (MTD)",
+    };
+  }
+  return delta > 0
+    ? {
+        direction: "up",
+        label: `+${delta} avg attendees vs last month (MTD)`,
+      }
+    : {
+        direction: "down",
+        label: `${delta} avg attendees vs last month (MTD)`,
+      };
+}
+
+function averageClusterMemberRates(
+  results: Pick<ClusterWeeklyReport, "member_attendance_rate">[]
+): number | null {
+  const rates = results
+    .map((r) => r.member_attendance_rate)
+    .filter((n): n is number => typeof n === "number" && !Number.isNaN(n));
+  return rates.length
+    ? Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * 10) /
+        10
+    : null;
+}
+
 export default function Dashboard() {
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
   const [lessonSummary, setLessonSummary] =
@@ -94,14 +289,33 @@ export default function Dashboard() {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [eventActivity, setEventActivity] = useState<EventActivity[]>([]);
-  const [monthlyGiving, setMonthlyGiving] = useState<
-    { label: string; amount: string; change: string }[]
-  >([]);
-  const [financeLoading, setFinanceLoading] = useState(false);
-  const [financeError, setFinanceError] = useState<string | null>(null);
-  const [recentDonations, setRecentDonations] = useState<Donation[]>([]);
-  const [recentOfferings, setRecentOfferings] = useState<Offering[]>([]);
   const [showReportForm, setShowReportForm] = useState(false);
+  const [peopleTallyMonth, setPeopleTallyMonth] =
+    useState<EvangelismPeopleTallyRow | null>(null);
+  const [peopleTallyPrevMonth, setPeopleTallyPrevMonth] =
+    useState<EvangelismPeopleTallyRow | null>(null);
+  const [sundaySchoolSummary, setSundaySchoolSummary] =
+    useState<SundaySchoolSummary | null>(null);
+  const [sundaySchoolSummaryPrev, setSundaySchoolSummaryPrev] =
+    useState<SundaySchoolSummary | null>(null);
+  const [clusterAttendanceAvgPct, setClusterAttendanceAvgPct] = useState<
+    number | null
+  >(null);
+  const [clusterAttendanceAvgPctPrev, setClusterAttendanceAvgPctPrev] =
+    useState<number | null>(null);
+  const [sundayServiceMtdAvg, setSundayServiceMtdAvg] = useState<number | null>(
+    null
+  );
+  const [sundayServiceMtdAvgPrev, setSundayServiceMtdAvgPrev] = useState<
+    number | null
+  >(null);
+  const [sundayServicePlaceholder, setSundayServicePlaceholder] =
+    useState(false);
+  const [extendedMetricsLoading, setExtendedMetricsLoading] = useState(false);
+  const [sundayServiceLoading, setSundayServiceLoading] = useState(false);
+  const [extendedMetricsError, setExtendedMetricsError] = useState<
+    string | null
+  >(null);
   const [reportClusters, setReportClusters] = useState<Cluster[]>([]);
   const [reportClustersLoading, setReportClustersLoading] = useState(false);
   const [reportSelectedCluster, setReportSelectedCluster] =
@@ -137,15 +351,6 @@ export default function Dashboard() {
     );
   }, [user, isModuleCoordinator, isSeniorCoordinator]);
 
-  const canViewFinance = useMemo(() => {
-    if (!user) return false;
-    return (
-      user.role === "ADMIN" ||
-      user.role === "PASTOR" ||
-      isModuleCoordinator("FINANCE")
-    );
-  }, [user, isModuleCoordinator]);
-
   const canSubmitClusterReport = useMemo(() => {
     if (!user) return false;
     return (
@@ -158,9 +363,10 @@ export default function Dashboard() {
   }, [isModuleCoordinator, isSeniorCoordinator, user]);
 
   const allowPeopleMetrics = isCoordinatorPlus && canViewPeople;
-  const allowFinanceWidgets = isCoordinatorPlus && canViewFinance;
   const allowEventsWidgets = canViewEvents;
   const allowLessonWidgets = canViewLessons;
+  /** Coordinators and above: extra ministry metric tiles (evangelism, clusters, Sunday School, Sunday Service). */
+  const allowExtendedDashboardMetrics = isCoordinatorPlus;
 
   const { people, loading: peopleLoading, error: peopleError } = usePeople(
     allowPeopleMetrics
@@ -274,98 +480,175 @@ export default function Dashboard() {
   }, [allowEventsWidgets]);
 
   useEffect(() => {
-    if (!allowFinanceWidgets) {
-      setMonthlyGiving([]);
-      setFinanceError(null);
-      setFinanceLoading(false);
-      setRecentDonations([]);
-      setRecentOfferings([]);
+    if (!allowExtendedDashboardMetrics) {
+      setPeopleTallyMonth(null);
+      setPeopleTallyPrevMonth(null);
+      setSundaySchoolSummary(null);
+      setSundaySchoolSummaryPrev(null);
+      setClusterAttendanceAvgPct(null);
+      setClusterAttendanceAvgPctPrev(null);
+      setExtendedMetricsLoading(false);
+      setExtendedMetricsError(null);
       return;
     }
 
-    const fetchFinance = async () => {
+    let cancelled = false;
+    const load = async () => {
       try {
-        setFinanceLoading(true);
+        setExtendedMetricsLoading(true);
         const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-        const response = await Promise.all([
-          financeApi.listDonations({
-            start: formatApiDate(start),
-            end: formatApiDate(now),
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const { year: prevYear, month: prevMonth } =
+          getPriorCalendarMonth(now);
+
+        const tallyRequests = [
+          evangelismApi.getPeopleTally({ year }),
+          ...(prevYear !== year
+            ? [evangelismApi.getPeopleTally({ year: prevYear })]
+            : []),
+        ];
+        const tallyResponses = await Promise.all(tallyRequests);
+        const tallyRows = tallyResponses.flatMap((r) => r.data ?? []);
+
+        const [
+          ssCurrentRes,
+          ssPrevRes,
+          clusterCurrentRes,
+          clusterPrevRes,
+        ] = await Promise.all([
+          sundaySchoolApi.summary({ year, month }),
+          sundaySchoolApi.summary({ year: prevYear, month: prevMonth }),
+          clusterReportsApi.getAll({
+            year,
+            month,
+            page_size: 500,
           }),
-          financeApi.listOfferings({
-            start: formatApiDate(start),
-            end: formatApiDate(now),
+          clusterReportsApi.getAll({
+            year: prevYear,
+            month: prevMonth,
+            page_size: 500,
           }),
         ]);
-        const donations = response[0] ?? [];
-        const offerings = response[1] ?? [];
-        setRecentDonations(donations);
-        setRecentOfferings(offerings);
 
-        const monthKeys: Date[] = [
-          new Date(now.getFullYear(), now.getMonth() - 2, 1),
-          new Date(now.getFullYear(), now.getMonth() - 1, 1),
-          new Date(now.getFullYear(), now.getMonth(), 1),
-        ];
+        if (cancelled) return;
 
-        const totalsByMonth = new Map<string, number>();
-        monthKeys.forEach((date) => {
-          totalsByMonth.set(formatMonthLabel(date), 0);
-        });
+        const rowCurrent =
+          tallyRows.find((r) => r.month === month && r.year === year) ?? null;
+        const rowPrev =
+          tallyRows.find(
+            (r) => r.month === prevMonth && r.year === prevYear
+          ) ?? null;
+        setPeopleTallyMonth(rowCurrent);
+        setPeopleTallyPrevMonth(rowPrev);
 
-        const addToMonth = (dateString: string, amount: number) => {
-          const date = new Date(dateString);
-          if (Number.isNaN(date.getTime())) return;
-          const key = formatMonthLabel(
-            new Date(date.getFullYear(), date.getMonth(), 1)
+        setSundaySchoolSummary(ssCurrentRes.data ?? null);
+        setSundaySchoolSummaryPrev(ssPrevRes.data ?? null);
+
+        const curResults = clusterCurrentRes.data?.results ?? [];
+        const prevResults = clusterPrevRes.data?.results ?? [];
+        setClusterAttendanceAvgPct(averageClusterMemberRates(curResults));
+        setClusterAttendanceAvgPctPrev(averageClusterMemberRates(prevResults));
+
+        setExtendedMetricsError(null);
+      } catch {
+        if (!cancelled) {
+          setExtendedMetricsError(
+            "Unable to load some ministry metrics."
           );
-          totalsByMonth.set(key, (totalsByMonth.get(key) ?? 0) + amount);
-        };
-
-        donations.forEach((donation) => {
-          addToMonth(donation.date, donation.amount);
-        });
-
-        offerings.forEach((offering) => {
-          addToMonth(offering.serviceDate, offering.amount);
-        });
-
-        const monthlySnapshot = monthKeys.map((date, index) => {
-          const label = formatMonthLabel(date);
-          const amountValue = totalsByMonth.get(label) ?? 0;
-          const previousDate = monthKeys[index - 1];
-          const previousLabel = previousDate ? formatMonthLabel(previousDate) : "";
-          const previousValue = previousLabel
-            ? totalsByMonth.get(previousLabel) ?? 0
-            : 0;
-          const change =
-            previousValue > 0
-              ? `${amountValue >= previousValue ? "+" : ""}${Math.round(
-                  ((amountValue - previousValue) / previousValue) * 100
-                )}%`
-              : "No prior month";
-          return {
-            label,
-            amount: formatCurrency(amountValue),
-            change,
-          };
-        });
-
-        setMonthlyGiving(monthlySnapshot);
-        setFinanceError(null);
-      } catch (error) {
-        setFinanceError("Unable to load finance snapshot.");
-        setMonthlyGiving([]);
-        setRecentDonations([]);
-        setRecentOfferings([]);
+          setPeopleTallyMonth(null);
+          setPeopleTallyPrevMonth(null);
+          setSundaySchoolSummary(null);
+          setSundaySchoolSummaryPrev(null);
+          setClusterAttendanceAvgPct(null);
+          setClusterAttendanceAvgPctPrev(null);
+        }
       } finally {
-        setFinanceLoading(false);
+        if (!cancelled) {
+          setExtendedMetricsLoading(false);
+        }
       }
     };
 
-    fetchFinance();
-  }, [allowFinanceWidgets]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [allowExtendedDashboardMetrics]);
+
+  useEffect(() => {
+    if (!allowExtendedDashboardMetrics || !allowEventsWidgets) {
+      setSundayServiceMtdAvg(null);
+      setSundayServiceMtdAvgPrev(null);
+      setSundayServicePlaceholder(false);
+      setSundayServiceLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadSunday = async () => {
+      try {
+        setSundayServiceLoading(true);
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth();
+        const monthStart = new Date(y, m, 1);
+        const responseCurrent = await eventsApi.getAll({
+          start: formatApiDate(monthStart),
+          end: formatApiDate(new Date(y, m + 1, 0)),
+        });
+        if (cancelled) return;
+        const eventsCurrent = responseCurrent.data ?? [];
+        const avgCurrent = await computeSundayServiceMtdAverageHeadcount(
+          eventsCurrent,
+          monthStart,
+          now
+        );
+
+        const prevMonthStart = new Date(y, m - 1, 1);
+        const prevMonthEnd = new Date(y, m, 0);
+        const throughPrior = getPriorMonthMtdThroughDate(now);
+        const responsePrev = await eventsApi.getAll({
+          start: formatApiDate(prevMonthStart),
+          end: formatApiDate(prevMonthEnd),
+        });
+        if (cancelled) return;
+        const eventsPrev = responsePrev.data ?? [];
+        const avgPrev = await computeSundayServiceMtdAverageHeadcount(
+          eventsPrev,
+          prevMonthStart,
+          throughPrior
+        );
+
+        if (cancelled) return;
+
+        setSundayServiceMtdAvgPrev(avgPrev);
+
+        if (avgCurrent === null) {
+          setSundayServiceMtdAvg(null);
+          setSundayServicePlaceholder(true);
+        } else {
+          setSundayServiceMtdAvg(avgCurrent);
+          setSundayServicePlaceholder(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setSundayServiceMtdAvg(null);
+          setSundayServiceMtdAvgPrev(null);
+          setSundayServicePlaceholder(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setSundayServiceLoading(false);
+        }
+      }
+    };
+
+    loadSunday();
+    return () => {
+      cancelled = true;
+    };
+  }, [allowExtendedDashboardMetrics, allowEventsWidgets]);
 
   const lessonMetrics = useMemo(() => {
     const overall = lessonSummary?.overall;
@@ -373,7 +656,6 @@ export default function Dashboard() {
     const completed = overall?.COMPLETED ?? 0;
     const inProgress = overall?.IN_PROGRESS ?? 0;
     const assigned = overall?.ASSIGNED ?? 0;
-    const skipped = overall?.SKIPPED ?? 0;
     const outstanding = inProgress + assigned;
     const completionRate =
       total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -383,7 +665,6 @@ export default function Dashboard() {
       completed,
       inProgress,
       assigned,
-      skipped,
       outstanding,
       completionRate,
     };
@@ -470,7 +751,7 @@ export default function Dashboard() {
     if (lessonMetrics.total === 0) {
       return {
         direction: "flat" as const,
-        label: "No lesson assignments yet",
+        label: "No NCC assignments yet",
       };
     }
     if (lessonMetrics.completionRate >= 50) {
@@ -487,7 +768,7 @@ export default function Dashboard() {
 
   const outstandingTrend = useMemo(() => {
     if (lessonMetrics.total === 0) {
-      return { direction: "flat" as const, label: "No lesson assignments yet" };
+      return { direction: "flat" as const, label: "No NCC assignments yet" };
     }
     if (lessonMetrics.outstanding === 0) {
       return { direction: "flat" as const, label: "All assignments completed" };
@@ -502,7 +783,7 @@ export default function Dashboard() {
     const steps: string[] = [];
     if (allowLessonWidgets && lessonMetrics.outstanding > 0) {
       steps.push(
-        "Review members with outstanding lessons and schedule follow-ups."
+        "Review members with outstanding NCC assignments and schedule follow-ups."
       );
     }
     if (allowPeopleMetrics && peopleMetrics.newVisitorsThisMonth > 0) {
@@ -529,7 +810,7 @@ export default function Dashboard() {
   const recentActivities = useMemo<RecentActivityItem[]>(() => {
     const items: Array<{
       id: string;
-      type: "people" | "event" | "finance";
+      type: "people" | "event";
       description: string;
       date: Date;
     }> = [];
@@ -567,33 +848,6 @@ export default function Dashboard() {
       });
     }
 
-    if (allowFinanceWidgets) {
-      const financeEntries = [
-        ...recentDonations.map((donation) => ({
-          id: `donation-${donation.id}`,
-          date: new Date(donation.createdAt || donation.date),
-          description: `Donation received for ${donation.purpose}.`,
-        })),
-        ...recentOfferings.map((offering) => ({
-          id: `offering-${offering.id}`,
-          date: new Date(offering.createdAt || offering.serviceDate),
-          description: `Offering recorded for ${offering.serviceName}.`,
-        })),
-      ]
-        .filter((entry) => !Number.isNaN(entry.date.getTime()))
-        .sort((a, b) => b.date.getTime() - a.date.getTime())
-        .slice(0, 3);
-
-      financeEntries.forEach((entry) => {
-        items.push({
-          id: entry.id,
-          type: "finance",
-          description: entry.description,
-          date: entry.date,
-        });
-      });
-    }
-
     return items
       .sort((a, b) => b.date.getTime() - a.date.getTime())
       .slice(0, 5)
@@ -603,18 +857,10 @@ export default function Dashboard() {
         description: item.description,
         timestamp: formatRelativeTime(item.date),
       }));
-  }, [
-    allowEventsWidgets,
-    allowFinanceWidgets,
-    allowPeopleMetrics,
-    eventActivity,
-    people,
-    recentDonations,
-    recentOfferings,
-  ]);
+  }, [allowEventsWidgets, allowPeopleMetrics, eventActivity, people]);
 
   const activityEmptyMessage =
-    allowPeopleMetrics || allowEventsWidgets || allowFinanceWidgets
+    allowPeopleMetrics || allowEventsWidgets
       ? "No recent activity for your accessible modules."
       : "Activity isn't available for your access level.";
 
@@ -646,6 +892,91 @@ export default function Dashboard() {
     });
   }, [lessonSummary, canViewLessons]);
 
+  const sundayServiceMetricValue = useMemo(() => {
+    if (sundayServicePlaceholder) return DUMMY_SUNDAY_SERVICE_MTD_AVG;
+    if (sundayServiceMtdAvg !== null) return sundayServiceMtdAvg;
+    return "—";
+  }, [sundayServicePlaceholder, sundayServiceMtdAvg]);
+
+  const sundayServiceMetricSubtitle = sundayServicePlaceholder
+    ? "Placeholder — replace with live attendance when wired"
+    : sundayServiceMtdAvg !== null
+      ? "Avg. attendees per Sunday Service occurrence (MTD)"
+      : "No Sunday Service occurrences recorded yet this month";
+
+  const waterBaptismTrend = useMemo(
+    () =>
+      countMomTrend(
+        peopleTallyMonth?.baptized_count,
+        peopleTallyPrevMonth?.baptized_count,
+        extendedMetricsLoading
+      ),
+    [
+      extendedMetricsLoading,
+      peopleTallyMonth?.baptized_count,
+      peopleTallyPrevMonth?.baptized_count,
+    ]
+  );
+
+  const receivedHolyGhostTrend = useMemo(
+    () =>
+      countMomTrend(
+        peopleTallyMonth?.received_hg_count,
+        peopleTallyPrevMonth?.received_hg_count,
+        extendedMetricsLoading
+      ),
+    [
+      extendedMetricsLoading,
+      peopleTallyMonth?.received_hg_count,
+      peopleTallyPrevMonth?.received_hg_count,
+    ]
+  );
+
+  const clusterAttendanceTrend = useMemo(
+    () =>
+      percentPointsMomTrend(
+        clusterAttendanceAvgPct,
+        clusterAttendanceAvgPctPrev,
+        extendedMetricsLoading
+      ),
+    [
+      clusterAttendanceAvgPct,
+      clusterAttendanceAvgPctPrev,
+      extendedMetricsLoading,
+    ]
+  );
+
+  const sundaySchoolTrend = useMemo(
+    () =>
+      percentPointsMomTrend(
+        sundaySchoolSummary?.average_attendance_rate,
+        sundaySchoolSummaryPrev?.average_attendance_rate,
+        extendedMetricsLoading
+      ),
+    [
+      extendedMetricsLoading,
+      sundaySchoolSummary?.average_attendance_rate,
+      sundaySchoolSummaryPrev?.average_attendance_rate,
+    ]
+  );
+
+  const sundayServiceMomTrend = useMemo(
+    () =>
+      avgAttendeesMomTrend(
+        sundayServicePlaceholder ? null : sundayServiceMtdAvg,
+        sundayServiceMtdAvgPrev,
+        sundayServiceLoading || extendedMetricsLoading,
+        sundayServicePlaceholder
+      ),
+    [
+      extendedMetricsLoading,
+      sundayServiceMtdAvg,
+      sundayServiceMtdAvgPrev,
+      sundayServicePlaceholder,
+      sundayServiceLoading,
+    ]
+  );
+
   return (
     <ProtectedRoute>
       <DashboardLayout>
@@ -656,8 +987,8 @@ export default function Dashboard() {
               Dashboard Overview
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Monitor key ministry metrics, lesson progress, and quick actions
-              for the week.
+              Monitor key ministry metrics, NCC progress, and quick actions for
+              the week.
             </p>
           </div>
           {canSubmitClusterReport && (
@@ -672,12 +1003,15 @@ export default function Dashboard() {
         </div>
 
         {(lessonSummaryError ||
+          extendedMetricsError ||
           (allowPeopleMetrics && peopleError) ||
-          (allowEventsWidgets && eventsError) ||
-          (allowFinanceWidgets && financeError)) && (
+          (allowEventsWidgets && eventsError)) && (
           <div className="space-y-2">
             {lessonSummaryError && (
               <ErrorMessage message={lessonSummaryError} />
+            )}
+            {extendedMetricsError && (
+              <ErrorMessage message={extendedMetricsError} />
             )}
             {allowPeopleMetrics && peopleError && (
               <ErrorMessage message={peopleError} />
@@ -685,14 +1019,13 @@ export default function Dashboard() {
             {allowEventsWidgets && eventsError && (
               <ErrorMessage message={eventsError} />
             )}
-            {allowFinanceWidgets && financeError && (
-              <ErrorMessage message={financeError} />
-            )}
           </div>
         )}
 
-        {allowPeopleMetrics || allowLessonWidgets ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {allowPeopleMetrics ||
+        allowLessonWidgets ||
+        allowExtendedDashboardMetrics ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {allowPeopleMetrics && (
               <MetricCard
                 title="Active Members"
@@ -713,14 +1046,14 @@ export default function Dashboard() {
             )}
             {allowLessonWidgets && (
               <MetricCard
-                title="Lesson Completion Rate"
+                title="NCC Completion Rate"
                 value={`${lessonMetrics.completionRate}%`}
                 subtitle={
                   lessonSummaryLoading
                     ? ""
                     : lessonMetrics.total > 0
-                    ? `${lessonMetrics.completed}/${lessonMetrics.total} completed`
-                    : "No lesson assignments yet"
+                      ? `${lessonMetrics.completed}/${lessonMetrics.total} completed`
+                      : "No NCC assignments yet"
                 }
                 loading={lessonSummaryLoading}
                 trend={lessonCompletionTrend}
@@ -728,11 +1061,64 @@ export default function Dashboard() {
             )}
             {allowLessonWidgets && (
               <MetricCard
-                title="Outstanding Lesson Assignments"
+                title="Outstanding NCC Assignments"
                 value={lessonMetrics.outstanding}
                 subtitle="Assigned or currently in progress"
                 loading={lessonSummaryLoading}
                 trend={outstandingTrend}
+              />
+            )}
+            {allowExtendedDashboardMetrics && (
+              <MetricCard
+                title="Water Baptism"
+                value={peopleTallyMonth?.baptized_count ?? "—"}
+                subtitle="This month (people tally)"
+                loading={extendedMetricsLoading}
+                trend={waterBaptismTrend}
+              />
+            )}
+            {allowExtendedDashboardMetrics && (
+              <MetricCard
+                title="Received Holy Ghost"
+                value={peopleTallyMonth?.received_hg_count ?? "—"}
+                subtitle="This month (people tally)"
+                loading={extendedMetricsLoading}
+                trend={receivedHolyGhostTrend}
+              />
+            )}
+            {allowExtendedDashboardMetrics && (
+              <MetricCard
+                title="Cluster Attendance (Avg)"
+                value={
+                  clusterAttendanceAvgPct !== null
+                    ? `${clusterAttendanceAvgPct}%`
+                    : "—"
+                }
+                subtitle="Avg. member attendance rate — weekly reports (MTD)"
+                loading={extendedMetricsLoading}
+                trend={clusterAttendanceTrend}
+              />
+            )}
+            {allowExtendedDashboardMetrics && (
+              <MetricCard
+                title="Sunday School Attendance"
+                value={
+                  sundaySchoolSummary?.average_attendance_rate != null
+                    ? `${Math.round(sundaySchoolSummary.average_attendance_rate)}%`
+                    : "—"
+                }
+                subtitle="Average rate across classes (this month)"
+                loading={extendedMetricsLoading}
+                trend={sundaySchoolTrend}
+              />
+            )}
+            {allowExtendedDashboardMetrics && (
+              <MetricCard
+                title="Sunday Service Attendees"
+                value={sundayServiceMetricValue}
+                subtitle={sundayServiceMetricSubtitle}
+                loading={extendedMetricsLoading || sundayServiceLoading}
+                trend={sundayServiceMomTrend}
               />
             )}
           </div>
@@ -750,7 +1136,7 @@ export default function Dashboard() {
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-[#2D3748]">
-                    Lesson Completion Pipeline
+                    NCC Completion Pipeline
                   </h3>
                   <p className="text-sm text-gray-500">
                     Track lesson status across current and superseded versions.
@@ -770,7 +1156,7 @@ export default function Dashboard() {
                 <LoadingSpinner />
               ) : topLessons.length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  No lesson assignments recorded yet.
+                  No NCC assignments recorded yet.
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -793,7 +1179,7 @@ export default function Dashboard() {
                           {lesson.completed}/{lesson.total} completed
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs text-gray-600">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-xs text-gray-600">
                         <div>
                           <span className="block font-semibold text-gray-700">
                             Assigned
@@ -812,12 +1198,6 @@ export default function Dashboard() {
                           </span>
                           {lesson.completed}
                         </div>
-                        <div>
-                          <span className="block font-semibold text-gray-700">
-                            Skipped
-                          </span>
-                          {lesson.skipped}
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -831,14 +1211,13 @@ export default function Dashboard() {
             activities={recentActivities}
             isLoading={
               (allowPeopleMetrics && peopleLoading) ||
-              (allowEventsWidgets && eventsLoading) ||
-              (allowFinanceWidgets && financeLoading)
+              (allowEventsWidgets && eventsLoading)
             }
             emptyMessage={activityEmptyMessage}
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {allowEventsWidgets ? (
             <Card>
               <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
@@ -879,60 +1258,6 @@ export default function Dashboard() {
               </h3>
               <p className="text-sm text-gray-500">
                 Events data is not available for your access level.
-              </p>
-            </Card>
-          )}
-
-          {allowFinanceWidgets ? (
-            <Card>
-              <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
-                Monthly Giving Snapshot
-              </h3>
-              <p className="text-xs text-gray-500 mb-3">
-                Combined donations and offerings by month.
-              </p>
-              {financeLoading ? (
-                <LoadingSpinner />
-              ) : monthlyGiving.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No giving data available yet.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {monthlyGiving.map((entry) => {
-                    const changeClass =
-                      entry.change === "No prior month"
-                        ? "text-gray-500"
-                        : entry.change.startsWith("-")
-                        ? "text-red-600"
-                        : "text-green-600";
-                    return (
-                      <div
-                        key={entry.label}
-                        className="border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600"
-                      >
-                        <p className="font-semibold text-[#2D3748]">
-                          {entry.label}
-                        </p>
-                        <p className="text-lg font-bold text-[#2563EB]">
-                          {entry.amount}
-                        </p>
-                        <p className={`text-xs ${changeClass}`}>
-                          {entry.change}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-          ) : (
-            <Card>
-              <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
-                Monthly Giving Snapshot
-              </h3>
-              <p className="text-sm text-gray-500">
-                Finance data is not available for your access level.
               </p>
             </Card>
           )}
@@ -991,17 +1316,12 @@ export default function Dashboard() {
   );
 }
 
-type TrendDirection = "up" | "down" | "flat";
-
 interface MetricCardProps {
   title: string;
   value: number | string;
   subtitle?: string;
   loading?: boolean;
-  trend?: {
-    direction: TrendDirection;
-    label: string;
-  };
+  trend?: MetricTrend;
 }
 
 function MetricCard({

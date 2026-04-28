@@ -221,30 +221,52 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def summary(self, request):
-        """Analytics endpoint returning summary statistics."""
-        stats = generate_summary_stats()
+        """Analytics endpoint returning summary statistics.
 
-        # Get most/least attended classes (optional)
-        classes = SundaySchoolClass.objects.filter(is_active=True)
-        class_attendance = []
-        for class_obj in classes:
-            rate = calculate_attendance_rate(class_obj)
-            if rate is not None:
-                class_attendance.append(
-                    {
-                        "class_id": class_obj.id,
-                        "class_name": class_obj.name,
-                        "attendance_rate": rate,
-                    }
-                )
+        Optional query params: year, month (calendar month 1-12) — scopes
+        average_attendance_rate to that month; omits most/least rollups for scoped queries.
+        """
+        year_param = request.query_params.get("year")
+        month_param = request.query_params.get("month")
+        scoped_year = None
+        scoped_month = None
+        if year_param is not None and str(year_param).isdigit():
+            scoped_year = int(year_param)
+        if month_param is not None and str(month_param).isdigit():
+            scoped_month = int(month_param)
+        if scoped_month is not None and not (1 <= scoped_month <= 12):
+            scoped_month = None
 
-        class_attendance.sort(key=lambda x: x["attendance_rate"], reverse=True)
-        stats["most_attended_classes"] = (
-            class_attendance[:5] if class_attendance else []
-        )
-        stats["least_attended_classes"] = (
-            class_attendance[-5:] if len(class_attendance) > 5 else []
-        )
+        if scoped_year is not None and scoped_month is not None:
+            stats = generate_summary_stats(
+                scoped_year=scoped_year, scoped_month=scoped_month
+            )
+            stats["most_attended_classes"] = []
+            stats["least_attended_classes"] = []
+        else:
+            stats = generate_summary_stats()
+            classes = SundaySchoolClass.objects.filter(is_active=True)
+            class_attendance = []
+            for class_obj in classes:
+                rate = calculate_attendance_rate(class_obj)
+                if rate is not None:
+                    class_attendance.append(
+                        {
+                            "class_id": class_obj.id,
+                            "class_name": class_obj.name,
+                            "attendance_rate": rate,
+                        }
+                    )
+
+            class_attendance.sort(
+                key=lambda x: x["attendance_rate"], reverse=True
+            )
+            stats["most_attended_classes"] = (
+                class_attendance[:5] if class_attendance else []
+            )
+            stats["least_attended_classes"] = (
+                class_attendance[-5:] if len(class_attendance) > 5 else []
+            )
 
         serializer = SundaySchoolSummarySerializer(stats)
         return Response(serializer.data)

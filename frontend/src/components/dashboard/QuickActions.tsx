@@ -3,12 +3,7 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/src/components/ui/Card";
-import {
-  CalendarPlus,
-  ClipboardCheck,
-  HandCoins,
-  UserPlus,
-} from "lucide-react";
+import { CalendarPlus, ClipboardCheck, UserPlus } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 
 const ACTIONS = [
@@ -40,13 +35,6 @@ const ACTIONS = [
     icon: CalendarPlus,
     blurb: "Schedule services, clusters, or special gatherings.",
   },
-  {
-    key: "finance",
-    label: "Record Donation",
-    href: "/finance?action=add-donation",
-    icon: HandCoins,
-    blurb: "Track donations, offerings, and pledges.",
-  },
 ] as const;
 
 export default function QuickActions() {
@@ -70,15 +58,6 @@ export default function QuickActions() {
       isSeniorCoordinator()
     );
   }, [user, isModuleCoordinator, isSeniorCoordinator]);
-
-  const canViewFinance = useMemo(() => {
-    if (!user) return false;
-    return (
-      user.role === "ADMIN" ||
-      user.role === "PASTOR" ||
-      isModuleCoordinator("FINANCE")
-    );
-  }, [user, isModuleCoordinator]);
 
   const canLogLessonSession = useMemo(() => {
     if (!user) return false;
@@ -118,14 +97,12 @@ export default function QuickActions() {
       if (action.key === "lesson-session") return canLogLessonSession;
       if (action.key === "cluster-report") return canSubmitClusterReport;
       if (action.key === "events") return canViewEvents;
-      if (action.key === "finance") return canViewFinance;
       return false;
     });
   }, [
     canSubmitClusterReport,
     canLogLessonSession,
     canViewEvents,
-    canViewFinance,
     canViewPeople,
     isMember,
   ]);

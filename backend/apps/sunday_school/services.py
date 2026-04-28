@@ -1,3 +1,4 @@
+import calendar
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -229,9 +230,16 @@ def get_unenrolled_by_category(
     return result
 
 
-def generate_summary_stats() -> Dict:
+def generate_summary_stats(
+    scoped_year: Optional[int] = None,
+    scoped_month: Optional[int] = None,
+) -> Dict:
     """
     Generate summary statistics for Sunday School.
+
+    When scoped_year and scoped_month are set (calendar month 1-12),
+    average_attendance_rate uses sessions only in that month (for MoM dashboards).
+    Otherwise counts use all-time attendance rate per class as before.
     """
     classes = SundaySchoolClass.objects.all()
     active_classes = classes.filter(is_active=True)
@@ -246,14 +254,26 @@ def generate_summary_stats() -> Dict:
         ]
     )
 
-    # Calculate average attendance rate across all classes
     total_attendance_rate = 0
     classes_with_attendance = 0
-    for class_obj in active_classes:
-        rate = calculate_attendance_rate(class_obj)
-        if rate is not None:
-            total_attendance_rate += rate
-            classes_with_attendance += 1
+
+    if scoped_year is not None and scoped_month is not None:
+        last_day = calendar.monthrange(scoped_year, scoped_month)[1]
+        window_start = date(scoped_year, scoped_month, 1)
+        window_end = date(scoped_year, scoped_month, last_day)
+        for class_obj in active_classes:
+            rate = calculate_attendance_rate(
+                class_obj, window_start, window_end
+            )
+            if rate is not None:
+                total_attendance_rate += rate
+                classes_with_attendance += 1
+    else:
+        for class_obj in active_classes:
+            rate = calculate_attendance_rate(class_obj)
+            if rate is not None:
+                total_attendance_rate += rate
+                classes_with_attendance += 1
 
     avg_attendance_rate = (
         round(total_attendance_rate / classes_with_attendance, 2)

@@ -105,6 +105,7 @@ When a user has multiple assignments, they see the union of all applicable peopl
 
 - **Sunday School**: `SundaySchoolSummary` component hidden for MEMBER role
 - **Lessons**: `LessonStatsCards` shown for ADMIN, PASTOR, Senior Coordinators, and Cluster Coordinators
+- **Clusters**: On `ClustersPageView`, the **Clusters** tab primary header action is **Add Cluster** for **ADMIN**, **CLUSTER Senior Coordinator**, or **PASTOR** without a non-senior CLUSTER coordinator-only assignment; others see **Submit Report** as primary. Requires **`module_coordinator_assignments`** on the auth user payload (`UserSerializer` / `GET /auth/me/`). See **Clusters homepage / CTAs** in `docs/CLUSTERS_MODULE.md`.
 
 ## Multiple Assignment Tagging
 

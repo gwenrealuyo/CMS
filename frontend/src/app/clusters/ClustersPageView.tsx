@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Squares2X2Icon, TableCellsIcon } from "@heroicons/react/24/outline";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ClusterContentTabs, {
@@ -34,6 +34,7 @@ import {
 import { Person, PersonUI, Family } from "@/src/types/person";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { useAuth } from "@/src/contexts/AuthContext";
 
 interface ClustersPageViewProps {
   activeTab: ClusterContentTab;
@@ -264,6 +265,28 @@ export default function ClustersPageView({
     "cards"
   );
 
+  const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
+  /** CLUSTER-level coordinator assignment without senior — uses Submit Report primary like backend scope */
+  const isOnlyNonSeniorClusterCoordinator =
+    isModuleCoordinator("CLUSTER", "COORDINATOR") &&
+    !isSeniorCoordinator("CLUSTER");
+  const hasClusterModuleWideAccess =
+    user?.role === "ADMIN" ||
+    isSeniorCoordinator("CLUSTER") ||
+    (user?.role === "PASTOR" && !isOnlyNonSeniorClusterCoordinator);
+
+  /** Matches backend `ClusterWeeklyReportViewSet._check_compliance_access` */
+  const canAccessCompliance =
+    user?.role === "ADMIN" ||
+    user?.role === "PASTOR" ||
+    isSeniorCoordinator("CLUSTER");
+
+  useEffect(() => {
+    if (!canAccessCompliance && activeTab === "compliance") {
+      onTabChange("clusters");
+    }
+  }, [canAccessCompliance, activeTab, onTabChange]);
+
   // Calculate stats
   const totalMembers = allClusters.reduce(
     (acc, c) => acc + (c.members?.length || 0),
@@ -323,6 +346,7 @@ export default function ClustersPageView({
           onViewFamily={onViewFamily}
           onViewPerson={onViewPerson}
           showTopHeader={!isPanel}
+          showSubmitReportButton={!hasClusterModuleWideAccess}
         />
       );
     }
@@ -439,12 +463,20 @@ export default function ClustersPageView({
               Manage clusters and weekly reports
             </p>
           </div>
-          <div className="flex gap-2">
-            {activeTab === "clusters" && (
-              <Button onClick={onCreateCluster} className="w-full md:w-auto">
-                Add Cluster
-              </Button>
-            )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+            {activeTab === "clusters" &&
+              (hasClusterModuleWideAccess ? (
+                <Button onClick={onCreateCluster} className="w-full md:w-auto">
+                  Add Cluster
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => onOpenReportForm()}
+                  className="w-full md:w-auto"
+                >
+                  Submit Report
+                </Button>
+              ))}
             {activeTab === "reports" && (
               <Button
                 onClick={() => onOpenReportForm()}
@@ -456,7 +488,11 @@ export default function ClustersPageView({
           </div>
         </div>
 
-        <ClusterContentTabs activeTab={activeTab} onTabChange={onTabChange} />
+        <ClusterContentTabs
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          showComplianceTab={canAccessCompliance}
+        />
 
         {activeTab === "clusters" && (
           <div
@@ -859,11 +895,19 @@ export default function ClustersPageView({
                 <p className="mt-1 text-sm text-gray-500">
                   {clusterSearchQuery || clusterActiveFilters.length > 0
                     ? "Try adjusting your search or filters to find clusters."
-                    : "Get started by creating your first cluster."}
+                    : hasClusterModuleWideAccess
+                    ? "Get started by creating your first cluster."
+                    : "Submit your weekly cluster report. If you need a new cluster created, contact your pastor or cluster leadership."}
                 </p>
                 {!clusterSearchQuery && clusterActiveFilters.length === 0 && (
-                  <div className="mt-6">
-                    <Button onClick={onCreateCluster}>Create Cluster</Button>
+                  <div className="mt-6 flex flex-col gap-2 items-center sm:flex-row sm:justify-center">
+                    {hasClusterModuleWideAccess ? (
+                      <Button onClick={onCreateCluster}>Create Cluster</Button>
+                    ) : (
+                      <Button onClick={() => onOpenReportForm()}>
+                        Submit Report
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1074,7 +1118,9 @@ export default function ClustersPageView({
           </div>
         )}
 
-        {activeTab === "compliance" && <ClusterComplianceTab />}
+        {activeTab === "compliance" && canAccessCompliance && (
+          <ClusterComplianceTab />
+        )}
 
 
         {activeTab === "reports" && (
@@ -1214,6 +1260,7 @@ export default function ClustersPageView({
               }}
               onViewFamily={onViewFamily}
               onViewPerson={onViewPerson}
+              showSubmitReportButton={!hasClusterModuleWideAccess}
             />
           </Modal>
         )}

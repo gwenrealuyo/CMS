@@ -334,13 +334,14 @@ export default function Dashboard() {
     );
   }, [user, isSeniorCoordinator]);
 
+  /** Matches backend PersonLessonProgressViewSet.summary — HasModuleAccess('LESSONS','write') on custom action. */
   const canViewLessons = useMemo(() => {
     if (!user) return false;
-    return (
-      ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"].includes(user.role) ||
-      isModuleCoordinator("LESSONS")
-    );
-  }, [user, isModuleCoordinator]);
+    if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+    if (isSeniorCoordinator("LESSONS")) return true;
+    if (isModuleCoordinator("LESSONS")) return true;
+    return false;
+  }, [user, isModuleCoordinator, isSeniorCoordinator]);
 
   const canViewEvents = useMemo(() => {
     if (!user) return false;
@@ -1002,12 +1003,12 @@ export default function Dashboard() {
           )}
         </div>
 
-        {(lessonSummaryError ||
-          extendedMetricsError ||
+        {(extendedMetricsError ||
+          (allowLessonWidgets && lessonSummaryError) ||
           (allowPeopleMetrics && peopleError) ||
           (allowEventsWidgets && eventsError)) && (
           <div className="space-y-2">
-            {lessonSummaryError && (
+            {allowLessonWidgets && lessonSummaryError && (
               <ErrorMessage message={lessonSummaryError} />
             )}
             {extendedMetricsError && (

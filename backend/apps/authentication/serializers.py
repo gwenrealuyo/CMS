@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
+from apps.people.serializers import ModuleCoordinatorSerializer
 from .models import PasswordResetRequest, AccountLockout, AuditLog
 import re
 
@@ -104,6 +105,9 @@ class LoginSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
+    module_coordinator_assignments = ModuleCoordinatorSerializer(
+        many=True, read_only=True
+    )
 
     class Meta:
         model = User
@@ -119,6 +123,7 @@ class UserSerializer(serializers.ModelSerializer):
             "photo",
             "must_change_password",
             "first_login",
+            "module_coordinator_assignments",
         )
         read_only_fields = (
             "id",
@@ -127,6 +132,7 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "must_change_password",
             "first_login",
+            "module_coordinator_assignments",
         )
 
     def get_full_name(self, obj):

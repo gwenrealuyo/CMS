@@ -3,11 +3,14 @@ export type ClusterContentTab = "clusters" | "reports" | "compliance";
 interface ClusterContentTabsProps {
   activeTab: ClusterContentTab;
   onTabChange: (tab: ClusterContentTab) => void;
+  /** When false, Compliance tab is hidden (matches API compliance permissions). Default true. */
+  showComplianceTab?: boolean;
 }
 
 export default function ClusterContentTabs({
   activeTab,
   onTabChange,
+  showComplianceTab = true,
 }: ClusterContentTabsProps) {
   const tabs: Array<{
     id: ClusterContentTab;
@@ -15,7 +18,7 @@ export default function ClusterContentTabs({
   }> = [
     { id: "clusters", label: "Clusters" },
     { id: "reports", label: "Reports" },
-    { id: "compliance", label: "Compliance" },
+    ...(showComplianceTab ? [{ id: "compliance" as const, label: "Compliance" }] : []),
   ];
 
   return (

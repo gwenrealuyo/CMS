@@ -246,6 +246,14 @@ Serializers (`apps.clusters.serializers`) expose:
 
 The Clusters hub lives at `frontend/src/app/clusters/page.tsx` and provides a comprehensive view of clusters and their weekly reports.
 
+### Clusters homepage / CTAs
+
+Implemented in `frontend/src/app/clusters/ClustersPageView.tsx` (derived from `useAuth()`). Login and `GET /auth/me/` include **`module_coordinator_assignments`** so coordinator vs senior detection works in the browser.
+
+- **Module-wide CLUSTER access** (primary action **Add Cluster** on the **Clusters** tab header): **ADMIN**; or **CLUSTER Senior Coordinator** (`isSeniorCoordinator("CLUSTER")`); or **PASTOR** who does **not** have a CLUSTER assignment **only** at **COORDINATOR** level (non-senior). Pastors who are assigned solely as a non-senior CLUSTER coordinator see **Submit Report** primary like other coordinators.
+- **Everyone else** on `/clusters` (including **COORDINATOR** role with CLUSTER coordinator assignment, and **PASTOR** + non-senior CLUSTER coordinator assignment): primary action **Submit Report** only (no secondary **Add Cluster** on this screen).
+- **Empty cluster list** (no active search/filters): matches the header (**Create Cluster** vs **Submit Report**); helper copy for non-module-wide users points toward submitting weekly reports and contacting leadership for net-new clusters.
+
 ### Tabs
 
 The page uses tabs similar to the Lessons page:
@@ -262,7 +270,7 @@ The page uses tabs similar to the Lessons page:
     - Member count
     - Family count
     - Edit/Delete actions
-  - "Add Cluster" button to create new clusters
+  - Primary **Add Cluster** vs **Submit Report** in the page header depends on module-wide access (see **Clusters homepage / CTAs** above); no secondary create button on this hub for non-module-wide users
 - **`ClusterForm`**: Form component for creating/editing clusters
   - **Real-Time Family-Member Sync**: When a family is added to the form, all family members immediately appear in the members field before submitting
   - **Family Removal**: When a family is removed from the form, all its members are automatically removed from the members list

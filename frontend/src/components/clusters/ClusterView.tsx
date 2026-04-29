@@ -27,6 +27,8 @@ interface ClusterViewProps {
   onViewPerson?: (person: Person) => void;
   onViewFamily?: (family: Family) => void;
   showTopHeader?: boolean;
+  /** When false, hides the Members-section Submit Report action (e.g. module-wide users use Reports tab). Default true. */
+  showSubmitReportButton?: boolean;
 }
 
 export default function ClusterView({
@@ -43,6 +45,7 @@ export default function ClusterView({
   onViewPerson,
   onViewFamily,
   showTopHeader = true,
+  showSubmitReportButton = true,
 }: ClusterViewProps) {
   const { branches } = useBranches();
 
@@ -368,6 +371,7 @@ export default function ClusterView({
                     </svg>
                     <span>Assign Members</span>
                   </Button>
+                  {showSubmitReportButton && (
                   <Button
                     onClick={onSubmitReport}
                     variant="secondary"
@@ -388,6 +392,7 @@ export default function ClusterView({
                     </svg>
                     <span>Submit Report</span>
                   </Button>
+                  )}
                 </div>
               </div>
               <div

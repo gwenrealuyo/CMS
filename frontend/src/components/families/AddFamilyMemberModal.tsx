@@ -333,18 +333,18 @@ export default function AddFamilyMemberModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex flex-col-reverse sm:flex-row gap-4 p-6 border-t border-gray-200 bg-gray-50">
           <Button
             onClick={onClose}
             variant="secondary"
-            className="!text-black py-2 px-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+            className="w-full sm:flex-1 min-h-[44px] !text-black py-2 px-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={loading || selectedMembers.length === 0}
-            className="!text-white py-2 px-4 text-sm font-normal bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            className="w-full sm:flex-1 min-h-[44px] !text-white py-2 px-4 text-sm font-normal bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             {loading ? (
               <>

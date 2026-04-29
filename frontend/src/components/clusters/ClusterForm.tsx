@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Cluster } from "@/src/types/cluster";
 import { Person, PersonUI } from "@/src/types/person";
-import { Branch } from "@/src/types/branch";
+// import { Branch } from "@/src/types/branch";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
@@ -42,29 +42,29 @@ export default function ClusterForm({
       description: initialData?.description || "",
       branchId: initialData?.branch?.toString() || "",
     }),
-    [initialData]
+    [initialData],
   );
 
   const [code, setCode] = useState(getInitialFormData().code);
   const [name, setName] = useState(getInitialFormData().name);
   const [coordinatorId, setCoordinatorId] = useState(
-    getInitialFormData().coordinatorId
+    getInitialFormData().coordinatorId,
   );
   const [familyIds, setFamilyIds] = useState<string[]>(
-    getInitialFormData().familyIds
+    getInitialFormData().familyIds,
   );
   const [memberIds, setMemberIds] = useState<string[]>(
-    getInitialFormData().memberIds
+    getInitialFormData().memberIds,
   );
   const [location, setLocation] = useState(getInitialFormData().location);
   const [meetingSchedule, setMeetingSchedule] = useState(
-    getInitialFormData().meetingSchedule
+    getInitialFormData().meetingSchedule,
   );
   const [description, setDescription] = useState(
-    getInitialFormData().description
+    getInitialFormData().description,
   );
   const [branchId, setBranchId] = useState<string>(
-    getInitialFormData().branchId
+    getInitialFormData().branchId,
   );
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
@@ -74,8 +74,11 @@ export default function ClusterForm({
   const { people, loading: peopleLoading } = usePeople();
   const { families, loading: familiesLoading } = useFamilies();
   const { branches } = useBranches();
-  const { user } = useAuth();
-  const canEditBranch = user?.role === "ADMIN" || user?.role === "PASTOR";
+  const { user, isSeniorCoordinator } = useAuth();
+  const canEditBranch =
+    user?.role === "ADMIN" ||
+    user?.role === "PASTOR" ||
+    isSeniorCoordinator("CLUSTER");
 
   useEffect(() => {
     const next = getInitialFormData();
@@ -126,7 +129,7 @@ export default function ClusterForm({
   const filteredFamilies = useMemo(() => {
     if (!familySearch.trim()) return families;
     return families.filter((family) =>
-      family.name.toLowerCase().includes(familySearch.toLowerCase())
+      family.name.toLowerCase().includes(familySearch.toLowerCase()),
     );
   }, [families, familySearch]);
 
@@ -137,11 +140,11 @@ export default function ClusterForm({
 
       // Automatically add all family members to the members list
       const selectedFamily = families.find(
-        (f) => f.id.toString() === familyIdStr
+        (f) => f.id.toString() === familyIdStr,
       );
       if (selectedFamily && selectedFamily.members) {
         const familyMemberIds = selectedFamily.members.map((id) =>
-          id.toString()
+          id.toString(),
         );
         const newMemberIds = [...memberIds];
 
@@ -172,7 +175,7 @@ export default function ClusterForm({
 
   const getSelectedFamilies = () => {
     return families.filter((family) =>
-      familyIds.includes(family.id.toString())
+      familyIds.includes(family.id.toString()),
     );
   };
 
@@ -189,7 +192,7 @@ export default function ClusterForm({
           .toLowerCase()
           .includes(memberSearch.toLowerCase()) ||
         member.role.toLowerCase().includes(memberSearch.toLowerCase()) ||
-        member.status.toLowerCase().includes(memberSearch.toLowerCase())
+        member.status.toLowerCase().includes(memberSearch.toLowerCase()),
     );
   }, [people, memberSearch]);
 
@@ -408,7 +411,9 @@ export default function ClusterForm({
               Selected Families:
             </p>
             <div
-              className={panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}
+              className={
+                panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"
+              }
             >
               {getSelectedFamilies().map((family) => (
                 <div
@@ -504,14 +509,14 @@ export default function ClusterForm({
                         <div className="flex items-center space-x-1 mt-0.5">
                           <span
                             className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                              member.status
+                              member.status,
                             )}`}
                           >
                             {member.status.toLowerCase()}
                           </span>
                           <span
                             className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
-                              member.role
+                              member.role,
                             )}`}
                           >
                             {member.role.toLowerCase()}
@@ -536,7 +541,9 @@ export default function ClusterForm({
               Selected Members:
             </p>
             <div
-              className={panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}
+              className={
+                panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"
+              }
             >
               {getSelectedMembers().map((member) => (
                 <div
@@ -612,7 +619,7 @@ export default function ClusterForm({
           </select>
           {!canEditBranch && (
             <p className="text-xs text-gray-500 mt-1">
-              Only ADMIN and PASTOR can edit branch
+              Only ADMIN, PASTOR, or CLUSTER Senior Coordinator can edit branch
             </p>
           )}
         </div>
@@ -668,8 +675,8 @@ export default function ClusterForm({
           {submitting
             ? "Saving..."
             : initialData
-            ? "Update Cluster"
-            : "Create Cluster"}
+              ? "Update Cluster"
+              : "Create Cluster"}
         </Button>
       </div>
     </form>

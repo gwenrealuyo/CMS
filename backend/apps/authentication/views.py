@@ -116,7 +116,10 @@ def login_view(request):
             # 7 days default
             refresh.set_exp(lifetime=timedelta(days=7))
 
-        # Serialize user data
+        # Serialize user data (prefetch coordinator assignments for /auth/me parity)
+        user = User.objects.prefetch_related("module_coordinator_assignments").get(
+            pk=user.pk
+        )
         user_serializer = UserSerializer(user)
         user_data = user_serializer.data
 
@@ -267,7 +270,10 @@ def current_user_view(request):
     PATCH: Updates user profile (name, email, photo) - does NOT log in audit
     """
     if request.method == "GET":
-        serializer = UserSerializer(request.user)
+        user = User.objects.prefetch_related("module_coordinator_assignments").get(
+            pk=request.user.pk
+        )
+        serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
     elif request.method == "PATCH":
         serializer = ProfileUpdateSerializer(
@@ -276,8 +282,10 @@ def current_user_view(request):
         if serializer.is_valid():
             serializer.save()
             # Note: Profile updates are NOT logged in audit log per requirements
-            # Return full user data using UserSerializer
-            user_serializer = UserSerializer(request.user)
+            user = User.objects.prefetch_related("module_coordinator_assignments").get(
+                pk=request.user.pk
+            )
+            user_serializer = UserSerializer(user)
             return Response(user_serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

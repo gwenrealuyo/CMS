@@ -131,38 +131,43 @@ export default function ClusterReportsDashboard({
   const [selectedGatheringType, setSelectedGatheringType] =
     useState<string>("");
 
-  // Helper function to get ISO week number
-  const getISOWeekNumber = (date: Date): number => {
-    const d = new Date(
-      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  // ISO weekday Mon=1 … Sun=7 (local calendar)
+  const toIsoWeekday = (dayJsSundayZero: number) =>
+    dayJsSundayZero === 0 ? 7 : dayJsSundayZero;
+
+  /** ISO week number for local date (matches local Monday/Sunday boundaries). */
+  const getLocalISOWeekNumber = (date: Date): number => {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    d.setHours(0, 0, 0, 0);
+    const isoDow = toIsoWeekday(d.getDay());
+    const mondayThisWeek = new Date(d);
+    mondayThisWeek.setDate(d.getDate() - (isoDow - 1));
+
+    const thursday = new Date(d);
+    thursday.setDate(d.getDate() + 4 - isoDow);
+    const isoYear = thursday.getFullYear();
+
+    const jan4 = new Date(isoYear, 0, 4);
+    const week1Monday = new Date(jan4);
+    week1Monday.setDate(jan4.getDate() - (toIsoWeekday(jan4.getDay()) - 1));
+
+    const diffDays = Math.round(
+      (mondayThisWeek.getTime() - week1Monday.getTime()) / 86400000,
     );
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+    return Math.floor(diffDays / 7) + 1;
   };
 
-  // Helper function to get date range for ISO week
   const getWeekDateRange = (
     year: number,
     weekNumber: number,
   ): { start: Date; end: Date } => {
-    // ISO week: Week 1 contains Jan 4, and weeks start on Monday
-    // Get Jan 4 of the year
     const jan4 = new Date(year, 0, 4);
-    const jan4Day = jan4.getDay() || 7; // Convert Sunday (0) to 7
-
-    // Find the Monday of week 1
-    // Jan 4 is in week 1, so we need to find the Monday of that week
-    const daysToMonday = jan4Day === 1 ? 0 : 8 - jan4Day; // Days to go back to Monday
     const week1Monday = new Date(jan4);
-    week1Monday.setDate(jan4.getDate() - daysToMonday);
+    week1Monday.setDate(jan4.getDate() - (toIsoWeekday(jan4.getDay()) - 1));
 
-    // Calculate the start date of the requested week (Monday)
     const weekStart = new Date(week1Monday);
     weekStart.setDate(week1Monday.getDate() + (weekNumber - 1) * 7);
 
-    // Calculate the end date of the week (Sunday)
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
 
@@ -185,7 +190,7 @@ export default function ClusterReportsDashboard({
   };
 
   const [selectedWeek, setSelectedWeek] = useState<string>(() => {
-    const currentWeek = getISOWeekNumber(new Date());
+    const currentWeek = getLocalISOWeekNumber(new Date());
     return currentWeek.toString();
   });
 
@@ -1401,10 +1406,8 @@ export default function ClusterReportsDashboard({
                 onClick={() => {
                   const currentMonth = new Date().getMonth() + 1;
                   if (selectedMonth === "") {
-                    // Switch to current month
-                    setSelectedMonth(currentMonth.toString());
+                    setSelectedMonth(String(currentMonth).padStart(2, "0"));
                   } else {
-                    // Switch to all months
                     setSelectedMonth("");
                   }
                 }}
@@ -1458,18 +1461,33 @@ export default function ClusterReportsDashboard({
               className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">All Months</option>
-              <option value="1">January</option>
-              <option value="2">February</option>
-              <option value="3">March</option>
-              <option value="4">April</option>
-              <option value="5">May</option>
-              <option value="6">June</option>
-              <option value="7">July</option>
-              <option value="8">August</option>
-              <option value="9">September</option>
-              <option value="10">October</option>
-              <option value="11">November</option>
-              <option value="12">December</option>
+              {[
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+              ].map((label, idx) => {
+                const monthNum = idx + 1;
+                const value = String(monthNum).padStart(2, "0");
+                const today = new Date();
+                const isCurrentMonth =
+                  selectedYear === today.getFullYear() &&
+                  monthNum === today.getMonth() + 1;
+                return (
+                  <option key={value} value={value}>
+                    {label}
+                    {isCurrentMonth ? " - Current" : ""}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -1479,7 +1497,7 @@ export default function ClusterReportsDashboard({
               <button
                 type="button"
                 onClick={() => {
-                  const currentWeek = getISOWeekNumber(new Date());
+                  const currentWeek = getLocalISOWeekNumber(new Date());
                   if (selectedWeek === "") {
                     // Switch to current week
                     setSelectedWeek(currentWeek.toString());
@@ -1538,7 +1556,7 @@ export default function ClusterReportsDashboard({
               <option value="">All Weeks</option>
               {Array.from({ length: 53 }, (_, i) => {
                 const weekNum = i + 1;
-                const currentWeek = getISOWeekNumber(new Date());
+                const currentWeek = getLocalISOWeekNumber(new Date());
                 const isCurrentWeek =
                   weekNum === currentWeek &&
                   selectedYear === new Date().getFullYear();

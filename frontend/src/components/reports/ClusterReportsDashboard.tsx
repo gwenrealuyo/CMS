@@ -121,6 +121,8 @@ export default function ClusterReportsDashboard({
   const [selectedYear, setSelectedYear] = useState<number>(
     new Date().getFullYear(),
   );
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [yearsLoading, setYearsLoading] = useState(false);
   const [selectedGatheringType, setSelectedGatheringType] =
     useState<string>("");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
@@ -423,6 +425,48 @@ export default function ClusterReportsDashboard({
       setAnalyticsLoading(false);
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    setYearsLoading(true);
+    const params: {
+      branch_id?: string;
+      cluster?: string;
+      gathering_type?: string;
+    } = {};
+    if (selectedBranchId) params.branch_id = selectedBranchId;
+    if (selectedClusterFilter) params.cluster = selectedClusterFilter;
+    if (selectedGatheringType) params.gathering_type = selectedGatheringType;
+
+    clusterReportsApi
+      .distinctYears(params)
+      .then((res) => {
+        if (!cancelled) setAvailableYears(res.data.years ?? []);
+      })
+      .catch((err) => {
+        console.error("Error fetching distinct years:", err);
+        if (!cancelled) setAvailableYears([]);
+      })
+      .finally(() => {
+        if (!cancelled) setYearsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedBranchId,
+    selectedClusterFilter,
+    selectedGatheringType,
+    refreshTrigger,
+  ]);
+
+  useEffect(() => {
+    if (availableYears.length === 0) return;
+    setSelectedYear((y) =>
+      availableYears.includes(y) ? y : availableYears[0],
+    );
+  }, [availableYears]);
 
   useEffect(() => {
     fetchReports();
@@ -1723,18 +1767,30 @@ export default function ClusterReportsDashboard({
               Year
             </label>
             <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={yearsLoading || availableYears.length === 0}
+              value={
+                yearsLoading || availableYears.length === 0
+                  ? ""
+                  : availableYears.includes(selectedYear)
+                    ? selectedYear
+                    : availableYears[0]
+              }
+              onChange={(e) =>
+                setSelectedYear(parseInt(e.target.value, 10))
+              }
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
             >
-              {Array.from(
-                { length: 5 },
-                (_, i) => new Date().getFullYear() - i,
-              ).map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
+              {yearsLoading ? (
+                <option value="">Loading…</option>
+              ) : availableYears.length === 0 ? (
+                <option value="">No reports yet</option>
+              ) : (
+                availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

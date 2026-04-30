@@ -219,6 +219,42 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     @action(detail=False, methods=["get"])
+    def distinct_years(self, request):
+        """
+        Distinct calendar years present in weekly reports (facet filters only).
+
+        Intentionally does not apply get_queryset() row visibility so the Year
+        filter can list organizational metadata; list/retrieve remain RBAC-scoped.
+        Optional query params: branch_id / branch, cluster, gathering_type.
+        Ignores year, month, week_number.
+        """
+        queryset = ClusterWeeklyReport.objects.all()
+
+        branch_param = request.query_params.get(
+            "branch_id"
+        ) or request.query_params.get("branch")
+        if branch_param:
+            try:
+                queryset = queryset.filter(cluster__branch_id=int(branch_param))
+            except (TypeError, ValueError):
+                pass
+
+        cluster_param = request.query_params.get("cluster")
+        if cluster_param:
+            try:
+                queryset = queryset.filter(cluster_id=int(cluster_param))
+            except (TypeError, ValueError):
+                pass
+
+        gathering = request.query_params.get("gathering_type")
+        if gathering:
+            queryset = queryset.filter(gathering_type=gathering)
+
+        years_iter = queryset.values_list("year", flat=True).distinct()
+        years = sorted(set(years_iter), reverse=True)
+        return Response({"years": years})
+
+    @action(detail=False, methods=["get"])
     def analytics(self, request):
         """Generate analytics from cluster weekly reports"""
         # get_queryset() already applies filters from filterset_fields (cluster, year, gathering_type)

@@ -682,6 +682,129 @@ class ClusterWeeklyReportAPITests(TestCase):
         self.assertIn("overdue_clusters", response.data)
 
 
+class ClusterWeeklyReportDistinctYearsTests(TestCase):
+    """distinct_years uses facet filters only; not list RBAC."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.branch_a = Branch.objects.create(name="DY-A", code="BR_DYA")
+        self.branch_b = Branch.objects.create(name="DY-B", code="BR_DYB")
+        self.admin = Person.objects.create_user(
+            username="adm_dy",
+            email="adm_dy@example.com",
+            password="password123",
+            first_name="Admin",
+            last_name="DistinctYears",
+            role="ADMIN",
+        )
+        self.coord = Person.objects.create_user(
+            username="coord_dy",
+            email="coord_dy@example.com",
+            password="password123",
+            first_name="Coord",
+            last_name="DY",
+            role="COORDINATOR",
+            branch=self.branch_a,
+        )
+        self.member = Person.objects.create_user(
+            username="mem_dy",
+            email="mem_dy@example.com",
+            password="password123",
+            first_name="Member",
+            last_name="DY",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+        self.cluster_a = Cluster.objects.create(
+            code="CL-DY-A",
+            name="Distinct A",
+            coordinator=self.coord,
+            branch=self.branch_a,
+        )
+        self.cluster_a.members.add(self.member)
+        self.cluster_b = Cluster.objects.create(
+            code="CL-DY-B",
+            name="Distinct B",
+            coordinator=self.coord,
+            branch=self.branch_b,
+        )
+
+    def test_returns_distinct_years_descending(self):
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_a,
+            year=2024,
+            week_number=20,
+            meeting_date=date(2024, 5, 15),
+            gathering_type="PHYSICAL",
+            submitted_by=self.coord,
+        )
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_a,
+            year=2022,
+            week_number=20,
+            meeting_date=date(2022, 5, 15),
+            gathering_type="PHYSICAL",
+            submitted_by=self.coord,
+        )
+        self.client.force_authenticate(user=self.admin)
+        r = self.client.get("/api/clusters/cluster-weekly-reports/distinct_years/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data["years"], [2024, 2022])
+
+    def test_filters_by_branch_facet(self):
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_a,
+            year=2023,
+            week_number=10,
+            meeting_date=date(2023, 3, 1),
+            gathering_type="PHYSICAL",
+            submitted_by=self.coord,
+        )
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_b,
+            year=2019,
+            week_number=10,
+            meeting_date=date(2019, 3, 1),
+            gathering_type="PHYSICAL",
+            submitted_by=self.coord,
+        )
+        self.client.force_authenticate(user=self.admin)
+        r = self.client.get(
+            "/api/clusters/cluster-weekly-reports/distinct_years/",
+            {"branch_id": self.branch_a.id},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data["years"], [2023])
+
+    def test_member_sees_years_outside_list_scope_when_not_faceted(self):
+        """Row visibility differs from distinct_years (plan: organizational metadata)."""
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_a,
+            year=2025,
+            week_number=5,
+            meeting_date=date(2025, 2, 1),
+            gathering_type="PHYSICAL",
+            submitted_by=self.coord,
+        )
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_b,
+            year=1999,
+            week_number=5,
+            meeting_date=date(1999, 2, 1),
+            gathering_type="ONLINE",
+            submitted_by=self.coord,
+        )
+        self.client.force_authenticate(user=self.member)
+        r_years = self.client.get("/api/clusters/cluster-weekly-reports/distinct_years/")
+        self.assertEqual(r_years.status_code, 200)
+        self.assertEqual(set(r_years.data["years"]), {2025, 1999})
+
+        r_list = self.client.get("/api/clusters/cluster-weekly-reports/")
+        self.assertEqual(r_list.status_code, 200)
+        list_years = {row["year"] for row in r_list.data["results"]}
+        self.assertEqual(list_years, {2025})
+
+
 class ClusterWeeklyReportBranchScopeTests(TestCase):
     """Privileged users may filter by branch query param; others are scoped to user.branch."""
 

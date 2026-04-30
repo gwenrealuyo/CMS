@@ -384,6 +384,15 @@ export const clusterReportsApi = {
     api.get<ClusterAnalytics>("/clusters/cluster-weekly-reports/analytics/", {
       params,
     }),
+  distinctYears: (params?: {
+    branch_id?: string | number;
+    cluster?: string;
+    gathering_type?: string;
+  }) =>
+    api.get<{ years: number[] }>(
+      "/clusters/cluster-weekly-reports/distinct_years/",
+      { params },
+    ),
   overdue: () =>
     api.get<OverdueClusters>("/clusters/cluster-weekly-reports/overdue/"),
   compliance: (params?: {

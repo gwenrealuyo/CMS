@@ -343,6 +343,7 @@ export const clustersApi = {
 export const clusterReportsApi = {
   getAll: (params?: {
     cluster?: string;
+    branch_id?: string | number;
     year?: number;
     week_number?: number;
     gathering_type?: string;
@@ -372,7 +373,14 @@ export const clusterReportsApi = {
       data
     ),
   delete: (id: string) => api.delete(`/clusters/cluster-weekly-reports/${id}/`),
-  analytics: (params?: { cluster?: string; year?: number }) =>
+  analytics: (params?: {
+    cluster?: string;
+    branch_id?: string | number;
+    year?: number;
+    week_number?: number | string;
+    gathering_type?: string;
+    month?: number | string;
+  }) =>
     api.get<ClusterAnalytics>("/clusters/cluster-weekly-reports/analytics/", {
       params,
     }),
@@ -1308,6 +1316,8 @@ export interface LoginResponse {
     full_name: string;
     role: string;
     photo?: string;
+    branch?: number | null;
+    branch_name?: string | null;
   };
 }
 
@@ -1321,6 +1331,8 @@ export interface User {
   full_name: string;
   role: string;
   photo?: string;
+  branch?: number | null;
+  branch_name?: string | null;
   must_change_password?: boolean;
   first_login?: boolean;
   module_coordinator_assignments?: ModuleCoordinator[];

@@ -105,6 +105,8 @@ class LoginSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
+    branch = serializers.IntegerField(source="branch_id", read_only=True, allow_null=True)
+    branch_name = serializers.SerializerMethodField()
     module_coordinator_assignments = ModuleCoordinatorSerializer(
         many=True, read_only=True
     )
@@ -123,6 +125,8 @@ class UserSerializer(serializers.ModelSerializer):
             "photo",
             "must_change_password",
             "first_login",
+            "branch",
+            "branch_name",
             "module_coordinator_assignments",
         )
         read_only_fields = (
@@ -132,11 +136,18 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "must_change_password",
             "first_login",
+            "branch",
+            "branch_name",
             "module_coordinator_assignments",
         )
 
     def get_full_name(self, obj):
         return format_person_name(obj)
+
+    def get_branch_name(self, obj):
+        if obj.branch_id and getattr(obj, "branch", None):
+            return obj.branch.name
+        return None
 
 
 class TokenResponseSerializer(serializers.Serializer):

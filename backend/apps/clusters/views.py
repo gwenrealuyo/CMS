@@ -126,7 +126,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
-        
+
         # Apply month filter if provided
         month = self.request.query_params.get("month")
         if month:
@@ -136,33 +136,49 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(meeting_date__month=month_int)
             except ValueError:
                 pass
-        
-        # ADMIN/PASTOR: All reports
-        if user.role in ["ADMIN", "PASTOR"]:
-            return queryset
-        
-        # Senior Coordinator: All reports
-        if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
-            return queryset
-        
-        # Cluster Coordinator (non-senior): Read/browse all reports; mutations scoped per-report cluster
-        coordinator_assignments = user.module_coordinator_assignments.filter(
-            module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
-        )
-        if coordinator_assignments.exists():
-            return queryset
 
-        if Cluster.objects.filter(coordinator=user).exists():
-            return queryset
-        
-        # MEMBER: Read-only, only reports for clusters they're in
-        if user.role == "MEMBER":
-            member_clusters = Cluster.objects.filter(members=user)
-            return queryset.filter(cluster__in=member_clusters)
-        
-        # Default: empty queryset for safety
-        return queryset.none()
+        # Permission-based visibility (before branch scoping)
+        if user.role in ["ADMIN", "PASTOR"]:
+            pass
+        elif user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
+            pass
+        else:
+            coordinator_assignments = user.module_coordinator_assignments.filter(
+                module=ModuleCoordinator.ModuleType.CLUSTER,
+                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+            if coordinator_assignments.exists():
+                pass
+            elif Cluster.objects.filter(coordinator=user).exists():
+                pass
+            elif user.role == "MEMBER":
+                member_clusters = Cluster.objects.filter(members=user)
+                queryset = queryset.filter(cluster__in=member_clusters)
+            else:
+                queryset = queryset.none()
+
+        # Branch scoping (after permission narrowing)
+        branch_param = self.request.query_params.get(
+            "branch_id"
+        ) or self.request.query_params.get("branch")
+        can_pick_branch = user.role in [
+            "ADMIN",
+            "PASTOR",
+        ] or user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER)
+        if can_pick_branch:
+            if branch_param:
+                try:
+                    bid = int(branch_param)
+                    queryset = queryset.filter(cluster__branch_id=bid)
+                except (TypeError, ValueError):
+                    pass
+        else:
+            if user.branch_id:
+                queryset = queryset.filter(cluster__branch_id=user.branch_id)
+            else:
+                queryset = queryset.none()
+
+        return queryset
     
     def get_permissions(self):
         """

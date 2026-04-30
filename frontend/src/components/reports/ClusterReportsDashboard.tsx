@@ -6,7 +6,11 @@ import {
   Cluster,
   ClusterAnalytics,
 } from "@/src/types/cluster";
-import { clusterReportsApi, PaginatedResponse } from "@/src/lib/api";
+import {
+  clusterReportsApi,
+  PaginatedResponse,
+  branchesApi,
+} from "@/src/lib/api";
 import { formatPersonName } from "@/src/lib/name";
 import ClusterWeeklyReportForm from "./ClusterWeeklyReportForm";
 import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
@@ -108,17 +112,6 @@ export default function ClusterReportsDashboard({
 
   const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
 
-  const canMutateWeeklyReports = useMemo(
-    () =>
-      userCanAttemptClusterWeeklyReportMutation(clusters, {
-        userId: user?.id,
-        role: user?.role,
-        isSeniorCoordinator,
-        isModuleCoordinator,
-      }),
-    [clusters, user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
-  );
-
   // Filters
   const [selectedClusterFilter, setSelectedClusterFilter] =
     useState<string>("");
@@ -130,6 +123,12 @@ export default function ClusterReportsDashboard({
   );
   const [selectedGatheringType, setSelectedGatheringType] =
     useState<string>("");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [branchPickerOptions, setBranchPickerOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const prevUserIdRef = useRef<number | undefined>(undefined);
 
   // ISO weekday Mon=1 … Sun=7 (local calendar)
   const toIsoWeekday = (dayJsSundayZero: number) =>
@@ -239,6 +238,124 @@ export default function ClusterReportsDashboard({
     ),
   );
 
+  const canChangeBranchFilter = useMemo(() => {
+    if (!user) return false;
+    if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+    return isSeniorCoordinator("CLUSTER");
+  }, [user, isSeniorCoordinator]);
+
+  useEffect(() => {
+    if (!user) {
+      setSelectedBranchId("");
+      prevUserIdRef.current = undefined;
+      return;
+    }
+    if (prevUserIdRef.current !== user.id) {
+      prevUserIdRef.current = user.id;
+      setSelectedBranchId(
+        user.branch != null && user.branch !== undefined
+          ? String(user.branch)
+          : "",
+      );
+      return;
+    }
+    if (user.branch != null && user.branch !== undefined) {
+      setSelectedBranchId((prev) => (prev === "" ? String(user.branch) : prev));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!canChangeBranchFilter) {
+      setBranchPickerOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setBranchesLoading(true);
+    branchesApi
+      .getAll({ is_active: true })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data) ? res.data : [];
+        setBranchPickerOptions(
+          rows.map((b) => ({ value: String(b.id), label: b.name })),
+        );
+      })
+      .catch((err) => {
+        console.error("Error loading branches:", err);
+        if (!cancelled) setBranchPickerOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBranchesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canChangeBranchFilter]);
+
+  const editableBranchSelectOptions = useMemo(
+    () => [{ value: "", label: "All branches" }, ...branchPickerOptions],
+    [branchPickerOptions],
+  );
+
+  const branchFilterLabel = useMemo(() => {
+    if (!selectedBranchId) return "No branch";
+    if (
+      user?.branch_name &&
+      user.branch != null &&
+      String(user.branch) === selectedBranchId
+    ) {
+      return user.branch_name;
+    }
+    const opt = branchPickerOptions.find((o) => o.value === selectedBranchId);
+    return opt?.label ?? `Branch #${selectedBranchId}`;
+  }, [
+    selectedBranchId,
+    user?.branch,
+    user?.branch_name,
+    branchPickerOptions,
+  ]);
+
+  const readonlyBranchSelectOptions = useMemo(() => {
+    if (selectedBranchId) {
+      return [{ value: selectedBranchId, label: branchFilterLabel }];
+    }
+    return [{ value: "", label: "No branch assigned" }];
+  }, [selectedBranchId, branchFilterLabel]);
+
+  const clustersForFilters = useMemo(() => {
+    if (!selectedBranchId) return clusters;
+    const bid = Number(selectedBranchId);
+    if (Number.isNaN(bid)) return clusters;
+    return clusters.filter(
+      (c) => c.branch != null && Number(c.branch) === bid,
+    );
+  }, [clusters, selectedBranchId]);
+
+  useEffect(() => {
+    setSelectedClusterFilter((prev) => {
+      if (!prev) return prev;
+      const ok = clustersForFilters.some((c) => String(c.id) === prev);
+      return ok ? prev : "";
+    });
+  }, [clustersForFilters, selectedBranchId]);
+
+  const canMutateWeeklyReports = useMemo(
+    () =>
+      userCanAttemptClusterWeeklyReportMutation(clustersForFilters, {
+        userId: user?.id,
+        role: user?.role,
+        isSeniorCoordinator,
+        isModuleCoordinator,
+      }),
+    [
+      clustersForFilters,
+      user?.id,
+      user?.role,
+      isSeniorCoordinator,
+      isModuleCoordinator,
+    ],
+  );
+
   // Handle sorting
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -259,6 +376,7 @@ export default function ClusterReportsDashboard({
       };
 
       if (selectedClusterFilter) params.cluster = selectedClusterFilter;
+      if (selectedBranchId) params.branch_id = selectedBranchId;
       if (selectedYear) params.year = selectedYear;
       if (selectedGatheringType) params.gathering_type = selectedGatheringType;
       if (selectedMonth) params.month = selectedMonth;
@@ -282,6 +400,7 @@ export default function ClusterReportsDashboard({
       setAnalyticsLoading(true);
       const params: any = {};
       if (selectedClusterFilter) params.cluster = selectedClusterFilter;
+      if (selectedBranchId) params.branch_id = selectedBranchId;
       if (selectedYear) params.year = selectedYear;
       if (selectedMonth) params.month = selectedMonth;
       if (selectedGatheringType) params.gathering_type = selectedGatheringType;
@@ -311,6 +430,7 @@ export default function ClusterReportsDashboard({
     currentPage,
     itemsPerPage,
     selectedClusterFilter,
+    selectedBranchId,
     selectedMonth,
     selectedYear,
     selectedGatheringType,
@@ -322,6 +442,7 @@ export default function ClusterReportsDashboard({
     fetchAnalytics();
   }, [
     selectedClusterFilter,
+    selectedBranchId,
     selectedMonth,
     selectedYear,
     selectedGatheringType,
@@ -342,6 +463,7 @@ export default function ClusterReportsDashboard({
     setCurrentPage(1);
   }, [
     selectedClusterFilter,
+    selectedBranchId,
     selectedMonth,
     selectedYear,
     selectedGatheringType,
@@ -450,12 +572,12 @@ export default function ClusterReportsDashboard({
   const clusterOptions = useMemo(
     () => [
       { value: "", label: "All Clusters" },
-      ...clusters.map((cluster) => ({
+      ...clustersForFilters.map((cluster) => ({
         value: String(cluster.id),
         label: cluster.name || "Unnamed Cluster",
       })),
     ],
-    [clusters],
+    [clustersForFilters],
   );
 
   const chartMonthlyAttendance = useMemo(() => {
@@ -504,7 +626,7 @@ export default function ClusterReportsDashboard({
     if (rows?.length) {
       return rows
         .map((row) => {
-          const cluster = clusters.find((c) => c.id === row.cluster_id);
+          const cluster = clustersForFilters.find((c) => c.id === row.cluster_id);
           const totalMembers = cluster?.members?.length || 1;
           const rc = row.report_count;
           const sum = row.sum_members_attended;
@@ -527,7 +649,7 @@ export default function ClusterReportsDashboard({
     > = {};
     reports.forEach((report) => {
       const clusterId = report.cluster?.toString() || "";
-      const cluster = clusters.find((c) => c.id.toString() === clusterId);
+      const cluster = clustersForFilters.find((c) => c.id.toString() === clusterId);
       const clusterName =
         cluster?.name || cluster?.code || `Cluster ${clusterId}`;
       if (!clusterData[clusterId]) {
@@ -548,7 +670,7 @@ export default function ClusterReportsDashboard({
         clusterData[clusterId].avgAttendance = Math.round(
           clusterData[clusterId].avgAttendance / clusterReports.length,
         );
-        const cluster = clusters.find((c) => c.id.toString() === clusterId);
+        const cluster = clustersForFilters.find((c) => c.id.toString() === clusterId);
         const totalMembers = cluster?.members?.length || 1;
         const totalAttendance =
           clusterData[clusterId].avgAttendance * clusterReports.length;
@@ -564,7 +686,7 @@ export default function ClusterReportsDashboard({
     return Object.values(clusterData)
       .sort((a, b) => b.attendanceRate - a.attendanceRate)
       .slice(0, 10);
-  }, [analytics?.chart_series?.cluster_comparison, clusters, reports]);
+  }, [analytics?.chart_series?.cluster_comparison, clustersForFilters, reports]);
 
   const chartGatheringPieData = useMemo(() => {
     const dist = analytics?.gathering_type_distribution;
@@ -599,7 +721,9 @@ export default function ClusterReportsDashboard({
   };
 
   const handleEditReport = (report: ClusterWeeklyReport) => {
-    const cluster = clusters.find((c) => c.id === report.cluster);
+    const cluster =
+      clustersForFilters.find((c) => c.id === report.cluster) ??
+      clusters.find((c) => c.id === report.cluster);
     if (cluster) {
       // Use external handler if provided
       if (externalOnEditReport) {
@@ -946,10 +1070,10 @@ export default function ClusterReportsDashboard({
               : Math.round((analytics.total_reports / 12) * 10) / 10;
 
             const filteredClusters = selectedClusterFilter
-              ? clusters.filter(
+              ? clustersForFilters.filter(
                   (c) => c.id.toString() === selectedClusterFilter,
                 )
-              : clusters;
+              : clustersForFilters;
 
             const avgMembersPerCluster =
               filteredClusters.length > 0
@@ -1379,7 +1503,31 @@ export default function ClusterReportsDashboard({
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Branch
+            </label>
+            <ScalableSelect
+              options={
+                canChangeBranchFilter
+                  ? editableBranchSelectOptions
+                  : readonlyBranchSelectOptions
+              }
+              value={selectedBranchId}
+              onChange={setSelectedBranchId}
+              placeholder="Branch"
+              searchPlaceholder="Search branches..."
+              className="w-full"
+              disabled={!canChangeBranchFilter}
+              loading={canChangeBranchFilter && branchesLoading}
+              showSearch={canChangeBranchFilter}
+              maxHeight={220}
+              emptyMessage="No branches found"
+              virtualizeThreshold={50}
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cluster
@@ -2179,7 +2327,7 @@ export default function ClusterReportsDashboard({
       >
         <ClusterWeeklyReportForm
           cluster={formSelectedCluster as any}
-          clusters={(clustersForReportForm ?? clusters) as any}
+          clusters={(clustersForReportForm ?? clustersForFilters) as any}
           isOpen={isFormOpen}
           onClose={() => {
             if (onFormClose) {

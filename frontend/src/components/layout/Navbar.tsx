@@ -160,13 +160,22 @@ export default function Navbar() {
             </button>
 
             {showProfile && (
-              <div className="absolute right-0 mt-2 w-48 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg py-2 border z-50">
+              <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg py-2 border z-50">
+                {user?.role !== "VISITOR" && (
+                  <Link
+                    href="/me"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 min-h-[44px] flex items-center"
+                    onClick={() => setShowProfile(false)}
+                  >
+                    My record
+                  </Link>
+                )}
                 <Link
                   href="/profile"
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 min-h-[44px] flex items-center"
                   onClick={() => setShowProfile(false)}
                 >
-                  Your Profile
+                  Account settings
                 </Link>
                 {user?.role === "ADMIN" && (
                   <Link

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/src/contexts/AuthContext";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
@@ -139,6 +140,16 @@ function ProfilePageContent() {
         <div>
           <h1 className="text-2xl font-bold text-[#2D3748]">Your Profile</h1>
           <p className="text-gray-500">Manage your profile information and password</p>
+          {user.role !== "VISITOR" && (
+            <p className="mt-2">
+              <Link
+                href="/me"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                View full church record
+              </Link>
+            </p>
+          )}
         </div>
 
         {/* Profile Information Section */}

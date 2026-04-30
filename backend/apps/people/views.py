@@ -31,7 +31,7 @@ class PersonViewSet(viewsets.ModelViewSet):
     search_fields = ["username", "email", "first_name", "last_name"]
     filterset_fields = ["role"]
 
-    def get_queryset(self):
+    def _scoped_people_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
 
@@ -220,6 +220,15 @@ class PersonViewSet(viewsets.ModelViewSet):
 
         # Default: empty queryset for safety
         return queryset.none()
+
+    def get_queryset(self):
+        qs = self._scoped_people_queryset()
+        if getattr(self, "action", None) == "retrieve":
+            own = Person.objects.filter(pk=self.request.user.pk).prefetch_related(
+                "clusters", "families"
+            )
+            return (qs | own).distinct()
+        return qs
 
     def get_permissions(self):
         """

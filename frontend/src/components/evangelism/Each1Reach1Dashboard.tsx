@@ -6,6 +6,7 @@ import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Modal from "@/src/components/ui/Modal";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -17,6 +18,11 @@ import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import { useEach1Reach1Goals } from "@/src/hooks/useEvangelism";
 import { branchesApi, clustersApi, evangelismApi } from "@/src/lib/api";
+import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  canChangeEvangelismBranchFilter,
+  EVANGELISM_BRANCH_LOCKED_HINT,
+} from "@/src/lib/evangelismBranchFilter";
 
 interface Each1Reach1DashboardProps {
   year?: number;
@@ -25,6 +31,13 @@ interface Each1Reach1DashboardProps {
 export default function Each1Reach1Dashboard({
   year,
 }: Each1Reach1DashboardProps) {
+  const { user, isSeniorCoordinator } = useAuth();
+  const canChangeBranchFilter = useMemo(
+    () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
+    [user, isSeniorCoordinator],
+  );
+  const each1BranchUserIdRef = useRef<number | undefined>(undefined);
+
   type SortField =
     | "cluster"
     | "target_conversions"
@@ -116,6 +129,26 @@ export default function Each1Reach1Dashboard({
   }, []);
 
   useEffect(() => {
+    if (!user) {
+      each1BranchUserIdRef.current = undefined;
+      return;
+    }
+    if (each1BranchUserIdRef.current !== user.id) {
+      each1BranchUserIdRef.current = user.id;
+      setFilterBranch(
+        user.branch != null && user.branch !== undefined ? user.branch : "",
+      );
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || canChangeBranchFilter) return;
+    if (user.branch != null && filterBranch !== user.branch) {
+      setFilterBranch(user.branch);
+    }
+  }, [user, canChangeBranchFilter, filterBranch]);
+
+  useEffect(() => {
     if (!showGoalModal || !selectedClusterId) {
       return;
     }
@@ -199,7 +232,13 @@ export default function Each1Reach1Dashboard({
   const resetFilters = () => {
     setFilterYear(currentYear);
     setFilterStatus("ALL");
-    setFilterBranch("");
+    setFilterBranch(
+      canChangeBranchFilter
+        ? ""
+        : user?.branch != null && user.branch !== undefined
+          ? user.branch
+          : "",
+    );
     setSearchInput("");
     setDebouncedSearch("");
   };
@@ -405,20 +444,72 @@ export default function Each1Reach1Dashboard({
           <option value="IN_PROGRESS">In Progress</option>
           <option value="COMPLETED">Completed</option>
         </select>
-        <select
-          value={filterBranch}
-          onChange={(e) => setFilterBranch(Number(e.target.value) || "")}
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-          aria-label="Filter by branch"
-          disabled={branchesLoading}
-        >
-          <option value="">All branches</option>
-          {branches.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {branch.name}
-            </option>
-          ))}
-        </select>
+        {(() => {
+          const each1BranchInteractive =
+            canChangeBranchFilter && !branchesLoading;
+          const branchSelectEl = (
+            <select
+              aria-label="Filter by branch"
+              aria-disabled={!each1BranchInteractive}
+              tabIndex={each1BranchInteractive ? 0 : -1}
+              value={filterBranch}
+              onChange={(e) => {
+                if (!each1BranchInteractive) return;
+                setFilterBranch(Number(e.target.value) || "");
+              }}
+              disabled={canChangeBranchFilter && branchesLoading}
+              className={`rounded-md border border-gray-200 px-3 py-2 text-sm ${
+                !canChangeBranchFilter
+                  ? "pointer-events-none cursor-default bg-white text-gray-900"
+                  : ""
+              } ${
+                canChangeBranchFilter && branchesLoading
+                  ? "cursor-wait bg-gray-50 text-gray-500"
+                  : ""
+              }`}
+            >
+              {canChangeBranchFilter ? (
+                <>
+                  <option value="">All branches</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </>
+              ) : user?.branch != null ? (
+                <>
+                  {branches
+                    .filter((b) => Number(b.id) === Number(user.branch))
+                    .map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  {!branches.some(
+                    (b) => Number(b.id) === Number(user.branch),
+                  ) && (
+                    <option value={Number(user.branch)}>
+                      {user.branch_name?.trim() ?? `Branch #${user.branch}`}
+                    </option>
+                  )}
+                </>
+              ) : (
+                <option value="">No branch assigned</option>
+              )}
+            </select>
+          );
+          return !canChangeBranchFilter ? (
+            <LockedControlTooltip
+              label={EVANGELISM_BRANCH_LOCKED_HINT}
+              wrapperClassName="block min-w-0 w-full align-middle cursor-default"
+            >
+              {branchSelectEl}
+            </LockedControlTooltip>
+          ) : (
+            branchSelectEl
+          );
+        })()}
         <input
           type="text"
           value={searchInput}

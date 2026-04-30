@@ -14,7 +14,9 @@ import { Branch } from "@/src/types/branch";
 import { Cluster } from "@/src/types/cluster";
 import { useEvangelismPeopleTally } from "@/src/hooks/useEvangelism";
 import { evangelismApi, clustersApi } from "@/src/lib/api";
+import { EVANGELISM_BRANCH_LOCKED_HINT } from "@/src/lib/evangelismBranchFilter";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 
 const MONTH_NAMES = [
   "January",
@@ -56,6 +58,10 @@ interface PeopleTallyReportProps {
   branches?: Branch[];
   tallyScope?: string;
   onTallyScopeChange?: (scope: string) => void;
+  /** When true, branch filter cannot be changed (reset uses defaultLockedBranch). */
+  branchSelectionLocked?: boolean;
+  branchLockedHint?: string;
+  defaultLockedBranch?: number | "";
 }
 
 type PeopleTallyMetric = Extract<
@@ -71,6 +77,9 @@ export default function PeopleTallyReport({
   branches = [],
   tallyScope = "",
   onTallyScopeChange,
+  branchSelectionLocked = false,
+  branchLockedHint,
+  defaultLockedBranch = "",
 }: PeopleTallyReportProps) {
   const selectedYear = year || new Date().getFullYear();
   const selectedBranch = branch === "" ? "" : Number(branch);
@@ -167,6 +176,9 @@ export default function PeopleTallyReport({
     metric: PeopleTallyMetric;
     label: string;
   } | null>(null);
+
+  /** Below md, Table defaults to cards; when true, use horizontal-scroll table instead. */
+  const [useMobileTableLayout, setUseMobileTableLayout] = useState(false);
 
   const hasFilterControls = Boolean(onYearChange || onBranchChange || onTallyScopeChange);
 
@@ -265,7 +277,13 @@ export default function PeopleTallyReport({
 
   const handleResetFilters = () => {
     if (onBranchChange) {
-      onBranchChange("");
+      if (branchSelectionLocked) {
+        onBranchChange(
+          defaultLockedBranch === "" ? "" : Number(defaultLockedBranch),
+        );
+      } else {
+        onBranchChange("");
+      }
     }
     if (onTallyScopeChange) {
       onTallyScopeChange("");
@@ -281,12 +299,12 @@ export default function PeopleTallyReport({
       <div className="p-4">
         <h3 className="mb-4 text-lg font-semibold text-gray-900">Monthly People Tally</h3>
         {hasFilterControls && (
-          <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+          <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center">
             {onYearChange && (
               <select
                 value={selectedYear}
                 onChange={(e) => onYearChange(Number(e.target.value))}
-                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+                className="h-11 min-h-[44px] w-full rounded-md border border-gray-200 bg-white px-3 py-0 text-sm"
                 aria-label="Filter by year"
                 disabled={yearsLoading}
               >
@@ -297,21 +315,75 @@ export default function PeopleTallyReport({
                 ))}
               </select>
             )}
-            {onBranchChange && (
-              <select
-                value={selectedBranch === "" ? "" : selectedBranch}
-                onChange={(e) => onBranchChange(Number(e.target.value) || "")}
-                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-                aria-label="Filter by branch"
-              >
-                <option value="">All branches</option>
-                {branches.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            {onBranchChange &&
+              (() => {
+                const tallyBranchInteractive = !branchSelectionLocked;
+                const branchSelectEl = (
+                  <select
+                    aria-label="Filter by branch"
+                    aria-disabled={!tallyBranchInteractive}
+                    tabIndex={tallyBranchInteractive ? 0 : -1}
+                    value={selectedBranch === "" ? "" : selectedBranch}
+                    onChange={(e) => {
+                      if (!tallyBranchInteractive) return;
+                      onBranchChange(Number(e.target.value) || "");
+                    }}
+                    className={`h-11 min-h-[44px] w-full rounded-md border border-gray-200 bg-white px-3 py-0 text-sm ${
+                      tallyBranchInteractive
+                        ? ""
+                        : "pointer-events-none cursor-default text-gray-900"
+                    }`}
+                  >
+                    {branchSelectionLocked ? (
+                      selectedBranch === "" ? (
+                        <option value="">No branch assigned</option>
+                      ) : (
+                        <>
+                          {branches
+                            .filter(
+                              (item) => Number(item.id) === selectedBranch,
+                            )
+                            .map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name}
+                              </option>
+                            ))}
+                          {!branches.some(
+                            (item) => Number(item.id) === selectedBranch,
+                          ) && (
+                            <option value={selectedBranch}>
+                              Branch #{selectedBranch}
+                            </option>
+                          )}
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <option value="">All branches</option>
+                        {branches.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                );
+                return tallyBranchInteractive ? (
+                  branchSelectEl
+                ) : (
+                  <LockedControlTooltip
+                    label={
+                      branchLockedHint?.trim()
+                        ? branchLockedHint
+                        : EVANGELISM_BRANCH_LOCKED_HINT
+                    }
+                    wrapperClassName="block h-11 min-h-[44px] min-w-0 w-full cursor-default"
+                  >
+                    {branchSelectEl}
+                  </LockedControlTooltip>
+                );
+              })()}
             {onTallyScopeChange && (
               <div className="min-w-0">
                 <label className="sr-only">Cluster or evangelism group</label>
@@ -349,8 +421,46 @@ export default function PeopleTallyReport({
             No tally data available
           </div>
         ) : (
-          <Table
-            columns={[
+          <>
+            <div className="mb-3 flex flex-wrap items-center gap-2 md:hidden">
+              <span className="text-sm text-gray-600">Layout</span>
+              <div
+                className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+                role="group"
+                aria-label="Monthly tally layout on small screens"
+              >
+                <button
+                  type="button"
+                  aria-pressed={!useMobileTableLayout}
+                  onClick={() => setUseMobileTableLayout(false)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    !useMobileTableLayout
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Cards
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={useMobileTableLayout}
+                  onClick={() => setUseMobileTableLayout(true)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    useMobileTableLayout
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Table
+                </button>
+              </div>
+              <span className="text-xs text-gray-500">
+                Table scrolls horizontally.
+              </span>
+            </div>
+            <Table
+              mobileCardView={!useMobileTableLayout}
+              columns={[
               {
                 header: "Month",
                 accessor: "month" as keyof EvangelismPeopleTallyRow,
@@ -399,6 +509,7 @@ export default function PeopleTallyReport({
             ]}
             data={rows}
           />
+          </>
         )}
       </div>
       <TallyDrilldownModal

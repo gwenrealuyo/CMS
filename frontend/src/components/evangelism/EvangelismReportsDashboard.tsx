@@ -12,6 +12,7 @@ import Card from "@/src/components/ui/Card";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import {
   EvangelismGroup,
   EvangelismWeeklyReport,
@@ -37,6 +38,11 @@ import { parseTallyScope } from "@/src/components/evangelism/PeopleTallyReport";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  canChangeEvangelismBranchFilter,
+  EVANGELISM_BRANCH_LOCKED_HINT,
+} from "@/src/lib/evangelismBranchFilter";
 
 export interface EvangelismReportsDashboardProps {
   groups: EvangelismGroup[];
@@ -83,6 +89,13 @@ export default function EvangelismReportsDashboard({
   openSubmitNonce = 0,
   refreshTrigger = 0,
 }: EvangelismReportsDashboardProps) {
+  const { user, isSeniorCoordinator } = useAuth();
+  const canChangeBranchFilter = useMemo(
+    () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
+    [user, isSeniorCoordinator],
+  );
+  const reportsBranchUserIdRef = useRef<number | undefined>(undefined);
+
   const [reports, setReports] = useState<EvangelismWeeklyReport[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -154,6 +167,32 @@ export default function EvangelismReportsDashboard({
     if (showExportDropdown) document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [showExportDropdown]);
+
+  useEffect(() => {
+    if (!user) {
+      reportsBranchUserIdRef.current = undefined;
+      return;
+    }
+    if (reportsBranchUserIdRef.current !== user.id) {
+      reportsBranchUserIdRef.current = user.id;
+      setSelectedBranch(
+        user.branch != null && user.branch !== undefined
+          ? String(user.branch)
+          : "",
+      );
+      setReportsScope("");
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || canChangeBranchFilter) return;
+    if (user.branch != null && selectedBranch !== String(user.branch)) {
+      setSelectedBranch(String(user.branch));
+    }
+    if (user.branch == null && selectedBranch !== "") {
+      setSelectedBranch("");
+    }
+  }, [user, canChangeBranchFilter, selectedBranch]);
 
   const clustersScoped = useMemo(() => {
     if (!selectedBranch) return clusters;
@@ -464,13 +503,28 @@ export default function EvangelismReportsDashboard({
       ? 0
       : Math.min(currentPage * itemsPerPage, totalCount);
 
-  const branchOptions = useMemo(
-    () => [
-      { value: "", label: "All branches" },
-      ...branches.map((b) => ({ value: String(b.id), label: b.name })),
-    ],
-    [branches]
-  );
+  const branchOptions = useMemo(() => {
+    if (canChangeBranchFilter) {
+      return [
+        { value: "", label: "All branches" },
+        ...branches.map((b) => ({ value: String(b.id), label: b.name })),
+      ];
+    }
+    if (user?.branch != null) {
+      const row = branches.find((b) => Number(b.id) === Number(user.branch));
+      const label =
+        row?.name ??
+        user.branch_name?.trim() ??
+        `Branch #${user.branch}`;
+      return [{ value: String(user.branch), label }];
+    }
+    return [{ value: "", label: "No branch assigned" }];
+  }, [
+    branches,
+    canChangeBranchFilter,
+    user?.branch,
+    user?.branch_name,
+  ]);
 
   const groupPickerOptions = useMemo(
     () =>
@@ -709,15 +763,30 @@ export default function EvangelismReportsDashboard({
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Branch
             </label>
-            <ScalableSelect
-              value={selectedBranch}
-              options={branchOptions}
-              onChange={(v) => {
-                setSelectedBranch(v);
-                setReportsScope("");
-              }}
-              className="w-full min-w-0 text-sm"
-            />
+            {canChangeBranchFilter ? (
+              <ScalableSelect
+                value={selectedBranch}
+                options={branchOptions}
+                onChange={(v) => {
+                  setSelectedBranch(v);
+                  setReportsScope("");
+                }}
+                className="w-full min-w-0 text-sm"
+              />
+            ) : (
+              <LockedControlTooltip
+                label={EVANGELISM_BRANCH_LOCKED_HINT}
+                wrapperClassName="inline-block min-w-0 w-full align-middle cursor-default"
+              >
+                <ScalableSelect
+                  value={selectedBranch}
+                  options={branchOptions}
+                  onChange={() => {}}
+                  interactionBlocked
+                  className="w-full min-w-0 text-sm"
+                />
+              </LockedControlTooltip>
+            )}
           </div>
           <div className="min-w-0">
             <label className="mb-1 block text-sm font-medium text-gray-700">

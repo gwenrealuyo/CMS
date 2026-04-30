@@ -41,7 +41,7 @@ export default function ClustersPageContainer() {
   const [clusterSortBy, setClusterSortBy] = useState<string>("name");
   const [clusterSortOrder, setClusterSortOrder] = useState<"asc" | "desc">("asc");
   const [clusterCurrentPage, setClusterCurrentPage] = useState(1);
-  const [clusterItemsPerPage, setClusterItemsPerPage] = useState(12);
+  const [clusterItemsPerPage, setClusterItemsPerPage] = useState(25);
   const [selectedClusters, setSelectedClusters] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   

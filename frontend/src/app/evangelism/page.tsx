@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Modal from "@/src/components/ui/Modal";
@@ -56,8 +57,20 @@ import TallyReport from "@/src/components/evangelism/TallyReport";
 import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
 import EvangelismReportsDashboard from "@/src/components/evangelism/EvangelismReportsDashboard";
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
+import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  canChangeEvangelismBranchFilter,
+  EVANGELISM_BRANCH_LOCKED_HINT,
+} from "@/src/lib/evangelismBranchFilter";
 
 export default function EvangelismPage() {
+  const { user, isSeniorCoordinator } = useAuth();
+  const canChangeEvangelismBranch = useMemo(
+    () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
+    [user, isSeniorCoordinator],
+  );
+  const evangelismBranchUserIdRef = useRef<number | undefined>(undefined);
+
   const {
     groups,
     loading: groupsLoading,
@@ -256,6 +269,47 @@ export default function EvangelismPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      evangelismBranchUserIdRef.current = undefined;
+      return;
+    }
+    if (evangelismBranchUserIdRef.current !== user.id) {
+      evangelismBranchUserIdRef.current = user.id;
+      const nextBranch =
+        user.branch != null && user.branch !== undefined
+          ? user.branch
+          : "all";
+      setFilter("branch", nextBranch);
+      setTallyBranch(
+        user.branch != null && user.branch !== undefined ? user.branch : "",
+      );
+    }
+  }, [user, setFilter]);
+
+  useEffect(() => {
+    if (!user || canChangeEvangelismBranch) return;
+    const expected = user.branch;
+    if (expected == null) return;
+    const cur = filters.branch;
+    const curNum =
+      cur === "all" || cur === undefined || cur === ""
+        ? null
+        : Number(cur);
+    if (curNum !== expected) {
+      setFilter("branch", expected);
+    }
+  }, [user, canChangeEvangelismBranch, filters.branch, setFilter]);
+
+  useEffect(() => {
+    if (!user || canChangeEvangelismBranch) return;
+    const expected = user.branch;
+    if (expected == null) return;
+    if (tallyBranch !== "" && Number(tallyBranch) !== expected) {
+      setTallyBranch(expected);
+    }
+  }, [user, canChangeEvangelismBranch, tallyBranch]);
+
   // Load group data when viewing
   // Note: fetchProspects and fetchConversions are not needed here because
   // useProspects and useConversions hooks automatically fetch when their filters change
@@ -271,7 +325,11 @@ export default function EvangelismPage() {
     setDebouncedSearchQuery("");
     setFilter("search", "");
     setFilter("cluster", "all");
-    setFilter("branch", "all");
+    if (!canChangeEvangelismBranch && user?.branch != null) {
+      setFilter("branch", user.branch);
+    } else {
+      setFilter("branch", "all");
+    }
     setFilter("is_active", true);
   };
 
@@ -613,24 +671,82 @@ export default function EvangelismPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Branch
                   </label>
-                  <select
-                    value={
-                      filters.branch === undefined ? "" : String(filters.branch)
-                    }
-                    onChange={(e) =>
-                      setFilter("branch", e.target.value || "all")
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  >
-                    <option value="all">All branches</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={String(branch.id)}>
-                        {branch.code
-                          ? `${branch.code} - ${branch.name}`
-                          : branch.name}
-                      </option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const evangelismBranchSelectInteractive =
+                      canChangeEvangelismBranch;
+                    const branchSelectEl = (
+                      <select
+                        aria-label="Branch"
+                        aria-disabled={!evangelismBranchSelectInteractive}
+                        tabIndex={
+                          evangelismBranchSelectInteractive ? 0 : -1
+                        }
+                        value={
+                          filters.branch === undefined
+                            ? ""
+                            : String(filters.branch)
+                        }
+                        onChange={(e) => {
+                          if (!evangelismBranchSelectInteractive) return;
+                          setFilter("branch", e.target.value || "all");
+                        }}
+                        className={`w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] ${
+                          evangelismBranchSelectInteractive
+                            ? ""
+                            : "pointer-events-none cursor-default bg-white text-gray-900"
+                        }`}
+                      >
+                        {canChangeEvangelismBranch ? (
+                          <>
+                            <option value="all">All branches</option>
+                            {branches.map((branch) => (
+                              <option
+                                key={branch.id}
+                                value={String(branch.id)}
+                              >
+                                {branch.name}
+                              </option>
+                            ))}
+                          </>
+                        ) : user?.branch != null ? (
+                          <>
+                            {branches
+                              .filter(
+                                (b) => Number(b.id) === Number(user.branch),
+                              )
+                              .map((branch) => (
+                                <option
+                                  key={branch.id}
+                                  value={String(branch.id)}
+                                >
+                                  {branch.name}
+                                </option>
+                              ))}
+                            {!branches.some(
+                              (b) => Number(b.id) === Number(user.branch),
+                            ) && (
+                              <option value={String(user.branch)}>
+                                {user.branch_name?.trim() ||
+                                  `Branch #${user.branch}`}
+                              </option>
+                            )}
+                          </>
+                        ) : (
+                          <option value="all">No branch assigned</option>
+                        )}
+                      </select>
+                    );
+                    return evangelismBranchSelectInteractive ? (
+                      branchSelectEl
+                    ) : (
+                      <LockedControlTooltip
+                        label={EVANGELISM_BRANCH_LOCKED_HINT}
+                        wrapperClassName="inline-block w-full lg:w-56 shrink-0 align-middle cursor-default"
+                      >
+                        {branchSelectEl}
+                      </LockedControlTooltip>
+                    );
+                  })()}
                 </div>
                 <div className="w-full lg:w-auto">
                   <Button
@@ -773,6 +889,13 @@ export default function EvangelismPage() {
               branches={branches}
               tallyScope={tallyScope}
               onTallyScopeChange={setTallyScope}
+              branchSelectionLocked={!canChangeEvangelismBranch}
+              branchLockedHint={EVANGELISM_BRANCH_LOCKED_HINT}
+              defaultLockedBranch={
+                user?.branch != null && user.branch !== undefined
+                  ? user.branch
+                  : ""
+              }
             />
             <Card>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">

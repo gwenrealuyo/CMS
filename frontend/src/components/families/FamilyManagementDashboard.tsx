@@ -7,6 +7,9 @@ import FamilyFilterDropdown from "./FamilyFilterDropdown";
 import ClusterFilterCard from "../clusters/ClusterFilterCard";
 import { FilterCondition } from "../people/FilterBar";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { branchesApi } from "@/src/lib/api";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 
 interface SortOption {
   key: string;
@@ -70,6 +73,164 @@ export default function FamilyManagementDashboard({
     left: 0,
   });
   const [selectedFamilyField, setSelectedFamilyField] = useState<any>(null);
+  const { user, isSeniorCoordinator } = useAuth();
+
+  const canChangeFamilyBranchFilter = useMemo(() => {
+    if (!user) return false;
+    if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+    return isSeniorCoordinator("CLUSTER");
+  }, [user, isSeniorCoordinator]);
+
+  const [branchFilterId, setBranchFilterId] = useState("");
+  const [branchPickerOptions, setBranchPickerOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const familyBranchUserIdRef = React.useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!user) {
+      setBranchFilterId("");
+      familyBranchUserIdRef.current = undefined;
+      return;
+    }
+    if (familyBranchUserIdRef.current !== user.id) {
+      familyBranchUserIdRef.current = user.id;
+      setBranchFilterId(
+        user.branch != null && user.branch !== undefined
+          ? String(user.branch)
+          : "",
+      );
+      return;
+    }
+    if (user.branch != null && user.branch !== undefined) {
+      setBranchFilterId((prev) =>
+        prev === "" ? String(user.branch) : prev,
+      );
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!canChangeFamilyBranchFilter) {
+      setBranchPickerOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setBranchesLoading(true);
+    branchesApi
+      .getAll({ is_active: true })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data) ? res.data : [];
+        setBranchPickerOptions(
+          rows.map((b) => ({ value: String(b.id), label: b.name })),
+        );
+      })
+      .catch((err) => {
+        console.error("Failed to load branches", err);
+        if (!cancelled) setBranchPickerOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBranchesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canChangeFamilyBranchFilter]);
+
+  const familyEditableBranchSelectOptions = useMemo(
+    () => [{ value: "", label: "All branches" }, ...branchPickerOptions],
+    [branchPickerOptions],
+  );
+
+  const familyBranchFilterLabel = useMemo(() => {
+    if (!branchFilterId) return "No branch";
+    if (
+      user?.branch_name &&
+      user.branch != null &&
+      String(user.branch) === branchFilterId
+    ) {
+      return user.branch_name;
+    }
+    const opt = branchPickerOptions.find((o) => o.value === branchFilterId);
+    return opt?.label ?? `Branch #${branchFilterId}`;
+  }, [
+    branchFilterId,
+    user?.branch,
+    user?.branch_name,
+    branchPickerOptions,
+  ]);
+
+  const familyReadonlyBranchSelectOptions = useMemo(() => {
+    if (branchFilterId) {
+      return [{ value: branchFilterId, label: familyBranchFilterLabel }];
+    }
+    return [{ value: "", label: "No branch assigned" }];
+  }, [branchFilterId, familyBranchFilterLabel]);
+
+  const familyBranchSelectInteractive =
+    canChangeFamilyBranchFilter && !branchesLoading;
+
+  const familyBranchHoverHint = useMemo(() => {
+    if (familyBranchSelectInteractive) return "";
+    if (branchesLoading && canChangeFamilyBranchFilter) {
+      return "Loading branches…";
+    }
+    return "Branch is limited to your assignment. Pastors, admins, and senior cluster coordinators can switch branches.";
+  }, [
+    familyBranchSelectInteractive,
+    branchesLoading,
+    canChangeFamilyBranchFilter,
+  ]);
+
+  const renderFamilyBranchSelect = () => {
+    const options =
+      branchesLoading && canChangeFamilyBranchFilter ? (
+        <option value="">Loading…</option>
+      ) : (
+        (
+          canChangeFamilyBranchFilter
+            ? familyEditableBranchSelectOptions
+            : familyReadonlyBranchSelectOptions
+        ).map((opt) => (
+          <option
+            key={opt.value === "" ? "__family_branch__" : opt.value}
+            value={opt.value}
+          >
+            {opt.label}
+          </option>
+        ))
+      );
+
+    const selectEl = (
+      <select
+        aria-label="Branch"
+        aria-disabled={!familyBranchSelectInteractive}
+        tabIndex={familyBranchSelectInteractive ? 0 : -1}
+        value={branchFilterId}
+        onChange={(e) => {
+          if (!familyBranchSelectInteractive) return;
+          setBranchFilterId(e.target.value);
+          setFamilyPage(1);
+        }}
+        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+          familyBranchSelectInteractive
+            ? "w-52 shrink-0"
+            : "w-full pointer-events-none cursor-default"
+        }`}
+      >
+        {options}
+      </select>
+    );
+
+    return familyBranchSelectInteractive ? (
+      selectEl
+    ) : (
+      <LockedControlTooltip label={familyBranchHoverHint}>
+        {selectEl}
+      </LockedControlTooltip>
+    );
+  };
 
   // Family filter dropdown handles its own click-outside; no parent listener needed
 
@@ -132,6 +293,18 @@ export default function FamilyManagementDashboard({
       result = result.filter((family) =>
         family.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
+    }
+
+    if (branchFilterId) {
+      const bid = Number(branchFilterId);
+      result = result.filter((family) => {
+        const ids = new Set<string>(family.members);
+        if (family.leader) ids.add(family.leader);
+        return [...ids].some((id) => {
+          const p = people.find((pp) => pp.id === id);
+          return p?.branch === bid;
+        });
+      });
     }
 
     // Apply structured filters
@@ -228,7 +401,7 @@ export default function FamilyManagementDashboard({
     }
 
     return result;
-  }, [families, searchQuery, familyFilters, people]);
+  }, [families, searchQuery, branchFilterId, familyFilters, people]);
 
   // Sort families
   const sortedFamilies = useMemo(() => {
@@ -482,12 +655,12 @@ export default function FamilyManagementDashboard({
 
       {/* Header */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        {/* Search */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex-1 max-w-md">
-            <div className="relative">
+        {/* Search + branch */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-1 min-w-0 items-center gap-2">
+            <div className="relative flex-1 max-w-md min-w-[12rem]">
               <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -536,6 +709,7 @@ export default function FamilyManagementDashboard({
                 </button>
               )}
             </div>
+            {renderFamilyBranchSelect()}
           </div>
 
           {/* Sort and Filter Buttons */}

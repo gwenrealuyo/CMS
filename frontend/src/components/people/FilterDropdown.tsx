@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Branch } from "@/src/types/branch";
 
-interface FilterField {
+export interface FilterField {
   key: string;
   label: string;
-  type: "text" | "select" | "date" | "number";
+  type: "text" | "select" | "date" | "number" | "branch";
   options?: { value: string; label: string }[];
 }
 
@@ -62,8 +62,8 @@ const FILTER_FIELDS: FilterField[] = [
   {
     key: "branch",
     label: "Branch",
-    type: "select",
-    options: [], // Will be populated dynamically
+    type: "branch",
+    options: [],
   },
   {
     key: "date_first_attended",
@@ -145,9 +145,7 @@ export default function FilterDropdown({
               onClose();
             }}
             className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
-            disabled={
-              field.key === "branch" && (!branches || branches.length === 0)
-            }
+            disabled={false}
           >
             <span>{field.label}</span>
             <span className="text-xs text-gray-400 capitalize">

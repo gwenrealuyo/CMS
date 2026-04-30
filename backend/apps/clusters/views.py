@@ -51,33 +51,46 @@ class ClusterViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
-        
-        # ADMIN/PASTOR: All clusters
+
+        # Permission-based visibility (before branch scoping)
         if user.role in ["ADMIN", "PASTOR"]:
-            return queryset
-        
-        # Senior Coordinator (CLUSTER, SENIOR_COORDINATOR): All clusters
-        if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
-            return queryset
-        
-        # Cluster Coordinator (CLUSTER, COORDINATOR): Read/browse all clusters; mutations scoped elsewhere
-        coordinator_assignments = user.module_coordinator_assignments.filter(
-            module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
-        )
-        if coordinator_assignments.exists():
-            return queryset
+            pass
+        elif user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
+            pass
+        else:
+            coordinator_assignments = user.module_coordinator_assignments.filter(
+                module=ModuleCoordinator.ModuleType.CLUSTER,
+                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+            if coordinator_assignments.exists():
+                pass
+            elif Cluster.objects.filter(coordinator=user).exists():
+                pass
+            elif user.role == "MEMBER":
+                pass
+            else:
+                queryset = queryset.none()
 
-        if queryset.filter(coordinator=user).exists():
-            return queryset
+        branch_param = self.request.query_params.get(
+            "branch_id"
+        ) or self.request.query_params.get("branch")
+        can_pick_branch = user.role in [
+            "ADMIN",
+            "PASTOR",
+        ] or user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER)
+        if can_pick_branch:
+            if branch_param:
+                try:
+                    queryset = queryset.filter(branch_id=int(branch_param))
+                except (TypeError, ValueError):
+                    pass
+        else:
+            if user.branch_id:
+                queryset = queryset.filter(branch_id=user.branch_id)
+            else:
+                queryset = queryset.none()
 
-        # MEMBER: Read/browse all clusters (parity with non-senior cluster coordinators);
-        # mutations remain blocked by get_permissions / ClusterCoordinatorScopedPermission.
-        if user.role == "MEMBER":
-            return queryset
-
-        # Default: empty queryset for safety
-        return queryset.none()
+        return queryset
     
     def get_permissions(self):
         """

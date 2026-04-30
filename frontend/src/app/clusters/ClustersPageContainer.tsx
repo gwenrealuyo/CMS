@@ -10,7 +10,7 @@ import ClustersPageView from "./ClustersPageView";
 import { Cluster, ClusterInput } from "@/src/types/cluster";
 import { ClusterWeeklyReport, ClusterWeeklyReportInput } from "@/src/types/cluster";
 import { Person, PersonUI, Family } from "@/src/types/person";
-import { clustersApi } from "@/src/lib/api";
+import { clustersApi, branchesApi } from "@/src/lib/api";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import toast from "react-hot-toast";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -149,6 +149,99 @@ export default function ClustersPageContainer() {
     [user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
   );
 
+  const canChangeClusterBranchFilter = useMemo(() => {
+    if (!user) return false;
+    if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+    return isSeniorCoordinator("CLUSTER");
+  }, [user, isSeniorCoordinator]);
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [branchPickerOptions, setBranchPickerOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const clusterBranchUserIdRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!user) {
+      setSelectedBranchId("");
+      clusterBranchUserIdRef.current = undefined;
+      return;
+    }
+    if (clusterBranchUserIdRef.current !== user.id) {
+      clusterBranchUserIdRef.current = user.id;
+      setSelectedBranchId(
+        user.branch != null && user.branch !== undefined
+          ? String(user.branch)
+          : "",
+      );
+      return;
+    }
+    if (user.branch != null && user.branch !== undefined) {
+      setSelectedBranchId((prev) =>
+        prev === "" ? String(user.branch) : prev,
+      );
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!canChangeClusterBranchFilter) {
+      setBranchPickerOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setBranchesLoading(true);
+    branchesApi
+      .getAll({ is_active: true })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data) ? res.data : [];
+        setBranchPickerOptions(
+          rows.map((b) => ({ value: String(b.id), label: b.name })),
+        );
+      })
+      .catch((err) => {
+        console.error("Failed to load branches", err);
+        if (!cancelled) setBranchPickerOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBranchesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canChangeClusterBranchFilter]);
+
+  const clusterEditableBranchSelectOptions = useMemo(
+    () => [{ value: "", label: "All branches" }, ...branchPickerOptions],
+    [branchPickerOptions],
+  );
+
+  const clusterBranchFilterLabel = useMemo(() => {
+    if (!selectedBranchId) return "No branch";
+    if (
+      user?.branch_name &&
+      user.branch != null &&
+      String(user.branch) === selectedBranchId
+    ) {
+      return user.branch_name;
+    }
+    const opt = branchPickerOptions.find((o) => o.value === selectedBranchId);
+    return opt?.label ?? `Branch #${selectedBranchId}`;
+  }, [
+    selectedBranchId,
+    user?.branch,
+    user?.branch_name,
+    branchPickerOptions,
+  ]);
+
+  const clusterReadonlyBranchSelectOptions = useMemo(() => {
+    if (selectedBranchId) {
+      return [{ value: selectedBranchId, label: clusterBranchFilterLabel }];
+    }
+    return [{ value: "", label: "No branch assigned" }];
+  }, [selectedBranchId, clusterBranchFilterLabel]);
+
   /** First manageable cluster for scoped coordinators; module-wide users leave pick unset */
   const resolveDefaultReportCluster = useCallback((): Cluster | null => {
     if (hasClusterModuleWideAccess) {
@@ -205,7 +298,13 @@ export default function ClustersPageContainer() {
   const fetchClusters = useCallback(async () => {
     try {
       setClustersLoading(true);
-      const res = await clustersApi.getAll();
+      const params: { branch_id?: string } = {};
+      if (canChangeClusterBranchFilter && selectedBranchId) {
+        params.branch_id = selectedBranchId;
+      }
+      const res = await clustersApi.getAll(
+        Object.keys(params).length > 0 ? params : undefined,
+      );
       const clusterData = res.data;
       setAllClusters(clusterData);
     } catch (e) {
@@ -213,7 +312,7 @@ export default function ClustersPageContainer() {
     } finally {
       setClustersLoading(false);
     }
-  }, []);
+  }, [canChangeClusterBranchFilter, selectedBranchId]);
   
   useEffect(() => {
     fetchClusters();
@@ -991,6 +1090,12 @@ export default function ClustersPageContainer() {
       clustersLoading={clustersLoading}
       clusterSearchQuery={clusterSearchQuery}
       onClusterSearchChange={setClusterSearchQuery}
+      clusterBranchSelectedId={selectedBranchId}
+      onClusterBranchChange={setSelectedBranchId}
+      clusterBranchCanChangeFilter={canChangeClusterBranchFilter}
+      clusterBranchEditableOptions={clusterEditableBranchSelectOptions}
+      clusterBranchReadonlyOptions={clusterReadonlyBranchSelectOptions}
+      clusterBranchesLoading={branchesLoading}
       clusterActiveFilters={clusterActiveFilters}
       onClusterFilterRemove={(filterId) => {
         setClusterActiveFilters((prev) => prev.filter((f) => f.id !== filterId));

@@ -206,13 +206,24 @@ export default function PersonProfile({
     return [...filtered].sort(compareJourneysNewestFirst);
   }, [journeys, journeySearch, journeyFilter]);
 
-  const personCluster = useMemo(() => {
-    if (!clusters?.length) return null;
-    return (
-      clusters.find((cc) =>
-        cc.members?.some((memberId) => String(memberId) === String(person.id)),
-      ) ?? null
-    );
+  const personClusters = useMemo(() => {
+    if (!clusters?.length) return [];
+    const seen = new Set<string>();
+    const out: Cluster[] = [];
+    for (const cc of clusters) {
+      const inMembers = cc.members?.some(
+        (memberId) => String(memberId) === String(person.id),
+      );
+      const coordId = cc.coordinator_id ?? cc.coordinator?.id ?? null;
+      const isCoordinator =
+        coordId != null && String(coordId) === String(person.id);
+      if (!inMembers && !isCoordinator) continue;
+      const key = String(cc.id);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(cc);
+    }
+    return out;
   }, [clusters, person.id]);
 
   const personFamilies = useMemo(() => {
@@ -242,8 +253,9 @@ export default function PersonProfile({
       if (onNoClusterClick) onNoClusterClick(person);
       return;
     }
-    if (personCluster && onViewCluster) {
-      onViewCluster(personCluster);
+    const primary = personClusters[0];
+    if (primary && onViewCluster) {
+      onViewCluster(primary);
     } else if (onNoClusterClick) {
       onNoClusterClick(person);
     }
@@ -680,19 +692,40 @@ export default function PersonProfile({
                       <ProfileFieldRow
                         label="Cluster"
                         value={
-                          personCluster
-                            ? clusterQuickFactLabel(personCluster)
+                          personClusters.length > 0
+                            ? personClusters
+                                .map((c) => clusterQuickFactLabel(c))
+                                .join(", ")
                             : null
                         }
                         valueNode={
-                          personCluster ? (
-                            <button
-                              type="button"
-                              onClick={handleQuickFactsViewCluster}
-                              className="text-sm font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2 text-right"
-                            >
-                              {clusterQuickFactLabel(personCluster)}
-                            </button>
+                          personClusters.length > 0 ? (
+                            <span className="inline-flex flex-wrap items-center justify-end gap-x-0 text-sm text-right">
+                              {personClusters.map((cl, idx) => (
+                                <span
+                                  key={cl.id}
+                                  className="inline-flex items-center max-w-full"
+                                >
+                                  {idx > 0 && (
+                                    <span
+                                      className="text-gray-500 mx-1 shrink-0"
+                                      aria-hidden
+                                    >
+                                      ,
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      onViewCluster && onViewCluster(cl)
+                                    }
+                                    className="font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2 text-right break-words"
+                                  >
+                                    {clusterQuickFactLabel(cl)}
+                                  </button>
+                                </span>
+                              ))}
+                            </span>
                           ) : (
                             <div className="inline-flex items-center gap-2 text-sm flex-wrap justify-end">
                               <button
@@ -813,11 +846,7 @@ export default function PersonProfile({
                         onClick={handleQuickFactsViewCluster}
                         className="w-full text-sm"
                       >
-                        {clusters?.some((cc) =>
-                          cc.members?.some(
-                            (memberId) => String(memberId) === String(person.id)
-                          )
-                        )
+                        {personClusters.length > 0
                           ? "View Cluster"
                           : "Assign Cluster"}
                       </Button>

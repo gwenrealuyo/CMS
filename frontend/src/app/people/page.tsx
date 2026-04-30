@@ -10,7 +10,10 @@ import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import FamilyView from "@/src/components/families/FamilyView";
-import FilterBar, { FilterCondition } from "@/src/components/people/FilterBar";
+import FilterBar, {
+  FilterCondition,
+  flattenBranchFilterIds,
+} from "@/src/components/people/FilterBar";
 import FilterDropdown from "@/src/components/people/FilterDropdown";
 import FilterCard from "@/src/components/people/FilterCard";
 import Pagination from "@/src/components/ui/Pagination";
@@ -21,7 +24,9 @@ import { Cluster } from "@/src/types/cluster";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
-import { clustersApi, peopleApi, journeysApi } from "@/src/lib/api";
+import { clustersApi, peopleApi, journeysApi, User } from "@/src/lib/api";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { Branch } from "@/src/types/branch";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
 import ClusterFilterDropdown from "@/src/components/clusters/ClusterFilterDropdown";
@@ -33,6 +38,29 @@ import ClusterView from "@/src/components/clusters/ClusterView";
 import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
 import ClusterReportsDashboard from "@/src/components/reports/ClusterReportsDashboard";
 import ClusterWeeklyReportForm from "@/src/components/reports/ClusterWeeklyReportForm";
+
+const DEFAULT_PEOPLE_BRANCH_FILTER_ID = "default-branch";
+
+function buildDefaultBranchFilter(
+  user: User,
+  branches: Branch[],
+): FilterCondition | null {
+  if (user.branch == null || user.branch === undefined) return null;
+  const bid = String(user.branch);
+  const resolvedName =
+    user.branch_name?.trim() ||
+    branches.find((b) => Number(b.id) === Number(user.branch))?.name ||
+    null;
+  const chipDisplay = resolvedName ? `Branch is ${resolvedName}` : "Branch";
+  return {
+    id: DEFAULT_PEOPLE_BRANCH_FILTER_ID,
+    field: "branch",
+    operator: "is",
+    value: bid,
+    label: "Branch",
+    chipDisplay,
+  };
+}
 
 export default function PeoplePage() {
   const searchParams = useSearchParams();
@@ -176,6 +204,7 @@ export default function PeoplePage() {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterCondition[]>([]);
+  const peopleBranchFilterUserIdRef = useRef<number | undefined>(undefined);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showFilterCard, setShowFilterCard] = useState(false);
   const [selectedField, setSelectedField] = useState<any>(null);
@@ -205,6 +234,46 @@ export default function PeoplePage() {
     refreshFamilies,
   } = useFamilies();
   const { branches } = useBranches();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user) {
+      peopleBranchFilterUserIdRef.current = undefined;
+      setActiveFilters([]);
+      return;
+    }
+    if (peopleBranchFilterUserIdRef.current !== user.id) {
+      peopleBranchFilterUserIdRef.current = user.id;
+      const f = buildDefaultBranchFilter(user, []);
+      setActiveFilters(f ? [f] : []);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user == null || user.branch == null || user.branch === undefined) {
+      return;
+    }
+    setActiveFilters((prev) => {
+      const idx = prev.findIndex(
+        (f) => f.id === DEFAULT_PEOPLE_BRANCH_FILTER_ID,
+      );
+      if (idx === -1) return prev;
+      const updated = buildDefaultBranchFilter(user, branches);
+      if (!updated) return prev;
+      const cur = prev[idx];
+      if (
+        cur.label === updated.label &&
+        cur.value === updated.value &&
+        cur.operator === updated.operator &&
+        cur.chipDisplay === updated.chipDisplay
+      ) {
+        return prev;
+      }
+      const next = [...prev];
+      next[idx] = updated;
+      return next;
+    });
+  }, [user, branches]);
 
   // Clusters
   const [allClusters, setAllClusters] = useState<Cluster[]>([]);
@@ -894,21 +963,28 @@ export default function PeoplePage() {
 
     // Apply active filters first (more selective)
     if (activeFilters.length > 0) {
-      filtered = filtered.filter((person) => {
-        return activeFilters.every((filter) => {
-          const fieldValue = person[filter.field as keyof PersonUI];
+      const branchFilters = activeFilters.filter((f) => f.field === "branch");
+      const nonBranchFilters = activeFilters.filter(
+        (f) => f.field !== "branch",
+      );
+      const branchIsIds = flattenBranchFilterIds(
+        branchFilters.filter((f) => f.operator === "is"),
+      );
+      const branchIsNotIds = flattenBranchFilterIds(
+        branchFilters.filter((f) => f.operator === "is_not"),
+      );
 
-          // Special handling for branch filter (compare by ID)
-          if (filter.field === "branch") {
-            const personBranchId = person.branch?.toString();
-            const filterBranchId = filter.value.toString();
-            if (filter.operator === "is") {
-              return personBranchId === filterBranchId;
-            } else if (filter.operator === "is_not") {
-              return personBranchId !== filterBranchId;
-            }
-            return true;
-          }
+      filtered = filtered.filter((person) => {
+        const personBranchId = String(person.branch ?? "");
+
+        const passesBranchIs =
+          branchIsIds.length === 0 || branchIsIds.includes(personBranchId);
+        const passesBranchNot =
+          branchIsNotIds.length === 0 ||
+          !branchIsNotIds.includes(personBranchId);
+
+        const passesNonBranch = nonBranchFilters.every((filter) => {
+          const fieldValue = person[filter.field as keyof PersonUI];
 
           switch (filter.operator) {
             case "is":
@@ -978,6 +1054,8 @@ export default function PeoplePage() {
               return true;
           }
         });
+
+        return passesBranchIs && passesBranchNot && passesNonBranch;
       });
     }
 
@@ -1206,6 +1284,10 @@ export default function PeoplePage() {
   const handleRemoveFilter = (filterId: string) => {
     setActiveFilters(activeFilters.filter((f) => f.id !== filterId));
   };
+
+  const handleRemoveFilterIds = useCallback((filterIds: string[]) => {
+    setActiveFilters((prev) => prev.filter((f) => !filterIds.includes(f.id)));
+  }, []);
 
   const handleClearAllFilters = () => {
     setActiveFilters([]);
@@ -1478,9 +1560,11 @@ export default function PeoplePage() {
                 onSearchChange={handleSearchChange}
                 activeFilters={activeFilters}
                 onRemoveFilter={handleRemoveFilter}
+                onRemoveFilterIds={handleRemoveFilterIds}
                 onClearAllFilters={handleClearAllFilters}
                 onAddFilter={handleAddFilter}
                 isSearching={isSearching}
+                branches={branches}
               />
 
               {(searchQuery || activeFilters.length > 0) && (

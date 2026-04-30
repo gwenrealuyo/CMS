@@ -1,11 +1,76 @@
-import React, { useState } from "react";
+import React from "react";
+import { Branch } from "@/src/types/branch";
+
+/**
+ * - `string`: typical scalar filter value
+ * - `[string, string]`: date/number "between"
+ * - `string[]`: branch id list for `field === "branch"` with `is` / `is_not` only
+ */
+export type FilterConditionValue = string | [string, string] | string[];
 
 export interface FilterCondition {
   id: string;
   field: string;
   operator: string;
-  value: string | [string, string];
+  value: FilterConditionValue;
   label: string;
+  /** Human-readable chip text; used for branch filters to hide raw IDs */
+  chipDisplay?: string;
+}
+
+/** Stable operator order for grouped branch chips */
+const BRANCH_OPERATOR_ORDER = ["is", "is_not"] as const;
+
+function dedupePreserveOrder(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
+/** Flatten branch id strings from one condition value (branch filters only). */
+export function branchValueToIds(value: FilterConditionValue): string[] {
+  if (typeof value === "string") {
+    const t = value.trim();
+    return t ? [t] : [];
+  }
+  if (Array.isArray(value)) {
+    return value.map((x) => String(x).trim()).filter(Boolean);
+  }
+  return [];
+}
+
+/** All branch ids from filters (e.g. all `is` or all `is_not`), deduped in encounter order. */
+export function flattenBranchFilterIds(filters: FilterCondition[]): string[] {
+  const ids = filters.flatMap((f) => branchValueToIds(f.value));
+  return dedupePreserveOrder(ids);
+}
+
+function branchIdToDisplayName(id: string, branches: Branch[]): string {
+  if (/^\d+$/.test(id)) {
+    const name = branches.find((b) => String(b.id) === id)?.name;
+    return name ?? "Unknown branch";
+  }
+  return id || "Unknown branch";
+}
+
+function branchGroupChipLabel(
+  op: (typeof BRANCH_OPERATOR_ORDER)[number],
+  names: string[],
+): string {
+  const n = names.length;
+  if (n === 0) return "Branch";
+  if (op === "is") {
+    return n === 1 ? `Branch is ${names[0]}` : `Branches are ${names.join(", ")}`;
+  }
+  return n === 1
+    ? `Branch is not ${names[0]}`
+    : `Branches are not ${names.join(", ")}`;
 }
 
 interface FilterBarProps {
@@ -13,9 +78,12 @@ interface FilterBarProps {
   onSearchChange: (query: string) => void;
   activeFilters: FilterCondition[];
   onRemoveFilter: (filterId: string) => void;
+  /** Removes every branch filter whose id is listed (used by grouped branch chips). */
+  onRemoveFilterIds?: (filterIds: string[]) => void;
   onClearAllFilters: () => void;
   onAddFilter: (anchorRect: DOMRect) => void;
   isSearching?: boolean;
+  branches?: Branch[];
 }
 
 export default function FilterBar({
@@ -23,9 +91,11 @@ export default function FilterBar({
   onSearchChange,
   activeFilters,
   onRemoveFilter,
+  onRemoveFilterIds,
   onClearAllFilters,
   onAddFilter,
   isSearching = false,
+  branches = [],
 }: FilterBarProps) {
   const getFilterChipColor = (field: string) => {
     switch (field) {
@@ -64,10 +134,40 @@ export default function FilterBar({
   };
 
   const formatFilterValue = (filter: FilterCondition) => {
+    if (filter.field === "branch" && Array.isArray(filter.value)) {
+      const ids = branchValueToIds(filter.value);
+      return ids.map((id) => branchIdToDisplayName(id, branches)).join(", ");
+    }
     if (Array.isArray(filter.value)) {
       return `${filter.value[0]} - ${filter.value[1]}`;
     }
     return filter.value;
+  };
+
+  const nonBranchFilters = activeFilters.filter((f) => f.field !== "branch");
+  const branchFilters = activeFilters.filter((f) => f.field === "branch");
+
+  const branchChipGroups = BRANCH_OPERATOR_ORDER.map((op) => {
+    const group = branchFilters.filter((f) => f.operator === op);
+    if (group.length === 0) return null;
+    const ids = flattenBranchFilterIds(group);
+    const names = ids.map((id) => branchIdToDisplayName(id, branches));
+    const filterRowIds = group.map((f) => f.id);
+    const label = branchGroupChipLabel(op, names);
+    return { op, ids: filterRowIds, label };
+  }).filter(Boolean) as { op: string; ids: string[]; label: string }[];
+
+  const orphanBranchFilters = branchFilters.filter(
+    (f) =>
+      !(BRANCH_OPERATOR_ORDER as readonly string[]).includes(f.operator),
+  );
+
+  const removeBranchGroup = (ids: string[]) => {
+    if (onRemoveFilterIds) {
+      onRemoveFilterIds(ids);
+    } else {
+      ids.forEach((id) => onRemoveFilter(id));
+    }
   };
 
   return (
@@ -158,18 +258,81 @@ export default function FilterBar({
             </span>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {activeFilters.map((filter) => (
+              {nonBranchFilters.map((filter) => (
                 <div
                   key={filter.id}
                   className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border min-h-[32px] ${getFilterChipColor(
-                    filter.field
+                    filter.field,
                   )}`}
                 >
                   <span className="mr-1 break-words">
-                    {filter.label} {getOperatorLabel(filter.operator)}{" "}
+                    {`${filter.label} ${getOperatorLabel(filter.operator)} ${formatFilterValue(filter)}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFilter(filter.id)}
+                    className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
+                    aria-label="Remove filter"
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {branchChipGroups.map((group) => (
+                <div
+                  key={`branch-group-${group.op}`}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border min-h-[32px] ${getFilterChipColor(
+                    "branch",
+                  )}`}
+                >
+                  <span className="mr-1 break-words">{group.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeBranchGroup(group.ids)}
+                    className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
+                    aria-label="Remove branch filters"
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {orphanBranchFilters.map((filter) => (
+                <div
+                  key={filter.id}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border min-h-[32px] ${getFilterChipColor(
+                    "branch",
+                  )}`}
+                >
+                  <span className="mr-1 break-words">
+                    Branch {getOperatorLabel(filter.operator)}{" "}
                     {formatFilterValue(filter)}
                   </span>
                   <button
+                    type="button"
                     onClick={() => onRemoveFilter(filter.id)}
                     className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
                     aria-label="Remove filter"

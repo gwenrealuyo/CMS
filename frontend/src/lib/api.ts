@@ -316,7 +316,12 @@ export const branchesApi = {
 
 export const clustersApi = {
   getAll: async (
-    params?: { page?: number; page_size?: number }
+    params?: {
+      page?: number;
+      page_size?: number;
+      branch_id?: string | number;
+      branch?: string | number;
+    }
   ): Promise<AxiosResponse<Cluster[]>> => {
     const response = await api.get<Cluster[] | { results: Cluster[] }>(
       "/clusters/clusters/",

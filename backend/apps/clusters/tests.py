@@ -253,6 +253,29 @@ class ClusterAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
 
+    def test_admin_filters_list_by_branch_id(self):
+        ba = Branch.objects.create(name="Admin BA", code="BR_ADMBA")
+        bb = Branch.objects.create(name="Admin BB", code="BR_ADMBB")
+        Cluster.objects.create(
+            code="CLU-BA",
+            name="Branch A Cluster",
+            coordinator=self.coordinator,
+            branch=ba,
+        )
+        Cluster.objects.create(
+            code="CLU-BB",
+            name="Branch B Cluster",
+            coordinator=self.coordinator,
+            branch=bb,
+        )
+        response = self.client.get(
+            "/api/clusters/clusters/",
+            {"branch_id": ba.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["code"], "CLU-BA")
+
     def test_create_cluster(self):
         response = self.client.post(
             "/api/clusters/clusters/",
@@ -368,31 +391,37 @@ class ClusterAPITests(TestCase):
 
 
 class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
-    """Non-senior CLUSTER coordinators list/browse all clusters; mutations only on managed clusters."""
+    """Non-senior CLUSTER coordinators: clusters in their branch; mutations only on managed clusters."""
 
     def setUp(self):
         self.client = APIClient()
+        self.branch_a = Branch.objects.create(name="Scope A", code="BR_SCPA")
+        self.branch_b = Branch.objects.create(name="Scope B", code="BR_SCPB")
         self.coord_a = Person.objects.create_user(
             username="coord_scope_a",
             email="scope_a@example.com",
             password="password123",
             role="COORDINATOR",
+            branch=self.branch_a,
         )
         self.coord_b = Person.objects.create_user(
             username="coord_scope_b",
             email="scope_b@example.com",
             password="password123",
             role="COORDINATOR",
+            branch=self.branch_b,
         )
         self.cluster_a = Cluster.objects.create(
             code="CLU-SCOPE-A",
             name="Cluster Scope A",
             coordinator=self.coord_a,
+            branch=self.branch_a,
         )
         self.cluster_b = Cluster.objects.create(
             code="CLU-SCOPE-B",
             name="Cluster Scope B",
             coordinator=self.coord_b,
+            branch=self.branch_b,
         )
         ModuleCoordinator.objects.create(
             person=self.coord_a,
@@ -415,17 +444,29 @@ class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
             return data
         return data.get("results", data)
 
-    def test_coord_lists_all_clusters(self):
+    def test_coord_branch_id_query_param_ignored(self):
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.get(
+            "/api/clusters/clusters/",
+            {"branch_id": self.branch_b.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        results = self._cluster_list_results(response)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["code"], "CLU-SCOPE-A")
+
+    def test_coord_lists_clusters_in_own_branch(self):
         self.client.force_authenticate(user=self.coord_a)
         response = self.client.get("/api/clusters/clusters/")
         self.assertEqual(response.status_code, 200)
         results = self._cluster_list_results(response)
-        self.assertEqual(len(results), 2)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["code"], "CLU-SCOPE-A")
 
-    def test_coord_retrieves_other_cluster(self):
+    def test_coord_cannot_retrieve_cluster_outside_branch(self):
         self.client.force_authenticate(user=self.coord_a)
         response = self.client.get(f"/api/clusters/clusters/{self.cluster_b.id}/")
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 404)
 
     def test_coord_cannot_patch_other_cluster(self):
         self.client.force_authenticate(user=self.coord_a)
@@ -434,7 +475,7 @@ class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
             {"name": "Should Not Apply"},
             format="json",
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
     def test_coord_can_patch_own_cluster(self):
         self.client.force_authenticate(user=self.coord_a)
@@ -455,7 +496,7 @@ class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
     def test_coord_cannot_delete_other_cluster(self):
         self.client.force_authenticate(user=self.coord_a)
         response = self.client.delete(f"/api/clusters/clusters/{self.cluster_b.id}/")
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
 
 class ClusterWeeklyReportAPITests(TestCase):
@@ -1051,11 +1092,12 @@ class ClusterBranchMembershipTests(TestCase):
 
 
 class MemberClusterBrowseAPITests(TestCase):
-    """MEMBER can read/browse all clusters; weekly reports stay membership-scoped."""
+    """MEMBER can read/browse clusters in their branch; weekly reports stay membership-scoped."""
 
     def setUp(self):
         self.client = APIClient()
         self.branch = Branch.objects.create(name="Browse Branch", code="BR_BRWS")
+        self.branch_other = Branch.objects.create(name="Browse Other", code="BR_BRWO")
         self.coordinator = Person.objects.create_user(
             username="coord_browse",
             email="coord_browse@example.com",
@@ -1064,6 +1106,15 @@ class MemberClusterBrowseAPITests(TestCase):
             last_name="Browse",
             role="COORDINATOR",
             branch=self.branch,
+        )
+        self.coord_other = Person.objects.create_user(
+            username="coord_browse_o",
+            email="coord_browse_o@example.com",
+            password="password123",
+            first_name="Coord",
+            last_name="OtherBr",
+            role="COORDINATOR",
+            branch=self.branch_other,
         )
         self.member = Person.objects.create_user(
             username="member_browse",
@@ -1087,8 +1138,14 @@ class MemberClusterBrowseAPITests(TestCase):
             coordinator=self.coordinator,
             branch=self.branch,
         )
+        self.cluster_other_branch = Cluster.objects.create(
+            code="CLU-OTHER-BR",
+            name="Other Branch Cluster",
+            coordinator=self.coord_other,
+            branch=self.branch_other,
+        )
 
-    def test_member_lists_all_clusters(self):
+    def test_member_lists_clusters_in_own_branch_only(self):
         self.client.force_authenticate(user=self.member)
         response = self.client.get("/api/clusters/clusters/")
         self.assertEqual(response.status_code, 200)

@@ -26,6 +26,7 @@ import Pagination from "@/src/components/ui/Pagination";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import { Cluster, ClusterInput } from "@/src/types/cluster";
 import {
   ClusterWeeklyReport,
@@ -46,6 +47,12 @@ interface ClustersPageViewProps {
   clustersLoading: boolean;
   clusterSearchQuery: string;
   onClusterSearchChange: (query: string) => void;
+  clusterBranchSelectedId: string;
+  onClusterBranchChange: (branchId: string) => void;
+  clusterBranchCanChangeFilter: boolean;
+  clusterBranchEditableOptions: { value: string; label: string }[];
+  clusterBranchReadonlyOptions: { value: string; label: string }[];
+  clusterBranchesLoading: boolean;
   clusterActiveFilters: FilterCondition[];
   onClusterFilterRemove: (filterId: string) => void;
   onClusterClearFilters: () => void;
@@ -166,6 +173,12 @@ export default function ClustersPageView({
   clustersLoading,
   clusterSearchQuery,
   onClusterSearchChange,
+  clusterBranchSelectedId,
+  onClusterBranchChange,
+  clusterBranchCanChangeFilter,
+  clusterBranchEditableOptions,
+  clusterBranchReadonlyOptions,
+  clusterBranchesLoading,
   clusterActiveFilters,
   onClusterFilterRemove,
   onClusterClearFilters,
@@ -357,6 +370,69 @@ export default function ClustersPageView({
       isSelectablePerson(p) &&
       !allClusters.some((c) => c.members?.includes(Number(p.id)))
   ).length;
+
+  const clusterBranchSelectInteractive =
+    clusterBranchCanChangeFilter && !clusterBranchesLoading;
+
+  const clusterBranchHoverHint = useMemo(() => {
+    if (clusterBranchSelectInteractive) return "";
+    if (clusterBranchesLoading && clusterBranchCanChangeFilter) {
+      return "Loading branches…";
+    }
+    return "Branch is limited to your assignment. Pastors, admins, and senior cluster coordinators can switch branches.";
+  }, [
+    clusterBranchSelectInteractive,
+    clusterBranchesLoading,
+    clusterBranchCanChangeFilter,
+  ]);
+
+  const renderClusterBranchSelect = () => {
+    const options =
+      clusterBranchesLoading && clusterBranchCanChangeFilter ? (
+        <option value="">Loading…</option>
+      ) : (
+        (
+          clusterBranchCanChangeFilter
+            ? clusterBranchEditableOptions
+            : clusterBranchReadonlyOptions
+        ).map((opt) => (
+          <option
+            key={opt.value === "" ? "__all_branches__" : opt.value}
+            value={opt.value}
+          >
+            {opt.label}
+          </option>
+        ))
+      );
+
+    const selectEl = (
+      <select
+        aria-label="Branch"
+        aria-disabled={!clusterBranchSelectInteractive}
+        tabIndex={clusterBranchSelectInteractive ? 0 : -1}
+        value={clusterBranchSelectedId}
+        onChange={(e) => {
+          if (!clusterBranchSelectInteractive) return;
+          onClusterBranchChange(e.target.value);
+        }}
+        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+          clusterBranchSelectInteractive
+            ? "w-52 shrink-0"
+            : "w-full pointer-events-none cursor-default"
+        }`}
+      >
+        {options}
+      </select>
+    );
+
+    return clusterBranchSelectInteractive ? (
+      selectEl
+    ) : (
+      <LockedControlTooltip label={clusterBranchHoverHint}>
+        {selectEl}
+      </LockedControlTooltip>
+    );
+  };
 
   const getPanelTitle = () => {
     if (panelEntity === "cluster") {
@@ -720,13 +796,13 @@ export default function ClustersPageView({
               </div>
             </div>
 
-            {/* Search Bar */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex-1 w-full md:max-w-md">
-                  <div className="relative">
+            {/* Search + branch + actions (Families-style toolbar) */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-1 min-w-0 items-center gap-2">
+                  <div className="relative flex-1 max-w-md min-w-[12rem]">
                     <svg
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -743,7 +819,7 @@ export default function ClustersPageView({
                       placeholder="Search clusters…"
                       value={clusterSearchQuery}
                       onChange={(e) => onClusterSearchChange(e.target.value)}
-                      className={`w-full pl-10 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+                      className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
                         clusterSearchQuery ? "pr-10" : "pr-4"
                       }`}
                     />
@@ -751,7 +827,7 @@ export default function ClustersPageView({
                       <button
                         type="button"
                         onClick={() => onClusterSearchChange("")}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         aria-label="Clear search"
                       >
                         <svg
@@ -770,11 +846,11 @@ export default function ClustersPageView({
                       </button>
                     )}
                   </div>
+                  {renderClusterBranchSelect()}
                 </div>
 
-                {/* Bulk Actions and Filter/Sort Buttons */}
-                <div className="flex flex-wrap items-center gap-2 md:gap-3 md:ml-4">
-                  <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25 shrink-0">
                     <button
                       type="button"
                       onClick={() => setClusterListViewMode("table")}
@@ -803,42 +879,42 @@ export default function ClustersPageView({
 
                   {hasClusterModuleWideAccess && (
                     <>
-                  <button
-                    onClick={onToggleSelectionMode}
-                    className={`inline-flex items-center px-3 py-2.5 md:py-2 text-sm font-medium rounded-lg border transition-colors min-h-[44px] md:min-h-0 ${
-                      isSelectionMode
-                        ? "bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
-                        : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <svg
-                      className={`w-4 h-4 mr-2 ${
-                        isSelectionMode ? "text-blue-600" : "text-gray-500"
-                      }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    {isSelectionMode ? "Cancel Selection" : "Select"}
-                  </button>
-                  {/* Bulk Actions Menu */}
-                  {isSelectionMode && selectedClusters.size > 0 && (
-                    <BulkActionsMenu
-                      onBulkDelete={onBulkDelete}
-                      onBulkExport={onBulkExport}
-                      selectedCount={selectedClusters.size}
-                    />
-                  )}
+                      <button
+                        type="button"
+                        onClick={onToggleSelectionMode}
+                        className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-lg transition-colors ${
+                          isSelectionMode
+                            ? "bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            : "border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        }`}
+                      >
+                        <svg
+                          className={`w-4 h-4 mr-1 shrink-0 ${
+                            isSelectionMode ? "text-blue-600" : "text-gray-500"
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        {isSelectionMode ? "Cancel Selection" : "Select"}
+                      </button>
+                      {isSelectionMode && selectedClusters.size > 0 && (
+                        <BulkActionsMenu
+                          onBulkDelete={onBulkDelete}
+                          onBulkExport={onBulkExport}
+                          selectedCount={selectedClusters.size}
+                        />
+                      )}
                     </>
                   )}
-                  {/* Active Filters Display */}
+
                   {clusterActiveFilters.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                       {clusterActiveFilters.map((filter) => (
@@ -850,6 +926,7 @@ export default function ClustersPageView({
                             {filter.label}
                           </span>
                           <button
+                            type="button"
                             onClick={() => onClusterFilterRemove(filter.id)}
                             className="ml-1 text-blue-600 hover:text-blue-800 min-w-[20px] min-h-[20px] flex items-center justify-center flex-shrink-0"
                             aria-label="Remove filter"
@@ -871,6 +948,7 @@ export default function ClustersPageView({
                         </span>
                       ))}
                       <button
+                        type="button"
                         onClick={onClusterClearFilters}
                         className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 min-h-[32px] md:min-h-0"
                       >
@@ -879,8 +957,8 @@ export default function ClustersPageView({
                     </div>
                   )}
 
-                  {/* Sort Button */}
                   <button
+                    type="button"
                     onClick={(e) =>
                       onClusterSortDropdown(
                         (
@@ -888,7 +966,7 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors min-h-[44px] md:min-h-0"
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shrink-0"
                   >
                     <svg
                       className="w-4 h-4 mr-1"
@@ -900,18 +978,14 @@ export default function ClustersPageView({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d={
-                          clusterSortOrder === "asc"
-                            ? "M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                            : "M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                        }
+                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
                       />
                     </svg>
                     Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
                   </button>
 
-                  {/* Filter Button */}
                   <button
+                    type="button"
                     onClick={(e) =>
                       onClusterAddFilter(
                         (
@@ -919,7 +993,7 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors min-h-[44px] md:min-h-0"
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shrink-0"
                   >
                     <svg
                       className="w-4 h-4 mr-1"

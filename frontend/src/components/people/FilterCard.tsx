@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FilterCondition } from "./FilterBar";
+import { FilterCondition, FilterConditionValue } from "./FilterBar";
 
-// Local definition to align with FilterDropdown's FilterField
-interface FilterField {
+export interface FilterCardField {
   key: string;
   label: string;
-  type: "text" | "select" | "date" | "number";
+  type: "text" | "select" | "date" | "number" | "branch";
   options?: { value: string; label: string }[];
 }
 
 interface FilterCardProps {
-  field: FilterField;
+  field: FilterCardField;
   isOpen: boolean;
   onClose: () => void;
   onApplyFilter: (filter: FilterCondition) => void;
@@ -43,7 +42,25 @@ const OPERATORS = {
     { value: "less_than", label: "Less than" },
     { value: "between", label: "Between" },
   ],
+  branch: [
+    { value: "is", label: "Is" },
+    { value: "is_not", label: "Is not" },
+  ],
 };
+
+function defaultOperatorForField(field: FilterCardField): string {
+  if (field.key === "branch" || field.type === "branch") return "is";
+  if (field.type === "select") return "is";
+  if (field.type === "date" || field.type === "number") return "is";
+  return "contains";
+}
+
+function operatorsForField(field: FilterCardField) {
+  if (field.key === "branch" || field.type === "branch") {
+    return OPERATORS.branch;
+  }
+  return OPERATORS[field.type];
+}
 
 export default function FilterCard({
   field,
@@ -55,10 +72,15 @@ export default function FilterCard({
   const [operator, setOperator] = useState("contains");
   const [value, setValue] = useState("");
   const [value2, setValue2] = useState("");
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [isBetween, setIsBetween] = useState(false);
   const firstInputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(
-    null
+    null,
   );
+
+  const isBranchField = field.key === "branch" || field.type === "branch";
+  const branchMultiMode =
+    isBranchField && (operator === "is" || operator === "is_not");
 
   useEffect(() => {
     if (operator === "between") {
@@ -70,23 +92,43 @@ export default function FilterCard({
 
   useEffect(() => {
     if (isOpen) {
-      // Focus first input/select when opened
       setTimeout(() => {
         firstInputRef.current?.focus();
       }, 0);
-      // Reset operator to default when opening
-      setOperator("contains");
+      setOperator(defaultOperatorForField(field));
       setValue("");
       setValue2("");
+      setSelectedBranchIds([]);
     }
-  }, [isOpen]);
+  }, [isOpen, field]);
+
+  useEffect(() => {
+    if (!isOpen || !isBranchField) return;
+    setValue("");
+    setValue2("");
+    setSelectedBranchIds([]);
+  }, [operator, isBranchField, isOpen]);
+
+  const toggleBranchId = (id: string) => {
+    setSelectedBranchIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
 
   const handleApply = () => {
-    if (!value.trim()) return;
+    let filterValue: FilterConditionValue;
 
-    const filterValue: string | [string, string] = isBetween
-      ? ([value, value2] as [string, string])
-      : value;
+    if (branchMultiMode) {
+      if (selectedBranchIds.length === 0) return;
+      filterValue = [...selectedBranchIds].sort(
+        (a, b) => Number(a) - Number(b),
+      );
+    } else {
+      if (!value.trim()) return;
+      filterValue = isBetween
+        ? ([value, value2] as [string, string])
+        : value;
+    }
 
     const filter: FilterCondition = {
       id: `${field.key}_${Date.now()}`,
@@ -100,6 +142,7 @@ export default function FilterCard({
     onClose();
     setValue("");
     setValue2("");
+    setSelectedBranchIds([]);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -109,6 +152,31 @@ export default function FilterCard({
   };
 
   const renderInput = () => {
+    if (branchMultiMode && field.options) {
+      return (
+        <div
+          className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-1.5"
+          role="group"
+          aria-label={`Select ${field.label}`}
+        >
+          {field.options.map((option) => (
+            <label
+              key={option.value}
+              className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer py-1 px-1 rounded hover:bg-gray-50"
+            >
+              <input
+                type="checkbox"
+                checked={selectedBranchIds.includes(option.value)}
+                onChange={() => toggleBranchId(option.value)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      );
+    }
+
     if (field.type === "select" && field.options) {
       return (
         <select
@@ -171,6 +239,8 @@ export default function FilterCard({
 
   if (!isOpen) return null;
 
+  const opList = operatorsForField(field);
+
   return (
     <div
       className="fixed z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
@@ -183,7 +253,7 @@ export default function FilterCard({
         <h3 className="text-sm font-medium text-gray-900">
           Filter by {field.label}
         </h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
           <svg
             className="w-4 h-4"
             fill="none"
@@ -201,7 +271,6 @@ export default function FilterCard({
       </div>
 
       <div className="space-y-4">
-        {/* Operator Selection */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Condition
@@ -211,7 +280,7 @@ export default function FilterCard({
             onChange={(e) => setOperator(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            {OPERATORS[field.type].map((op) => (
+            {opList.map((op) => (
               <option key={op.value} value={op.value}>
                 {op.label}
               </option>
@@ -219,7 +288,6 @@ export default function FilterCard({
           </select>
         </div>
 
-        {/* Value Input */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Value
@@ -227,7 +295,6 @@ export default function FilterCard({
           {renderInput()}
         </div>
 
-        {/* Second Value for Between */}
         {isBetween && (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -260,17 +327,22 @@ export default function FilterCard({
         )}
       </div>
 
-      {/* Action Buttons */}
       <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-gray-200">
         <button
+          type="button"
           onClick={onClose}
           className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           Cancel
         </button>
         <button
+          type="button"
           onClick={handleApply}
-          disabled={!value.trim() || (isBetween && !value2.trim())}
+          disabled={
+            branchMultiMode
+              ? selectedBranchIds.length === 0
+              : !value.trim() || (isBetween && !value2.trim())
+          }
           className="px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Apply Filter

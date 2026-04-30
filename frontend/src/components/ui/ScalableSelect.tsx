@@ -29,6 +29,8 @@ interface ScalableSelectProps {
   emptyMessage?: string;
   loading?: boolean;
   virtualizeThreshold?: number; // Start virtualizing when options exceed this number
+  /** Block opening/changing without grey disabled styling (use with outer tooltip). */
+  interactionBlocked?: boolean;
 }
 
 export default function ScalableSelect({
@@ -44,6 +46,7 @@ export default function ScalableSelect({
   emptyMessage = "No options found",
   loading = false,
   virtualizeThreshold = 100,
+  interactionBlocked = false,
 }: ScalableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -148,7 +151,7 @@ export default function ScalableSelect({
 
   // Handle toggle dropdown
   const handleToggle = () => {
-    if (disabled) return;
+    if (disabled || interactionBlocked) return;
     setIsOpen(!isOpen);
     if (!isOpen) {
       setSearchQuery("");
@@ -373,22 +376,34 @@ export default function ScalableSelect({
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div
+      className={`relative ${className} ${
+        interactionBlocked ? "pointer-events-none" : ""
+      }`}
+    >
       {/* Trigger Button */}
       <button
         ref={triggerRef}
         type="button"
         onClick={handleToggle}
-        disabled={disabled}
+        disabled={disabled && !interactionBlocked}
+        aria-disabled={interactionBlocked || disabled}
+        tabIndex={interactionBlocked ? -1 : undefined}
         className={`
           flex h-11 w-full shrink-0 items-center px-3 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm
           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
           ${
-            disabled
+            disabled && !interactionBlocked
               ? "bg-gray-50 text-gray-500 cursor-not-allowed"
-              : "hover:border-gray-400"
+              : interactionBlocked
+                ? "cursor-default text-gray-900"
+                : "hover:border-gray-400"
           }
-          ${isOpen ? "ring-2 ring-blue-500 border-transparent" : ""}
+          ${
+            isOpen && !interactionBlocked && !disabled
+              ? "ring-2 ring-blue-500 border-transparent"
+              : ""
+          }
         `}
       >
         <div className="flex w-full min-w-0 items-center justify-between gap-2">
@@ -400,7 +415,7 @@ export default function ScalableSelect({
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           <div className="flex shrink-0 items-center space-x-1">
-            {value && !disabled && (
+            {value && !disabled && !interactionBlocked && (
               <button
                 type="button"
                 onClick={handleClear}

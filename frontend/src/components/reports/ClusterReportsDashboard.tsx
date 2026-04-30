@@ -17,6 +17,7 @@ import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import Pagination from "@/src/components/ui/Pagination";
 import {
   ChevronUpIcon,
@@ -323,6 +324,21 @@ export default function ClusterReportsDashboard({
     }
     return [{ value: "", label: "No branch assigned" }];
   }, [selectedBranchId, branchFilterLabel]);
+
+  const reportsBranchSelectInteractive =
+    canChangeBranchFilter && !branchesLoading;
+
+  const reportsBranchHoverHint = useMemo(() => {
+    if (reportsBranchSelectInteractive) return "";
+    if (branchesLoading && canChangeBranchFilter) {
+      return "Loading branches…";
+    }
+    return "Branch is limited to your assignment. Pastors, admins, and senior cluster coordinators can switch branches.";
+  }, [
+    reportsBranchSelectInteractive,
+    branchesLoading,
+    canChangeBranchFilter,
+  ]);
 
   const clustersForFilters = useMemo(() => {
     if (!selectedBranchId) return clusters;
@@ -1034,6 +1050,32 @@ export default function ClusterReportsDashboard({
     );
   }
 
+  const reportsBranchFilterSelect = (
+    <ScalableSelect
+      options={
+        canChangeBranchFilter
+          ? editableBranchSelectOptions
+          : readonlyBranchSelectOptions
+      }
+      value={selectedBranchId}
+      onChange={setSelectedBranchId}
+      placeholder="Branch"
+      searchPlaceholder="Search branches..."
+      className="w-full"
+      disabled={false}
+      interactionBlocked={!reportsBranchSelectInteractive}
+      loading={
+        reportsBranchSelectInteractive &&
+        canChangeBranchFilter &&
+        branchesLoading
+      }
+      showSearch={reportsBranchSelectInteractive && canChangeBranchFilter}
+      maxHeight={220}
+      emptyMessage="No branches found"
+      virtualizeThreshold={50}
+    />
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1552,24 +1594,16 @@ export default function ClusterReportsDashboard({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Branch
             </label>
-            <ScalableSelect
-              options={
-                canChangeBranchFilter
-                  ? editableBranchSelectOptions
-                  : readonlyBranchSelectOptions
-              }
-              value={selectedBranchId}
-              onChange={setSelectedBranchId}
-              placeholder="Branch"
-              searchPlaceholder="Search branches..."
-              className="w-full"
-              disabled={!canChangeBranchFilter}
-              loading={canChangeBranchFilter && branchesLoading}
-              showSearch={canChangeBranchFilter}
-              maxHeight={220}
-              emptyMessage="No branches found"
-              virtualizeThreshold={50}
-            />
+            {reportsBranchSelectInteractive ? (
+              reportsBranchFilterSelect
+            ) : (
+              <LockedControlTooltip
+                label={reportsBranchHoverHint}
+                wrapperClassName="block w-full cursor-default"
+              >
+                {reportsBranchFilterSelect}
+              </LockedControlTooltip>
+            )}
           </div>
 
           <div>

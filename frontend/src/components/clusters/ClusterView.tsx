@@ -94,9 +94,6 @@ export default function ClusterView({
       ? 1
       : 0);
 
-  // Total count includes all non-ADMIN people (members + visitors)
-  const totalMemberCount = memberCount + visitorCount;
-
   const formatFullName = (person: Person) => formatPersonName(person);
   const isPanelMode = !showTopHeader;
 
@@ -128,6 +125,95 @@ export default function ClusterView({
       });
     });
   }, [clusterMembers, coordinator]);
+
+  const sortedCoreMembers = useMemo(
+    () =>
+      sortedDisplayMembers.filter(
+        (p) => p.role !== "ADMIN" && p.role !== "VISITOR",
+      ),
+    [sortedDisplayMembers],
+  );
+
+  const sortedVisitors = useMemo(
+    () => sortedDisplayMembers.filter((p) => p.role === "VISITOR"),
+    [sortedDisplayMembers],
+  );
+
+  const roleBadgeClass = (role: string) =>
+    role === "MEMBER"
+      ? "bg-green-100 text-green-800"
+      : role === "VISITOR"
+        ? "bg-yellow-100 text-yellow-800"
+        : role === "COORDINATOR"
+          ? "bg-purple-100 text-purple-800"
+          : role === "PASTOR"
+            ? "bg-red-100 text-red-800"
+            : role === "ADMIN"
+              ? "bg-blue-100 text-blue-800"
+              : "bg-gray-100 text-gray-800";
+
+  const peopleGridClass =
+    isPanelMode
+      ? "grid gap-2 grid-cols-1 sm:grid-cols-2"
+      : "grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+
+  const renderPersonCard = (member: Person) => {
+    if (isPanelMode) {
+      const memberName = formatFullName(member);
+      const isLongWrappedName = memberName.length > 20;
+      return (
+        <div
+          key={member.id}
+          className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
+          onClick={() => onViewPerson && onViewPerson(member)}
+        >
+          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+            {member.first_name?.[0] || ""}
+            {member.last_name?.[0] || ""}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p
+              className={`font-medium text-gray-900 break-words ${
+                isLongWrappedName ? "text-xs leading-5" : "text-sm leading-5"
+              }`}
+            >
+              {memberName}
+            </p>
+            <div className="">
+              <span
+                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
+              >
+                {member.role}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div
+        key={member.id}
+        className="p-2.5 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50 flex items-center space-x-2"
+        onClick={() => onViewPerson && onViewPerson(member)}
+      >
+        <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+          {member.first_name?.[0] || ""}
+          {member.last_name?.[0] || ""}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-gray-900 truncate text-sm">
+            {formatFullName(member)}
+          </p>
+          <p className="text-xs text-gray-600 truncate">{member.email}</p>
+        </div>
+        <span
+          className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
+        >
+          {member.role}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full space-y-0">
@@ -342,12 +428,14 @@ export default function ClusterView({
             </div>
           )}
 
-          {/* Members */}
-          {sortedDisplayMembers.length > 0 && (
+          {/* Members & visitors */}
+          {(sortedCoreMembers.length > 0 || sortedVisitors.length > 0) && (
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <h3 className="text-base md:text-lg font-semibold text-gray-900">
-                  Members ({totalMemberCount})
+                  {sortedCoreMembers.length > 0
+                    ? `Members (${memberCount})`
+                    : `Visitors (${visitorCount})`}
                 </h3>
                 <div
                   className={`flex ${
@@ -400,100 +488,25 @@ export default function ClusterView({
                   )}
                 </div>
               </div>
-              <div
-                className={`grid gap-2 ${
-                  isPanelMode
-                    ? "grid-cols-1 sm:grid-cols-2"
-                    : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-                }`}
-              >
-                {sortedDisplayMembers.map((member) =>
-                  isPanelMode ? (
-                    (() => {
-                      const memberName = formatFullName(member);
-                      const isLongWrappedName = memberName.length > 20;
-                      return (
-                        <div
-                          key={member.id}
-                          className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
-                          onClick={() => onViewPerson && onViewPerson(member)}
-                        >
-                          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                            {member.first_name?.[0] || ""}
-                            {member.last_name?.[0] || ""}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className={`font-medium text-gray-900 break-words ${
-                                isLongWrappedName
-                                  ? "text-xs leading-5"
-                                  : "text-sm leading-5"
-                              }`}
-                            >
-                              {memberName}
-                            </p>
-                            <div className="">
-                              <span
-                                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${
-                                  member.role === "MEMBER"
-                                    ? "bg-green-100 text-green-800"
-                                    : member.role === "VISITOR"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : member.role === "COORDINATOR"
-                                        ? "bg-purple-100 text-purple-800"
-                                        : member.role === "PASTOR"
-                                          ? "bg-red-100 text-red-800"
-                                          : member.role === "ADMIN"
-                                            ? "bg-blue-100 text-blue-800"
-                                            : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {member.role}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div
-                      key={member.id}
-                      className="p-2.5 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50 flex items-center space-x-2"
-                      onClick={() => onViewPerson && onViewPerson(member)}
-                    >
-                      <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                        {member.first_name?.[0] || ""}
-                        {member.last_name?.[0] || ""}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate text-sm">
-                          {formatFullName(member)}
-                        </p>
-                        <p className="text-xs text-gray-600 truncate">
-                          {member.email}
-                        </p>
-                      </div>
-                      <span
-                        className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${
-                          member.role === "MEMBER"
-                            ? "bg-green-100 text-green-800"
-                            : member.role === "VISITOR"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : member.role === "COORDINATOR"
-                                ? "bg-purple-100 text-purple-800"
-                                : member.role === "PASTOR"
-                                  ? "bg-red-100 text-red-800"
-                                  : member.role === "ADMIN"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {member.role}
-                      </span>
-                    </div>
-                  ),
-                )}
-              </div>
+              {sortedCoreMembers.length > 0 && (
+                <div
+                  className={`${peopleGridClass}${
+                    sortedVisitors.length > 0 ? " mb-6" : ""
+                  }`}
+                >
+                  {sortedCoreMembers.map((member) => renderPersonCard(member))}
+                </div>
+              )}
+              {sortedVisitors.length > 0 && sortedCoreMembers.length > 0 && (
+                <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
+                  Visitors ({visitorCount})
+                </h3>
+              )}
+              {sortedVisitors.length > 0 && (
+                <div className={peopleGridClass}>
+                  {sortedVisitors.map((member) => renderPersonCard(member))}
+                </div>
+              )}
             </div>
           )}
 

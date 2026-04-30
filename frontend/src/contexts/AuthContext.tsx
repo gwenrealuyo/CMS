@@ -158,8 +158,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     
     if (resourceId !== undefined) {
+      const rid = Number(resourceId);
       assignments = assignments.filter(
-        (assignment) => assignment.resource_id === resourceId
+        (assignment) =>
+          assignment.resource_id != null &&
+          Number(assignment.resource_id) === rid,
       );
     }
     

@@ -42,6 +42,8 @@ import {
 
 interface ClusterReportsDashboardProps {
   clusters: Cluster[];
+  /** Clusters shown in the weekly report form picker; defaults to `clusters` when omitted */
+  clustersForReportForm?: Cluster[];
   externalShowForm?: boolean;
   externalSelectedCluster?: Cluster | null;
   externalEditingReport?: ClusterWeeklyReport | null;
@@ -54,6 +56,7 @@ interface ClusterReportsDashboardProps {
 
 export default function ClusterReportsDashboard({
   clusters,
+  clustersForReportForm,
   externalShowForm,
   externalSelectedCluster,
   externalEditingReport,
@@ -2105,7 +2108,7 @@ export default function ClusterReportsDashboard({
       >
         <ClusterWeeklyReportForm
           cluster={formSelectedCluster as any}
-          clusters={clusters as any}
+          clusters={(clustersForReportForm ?? clusters) as any}
           isOpen={isFormOpen}
           onClose={() => {
             if (onFormClose) {

@@ -286,6 +286,55 @@ export default function ClustersPageView({
     [user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
   );
 
+  const showGlobalSubmitReport =
+    hasClusterModuleWideAccess ||
+    isOnlyNonSeniorClusterCoordinator ||
+    allClusters.some((c) => userCanManageCluster(c, clusterAuthCtx));
+
+  const reportFormClusters = useMemo(() => {
+    let base: Cluster[];
+    if (hasClusterModuleWideAccess) {
+      base = allClusters;
+    } else {
+      const manageable = allClusters.filter((c) =>
+        userCanManageCluster(c, clusterAuthCtx),
+      );
+      const manageableIds = new Set(manageable.map((c) => Number(c.id)));
+      const assignmentResourceIds = new Set(
+        (user?.module_coordinator_assignments ?? [])
+          .filter(
+            (a) =>
+              a.module === "CLUSTER" &&
+              a.level === "COORDINATOR" &&
+              a.resource_id != null,
+          )
+          .map((a) => Number(a.resource_id)),
+      );
+      const fromAssignments = allClusters.filter(
+        (c) =>
+          assignmentResourceIds.has(Number(c.id)) &&
+          !manageableIds.has(Number(c.id)),
+      );
+      base = [...manageable, ...fromAssignments];
+    }
+    if (!hasClusterModuleWideAccess && editingReport?.cluster != null) {
+      const cid = editingReport.cluster;
+      if (!base.some((c) => Number(c.id) === Number(cid))) {
+        const extra = allClusters.find((c) => Number(c.id) === Number(cid));
+        if (extra) {
+          return [...base, extra];
+        }
+      }
+    }
+    return base;
+  }, [
+    allClusters,
+    hasClusterModuleWideAccess,
+    clusterAuthCtx,
+    user?.module_coordinator_assignments,
+    editingReport?.cluster,
+  ]);
+
   /** Matches backend `ClusterWeeklyReportViewSet._check_compliance_access` */
   const canAccessCompliance =
     user?.role === "ADMIN" ||
@@ -361,7 +410,9 @@ export default function ClustersPageView({
           onViewFamily={onViewFamily}
           onViewPerson={onViewPerson}
           showTopHeader={!isPanel}
-          showSubmitReportButton={!hasClusterModuleWideAccess}
+          showSubmitReportButton={
+            !hasClusterModuleWideAccess && manageCluster
+          }
           canManageCluster={manageCluster}
         />
       );
@@ -472,28 +523,30 @@ export default function ClustersPageView({
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
+        <div className="relative isolate flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1 min-w-0">
             <h1 className="text-2xl font-bold text-[#2D3748]">Clusters</h1>
             <p className="text-sm text-gray-600">
               Manage clusters and weekly reports
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+          <div className="relative z-10 flex shrink-0 flex-col gap-2 sm:flex-row sm:gap-2">
             {activeTab === "clusters" &&
               (hasClusterModuleWideAccess ? (
                 <Button onClick={onCreateCluster} className="w-full md:w-auto">
                   Add Cluster
                 </Button>
               ) : (
-                <Button
-                  onClick={() => onOpenReportForm()}
-                  className="w-full md:w-auto"
-                >
-                  Submit Report
-                </Button>
+                showGlobalSubmitReport && (
+                  <Button
+                    onClick={() => onOpenReportForm()}
+                    className="w-full md:w-auto"
+                  >
+                    Submit Report
+                  </Button>
+                )
               ))}
-            {activeTab === "reports" && (
+            {activeTab === "reports" && showGlobalSubmitReport && (
               <Button
                 onClick={() => onOpenReportForm()}
                 className="w-full md:w-auto"
@@ -923,9 +976,11 @@ export default function ClustersPageView({
                     {hasClusterModuleWideAccess ? (
                       <Button onClick={onCreateCluster}>Create Cluster</Button>
                     ) : (
-                      <Button onClick={() => onOpenReportForm()}>
-                        Submit Report
-                      </Button>
+                      showGlobalSubmitReport && (
+                        <Button onClick={() => onOpenReportForm()}>
+                          Submit Report
+                        </Button>
+                      )
                     )}
                   </div>
                 )}
@@ -1154,52 +1209,59 @@ export default function ClustersPageView({
         )}
 
 
-        {activeTab === "reports" && (
-          <ClusterReportsDashboard
-            clusters={allClusters as any}
-            externalShowForm={isReportFormOpen}
-            externalSelectedCluster={reportSelectedCluster}
-            externalEditingReport={editingReport}
-            onFormClose={onCloseReportForm}
-            onEditReport={onEditReport}
-            onSetReportSelectedCluster={onSetReportSelectedCluster}
-            onSubmitReport={async (data) => {
-              // Convert data to ClusterWeeklyReportInput format
-              const reportData: ClusterWeeklyReportInput = {
-                cluster:
-                  typeof data.cluster === "number"
-                    ? data.cluster
-                    : Number(data.cluster),
-                year: data.year!,
-                week_number: data.week_number!,
-                meeting_date: data.meeting_date!,
-                gathering_type: data.gathering_type!,
-                members_attended: (data.members_attended || []).map((id: any) =>
-                  typeof id === "number" ? id : Number(id)
-                ),
-                visitors_attended: (data.visitors_attended || []).map(
-                  (id: any) => (typeof id === "number" ? id : Number(id))
-                ),
-                activities_held: data.activities_held || "",
-                prayer_requests: data.prayer_requests || "",
-                testimonies: data.testimonies || "",
-                offerings: String(data.offerings || 0),
-                highlights: data.highlights || "",
-                lowlights: data.lowlights || "",
-                submitted_by: data.submitted_by
-                  ? typeof data.submitted_by === "number"
-                    ? data.submitted_by
-                    : Number(data.submitted_by)
-                  : undefined,
-              };
+        {(activeTab === "reports" || isReportFormOpen) && (
+          <div
+            className={activeTab !== "reports" ? "hidden" : undefined}
+            aria-hidden={activeTab !== "reports"}
+          >
+            <ClusterReportsDashboard
+              clusters={allClusters as any}
+              clustersForReportForm={reportFormClusters as any}
+              externalShowForm={isReportFormOpen}
+              externalSelectedCluster={reportSelectedCluster}
+              externalEditingReport={editingReport}
+              onFormClose={onCloseReportForm}
+              onEditReport={onEditReport}
+              onSetReportSelectedCluster={onSetReportSelectedCluster}
+              onSubmitReport={async (data) => {
+                // Convert data to ClusterWeeklyReportInput format
+                const reportData: ClusterWeeklyReportInput = {
+                  cluster:
+                    typeof data.cluster === "number"
+                      ? data.cluster
+                      : Number(data.cluster),
+                  year: data.year!,
+                  week_number: data.week_number!,
+                  meeting_date: data.meeting_date!,
+                  gathering_type: data.gathering_type!,
+                  members_attended: (data.members_attended || []).map(
+                    (id: any) =>
+                      typeof id === "number" ? id : Number(id)
+                  ),
+                  visitors_attended: (data.visitors_attended || []).map(
+                    (id: any) => (typeof id === "number" ? id : Number(id))
+                  ),
+                  activities_held: data.activities_held || "",
+                  prayer_requests: data.prayer_requests || "",
+                  testimonies: data.testimonies || "",
+                  offerings: String(data.offerings || 0),
+                  highlights: data.highlights || "",
+                  lowlights: data.lowlights || "",
+                  submitted_by: data.submitted_by
+                    ? typeof data.submitted_by === "number"
+                      ? data.submitted_by
+                      : Number(data.submitted_by)
+                    : undefined,
+                };
 
-              if (editingReport) {
-                await onUpdateReport(editingReport.id, reportData);
-              } else {
-                await onCreateReport(reportData);
-              }
-            }}
-          />
+                if (editingReport) {
+                  await onUpdateReport(editingReport.id, reportData);
+                } else {
+                  await onCreateReport(reportData);
+                }
+              }}
+            />
+          </div>
         )}
 
         {/* Cluster Modal */}
@@ -1291,7 +1353,13 @@ export default function ClustersPageView({
               }}
               onViewFamily={onViewFamily}
               onViewPerson={onViewPerson}
-              showSubmitReportButton={!hasClusterModuleWideAccess}
+              showSubmitReportButton={
+                !hasClusterModuleWideAccess &&
+                userCanManageCluster(
+                  clusterOverPerson as Cluster,
+                  clusterAuthCtx,
+                )
+              }
               canManageCluster={userCanManageCluster(
                 clusterOverPerson as Cluster,
                 clusterAuthCtx,

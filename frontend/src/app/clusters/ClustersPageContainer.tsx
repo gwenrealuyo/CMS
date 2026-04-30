@@ -13,6 +13,8 @@ import { Person, PersonUI, Family } from "@/src/types/person";
 import { clustersApi } from "@/src/lib/api";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import toast from "react-hot-toast";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { userCanManageCluster } from "@/src/lib/clusterPermissions";
 
 type PanelEntity = "cluster" | "person" | "family";
 type PanelMode = "view" | "edit" | "create";
@@ -127,6 +129,66 @@ export default function ClustersPageContainer() {
   
   const { people, peopleUI } = usePeople();
   const { families } = useFamilies();
+  const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
+
+  const isOnlyNonSeniorClusterCoordinator =
+    isModuleCoordinator("CLUSTER", "COORDINATOR") &&
+    !isSeniorCoordinator("CLUSTER");
+  const hasClusterModuleWideAccess =
+    user?.role === "ADMIN" ||
+    isSeniorCoordinator("CLUSTER") ||
+    (user?.role === "PASTOR" && !isOnlyNonSeniorClusterCoordinator);
+
+  const clusterAuthCtx = useMemo(
+    () => ({
+      userId: user?.id,
+      role: user?.role,
+      isSeniorCoordinator,
+      isModuleCoordinator,
+    }),
+    [user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
+  );
+
+  /** First manageable cluster for scoped coordinators; module-wide users leave pick unset */
+  const resolveDefaultReportCluster = useCallback((): Cluster | null => {
+    if (hasClusterModuleWideAccess) {
+      return null;
+    }
+    const sortClusters = (list: Cluster[]) =>
+      [...list].sort((a, b) => {
+        const la = (a.name || a.code || "").toLowerCase();
+        const lb = (b.name || b.code || "").toLowerCase();
+        return la.localeCompare(lb);
+      });
+    const manageable = allClusters.filter((c) =>
+      userCanManageCluster(c, clusterAuthCtx),
+    );
+    if (manageable.length > 0) {
+      return sortClusters(manageable)[0];
+    }
+    const assignmentResourceIds = new Set(
+      (user?.module_coordinator_assignments ?? [])
+        .filter(
+          (a) =>
+            a.module === "CLUSTER" &&
+            a.level === "COORDINATOR" &&
+            a.resource_id != null,
+        )
+        .map((a) => Number(a.resource_id)),
+    );
+    const byAssignment = allClusters.filter((c) =>
+      assignmentResourceIds.has(Number(c.id)),
+    );
+    if (byAssignment.length > 0) {
+      return sortClusters(byAssignment)[0];
+    }
+    return null;
+  }, [
+    allClusters,
+    hasClusterModuleWideAccess,
+    clusterAuthCtx,
+    user?.module_coordinator_assignments,
+  ]);
 
   useEffect(() => {
     if (action !== "submit-report") {
@@ -134,10 +196,10 @@ export default function ClustersPageContainer() {
     }
     setActiveTab("reports");
     setEditingReport(null);
-    setReportSelectedCluster(null);
+    setReportSelectedCluster(resolveDefaultReportCluster());
     setReportFormOpen(true);
     router.replace(pathname);
-  }, [action, pathname, router]);
+  }, [action, pathname, router, resolveDefaultReportCluster]);
   
   // Fetch clusters
   const fetchClusters = useCallback(async () => {
@@ -1079,7 +1141,9 @@ export default function ClustersPageContainer() {
       isReportFormOpen={isReportFormOpen}
       onOpenReportForm={(cluster) => {
         setEditingReport(null);
-        setReportSelectedCluster(cluster || null);
+        setReportSelectedCluster(
+          cluster != null ? cluster : resolveDefaultReportCluster(),
+        );
         setReportFormOpen(true);
       }}
       onCloseReportForm={() => {

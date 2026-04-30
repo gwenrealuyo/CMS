@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Squares2X2Icon, TableCellsIcon } from "@heroicons/react/24/outline";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ClusterContentTabs, {
@@ -35,6 +35,7 @@ import { Person, PersonUI, Family } from "@/src/types/person";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { userCanManageCluster } from "@/src/lib/clusterPermissions";
 
 interface ClustersPageViewProps {
   activeTab: ClusterContentTab;
@@ -275,6 +276,16 @@ export default function ClustersPageView({
     isSeniorCoordinator("CLUSTER") ||
     (user?.role === "PASTOR" && !isOnlyNonSeniorClusterCoordinator);
 
+  const clusterAuthCtx = useMemo(
+    () => ({
+      userId: user?.id,
+      role: user?.role,
+      isSeniorCoordinator,
+      isModuleCoordinator,
+    }),
+    [user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
+  );
+
   /** Matches backend `ClusterWeeklyReportViewSet._check_compliance_access` */
   const canAccessCompliance =
     user?.role === "ADMIN" ||
@@ -318,6 +329,10 @@ export default function ClustersPageView({
         ? editCluster
         : null;
 
+    const manageCluster =
+      !!currentViewCluster &&
+      userCanManageCluster(currentViewCluster as Cluster, clusterAuthCtx);
+
     if (isViewMode && currentViewCluster) {
       return (
         <ClusterView
@@ -347,6 +362,7 @@ export default function ClustersPageView({
           onViewPerson={onViewPerson}
           showTopHeader={!isPanel}
           showSubmitReportButton={!hasClusterModuleWideAccess}
+          canManageCluster={manageCluster}
         />
       );
     }
@@ -732,7 +748,8 @@ export default function ClustersPageView({
                     </button>
                   </div>
 
-                  {/* Selection Mode Toggle */}
+                  {hasClusterModuleWideAccess && (
+                    <>
                   <button
                     onClick={onToggleSelectionMode}
                     className={`inline-flex items-center px-3 py-2.5 md:py-2 text-sm font-medium rounded-lg border transition-colors min-h-[44px] md:min-h-0 ${
@@ -765,6 +782,8 @@ export default function ClustersPageView({
                       onBulkExport={onBulkExport}
                       selectedCount={selectedClusters.size}
                     />
+                  )}
+                    </>
                   )}
                   {/* Active Filters Display */}
                   {clusterActiveFilters.length > 0 && (
@@ -914,7 +933,9 @@ export default function ClustersPageView({
             ) : (
               <div>
                 {/* Select All Checkbox - Only show in selection mode */}
-                {isSelectionMode && clusterPaginatedData.length > 0 && (
+                {hasClusterModuleWideAccess &&
+                  isSelectionMode &&
+                  clusterPaginatedData.length > 0 && (
                   <div className="mb-4 flex items-center gap-2">
                     <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer min-h-[44px]">
                       <input
@@ -936,7 +957,7 @@ export default function ClustersPageView({
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                       <thead className="bg-gray-50">
                         <tr>
-                          {isSelectionMode && (
+                          {hasClusterModuleWideAccess && isSelectionMode && (
                             <th className="px-4 py-3 text-left">
                               <input
                                 type="checkbox"
@@ -1007,7 +1028,7 @@ export default function ClustersPageView({
 
                           return (
                             <tr key={c.id} className="hover:bg-gray-50">
-                              {isSelectionMode && (
+                              {hasClusterModuleWideAccess && isSelectionMode && (
                                 <td className="px-4 py-3">
                                   <input
                                     type="checkbox"
@@ -1055,6 +1076,10 @@ export default function ClustersPageView({
                                     onView={() => onViewCluster(c)}
                                     onEdit={() => onEditCluster(c)}
                                     onDelete={() => onDeleteCluster(c)}
+                                    showEditDelete={userCanManageCluster(
+                                      c as Cluster,
+                                      clusterAuthCtx,
+                                    )}
                                     labels={{
                                       view: "View Cluster",
                                       edit: "Edit Cluster",
@@ -1078,7 +1103,13 @@ export default function ClustersPageView({
                         cluster={c as any}
                         peopleUI={peopleUI}
                         isSelected={selectedClusters.has(c.id.toString())}
-                        isSelectionMode={isSelectionMode}
+                        isSelectionMode={
+                          hasClusterModuleWideAccess && isSelectionMode
+                        }
+                        canManageCluster={userCanManageCluster(
+                          c as Cluster,
+                          clusterAuthCtx,
+                        )}
                         onSelect={() => onSelectCluster(c.id.toString())}
                         onView={() => onViewCluster(c)}
                         onEdit={() => onEditCluster(c)}
@@ -1261,6 +1292,10 @@ export default function ClustersPageView({
               onViewFamily={onViewFamily}
               onViewPerson={onViewPerson}
               showSubmitReportButton={!hasClusterModuleWideAccess}
+              canManageCluster={userCanManageCluster(
+                clusterOverPerson as Cluster,
+                clusterAuthCtx,
+              )}
             />
           </Modal>
         )}

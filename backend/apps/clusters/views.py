@@ -31,6 +31,12 @@ from apps.authentication.permissions import (
     CanEditOwnResource,
     HasModuleAccess,
 )
+from apps.clusters.permissions import (
+    ClusterCoordinatorScopedPermission,
+    ClusterMutationAttemptPermission,
+    ClusterWeeklyReportScopedPermission,
+    ensure_user_manages_cluster_or_privileged,
+)
 from apps.people.models import ModuleCoordinator, Person
 
 
@@ -53,23 +59,16 @@ class ClusterViewSet(viewsets.ModelViewSet):
         if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
             return queryset
         
-        # Cluster Coordinator (CLUSTER, COORDINATOR, resource_id): Only their assigned cluster
+        # Cluster Coordinator (CLUSTER, COORDINATOR): Read/browse all clusters; mutations scoped elsewhere
         coordinator_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.CLUSTER,
             level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
         )
         if coordinator_assignments.exists():
-            cluster_ids = [
-                assignment.resource_id 
-                for assignment in coordinator_assignments 
-                if assignment.resource_id
-            ]
-            # Also check if user is coordinator of any cluster
-            coordinator_clusters = queryset.filter(coordinator=user)
-            if cluster_ids:
-                assigned_clusters = queryset.filter(id__in=cluster_ids)
-                return (coordinator_clusters | assigned_clusters).distinct()
-            return coordinator_clusters
+            return queryset
+
+        if queryset.filter(coordinator=user).exists():
+            return queryset
         
         # MEMBER: Only clusters where they are members
         if user.role == "MEMBER":
@@ -86,11 +85,17 @@ class ClusterViewSet(viewsets.ModelViewSet):
             # Only ADMIN, PASTOR, or Senior Coordinator can create
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'create')]
         elif self.action in ['update', 'partial_update']:
-            # ADMIN, PASTOR, Senior Coordinator, or cluster coordinator can update
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'write')]
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                ClusterMutationAttemptPermission(),
+                ClusterCoordinatorScopedPermission(),
+            ]
         elif self.action == 'destroy':
-            # Only ADMIN, PASTOR can delete
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'delete')]
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                ClusterMutationAttemptPermission(),
+                ClusterCoordinatorScopedPermission(),
+            ]
         else:
             # Read operations
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'read')]
@@ -138,25 +143,16 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
             return queryset
         
-        # Cluster Coordinator: Only reports for their cluster
+        # Cluster Coordinator (non-senior): Read/browse all reports; mutations scoped per-report cluster
         coordinator_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.CLUSTER,
             level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
         )
         if coordinator_assignments.exists():
-            cluster_ids = [
-                assignment.resource_id 
-                for assignment in coordinator_assignments 
-                if assignment.resource_id
-            ]
-            # Also check clusters where user is coordinator
-            coordinator_clusters = Cluster.objects.filter(coordinator=user)
-            if cluster_ids:
-                assigned_clusters = Cluster.objects.filter(id__in=cluster_ids)
-                all_clusters = (coordinator_clusters | assigned_clusters).distinct()
-            else:
-                all_clusters = coordinator_clusters
-            return queryset.filter(cluster__in=all_clusters)
+            return queryset
+
+        if Cluster.objects.filter(coordinator=user).exists():
+            return queryset
         
         # MEMBER: Read-only, only reports for clusters they're in
         if user.role == "MEMBER":
@@ -174,14 +170,35 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             # ADMIN, PASTOR, Senior Coordinator, or Cluster Coordinator can create
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'create')]
         elif self.action in ['update', 'partial_update']:
-            # ADMIN, PASTOR, Senior Coordinator, or Cluster Coordinator can update
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'write')]
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                ClusterMutationAttemptPermission(),
+                ClusterWeeklyReportScopedPermission(),
+            ]
         elif self.action == 'destroy':
-            # Only ADMIN, PASTOR can delete
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'delete')]
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                ClusterMutationAttemptPermission(),
+                ClusterWeeklyReportScopedPermission(),
+            ]
         else:
             # Read operations
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'read')]
+
+    def perform_create(self, serializer):
+        cluster = serializer.validated_data.get("cluster")
+        ensure_user_manages_cluster_or_privileged(self.request.user, cluster)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        old_cluster = serializer.instance.cluster
+        new_cluster = serializer.validated_data.get("cluster", old_cluster)
+        ensure_user_manages_cluster_or_privileged(self.request.user, new_cluster)
+        if getattr(new_cluster, "pk", None) != getattr(old_cluster, "pk", None):
+            ensure_user_manages_cluster_or_privileged(
+                self.request.user, old_cluster
+            )
+        serializer.save()
 
     @action(detail=False, methods=["get"])
     def analytics(self, request):

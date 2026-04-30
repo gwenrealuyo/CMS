@@ -13,10 +13,22 @@ interface ClusterCardProps {
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** When false, cluster actions menu is view-only. Default true. */
+  canManageCluster?: boolean;
 }
 
 const ClusterCard = memo(
-  ({ cluster, peopleUI, isSelected = false, isSelectionMode = false, onSelect, onView, onEdit, onDelete }: ClusterCardProps) => {
+  ({
+    cluster,
+    peopleUI,
+    isSelected = false,
+    isSelectionMode = false,
+    onSelect,
+    onView,
+    onEdit,
+    onDelete,
+    canManageCluster = true,
+  }: ClusterCardProps) => {
     const { branches } = useBranches();
     
     // Find the branch for this cluster
@@ -259,6 +271,7 @@ const ClusterCard = memo(
               onView={onView}
               onEdit={onEdit}
               onDelete={onDelete}
+              showEditDelete={canManageCluster}
               labels={{
                 view: "View Cluster",
                 edit: "Edit Cluster",

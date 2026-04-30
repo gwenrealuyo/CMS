@@ -6,7 +6,7 @@ from rest_framework.test import APIRequestFactory
 from datetime import date, timedelta
 
 from .models import Cluster, ClusterWeeklyReport
-from apps.people.models import Family, Branch
+from apps.people.models import Family, Branch, ModuleCoordinator
 from apps.clusters.serializers import ClusterSerializer
 from apps.people.serializers import PersonSerializer
 
@@ -365,6 +365,97 @@ class ClusterAPITests(TestCase):
         response = self.client.delete(f"/api/clusters/clusters/{cluster.id}/")
         self.assertEqual(response.status_code, 204)
         self.assertEqual(Cluster.objects.count(), 0)
+
+
+class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
+    """Non-senior CLUSTER coordinators list/browse all clusters; mutations only on managed clusters."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.coord_a = Person.objects.create_user(
+            username="coord_scope_a",
+            email="scope_a@example.com",
+            password="password123",
+            role="COORDINATOR",
+        )
+        self.coord_b = Person.objects.create_user(
+            username="coord_scope_b",
+            email="scope_b@example.com",
+            password="password123",
+            role="COORDINATOR",
+        )
+        self.cluster_a = Cluster.objects.create(
+            code="CLU-SCOPE-A",
+            name="Cluster Scope A",
+            coordinator=self.coord_a,
+        )
+        self.cluster_b = Cluster.objects.create(
+            code="CLU-SCOPE-B",
+            name="Cluster Scope B",
+            coordinator=self.coord_b,
+        )
+        ModuleCoordinator.objects.create(
+            person=self.coord_a,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id=self.cluster_a.id,
+            resource_type="Cluster",
+        )
+        ModuleCoordinator.objects.create(
+            person=self.coord_b,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id=self.cluster_b.id,
+            resource_type="Cluster",
+        )
+
+    def _cluster_list_results(self, response):
+        data = response.data
+        if isinstance(data, list):
+            return data
+        return data.get("results", data)
+
+    def test_coord_lists_all_clusters(self):
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.get("/api/clusters/clusters/")
+        self.assertEqual(response.status_code, 200)
+        results = self._cluster_list_results(response)
+        self.assertEqual(len(results), 2)
+
+    def test_coord_retrieves_other_cluster(self):
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.get(f"/api/clusters/clusters/{self.cluster_b.id}/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_coord_cannot_patch_other_cluster(self):
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.patch(
+            f"/api/clusters/clusters/{self.cluster_b.id}/",
+            {"name": "Should Not Apply"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_coord_can_patch_own_cluster(self):
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.patch(
+            f"/api/clusters/clusters/{self.cluster_a.id}/",
+            {"name": "Updated Scope A"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.cluster_a.refresh_from_db()
+        self.assertEqual(self.cluster_a.name, "Updated Scope A")
+
+    def test_coord_can_delete_own_cluster(self):
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.delete(f"/api/clusters/clusters/{self.cluster_a.id}/")
+        self.assertEqual(response.status_code, 204)
+
+    def test_coord_cannot_delete_other_cluster(self):
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.delete(f"/api/clusters/clusters/{self.cluster_b.id}/")
+        self.assertEqual(response.status_code, 403)
 
 
 class ClusterWeeklyReportAPITests(TestCase):

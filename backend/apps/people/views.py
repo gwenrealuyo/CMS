@@ -481,14 +481,22 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
 class ModuleSettingViewSet(viewsets.ModelViewSet):
     """
     ViewSet for module enable/disable settings.
-    Only ADMIN users can view and modify module states.
+    Any authenticated non-visitor can read module on/off state (sidebar, gating).
+    Only ADMIN can update module state.
     """
 
     queryset = ModuleSetting.objects.select_related("updated_by").all()
     serializer_class = ModuleSettingSerializer
-    permission_classes = [IsAuthenticatedAndNotVisitor, IsAdmin]
+    permission_classes = [IsAuthenticatedAndNotVisitor]
     http_method_names = ["get", "put", "patch", "head", "options"]
     ordering = ["module"]
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor()]
 
     def perform_update(self, serializer):
         serializer.save(updated_by=self.request.user)

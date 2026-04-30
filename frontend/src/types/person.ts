@@ -124,5 +124,6 @@ export interface ModuleCoordinator {
   level_display?: string;
   resource_id?: number | null;
   resource_type?: string;
+  resource_scope_label?: string | null;
   created_at?: string;
 }

@@ -423,20 +423,6 @@ class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
             coordinator=self.coord_b,
             branch=self.branch_b,
         )
-        ModuleCoordinator.objects.create(
-            person=self.coord_a,
-            module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            resource_id=self.cluster_a.id,
-            resource_type="Cluster",
-        )
-        ModuleCoordinator.objects.create(
-            person=self.coord_b,
-            module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            resource_id=self.cluster_b.id,
-            resource_type="Cluster",
-        )
 
     def _cluster_list_results(self, response):
         data = response.data
@@ -1244,3 +1230,71 @@ class MemberClusterBrowseAPITests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 403)
+
+
+class ClusterCoordinatorModuleSyncTests(TestCase):
+    """Cluster.coordinator stays in sync with scoped ModuleCoordinator rows."""
+
+    def setUp(self):
+        self.coord_a = Person.objects.create_user(
+            username="sync_coord_a",
+            email="a@example.com",
+            password="password123",
+            first_name="A",
+            last_name="Coordinator",
+            role="COORDINATOR",
+        )
+        self.coord_b = Person.objects.create_user(
+            username="sync_coord_b",
+            email="b@example.com",
+            password="password123",
+            first_name="B",
+            last_name="Coordinator",
+            role="COORDINATOR",
+        )
+
+    def _scoped_qs(self, cluster_id):
+        return ModuleCoordinator.objects.filter(
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            resource_id=cluster_id,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+        )
+
+    def test_create_cluster_creates_module_coordinator_assignment(self):
+        cluster = Cluster.objects.create(
+            code="SYNC-001",
+            name="Sync Cluster",
+            coordinator=self.coord_a,
+        )
+        rows = self._scoped_qs(cluster.id).filter(person=self.coord_a)
+        self.assertEqual(rows.count(), 1)
+        mc = rows.first()
+        self.assertEqual(mc.resource_type, "Cluster")
+        self.assertEqual(mc.resource_id, cluster.id)
+
+    def test_change_coordinator_transfers_scoped_assignment(self):
+        cluster = Cluster.objects.create(
+            code="SYNC-002",
+            name="Transfer",
+            coordinator=self.coord_a,
+        )
+        self.assertTrue(self._scoped_qs(cluster.id).filter(person=self.coord_a).exists())
+        cluster.coordinator = self.coord_b
+        cluster.save(update_fields=["coordinator"])
+        self.assertFalse(
+            self._scoped_qs(cluster.id).filter(person=self.coord_a).exists()
+        )
+        self.assertTrue(
+            self._scoped_qs(cluster.id).filter(person=self.coord_b).exists()
+        )
+
+    def test_clear_coordinator_removes_scoped_assignment(self):
+        cluster = Cluster.objects.create(
+            code="SYNC-003",
+            name="Clear",
+            coordinator=self.coord_a,
+        )
+        self.assertEqual(self._scoped_qs(cluster.id).count(), 1)
+        cluster.coordinator = None
+        cluster.save(update_fields=["coordinator"])
+        self.assertEqual(self._scoped_qs(cluster.id).count(), 0)

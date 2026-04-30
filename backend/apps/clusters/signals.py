@@ -1,12 +1,40 @@
-from django.db.models.signals import m2m_changed
+from django.db.models.signals import m2m_changed, post_save, pre_save
 from django.dispatch import receiver
 from django.db import transaction
 import logging
 
 from apps.people.models import Journey
-from .models import ClusterWeeklyReport
+from .models import Cluster, ClusterWeeklyReport
+from .coordinator_assignments import sync_cluster_coordinator_module_assignment
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(pre_save, sender=Cluster)
+def cluster_store_previous_coordinator(sender, instance, **kwargs):
+    """Stash prior coordinator_id so post_save can sync ModuleCoordinator rows."""
+    if instance.pk:
+        try:
+            previous = Cluster.objects.get(pk=instance.pk)
+            instance._prev_coordinator_id = previous.coordinator_id
+        except Cluster.DoesNotExist:
+            instance._prev_coordinator_id = None
+    else:
+        instance._prev_coordinator_id = None
+
+
+@receiver(post_save, sender=Cluster)
+def cluster_sync_coordinator_module_assignment_signal(sender, instance, **kwargs):
+    prev = getattr(instance, "_prev_coordinator_id", None)
+    try:
+        sync_cluster_coordinator_module_assignment(instance, prev)
+    except Exception as e:
+        logger.error(
+            "Failed to sync ModuleCoordinator for cluster %s: %s",
+            instance.pk,
+            e,
+            exc_info=True,
+        )
 
 
 def _get_cluster_display_name(cluster):

@@ -32,11 +32,79 @@ function sortAssignments(rows: ModuleCoordinator[]): ModuleCoordinator[] {
   });
 }
 
-function formatScope(a: ModuleCoordinator): string {
-  if (a.resource_id == null) return "—";
+/** Scope cell text: prefer API label (oversight, cluster codes), else resource_id fallback. */
+function scopeLabelForAssignment(a: ModuleCoordinator): string | null {
+  if (
+    a.resource_scope_label != null &&
+    String(a.resource_scope_label).trim() !== ""
+  ) {
+    return String(a.resource_scope_label).trim();
+  }
+  if (a.resource_id == null) return null;
   const rt =
     (a.resource_type || "").replace(/_/g, " ").trim() || "Resource";
   return `${rt} · ID ${a.resource_id}`;
+}
+
+function formatScope(a: ModuleCoordinator): string {
+  return scopeLabelForAssignment(a) ?? "—";
+}
+
+function isClusterCoordinatorAssignment(a: ModuleCoordinator): boolean {
+  return a.module === "CLUSTER" && a.level === "COORDINATOR";
+}
+
+type AccessTableRow = {
+  key: string;
+  moduleLabel: string;
+  levelLabel: string;
+  scope: string;
+};
+
+function buildMergedClusterCoordinatorRow(
+  clusterCoordRows: ModuleCoordinator[],
+): AccessTableRow | null {
+  if (clusterCoordRows.length === 0) return null;
+  const labels = [
+    ...new Set(
+      clusterCoordRows
+        .map((a) => scopeLabelForAssignment(a))
+        .filter((s): s is string => s != null && s !== ""),
+    ),
+  ].sort((x, y) => x.localeCompare(y));
+  const scope = labels.length > 0 ? labels.join(", ") : "—";
+  const first = clusterCoordRows[0];
+  return {
+    key: "merged-cluster-coordinator",
+    moduleLabel: first.module_display || first.module,
+    levelLabel: first.level_display || first.level,
+    scope,
+  };
+}
+
+function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
+  const merged = buildMergedClusterCoordinatorRow(
+    sorted.filter(isClusterCoordinatorAssignment),
+  );
+  const firstClusterCoordIndex = sorted.findIndex(isClusterCoordinatorAssignment);
+  const rows: AccessTableRow[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const a = sorted[i];
+    if (isClusterCoordinatorAssignment(a)) {
+      if (merged && i === firstClusterCoordIndex) {
+        rows.push(merged);
+      }
+      continue;
+    }
+    rows.push({
+      key: `mc-${a.id}`,
+      moduleLabel: a.module_display || a.module,
+      levelLabel: a.level_display || a.level,
+      scope: formatScope(a),
+    });
+  }
+  return rows;
 }
 
 function BroadAccessNote({ user }: { user: User }) {
@@ -104,6 +172,7 @@ export default function ProfileAccessSection({ user }: { user: User }) {
   const assignments = sortAssignments(
     user.module_coordinator_assignments ?? [],
   );
+  const tableRows = buildAccessTableRows(assignments);
 
   const branchLine =
     user.branch_name?.trim() ||
@@ -156,15 +225,11 @@ export default function ProfileAccessSection({ user }: { user: User }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {assignments.map((a) => (
-                  <tr key={a.id} className="bg-white">
-                    <td className="px-3 py-2 text-gray-900">
-                      {a.module_display || a.module}
-                    </td>
-                    <td className="px-3 py-2 text-gray-800">
-                      {a.level_display || a.level}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">{formatScope(a)}</td>
+                {tableRows.map((row) => (
+                  <tr key={row.key} className="bg-white">
+                    <td className="px-3 py-2 text-gray-900">{row.moduleLabel}</td>
+                    <td className="px-3 py-2 text-gray-800">{row.levelLabel}</td>
+                    <td className="px-3 py-2 text-gray-600">{row.scope}</td>
                   </tr>
                 ))}
               </tbody>

@@ -8,6 +8,7 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
     module_display = serializers.CharField(source="get_module_display", read_only=True)
     level_display = serializers.CharField(source="get_level_display", read_only=True)
     person_name = serializers.SerializerMethodField()
+    resource_scope_label = serializers.SerializerMethodField()
 
     class Meta:
         model = ModuleCoordinator
@@ -21,12 +22,49 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
             "level_display",
             "resource_id",
             "resource_type",
+            "resource_scope_label",
             "created_at",
         ]
         read_only_fields = ["created_at"]
 
     def get_person_name(self, obj):
         return obj.person.get_full_name() or obj.person.username
+
+    def get_resource_scope_label(self, obj):
+        """Human-readable scope: senior module-wide oversight, cluster code, or None."""
+        person = obj.person
+
+        if (
+            obj.level == ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR
+            and obj.resource_id is None
+        ):
+            base = f"All {obj.get_module_display()} (oversight)"
+            if person.branch_id and not person.can_see_all_branches():
+                try:
+                    branch_name = Branch.objects.only("name").get(
+                        pk=person.branch_id
+                    ).name
+                    if branch_name:
+                        return f"{base} — {branch_name.strip()}"
+                except Branch.DoesNotExist:
+                    pass
+            return base
+
+        if obj.resource_id is None:
+            return None
+        if obj.module != ModuleCoordinator.ModuleType.CLUSTER:
+            return None
+        try:
+            from apps.clusters.models import Cluster
+
+            c = Cluster.objects.only("code", "name").get(pk=obj.resource_id)
+            if c.code:
+                return c.code.strip()
+            if c.name:
+                return c.name.strip()
+            return f"Cluster {c.id}"
+        except Cluster.DoesNotExist:
+            return None
 
 
 class ModuleSettingSerializer(serializers.ModelSerializer):

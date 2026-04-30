@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APIRequestFactory
 from rest_framework.test import APIClient
 from rest_framework import status
-from .models import Branch, Person, Journey, Family
+from .models import Branch, Person, Journey, Family, ModuleCoordinator
 
 User = get_user_model()
 
@@ -834,3 +834,109 @@ class BranchFilteringTest(TestCase):
         # Regular pastor should see themselves and member1, but not member2
         self.assertIn("member1", usernames, f"member1 not found in {usernames}")
         self.assertNotIn("member2", usernames, f"member2 should not be in {usernames}")
+
+
+class PersonBranchRequiredApiTest(TestCase):
+    """Person create requires branch at serializer/API layer."""
+
+    def setUp(self):
+        Branch.objects.create(
+            name="Api Branch",
+            code="API_BR",
+            is_active=True,
+        )
+        self.admin = Person.objects.create_user(
+            username="branch_admin",
+            email="branch_admin@test.com",
+            password="testpass123",
+            first_name="Branch",
+            last_name="Admin",
+            role="ADMIN",
+        )
+        self.client = APIClient()
+
+    def test_create_without_branch_returns_400(self):
+        self.client.force_authenticate(user=self.admin)
+        payload = {
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "role": "MEMBER",
+            "status": "ACTIVE",
+        }
+        response = self.client.post("/api/people/people/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("branch", response.data)
+
+
+class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
+    """Cluster coordinators see cluster members whose branch differs from theirs."""
+
+    def setUp(self):
+        from apps.clusters.models import Cluster
+
+        self.branch_a = Branch.objects.create(
+            name="Branch A",
+            code="COORD_A",
+            is_active=True,
+        )
+        self.branch_b = Branch.objects.create(
+            name="Branch B",
+            code="COORD_B",
+            is_active=True,
+        )
+
+        self.coord = Person.objects.create_user(
+            username="cluster_coord",
+            email="cluster_coord@test.com",
+            password="testpass123",
+            first_name="Coord",
+            last_name="Inator",
+            role="COORDINATOR",
+            branch=self.branch_a,
+        )
+
+        self.cross_member = Person.objects.create_user(
+            username="cross_member",
+            email="cross_member@test.com",
+            password="testpass123",
+            first_name="Cross",
+            last_name="Member",
+            role="MEMBER",
+            branch=self.branch_b,
+        )
+
+        self.cluster = Cluster.objects.create(
+            code="VIS_TEST_CLUST",
+            name="Visibility Test Cluster",
+            coordinator=self.coord,
+        )
+        self.cluster.members.add(self.cross_member)
+
+        ModuleCoordinator.objects.create(
+            person=self.coord,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id=self.cluster.id,
+            resource_type="Cluster",
+        )
+
+        self.client = APIClient()
+
+    def test_coord_sees_cross_branch_cluster_member(self):
+        self.client.force_authenticate(user=self.coord)
+        response = self.client.get("/api/people/people/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        if isinstance(data, dict) and "results" in data:
+            usernames = [p["username"] for p in data["results"]]
+        elif isinstance(data, list):
+            usernames = [p["username"] for p in data]
+        else:
+            usernames = []
+
+        self.assertIn(
+            "cross_member",
+            usernames,
+            "Cross-branch cluster member should appear for cluster coordinator",
+        )

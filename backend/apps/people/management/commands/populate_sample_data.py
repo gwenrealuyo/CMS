@@ -5,7 +5,7 @@ Usage: python manage.py populate_sample_data
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
-from apps.people.models import Person, Family, Journey, ModuleCoordinator
+from apps.people.models import Branch, Person, Family, Journey, ModuleCoordinator
 from datetime import datetime, timedelta
 from decimal import Decimal
 import random
@@ -223,6 +223,24 @@ class Command(BaseCommand):
             "CONFERENCE",
         ]
 
+        sample_branch_main, _ = Branch.objects.get_or_create(
+            code="SAMPLE_MAIN",
+            defaults={
+                "name": "Sample Main Branch",
+                "is_headquarters": True,
+                "is_active": True,
+            },
+        )
+        sample_branch_alt, _ = Branch.objects.get_or_create(
+            code="SAMPLE_ALT",
+            defaults={
+                "name": "Sample Alternate Branch",
+                "is_headquarters": False,
+                "is_active": True,
+            },
+        )
+        sample_branches = [sample_branch_main, sample_branch_alt]
+
         # Create People
         people = []
         # Filipino middle names
@@ -328,6 +346,7 @@ class Command(BaseCommand):
                 last_name=last_name,
                 middle_name=middle_name,
                 email=f"{username}@example.com",
+                branch=random.choice(sample_branches),
                 role=role_choice,
                 status=person_status,
                 gender=random.choice(genders),

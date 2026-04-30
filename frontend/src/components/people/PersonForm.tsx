@@ -75,8 +75,11 @@ export default function PersonForm({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { branches, getBranches } = useBranches();
 
-  // Check if user can edit branch (ADMIN or PASTOR only)
-  const canEditBranch = user?.role === "ADMIN" || user?.role === "PASTOR";
+  // Users who submit branch on create/update via API (not MEMBER visitor flow — branch server-set)
+  const canEditBranch =
+    user?.role === "ADMIN" ||
+    user?.role === "PASTOR" ||
+    user?.role === "COORDINATOR";
 
   // Fetch branches on mount
   useEffect(() => {
@@ -100,7 +103,7 @@ export default function PersonForm({
     const keyOf = (m: any) =>
       `${m.date}|${m.type}|${m.title ?? ""}|${m.description ?? ""}`;
     const initialKeys = new Set(
-      (initialData?.journeys || []).map((m: any) => keyOf(m))
+      (initialData?.journeys || []).map((m: any) => keyOf(m)),
     );
     initialJourneyKeysRef.current = initialKeys;
   }, [initialData]);
@@ -184,18 +187,18 @@ export default function PersonForm({
   });
 
   const [editingJourneyIndex, setEditingJourneyIndex] = useState<number | null>(
-    null
+    null,
   );
   const [journeySearch, setJourneySearch] = useState("");
   const [journeyFilter, setJourneyFilter] = useState<JourneyType | "ALL">(
-    "ALL"
+    "ALL",
   );
   const journeyListRef = useRef<HTMLDivElement>(null);
 
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => {
@@ -272,7 +275,7 @@ export default function PersonForm({
           toast.error(
             e.response?.data?.message ||
               e.message ||
-              "Failed to add journey event."
+              "Failed to add journey event.",
           );
         }
       })();
@@ -290,7 +293,7 @@ export default function PersonForm({
         ],
       }));
       toast.success(
-        "Journey event added. It will be saved when you submit the form."
+        "Journey event added. It will be saved when you submit the form.",
       );
     }
     setNewJourney({
@@ -364,7 +367,7 @@ export default function PersonForm({
           toast.error(
             e.response?.data?.message ||
               e.message ||
-              "Failed to update journey event."
+              "Failed to update journey event.",
           );
         }
       })();
@@ -382,7 +385,7 @@ export default function PersonForm({
         };
       });
       toast.success(
-        "Journey event updated. It will be saved when you submit the form."
+        "Journey event updated. It will be saved when you submit the form.",
       );
       handleCancelEdit();
     }
@@ -410,7 +413,7 @@ export default function PersonForm({
         (j) =>
           j.title?.toLowerCase().includes(searchLower) ||
           j.description?.toLowerCase().includes(searchLower) ||
-          j.type?.toLowerCase().includes(searchLower)
+          j.type?.toLowerCase().includes(searchLower),
       );
     }
 
@@ -479,9 +482,20 @@ export default function PersonForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const skipBranchRequirement =
+      !canEditBranch || (isMember && !initialData?.id);
+
+    if (
+      !skipBranchRequirement &&
+      (formData.branch == null || formData.branch === "")
+    ) {
+      toast.error("Please select a branch.");
+      return;
+    }
+
     if (formData.has_finished_lessons && !formData.lessons_finished_at) {
       toast.error(
-        "Set Lessons Finished Date when marking this person as finished in NC lessons."
+        "Set Lessons Finished Date when marking this person as finished in NC lessons.",
       );
       return;
     }
@@ -525,7 +539,7 @@ export default function PersonForm({
           } catch (error) {
             console.error("Failed to save journeys:", error);
             toast.error(
-              "Person saved, but some journey events failed to save."
+              "Person saved, but some journey events failed to save.",
             );
           }
         }
@@ -543,7 +557,7 @@ export default function PersonForm({
       toast.error(
         error?.response?.data?.message || error?.message || initialData?.id
           ? "Failed to update person. Please try again."
-          : "Failed to create person. Please try again."
+          : "Failed to create person. Please try again.",
       );
       throw error; // Re-throw to let parent handle if needed
     } finally {
@@ -725,9 +739,9 @@ export default function PersonForm({
                         onChange={(e) => {
                           const digitsOnly = e.target.value.replace(/\D/g, "");
                           const selectedCountry = Object.entries(
-                            COUNTRY_META
+                            COUNTRY_META,
                           ).find(
-                            ([, meta]) => meta.code === phoneCountryCode
+                            ([, meta]) => meta.code === phoneCountryCode,
                           )?.[1];
                           const max = selectedCountry?.localMax ?? 10;
                           const next = digitsOnly.slice(0, max);
@@ -813,7 +827,13 @@ export default function PersonForm({
                     >
                       {(isMember
                         ? ["VISITOR"]
-                        : ["MEMBER", "VISITOR", "COORDINATOR", "PASTOR", "ADMIN"]
+                        : [
+                            "MEMBER",
+                            "VISITOR",
+                            "COORDINATOR",
+                            "PASTOR",
+                            "ADMIN",
+                          ]
                       ).map((role) => (
                         <option key={role} value={role}>
                           {role.charAt(0) + role.slice(1).toLowerCase()}
@@ -852,11 +872,11 @@ export default function PersonForm({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Branch
+                      Branch *
                     </label>
                     <select
                       name="branch"
-                      value={formData.branch || ""}
+                      value={formData.branch ?? ""}
                       onChange={(e) => {
                         const value =
                           e.target.value === ""
@@ -869,11 +889,16 @@ export default function PersonForm({
                         setHasUnsavedChanges(true);
                       }}
                       disabled={!canEditBranch}
+                      required={
+                        canEditBranch && !(isMember && !initialData?.id)
+                      }
                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                         !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
                       }`}
                     >
-                      <option value="">No branch</option>
+                      <option value="">
+                        {canEditBranch ? "Select branch" : "No branch"}
+                      </option>
                       {branches
                         .filter((b) => b.is_active)
                         .map((branch) => (
@@ -885,7 +910,9 @@ export default function PersonForm({
                     </select>
                     {!canEditBranch && (
                       <p className="text-xs text-gray-500 mt-1">
-                        Only ADMIN and PASTOR can edit branch
+                        Branch is set automatically when adding visitors;
+                        coordinators and above assign branch via roster screens
+                        where permitted.
                       </p>
                     )}
                   </div>
@@ -914,8 +941,9 @@ export default function PersonForm({
                   {formData.has_finished_lessons && (
                     <div className="md:col-span-2">
                       <p className="text-xs text-gray-500">
-                        Saving this with a lessons finished date auto-creates missing
-                        completed lesson progress records for active lessons.
+                        Saving this with a lessons finished date auto-creates
+                        missing completed lesson progress records for active
+                        lessons.
                       </p>
                     </div>
                   )}
@@ -1003,11 +1031,12 @@ export default function PersonForm({
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-                    {formData.has_finished_lessons && !formData.lessons_finished_at && (
-                      <p className="mt-1 text-xs text-red-600">
-                        Required when Has Finished NC Lessons is enabled.
-                      </p>
-                    )}
+                    {formData.has_finished_lessons &&
+                      !formData.lessons_finished_at && (
+                        <p className="mt-1 text-xs text-red-600">
+                          Required when Has Finished NC Lessons is enabled.
+                        </p>
+                      )}
                   </div>
                 </div>
               </div>
@@ -1104,11 +1133,15 @@ export default function PersonForm({
                   <SearchableSelect
                     value={formData.inviter ? String(formData.inviter) : ""}
                     onChange={(value) => {
-                      setFormData((prev) => ({ ...prev, inviter: value } as any));
+                      setFormData(
+                        (prev) => ({ ...prev, inviter: value }) as any,
+                      );
                       setHasUnsavedChanges(true);
                     }}
                     options={peopleOptions
-                      .filter((p) => p.role !== "ADMIN" && p.username !== "admin")
+                      .filter(
+                        (p) => p.role !== "ADMIN" && p.username !== "admin",
+                      )
                       .map((p) => ({
                         ...p,
                         id: p.id,
@@ -1145,8 +1178,8 @@ export default function PersonForm({
                 {loading
                   ? "Saving..."
                   : initialData?.id
-                  ? "Update Person"
-                  : "Create Person"}
+                    ? "Update Person"
+                    : "Create Person"}
               </Button>
             </div>
           </div>
@@ -1326,8 +1359,8 @@ export default function PersonForm({
             )}
 
             {/* Virtualized Journey List */}
-            {filteredAndSortedJourneys.length > 0 && (
-              panelLayout ? (
+            {filteredAndSortedJourneys.length > 0 &&
+              (panelLayout ? (
                 <div className="mt-4 rounded-lg border border-gray-200 overflow-visible">
                   {filteredAndSortedJourneys.map((journey, index) => {
                     const originalIndex = getOriginalJourneyIndex(index);
@@ -1335,7 +1368,10 @@ export default function PersonForm({
 
                     return (
                       <div
-                        key={journey.id || `${journey.date}-${journey.title}-${index}`}
+                        key={
+                          journey.id ||
+                          `${journey.date}-${journey.title}-${index}`
+                        }
                         onClick={() => handleEditJourney(originalIndex)}
                         className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all ${
                           isEditing
@@ -1401,9 +1437,10 @@ export default function PersonForm({
                     }}
                   >
                     {virtualizer.getVirtualItems().map((virtualRow) => {
-                      const journey = filteredAndSortedJourneys[virtualRow.index];
+                      const journey =
+                        filteredAndSortedJourneys[virtualRow.index];
                       const originalIndex = getOriginalJourneyIndex(
-                        virtualRow.index
+                        virtualRow.index,
                       );
                       const isEditing = editingJourneyIndex === originalIndex;
 
@@ -1470,8 +1507,7 @@ export default function PersonForm({
                     })}
                   </div>
                 </div>
-              )
-            )}
+              ))}
 
             {/* Empty states */}
             {(!formData.journeys || formData.journeys.length === 0) && (

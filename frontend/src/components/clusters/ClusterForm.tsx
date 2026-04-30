@@ -9,6 +9,12 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
+import {
+  CLUSTER_MEETING_DAY_OPTIONS,
+  composeMeetingSchedule,
+  parseMeetingSchedule,
+  type MeetingDayKey,
+} from "@/src/lib/clusterMeetingSchedule";
 
 interface ClusterFormProps {
   initialData?: Cluster;
@@ -27,8 +33,11 @@ export default function ClusterForm({
   submitting,
   panelLayout = false,
 }: ClusterFormProps) {
-  const getInitialFormData = useCallback(
-    () => ({
+  const getInitialFormData = useCallback(() => {
+    const parsedSchedule = parseMeetingSchedule(
+      initialData?.meeting_schedule ?? "",
+    );
+    return {
       code: initialData?.code || "",
       name: initialData?.name || "",
       coordinatorId:
@@ -38,12 +47,12 @@ export default function ClusterForm({
       familyIds: (initialData?.families || []).map((id) => id.toString()),
       memberIds: (initialData?.members || []).map((id) => id.toString()),
       location: initialData?.location || "",
-      meetingSchedule: initialData?.meeting_schedule || "",
+      meetingDay: parsedSchedule.dayKey,
+      meetingTime: parsedSchedule.timeHHmm,
       description: initialData?.description || "",
       branchId: initialData?.branch?.toString() || "",
-    }),
-    [initialData],
-  );
+    };
+  }, [initialData]);
 
   const [code, setCode] = useState(getInitialFormData().code);
   const [name, setName] = useState(getInitialFormData().name);
@@ -57,8 +66,11 @@ export default function ClusterForm({
     getInitialFormData().memberIds,
   );
   const [location, setLocation] = useState(getInitialFormData().location);
-  const [meetingSchedule, setMeetingSchedule] = useState(
-    getInitialFormData().meetingSchedule,
+  const [meetingDay, setMeetingDay] = useState<MeetingDayKey>(
+    getInitialFormData().meetingDay,
+  );
+  const [meetingTime, setMeetingTime] = useState(
+    getInitialFormData().meetingTime,
   );
   const [description, setDescription] = useState(
     getInitialFormData().description,
@@ -88,7 +100,8 @@ export default function ClusterForm({
     setFamilyIds(next.familyIds);
     setMemberIds(next.memberIds);
     setLocation(next.location);
-    setMeetingSchedule(next.meetingSchedule);
+    setMeetingDay(next.meetingDay);
+    setMeetingTime(next.meetingTime);
     setDescription(next.description);
     setBranchId(next.branchId);
     setMemberSearch("");
@@ -114,7 +127,7 @@ export default function ClusterForm({
       members: memberIds.map(Number),
       branch: branchId ? Number(branchId) : undefined,
       location: location || undefined,
-      meeting_schedule: meetingSchedule || undefined,
+      meeting_schedule: composeMeetingSchedule(meetingDay, meetingTime),
       description: description || undefined,
     });
   };
@@ -257,6 +270,34 @@ export default function ClusterForm({
       className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
     >
       {error && <ErrorMessage message={error} />}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Branch
+        </label>
+        <select
+          value={branchId}
+          onChange={(e) => setBranchId(e.target.value)}
+          disabled={!canEditBranch}
+          className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+            !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
+          }`}
+        >
+          <option value="">No branch</option>
+          {branches
+            .filter((b) => b.is_active)
+            .map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+                {branch.is_headquarters ? " (HQ)" : ""}
+              </option>
+            ))}
+        </select>
+        {!canEditBranch && (
+          <p className="text-xs text-gray-500 mt-1">
+            Only ADMIN, PASTOR, or CLUSTER Senior Coordinator can edit branch
+          </p>
+        )}
+      </div>
       <div
         className={
           panelLayout ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -325,7 +366,7 @@ export default function ClusterForm({
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            Coordinator must be selected from cluster members. Add members above
+            Coordinator must be selected from cluster members. Add members
             first.
           </p>
         )}
@@ -590,39 +631,7 @@ export default function ClusterForm({
           />
         )}
       </div>
-      <div
-        className={
-          panelLayout ? "space-y-4" : "grid grid-cols-1 md:grid-cols-3 gap-4"
-        }
-      >
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Branch
-          </label>
-          <select
-            value={branchId}
-            onChange={(e) => setBranchId(e.target.value)}
-            disabled={!canEditBranch}
-            className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
-              !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
-            }`}
-          >
-            <option value="">No branch</option>
-            {branches
-              .filter((b) => b.is_active)
-              .map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                  {branch.is_headquarters ? " (HQ)" : ""}
-                </option>
-              ))}
-          </select>
-          {!canEditBranch && (
-            <p className="text-xs text-gray-500 mt-1">
-              Only ADMIN, PASTOR, or CLUSTER Senior Coordinator can edit branch
-            </p>
-          )}
-        </div>
+      <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Location
@@ -634,19 +643,41 @@ export default function ClusterForm({
             className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Meeting Schedule
-          </label>
-          <input
-            type="text"
-            value={meetingSchedule}
-            onChange={(e) => setMeetingSchedule(e.target.value)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-            placeholder="Sunday 2:00 PM"
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Meeting Day
+            </label>
+            <select
+              value={meetingDay}
+              onChange={(e) =>
+                setMeetingDay(e.target.value as MeetingDayKey)
+              }
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+            >
+              {CLUSTER_MEETING_DAY_OPTIONS.map((option) => (
+                <option key={option.value || "none"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Meeting Time
+            </label>
+            <input
+              type="time"
+              value={meetingTime || ""}
+              onChange={(e) => setMeetingTime(e.target.value)}
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+            />
+          </div>
         </div>
       </div>
+      <p className="text-xs text-gray-500">
+        Leave meeting time empty if the cluster does not have a fixed time.
+      </p>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Description

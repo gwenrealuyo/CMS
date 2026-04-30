@@ -1,12 +1,14 @@
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework.test import APIRequestFactory
 from datetime import date, timedelta
 
 from .models import Cluster, ClusterWeeklyReport
-from apps.people.models import Family
+from apps.people.models import Family, Branch
+from apps.clusters.serializers import ClusterSerializer
+from apps.people.serializers import PersonSerializer
 
 Person = get_user_model()
 
@@ -425,5 +427,130 @@ class ClusterWeeklyReportAPITests(TestCase):
         self.assertIn("current_week", response.data)
         self.assertIn("overdue_count", response.data)
         self.assertIn("overdue_clusters", response.data)
+
+
+class ClusterBranchMembershipTests(TestCase):
+    """Branch-cluster membership pruning."""
+
+    def test_person_branch_transfer_removes_mismatched_cluster_memberships(self):
+        branch_a = Branch.objects.create(name="TA_mt", code="TA_MT")
+        branch_b = Branch.objects.create(name="TB_mt", code="TB_MT")
+        admin = Person.objects.create_user(
+            username="adm_mt",
+            email="adm_mt@test.com",
+            password="password123",
+            first_name="Admin",
+            last_name="User",
+            role="ADMIN",
+        )
+        member = Person.objects.create_user(
+            username="mem_mt",
+            email="mem_mt@test.com",
+            password="password123",
+            first_name="Member",
+            last_name="Transfer",
+            role="MEMBER",
+            branch=branch_a,
+        )
+        cluster = Cluster.objects.create(code="MT1", name="Mem Transfer", branch=branch_a)
+        cluster.members.add(member)
+
+        factory = APIRequestFactory()
+        request = factory.patch("/")
+        request.user = admin
+
+        serializer = PersonSerializer(
+            member,
+            data={"branch": branch_b.id},
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        cluster.refresh_from_db()
+        self.assertNotIn(member, cluster.members.all())
+
+    def test_cluster_branch_change_removes_members_not_matching_new_branch(self):
+        branch_a = Branch.objects.create(name="TA_mt2", code="TA_MT2")
+        branch_b = Branch.objects.create(name="TB_mt2", code="TB_MT2")
+        admin = Person.objects.create_user(
+            username="adm_mt2",
+            email="adm_mt2@test.com",
+            password="password123",
+            first_name="Admin",
+            last_name="Two",
+            role="ADMIN",
+        )
+        member = Person.objects.create_user(
+            username="mem_mt2",
+            email="mem_mt2@test.com",
+            password="password123",
+            first_name="Member",
+            last_name="Stay",
+            role="MEMBER",
+            branch=branch_a,
+        )
+        cluster = Cluster.objects.create(code="MT2", name="Cluster Move", branch=branch_a)
+        cluster.members.add(member)
+
+        factory = APIRequestFactory()
+        request = factory.patch("/")
+        request.user = admin
+
+        serializer = ClusterSerializer(
+            cluster,
+            data={"branch": branch_b.id},
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        cluster.refresh_from_db()
+        self.assertNotIn(member, cluster.members.all())
+
+    def test_cluster_update_clears_coordinator_wrong_branch(self):
+        branch_a = Branch.objects.create(name="TA_mt3", code="TA_MT3")
+        branch_b = Branch.objects.create(name="TB_mt3", code="TB_MT3")
+        admin = Person.objects.create_user(
+            username="adm_mt3",
+            email="adm_mt3@test.com",
+            password="password123",
+            first_name="Admin",
+            last_name="Three",
+            role="ADMIN",
+        )
+        coord = Person.objects.create_user(
+            username="coord_mt3",
+            email="coord_mt3@test.com",
+            password="password123",
+            first_name="Coord",
+            last_name="WrongBranch",
+            role="COORDINATOR",
+            branch=branch_b,
+        )
+        cluster = Cluster.objects.create(
+            code="MT3",
+            name="Coord Clear",
+            branch=branch_a,
+            coordinator=coord,
+        )
+
+        factory = APIRequestFactory()
+        request = factory.patch("/")
+        request.user = admin
+
+        serializer = ClusterSerializer(
+            cluster,
+            data={"name": "Renamed cluster"},
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        cluster.refresh_from_db()
+        self.assertIsNone(cluster.coordinator_id)
 
 

@@ -4,6 +4,10 @@ from django.utils import timezone
 import logging
 
 from apps.people.models import Person, Family, Journey
+from apps.clusters.branch_membership import (
+    clear_coordinator_if_invalid,
+    prune_members_not_matching_cluster_branch,
+)
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
 logger = logging.getLogger(__name__)
@@ -201,9 +205,11 @@ class ClusterSerializer(serializers.ModelSerializer):
             new_member_ids = set(member.id for member in members)
             all_member_ids = existing_member_ids | new_member_ids
             instance.members.set(all_member_ids)
-        else:
-            # Refresh to get final member list after family addition
-            instance.refresh_from_db()
+
+        instance.refresh_from_db()
+        prune_members_not_matching_cluster_branch(instance)
+        clear_coordinator_if_invalid(instance)
+        instance.refresh_from_db()
 
         # Create journeys for initial members
         final_member_ids = set(instance.members.values_list("id", flat=True))
@@ -268,6 +274,9 @@ class ClusterSerializer(serializers.ModelSerializer):
                 instance.members.set(all_member_ids)
 
         # Refresh to get final member list
+        instance.refresh_from_db()
+        prune_members_not_matching_cluster_branch(instance)
+        clear_coordinator_if_invalid(instance)
         instance.refresh_from_db()
         new_member_ids = set(instance.members.values_list("id", flat=True))
 

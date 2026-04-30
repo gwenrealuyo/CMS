@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting
+from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
 
 
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
@@ -204,7 +205,9 @@ class PersonSerializer(serializers.ModelSerializer):
         queryset=Person.objects.all(), allow_null=True, required=False
     )
     branch = serializers.PrimaryKeyRelatedField(
-        queryset=Branch.objects.all(), allow_null=True, required=False
+        queryset=Branch.objects.filter(is_active=True),
+        allow_null=True,
+        required=False,
     )
     photo = serializers.ImageField(required=False, allow_null=True)
     note = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -256,14 +259,44 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         request = self.context.get("request")
+        instance = getattr(self, "instance", None)
+
+        # Member-created visitors get branch from inviter in create(); inviter must have a branch
         if request and request.user and request.user.role == "MEMBER":
             role = attrs.get("role")
             if role != "VISITOR":
                 raise serializers.ValidationError(
                     {"role": "Members can only create visitors."}
                 )
+            if not instance and not request.user.branch:
+                raise serializers.ValidationError(
+                    {
+                        "branch": (
+                            "Your account must have a branch assigned before adding visitors."
+                        )
+                    }
+                )
 
-        instance = getattr(self, "instance", None)
+        # App-layer required branch (DB column may still be null for legacy rows)
+        branch_in_attrs = "branch" in attrs
+
+        if not instance:
+            if not (request and request.user and request.user.role == "MEMBER"):
+                if not attrs.get("branch"):
+                    raise serializers.ValidationError(
+                        {"branch": "Branch is required."}
+                    )
+        else:
+            if branch_in_attrs and attrs.get("branch") is None:
+                raise serializers.ValidationError(
+                    {"branch": "Branch cannot be cleared."}
+                )
+            merged_branch = attrs.get("branch") if branch_in_attrs else instance.branch
+            if merged_branch is None:
+                raise serializers.ValidationError(
+                    {"branch": "Branch is required."}
+                )
+
         has_finished_lessons = attrs.get(
             "has_finished_lessons",
             instance.has_finished_lessons if instance else False,
@@ -388,8 +421,11 @@ class PersonSerializer(serializers.ModelSerializer):
             previous_lessons_finished_at=previous_lessons_finished_at,
         )
 
-        # Check if branch changed
         new_branch = updated_instance.branch
+        if old_branch != new_branch:
+            prune_person_from_mismatched_branch_clusters(updated_instance)
+
+        # Check if branch changed (named transfers logged as journeys)
         if (
             old_branch != new_branch
             and old_branch is not None

@@ -12,6 +12,7 @@ import { ClusterWeeklyReport, ClusterWeeklyReportInput } from "@/src/types/clust
 import { Person, PersonUI, Family } from "@/src/types/person";
 import { clustersApi } from "@/src/lib/api";
 import { FilterCondition } from "@/src/components/people/FilterBar";
+import toast from "react-hot-toast";
 
 type PanelEntity = "cluster" | "person" | "family";
 type PanelMode = "view" | "edit" | "create";
@@ -394,8 +395,13 @@ export default function ClustersPageContainer() {
       setIsClusterModalOpen(false);
       setPanelOpen(false);
       setPanelCluster(null);
+      toast.success("Cluster created successfully.");
     } catch (error) {
       console.error("Error creating cluster:", error);
+      toast.error(
+        (error as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Failed to create cluster."
+      );
       throw error;
     }
   };
@@ -427,8 +433,13 @@ export default function ClustersPageContainer() {
         if (panelCluster && panelCluster.id === targetCluster.id) {
           setPanelCluster(updatedCluster.data);
         }
+        toast.success("Cluster updated successfully.");
       } catch (error) {
         console.error("Error updating cluster:", error);
+        toast.error(
+          (error as { response?: { data?: { message?: string } } })?.response?.data
+            ?.message || "Failed to update cluster."
+        );
         // On error, refetch to ensure consistency
         await fetchClusters();
         throw error;
@@ -1048,8 +1059,13 @@ export default function ClustersPageContainer() {
             
             setShowEditClusterOverlay(false);
             setEditClusterOverlay(null);
+            toast.success("Cluster updated successfully.");
           } catch (error) {
             console.error("Error updating cluster overlay:", error);
+            toast.error(
+              (error as { response?: { data?: { message?: string } } })?.response?.data
+                ?.message || "Failed to update cluster."
+            );
             // On error, refetch to ensure consistency
             await fetchClusters();
             throw error;

@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
@@ -61,6 +62,7 @@ class PersonViewSet(viewsets.ModelViewSet):
 
         # Collect people from all module assignments
         people_querysets = []
+        cluster_priority_member_ids = []
 
         # 1. Cluster Coordinator: People in assigned cluster(s)
         coordinator_assignments = user.module_coordinator_assignments.filter(
@@ -96,6 +98,7 @@ class PersonViewSet(viewsets.ModelViewSet):
             all_member_ids = list(
                 set(list(cluster_member_ids) + list(family_member_ids))
             )
+            cluster_priority_member_ids = all_member_ids
             if all_member_ids:
                 people_querysets.append(queryset.filter(id__in=all_member_ids))
 
@@ -192,7 +195,10 @@ class PersonViewSet(viewsets.ModelViewSet):
             if user.can_see_all_branches():
                 return combined_queryset.distinct()
             if user.branch:
-                return combined_queryset.filter(branch=user.branch).distinct()
+                return combined_queryset.filter(
+                    Q(branch=user.branch)
+                    | Q(pk__in=cluster_priority_member_ids)
+                ).distinct()
             return combined_queryset.none()
 
         # MEMBER: Only themselves and family members
@@ -303,13 +309,11 @@ class FamilyViewSet(viewsets.ModelViewSet):
                 members__id__in=cluster_member_ids
             ).distinct()
 
-            # Return union of both
+            # Return union of both (cluster coordinators see cluster-linked families
+            # even when member branches differ — parity with PersonViewSet)
             combined_families = (
                 directly_connected_families | families_of_members
             ).distinct()
-            # Apply branch filtering
-            if user.branch:
-                return combined_families.filter(members__branch=user.branch).distinct()
             return combined_families
 
         # MEMBER: Only families they're members of

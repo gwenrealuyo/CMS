@@ -71,58 +71,52 @@ export default function Pagination({
           </div>
         )}
 
-        <div className="flex items-center gap-1 flex-wrap justify-center">
-          <Button
-            variant="tertiary"
-            onClick={() => onPageChange(currentPage - 1)}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-2 md:py-1 text-sm min-h-[44px] md:min-h-0"
+            className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center"
             aria-label="Previous page"
           >
-            <span className="hidden sm:inline">Previous</span>
-            <span className="sm:hidden">Prev</span>
-          </Button>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
 
-          <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((page) => {
-                // Show first page, last page, current page, and pages around current
-                if (page === 1 || page === totalPages) return true;
-                if (Math.abs(page - currentPage) <= 1) return true;
-                return false;
-              })
-              .map((page, index, array) => {
-                const prevPage = array[index - 1];
-                const showEllipsis = prevPage && page - prevPage > 1;
+          <span className="px-3 py-2 text-sm text-gray-700 min-h-[44px] md:min-h-0 flex items-center">
+            Page {currentPage} of {totalPages}
+          </span>
 
-                return (
-                  <React.Fragment key={page}>
-                    {showEllipsis && (
-                      <span className="px-2 text-gray-500">...</span>
-                    )}
-                    <Button
-                      variant={currentPage === page ? "primary" : "tertiary"}
-                      onClick={() => onPageChange(page)}
-                      className="px-3 py-2 md:py-1 text-sm min-w-[2.5rem] min-h-[44px] md:min-h-0"
-                      aria-label={`Page ${page}`}
-                      aria-current={currentPage === page ? "page" : undefined}
-                    >
-                      {page}
-                    </Button>
-                  </React.Fragment>
-                );
-              })}
-          </div>
-
-          <Button
-            variant="tertiary"
-            onClick={() => onPageChange(currentPage + 1)}
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-2 md:py-1 text-sm min-h-[44px] md:min-h-0"
+            className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center"
             aria-label="Next page"
           >
-            Next
-          </Button>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
         </div>
       </div>
     </div>

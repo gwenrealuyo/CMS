@@ -90,11 +90,11 @@ When cluster memberships are created or updated:
 - **Trigger**: People are added to or transferred between clusters via the `Cluster.members` ManyToMany field
 - **Journey Details**:
   - **Type**: `CLUSTER`
-  - **Title**: 
+  - **Title**:
     - New member: `"Joined Cluster - {Cluster Code}"`
     - Transfer: `"Transferred to Cluster - {New Cluster Code}"`
   - **Date**: Current date (when the change happens)
-  - **Description**: 
+  - **Description**:
     - New member: `"Assigned to cluster"`
     - Transfer: `"Transferred from {Old Cluster Code}"`
   - **Verified By**: The person who made the change (from request context)
@@ -111,6 +111,7 @@ python manage.py backfill_cluster_journeys
 ```
 
 Options:
+
 - `--dry-run`: Show what would be created without actually creating journeys
 - `--cluster-id N`: Process only a specific cluster
 - `--start-date YYYY-MM-DD`: Only process reports/memberships after this date
@@ -123,9 +124,10 @@ The command processes all existing `ClusterWeeklyReport` records to create atten
 ### Cross-App References
 
 All ForeignKey and ManyToMany relationships use string references to avoid circular imports:
-  - `coordinator = models.ForeignKey('people.Person', ...)`
-  - `families = models.ManyToManyField('people.Family', ...)`
-  - `members = models.ManyToManyField('people.Person', related_name="clusters", ...)`
+
+- `coordinator = models.ForeignKey('people.Person', ...)`
+- `families = models.ManyToManyField('people.Family', ...)`
+- `members = models.ManyToManyField('people.Person', related_name="clusters", ...)`
 - `submitted_by = models.ForeignKey('people.Person', ...)`
 - `members_attended` and `visitors_attended` use `'people.Person'`
 
@@ -151,26 +153,22 @@ The clusters module includes comprehensive compliance monitoring features access
 - `GET /api/clusters/cluster-weekly-reports/compliance/` - Get compliance data for all clusters
   - Query params: `start_date`, `end_date`, `branch_id`, `coordinator_id`, `status`, `min_compliance_rate`
   - Returns summary statistics and detailed compliance data per cluster
-  
 - `GET /api/clusters/cluster-weekly-reports/at_risk/` - Get clusters at risk of non-compliance
   - Query params: `weeks_back` (default: 4)
   - Returns clusters meeting at-risk criteria (2+ consecutive missing weeks, no reports in 2-3 weeks, declining trend)
-  
 - `GET /api/clusters/cluster-weekly-reports/compliance_history/` - Get historical compliance trends
   - Query params: `months` (default: 3), `cluster_id`, `coordinator_id`, `group_by` (week|month)
   - Returns historical compliance rates over time for trend analysis
-  
 - `POST /api/clusters/cluster-weekly-reports/add_compliance_note/` - Add a compliance note
   - Body: `cluster_id`, `note`, `period_start`, `period_end`
-  
 - `GET /api/clusters/cluster-weekly-reports/compliance_notes/` - Get compliance notes
   - Query params: `cluster_id`, `start_date`, `end_date`
-  
 - `GET /api/clusters/cluster-weekly-reports/compliance_export_csv/` - Export compliance data as CSV
 
 ### Compliance Status
 
 Clusters are classified into three compliance statuses:
+
 - **COMPLIANT**: 100% compliance rate (all expected reports submitted)
 - **PARTIAL**: 1-99% compliance rate (some reports missing)
 - **NON_COMPLIANT**: 0% compliance rate (no reports submitted)
@@ -178,6 +176,7 @@ Clusters are classified into three compliance statuses:
 ### Compliance Trends
 
 Trends are calculated by comparing the current period with the previous period:
+
 - **IMPROVING**: Compliance rate increased by 5% or more
 - **STABLE**: Compliance rate changed by less than 5%
 - **DECLINING**: Compliance rate decreased by 5% or more
@@ -219,8 +218,8 @@ All routes live under `/api/clusters/` (namespaced in `core.urls`):
   - `PATCH /{id}/` – Partial update
   - `DELETE /{id}/` – Delete a report
 - `/api/clusters/cluster-weekly-reports/analytics/` – `GET` action returning analytics:
-    - Optional query params: `?cluster={cluster_id}`, `?year={year}`, `?month={1-12}`, `?gathering_type={type}`, `?week_number={week}`
-    - All filters are applied to the analytics calculation for dynamic results
+  - Optional query params: `?cluster={cluster_id}`, `?year={year}`, `?month={1-12}`, `?gathering_type={type}`, `?week_number={week}`
+  - All filters are applied to the analytics calculation for dynamic results
   - Returns: `total_reports`, `total_attendance` (members/visitors), `average_attendance`, `total_offerings`, `gathering_type_distribution`
 - `/api/clusters/cluster-weekly-reports/overdue/` – `GET` action returning clusters with overdue reports:
   - Returns: `current_year`, `current_week`, `overdue_count`, `overdue_clusters` (list of Cluster objects)
@@ -228,6 +227,7 @@ All routes live under `/api/clusters/` (namespaced in `core.urls`):
 ### Serializers
 
 Serializers (`apps.clusters.serializers`) expose:
+
 - `ClusterSerializer`:
   - `coordinator` – nested object with id, first_name, last_name, username (read-only)
   - `coordinator_id` – write-only field for setting coordinator
@@ -257,6 +257,7 @@ Implemented in `frontend/src/app/clusters/ClustersPageView.tsx` (derived from `u
 ### Tabs
 
 The page uses tabs similar to the Lessons page:
+
 - **Clusters Tab**: Manage clusters (list, create, edit, delete)
 - **Reports Tab**: View and manage cluster weekly reports
 
@@ -335,19 +336,21 @@ python manage.py populate_clusters_data
 ```
 
 Options:
+
 - `--clusters N` – Number of clusters to create (default: 5)
 - `--reports N` – Number of weekly reports per cluster (default: 12)
 - `--clear` – Clear existing cluster data before populating
 
 The command creates:
-- **Clusters**: 
+
+- **Clusters**:
   - Unique codes in `CLU-001`, `CLU-002` format
   - Names from predefined list (North, South, East, West, Central, etc.)
   - Random coordinators from existing people (prefers COORDINATOR role)
   - 1-3 families per cluster (if families exist)
   - 3-8 individual members per cluster
   - Location, meeting schedule, and description
-- **Weekly Reports**: 
+- **Weekly Reports**:
   - Reports spread over the past N weeks (default 12)
   - Random attendance (50-100% of members, 0-3 visitors)
   - Various gathering types (PHYSICAL, ONLINE, HYBRID)
@@ -356,6 +359,7 @@ The command creates:
   - Highlights and lowlights
 
 **Important Notes:**
+
 - Ensure you have people (and optionally families) in the database first (run `populate_sample_data` if needed) as the command uses them as coordinators, members, and submitters.
 - The command automatically assigns coordinators, families, and members from existing data.
 - When sample data is populated, journey entries are automatically created for cluster attendance and membership changes (see "Automatic Journey Creation" section above).
@@ -364,14 +368,14 @@ The command creates:
 
 All cluster models are registered in Django admin (`apps.clusters.admin`):
 
-- **ClusterAdmin**: 
+- **ClusterAdmin**:
   - List display: code, name, coordinator, location, created_at
   - Filterable by created_at
   - Searchable by code, name, location
   - Filter horizontal for families and members
   - Fieldsets: Basic Information, Relations, Metadata
 
-- **ClusterWeeklyReportAdmin**: 
+- **ClusterWeeklyReportAdmin**:
   - List display: cluster, year, week_number, meeting_date, gathering_type, submitted_by, submitted_at
   - Filterable by year, week_number, gathering_type, submitted_at
   - Searchable by cluster name and code

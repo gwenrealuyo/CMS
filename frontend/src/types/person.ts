@@ -78,7 +78,8 @@ export interface Person {
     | "CONFERENCE"
     | "CONCERT_CRUSADE";
   inviter?: string; // ID of another Person
-  branch?: number; // Branch ID
+  /** Branch ID; may be absent/null on legacy records created before branch was enforced */
+  branch?: number | null;
   branch_name?: string; // Branch name (if nested data included)
   member_id?: string;
   status: PersonStatus;

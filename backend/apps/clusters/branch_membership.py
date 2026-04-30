@@ -45,3 +45,10 @@ def clear_coordinator_if_invalid(cluster: Cluster) -> None:
     ):
         cluster.coordinator = None
         cluster.save(update_fields=["coordinator"])
+
+
+def ensure_coordinator_in_members(cluster: Cluster) -> None:
+    """Add the cluster coordinator to members when coordinator is set (idempotent)."""
+    if not cluster.coordinator_id:
+        return
+    cluster.members.add(cluster.coordinator)

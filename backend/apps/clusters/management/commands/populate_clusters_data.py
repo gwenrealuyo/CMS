@@ -4,6 +4,7 @@ Usage: python manage.py populate_clusters_data
 """
 
 from django.core.management.base import BaseCommand
+from apps.clusters.branch_membership import ensure_coordinator_in_members
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.people.models import Person, Family, ModuleCoordinator
 from datetime import datetime, timedelta, date
@@ -127,6 +128,8 @@ class Command(BaseCommand):
             )
             if individual_members:
                 cluster.members.add(*individual_members)
+
+            ensure_coordinator_in_members(cluster)
 
             clusters.append(cluster)
 

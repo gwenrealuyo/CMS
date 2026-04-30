@@ -1,4 +1,5 @@
 from django.contrib import admin
+from .branch_membership import ensure_coordinator_in_members
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
 
@@ -34,6 +35,10 @@ class ClusterAdmin(admin.ModelAdmin):
         ("Metadata", {"fields": ("created_at",)}),
     )
     readonly_fields = ("created_at",)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        ensure_coordinator_in_members(form.instance)
 
 
 @admin.register(ClusterWeeklyReport)

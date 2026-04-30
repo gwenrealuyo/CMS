@@ -6,6 +6,7 @@ import logging
 from apps.people.models import Person, Family, Journey
 from apps.clusters.branch_membership import (
     clear_coordinator_if_invalid,
+    ensure_coordinator_in_members,
     prune_members_not_matching_cluster_branch,
 )
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
@@ -210,6 +211,8 @@ class ClusterSerializer(serializers.ModelSerializer):
         prune_members_not_matching_cluster_branch(instance)
         clear_coordinator_if_invalid(instance)
         instance.refresh_from_db()
+        ensure_coordinator_in_members(instance)
+        instance.refresh_from_db()
 
         # Create journeys for initial members
         final_member_ids = set(instance.members.values_list("id", flat=True))
@@ -277,6 +280,8 @@ class ClusterSerializer(serializers.ModelSerializer):
         instance.refresh_from_db()
         prune_members_not_matching_cluster_branch(instance)
         clear_coordinator_if_invalid(instance)
+        instance.refresh_from_db()
+        ensure_coordinator_in_members(instance)
         instance.refresh_from_db()
         new_member_ids = set(instance.members.values_list("id", flat=True))
 

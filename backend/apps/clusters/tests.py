@@ -270,6 +270,60 @@ class ClusterAPITests(TestCase):
         self.assertEqual(Cluster.objects.count(), 1)
         self.assertEqual(Cluster.objects.first().code, "CLU-002")
 
+    def test_create_cluster_adds_coordinator_to_members(self):
+        response = self.client.post(
+            "/api/clusters/clusters/",
+            {
+                "code": "CLU-COORD-MEM",
+                "name": "Coord Member Cluster",
+                "coordinator_id": self.coordinator.id,
+                "location": "Here",
+                "families": [],
+                "members": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        cluster = Cluster.objects.get(code="CLU-COORD-MEM")
+        self.assertIn(self.coordinator, cluster.members.all())
+
+    def test_update_cluster_adds_coordinator_to_members_when_omitted_from_members(
+        self,
+    ):
+        member = Person.objects.create_user(
+            username="plainmember",
+            email="plain@example.com",
+            password="password123",
+            first_name="Plain",
+            last_name="Member",
+            role="MEMBER",
+        )
+        cluster = Cluster.objects.create(
+            code="CLU-MIX",
+            name="Mixed Cluster",
+            coordinator=None,
+            location="There",
+        )
+        cluster.members.add(member)
+
+        response = self.client.put(
+            f"/api/clusters/clusters/{cluster.id}/",
+            {
+                "code": "CLU-MIX",
+                "name": "Mixed Cluster",
+                "coordinator_id": self.coordinator.id,
+                "location": "There",
+                "families": [],
+                "members": [member.id],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        cluster.refresh_from_db()
+        ids = set(cluster.members.values_list("id", flat=True))
+        self.assertIn(self.coordinator.id, ids)
+        self.assertIn(member.id, ids)
+
     def test_retrieve_cluster(self):
         cluster = Cluster.objects.create(
             code="CLU-003",

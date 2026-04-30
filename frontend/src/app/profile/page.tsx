@@ -8,6 +8,7 @@ import Button from "@/src/components/ui/Button";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import { authApi } from "@/src/lib/api";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
+import ProfileAccessSection from "@/src/components/profile/ProfileAccessSection";
 
 export default function ProfilePage() {
   return (
@@ -289,6 +290,8 @@ function ProfilePageContent() {
             </Button>
           </form>
         </div>
+
+        <ProfileAccessSection user={user} />
 
         {/* Change Password Section */}
         <div className="bg-white rounded-lg shadow-md p-6">

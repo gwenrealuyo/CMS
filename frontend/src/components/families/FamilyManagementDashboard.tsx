@@ -1031,29 +1031,56 @@ export default function FamilyManagementDashboard({
 
         {/* Family Pagination Controls */}
         {sortedFamilies.length > FAMILY_PAGE_SIZE && (
-          <div className="flex items-center justify-between mt-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6">
             <span className="text-sm text-gray-600">
               Page {familyPage} of {totalFamilyPages} • Showing{" "}
               {visibleFamilies.length} of {sortedFamilies.length} families
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center space-x-2">
               <button
                 onClick={() => setFamilyPage((p) => Math.max(1, p - 1))}
                 disabled={familyPage === 1}
-                className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition-colors"
-                title="Previous"
+                className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center"
+                aria-label="Previous page"
               >
-                ‹ Previous
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
               </button>
+              <span className="px-3 py-2 text-sm text-gray-700 min-h-[44px] md:min-h-0 flex items-center">
+                Page {familyPage} of {totalFamilyPages}
+              </span>
               <button
                 onClick={() =>
                   setFamilyPage((p) => Math.min(totalFamilyPages, p + 1))
                 }
                 disabled={familyPage === totalFamilyPages}
-                className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition-colors"
-                title="Next"
+                className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0 flex items-center justify-center"
+                aria-label="Next page"
               >
-                Next ›
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
               </button>
             </div>
           </div>

@@ -1,0 +1,22 @@
+---
+description: Run Django tests with SQLite via core.settings_test (avoid Postgres CREATEDB)
+alwaysApply: true
+---
+
+# Django tests (backend)
+
+When running Django `manage.py test` in this repo, use **`core.settings_test`** so the suite uses SQLite (`backend/test_db.sqlite3`) instead of creating a PostgreSQL test DB (which fails if `DB_USER` lacks `CREATEDB`).
+
+**Examples:**
+
+```bash
+cd backend && python manage.py test --settings=core.settings_test
+```
+
+```bash
+cd backend && python manage.py test apps.clusters.tests.MemberClusterBrowseAPITests --settings=core.settings_test
+```
+
+Do **not** default to `core.settings` for local test runs unless the user explicitly uses Postgres test databases.
+
+Configuration lives in [`backend/core/settings_test.py`](backend/core/settings_test.py).

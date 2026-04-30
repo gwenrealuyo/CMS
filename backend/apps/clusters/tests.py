@@ -565,6 +565,114 @@ class ClusterWeeklyReportAPITests(TestCase):
         self.assertEqual(response.data["total_attendance"]["members"], 1)
         self.assertEqual(float(response.data["total_offerings"]), 500.0)
 
+        self.assertIn("chart_series", response.data)
+        cs = response.data["chart_series"]
+        self.assertEqual(len(cs["monthly_attendance"]), 1)
+        self.assertEqual(cs["monthly_attendance"][0]["members"], 1)
+        self.assertEqual(len(cs["cluster_comparison"]), 1)
+        self.assertEqual(cs["cluster_comparison"][0]["sum_members_attended"], 1)
+
+    def test_analytics_aggregate_sums_across_multiple_reports(self):
+        visitor = Person.objects.create_user(
+            username="visitor_stat",
+            email="visitor_stat@example.com",
+            password="password123",
+            first_name="Visit",
+            last_name="Or",
+            role="VISITOR",
+        )
+        today = date.today()
+        report_a = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=today.year,
+            week_number=10,
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            offerings=Decimal("100.00"),
+            submitted_by=self.coordinator,
+        )
+        report_a.members_attended.add(self.member)
+        report_b = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=today.year,
+            week_number=11,
+            meeting_date=today,
+            gathering_type="ONLINE",
+            offerings=Decimal("400.00"),
+            submitted_by=self.coordinator,
+        )
+        report_b.members_attended.add(self.member, self.coordinator)
+        report_b.visitors_attended.add(visitor)
+
+        response = self.client.get("/api/clusters/cluster-weekly-reports/analytics/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["total_reports"], 2)
+        self.assertEqual(response.data["total_attendance"]["members"], 3)
+        self.assertEqual(response.data["total_attendance"]["visitors"], 1)
+        self.assertEqual(response.data["average_attendance"]["avg_members"], 1.5)
+        self.assertEqual(response.data["average_attendance"]["avg_visitors"], 0.5)
+        self.assertEqual(float(response.data["total_offerings"]), 500.0)
+
+        cs = response.data["chart_series"]
+        self.assertEqual(len(cs["monthly_attendance"]), 1)
+        self.assertEqual(cs["monthly_attendance"][0]["members"], 3)
+        self.assertEqual(cs["monthly_attendance"][0]["visitors"], 1)
+        self.assertEqual(len(cs["cluster_comparison"]), 1)
+        self.assertEqual(cs["cluster_comparison"][0]["report_count"], 2)
+        self.assertEqual(cs["cluster_comparison"][0]["sum_members_attended"], 3)
+
+    def test_analytics_chart_series_two_months_two_clusters(self):
+        cluster2 = Cluster.objects.create(
+            code="CLU-002",
+            name="Second Cluster",
+            coordinator=self.coordinator,
+        )
+        cluster2.members.add(self.member)
+
+        jan = date(2025, 1, 15)
+        feb = date(2025, 2, 10)
+        r1 = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=2025,
+            week_number=3,
+            meeting_date=jan,
+            gathering_type="PHYSICAL",
+            offerings=Decimal("0"),
+            submitted_by=self.coordinator,
+        )
+        r1.members_attended.add(self.member)
+        r2 = ClusterWeeklyReport.objects.create(
+            cluster=cluster2,
+            year=2025,
+            week_number=6,
+            meeting_date=feb,
+            gathering_type="ONLINE",
+            offerings=Decimal("0"),
+            submitted_by=self.coordinator,
+        )
+        r2.members_attended.add(self.member, self.coordinator)
+
+        response = self.client.get("/api/clusters/cluster-weekly-reports/analytics/")
+        self.assertEqual(response.status_code, 200)
+        cs = response.data["chart_series"]
+        monthly = cs["monthly_attendance"]
+        self.assertEqual(len(monthly), 2)
+        keys = {m["month_key"] for m in monthly}
+        self.assertIn("2025-01", keys)
+        self.assertIn("2025-02", keys)
+        jan_row = next(m for m in monthly if m["month_key"] == "2025-01")
+        feb_row = next(m for m in monthly if m["month_key"] == "2025-02")
+        self.assertEqual(jan_row["members"], 1)
+        self.assertEqual(feb_row["members"], 2)
+
+        cc = cs["cluster_comparison"]
+        self.assertEqual(len(cc), 2)
+        by_id = {c["cluster_id"]: c for c in cc}
+        self.assertEqual(by_id[self.cluster.id]["report_count"], 1)
+        self.assertEqual(by_id[self.cluster.id]["sum_members_attended"], 1)
+        self.assertEqual(by_id[cluster2.id]["report_count"], 1)
+        self.assertEqual(by_id[cluster2.id]["sum_members_attended"], 2)
+
     def test_overdue_endpoint(self):
         response = self.client.get("/api/clusters/cluster-weekly-reports/overdue/")
         self.assertEqual(response.status_code, 200)

@@ -92,6 +92,25 @@ export interface ClusterWeeklyReportInput {
   submitted_by?: number | null;
 }
 
+export interface ClusterAnalyticsMonthlyBucket {
+  month_key: string;
+  month_label: string;
+  members: number;
+  visitors: number;
+}
+
+export interface ClusterAnalyticsClusterRow {
+  cluster_id: number;
+  cluster_label: string;
+  report_count: number;
+  sum_members_attended: number;
+}
+
+export interface ClusterAnalyticsChartSeries {
+  monthly_attendance: ClusterAnalyticsMonthlyBucket[];
+  cluster_comparison: ClusterAnalyticsClusterRow[];
+}
+
 export interface ClusterAnalytics {
   total_reports: number;
   total_attendance: {
@@ -107,6 +126,7 @@ export interface ClusterAnalytics {
     gathering_type: string;
     count: number;
   }>;
+  chart_series?: ClusterAnalyticsChartSeries;
 }
 
 export interface OverdueClusters {

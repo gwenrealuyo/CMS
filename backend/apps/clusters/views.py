@@ -3,7 +3,8 @@ from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Sum, Avg, Count, Q
+from django.db.models import Sum, Count, Q
+from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -208,14 +209,75 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         # and the month filter from get_queryset() override
         queryset = self.get_queryset()
 
-        # Calculate total attendance by counting ManyToMany relationships
-        total_members = sum(report.members_attended.count() for report in queryset)
-        total_visitors = sum(report.visitors_attended.count() for report in queryset)
+        annotated = queryset.annotate(
+            _member_cnt=Count("members_attended", distinct=True),
+            _visitor_cnt=Count("visitors_attended", distinct=True),
+        )
 
-        # Calculate average attendance
-        report_count = queryset.count()
+        agg = annotated.aggregate(
+            report_count=Count("pk", distinct=True),
+            total_members=Sum("_member_cnt"),
+            total_visitors=Sum("_visitor_cnt"),
+        )
+        report_count = agg["report_count"] or 0
+        total_members = agg["total_members"] or 0
+        total_visitors = agg["total_visitors"] or 0
+
         avg_members = total_members / report_count if report_count > 0 else 0
         avg_visitors = total_visitors / report_count if report_count > 0 else 0
+
+        monthly_attendance = []
+        monthly_qs = (
+            annotated.annotate(_month=TruncMonth("meeting_date"))
+            .values("_month")
+            .annotate(
+                members=Sum("_member_cnt"),
+                visitors=Sum("_visitor_cnt"),
+            )
+            .order_by("_month")
+        )
+        for row in monthly_qs:
+            mt = row["_month"]
+            if mt is None:
+                continue
+            monthly_attendance.append(
+                {
+                    "month_key": mt.strftime("%Y-%m"),
+                    "month_label": mt.strftime("%b %Y"),
+                    "members": int(row["members"] or 0),
+                    "visitors": int(row["visitors"] or 0),
+                }
+            )
+
+        cluster_comparison = []
+        cluster_qs = annotated.values(
+            "cluster_id",
+            "cluster__name",
+            "cluster__code",
+        ).annotate(
+            report_count=Count("pk", distinct=True),
+            sum_members_attended=Sum("_member_cnt"),
+        )
+        for row in cluster_qs:
+            cid = row["cluster_id"]
+            name = row["cluster__name"] or ""
+            code = row["cluster__code"] or ""
+            if code and name:
+                label = f"{code} - {name}"
+            elif name:
+                label = name
+            elif code:
+                label = code
+            else:
+                label = f"Cluster {cid}"
+            cluster_comparison.append(
+                {
+                    "cluster_id": cid,
+                    "cluster_label": label,
+                    "report_count": row["report_count"],
+                    "sum_members_attended": int(row["sum_members_attended"] or 0),
+                }
+            )
 
         analytics_data = {
             "total_reports": report_count,
@@ -228,9 +290,13 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 "avg_visitors": round(avg_visitors, 2),
             },
             "total_offerings": queryset.aggregate(total=Sum("offerings"))["total"] or 0,
-            "gathering_type_distribution": queryset.values("gathering_type").annotate(
-                count=Count("id")
+            "gathering_type_distribution": list(
+                queryset.values("gathering_type").annotate(count=Count("id"))
             ),
+            "chart_series": {
+                "monthly_attendance": monthly_attendance,
+                "cluster_comparison": cluster_comparison,
+            },
         }
 
         return Response(analytics_data)

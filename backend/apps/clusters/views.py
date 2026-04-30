@@ -69,11 +69,12 @@ class ClusterViewSet(viewsets.ModelViewSet):
 
         if queryset.filter(coordinator=user).exists():
             return queryset
-        
-        # MEMBER: Only clusters where they are members
+
+        # MEMBER: Read/browse all clusters (parity with non-senior cluster coordinators);
+        # mutations remain blocked by get_permissions / ClusterCoordinatorScopedPermission.
         if user.role == "MEMBER":
-            return queryset.filter(members=user).distinct()
-        
+            return queryset
+
         # Default: empty queryset for safety
         return queryset.none()
     

@@ -699,3 +699,113 @@ class ClusterBranchMembershipTests(TestCase):
         self.assertIsNone(cluster.coordinator_id)
 
 
+class MemberClusterBrowseAPITests(TestCase):
+    """MEMBER can read/browse all clusters; weekly reports stay membership-scoped."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.coordinator = Person.objects.create_user(
+            username="coord_browse",
+            email="coord_browse@example.com",
+            password="password123",
+            first_name="Coord",
+            last_name="Browse",
+            role="COORDINATOR",
+        )
+        self.member = Person.objects.create_user(
+            username="member_browse",
+            email="member_browse@example.com",
+            password="password123",
+            first_name="Member",
+            last_name="Browse",
+            role="MEMBER",
+        )
+        self.cluster_in = Cluster.objects.create(
+            code="CLU-IN",
+            name="In Cluster",
+            coordinator=self.coordinator,
+        )
+        self.cluster_in.members.add(self.member)
+        self.cluster_out = Cluster.objects.create(
+            code="CLU-OUT",
+            name="Out Cluster",
+            coordinator=self.coordinator,
+        )
+
+    def test_member_lists_all_clusters(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get("/api/clusters/clusters/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        codes = {row["code"] for row in response.data}
+        self.assertEqual(codes, {"CLU-IN", "CLU-OUT"})
+
+    def test_member_weekly_reports_only_for_member_clusters(self):
+        today = date.today()
+        week = today.isocalendar()[1]
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_in,
+            year=today.year,
+            week_number=week,
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coordinator,
+        )
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_out,
+            year=today.year,
+            week_number=week,
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coordinator,
+        )
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get("/api/clusters/cluster-weekly-reports/")
+        self.assertEqual(response.status_code, 200)
+        results = response.data["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["cluster"], self.cluster_in.id)
+
+    def test_member_cannot_create_cluster(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.post(
+            "/api/clusters/clusters/",
+            {
+                "code": "CLU-X",
+                "name": "Hack",
+                "coordinator_id": self.coordinator.id,
+                "location": "X",
+                "families": [],
+                "members": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_member_cannot_update_cluster(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.patch(
+            f"/api/clusters/clusters/{self.cluster_in.id}/",
+            {"name": "Renamed by member"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_member_cannot_create_weekly_report(self):
+        today = date.today()
+        self.client.force_authenticate(user=self.member)
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster_in.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [self.member.id],
+                "visitors_attended": [],
+                "offerings": "0.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)

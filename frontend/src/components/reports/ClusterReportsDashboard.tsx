@@ -39,6 +39,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { userCanAttemptClusterWeeklyReportMutation } from "@/src/lib/clusterPermissions";
 
 interface ClusterReportsDashboardProps {
   clusters: Cluster[];
@@ -96,6 +98,19 @@ export default function ClusterReportsDashboard({
     report: null,
     loading: false,
   });
+
+  const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
+
+  const canMutateWeeklyReports = useMemo(
+    () =>
+      userCanAttemptClusterWeeklyReportMutation(clusters, {
+        userId: user?.id,
+        role: user?.role,
+        isSeniorCoordinator,
+        isModuleCoordinator,
+      }),
+    [clusters, user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
+  );
 
   // Filters
   const [selectedClusterFilter, setSelectedClusterFilter] =
@@ -1825,18 +1840,22 @@ export default function ClusterReportsDashboard({
                         >
                           View
                         </button>
-                        <button
-                          onClick={() => handleEditReport(report)}
-                          className="flex-1 text-blue-600 hover:text-blue-900 py-2 px-3 rounded border border-blue-200 hover:bg-blue-50 text-sm font-medium"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteReport(report)}
-                          className="flex-1 text-red-600 hover:text-red-900 py-2 px-3 rounded border border-red-200 hover:bg-red-50 text-sm font-medium"
-                        >
-                          Delete
-                        </button>
+                        {canMutateWeeklyReports && (
+                          <>
+                            <button
+                              onClick={() => handleEditReport(report)}
+                              className="flex-1 text-blue-600 hover:text-blue-900 py-2 px-3 rounded border border-blue-200 hover:bg-blue-50 text-sm font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteReport(report)}
+                              className="flex-1 text-red-600 hover:text-red-900 py-2 px-3 rounded border border-red-200 hover:bg-red-50 text-sm font-medium"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2023,46 +2042,50 @@ export default function ClusterReportsDashboard({
                               />
                             </svg>
                           </button>
-                          <button
-                            onClick={() => handleEditReport(report)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                            title="Edit Report"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteReport(report)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                            title="Delete Report"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
+                          {canMutateWeeklyReports && (
+                            <>
+                              <button
+                                onClick={() => handleEditReport(report)}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                title="Edit Report"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                  />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteReport(report)}
+                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                title="Delete Report"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  />
+                                </svg>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -2129,6 +2152,7 @@ export default function ClusterReportsDashboard({
         <ViewWeeklyReportModal
           report={viewingReport}
           isOpen={showViewModal}
+          canMutateReports={canMutateWeeklyReports}
           onClose={() => {
             setShowViewModal(false);
             setViewingReport(null);

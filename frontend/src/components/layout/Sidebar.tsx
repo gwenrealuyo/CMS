@@ -41,7 +41,7 @@ const navigation = [
     ],
   },
   { name: "Clusters", href: "/clusters", icon: Squares2X2Icon },
-  { name: "Evangelism", href: "/evangelism", icon: MegaphoneIcon },
+  { name: "Evangelism", href: "/evangelism?tab=reports", icon: MegaphoneIcon },
   { name: "Ministries", href: "/ministries", icon: UserGroupIcon },
   { name: "Sunday School", href: "/sunday-school", icon: AcademicCapIcon },
   { name: "Events", href: "/events", icon: CalendarIcon },

@@ -560,6 +560,48 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @action(detail=False, methods=["get"], url_path="distinct_years")
+    def distinct_years(self, request):
+        """
+        Distinct report years present for facet filters only.
+
+        Applies branch, cluster, evangelism_group, and gathering_type when provided.
+        Ignores year, month, and week_number so the Year dropdown can list all years
+        that have matching reports (same pattern as cluster weekly distinct_years).
+        """
+        queryset = EvangelismWeeklyReport.objects.all()
+
+        branch = request.query_params.get("branch")
+        if branch:
+            try:
+                queryset = queryset.filter(
+                    evangelism_group__cluster__branch_id=int(branch)
+                )
+            except (TypeError, ValueError):
+                pass
+
+        cluster = request.query_params.get("cluster")
+        if cluster:
+            try:
+                queryset = queryset.filter(evangelism_group__cluster_id=int(cluster))
+            except (TypeError, ValueError):
+                pass
+
+        eg = request.query_params.get("evangelism_group")
+        if eg:
+            try:
+                queryset = queryset.filter(evangelism_group_id=int(eg))
+            except (TypeError, ValueError):
+                pass
+
+        gathering = request.query_params.get("gathering_type")
+        if gathering:
+            queryset = queryset.filter(gathering_type=gathering)
+
+        years_iter = queryset.values_list("year", flat=True).distinct()
+        years = sorted(set(years_iter), reverse=True)
+        return Response({"years": years})
+
     def _resolve_branch_id(self) -> Optional[int]:
         branch = self.request.query_params.get("branch")
         if branch in (None, ""):

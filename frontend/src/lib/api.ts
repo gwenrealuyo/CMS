@@ -1097,6 +1097,15 @@ export const evangelismApi = {
         params,
       }
     ),
+  weeklyReportsDistinctYears: (params?: {
+    branch?: number | string;
+    cluster?: number | string;
+    evangelism_group?: number | string;
+    gathering_type?: string;
+  }) =>
+    api.get<{ years: number[] }>("/evangelism/weekly-reports/distinct_years/", {
+      params,
+    }),
   getWeeklyReport: (id: number | string) =>
     api.get<EvangelismWeeklyReport>(`/evangelism/weekly-reports/${id}/`),
   createWeeklyReport: (data: Partial<EvangelismWeeklyReport>) =>

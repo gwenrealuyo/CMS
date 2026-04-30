@@ -62,8 +62,29 @@ import {
   canChangeEvangelismBranchFilter,
   EVANGELISM_BRANCH_LOCKED_HINT,
 } from "@/src/lib/evangelismBranchFilter";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+const EVANGELISM_PAGE_TABS = [
+  "groups",
+  "each1reach1",
+  "tally",
+  "reports",
+  "bible_sharers",
+] as const;
+
+type EvangelismPageTab = (typeof EVANGELISM_PAGE_TABS)[number];
+
+function isEvangelismPageTab(v: string | null): v is EvangelismPageTab {
+  return (
+    v != null &&
+    (EVANGELISM_PAGE_TABS as readonly string[]).includes(v)
+  );
+}
 
 export default function EvangelismPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user, isSeniorCoordinator } = useAuth();
   const canChangeEvangelismBranch = useMemo(
     () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
@@ -215,14 +236,31 @@ export default function EvangelismPage() {
   );
   const [editingReport, setEditingReport] =
     useState<EvangelismWeeklyReport | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "groups" | "each1reach1" | "tally" | "reports" | "bible_sharers"
-  >("groups");
+  const [activeTab, setActiveTab] = useState<EvangelismPageTab>("groups");
   const [reportsSubmitNonce, setReportsSubmitNonce] = useState(0);
   const [reportsListRefresh, setReportsListRefresh] = useState(0);
   const [tallyYear, setTallyYear] = useState(currentYear);
   const [tallyBranch, setTallyBranch] = useState<number | "">("");
   const [tallyScope, setTallyScope] = useState("");
+
+  const selectTab = useCallback(
+    (tab: EvangelismPageTab) => {
+      setActiveTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", tab);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (isEvangelismPageTab(tabParam)) {
+      setActiveTab(tabParam);
+    } else {
+      setActiveTab("groups");
+    }
+  }, [searchParams]);
 
   // Debounced search
   const handleSearchChange = useCallback(
@@ -596,7 +634,7 @@ export default function EvangelismPage() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
               <button
-                onClick={() => setActiveTab("groups")}
+                onClick={() => selectTab("groups")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[60px] ${
                   activeTab === "groups"
                     ? "border-[#2563EB] text-[#2563EB]"
@@ -606,7 +644,7 @@ export default function EvangelismPage() {
                 Groups
               </button>
               <button
-                onClick={() => setActiveTab("each1reach1")}
+                onClick={() => selectTab("each1reach1")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[100px] ${
                   activeTab === "each1reach1"
                     ? "border-[#2563EB] text-[#2563EB]"
@@ -616,7 +654,7 @@ export default function EvangelismPage() {
                 Each 1 Reach 1
               </button>
               <button
-                onClick={() => setActiveTab("tally")}
+                onClick={() => selectTab("tally")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
                   activeTab === "tally"
                     ? "border-[#2563EB] text-[#2563EB]"
@@ -626,7 +664,7 @@ export default function EvangelismPage() {
                 Tally
               </button>
               <button
-                onClick={() => setActiveTab("reports")}
+                onClick={() => selectTab("reports")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
                   activeTab === "reports"
                     ? "border-[#2563EB] text-[#2563EB]"
@@ -636,7 +674,7 @@ export default function EvangelismPage() {
                 Reports
               </button>
               <button
-                onClick={() => setActiveTab("bible_sharers")}
+                onClick={() => selectTab("bible_sharers")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[110px] ${
                   activeTab === "bible_sharers"
                     ? "border-[#2563EB] text-[#2563EB]"

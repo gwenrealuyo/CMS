@@ -130,6 +130,9 @@ export default function EvangelismReportsDashboard({
   const [selectedGatheringType, setSelectedGatheringType] =
     useState<string>("");
 
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [yearsLoading, setYearsLoading] = useState(false);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -286,6 +289,47 @@ export default function EvangelismReportsDashboard({
     selectedGatheringType,
     refreshTrigger,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const scope = parseTallyScope(reportsScope);
+    const params: Record<string, string | number> = {};
+    if (selectedBranch) params.branch = Number(selectedBranch);
+    if (scope.cluster != null) params.cluster = scope.cluster;
+    if (scope.evangelism_group != null)
+      params.evangelism_group = scope.evangelism_group;
+    if (selectedGatheringType) params.gathering_type = selectedGatheringType;
+
+    setYearsLoading(true);
+    evangelismApi
+      .weeklyReportsDistinctYears(params)
+      .then((res) => {
+        if (!cancelled) setAvailableYears(res.data.years ?? []);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) setAvailableYears([]);
+      })
+      .finally(() => {
+        if (!cancelled) setYearsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedBranch,
+    reportsScope,
+    selectedGatheringType,
+    refreshTrigger,
+  ]);
+
+  useEffect(() => {
+    const fallbackYear = new Date().getFullYear();
+    const opts =
+      availableYears.length > 0 ? availableYears : [fallbackYear];
+    setSelectedYear((y) => (opts.includes(y) ? y : opts[0]));
+  }, [availableYears]);
 
   useEffect(() => {
     void refetchReports();
@@ -550,11 +594,10 @@ export default function EvangelismReportsDashboard({
     })
   );
 
-  const yearNow = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 8 }, (_, i) => ({
-    value: String(yearNow - i),
-    label: String(yearNow - i),
-  }));
+  const reportYearSelectOptions = useMemo(() => {
+    if (availableYears.length > 0) return availableYears;
+    return [new Date().getFullYear()];
+  }, [availableYears]);
 
   const needsPick =
     showReportModal && !editingReport && !selectedGroupForForm?.id;
@@ -812,15 +855,26 @@ export default function EvangelismReportsDashboard({
             </label>
             <select
               className={FILTERS_NATIVE_SELECT_CLASS}
-              value={String(selectedYear)}
+              disabled={yearsLoading}
+              value={
+                yearsLoading
+                  ? ""
+                  : reportYearSelectOptions.includes(selectedYear)
+                    ? String(selectedYear)
+                    : String(reportYearSelectOptions[0])
+              }
               onChange={(e) => setSelectedYear(Number(e.target.value))}
               aria-label="Year (meeting date)"
             >
-              {yearOptions.map((y) => (
-                <option key={y.value} value={y.value}>
-                  {y.label}
-                </option>
-              ))}
+              {yearsLoading ? (
+                <option value="">Loading…</option>
+              ) : (
+                reportYearSelectOptions.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))
+              )}
             </select>
           </div>
           <div className="min-w-0">

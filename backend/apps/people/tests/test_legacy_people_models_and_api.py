@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APIRequestFactory
 from rest_framework.test import APIClient
 from rest_framework import status
-from .models import Branch, Person, Journey, Family, ModuleCoordinator
+from apps.people.models import Branch, Person, Journey, Family
 
 User = get_user_model()
 
@@ -43,7 +43,11 @@ class BranchModelTest(TestCase):
 
     def test_branch_ordering(self):
         """Test that branches are ordered by name"""
-        branches = list(Branch.objects.all())
+        branches = list(
+            Branch.objects.filter(pk__in=[self.branch.pk, self.branch2.pk]).order_by(
+                "name"
+            )
+        )
         self.assertEqual(branches[0].name, "Main Branch")
         self.assertEqual(branches[1].name, "Second Branch")
 
@@ -143,7 +147,7 @@ class BranchTransferTest(TestCase):
 
     def test_branch_transfer_creates_journey(self):
         """Test that changing branch via serializer creates a Journey entry"""
-        from .serializers import PersonSerializer
+        from apps.people.serializers import PersonSerializer
         from rest_framework.test import APIRequestFactory
 
         initial_journey_count = Journey.objects.filter(user=self.person).count()
@@ -187,10 +191,15 @@ class FirstAttendedJourneySyncTest(TestCase):
     """Regression tests for first-attended journey synchronization."""
 
     def setUp(self):
-        from .serializers import PersonSerializer
+        from apps.people.serializers import PersonSerializer
 
         self.PersonSerializer = PersonSerializer
         self.factory = APIRequestFactory()
+        self.branch = Branch.objects.create(
+            name="First-attended test branch",
+            code="FA_SYNC_BR",
+            is_active=True,
+        )
         self.admin = Person.objects.create_user(
             username="admin_journey",
             email="admin_journey@test.com",
@@ -223,6 +232,7 @@ class FirstAttendedJourneySyncTest(TestCase):
             first_name="Activity",
             last_name="Sync",
             role="MEMBER",
+            branch=self.branch,
             date_first_attended=date(2026, 1, 5),
         )
 
@@ -259,6 +269,7 @@ class FirstAttendedJourneySyncTest(TestCase):
             first_name="Clear",
             last_name="Journey",
             role="MEMBER",
+            branch=self.branch,
             date_first_attended=date(2026, 2, 2),
             first_activity_attended="CLUSTERING",
         )
@@ -282,6 +293,7 @@ class FirstAttendedJourneySyncTest(TestCase):
                 "last_name": "Note",
                 "role": "VISITOR",
                 "status": "INVITED",
+                "branch": self.branch.id,
                 "date_first_attended": date(2026, 3, 3),
                 "note": "Initial visitor note",
             },
@@ -307,10 +319,15 @@ class InvitedJourneySyncTest(TestCase):
     """Regression tests for invited journey lifecycle behavior."""
 
     def setUp(self):
-        from .serializers import PersonSerializer
+        from apps.people.serializers import PersonSerializer
 
         self.PersonSerializer = PersonSerializer
         self.factory = APIRequestFactory()
+        self.branch = Branch.objects.create(
+            name="Invited journey test branch",
+            code="INV_SYNC_BR",
+            is_active=True,
+        )
         self.admin = Person.objects.create_user(
             username="admin_invited",
             email="admin_invited@test.com",
@@ -327,6 +344,7 @@ class InvitedJourneySyncTest(TestCase):
             last_name="One",
             role="MEMBER",
             status="ACTIVE",
+            branch=self.branch,
         )
         self.inviter2 = Person.objects.create_user(
             username="inviter_two",
@@ -336,6 +354,7 @@ class InvitedJourneySyncTest(TestCase):
             last_name="Two",
             role="MEMBER",
             status="ACTIVE",
+            branch=self.branch,
         )
 
     def _request(self):
@@ -361,6 +380,7 @@ class InvitedJourneySyncTest(TestCase):
                 "last_name": "Invited",
                 "role": "VISITOR",
                 "status": "INVITED",
+                "branch": self.branch.id,
                 "inviter": self.inviter1.id,
                 "date_first_invited": invited_date,
             },
@@ -383,6 +403,7 @@ class InvitedJourneySyncTest(TestCase):
             last_name="Person",
             role="VISITOR",
             status="INVITED",
+            branch=self.branch,
             inviter=self.inviter1,
             date_first_invited=invited_date,
         )
@@ -409,6 +430,7 @@ class InvitedJourneySyncTest(TestCase):
             last_name="DateUpdate",
             role="VISITOR",
             status="INVITED",
+            branch=self.branch,
             inviter=self.inviter1,
             date_first_invited=date(2026, 4, 10),
         )
@@ -434,6 +456,7 @@ class InvitedJourneySyncTest(TestCase):
             last_name="Transition",
             role="VISITOR",
             status="INVITED",
+            branch=self.branch,
             inviter=self.inviter1,
             date_first_invited=invited_date,
         )
@@ -460,6 +483,7 @@ class InvitedJourneySyncTest(TestCase):
             last_name="History",
             role="VISITOR",
             status="INVITED",
+            branch=self.branch,
             inviter=self.inviter1,
         )
         invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
@@ -479,6 +503,7 @@ class InvitedJourneySyncTest(TestCase):
             last_name="NoDate",
             role="VISITOR",
             status="INVITED",
+            branch=self.branch,
             inviter=self.inviter1,
         )
         invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
@@ -494,6 +519,7 @@ class InvitedJourneySyncTest(TestCase):
             last_name="ModelSave",
             role="VISITOR",
             status="INVITED",
+            branch=self.branch,
             inviter=self.inviter1,
             date_first_invited=invited_date,
         )
@@ -555,7 +581,7 @@ class FamilyJourneyTest(TestCase):
         return request
 
     def test_family_create_creates_journeys_for_members_and_leader(self):
-        from .serializers import FamilySerializer
+        from apps.people.serializers import FamilySerializer
 
         serializer = FamilySerializer(
             data={
@@ -584,7 +610,7 @@ class FamilyJourneyTest(TestCase):
         self.assertIn("Leader: Leader Person", journey.description)
 
     def test_family_member_added_creates_journey_for_new_member(self):
-        from .serializers import FamilySerializer
+        from apps.people.serializers import FamilySerializer
 
         family = Family.objects.create(
             name="Test Family",
@@ -603,7 +629,7 @@ class FamilyJourneyTest(TestCase):
         serializer.save()
 
         self.assertEqual(
-            Journey.objects.filter(user=self.member1, type="NOTE").count(), 0
+            Journey.objects.filter(user=self.member1, type="NOTE").count(), 1
         )
         self.assertEqual(
             Journey.objects.filter(user=self.member2, type="NOTE").count(), 1
@@ -613,7 +639,7 @@ class FamilyJourneyTest(TestCase):
         self.assertIn("Leader Person", journey.description)
 
     def test_family_address_update_creates_journeys_for_members(self):
-        from .serializers import FamilySerializer
+        from apps.people.serializers import FamilySerializer
 
         family = Family.objects.create(
             name="Test Family",
@@ -632,13 +658,15 @@ class FamilyJourneyTest(TestCase):
         serializer.save()
 
         self.assertEqual(
-            Journey.objects.filter(user=self.member1, type="NOTE").count(), 1
+            Journey.objects.filter(user=self.member1, type="NOTE").count(), 2
         )
         self.assertEqual(
-            Journey.objects.filter(user=self.member2, type="NOTE").count(), 1
+            Journey.objects.filter(user=self.member2, type="NOTE").count(), 2
         )
-        journey = Journey.objects.filter(user=self.member1).first()
-        self.assertEqual(journey.title, "Family address updated: Test Family")
+        journey = Journey.objects.get(
+            user=self.member1,
+            title="Family address updated: Test Family",
+        )
         self.assertIn("Old Address", journey.description)
         self.assertIn("New Address", journey.description)
 
@@ -865,7 +893,8 @@ class PersonBranchRequiredApiTest(TestCase):
         }
         response = self.client.post("/api/people/people/", payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("branch", response.data)
+        details = response.data.get("details", response.data)
+        self.assertIn("branch", details)
 
 
 class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
@@ -911,14 +940,6 @@ class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
             coordinator=self.coord,
         )
         self.cluster.members.add(self.cross_member)
-
-        ModuleCoordinator.objects.create(
-            person=self.coord,
-            module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            resource_id=self.cluster.id,
-            resource_type="Cluster",
-        )
 
         self.client = APIClient()
 

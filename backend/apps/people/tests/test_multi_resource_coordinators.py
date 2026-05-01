@@ -16,6 +16,13 @@ from apps.people.serializers import PersonSerializer
 from apps.sunday_school.models import SundaySchoolCategory, SundaySchoolClass
 
 
+def _api_list_rows(data):
+    """Normalize paginated Response.data (dict), plain list, or DRF ReturnList."""
+    if isinstance(data, dict):
+        return data.get("results", data)
+    return list(data)
+
+
 class CoordinatorScopeHelpersTests(TestCase):
     def test_coordinator_assigned_resource_ids_none_when_module_wide_row(self):
         user = Person.objects.create_user(
@@ -231,7 +238,7 @@ class JourneyListMultiClusterCoordinatorTests(TestCase):
         self.client.force_authenticate(user=self.coord)
         r = self.client.get("/api/people/journeys/")
         self.assertEqual(r.status_code, 200)
-        payload = r.data.get("results", r.data)
+        payload = _api_list_rows(r.data)
         titles = {row.get("title") for row in payload}
         self.assertIn("j1", titles)
         self.assertIn("j2", titles)
@@ -294,7 +301,7 @@ class EvangelismCoordinatorScopedListTests(TestCase):
         self.client.force_authenticate(user=self.coord)
         r = self.client.get("/api/evangelism/groups/")
         self.assertEqual(r.status_code, 200)
-        payload = r.data.get("results", r.data)
+        payload = _api_list_rows(r.data)
         ids = {row["id"] for row in payload}
         self.assertEqual(ids, {self.g1.id, self.g2.id})
 
@@ -340,6 +347,6 @@ class SundaySchoolCoordinatorScopedListTests(TestCase):
         self.client.force_authenticate(user=self.coord)
         r = self.client.get("/api/sunday-school/classes/")
         self.assertEqual(r.status_code, 200)
-        payload = r.data.get("results", r.data)
+        payload = _api_list_rows(r.data)
         ids = {row["id"] for row in payload}
         self.assertEqual(ids, {self.c1.id, self.c2.id})

@@ -14,6 +14,8 @@ class PledgeContributionModelTests(TestCase):
             username="tester",
             email="tester@example.com",
             password="password123",
+            role="ADMIN",
+            status="ACTIVE",
         )
         self.pledge = Pledge.objects.create(
             pledger=self.user,
@@ -56,6 +58,8 @@ class PledgeContributionAPITests(TestCase):
             username="apiuser",
             email="apiuser@example.com",
             password="strongpass",
+            role="ADMIN",
+            status="ACTIVE",
         )
         self.client.force_authenticate(user=self.user)
         self.pledge = Pledge.objects.create(

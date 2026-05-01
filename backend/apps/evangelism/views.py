@@ -107,11 +107,20 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         if user.role in ["ADMIN", "PASTOR"]:
             return queryset
         
-        # Evangelism Coordinator (EVANGELISM, COORDINATOR): All groups
+        # Evangelism Coordinator (EVANGELISM, COORDINATOR)
         if user.is_module_coordinator(
             ModuleCoordinator.ModuleType.EVANGELISM,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         ):
+            if user.is_senior_coordinator(ModuleCoordinator.ModuleType.EVANGELISM):
+                return queryset
+            scoped_ids = coordinator_assigned_resource_ids_when_all_scoped(
+                user,
+                ModuleCoordinator.ModuleType.EVANGELISM,
+                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+            if scoped_ids is not None:
+                return queryset.filter(id__in=scoped_ids)
             return queryset
         
         # Bible Sharer (EVANGELISM, BIBLE_SHARER): All groups (filtering happens in permissions)

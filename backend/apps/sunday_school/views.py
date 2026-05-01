@@ -94,13 +94,22 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
         if user.role in ["ADMIN", "PASTOR"]:
             return queryset
         
-        # Sunday School Coordinator (SUNDAY_SCHOOL, COORDINATOR): All classes
+        # Sunday School Coordinator (SUNDAY_SCHOOL, COORDINATOR)
         if user.is_module_coordinator(
             ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         ):
+            if user.is_senior_coordinator(ModuleCoordinator.ModuleType.SUNDAY_SCHOOL):
+                return queryset
+            scoped_ids = coordinator_assigned_resource_ids_when_all_scoped(
+                user,
+                ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+            if scoped_ids is not None:
+                return queryset.filter(id__in=scoped_ids)
             return queryset
-        
+
         # Sunday School Teacher (SUNDAY_SCHOOL, TEACHER): All classes (filtering happens in permissions)
         if user.is_module_coordinator(
             ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,

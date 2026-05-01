@@ -66,6 +66,16 @@ class PersonSummarySerializer(serializers.ModelSerializer):
         return name or obj.username
 
 
+class PersonConversionNestedSerializer(PersonSummarySerializer):
+    """Person fields needed on Conversion responses without widening all PersonSummary uses."""
+
+    class Meta(PersonSummarySerializer.Meta):
+        fields = tuple(PersonSummarySerializer.Meta.fields) + (
+            "date_first_invited",
+            "date_first_attended",
+        )
+
+
 class ClusterSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Cluster
@@ -499,7 +509,7 @@ class DropOffSerializer(serializers.ModelSerializer):
 
 
 class ConversionSerializer(serializers.ModelSerializer):
-    person = PersonSummarySerializer(read_only=True)
+    person = PersonConversionNestedSerializer(read_only=True)
     person_id = serializers.PrimaryKeyRelatedField(
         source="person",
         queryset=Person.objects.exclude(role="ADMIN"),

@@ -219,6 +219,8 @@ export const peopleApi = {
   create: (data: Partial<Person>) => api.post<Person>("/people/people/", data),
   update: (id: string, data: Partial<Person>) =>
     api.put<Person>(`/people/people/${id}/`, data),
+  patch: (id: string, data: Partial<Person>) =>
+    api.patch<Person>(`/people/people/${id}/`, data),
   delete: (id: string) => api.delete(`/people/people/${id}/`),
 };
 
@@ -1189,6 +1191,8 @@ export const evangelismApi = {
     api.post<Prospect>("/evangelism/prospects/", data),
   updateProspect: (id: number | string, data: Partial<Prospect>) =>
     api.put<Prospect>(`/evangelism/prospects/${id}/`, data),
+  patchProspect: (id: number | string, data: Partial<Prospect>) =>
+    api.patch<Prospect>(`/evangelism/prospects/${id}/`, data),
   deleteProspect: (id: number | string) =>
     api.delete(`/evangelism/prospects/${id}/`),
   endorseToCluster: (id: number | string, payload: { cluster_id: number }) =>
@@ -1269,7 +1273,7 @@ export const evangelismApi = {
   createConversion: (data: Partial<Conversion>) =>
     api.post<Conversion>("/evangelism/conversions/", data),
   updateConversion: (id: number | string, data: Partial<Conversion>) =>
-    api.put<Conversion>(`/evangelism/conversions/${id}/`, data),
+    api.patch<Conversion>(`/evangelism/conversions/${id}/`, data),
   deleteConversion: (id: number | string) =>
     api.delete(`/evangelism/conversions/${id}/`),
 

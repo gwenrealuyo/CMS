@@ -9,12 +9,14 @@ import Button from "@/src/components/ui/Button";
 interface GroupConversionsSectionProps {
   conversions: Conversion[];
   onAddConversion?: () => void;
+  onEditConversion?: (conversion: Conversion) => void;
   loading?: boolean;
 }
 
 export default function GroupConversionsSection({
   conversions,
   onAddConversion,
+  onEditConversion,
   loading = false,
 }: GroupConversionsSectionProps) {
   const [showAll, setShowAll] = useState(false);
@@ -72,8 +74,10 @@ export default function GroupConversionsSection({
               {
                 header: "Baptism Date",
                 accessor: "water_baptism_date" as keyof Conversion,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">
+                render: (value, row) => (
+                  <span
+                    className={`text-sm ${row.is_complete ? "text-green-600 font-medium" : "text-gray-700"}`}
+                  >
                     {value
                       ? new Date(value as string).toLocaleDateString()
                       : "N/A"}
@@ -83,29 +87,34 @@ export default function GroupConversionsSection({
               {
                 header: "HG Date",
                 accessor: "spirit_baptism_date" as keyof Conversion,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">
+                render: (value, row) => (
+                  <span
+                    className={`text-sm ${row.is_complete ? "text-green-600 font-medium" : "text-gray-700"}`}
+                  >
                     {value
                       ? new Date(value as string).toLocaleDateString()
                       : "N/A"}
                   </span>
                 ),
               },
-              {
-                header: "Status",
-                accessor: "is_complete" as keyof Conversion,
-                render: (value) => (
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      value
-                        ? "bg-green-100 text-green-800"
-                        : "bg-amber-100 text-amber-800"
-                    }`}
-                  >
-                    {value ? "Complete" : "In Progress"}
-                  </span>
-                ),
-              },
+              ...(onEditConversion
+                ? [
+                    {
+                      header: "Actions",
+                      accessor: "id" as keyof Conversion,
+                      render: (_value: unknown, row: Conversion) => (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => onEditConversion(row)}
+                          className="!text-amber-600 bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 text-xs py-1 px-2"
+                        >
+                          Update
+                        </Button>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
             data={displayedConversions}
           />

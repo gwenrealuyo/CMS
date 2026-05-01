@@ -46,6 +46,7 @@ import ProspectForm, {
 } from "@/src/components/evangelism/ProspectForm";
 import ConversionForm, {
   ConversionFormValues,
+  personIdFromConversion,
 } from "@/src/components/evangelism/ConversionForm";
 import EvangelismWeeklyReportForm, {
   EvangelismWeeklyReportFormValues,
@@ -193,7 +194,24 @@ export default function EvangelismPage() {
     loading: conversionsLoading,
     fetchConversions,
     createConversion,
+    updateConversion,
   } = useConversions(conversionsFilters);
+
+  /** All conversions (any group) so "Record conversion" only lists people with no conversion row yet. */
+  const { conversions: conversionsGlobally } = useConversions();
+
+  const personIdsWithAnyConversion = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of conversionsGlobally) {
+      if (c.person?.id != null) ids.add(String(c.person.id));
+    }
+    // Include group-scoped list so a newly created conversion excludes immediately
+    // before the global list refetches.
+    for (const c of conversions) {
+      if (c.person?.id != null) ids.add(String(c.person.id));
+    }
+    return ids;
+  }, [conversionsGlobally, conversions]);
 
   const conversionVisitors = useMemo(() => {
     const visitors = prospects
@@ -201,12 +219,13 @@ export default function EvangelismPage() {
       .filter((person): person is Person => Boolean(person))
       .filter((person) => person.role === "VISITOR");
     const seen = new Set<string>();
-    return visitors.filter((person) => {
+    const unique = visitors.filter((person) => {
       if (seen.has(person.id)) return false;
       seen.add(person.id);
       return true;
     });
-  }, [prospects]);
+    return unique.filter((p) => !personIdsWithAnyConversion.has(String(p.id)));
+  }, [prospects, personIdsWithAnyConversion]);
 
   const each1Reach1Totals = useMemo(() => {
     const totals = each1Reach1Goals.reduce(
@@ -228,6 +247,9 @@ export default function EvangelismPage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isProspectModalOpen, setIsProspectModalOpen] = useState(false);
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
+  const [editingConversion, setEditingConversion] = useState<Conversion | null>(
+    null,
+  );
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isBulkEnrollModalOpen, setIsBulkEnrollModalOpen] = useState(false);
   const [isUpdateProgressModalOpen, setIsUpdateProgressModalOpen] =
@@ -550,23 +572,52 @@ export default function EvangelismPage() {
   };
 
   const handleCreateConversion = async (values: ConversionFormValues) => {
+    const date_first_invited = values.date_first_invited;
+    const date_first_attended = values.date_first_attended;
     try {
       setIsSubmitting(true);
       setFormError(null);
-      const { lesson_start_date, ...conversionValues } = values;
       const prospectMatch = prospects.find(
-        (prospect) => prospect.person?.id === values.person_id
+        (prospect) => prospect.person?.id === values.person_id,
       );
       const conversionData = {
-        ...conversionValues,
+        person_id: values.person_id,
+        water_baptism_date: values.water_baptism_date,
+        spirit_baptism_date: values.spirit_baptism_date,
+        notes: values.notes,
         prospect_id: prospectMatch?.id,
         evangelism_group_id: viewEditGroup?.id
           ? String(viewEditGroup.id)
           : undefined,
       };
-      await createConversion(conversionData);
-      setSuccessMessage("Conversion recorded successfully.");
+      const createdConversion = await createConversion(conversionData);
+      const invited = date_first_invited?.trim() ?? "";
+      const attended = date_first_attended?.trim() ?? "";
+      const personIdStr = String(values.person_id);
+      const prospectSyncId =
+        createdConversion?.prospect?.id ?? prospectMatch?.id ?? undefined;
+
+      let dateSaveWarning: string | null = null;
+      try {
+        await peopleApi.patch(personIdStr, {
+          date_first_invited: invited || null,
+          date_first_attended: attended || null,
+        } as Partial<Person>);
+        if (prospectSyncId != null && String(prospectSyncId) !== "") {
+          await evangelismApi.patchProspect(prospectSyncId, {
+            date_first_invited: invited || null,
+          } as Partial<Prospect>);
+        }
+      } catch {
+        dateSaveWarning =
+          " Conversion was saved, but first invited / first attended could not be updated.";
+      }
+
+      setSuccessMessage(
+        `Conversion recorded successfully.${dateSaveWarning ?? ""}`,
+      );
       setIsConversionModalOpen(false);
+      setEditingConversion(null);
       if (viewEditGroup) {
         fetchConversions();
       }
@@ -577,7 +628,66 @@ export default function EvangelismPage() {
       setFormError(
         err.response?.data?.detail ||
           firstError?.[0] ||
-          "Failed to record conversion"
+          "Failed to record conversion",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateConversion = async (values: ConversionFormValues) => {
+    if (!editingConversion) return;
+    try {
+      setIsSubmitting(true);
+      setFormError(null);
+      const w = values.water_baptism_date?.trim() ?? "";
+      const s = values.spirit_baptism_date?.trim() ?? "";
+      await updateConversion(editingConversion.id, {
+        notes: values.notes ?? "",
+        water_baptism_date: w ? w : null,
+        spirit_baptism_date: s ? s : null,
+        is_complete: Boolean(w && s),
+      } as Partial<Conversion>);
+
+      const invited = values.date_first_invited?.trim() ?? "";
+      const attended = values.date_first_attended?.trim() ?? "";
+      const personIdStr = personIdFromConversion(editingConversion);
+      const prospectSyncId = editingConversion.prospect?.id;
+
+      let dateSaveWarning: string | null = null;
+      try {
+        if (personIdStr) {
+          await peopleApi.patch(personIdStr, {
+            date_first_invited: invited || null,
+            date_first_attended: attended || null,
+          } as Partial<Person>);
+        }
+        if (prospectSyncId != null && String(prospectSyncId) !== "") {
+          await evangelismApi.patchProspect(prospectSyncId, {
+            date_first_invited: invited || null,
+          } as Partial<Prospect>);
+        }
+      } catch {
+        dateSaveWarning =
+          " Conversion was updated, but first invited / first attended could not be updated.";
+      }
+
+      setSuccessMessage(
+        `Conversion updated successfully.${dateSaveWarning ?? ""}`,
+      );
+      setIsConversionModalOpen(false);
+      setEditingConversion(null);
+      if (viewEditGroup) {
+        fetchConversions();
+      }
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: any) {
+      const errorData = err.response?.data || {};
+      const firstError = Object.values(errorData)[0] as string[] | undefined;
+      setFormError(
+        err.response?.data?.detail ||
+          firstError?.[0] ||
+          "Failed to update conversion",
       );
     } finally {
       setIsSubmitting(false);
@@ -1259,7 +1369,14 @@ export default function EvangelismPage() {
 
                     <GroupConversionsSection
                       conversions={conversions}
-                      onAddConversion={() => setIsConversionModalOpen(true)}
+                      onAddConversion={() => {
+                        setEditingConversion(null);
+                        setIsConversionModalOpen(true);
+                      }}
+                      onEditConversion={(c) => {
+                        setEditingConversion(c);
+                        setIsConversionModalOpen(true);
+                      }}
                       loading={conversionsLoading}
                     />
 
@@ -1514,19 +1631,30 @@ export default function EvangelismPage() {
             isOpen={isConversionModalOpen}
             onClose={() => {
               setIsConversionModalOpen(false);
+              setEditingConversion(null);
               setFormError(null);
             }}
-            title="Record Conversion"
+            title={editingConversion ? "Update Conversion" : "Record Conversion"}
           >
             <ConversionForm
+              key={editingConversion?.id ?? "create-conversion"}
               people={conversionVisitors}
-              onSubmit={handleCreateConversion}
+              initialData={editingConversion ?? undefined}
+              onSubmit={
+                editingConversion
+                  ? handleUpdateConversion
+                  : handleCreateConversion
+              }
               onCancel={() => {
                 setIsConversionModalOpen(false);
+                setEditingConversion(null);
                 setFormError(null);
               }}
               isSubmitting={isSubmitting}
               error={formError}
+              submitLabel={
+                editingConversion ? "Save changes" : "Record Conversion"
+              }
             />
           </Modal>
         )}

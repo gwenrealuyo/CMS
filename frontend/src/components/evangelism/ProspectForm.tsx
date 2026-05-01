@@ -36,6 +36,30 @@ function personDisplayLabel(p: Person): string {
   return base || p.email || p.username || "";
 }
 
+function groupDisplayLabel(g: EvangelismGroup): string {
+  const cluster = g.cluster;
+  const clusterBit = cluster
+    ? [cluster.code, cluster.name].filter(Boolean).join(" ")
+    : "";
+  if (clusterBit) return `${g.name} — ${clusterBit}`;
+  return g.name;
+}
+
+function groupMatchesSearch(g: EvangelismGroup, q: string): boolean {
+  if (!q.trim()) return true;
+  const hay = [
+    g.name,
+    g.description,
+    g.location,
+    g.cluster?.code,
+    g.cluster?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q.trim().toLowerCase());
+}
+
 export interface ProspectFormValues {
   first_name: string;
   middle_name: string;
@@ -98,20 +122,18 @@ export default function ProspectForm({
 
   const groupChoices = useMemo(() => {
     const byId = new Map<string, EvangelismGroup>();
-    if (
-      selectedBibleStudyGroup &&
-      selectedBibleStudyGroup.id != null &&
-      selectedBibleStudyGroup.id !== ""
-    ) {
-      byId.set(String(selectedBibleStudyGroup.id), selectedBibleStudyGroup);
-    }
-    for (const g of groups) {
-      if (g?.id != null && g.id !== "") {
+    const add = (g: EvangelismGroup | null | undefined) => {
+      if (g?.id != null && String(g.id) !== "") {
         byId.set(String(g.id), g);
       }
+    };
+    add(selectedBibleStudyGroup);
+    add(initialData?.evangelism_group);
+    for (const g of groups) {
+      add(g);
     }
     return Array.from(byId.values());
-  }, [groups, selectedBibleStudyGroup]);
+  }, [groups, selectedBibleStudyGroup, initialData?.evangelism_group]);
 
   const [values, setValues] = useState<ProspectFormValues>(
     initialData
@@ -133,12 +155,17 @@ export default function ProspectForm({
           ...DEFAULT_VALUES,
           evangelism_group_id: contextGroupId || "",
           date_first_invited: todayISO(),
-        }
+        },
   );
 
   const [inviterSearch, setInviterSearch] = useState("");
   const [showInviterDropdown, setShowInviterDropdown] = useState(false);
   const inviterDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [groupSearch, setGroupSearch] = useState("");
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -154,35 +181,58 @@ export default function ProspectForm({
   const inviterCandidates = useMemo(
     () =>
       [...inviters].sort((a, b) =>
-        personDisplayLabel(a).localeCompare(personDisplayLabel(b))
+        personDisplayLabel(a).localeCompare(personDisplayLabel(b)),
       ),
-    [inviters]
+    [inviters],
   );
 
   const selectedInviter = inviterCandidates.find(
-    (p) => String(p.id) === values.invited_by_id
+    (p) => String(p.id) === values.invited_by_id,
   );
 
   const filteredInviters = inviterCandidates.filter((person) =>
     personDisplayLabel(person)
       .toLowerCase()
-      .includes(inviterSearch.toLowerCase())
+      .includes(inviterSearch.toLowerCase()),
+  );
+
+  const groupCandidates = useMemo(
+    () =>
+      [...groupChoices].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || ""),
+      ),
+    [groupChoices],
+  );
+
+  const selectedGroup = groupCandidates.find(
+    (g) => String(g.id) === (values.evangelism_group_id || ""),
+  );
+
+  const filteredGroups = groupCandidates.filter((g) =>
+    groupMatchesSearch(g, groupSearch),
   );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (
         inviterDropdownRef.current &&
-        !inviterDropdownRef.current.contains(event.target as Node)
+        !inviterDropdownRef.current.contains(target)
       ) {
         setShowInviterDropdown(false);
       }
+      if (
+        groupDropdownRef.current &&
+        !groupDropdownRef.current.contains(target)
+      ) {
+        setShowGroupDropdown(false);
+      }
     };
-    if (showInviterDropdown) {
+    if (showInviterDropdown || showGroupDropdown) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showInviterDropdown]);
+  }, [showInviterDropdown, showGroupDropdown]);
 
   useEffect(() => {
     setValidationError(null);
@@ -197,7 +247,7 @@ export default function ProspectForm({
     (
       event: ChangeEvent<
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-      >
+      >,
     ) => {
       setValues((prev) => ({
         ...prev,
@@ -209,6 +259,15 @@ export default function ProspectForm({
     setValues((prev) => ({ ...prev, invited_by_id: personId }));
     setShowInviterDropdown(false);
     setInviterSearch("");
+  };
+
+  const handleGroupSelect = (groupId: string) => {
+    setValues((prev) => ({
+      ...prev,
+      evangelism_group_id: groupId || "",
+    }));
+    setShowGroupDropdown(false);
+    setGroupSearch("");
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -349,7 +408,7 @@ export default function ProspectForm({
             type="text"
             value={values.contact_info}
             onChange={handleChange("contact_info")}
-            placeholder="Phone or email"
+            placeholder="Phone number"
             className={CLUSTER_VISITOR_CONTROL}
           />
         </div>
@@ -359,23 +418,56 @@ export default function ProspectForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Bible Study Group
         </label>
-        <select
-          value={values.evangelism_group_id ?? ""}
-          onChange={(e) =>
-            setValues((prev) => ({
-              ...prev,
-              evangelism_group_id: e.target.value || undefined,
-            }))
-          }
-          className={CLUSTER_VISITOR_CONTROL}
-        >
-          <option value="">Not set</option>
-          {groupChoices.map((g) => (
-            <option key={g.id} value={String(g.id)}>
-              {g.name}
-            </option>
-          ))}
-        </select>
+        <div className="relative" ref={groupDropdownRef}>
+          <input
+            type="text"
+            role="combobox"
+            aria-expanded={showGroupDropdown}
+            aria-autocomplete="list"
+            value={
+              groupSearch ||
+              (selectedGroup ? groupDisplayLabel(selectedGroup) : "")
+            }
+            onChange={(e) => {
+              setGroupSearch(e.target.value);
+              setShowGroupDropdown(true);
+            }}
+            onFocus={() => setShowGroupDropdown(true)}
+            placeholder="Search bible study groups..."
+            className={CLUSTER_VISITOR_CONTROL}
+          />
+          {showGroupDropdown && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => handleGroupSelect("")}
+                className="w-full px-3 py-2 text-left text-gray-600 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100"
+              >
+                Not set
+              </button>
+              {filteredGroups.length > 0 ? (
+                filteredGroups.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => handleGroupSelect(String(g.id))}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                  >
+                    <div className="font-medium text-gray-900">
+                      {groupDisplayLabel(g)}
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-sm text-gray-500">
+                  {groupCandidates.length === 0
+                    ? "No bible study groups available"
+                    : "No groups match your search"}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div>

@@ -4,7 +4,6 @@ Usage: python manage.py populate_evangelism_data
 """
 
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 from apps.evangelism.models import (
     EvangelismGroup,
     EvangelismSession,
@@ -23,7 +22,10 @@ import random
 
 
 class Command(BaseCommand):
-    help = "Populates the database with sample evangelism data for testing"
+    help = (
+        "Populates the database with sample evangelism data for testing. "
+        "Run populate_sample_data and populate_clusters_data first so people and clusters exist."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -151,10 +153,17 @@ class Command(BaseCommand):
                     }
                 )
 
-            # Add 3-8 members to the group
+            # Add 3-8 members (prefer MEMBER role so weekly reports can record attendance)
             available_people = [p for p in people if p != coordinator]
-            num_members = random.randint(3, min(8, len(available_people)))
-            members = random.sample(available_people, num_members) if available_people else []
+            preferred = [p for p in available_people if p.role == "MEMBER"]
+            pool = preferred if len(preferred) >= 3 else available_people
+            cap = min(8, len(pool)) if pool else 0
+            if cap == 0:
+                members = []
+            else:
+                low = min(3, cap)
+                num_members = random.randint(low, cap)
+                members = random.sample(pool, num_members)
 
             if members:
                 group.members.add(*members)
@@ -236,6 +245,8 @@ class Command(BaseCommand):
                 first_name = parts[0]
                 last_name = parts[-1] if len(parts) > 1 else ""
                 middle_name = " ".join(parts[1:-1]) if len(parts) > 2 else ""
+            if not (last_name or "").strip():
+                last_name = "Visitor"
 
             # Select random inviter
             inviter = random.choice(people)
@@ -267,7 +278,7 @@ class Command(BaseCommand):
                 middle_name=middle_name,
                 last_name=last_name,
                 suffix="",
-                gender=random.choice(["MALE", "FEMALE", ""]),
+                gender=random.choice(["MALE", "FEMALE"]),
                 contact_info=f"phone-{random.randint(1000000, 9999999)}" if random.random() > 0.2 else "",
                 facebook_name="",
                 invited_by=inviter,
@@ -295,24 +306,21 @@ class Command(BaseCommand):
                 notes=f"Prospect notes for {name}",
             )
 
-            # If ATTENDED or later, create a Person record
+            # If ATTENDED or later, create a Person record with a unique username
             if stage != Prospect.PipelineStage.INVITED:
-                uname_base = f"{first_name.lower()}.{last_name.lower()}" if last_name else first_name.lower()
-                person, created = Person.objects.get_or_create(
-                    username=uname_base.replace(" ", ".")[:150],
-                    defaults={
-                        "first_name": first_name,
-                        "last_name": last_name or "Visitor",
-                        "middle_name": middle_name,
-                        "role": "VISITOR",
-                        "email": f"{uname_base.replace(' ', '.')}@example.com",
-                        "must_change_password": True,
-                        "first_login": True,
-                    },
+                uname = f"visitor_p{i}_{random.randint(10000, 99999)}"[:150]
+                person = Person.objects.create(
+                    username=uname,
+                    first_name=first_name,
+                    last_name=last_name,
+                    middle_name=middle_name,
+                    role="VISITOR",
+                    email=f"{uname}@example.com",
+                    must_change_password=True,
+                    first_login=True,
                 )
-                if created:
-                    person.set_unusable_password()
-                    person.save()
+                person.set_unusable_password()
+                person.save()
                 prospect.person = person
                 if inviter:
                     person.inviter = inviter
@@ -508,7 +516,8 @@ class Command(BaseCommand):
             if prospect.pipeline_stage == Prospect.PipelineStage.CONVERTED:
                 continue
 
-            drop_off_date = prospect.last_activity_date + timedelta(days=35)
+            last_touch = prospect.last_activity_date or prospect.date_first_invited or today
+            drop_off_date = last_touch + timedelta(days=35)
             if drop_off_date > today:
                 continue
 
@@ -545,59 +554,73 @@ class Command(BaseCommand):
             "Evangelism Training",
         ]
 
+        report_keys_seen = set()
         for group in groups:
             group_members = list(
-                group.members.exclude(role="ADMIN").values_list("id", flat=True)
+                group.members.filter(role="MEMBER").values_list("id", flat=True)
             )
             group_prospects = list(group.prospects.all())
+
+            submitter = group.coordinator
+            if not submitter and group_members:
+                submitter = Person.objects.filter(pk=random.choice(group_members)).first()
+            if not submitter and people:
+                submitter = random.choice(people)
 
             for week_offset in range(12):
                 week_date = today - timedelta(weeks=week_offset)
                 year = week_date.year
                 week_number = week_date.isocalendar()[1]
+                key = (group.id, year, week_number)
+                if key in report_keys_seen:
+                    continue
+                report_keys_seen.add(key)
 
-                # Get members and visitors
-                members_attended_ids = random.sample(
-                    group_members,
-                    min(random.randint(2, len(group_members)), len(group_members)),
-                ) if group_members else []
+                if group_members:
+                    n = len(group_members)
+                    k = random.randint(min(2, n), n) if n >= 2 else n
+                    members_attended_ids = random.sample(group_members, k)
+                else:
+                    members_attended_ids = []
 
-                visitors_attended_ids = [
-                    p.person.id
-                    for p in random.sample(
-                        group_prospects,
-                        min(random.randint(0, 3), len(group_prospects)),
-                    )
-                    if p.person
-                ]
+                visitors_attended_ids = []
+                if group_prospects:
+                    sample_n = min(random.randint(0, 3), len(group_prospects))
+                    if sample_n > 0:
+                        visitors_attended_ids = [
+                            p.person.id
+                            for p in random.sample(group_prospects, sample_n)
+                            if p.person
+                        ]
 
-                report = EvangelismWeeklyReport(
+                report, _ = EvangelismWeeklyReport.objects.get_or_create(
                     evangelism_group=group,
                     year=year,
                     week_number=week_number,
-                    meeting_date=week_date,
-                    gathering_type=random.choice(gathering_types),
-                    topic=random.choice(topics),
-                    activities_held=random.choice(activities),
-                    prayer_requests=random.choice([
-                        "Prayer for new prospects",
-                        "Prayer for conversions",
-                        "Prayer for group members",
-                        "",
-                    ]),
-                    testimonies=random.choice([
-                        "New member shared conversion story",
-                        "Member shared answered prayer",
-                        "",
-                    ]),
-                    new_prospects=random.randint(0, 3),
-                    conversions_this_week=random.randint(0, 2),
-                    notes=f"Weekly report for {week_date.strftime('%B %d, %Y')}",
-                    submitted_by=group.coordinator,
+                    defaults={
+                        "meeting_date": week_date,
+                        "gathering_type": random.choice(gathering_types),
+                        "topic": random.choice(topics),
+                        "activities_held": random.choice(activities),
+                        "prayer_requests": random.choice([
+                            "Prayer for new prospects",
+                            "Prayer for conversions",
+                            "Prayer for group members",
+                            "",
+                        ]),
+                        "testimonies": random.choice([
+                            "New member shared conversion story",
+                            "Member shared answered prayer",
+                            "",
+                        ]),
+                        "new_prospects": random.randint(0, 3),
+                        "conversions_this_week": random.randint(0, 2),
+                        "notes": f"Weekly report for {week_date.strftime('%B %d, %Y')}",
+                        "submitted_by": submitter,
+                    },
                 )
-                report.save()
-                report.members_attended.add(*members_attended_ids)
-                report.visitors_attended.add(*visitors_attended_ids)
+                report.members_attended.set(members_attended_ids)
+                report.visitors_attended.set(visitors_attended_ids)
 
         self.stdout.write(
             self.style.SUCCESS(f"✓ Created weekly reports for groups")

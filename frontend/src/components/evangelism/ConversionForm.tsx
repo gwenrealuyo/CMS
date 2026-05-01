@@ -13,6 +13,8 @@ export interface ConversionFormValues {
   water_baptism_date?: string;
   spirit_baptism_date?: string;
   lesson_start_date?: string;
+  date_first_invited?: string;
+  date_first_attended?: string;
   notes: string;
 }
 
@@ -26,6 +28,48 @@ interface ConversionFormProps {
   initialData?: Conversion;
 }
 
+/** API omits write-only `person_id` on GET; use nested `person.id`. */
+export function personIdFromConversion(c?: Conversion): string {
+  if (!c) return "";
+  if (c.person?.id != null && String(c.person.id) !== "") {
+    return String(c.person.id);
+  }
+  if (c.person_id != null && String(c.person_id) !== "") {
+    return String(c.person_id);
+  }
+  return "";
+}
+
+function isoDateInputValue(iso?: string | null): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return String(iso).slice(0, 10);
+    }
+    return d.toISOString().split("T")[0];
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
+
+/** Person first, else Prospect (canonical invite on visitor record). */
+function initialDateFirstInvited(c?: Conversion): string {
+  if (!c) return "";
+  if (c.person?.date_first_invited) {
+    return isoDateInputValue(c.person.date_first_invited);
+  }
+  if (c.prospect?.date_first_invited) {
+    return isoDateInputValue(c.prospect.date_first_invited);
+  }
+  return "";
+}
+
+function initialDateFirstAttended(c?: Conversion): string {
+  if (!c?.person?.date_first_attended) return "";
+  return isoDateInputValue(c.person.date_first_attended);
+}
+
 export default function ConversionForm({
   people = [],
   onSubmit,
@@ -36,7 +80,7 @@ export default function ConversionForm({
   initialData,
 }: ConversionFormProps) {
   const [values, setValues] = useState<ConversionFormValues>({
-    person_id: initialData?.person_id || "",
+    person_id: personIdFromConversion(initialData),
     water_baptism_date: initialData?.water_baptism_date
       ? new Date(initialData.water_baptism_date).toISOString().split("T")[0]
       : "",
@@ -44,6 +88,8 @@ export default function ConversionForm({
       ? new Date(initialData.spirit_baptism_date).toISOString().split("T")[0]
       : "",
     lesson_start_date: "",
+    date_first_invited: initialDateFirstInvited(initialData),
+    date_first_attended: initialDateFirstAttended(initialData),
     notes: initialData?.notes || "",
   });
   const [lessonDateTouched, setLessonDateTouched] = useState(false);
@@ -70,6 +116,15 @@ export default function ConversionForm({
     await onSubmit(values);
   };
 
+  const selectablePeople = useMemo(() => {
+    if (!initialData?.person) return people;
+    const pid = String(initialData.person.id);
+    if (people.some((p) => String(p.id) === pid)) return people;
+    return [...people, initialData.person];
+  }, [people, initialData?.person]);
+
+  const lockPersonSelection = Boolean(initialData);
+
   const formatPersonLabel = (person: Person) => {
     const name = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
     return name || person.email || person.username;
@@ -77,13 +132,13 @@ export default function ConversionForm({
 
   const personOptions = useMemo(
     () =>
-      people
+      selectablePeople
         .map((person) => ({
           label: formatPersonLabel(person),
           value: String(person.id),
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [people]
+    [selectablePeople]
   );
 
   useEffect(() => {
@@ -146,7 +201,33 @@ export default function ConversionForm({
           placeholder="Select person"
           className="w-full"
           showSearch
+          disabled={lockPersonSelection}
         />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            First Invited
+          </label>
+          <input
+            type="date"
+            value={values.date_first_invited ?? ""}
+            onChange={handleChange("date_first_invited")}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            First Attended
+          </label>
+          <input
+            type="date"
+            value={values.date_first_attended ?? ""}
+            onChange={handleChange("date_first_attended")}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
       </div>
 
       <div className="space-y-1">

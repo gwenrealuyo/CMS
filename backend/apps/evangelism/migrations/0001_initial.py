@@ -50,6 +50,13 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("is_active", models.BooleanField(default=True)),
+                (
+                    "is_bible_sharers_group",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Mark this group as a Bible Sharers group. Bible Sharers are capable of facilitating bible studies and can step in when a cluster doesn't have someone to facilitate.",
+                    ),
+                ),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
                 (
@@ -100,8 +107,20 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("name", models.CharField(max_length=200)),
+                ("first_name", models.CharField(max_length=150)),
+                ("middle_name", models.CharField(blank=True, max_length=150)),
+                ("last_name", models.CharField(max_length=150)),
+                ("suffix", models.CharField(blank=True, max_length=150)),
+                (
+                    "gender",
+                    models.CharField(
+                        blank=True,
+                        max_length=20,
+                        choices=[("MALE", "Male"), ("FEMALE", "Female")],
+                    ),
+                ),
                 ("contact_info", models.CharField(blank=True, max_length=200)),
+                ("facebook_name", models.CharField(blank=True, max_length=200)),
                 (
                     "pipeline_stage",
                     models.CharField(
@@ -116,7 +135,7 @@ class Migration(migrations.Migration):
                         max_length=20,
                     ),
                 ),
-                ("first_contact_date", models.DateField(blank=True, null=True)),
+                ("date_first_invited", models.DateField(blank=True, null=True)),
                 ("last_activity_date", models.DateField(blank=True, null=True)),
                 ("is_attending_cluster", models.BooleanField(default=False)),
                 ("is_dropped_off", models.BooleanField(default=False)),
@@ -139,19 +158,6 @@ class Migration(migrations.Migration):
                 ("drop_off_reason", models.TextField(blank=True)),
                 ("has_finished_lessons", models.BooleanField(default=False)),
                 ("commitment_form_signed", models.BooleanField(default=False)),
-                (
-                    "fast_track_reason",
-                    models.CharField(
-                        choices=[
-                            ("NONE", "None"),
-                            ("GOING_ABROAD", "Going Abroad"),
-                            ("HEALTH_ISSUES", "Health Issues"),
-                            ("OTHER", "Other"),
-                        ],
-                        default="NONE",
-                        max_length=20,
-                    ),
-                ),
                 ("notes", models.TextField(blank=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
@@ -207,7 +213,7 @@ class Migration(migrations.Migration):
             options={
                 "verbose_name": "Prospect",
                 "verbose_name_plural": "Prospects",
-                "ordering": ("-last_activity_date", "name"),
+                "ordering": ("-last_activity_date", "last_name", "first_name"),
             },
         ),
         migrations.CreateModel(

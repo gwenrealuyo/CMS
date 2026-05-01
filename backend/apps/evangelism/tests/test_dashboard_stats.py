@@ -58,7 +58,8 @@ class EvangelismDashboardStatsTests(TestCase):
             status="INVITED",
         )
         Prospect.objects.create(
-            name="Prospect Linked",
+            first_name="Prospect",
+            last_name="Linked",
             invited_by=self.inviter,
             inviter_cluster=self.cluster,
             evangelism_group=self.group,
@@ -181,7 +182,8 @@ class EvangelismDashboardStatsTests(TestCase):
             status="ATTENDED",
         )
         Prospect.objects.create(
-            name="Attended Prospect",
+            first_name="Attended",
+            last_name="Prospect",
             invited_by=self.inviter,
             inviter_cluster=self.cluster,
             evangelism_group=self.group,

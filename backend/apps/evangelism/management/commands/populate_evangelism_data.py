@@ -230,6 +230,12 @@ class Command(BaseCommand):
             name = prospect_names[i % len(prospect_names)]
             if i >= len(prospect_names):
                 name = f"Prospect {i+1}"
+                first_name, middle_name, last_name = "Prospect", "", str(i + 1)
+            else:
+                parts = name.split()
+                first_name = parts[0]
+                last_name = parts[-1] if len(parts) > 1 else ""
+                middle_name = " ".join(parts[1:-1]) if len(parts) > 2 else ""
 
             # Select random inviter
             inviter = random.choice(people)
@@ -252,18 +258,23 @@ class Command(BaseCommand):
             stage = random.choices(pipeline_stages, weights=stage_weights)[0]
 
             # Set dates based on stage
-            first_contact = today - timedelta(days=random.randint(7, 180))
-            last_activity = first_contact + timedelta(days=random.randint(0, 30))
+            first_invited = today - timedelta(days=random.randint(7, 180))
+            last_activity = first_invited + timedelta(days=random.randint(0, 30))
 
             # Create prospect
             prospect = Prospect(
-                name=name,
+                first_name=first_name,
+                middle_name=middle_name,
+                last_name=last_name,
+                suffix="",
+                gender=random.choice(["MALE", "FEMALE", ""]),
                 contact_info=f"phone-{random.randint(1000000, 9999999)}" if random.random() > 0.2 else "",
+                facebook_name="",
                 invited_by=inviter,
                 inviter_cluster=inviter_cluster,
                 evangelism_group=group,
                 pipeline_stage=stage,
-                first_contact_date=first_contact,
+                date_first_invited=first_invited,
                 last_activity_date=last_activity,
                 is_attending_cluster=stage in [
                     Prospect.PipelineStage.ATTENDED,
@@ -281,25 +292,20 @@ class Command(BaseCommand):
                     Prospect.PipelineStage.RECEIVED_HG,
                     Prospect.PipelineStage.CONVERTED,
                 ],
-                fast_track_reason=random.choice([
-                    Prospect.FastTrackReason.NONE,
-                    Prospect.FastTrackReason.NONE,
-                    Prospect.FastTrackReason.NONE,
-                    Prospect.FastTrackReason.GOING_ABROAD,
-                    Prospect.FastTrackReason.HEALTH_ISSUES,
-                ]),
                 notes=f"Prospect notes for {name}",
             )
 
             # If ATTENDED or later, create a Person record
             if stage != Prospect.PipelineStage.INVITED:
+                uname_base = f"{first_name.lower()}.{last_name.lower()}" if last_name else first_name.lower()
                 person, created = Person.objects.get_or_create(
-                    username=f"{name.lower().replace(' ', '.')}",
+                    username=uname_base.replace(" ", ".")[:150],
                     defaults={
-                        "first_name": name.split()[0],
-                        "last_name": name.split()[-1] if len(name.split()) > 1 else "",
+                        "first_name": first_name,
+                        "last_name": last_name or "Visitor",
+                        "middle_name": middle_name,
                         "role": "VISITOR",
-                        "email": f"{name.lower().replace(' ', '.')}@example.com",
+                        "email": f"{uname_base.replace(' ', '.')}@example.com",
                         "must_change_password": True,
                         "first_login": True,
                     },
@@ -330,7 +336,7 @@ class Command(BaseCommand):
 
         conversions = []
         for prospect in converted_prospects[:min(10, len(converted_prospects))]:
-            conversion_date = prospect.first_contact_date + timedelta(
+            conversion_date = prospect.date_first_invited + timedelta(
                 days=random.randint(30, 120)
             )
 
@@ -362,7 +368,7 @@ class Command(BaseCommand):
                 water_baptism_date=water_date,
                 spirit_baptism_date=spirit_date,
                 is_complete=has_water and has_spirit,
-                notes=f"Conversion notes for {prospect.name}",
+                notes=f"Conversion notes for {prospect.display_name}",
             )
             conversion.save()
             conversions.append(conversion)
@@ -375,13 +381,14 @@ class Command(BaseCommand):
             month_prospects = [
                 p for p in prospects
                 if p.inviter_cluster
-                and p.first_contact_date.year == current_year
-                and p.first_contact_date.month <= month
+                and p.date_first_invited
+                and p.date_first_invited.year == current_year
+                and p.date_first_invited.month <= month
             ]
 
             for prospect in month_prospects[:min(20, len(month_prospects))]:
                 # Determine which stage to track for this month
-                first_contact_month = prospect.first_contact_date.month
+                first_contact_month = prospect.date_first_invited.month
                 if month < first_contact_month:
                     continue
 
@@ -484,7 +491,7 @@ class Command(BaseCommand):
                     FollowUpTask.Priority.MEDIUM,
                     FollowUpTask.Priority.HIGH,
                 ]),
-                notes=f"Follow-up task for {prospect.name}",
+                notes=f"Follow-up task for {prospect.display_name}",
                 created_by=prospect.invited_by,
             )
             if task.status == FollowUpTask.Status.COMPLETED:
@@ -521,7 +528,7 @@ class Command(BaseCommand):
                     DropOff.DropOffReason.LOST_INTEREST,
                     DropOff.DropOffReason.OTHER,
                 ]),
-                reason_details=f"Drop-off reason for {prospect.name}",
+                reason_details=f"Drop-off reason for {prospect.display_name}",
             )
             drop_off.save()
 

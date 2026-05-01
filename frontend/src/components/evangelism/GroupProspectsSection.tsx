@@ -5,6 +5,16 @@ import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
 import { Prospect } from "@/src/types/evangelism";
 
+function prospectDisplayName(p: Prospect): string {
+  if (p.display_name?.trim()) return p.display_name;
+  const parts = [p.first_name, p.middle_name, p.last_name].filter(
+    Boolean
+  ) as string[];
+  let base = parts.join(" ");
+  if (p.suffix?.trim()) base = base ? `${base}, ${p.suffix}` : p.suffix!;
+  return base || "Unknown";
+}
+
 interface GroupProspectsSectionProps {
   prospects: Prospect[];
   onAddProspect: () => void;
@@ -39,7 +49,7 @@ export default function GroupProspectsSection({
           onClick={onAddProspect}
           className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto min-h-[44px]"
         >
-          Add Visitor
+          Add Invited Visitor
         </Button>
       </div>
 
@@ -60,7 +70,7 @@ export default function GroupProspectsSection({
                   <div>
                     <span className="text-xs text-gray-500">Name</span>
                     <p className="text-sm font-medium text-gray-900 mt-1">
-                      {prospect.name}
+                      {prospectDisplayName(prospect)}
                     </p>
                   </div>
                   <div>
@@ -133,7 +143,7 @@ export default function GroupProspectsSection({
                   <tr key={prospect.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap">
                       <span className="text-sm font-medium text-gray-900">
-                        {prospect.name}
+                        {prospectDisplayName(prospect)}
                       </span>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">

@@ -13,6 +13,18 @@ import { Person, PersonUI } from "@/src/types/person";
 import { peopleApi } from "@/src/lib/api";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
+/** Label for invites without a linked Person. */
+function prospectInviteDisplayName(prospect: Prospect): string {
+  if (prospect.display_name?.trim()) return prospect.display_name;
+  const parts = [prospect.first_name, prospect.middle_name, prospect.last_name].filter(
+    Boolean
+  ) as string[];
+  let base = parts.join(" ");
+  if (prospect.suffix?.trim())
+    base = base ? `${base}, ${prospect.suffix}` : prospect.suffix!;
+  return base || "Unknown";
+}
+
 export interface EvangelismWeeklyReportFormValues {
   evangelism_group_id: string;
   year: number;
@@ -220,7 +232,7 @@ export default function EvangelismWeeklyReportForm({
           prospect.pipeline_stage_display || prospect.pipeline_stage || "INVITED";
         return {
           id: `prospect:${prospect.id}`,
-          name: `${prospect.name} (${stageLabel.toLowerCase()})`,
+          name: `${prospectInviteDisplayName(prospect)} (${stageLabel.toLowerCase()})`,
           role: "VISITOR" as const,
           status: "INVITED" as const,
           inviter: prospect.invited_by?.id,

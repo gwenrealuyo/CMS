@@ -13,7 +13,7 @@ from rest_framework.response import Response
 
 from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event
-from apps.people.models import Branch, ModuleCoordinator, Person, Journey
+from apps.people.models import Branch, ModuleCoordinator, Person
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.lessons.models import LessonSessionReport
 from apps.authentication.permissions import (
@@ -59,6 +59,7 @@ from .services import (
     bulk_enroll_members,
     get_inviter_cluster,
     create_person_from_prospect,
+    sync_prospect_invitation_journey_note,
     update_monthly_tracking,
     calculate_monthly_statistics,
     check_conversion_completion,
@@ -798,12 +799,12 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 "display_name": (
                     self._person_display_name(prospect.person)
                     if prospect.person
-                    else prospect.name
+                    else prospect.display_name
                 ),
-                "first_name": prospect.person.first_name if prospect.person else None,
-                "middle_name": prospect.person.middle_name if prospect.person else None,
-                "last_name": prospect.person.last_name if prospect.person else None,
-                "suffix": prospect.person.suffix if prospect.person else None,
+                "first_name": prospect.person.first_name if prospect.person else prospect.first_name,
+                "middle_name": prospect.person.middle_name if prospect.person else prospect.middle_name or None,
+                "last_name": prospect.person.last_name if prospect.person else prospect.last_name,
+                "suffix": prospect.person.suffix if prospect.person else prospect.suffix or None,
                 "nickname": prospect.person.nickname if prospect.person else None,
                 "username": prospect.person.username if prospect.person else None,
                 "member_id": prospect.person.member_id if prospect.person else None,
@@ -817,7 +818,9 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     else None
                 ),
                 "date_first_invited": (
-                    prospect.person.date_first_invited if prospect.person else None
+                    prospect.person.date_first_invited
+                    if prospect.person
+                    else prospect.date_first_invited
                 ),
                 "date_first_attended": (
                     prospect.person.date_first_attended if prospect.person else None
@@ -1400,13 +1403,19 @@ class ProspectViewSet(viewsets.ModelViewSet):
         "endorsed_cluster",
         "is_dropped_off",
     )
-    search_fields = ("name", "contact_info", "notes")
-    ordering_fields = ("last_activity_date", "created_at", "name")
-    ordering = ("-last_activity_date", "name")
+    search_fields = ("first_name", "middle_name", "last_name", "contact_info", "notes")
+    ordering_fields = ("last_activity_date", "created_at", "first_name", "last_name")
+    ordering = ("-last_activity_date", "last_name", "first_name")
 
     def perform_create(self, serializer):
         """Auto-set inviter_cluster based on inviter's cluster membership."""
-        prospect = serializer.save(pipeline_stage=Prospect.PipelineStage.INVITED)
+        if not serializer.validated_data.get("date_first_invited"):
+            prospect = serializer.save(
+                pipeline_stage=Prospect.PipelineStage.INVITED,
+                date_first_invited=timezone.now().date(),
+            )
+        else:
+            prospect = serializer.save(pipeline_stage=Prospect.PipelineStage.INVITED)
         if not prospect.inviter_cluster:
             cluster = get_inviter_cluster(prospect.invited_by)
             if cluster:
@@ -1512,13 +1521,8 @@ class ProspectViewSet(viewsets.ModelViewSet):
 
         # Create or link Person if not exists
         if not prospect.person:
-            first_name = request.data.get(
-                "first_name", prospect.name.split()[0] if prospect.name else ""
-            )
-            last_name = request.data.get(
-                "last_name",
-                prospect.name.split()[-1] if len(prospect.name.split()) > 1 else "",
-            )
+            first_name = request.data.get("first_name") or prospect.first_name
+            last_name = request.data.get("last_name") or prospect.last_name
 
             if not first_name or not last_name:
                 return Response(
@@ -1548,27 +1552,12 @@ class ProspectViewSet(viewsets.ModelViewSet):
                 if updates:
                     person.save(update_fields=updates)
 
+            sync_prospect_invitation_journey_note(person, prospect)
+
         # Update prospect stage and activity
         prospect.pipeline_stage = Prospect.PipelineStage.ATTENDED
         prospect.last_activity_date = activity_date
         prospect.save()
-
-        if prospect.notes and person:
-            note_date = person.date_first_attended or activity_date
-            note_qs = Journey.objects.filter(
-                user=person, type="NOTE", date=note_date
-            )
-            if note_qs.exists():
-                note_qs.update(description=prospect.notes)
-            else:
-                Journey.objects.create(
-                    user=person,
-                    type="NOTE",
-                    title="Visitor note",
-                    description=prospect.notes,
-                    date=note_date,
-                    verified_by=None,
-                )
 
         # Update monthly tracking
         cluster = prospect.inviter_cluster or prospect.endorsed_cluster
@@ -1666,7 +1655,7 @@ class FollowUpTaskViewSet(viewsets.ModelViewSet):
         filters.OrderingFilter,
     )
     filterset_fields = ("prospect", "assigned_to", "status", "priority")
-    search_fields = ("prospect__name", "notes")
+    search_fields = ("prospect__first_name", "prospect__last_name", "notes")
     ordering_fields = ("due_date", "priority", "created_at")
     ordering = ("due_date", "priority")
 
@@ -1703,7 +1692,7 @@ class DropOffViewSet(viewsets.ModelViewSet):
         filters.OrderingFilter,
     )
     filterset_fields = ("drop_off_stage", "reason", "recovered")
-    search_fields = ("prospect__name", "reason_details")
+    search_fields = ("prospect__first_name", "prospect__last_name", "reason_details")
     ordering_fields = ("drop_off_date", "days_inactive")
     ordering = ("-drop_off_date",)
 
@@ -1808,7 +1797,7 @@ class ConversionViewSet(viewsets.ModelViewSet):
             if conversion.prospect:
                 if not check_lesson_completion(conversion.prospect):
                     raise ValidationError(
-                        "Prospect must complete lessons before baptism (unless fast-tracked)"
+                        "Prospect must complete lessons before baptism."
                     )
 
         # Update Person's baptism dates
@@ -1880,7 +1869,7 @@ class MonthlyConversionTrackingViewSet(viewsets.ModelViewSet):
         filters.OrderingFilter,
     )
     filterset_fields = ("cluster", "year", "month", "stage")
-    search_fields = ("prospect__name",)
+    search_fields = ("prospect__first_name", "prospect__last_name")
     ordering_fields = ("year", "month", "stage")
     ordering = ("-year", "-month", "stage")
 

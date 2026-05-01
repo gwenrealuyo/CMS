@@ -91,7 +91,9 @@ Key features include:
 ### Prospect Model
 
 - `apps.evangelism.models.Prospect` represents a visitor/prospect being evangelized with:
-  - `name` (string, max 200 chars) – prospect's name (can be just a name until they attend)
+  - `first_name`, `last_name` (CharFields, max 150) – required name parts (aligned with `Person`)
+  - `middle_name`, `suffix` (CharFields, max 150, blank) – optional name parts
+  - `gender` (CharField, choices: MALE, FEMALE, blank) – optional; matches `Person`
   - `contact_info` (string, max 200 chars, blank) – phone/email
   - `invited_by` (ForeignKey to `people.Person`) – member who invited them
   - `inviter_cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster of the inviter (for tracking)
@@ -99,7 +101,7 @@ Key features include:
   - `endorsed_cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster this visitor is endorsed to (if different from inviter's cluster; UI no longer exposes endorse)
   - `person` (ForeignKey to `people.Person`, nullable) – linked Person record (created when they first attend, or linked if already exists as VISITOR)
   - `pipeline_stage` (CharField, choices: INVITED, ATTENDED, BAPTIZED, RECEIVED_HG, CONVERTED) – current stage in pipeline
-  - `first_contact_date` (DateField, nullable) – first contact date
+  - `date_first_invited` (DateField, nullable) – date they were first invited (UI defaults to today when creating)
   - `last_activity_date` (DateField, nullable) – last date of any activity (attendance, contact, etc.)
   - `is_attending_cluster` (BooleanField, default False) – whether visitor is attending a cluster
   - `is_dropped_off` (BooleanField, default False) – whether visitor has dropped off
@@ -108,20 +110,20 @@ Key features include:
   - `drop_off_reason` (TextField, blank) – reason for drop-off if known
   - `has_finished_lessons` (BooleanField, default False) – whether they completed required lessons
   - `commitment_form_signed` (BooleanField, default False) – whether commitment form was signed
-  - `fast_track_reason` (CharField, choices: NONE, GOING_ABROAD, HEALTH_ISSUES, OTHER, default NONE) – reason for fast-tracking (bypassing lessons)
-  - `notes` (TextField, blank) – additional notes
+  - `notes` (TextField, blank) – invitation / follow-up notes (see Journey note behavior below)
   - `facebook_name` (string, max 200 chars, blank) – optional Facebook name
   - `created_at`, `updated_at` (DateTimeFields)
-- Default ordering: by `-last_activity_date`, then `name`
+  - Read-only `display_name` (property) – concatenated name for lists and reports
+- Default ordering: by `-last_activity_date`, then `last_name`, `first_name`
 - **Person Creation Logic**:
-  - Prospect can be just a name until they attend
+  - Invited visitors use structured name fields before a `Person` exists
   - Prospects represent invited visitors only
-  - When prospect first attends: auto-create Person record (or link if Person with VISITOR role exists)
+  - When prospect first attends: auto-create Person record (or link if Person with VISITOR role exists) using name, gender, facebook, and `date_first_invited` where applicable
   - Set `Person.inviter = prospect.invited_by` when Person is created
   - Auto-update `last_activity_date` on attendance or status change
   - Auto-set `inviter_cluster` based on inviter's cluster membership
   - If prospect has `facebook_name` and Person does not, Person is updated
-  - Prospect `notes` are converted into a Journey `NOTE` when they become ATTENDED
+  - Prospect `notes`: when a linked `Person` is created or when an existing visitor is marked attended without a prior sync, notes are written to a Journey `NOTE` titled **Invitation note** dated `date_first_invited` (or today if unset)
 
 ### FollowUpTask Model
 
@@ -172,8 +174,8 @@ Key features include:
   - `verified_by` (ForeignKey to `people.Person`, nullable) – who verified the conversion
   - `created_at`, `updated_at` (DateTimeFields)
 - Default ordering: by `-conversion_date`
-- **Validation**: Check if lessons are completed before baptism (unless fast-tracked)
-- **Validation**: Check if commitment form is signed (unless fast-tracked)
+- **Validation**: Check if lessons are completed before baptism.
+- **Validation**: Check if commitment form is signed.
 - **Auto-updates**:
   - Update Person's `water_baptism_date` and `spirit_baptism_date` when conversion is created/updated
   - Update prospect `pipeline_stage` (BAPTIZED, RECEIVED_HG, CONVERTED)
@@ -381,8 +383,8 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `POST` – Create a new conversion (requires `person_id`, optional `lesson_start_date`, optional `water_baptism_date`, `spirit_baptism_date`)
     - `converted_by` defaults to the request user
     - `conversion_date` is derived if not supplied
-    - **Validation**: Check if lessons are completed before baptism (unless fast-tracked)
-    - **Validation**: Check if commitment form is signed (unless fast-tracked)
+    - **Validation**: Check if lessons are completed before baptism.
+    - **Validation**: Check if commitment form is signed.
     - If notes are provided, related Journey entries (BAPTISM/SPIRIT) use those notes
     - Auto-update Person's baptism dates
     - Auto-update prospect pipeline_stage
@@ -578,7 +580,7 @@ The main page includes tabs for different views:
 
 #### Prospects
 
-- **`ProspectForm`**: Form for creating/editing prospects (name only until they attend)
+- **`ProspectForm`**: Form for creating invited visitors (name parts, gender, date first invited, contact, Facebook, inviter, optional group, notes—aligned with Person before a `Person` exists)
   - Name input
   - Contact info input
   - Inviter selection
@@ -754,7 +756,7 @@ When viewing a group, a modal displays:
 ### Lessons Module
 
 - Track lesson completion for prospects
-- Validate lesson completion before baptism (unless fast-tracked)
+- Validate lesson completion before baptism.
 - Track commitment form signing
 - Fast-track reasons: GOING_ABROAD, HEALTH_ISSUES, OTHER
 
@@ -899,6 +901,6 @@ python manage.py test apps.evangelism --settings=core.settings_test
 ## Notes
 
 - **Drop-off Threshold**: Currently set to 30 days default. This will be configurable by admins in the future (see Future Enhancements).
-- **Lessons Integration**: Visitors must complete lessons before baptism unless fast-tracked for GOING_ABROAD, HEALTH_ISSUES, or OTHER reasons.
+- **Lessons Integration**: Visitors must complete lessons before baptism.
 - **Monthly Counting**: CONVERTED counts unique persons who completed both BAPTIZED and RECEIVED_HG within the same year. Counted in the month they first complete both, only once per person per year.
 - **Person Creation**: Prospects can be just names until they attend. When they first attend, a Person record is auto-created (or linked if Person with VISITOR role already exists).

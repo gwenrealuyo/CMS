@@ -371,14 +371,22 @@ class ProspectSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     person = PersonSummarySerializer(read_only=True)
-    pipeline_stage_display = serializers.CharField(source="get_pipeline_stage_display", read_only=True)
+    pipeline_stage_display = serializers.CharField(
+        source="get_pipeline_stage_display", read_only=True
+    )
     days_since_last_activity = serializers.IntegerField(read_only=True)
+    display_name = serializers.ReadOnlyField()
 
     class Meta:
         model = Prospect
         fields = (
             "id",
-            "name",
+            "first_name",
+            "middle_name",
+            "last_name",
+            "suffix",
+            "gender",
+            "display_name",
             "contact_info",
             "facebook_name",
             "invited_by",
@@ -391,7 +399,7 @@ class ProspectSerializer(serializers.ModelSerializer):
             "person",
             "pipeline_stage",
             "pipeline_stage_display",
-            "first_contact_date",
+            "date_first_invited",
             "last_activity_date",
             "is_attending_cluster",
             "is_dropped_off",
@@ -400,13 +408,17 @@ class ProspectSerializer(serializers.ModelSerializer):
             "drop_off_reason",
             "has_finished_lessons",
             "commitment_form_signed",
-            "fast_track_reason",
             "notes",
             "days_since_last_activity",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("created_at", "updated_at", "days_since_last_activity")
+        read_only_fields = (
+            "created_at",
+            "updated_at",
+            "days_since_last_activity",
+            "display_name",
+        )
 
 
 class FollowUpTaskSerializer(serializers.ModelSerializer):

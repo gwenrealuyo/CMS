@@ -1487,13 +1487,16 @@ export default function EvangelismPage() {
               setIsProspectModalOpen(false);
               setFormError(null);
             }}
-            title="Add Visitor"
+            title="Add Invited Visitor"
           >
             <ProspectForm
               inviters={(people.length > 0 ? people : coordinators).filter(
                 isSelectablePerson
               )}
               groups={groups}
+              selectedBibleStudyGroup={
+                groupData ?? viewEditGroup ?? undefined
+              }
               onSubmit={handleCreateProspect}
               onCancel={() => {
                 setIsProspectModalOpen(false);
@@ -1501,9 +1504,6 @@ export default function EvangelismPage() {
               }}
               isSubmitting={isSubmitting}
               error={formError}
-              defaultGroupId={
-                viewEditGroup ? String(viewEditGroup.id) : undefined
-              }
             />
           </Modal>
         )}
@@ -1997,8 +1997,6 @@ function UpdateProgressModalContent({
   const [activityDate, setActivityDate] = useState<string>(
     prospect.last_activity_date || new Date().toISOString().split("T")[0]
   );
-  const [firstName, setFirstName] = useState<string>("");
-  const [lastName, setLastName] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2014,22 +2012,12 @@ function UpdateProgressModalContent({
       return;
     }
 
-    const nameParts = prospect.name?.trim().split(/\s+/) || [];
-    const needsName =
-      selectedStage === "ATTENDED" && !prospect.person && nameParts.length < 2;
-    if (needsName && (!firstName.trim() || !lastName.trim())) {
-      setError("First name and last name are required for attendance.");
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
       if (selectedStage === "ATTENDED") {
         await evangelismApi.markAttended(prospect.id, {
           last_activity_date: activityDate,
-          first_name: needsName ? firstName.trim() : undefined,
-          last_name: needsName ? lastName.trim() : undefined,
         });
       } else {
         await evangelismApi.updateProgress(prospect.id, {
@@ -2078,38 +2066,6 @@ function UpdateProgressModalContent({
           required
         />
       </div>
-      {selectedStage === "ATTENDED" &&
-        !prospect.person &&
-        (prospect.name?.trim().split(/\s+/).length || 0) < 2 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                First Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={loading}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Last Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={loading}
-                required
-              />
-            </div>
-          </div>
-        )}
       <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
         <Button
           variant="tertiary"

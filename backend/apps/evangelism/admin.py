@@ -71,7 +71,8 @@ class EvangelismWeeklyReportAdmin(admin.ModelAdmin):
 @admin.register(Prospect)
 class ProspectAdmin(admin.ModelAdmin):
     list_display = (
-        "name",
+        "first_name",
+        "last_name",
         "invited_by",
         "pipeline_stage",
         "last_activity_date",
@@ -84,7 +85,7 @@ class ProspectAdmin(admin.ModelAdmin):
         "evangelism_group",
         "is_dropped_off",
     )
-    search_fields = ("name", "contact_info", "notes")
+    search_fields = ("first_name", "middle_name", "last_name", "contact_info", "notes")
     date_hierarchy = "last_activity_date"
     raw_id_fields = ("invited_by", "inviter_cluster", "evangelism_group", "endorsed_cluster", "person")
 
@@ -101,7 +102,7 @@ class FollowUpTaskAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status", "priority", "task_type", "assigned_to")
-    search_fields = ("prospect__name", "notes")
+    search_fields = ("prospect__first_name", "prospect__last_name", "notes")
     date_hierarchy = "due_date"
     raw_id_fields = ("prospect", "assigned_to", "created_by")
 
@@ -117,7 +118,7 @@ class DropOffAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("drop_off_stage", "reason", "recovered")
-    search_fields = ("prospect__name", "reason_details")
+    search_fields = ("prospect__first_name", "prospect__last_name", "reason_details")
     date_hierarchy = "drop_off_date"
     raw_id_fields = ("prospect",)
 
@@ -157,7 +158,7 @@ class MonthlyConversionTrackingAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("cluster", "year", "month", "stage")
-    search_fields = ("prospect__name",)
+    search_fields = ("prospect__first_name", "prospect__last_name")
     raw_id_fields = ("cluster", "prospect", "person")
 
 

@@ -44,23 +44,44 @@ def get_inviter_cluster(inviter: Person) -> Optional[Cluster]:
     return clusters.first() if clusters.exists() else None
 
 
+def sync_prospect_invitation_journey_note(person: Person, prospect: Prospect) -> None:
+    """Copy invitation-time notes to a Journey NOTE dated by first invitation."""
+    text = (prospect.notes or "").strip()
+    if not text:
+        return
+    invite_date = prospect.date_first_invited or timezone.now().date()
+    Journey.objects.update_or_create(
+        user=person,
+        type="NOTE",
+        date=invite_date,
+        title="Invitation note",
+        defaults={
+            "description": text,
+            "verified_by": None,
+        },
+    )
+
+
 def create_person_from_prospect(
     prospect: Prospect,
-    first_name: str,
-    last_name: str,
-    **kwargs
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+    **kwargs,
 ) -> Person:
     """
     Create a Person record from a prospect when they first attend.
     Sets Person.inviter = prospect.invited_by.
     Links the prospect to the created Person.
     """
-    from apps.people.serializers import PersonSerializer
+    date_first_attended = kwargs.pop("date_first_attended", timezone.now().date())
+
+    fn = (first_name or "").strip() or prospect.first_name
+    ln = (last_name or "").strip() or prospect.last_name
 
     # Generate username from first two letters of first name + last name
-    first_two_letters = first_name[:2].lower() if first_name else ""
-    username = f"{first_two_letters}{last_name.lower()}"
-    
+    first_two_letters = fn[:2].lower() if fn else ""
+    username = f"{first_two_letters}{ln.lower()}" if ln else f"user{prospect.pk}"
+
     # Ensure username is unique
     original_username = username
     counter = 1
@@ -68,22 +89,34 @@ def create_person_from_prospect(
         username = f"{original_username}{counter}"
         counter += 1
 
+    middle_name = kwargs.pop("middle_name", prospect.middle_name)
+    suffix = kwargs.pop("suffix", prospect.suffix)
+    gender = kwargs.pop("gender", prospect.gender) or ""
+    facebook_name = kwargs.pop("facebook_name", prospect.facebook_name) or ""
+    date_first_invited = kwargs.pop("date_first_invited", prospect.date_first_invited)
+
     person_data = {
         "username": username,
-        "first_name": first_name,
-        "last_name": last_name,
-        "facebook_name": prospect.facebook_name,
+        "first_name": fn,
+        "last_name": ln,
+        "middle_name": middle_name or "",
+        "suffix": suffix or "",
+        "gender": gender,
+        "facebook_name": facebook_name,
         "role": "VISITOR",
         "status": "ATTENDED",
         "inviter": prospect.invited_by,
-        "date_first_attended": timezone.now().date(),
-        **kwargs
+        "date_first_attended": date_first_attended,
+        "date_first_invited": date_first_invited,
+        **kwargs,
     }
 
     person = Person.objects.create(**person_data)
     prospect.person = person
     prospect.save(update_fields=["person"])
-    
+
+    sync_prospect_invitation_journey_note(person, prospect)
+
     return person
 
 
@@ -297,12 +330,8 @@ def detect_drop_offs(inactivity_days: int = 30) -> List[Prospect]:
 
 
 def check_lesson_completion(prospect: Prospect) -> bool:
-    """
-    Verify if prospect has completed required lessons before baptism (unless fast-tracked).
-    """
-    if prospect.fast_track_reason != Prospect.FastTrackReason.NONE:
-        return True  # Fast-tracked, skip lesson check
-    
+    """Whether the prospect's lesson completion flag allows baptism."""
+
     return prospect.has_finished_lessons
 
 

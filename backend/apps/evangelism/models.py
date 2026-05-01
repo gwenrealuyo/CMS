@@ -154,13 +154,18 @@ class Prospect(models.Model):
         RECEIVED_HG = "RECEIVED_HG", "Received Holy Ghost"
         CONVERTED = "CONVERTED", "Converted"
 
-    class FastTrackReason(models.TextChoices):
-        NONE = "NONE", "None"
-        GOING_ABROAD = "GOING_ABROAD", "Going Abroad"
-        HEALTH_ISSUES = "HEALTH_ISSUES", "Health Issues"
-        OTHER = "OTHER", "Other"
-
-    name = models.CharField(max_length=200)
+    first_name = models.CharField(max_length=150)
+    middle_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150)
+    suffix = models.CharField(max_length=150, blank=True)
+    gender = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=[
+            ("MALE", "Male"),
+            ("FEMALE", "Female"),
+        ],
+    )
     contact_info = models.CharField(max_length=200, blank=True)
     facebook_name = models.CharField(max_length=200, blank=True)
     invited_by = models.ForeignKey(
@@ -199,7 +204,7 @@ class Prospect(models.Model):
     pipeline_stage = models.CharField(
         max_length=20, choices=PipelineStage.choices, default=PipelineStage.INVITED
     )
-    first_contact_date = models.DateField(null=True, blank=True)
+    date_first_invited = models.DateField(null=True, blank=True)
     last_activity_date = models.DateField(null=True, blank=True)
     is_attending_cluster = models.BooleanField(default=False)
     is_dropped_off = models.BooleanField(default=False)
@@ -210,17 +215,22 @@ class Prospect(models.Model):
     drop_off_reason = models.TextField(blank=True)
     has_finished_lessons = models.BooleanField(default=False)
     commitment_form_signed = models.BooleanField(default=False)
-    fast_track_reason = models.CharField(
-        max_length=20, choices=FastTrackReason.choices, default=FastTrackReason.NONE
-    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ("-last_activity_date", "name")
+        ordering = ("-last_activity_date", "last_name", "first_name")
         verbose_name = "Prospect"
         verbose_name_plural = "Prospects"
+
+    @property
+    def display_name(self) -> str:
+        parts = [self.first_name, self.middle_name, self.last_name]
+        base = " ".join(p.strip() for p in parts if p and p.strip())
+        if self.suffix and self.suffix.strip():
+            return f"{base}, {self.suffix.strip()}" if base else self.suffix.strip()
+        return base or self.first_name or self.last_name or ""
 
     @property
     def days_since_last_activity(self):
@@ -229,7 +239,7 @@ class Prospect(models.Model):
         return (timezone.now().date() - self.last_activity_date).days
 
     def __str__(self):
-        return self.name
+        return self.display_name
 
 
 class FollowUpTask(models.Model):
@@ -287,7 +297,7 @@ class FollowUpTask(models.Model):
         verbose_name_plural = "Follow-up Tasks"
 
     def __str__(self):
-        return f"{self.prospect.name} - {self.get_task_type_display()} ({self.get_status_display()})"
+        return f"{self.prospect.display_name} - {self.get_task_type_display()} ({self.get_status_display()})"
 
 
 class DropOff(models.Model):
@@ -323,7 +333,7 @@ class DropOff(models.Model):
 
     def __str__(self):
         return (
-            f"{self.prospect.name} - {self.drop_off_date} ({self.get_reason_display()})"
+            f"{self.prospect.display_name} - {self.drop_off_date} ({self.get_reason_display()})"
         )
 
 
@@ -425,7 +435,7 @@ class MonthlyConversionTracking(models.Model):
         verbose_name_plural = "Monthly Conversion Tracking"
 
     def __str__(self):
-        return f"{self.cluster.name} - {self.prospect.name} - {self.year}/{self.month:02d} - {self.get_stage_display()}"
+        return f"{self.cluster.name} - {self.prospect.display_name} - {self.year}/{self.month:02d} - {self.get_stage_display()}"
 
 
 class Each1Reach1Goal(models.Model):

@@ -1,15 +1,48 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Button from "@/src/components/ui/Button";
-import ErrorMessage from "@/src/components/ui/ErrorMessage";
-import ScalableSelect from "@/src/components/ui/ScalableSelect";
-import { Prospect } from "@/src/types/evangelism";
-import { Person } from "@/src/types/person";
-import { EvangelismGroup } from "@/src/types/evangelism";
+import type { Prospect, EvangelismGroup } from "@/src/types/evangelism";
+import type { Person } from "@/src/types/person";
+
+/** Match cluster weekly report `AddVisitorModal` inputs / selects. */
+const CLUSTER_VISITOR_CONTROL =
+  "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function personDisplayLabel(p: Person): string {
+  const middleInitial = p.middle_name
+    ? ` ${p.middle_name.trim().charAt(0)}.`
+    : "";
+  const suffixPart =
+    p.suffix && p.suffix.trim().length > 0 ? ` ${p.suffix.trim()}` : "";
+  const base = `${p.first_name ?? ""}${middleInitial} ${
+    p.last_name ?? ""
+  }${suffixPart}`.trim();
+  return base || p.email || p.username || "";
+}
 
 export interface ProspectFormValues {
-  name: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  suffix: string;
+  gender: string;
+  date_first_invited: string;
   contact_info: string;
   facebook_name: string;
   invited_by_id: string;
@@ -20,6 +53,8 @@ export interface ProspectFormValues {
 interface ProspectFormProps {
   inviters?: Person[];
   groups?: EvangelismGroup[];
+  /** When set (e.g. group modal context), selects this bible study group and ensures it appears in options. */
+  selectedBibleStudyGroup?: EvangelismGroup | null;
   onSubmit: (values: ProspectFormValues) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -30,7 +65,12 @@ interface ProspectFormProps {
 }
 
 const DEFAULT_VALUES: ProspectFormValues = {
-  name: "",
+  first_name: "",
+  middle_name: "",
+  last_name: "",
+  suffix: "",
+  gender: "",
+  date_first_invited: todayISO(),
   contact_info: "",
   facebook_name: "",
   invited_by_id: "",
@@ -45,14 +85,44 @@ export default function ProspectForm({
   onCancel,
   isSubmitting,
   error,
-  submitLabel = "Create Visitor",
+  submitLabel = "Create Invited Visitor",
   initialData,
+  selectedBibleStudyGroup,
   defaultGroupId,
 }: ProspectFormProps) {
+  const contextGroupId = useMemo(() => {
+    if (defaultGroupId) return defaultGroupId;
+    const id = selectedBibleStudyGroup?.id;
+    return id != null && id !== "" ? String(id) : "";
+  }, [defaultGroupId, selectedBibleStudyGroup?.id]);
+
+  const groupChoices = useMemo(() => {
+    const byId = new Map<string, EvangelismGroup>();
+    if (
+      selectedBibleStudyGroup &&
+      selectedBibleStudyGroup.id != null &&
+      selectedBibleStudyGroup.id !== ""
+    ) {
+      byId.set(String(selectedBibleStudyGroup.id), selectedBibleStudyGroup);
+    }
+    for (const g of groups) {
+      if (g?.id != null && g.id !== "") {
+        byId.set(String(g.id), g);
+      }
+    }
+    return Array.from(byId.values());
+  }, [groups, selectedBibleStudyGroup]);
+
   const [values, setValues] = useState<ProspectFormValues>(
     initialData
       ? {
-          name: initialData.name,
+          first_name: initialData.first_name,
+          middle_name: initialData.middle_name || "",
+          last_name: initialData.last_name,
+          suffix: initialData.suffix || "",
+          gender: initialData.gender || "",
+          date_first_invited:
+            initialData.date_first_invited?.slice(0, 10) || todayISO(),
           contact_info: initialData.contact_info || "",
           facebook_name: initialData.facebook_name || "",
           invited_by_id: initialData.invited_by?.id || "",
@@ -61,18 +131,66 @@ export default function ProspectForm({
         }
       : {
           ...DEFAULT_VALUES,
-          evangelism_group_id: defaultGroupId || "",
+          evangelism_group_id: contextGroupId || "",
+          date_first_invited: todayISO(),
         }
   );
 
+  const [inviterSearch, setInviterSearch] = useState("");
+  const [showInviterDropdown, setShowInviterDropdown] = useState(false);
+  const inviterDropdownRef = useRef<HTMLDivElement>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!initialData && defaultGroupId) {
+    if (initialData) return;
+    if (contextGroupId) {
       setValues((prev) => ({
         ...prev,
-        evangelism_group_id: defaultGroupId,
+        evangelism_group_id: contextGroupId,
       }));
     }
-  }, [defaultGroupId, initialData]);
+  }, [initialData, contextGroupId]);
+
+  const inviterCandidates = useMemo(
+    () =>
+      [...inviters].sort((a, b) =>
+        personDisplayLabel(a).localeCompare(personDisplayLabel(b))
+      ),
+    [inviters]
+  );
+
+  const selectedInviter = inviterCandidates.find(
+    (p) => String(p.id) === values.invited_by_id
+  );
+
+  const filteredInviters = inviterCandidates.filter((person) =>
+    personDisplayLabel(person)
+      .toLowerCase()
+      .includes(inviterSearch.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        inviterDropdownRef.current &&
+        !inviterDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowInviterDropdown(false);
+      }
+    };
+    if (showInviterDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showInviterDropdown]);
+
+  useEffect(() => {
+    setValidationError(null);
+  }, [values.invited_by_id, values.first_name, values.last_name]);
+
+  useEffect(() => {
+    setValidationError(null);
+  }, [error]);
 
   const handleChange =
     (field: keyof ProspectFormValues) =>
@@ -87,148 +205,228 @@ export default function ProspectForm({
       }));
     };
 
+  const handleInviterSelect = (personId: string) => {
+    setValues((prev) => ({ ...prev, invited_by_id: personId }));
+    setShowInviterDropdown(false);
+    setInviterSearch("");
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!values.first_name.trim() || !values.last_name.trim()) {
+      setValidationError("First name and last name are required.");
+      return;
+    }
     if (!values.invited_by_id) {
+      setValidationError("Inviter is required.");
       return;
     }
     await onSubmit(values);
   };
 
-  const formatPersonLabel = (person: Person) => {
-    const name = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
-    return name || person.email || person.username;
-  };
-
-  const inviterOptions = useMemo(
-    () =>
-      inviters
-        .map((person) => ({
-          label: formatPersonLabel(person),
-          value: String(person.id),
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [inviters]
-  );
-
-  const groupOptions = useMemo(
-    () =>
-      groups
-        .map((group) => ({
-          label: group.name,
-          value: String(group.id),
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [groups]
-  );
+  const shownError = validationError || error || null;
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      {error && <ErrorMessage message={error} />}
+      {shownError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          {shownError}
+        </div>
+      )}
 
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Name <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={values.name}
-          onChange={handleChange("name")}
-          required
-          placeholder="Visitor's name"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
+      <div className="grid grid-cols-4 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            First Name *
+          </label>
+          <input
+            type="text"
+            value={values.first_name}
+            onChange={handleChange("first_name")}
+            className={CLUSTER_VISITOR_CONTROL}
+            required
+            autoComplete="given-name"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Middle Name
+          </label>
+          <input
+            type="text"
+            value={values.middle_name}
+            onChange={handleChange("middle_name")}
+            className={CLUSTER_VISITOR_CONTROL}
+            autoComplete="additional-name"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Last Name *
+          </label>
+          <input
+            type="text"
+            value={values.last_name}
+            onChange={handleChange("last_name")}
+            className={CLUSTER_VISITOR_CONTROL}
+            required
+            autoComplete="family-name"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Suffix
+          </label>
+          <input
+            type="text"
+            value={values.suffix}
+            onChange={handleChange("suffix")}
+            placeholder="Jr., Sr., III, etc."
+            className={CLUSTER_VISITOR_CONTROL}
+          />
+        </div>
       </div>
 
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Contact Info
-        </label>
-        <input
-          type="text"
-          value={values.contact_info}
-          onChange={handleChange("contact_info")}
-          placeholder="Phone or email"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Facebook Name
+          </label>
+          <input
+            type="text"
+            value={values.facebook_name}
+            onChange={handleChange("facebook_name")}
+            className={CLUSTER_VISITOR_CONTROL}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Gender
+          </label>
+          <select
+            value={values.gender}
+            onChange={handleChange("gender")}
+            className={CLUSTER_VISITOR_CONTROL}
+          >
+            <option value="">Select...</option>
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+          </select>
+        </div>
       </div>
 
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Facebook Name
-        </label>
-        <input
-          type="text"
-          value={values.facebook_name}
-          onChange={handleChange("facebook_name")}
-          placeholder="Facebook name"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
-
-      <div className="space-y-1">
+      <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Invited By <span className="text-red-500">*</span>
+          Notes
         </label>
-        <ScalableSelect
-          options={inviterOptions}
-          value={values.invited_by_id}
-          onChange={(value) =>
-            setValues((prev) => ({
-              ...prev,
-              invited_by_id: value,
-            }))
-          }
-          placeholder="Select inviter"
-          className="w-full"
-          showSearch
-        />
-      </div>
-
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Bible Study Group (Optional)
-        </label>
-        <ScalableSelect
-          options={[{ label: "Not set", value: "" }, ...groupOptions]}
-          value={values.evangelism_group_id || ""}
-          onChange={(value) =>
-            setValues((prev) => ({
-              ...prev,
-              evangelism_group_id: value || undefined,
-            }))
-          }
-          placeholder="Select Bible Study group"
-          className="w-full"
-          showSearch
-        />
-      </div>
-
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Notes</label>
         <textarea
           value={values.notes}
           onChange={handleChange("notes")}
-          placeholder="Additional notes..."
           rows={3}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          placeholder="Invitation notes (shown on timeline when visitor becomes a Person)…"
+          className={CLUSTER_VISITOR_CONTROL}
         />
       </div>
 
-      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Date First Invited *
+          </label>
+          <input
+            type="date"
+            value={values.date_first_invited}
+            onChange={handleChange("date_first_invited")}
+            className={CLUSTER_VISITOR_CONTROL}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Contact Info
+          </label>
+          <input
+            type="text"
+            value={values.contact_info}
+            onChange={handleChange("contact_info")}
+            placeholder="Phone or email"
+            className={CLUSTER_VISITOR_CONTROL}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Bible Study Group
+        </label>
+        <select
+          value={values.evangelism_group_id ?? ""}
+          onChange={(e) =>
+            setValues((prev) => ({
+              ...prev,
+              evangelism_group_id: e.target.value || undefined,
+            }))
+          }
+          className={CLUSTER_VISITOR_CONTROL}
+        >
+          <option value="">Not set</option>
+          {groupChoices.map((g) => (
+            <option key={g.id} value={String(g.id)}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Inviter *
+        </label>
+        <div className="relative" ref={inviterDropdownRef}>
+          <input
+            type="text"
+            value={
+              inviterSearch ||
+              (selectedInviter ? personDisplayLabel(selectedInviter) : "")
+            }
+            onChange={(e) => {
+              setInviterSearch(e.target.value);
+              setShowInviterDropdown(true);
+            }}
+            onFocus={() => setShowInviterDropdown(true)}
+            placeholder="Search for inviter..."
+            className={CLUSTER_VISITOR_CONTROL}
+          />
+          {showInviterDropdown && filteredInviters.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {filteredInviters.map((person) => (
+                <button
+                  key={person.id}
+                  type="button"
+                  onClick={() => handleInviterSelect(String(person.id))}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                >
+                  <div className="font-medium text-gray-900">
+                    {personDisplayLabel(person)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-4 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1 min-h-[44px]"
+          className="flex-1"
           onClick={onCancel}
           disabled={isSubmitting}
+          type="button"
         >
           Cancel
         </Button>
-        <Button
-          className="flex-1 min-h-[44px]"
-          disabled={isSubmitting}
-          type="submit"
-        >
+        <Button className="flex-1" disabled={isSubmitting} type="submit">
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>

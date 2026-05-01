@@ -126,11 +126,15 @@ export interface EvangelismTallyDrilldownRow {
 }
 
 export type PipelineStage = "INVITED" | "ATTENDED" | "BAPTIZED" | "RECEIVED_HG" | "CONVERTED";
-export type FastTrackReason = "NONE" | "GOING_ABROAD" | "HEALTH_ISSUES" | "OTHER";
 
 export interface Prospect {
   id: string;
-  name: string;
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  suffix?: string;
+  gender?: "" | "MALE" | "FEMALE" | string;
+  display_name?: string;
   contact_info?: string;
   facebook_name?: string;
   invited_by: Person;
@@ -143,7 +147,7 @@ export interface Prospect {
   person?: Person;
   pipeline_stage: PipelineStage;
   pipeline_stage_display: string;
-  first_contact_date?: string;
+  date_first_invited?: string;
   last_activity_date?: string;
   is_attending_cluster: boolean;
   is_dropped_off: boolean;
@@ -152,7 +156,6 @@ export interface Prospect {
   drop_off_reason?: string;
   has_finished_lessons: boolean;
   commitment_form_signed: boolean;
-  fast_track_reason: FastTrackReason;
   notes?: string;
   days_since_last_activity?: number;
   created_at: string;

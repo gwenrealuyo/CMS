@@ -635,6 +635,11 @@ export default function ModuleCoordinatorManager() {
             Create Multiple Assignments
           </Button>
         </div>
+        <p className="text-xs text-gray-500 max-w-3xl">
+          To give one person access to several resources in the same module (for example,
+          multiple clusters or evangelism groups), add a separate assignment per resource,
+          or use <strong>Create Multiple Assignments</strong> for one submission.
+        </p>
       </div>
 
       {/* Filters */}

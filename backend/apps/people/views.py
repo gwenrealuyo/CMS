@@ -404,19 +404,20 @@ class JourneyViewSet(viewsets.ModelViewSet):
             ModuleCoordinator.ModuleType.CLUSTER,
             level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         ):
-            # Get clusters where user is coordinator
             from apps.clusters.models import Cluster
+            from apps.clusters.permissions import managed_cluster_ids_for_coordinator
 
-            user_clusters = Cluster.objects.filter(coordinator=user)
-            # Get all members of these clusters
-            cluster_member_ids = user_clusters.values_list(
-                "members__id", flat=True
-            ).distinct()
-            # Return journeys for these members + own journeys
+            cluster_ids = managed_cluster_ids_for_coordinator(user)
+            if not cluster_ids:
+                return queryset.filter(user=user)
+            cluster_member_ids = (
+                Cluster.objects.filter(id__in=cluster_ids)
+                .values_list("members__id", flat=True)
+                .distinct()
+            )
             cluster_journeys = queryset.filter(
                 user__id__in=list(cluster_member_ids) + [user.id]
             ).distinct()
-            # Apply branch filtering
             if user.branch:
                 return cluster_journeys.filter(user__branch=user.branch)
             return cluster_journeys

@@ -328,21 +328,24 @@ class HasModuleAccess(permissions.BasePermission):
             if effective_action == "read":
                 return True
 
-            # For write/create, need COORDINATOR or SENIOR_COORDINATOR level
+            # For write/create, any qualifying assignment for this module (not .first())
             if effective_action in ["write", "create"]:
-                assignment = user.module_coordinator_assignments.filter(
+                mod_assignments = user.module_coordinator_assignments.filter(
                     module=module_type_str
-                ).first()
-                if assignment and assignment.level in [
-                    ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-                    ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-                ]:
+                )
+                if mod_assignments.filter(
+                    level__in=(
+                        ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                        ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+                    )
+                ).exists():
                     return True
-                # Also allow TEACHER and BIBLE_SHARER for write/create in their modules
-                if assignment and assignment.level in [
-                    ModuleCoordinator.CoordinatorLevel.TEACHER,
-                    ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
-                ]:
+                if mod_assignments.filter(
+                    level__in=(
+                        ModuleCoordinator.CoordinatorLevel.TEACHER,
+                        ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+                    )
+                ).exists():
                     return True
 
             # For delete, need SENIOR_COORDINATOR or ADMIN/PASTOR

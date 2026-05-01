@@ -8,6 +8,26 @@ from apps.clusters.models import Cluster
 from apps.people.models import ModuleCoordinator
 
 
+def managed_cluster_ids_for_coordinator(user) -> list[int]:
+    """
+    Cluster PKs the user manages as CLUSTER module coordinator: FK `Cluster.coordinator`
+    plus ModuleCoordinator rows (CLUSTER, COORDINATOR, non-null resource_id).
+    """
+    if not getattr(user, "is_authenticated", False):
+        return []
+    fk_ids = list(
+        Cluster.objects.filter(coordinator=user).values_list("id", flat=True)
+    )
+    mc_ids = list(
+        user.module_coordinator_assignments.filter(
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id__isnull=False,
+        ).values_list("resource_id", flat=True)
+    )
+    return list(set(fk_ids + mc_ids))
+
+
 def user_manages_cluster(user, cluster) -> bool:
     if cluster is None:
         return False
@@ -33,15 +53,17 @@ def allows_cluster_mutation_attempt(user) -> bool:
     if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
         return True
     if user.is_module_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
-        assignment = user.module_coordinator_assignments.filter(
+        qs = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.CLUSTER,
-        ).first()
-        if assignment and assignment.level in (
-            ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-            ModuleCoordinator.CoordinatorLevel.TEACHER,
-            ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
-        ):
+        )
+        if qs.filter(
+            level__in=(
+                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+                ModuleCoordinator.CoordinatorLevel.TEACHER,
+                ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            )
+        ).exists():
             return True
     if Cluster.objects.filter(coordinator=user).exists():
         return True

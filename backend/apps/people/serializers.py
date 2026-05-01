@@ -528,14 +528,12 @@ class PersonSerializer(serializers.ModelSerializer):
             ModuleCoordinator.ModuleType.CLUSTER,
             level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         ):
-            # Get clusters where user is coordinator
-            from apps.clusters.models import Cluster
+            from apps.clusters.permissions import managed_cluster_ids_for_coordinator
 
-            user_clusters = Cluster.objects.filter(coordinator=user)
-            # Check if person is a direct member of any of these clusters
-            return obj.clusters.filter(
-                id__in=user_clusters.values_list("id", flat=True)
-            ).exists()
+            cluster_ids = managed_cluster_ids_for_coordinator(user)
+            if not cluster_ids:
+                return False
+            return obj.clusters.filter(id__in=cluster_ids).exists()
 
         return False
 

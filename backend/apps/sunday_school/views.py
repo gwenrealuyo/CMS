@@ -18,6 +18,7 @@ from apps.authentication.permissions import (
     HasModuleAccess,
 )
 from apps.people.models import ModuleCoordinator
+from apps.people.coordinator_scope import coordinator_assigned_resource_ids_when_all_scoped
 
 from .models import (
     SundaySchoolCategory,
@@ -132,23 +133,50 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
     def get_object(self):
         obj = super().get_object()
         user = self.request.user
-        
-        # Sunday School Teacher can only edit/delete classes where they're TEACHER
-        if (self.action in ["update", "partial_update", "destroy"] and
+
+        scoped_ids = None
+        if (
             user.is_module_coordinator(
                 ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
-                level=ModuleCoordinator.CoordinatorLevel.TEACHER
-            )):
-            # Check if user is a teacher in this class
+                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+            and not user.is_senior_coordinator(
+                ModuleCoordinator.ModuleType.SUNDAY_SCHOOL
+            )
+        ):
+            scoped_ids = coordinator_assigned_resource_ids_when_all_scoped(
+                user,
+                ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+
+        if scoped_ids is not None and obj.id not in scoped_ids:
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                "You do not have access to this Sunday School class.",
+            )
+
+        # Sunday School Teacher can only edit/delete classes where they're TEACHER
+        if (
+            self.action in ["update", "partial_update", "destroy"]
+            and user.is_module_coordinator(
+                ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+                level=ModuleCoordinator.CoordinatorLevel.TEACHER,
+            )
+        ):
             if not SundaySchoolClassMember.objects.filter(
                 sunday_school_class=obj,
                 person=user,
                 role=SundaySchoolClassMember.Role.TEACHER,
-                is_active=True
+                is_active=True,
             ).exists():
                 from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied("You can only edit classes where you are a teacher.")
-        
+
+                raise PermissionDenied(
+                    "You can only edit classes where you are a teacher.",
+                )
+
         return obj
 
     @action(detail=True, methods=["post"])

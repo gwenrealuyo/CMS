@@ -13,7 +13,7 @@ from rest_framework.response import Response
 
 from apps.attendance.models import AttendanceRecord
 from apps.events.models import Event
-from apps.people.models import Branch, Person, Journey
+from apps.people.models import Branch, ModuleCoordinator, Person, Journey
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.lessons.models import LessonSessionReport
 from apps.authentication.permissions import (
@@ -23,7 +23,7 @@ from apps.authentication.permissions import (
     HasModuleAccess,
     CanEditAssignedResource,
 )
-from apps.people.models import ModuleCoordinator
+from apps.people.coordinator_scope import coordinator_assigned_resource_ids_when_all_scoped
 
 from .models import (
     EvangelismGroup,
@@ -154,18 +154,45 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
     def get_object(self):
         obj = super().get_object()
         user = self.request.user
-        
-        # Bible Sharer can only edit/delete groups they're members of
-        if (self.action in ["update", "partial_update", "destroy"] and
+
+        scoped_ids = None
+        if (
             user.is_module_coordinator(
                 ModuleCoordinator.ModuleType.EVANGELISM,
-                level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
-            )):
-            # Check if user is a member of this group
+                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+            and not user.is_senior_coordinator(
+                ModuleCoordinator.ModuleType.EVANGELISM
+            )
+        ):
+            scoped_ids = coordinator_assigned_resource_ids_when_all_scoped(
+                user,
+                ModuleCoordinator.ModuleType.EVANGELISM,
+                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+
+        if scoped_ids is not None and obj.id not in scoped_ids:
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                "You do not have access to this evangelism group.",
+            )
+
+        # Bible Sharer can only edit/delete groups they're members of
+        if (
+            self.action in ["update", "partial_update", "destroy"]
+            and user.is_module_coordinator(
+                ModuleCoordinator.ModuleType.EVANGELISM,
+                level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            )
+        ):
             if not obj.members.filter(pk=user.pk).exists():
                 from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied("You can only edit groups you are a member of.")
-        
+
+                raise PermissionDenied(
+                    "You can only edit groups you are a member of.",
+                )
+
         return obj
 
     @action(detail=True, methods=["post"])

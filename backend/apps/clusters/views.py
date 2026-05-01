@@ -274,54 +274,78 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         # and the month filter from get_queryset() override
         queryset = self.get_queryset()
 
-        annotated = queryset.annotate(
-            _member_cnt=Count("members_attended", distinct=True),
-            _visitor_cnt=Count("visitors_attended", distinct=True),
+        report_count = queryset.count()
+
+        # Aggregate via M2M through models. Django forbids Sum() over annotations that use Count()
+        # (nested aggregates), so we count link rows instead of summing per-report counts.
+        member_links = ClusterWeeklyReport.members_attended.through.objects.filter(
+            clusterweeklyreport__in=queryset
+        )
+        visitor_links = ClusterWeeklyReport.visitors_attended.through.objects.filter(
+            clusterweeklyreport__in=queryset
         )
 
-        agg = annotated.aggregate(
-            report_count=Count("pk", distinct=True),
-            total_members=Sum("_member_cnt"),
-            total_visitors=Sum("_visitor_cnt"),
-        )
-        report_count = agg["report_count"] or 0
-        total_members = agg["total_members"] or 0
-        total_visitors = agg["total_visitors"] or 0
+        total_members = member_links.count()
+        total_visitors = visitor_links.count()
 
         avg_members = total_members / report_count if report_count > 0 else 0
         avg_visitors = total_visitors / report_count if report_count > 0 else 0
 
-        monthly_attendance = []
-        monthly_qs = (
-            annotated.annotate(_month=TruncMonth("meeting_date"))
-            .values("_month")
-            .annotate(
-                members=Sum("_member_cnt"),
-                visitors=Sum("_visitor_cnt"),
+        monthly_members = (
+            member_links.annotate(
+                _month=TruncMonth("clusterweeklyreport__meeting_date")
             )
-            .order_by("_month")
+            .values("_month")
+            .annotate(members=Count("id"))
         )
-        for row in monthly_qs:
+        monthly_visitors = (
+            visitor_links.annotate(
+                _month=TruncMonth("clusterweeklyreport__meeting_date")
+            )
+            .values("_month")
+            .annotate(visitors=Count("id"))
+        )
+
+        members_by_month = {}
+        for row in monthly_members:
             mt = row["_month"]
             if mt is None:
                 continue
+            members_by_month[mt] = row["members"]
+
+        visitors_by_month = {}
+        for row in monthly_visitors:
+            mt = row["_month"]
+            if mt is None:
+                continue
+            visitors_by_month[mt] = row["visitors"]
+
+        all_months = sorted(
+            set(members_by_month.keys()) | set(visitors_by_month.keys())
+        )
+        monthly_attendance = []
+        for mt in all_months:
             monthly_attendance.append(
                 {
                     "month_key": mt.strftime("%Y-%m"),
                     "month_label": mt.strftime("%b %Y"),
-                    "members": int(row["members"] or 0),
-                    "visitors": int(row["visitors"] or 0),
+                    "members": int(members_by_month.get(mt, 0)),
+                    "visitors": int(visitors_by_month.get(mt, 0)),
                 }
             )
 
+        member_counts_by_cluster = {
+            row["clusterweeklyreport__cluster_id"]: row["sum_members_attended"]
+            for row in member_links.values("clusterweeklyreport__cluster_id").annotate(
+                sum_members_attended=Count("id")
+            )
+        }
+
         cluster_comparison = []
-        cluster_qs = annotated.values(
-            "cluster_id",
-            "cluster__name",
-            "cluster__code",
-        ).annotate(
-            report_count=Count("pk", distinct=True),
-            sum_members_attended=Sum("_member_cnt"),
+        cluster_qs = (
+            queryset.values("cluster_id", "cluster__name", "cluster__code")
+            .annotate(report_count=Count("id"))
+            .order_by("cluster_id")
         )
         for row in cluster_qs:
             cid = row["cluster_id"]
@@ -340,7 +364,9 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                     "cluster_id": cid,
                     "cluster_label": label,
                     "report_count": row["report_count"],
-                    "sum_members_attended": int(row["sum_members_attended"] or 0),
+                    "sum_members_attended": int(
+                        member_counts_by_cluster.get(cid, 0)
+                    ),
                 }
             )
 

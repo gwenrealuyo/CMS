@@ -6,38 +6,8 @@ interface EventFormProps {
   onSubmit: (event: Partial<Event>) => Promise<Event | void>;
   initialData?: Partial<Event>;
   onClose?: () => void;
+  eventTypeOptions?: { value: string; label: string }[];
 }
-
-type EventType =
-  | "SUNDAY_SERVICE"
-  | "BIBLE_STUDY"
-  | "PRAYER_MEETING"
-  | "CLUSTER_BS_EVANGELISM"
-  | "CLUSTERING"
-  | "DOCTRINAL_CLASS"
-  | "CYM_CLASS"
-  | "MINI_WORSHIP"
-  | "GOLDEN_WARRIORS"
-  | "CAMPING"
-  | "AWTA"
-  | "CONFERENCE"
-  | "OTHER";
-
-const eventTypeOptions: { value: EventType; label: string }[] = [
-  { value: "SUNDAY_SERVICE", label: "Sunday Service" },
-  { value: "BIBLE_STUDY", label: "Bible Study" },
-  { value: "PRAYER_MEETING", label: "Prayer Meeting" },
-  { value: "CLUSTER_BS_EVANGELISM", label: "Cluster/BS Evangelism" },
-  { value: "CLUSTERING", label: "Clustering" },
-  { value: "DOCTRINAL_CLASS", label: "Doctrinal Class" },
-  { value: "CYM_CLASS", label: "CYM Class" },
-  { value: "MINI_WORSHIP", label: "Mini Worship" },
-  { value: "GOLDEN_WARRIORS", label: "Golden Warriors" },
-  { value: "CAMPING", label: "Camping" },
-  { value: "AWTA", label: "AWTA" },
-  { value: "CONFERENCE", label: "Conference" },
-  { value: "OTHER", label: "Others" },
-];
 
 const parseLocalDateTime = (value: string) => {
   if (!value) return null;
@@ -150,6 +120,7 @@ export default function EventForm({
   onSubmit,
   initialData,
   onClose,
+  eventTypeOptions = [],
 }: EventFormProps) {
   const defaultFormData = useMemo(() => {
     if (initialData) {
@@ -170,7 +141,7 @@ export default function EventForm({
     return {
       title: "Sunday Service",
       description: "",
-      type: "SUNDAY_SERVICE" as EventType,
+      type: "SUNDAY_SERVICE",
       location: "HQ Muntinlupa",
       is_recurring: false,
       start_date: startDate,

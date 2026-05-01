@@ -216,7 +216,7 @@ class Command(BaseCommand):
         genders = ["MALE", "FEMALE"]
         activities = [
             "SUNDAY_SERVICE",
-            "CLUSTER_BS_EVANGELISM",
+            "BS/CLUSTER_EVANGELISM",
             "DOCTRINAL_CLASS",
             "PRAYER_MEETING",
             "MINI_WORSHIP",

@@ -24,6 +24,7 @@ import {
   Event,
   EventAttendanceRecord,
   AttendanceStatus,
+  EventTypeOption,
 } from "@/src/types/event";
 import {
   Ministry,
@@ -451,10 +452,12 @@ export const eventsApi = {
     attendance_date?: string;
     start?: string;
     end?: string;
+    type?: string;
   }) =>
     api.get<Event[]>("/events/", {
       params,
     }),
+  listTypes: () => api.get<EventTypeOption[]>("/events/types/"),
   getById: (
     id: string,
     params?: { include_attendance?: boolean; attendance_date?: string }

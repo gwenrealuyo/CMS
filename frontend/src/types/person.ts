@@ -65,7 +65,7 @@ export interface Person {
   has_finished_lessons?: boolean;
   lessons_finished_at?: string; // ISO date string
   first_activity_attended?:
-    | "CLUSTER_BS_EVANGELISM"
+    | "BS/CLUSTER_EVANGELISM"
     | "CLUSTERING"
     | "SUNDAY_SERVICE"
     | "DOCTRINAL_CLASS"

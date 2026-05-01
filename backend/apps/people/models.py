@@ -72,7 +72,7 @@ class Person(AbstractUser):
         blank=True,
         max_length=50,
         choices=[
-            ("CLUSTER_BS_EVANGELISM", "Cluster/BS Evangelism"),
+            ("BS/CLUSTER_EVANGELISM", "BS/Cluster Evangelism"),
             ("CLUSTERING", "Clustering"),
             ("SUNDAY_SERVICE", "Sunday Service"),
             ("DOCTRINAL_CLASS", "Doctrinal Class"),

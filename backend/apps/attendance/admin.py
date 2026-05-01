@@ -12,7 +12,7 @@ class AttendanceRecordAdmin(admin.ModelAdmin):
         "status",
         "recorded_at",
     )
-    list_filter = ("status", "occurrence_date", "event__type")
+    list_filter = ("status", "occurrence_date", "event__event_type")
     search_fields = (
         "event__title",
         "person__username",

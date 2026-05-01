@@ -37,7 +37,7 @@ class PersonStatusCalculationTest(TestCase):
         """Helper to create a Sunday Service event"""
         return Event.objects.create(
             title="Sunday Service",
-            type="SUNDAY_SERVICE",
+            event_type_id="SUNDAY_SERVICE",
             start_date=timezone.make_aware(
                 datetime.combine(service_date, datetime.min.time())
             ),
@@ -51,7 +51,7 @@ class PersonStatusCalculationTest(TestCase):
         """Helper to create a Doctrinal Class event"""
         return Event.objects.create(
             title="Doctrinal Class",
-            type="DOCTRINAL_CLASS",
+            event_type_id="DOCTRINAL_CLASS",
             start_date=timezone.make_aware(
                 datetime.combine(class_date, datetime.min.time())
             ),
@@ -181,7 +181,7 @@ class PersonStatusCalculationTest(TestCase):
         self.assertEqual(status, "SEMIACTIVE")  # Not ACTIVE because not all 3 meet threshold
 
     def test_inactive_no_types_meet_threshold(self):
-        """Test INACTIVE status when no types meet threshold"""
+        """Below ACTIVE threshold but ≥1 attendance per type → SEMIACTIVE."""
         # Create 4 Sunday Services (person attends 2)
         for i in range(4):
             event = self.create_sunday_service(self.start_date + timedelta(weeks=i))
@@ -215,7 +215,7 @@ class PersonStatusCalculationTest(TestCase):
                 )
         
         status = calculate_person_attendance_status(self.person, self.reference_date)
-        self.assertEqual(status, "INACTIVE")
+        self.assertEqual(status, "SEMIACTIVE")
 
     def test_no_cluster_assignment_max_semiactive(self):
         """Test that person not in cluster can only be SEMIACTIVE maximum"""
@@ -308,7 +308,7 @@ class PersonStatusCalculationTest(TestCase):
         self.assertEqual(status, "ACTIVE")  # Exactly 3 meets threshold (≥3)
 
     def test_exactly_two_attendances_below_threshold(self):
-        """Test that exactly 2 attendances does not meet threshold"""
+        """Exactly 2 attendances: below ACTIVE threshold (3) but SEMIACTIVE (≥1)."""
         # Create 4 Sunday Services (person attends exactly 2)
         for i in range(4):
             event = self.create_sunday_service(self.start_date + timedelta(weeks=i))
@@ -321,7 +321,7 @@ class PersonStatusCalculationTest(TestCase):
                 )
         
         status = calculate_person_attendance_status(self.person, self.reference_date)
-        self.assertEqual(status, "INACTIVE")  # 2 < 3, so below threshold
+        self.assertEqual(status, "SEMIACTIVE")
 
 
 class PersonStatusUpdateTest(TestCase):

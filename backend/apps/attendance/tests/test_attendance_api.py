@@ -29,7 +29,7 @@ class AttendanceIntegrationTests(TestCase):
             description="Weekly gathering",
             start_date=make_aware(2025, 1, 5, 9),
             end_date=make_aware(2025, 1, 5, 11),
-            type="SUNDAY_SERVICE",
+            event_type_id="SUNDAY_SERVICE",
             location="Main Hall",
         )
         self.admin_user = Person.objects.create_user(
@@ -159,7 +159,7 @@ class AttendanceIntegrationTests(TestCase):
             description="Weekly class",
             start_date=make_aware(2025, 1, 5, 9),
             end_date=make_aware(2025, 1, 5, 10),
-            type="SUNDAY_SCHOOL",
+            event_type_id="SUNDAY_SCHOOL",
             location="Room 1",
         )
         session = SundaySchoolSession.objects.create(

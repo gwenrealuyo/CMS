@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.events.models import Event
 from apps.events.services.recurrence import clean_weekly_pattern, generate_occurrences
+from apps.people.models import Person
 
 
 def make_aware(year, month, day, hour=0, minute=0):
@@ -45,7 +46,7 @@ class RecurrenceServiceTests(TestCase):
             title="Sunday Service",
             start_date=start,
             end_date=end,
-            type="SUNDAY_SERVICE",
+            event_type_id="SUNDAY_SERVICE",
             location="HQ",
             is_recurring=True,
             recurrence_pattern={
@@ -82,6 +83,15 @@ class RecurrenceServiceTests(TestCase):
 class RecurrenceViewSetTests(TestCase):
     def test_exclude_occurrence_action_marks_date_and_updates_occurrences(self):
         client = APIClient()
+        admin = Person.objects.create_user(
+            username="rec_admin",
+            password="password",
+            first_name="Rec",
+            last_name="Admin",
+            role="ADMIN",
+            status="ACTIVE",
+        )
+        client.force_authenticate(user=admin)
 
         start = make_aware(2025, 1, 5, 9)
         end = make_aware(2025, 1, 5, 11)
@@ -90,7 +100,7 @@ class RecurrenceViewSetTests(TestCase):
             title="Sunday Service",
             start_date=start,
             end_date=end,
-            type="SUNDAY_SERVICE",
+            event_type_id="SUNDAY_SERVICE",
             location="HQ",
             is_recurring=True,
             recurrence_pattern={

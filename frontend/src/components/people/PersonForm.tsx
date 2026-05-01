@@ -1075,7 +1075,7 @@ export default function PersonForm({
                     >
                       <option value="">Select activity</option>
                       {[
-                        "CLUSTER_BS_EVANGELISM",
+                        "BS/CLUSTER_EVANGELISM",
                         "CLUSTERING",
                         "SUNDAY_SERVICE",
                         "DOCTRINAL_CLASS",

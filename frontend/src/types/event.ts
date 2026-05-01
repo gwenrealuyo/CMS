@@ -42,26 +42,18 @@ export interface EventAttendanceRecord {
   person: EventAttendancePerson;
 }
 
+export interface EventTypeOption {
+  code: string;
+  label: string;
+}
+
 export interface Event {
   id: string;
   title: string;
   description: string;
   start_date: string;
   end_date: string;
-  type:
-    | "SUNDAY_SERVICE"
-    | "BIBLE_STUDY"
-    | "PRAYER_MEETING"
-    | "CLUSTER_BS_EVANGELISM"
-    | "CLUSTERING"
-    | "DOCTRINAL_CLASS"
-    | "CYM_CLASS"
-    | "MINI_WORSHIP"
-    | "GOLDEN_WARRIORS"
-    | "CAMPING"
-    | "AWTA"
-    | "CONFERENCE"
-    | "OTHER";
+  type: string;
   type_display: string;
   location: string;
   is_recurring: boolean;

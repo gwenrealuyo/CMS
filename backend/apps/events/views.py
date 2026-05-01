@@ -1,12 +1,13 @@
 from datetime import datetime
 
+import django_filters
 from django.utils.dateparse import parse_date
 from django.utils import dateparse, timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from django_filters.rest_framework import DjangoFilterBackend
 from apps.attendance.models import AttendanceRecord
 from apps.attendance.serializers import AttendanceRecordSerializer
 from apps.authentication.permissions import (
@@ -17,60 +18,73 @@ from apps.authentication.permissions import (
     IsSeniorCoordinator,
 )
 from apps.people.models import ModuleCoordinator
-from .models import Event
+from .models import Event, EventType
 from .serializers import EventSerializer
 from .services.recurrence import clean_weekly_pattern
 
 
+class EventFilter(django_filters.FilterSet):
+    type = django_filters.CharFilter(field_name="event_type_id", lookup_expr="exact")
+
+    class Meta:
+        model = Event
+        fields = ["start_date"]
+
+
 class EventViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
-    queryset = (
-        Event.objects.all()
-        .order_by("start_date")
-        .prefetch_related(
-            "attendance_records__person__clusters",
-            "attendance_records__person__families",
-            "attendance_records__person__clusters__members",
-            "attendance_records__person",
-            "attendance_records__journey",
-        )
-    )
     serializer_class = EventSerializer
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ["title", "description"]
-    filterset_fields = ["type", "start_date"]
+    filterset_class = EventFilter
 
     def get_queryset(self):
+        queryset = (
+            Event.objects.all()
+            .order_by("start_date")
+            .select_related("event_type")
+            .prefetch_related(
+                "attendance_records__person__clusters",
+                "attendance_records__person__families",
+                "attendance_records__person__clusters__members",
+                "attendance_records__person",
+                "attendance_records__journey",
+            )
+        )
+
         user = self.request.user
-        queryset = super().get_queryset()
 
-        # ADMIN/PASTOR: All events
         if user.role in ["ADMIN", "PASTOR"]:
-            return queryset
-
-        # Events Coordinator (EVENTS, COORDINATOR): All events
-        if user.is_module_coordinator(
+            pass
+        elif user.is_module_coordinator(
             ModuleCoordinator.ModuleType.EVENTS,
             level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         ):
-            return queryset
+            pass
+        elif user.is_senior_coordinator():
+            pass
+        elif user.role == "MEMBER":
+            pass
+        else:
+            queryset = queryset.none()
 
-        # Senior Coordinator: All events (filtering for edit/delete happens in permissions)
-        if user.is_senior_coordinator():
-            return queryset
+        start_param = self.request.query_params.get("start") if self.request else None
+        end_param = self.request.query_params.get("end") if self.request else None
 
-        # MEMBER: Read-only, all events visible
-        if user.role == "MEMBER":
-            return queryset
+        start_dt = self._parse_dt(start_param)
+        end_dt = self._parse_dt(end_param)
 
-        # Default: empty queryset for safety
-        return queryset.none()
+        if start_dt:
+            queryset = queryset.filter(end_date__gte=start_dt)
+        if end_dt:
+            queryset = queryset.filter(start_date__lte=end_dt)
+        return queryset
 
     def get_permissions(self):
         """
         Override to set permissions based on action.
         """
-        if self.action in ["list", "retrieve", "attendance"]:
+        if self.action in ["list", "retrieve", "attendance", "types"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action in ["create", "update", "partial_update", "add_attendance"]:
@@ -107,19 +121,12 @@ class EventViewSet(viewsets.ModelViewSet):
             parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
         return parsed
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        start_param = self.request.query_params.get("start") if self.request else None
-        end_param = self.request.query_params.get("end") if self.request else None
-
-        start_dt = self._parse_dt(start_param)
-        end_dt = self._parse_dt(end_param)
-
-        if start_dt:
-            queryset = queryset.filter(end_date__gte=start_dt)
-        if end_dt:
-            queryset = queryset.filter(start_date__lte=end_dt)
-        return queryset
+    @action(detail=False, methods=["get"], url_path="types")
+    def types(self, request):
+        rows = EventType.objects.order_by("sort_order", "code").values(
+            "code", "label"
+        )
+        return Response(list(rows))
 
     @action(detail=True, methods=["get"], url_path="attendance")
     def attendance(self, request, pk=None):

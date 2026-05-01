@@ -33,7 +33,7 @@ def calculate_person_attendance_status(person, reference_date=None):
     
     # Count Sunday Service attendances
     sunday_events = Event.objects.filter(
-        type="SUNDAY_SERVICE",
+        event_type_id="SUNDAY_SERVICE",
         start_date__date__gte=start_date,
         start_date__date__lte=reference_date
     )
@@ -67,7 +67,7 @@ def calculate_person_attendance_status(person, reference_date=None):
     
     # Count Doctrinal Class attendances
     doctrinal_events = Event.objects.filter(
-        type="DOCTRINAL_CLASS",
+        event_type_id="DOCTRINAL_CLASS",
         start_date__date__gte=start_date,
         start_date__date__lte=reference_date
     )

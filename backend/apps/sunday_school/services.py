@@ -360,7 +360,7 @@ def create_recurring_sessions(
             description=f"Sunday School session for {sunday_school_class.name}",
             start_date=session_datetime,
             end_date=end_datetime,
-            type="SUNDAY_SCHOOL",
+            event_type_id="SUNDAY_SCHOOL",
             location=sunday_school_class.room_location or "",
             is_recurring=False,
         )

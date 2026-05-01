@@ -18,7 +18,6 @@ from apps.evangelism.models import (
 )
 from apps.people.models import Person, ModuleCoordinator
 from apps.clusters.models import Cluster
-from apps.events.models import Event
 from datetime import datetime, timedelta, date
 import random
 

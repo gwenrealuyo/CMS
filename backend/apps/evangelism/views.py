@@ -380,14 +380,14 @@ class EvangelismSessionViewSet(viewsets.ModelViewSet):
             event_title = f"{event_title} - {session.topic}"
 
         # Determine event type based on cluster affiliation
-        event_type = "CLUSTER_BS_EVANGELISM" if group.cluster else "BIBLE_STUDY"
+        event_type = "BS/CLUSTER_EVANGELISM" if group.cluster else "BIBLE_STUDY"
 
         event = Event.objects.create(
             title=event_title,
             description=f"Bible Study session for {group.name}",
             start_date=session_datetime,
             end_date=end_datetime,
-            type=event_type,
+            event_type_id=event_type,
             location=group.location or "",
             is_recurring=False,
         )

@@ -497,7 +497,7 @@ export default function EvangelismWeeklyReportForm({
         onClose={() => setShowAddVisitorModal(false)}
         onAdd={handleAddVisitor}
         defaultDateFirstAttended={formData.meeting_date}
-        defaultFirstActivityAttended="CLUSTER_BS_EVANGELISM"
+        defaultFirstActivityAttended="BS/CLUSTER_EVANGELISM"
       />
     </form>
   );

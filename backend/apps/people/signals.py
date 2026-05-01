@@ -22,7 +22,7 @@ def update_status_on_attendance_record(sender, instance, created, **kwargs):
     Update person status when attendance record is created/updated.
     Only triggers for Sunday Service and Doctrinal Class events.
     """
-    if instance.event.type in ["SUNDAY_SERVICE", "DOCTRINAL_CLASS"]:
+    if instance.event.event_type_id in ["SUNDAY_SERVICE", "DOCTRINAL_CLASS"]:
         try:
             update_person_status(instance.person)
             logger.debug(f"Updated status for person {instance.person.id} after attendance record change")

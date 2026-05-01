@@ -6,12 +6,17 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.attendance.serializers import AttendanceRecordSerializer
-from .models import Event
+from .models import Event, EventType
 from .services.recurrence import clean_weekly_pattern, generate_occurrences
 
 
 class EventSerializer(serializers.ModelSerializer):
-    type_display = serializers.CharField(source="get_type_display", read_only=True)
+    type = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=EventType.objects.all(),
+        source="event_type",
+    )
+    type_display = serializers.CharField(source="event_type.label", read_only=True)
     occurrences = serializers.SerializerMethodField()
     next_occurrence = serializers.SerializerMethodField()
     attendance_count = serializers.SerializerMethodField()

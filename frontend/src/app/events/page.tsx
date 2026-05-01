@@ -82,6 +82,7 @@ export default function EventsPage() {
 
   const {
     events,
+    eventTypes,
     calendarEvents,
     loading,
     error,
@@ -400,22 +401,18 @@ export default function EventsPage() {
     setCalendarMonthDate(now);
   };
 
-  const eventTypeOptions = [
-    { value: "all", label: "All Events" },
-    { value: "AWTA", label: "AWTA" },
-    { value: "BIBLE_STUDY", label: "Bible Study" },
-    { value: "CAMPING", label: "Camping" },
-    { value: "CLUSTER_BS_EVANGELISM", label: "Cluster/BS Evangelism" },
-    { value: "CLUSTERING", label: "Clustering" },
-    { value: "CONFERENCE", label: "Conference" },
-    { value: "CYM_CLASS", label: "CYM Class" },
-    { value: "DOCTRINAL_CLASS", label: "Doctrinal Class" },
-    { value: "GOLDEN_WARRIORS", label: "Golden Warriors" },
-    { value: "MINI_WORSHIP", label: "Mini Worship" },
-    { value: "OTHER", label: "Others" },
-    { value: "PRAYER_MEETING", label: "Prayer Meeting" },
-    { value: "SUNDAY_SERVICE", label: "Sunday Service" },
-  ];
+  const eventTypeFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "All Events" },
+      ...eventTypes.map((t) => ({ value: t.code, label: t.label })),
+    ],
+    [eventTypes]
+  );
+
+  const eventFormTypeOptions = useMemo(
+    () => eventTypes.map((t) => ({ value: t.code, label: t.label })),
+    [eventTypes]
+  );
 
   const availableYears = useMemo(() => {
     const years = new Set<string>();
@@ -607,7 +604,7 @@ export default function EventsPage() {
                     onChange={(e) => setFilterType(e.target.value)}
                     className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
                   >
-                    {eventTypeOptions.map((option) => (
+                    {eventTypeFilterOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -700,7 +697,7 @@ export default function EventsPage() {
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
                     Type:{" "}
                     {
-                      eventTypeOptions.find((opt) => opt.value === filterType)
+                      eventTypeFilterOptions.find((opt) => opt.value === filterType)
                         ?.label
                     }
                     <button
@@ -953,6 +950,7 @@ export default function EventsPage() {
           />
         ) : (
           <EventForm
+            eventTypeOptions={eventFormTypeOptions}
             onSubmit={viewEditEvent ? handleUpdateEvent : handleCreateEvent}
             initialData={viewEditEvent || undefined}
             onClose={() => {

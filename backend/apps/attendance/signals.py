@@ -8,11 +8,11 @@ from .models import AttendanceRecord
 
 def _build_journey_defaults(record: AttendanceRecord) -> dict:
     event = record.event
-    type_display = getattr(event, "get_type_display", None)
-    event_type = (
-        event.get_type_display() if callable(type_display) else event.type or ""
-    )
-    if event.type == "SUNDAY_SCHOOL":
+    event_type_label = ""
+    et = getattr(event, "event_type", None)
+    if et is not None:
+        event_type_label = et.label
+    if event.event_type_id == "SUNDAY_SCHOOL":
         session = getattr(event, "sunday_school_session", None)
         class_name = event.title
         lesson_title = ""
@@ -35,7 +35,7 @@ def _build_journey_defaults(record: AttendanceRecord) -> dict:
             "description": description,
         }
     description_parts = [
-        event_type,
+        event_type_label,
         f"on {record.occurrence_date.isoformat()}",
     ]
     if event.location:

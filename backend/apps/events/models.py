@@ -1,5 +1,17 @@
-from django.db import models
 from django.conf import settings
+from django.db import models
+
+
+class EventType(models.Model):
+    code = models.CharField(max_length=50, primary_key=True)
+    label = models.CharField(max_length=100)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "code"]
+
+    def __str__(self):
+        return self.label
 
 
 class Event(models.Model):
@@ -7,24 +19,10 @@ class Event(models.Model):
     description = models.TextField(blank=True)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
-    type = models.CharField(
-        max_length=50,
-        choices=[
-            ("SUNDAY_SERVICE", "Sunday Service"),
-            ("BIBLE_STUDY", "Bible Study"),
-            ("PRAYER_MEETING", "Prayer Meeting"),
-            ("CLUSTER_BS_EVANGELISM", "Cluster/BS Evangelism"),
-            ("CLUSTERING", "Clustering"),
-            ("DOCTRINAL_CLASS", "Doctrinal Class"),
-            ("CYM_CLASS", "CYM Class"),
-            ("MINI_WORSHIP", "Mini Worship"),
-            ("GOLDEN_WARRIORS", "Golden Warriors"),
-            ("CAMPING", "Camping"),
-            ("AWTA", "AWTA"),
-            ("CONFERENCE", "Conference"),
-            ("SUNDAY_SCHOOL", "Sunday School"),
-            ("OTHER", "Others"),
-        ],
+    event_type = models.ForeignKey(
+        EventType,
+        on_delete=models.PROTECT,
+        related_name="events",
         default="SUNDAY_SERVICE",
     )
     location = models.CharField(max_length=200)

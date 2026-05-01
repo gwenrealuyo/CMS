@@ -498,7 +498,7 @@ def create_recurring_sessions(
     meeting_time = evangelism_group.meeting_time or timezone.now().time()
 
     # Determine event type based on cluster affiliation
-    event_type = "CLUSTER_BS_EVANGELISM" if evangelism_group.cluster else "BIBLE_STUDY"
+    event_type = "BS/CLUSTER_EVANGELISM" if evangelism_group.cluster else "BIBLE_STUDY"
 
     while occurrence_count < max_occurrences:
         if end_date and current_date > end_date:
@@ -537,7 +537,7 @@ def create_recurring_sessions(
             description=f"Bible Study session for {evangelism_group.name}",
             start_date=session_datetime,
             end_date=end_datetime,
-            type=event_type,
+            event_type_id=event_type,
             location=evangelism_group.location or "",
             is_recurring=False,
         )

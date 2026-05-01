@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ("clusters", "0001_initial"),
-        ("events", "0003_alter_event_type"),
+        ("events", "0001_initial"),
     ]
 
     operations = [

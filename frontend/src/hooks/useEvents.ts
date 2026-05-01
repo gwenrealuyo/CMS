@@ -3,6 +3,7 @@ import {
   Event,
   EventAttendanceRecord,
   AttendanceStatus,
+  EventTypeOption,
 } from "@/src/types/event";
 import { eventsApi } from "@/src/lib/api";
 
@@ -22,6 +23,7 @@ interface CalendarOccurrence {
 
 export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const [eventTypes, setEventTypes] = useState<EventTypeOption[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarOccurrence[]>(
     []
   );
@@ -79,8 +81,12 @@ export const useEvents = () => {
     async (params?: Parameters<typeof eventsApi.getAll>[0]) => {
       try {
         setLoading(true);
-        const response = await eventsApi.getAll(params);
-        applyEvents(response.data);
+        const [eventsResponse, typesResponse] = await Promise.all([
+          eventsApi.getAll(params),
+          eventsApi.listTypes().catch(() => ({ data: [] as EventTypeOption[] })),
+        ]);
+        applyEvents(eventsResponse.data);
+        setEventTypes(typesResponse.data);
         setError(null);
       } catch (err) {
         console.error("Error fetching events:", err);
@@ -217,6 +223,7 @@ export const useEvents = () => {
 
   return {
     events,
+    eventTypes,
     calendarEvents,
     loading,
     error,

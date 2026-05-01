@@ -341,8 +341,8 @@ export default function AddVisitorModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Select...</option>
-              <option value="CLUSTER_BS_EVANGELISM">
-                Cluster/BS Evangelism
+              <option value="BS/CLUSTER_EVANGELISM">
+                BS/Cluster Evangelism
               </option>
               <option value="CLUSTERING">Clustering</option>
               <option value="SUNDAY_SERVICE">Sunday Service</option>

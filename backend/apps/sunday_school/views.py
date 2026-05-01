@@ -361,7 +361,7 @@ class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
             description=f"Sunday School session for {class_obj.name}",
             start_date=session_datetime,
             end_date=end_datetime,
-            type="SUNDAY_SCHOOL",
+            event_type_id="SUNDAY_SCHOOL",
             location=class_obj.room_location or "",
             is_recurring=False,
         )

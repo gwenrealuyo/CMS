@@ -54,3 +54,25 @@ export function getEach1Reach1ProgressValueTextClass(
   }
   return "text-yellow-700";
 }
+
+/**
+ * Same tiered headline colors without Each 1 Reach 1 rules (no violet /
+ * achieved≤1 conversion handling). Use for lesson average progress etc.
+ */
+export function getTieredCompletionPercentTextClass(
+  percentage: number,
+): string {
+  if (percentage === 0 || percentage <= 20) {
+    return "text-red-600";
+  }
+  if (percentage <= 40) {
+    return "text-orange-600";
+  }
+  if (percentage <= 70) {
+    return "text-yellow-700";
+  }
+  if (percentage >= 100) {
+    return "text-green-600";
+  }
+  return "text-yellow-700";
+}

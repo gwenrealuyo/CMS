@@ -2,6 +2,7 @@ import Card from "@/src/components/ui/Card";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { LessonProgressSummary } from "@/src/types/lesson";
+import { getTieredCompletionPercentTextClass } from "@/src/lib/each1Reach1ProgressStyles";
 
 interface LessonStatsCardsProps {
   summary: LessonProgressSummary | null;
@@ -41,6 +42,11 @@ export default function LessonStatsCards({
   const totalRecords = summary?.total_participants ?? 0;
   const averageProgress =
     totalRecords > 0 ? Math.round((completedCount / totalRecords) * 100) : 0;
+  /** Tiered colors: green only at 100%; red/orange/yellow while in progress. */
+  const averageProgressColorClass =
+    totalRecords > 0 ?
+      getTieredCompletionPercentTextClass(averageProgress)
+    : "text-gray-600";
 
   return (
     <div className="space-y-6">
@@ -68,6 +74,7 @@ export default function LessonStatsCards({
           title="Average Progress"
           value={`${averageProgress}%`}
           subtitle="Completion rate across yearly students"
+          valueClassName={averageProgressColorClass}
         />
       </div>
     </div>

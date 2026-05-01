@@ -1,6 +1,16 @@
 import type { User } from "@/src/lib/api";
 import type { ModuleCoordinator } from "@/src/types/person";
 
+/** Default branch filter for lists when the user has an assigned branch. */
+export function defaultEvangelismListBranch(
+  user: User | null | undefined,
+): number | "all" {
+  if (user?.branch != null && user.branch !== undefined) {
+    return user.branch;
+  }
+  return "all";
+}
+
 export function canChangeEvangelismBranchFilter(
   user: User | null | undefined,
   isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean,

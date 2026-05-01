@@ -1,5 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { evangelismApi } from "@/src/lib/api";
+import {
+  canChangeEvangelismBranchFilter,
+  defaultEvangelismListBranch,
+} from "@/src/lib/evangelismBranchFilter";
 import {
   EvangelismGroup,
   EvangelismGroupWrite,
@@ -27,7 +39,20 @@ export interface EvangelismFilters {
   is_active?: boolean | "all";
 }
 
+function isLikelyAbortError(e: unknown): boolean {
+  if (typeof e !== "object" || e === null) return false;
+  const code = (e as { code?: string }).code;
+  const name = (e as { name?: string }).name;
+  return code === "ERR_CANCELED" || name === "CanceledError";
+}
+
 export const useEvangelismGroups = () => {
+  const { user, isLoading: authLoading, isSeniorCoordinator } = useAuth();
+  const canChangeBranch = useMemo(
+    () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
+    [user, isSeniorCoordinator],
+  );
+
   const [groups, setGroups] = useState<EvangelismGroup[]>([]);
   const [filters, setFilters] = useState<EvangelismFilters>({
     search: "",
@@ -38,7 +63,51 @@ export const useEvangelismGroups = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const branchUserSyncRef = useRef<number | undefined>(undefined);
+  const fetchAbortRef = useRef<AbortController | null>(null);
+  const fetchGenRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (!user) {
+      branchUserSyncRef.current = undefined;
+      return;
+    }
+    if (branchUserSyncRef.current !== user.id) {
+      branchUserSyncRef.current = user.id;
+      const next = defaultEvangelismListBranch(user);
+      setFilters((prev) => ({ ...prev, branch: next }));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || canChangeBranch) return;
+    const expected = user.branch;
+    if (expected == null) return;
+    const cur = filters.branch;
+    const curNum =
+      cur === "all" || cur === undefined || cur === "" ? null : Number(cur);
+    if (curNum !== expected) {
+      setFilters((prev) => ({ ...prev, branch: expected }));
+    }
+  }, [user, canChangeBranch, filters.branch]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      setGroups([]);
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
+    return () => {
+      fetchAbortRef.current?.abort();
+    };
+  }, []);
+
   const fetchGroups = useCallback(async () => {
+    fetchAbortRef.current?.abort();
+    const ac = new AbortController();
+    fetchAbortRef.current = ac;
+    const gen = ++fetchGenRef.current;
     try {
       setLoading(true);
       const params: Record<string, unknown> = {};
@@ -53,16 +122,28 @@ export const useEvangelismGroups = () => {
         params.is_active = filters.is_active ?? undefined;
       }
 
-      const response = await evangelismApi.listGroups(params);
+      const response = await evangelismApi.listGroups(params, {
+        signal: ac.signal,
+      });
+      if (gen !== fetchGenRef.current) return;
       setGroups(response.data);
       setError(null);
     } catch (err) {
+      if (isLikelyAbortError(err)) return;
       console.error(err);
+      if (gen !== fetchGenRef.current) return;
       setError("Failed to load groups");
     } finally {
-      setLoading(false);
+      if (gen === fetchGenRef.current) {
+        setLoading(false);
+      }
     }
   }, [filters]);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    fetchGroups();
+  }, [fetchGroups, authLoading, user]);
 
   const createGroup = async (data: EvangelismGroupWrite) => {
     const response = await evangelismApi.createGroup(data);
@@ -91,10 +172,6 @@ export const useEvangelismGroups = () => {
     );
     return response.data;
   };
-
-  useEffect(() => {
-    fetchGroups();
-  }, [fetchGroups]);
 
   const setFilter = <K extends keyof EvangelismFilters>(
     key: K,

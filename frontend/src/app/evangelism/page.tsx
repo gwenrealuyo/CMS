@@ -92,7 +92,7 @@ export default function EvangelismPage() {
     () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
     [user, isSeniorCoordinator],
   );
-  const evangelismBranchUserIdRef = useRef<number | undefined>(undefined);
+  const evangelismTallyUserIdRef = useRef<number | undefined>(undefined);
 
   const {
     groups,
@@ -343,35 +343,16 @@ export default function EvangelismPage() {
 
   useEffect(() => {
     if (!user) {
-      evangelismBranchUserIdRef.current = undefined;
+      evangelismTallyUserIdRef.current = undefined;
       return;
     }
-    if (evangelismBranchUserIdRef.current !== user.id) {
-      evangelismBranchUserIdRef.current = user.id;
-      const nextBranch =
-        user.branch != null && user.branch !== undefined
-          ? user.branch
-          : "all";
-      setFilter("branch", nextBranch);
+    if (evangelismTallyUserIdRef.current !== user.id) {
+      evangelismTallyUserIdRef.current = user.id;
       setTallyBranch(
         user.branch != null && user.branch !== undefined ? user.branch : "",
       );
     }
-  }, [user, setFilter]);
-
-  useEffect(() => {
-    if (!user || canChangeEvangelismBranch) return;
-    const expected = user.branch;
-    if (expected == null) return;
-    const cur = filters.branch;
-    const curNum =
-      cur === "all" || cur === undefined || cur === ""
-        ? null
-        : Number(cur);
-    if (curNum !== expected) {
-      setFilter("branch", expected);
-    }
-  }, [user, canChangeEvangelismBranch, filters.branch, setFilter]);
+  }, [user]);
 
   useEffect(() => {
     if (!user || canChangeEvangelismBranch) return;
@@ -710,6 +691,21 @@ export default function EvangelismPage() {
         return false;
       }
       if (
+        filters.branch &&
+        filters.branch !== "all" &&
+        filters.branch !== ""
+      ) {
+        const cid = group.cluster_id;
+        if (!cid) return false;
+        const cl = clusters.find((c) => String(c.id) === String(cid));
+        if (
+          cl?.branch == null ||
+          String(cl.branch) !== String(filters.branch)
+        ) {
+          return false;
+        }
+      }
+      if (
         filters.is_active !== "all" &&
         group.is_active !== filters.is_active
       ) {
@@ -717,7 +713,7 @@ export default function EvangelismPage() {
       }
       return true;
     });
-  }, [groups, filters]);
+  }, [groups, filters, clusters]);
 
   return (
     <DashboardLayout>

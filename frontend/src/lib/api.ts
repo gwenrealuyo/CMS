@@ -1012,17 +1012,20 @@ export const sundaySchoolApi = {
 
 export const evangelismApi = {
   // Groups
-  listGroups: async (params?: {
-    cluster?: number | string;
-    branch?: number | string;
-    is_active?: boolean;
-    search?: string;
-    page?: number;
-    page_size?: number;
-  }): Promise<AxiosResponse<EvangelismGroup[]>> => {
+  listGroups: async (
+    params?: {
+      cluster?: number | string;
+      branch?: number | string;
+      is_active?: boolean;
+      search?: string;
+      page?: number;
+      page_size?: number;
+    },
+    config?: { signal?: AbortSignal },
+  ): Promise<AxiosResponse<EvangelismGroup[]>> => {
     const response = await api.get<
       EvangelismGroup[] | { results: EvangelismGroup[] }
-    >("/evangelism/groups/", { params });
+    >("/evangelism/groups/", { params, ...config });
     const raw = response.data;
     const rows = Array.isArray(raw) ? raw : raw.results;
     return {

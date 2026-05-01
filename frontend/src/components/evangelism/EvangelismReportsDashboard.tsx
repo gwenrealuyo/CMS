@@ -119,7 +119,7 @@ export default function EvangelismReportsDashboard({
     useState<EvangelismWeeklyReport | null>(null);
 
   const [selectedBranch, setSelectedBranch] = useState<string>("");
-  /** Encoded like PeopleTallyReport: `cluster:id` or `group:id`, or "" for all */
+  /** `group:id` via parseTallyScope, or "" for all groups */
   const [reportsScope, setReportsScope] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<number>(
     new Date().getFullYear()
@@ -197,11 +197,6 @@ export default function EvangelismReportsDashboard({
     }
   }, [user, canChangeBranchFilter, selectedBranch]);
 
-  const clustersScoped = useMemo(() => {
-    if (!selectedBranch) return clusters;
-    return clusters.filter((c) => String(c.branch) === selectedBranch);
-  }, [clusters, selectedBranch]);
-
   const evangelismGroupsScoped = useMemo(() => {
     let g = groups;
     if (selectedBranch) {
@@ -216,22 +211,22 @@ export default function EvangelismReportsDashboard({
   }, [groups, selectedBranch, clusters]);
 
   const scopeSelectOptions = useMemo(() => {
-    const clusterOpts = clustersScoped.map((c) => ({
-      value: `cluster:${c.id}`,
-      label: (c.name || c.code || `Cluster ${c.id}`).trim(),
-      typeLabel: "cluster" as const,
-    }));
-    const groupOpts = evangelismGroupsScoped.map((g) => ({
+    const opts = evangelismGroupsScoped.map((g) => ({
       value: `group:${g.id}`,
       label: g.name || `Group ${g.id}`,
       typeLabel: "group" as const,
     }));
-    const combined = [...clusterOpts, ...groupOpts];
-    combined.sort((a, b) =>
+    opts.sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
     );
-    return combined;
-  }, [clustersScoped, evangelismGroupsScoped]);
+    return opts;
+  }, [evangelismGroupsScoped]);
+
+  useEffect(() => {
+    if (parseTallyScope(reportsScope).cluster != null) {
+      setReportsScope("");
+    }
+  }, [reportsScope]);
 
   const refetchReports = useCallback(async () => {
     try {
@@ -613,7 +608,14 @@ export default function EvangelismReportsDashboard({
         header: "Group",
         accessor: "evangelism_group" as keyof EvangelismWeeklyReport,
         render: (_x, row) => (
-          <span className="text-sm">{row.evangelism_group?.name ?? "—"}</span>
+          <button
+            type="button"
+            onClick={() => void openView(row)}
+            className="text-sm text-left text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
+            title="Click to view report details"
+          >
+            {row.evangelism_group?.name ?? "—"}
+          </button>
         ),
       });
     }
@@ -699,35 +701,80 @@ export default function EvangelismReportsDashboard({
       header: "Actions",
       accessor: "id" as keyof EvangelismWeeklyReport,
       render: (_id, row) => (
-        <div className="flex flex-wrap gap-1.5 sm:gap-1">
-          <Button
-            variant="secondary"
+        <div className="flex space-x-2">
+          <button
             type="button"
-            className="!min-h-[44px] !py-2 !px-3 text-xs sm:!min-h-0 sm:!py-1 sm:!px-2"
             onClick={() => openView(row)}
+            className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="View Report"
           >
-            View
-          </Button>
-          <Button
-            variant="secondary"
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
+            </svg>
+          </button>
+          <button
             type="button"
-            className="!min-h-[44px] !py-2 !px-3 text-xs !text-blue-700 sm:!min-h-0 sm:!py-1 sm:!px-2"
             onClick={() => {
               setSelectedGroupForForm(row.evangelism_group);
               setEditingReport(row);
               setShowReportModal(true);
             }}
+            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Edit Report"
           >
-            Edit
-          </Button>
-          <Button
-            variant="secondary"
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          </button>
+          <button
             type="button"
-            className="!min-h-[44px] !py-2 !px-3 text-xs !text-red-700 sm:!min-h-0 sm:!py-1 sm:!px-2"
             onClick={() => setPendingDeleteReport(row)}
+            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Delete Report"
           >
-            Delete
-          </Button>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </button>
         </div>
       ),
     });
@@ -833,18 +880,18 @@ export default function EvangelismReportsDashboard({
           </div>
           <div className="min-w-0">
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Cluster or group
+              Evangelism group
             </label>
             <ScalableSelect
               options={[
-                { value: "", label: "All clusters and groups" },
+                { value: "", label: "All groups" },
                 ...scopeSelectOptions,
               ]}
               value={reportsScope}
               onChange={setReportsScope}
-              placeholder="Cluster or group..."
+              placeholder="Search groups…"
               searchPlaceholder="Search..."
-              emptyMessage="No clusters or groups match"
+              emptyMessage="No groups match"
               virtualizeThreshold={80}
               className="w-full min-w-0 text-sm"
             />

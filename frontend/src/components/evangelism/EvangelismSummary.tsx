@@ -4,6 +4,7 @@ import Card from "@/src/components/ui/Card";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { EvangelismSummary as SummaryType } from "@/src/types/evangelism";
+import { getEach1Reach1ProgressValueTextClass } from "@/src/lib/each1Reach1ProgressStyles";
 
 interface EvangelismSummaryProps {
   summary: SummaryType | null;
@@ -74,6 +75,19 @@ export default function EvangelismSummary({
           ? `No goals set for ${each1Reach1Progress.year}`
           : "No goals set";
 
+  const each1ValueClassName = (() => {
+    if (each1Reach1Progress?.loading) return "text-gray-400";
+    if (each1Reach1Progress?.error) return "text-gray-500";
+    if (!each1Reach1Progress || each1Reach1Progress.target <= 0) {
+      return "text-gray-600";
+    }
+    return getEach1Reach1ProgressValueTextClass(
+      each1Reach1Progress.percentage,
+      each1Reach1Progress.achieved,
+      each1Reach1Progress.target,
+    );
+  })();
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -98,6 +112,7 @@ export default function EvangelismSummary({
           title="Each 1 Reach 1 Goal"
           value={progressValue}
           subtitle={progressSubtitle}
+          valueClassName={each1ValueClassName}
         />
       </div>
     </div>
@@ -108,13 +123,20 @@ interface SummaryCardProps {
   title: string;
   value: string | number;
   subtitle: string;
+  /** Tailwind text color for the main stat; defaults to brand blue. */
+  valueClassName?: string;
 }
 
-function SummaryCard({ title, value, subtitle }: SummaryCardProps) {
+function SummaryCard({
+  title,
+  value,
+  subtitle,
+  valueClassName = "text-[#2563EB]",
+}: SummaryCardProps) {
   return (
     <Card>
       <p className="text-sm text-gray-500">{title}</p>
-      <p className="text-3xl font-bold text-[#2563EB] mt-2">{value}</p>
+      <p className={`text-3xl font-bold mt-2 ${valueClassName}`}>{value}</p>
       <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
     </Card>
   );

@@ -23,6 +23,7 @@ import {
   canChangeEvangelismBranchFilter,
   EVANGELISM_BRANCH_LOCKED_HINT,
 } from "@/src/lib/evangelismBranchFilter";
+import { getEach1Reach1ProgressBarBgClass } from "@/src/lib/each1Reach1ProgressStyles";
 
 interface Each1Reach1DashboardProps {
   year?: number;
@@ -306,32 +307,6 @@ export default function Each1Reach1Dashboard({
     }
   };
 
-  const getProgressBarColor = (
-    percentage: number,
-    achieved?: number,
-    target?: number,
-  ) => {
-    if (achieved !== undefined && target !== undefined && achieved > target) {
-      return "bg-violet-500";
-    }
-
-    // Red if 0 or 1 conversions, or if percentage is very low (0-20%)
-    if (achieved !== undefined && (achieved === 0 || achieved === 1)) {
-      return "bg-red-500";
-    }
-    if (percentage === 0 || percentage <= 20) {
-      return "bg-red-500";
-    } else if (percentage <= 40) {
-      return "bg-orange-500";
-    } else if (percentage <= 70) {
-      return "bg-yellow-500";
-    } else if (percentage >= 100) {
-      return "bg-green-500";
-    } else {
-      return "bg-yellow-500";
-    }
-  };
-
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -610,7 +585,7 @@ export default function Each1Reach1Dashboard({
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 flex-1 rounded-full bg-gray-200">
                             <div
-                              className={`h-1.5 rounded-full ${getProgressBarColor(
+                              className={`h-1.5 rounded-full ${getEach1Reach1ProgressBarBgClass(
                                 percentage,
                                 goal.achieved_conversions,
                                 goal.target_conversions,
@@ -670,7 +645,7 @@ export default function Each1Reach1Dashboard({
               </div>
               <div className="mt-2 h-1.5 w-full rounded-full bg-gray-200">
                 <div
-                  className={`${getProgressBarColor(
+                  className={`${getEach1Reach1ProgressBarBgClass(
                     goal.progress_percentage || 0,
                     goal.achieved_conversions,
                     goal.target_conversions,

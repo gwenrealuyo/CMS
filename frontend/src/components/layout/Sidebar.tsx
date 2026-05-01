@@ -41,7 +41,7 @@ const navigation = [
     ],
   },
   { name: "Clusters", href: "/clusters", icon: Squares2X2Icon },
-  { name: "Evangelism", href: "/evangelism?tab=reports", icon: MegaphoneIcon },
+  { name: "Evangelism", href: "/evangelism", icon: MegaphoneIcon },
   { name: "Ministries", href: "/ministries", icon: UserGroupIcon },
   { name: "Sunday School", href: "/sunday-school", icon: AcademicCapIcon },
   { name: "Events", href: "/events", icon: CalendarIcon },
@@ -65,6 +65,12 @@ const moduleByNavName: Record<string, ModuleType> = {
   Finance: "FINANCE",
   Lessons: "LESSONS",
 };
+
+/** Path-only segment of href — matches usePathname() which omits query/hash. */
+function getPathFromHref(href: string): string {
+  const noQuery = href.split("?")[0] ?? href;
+  return (noQuery.split("#")[0] ?? noQuery) || "/";
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -220,7 +226,7 @@ export default function Sidebar() {
   };
 
   const renderNavItem = (item: any) => {
-    const isActive = pathname === item.href;
+    const isActive = pathname === getPathFromHref(item.href);
     const isExpanded = expandedSections.includes(item.name);
     const hasChildren = item.children && item.children.length > 0;
 
@@ -273,7 +279,7 @@ export default function Sidebar() {
         {hasChildren && isExpanded && !collapsed && (
           <div className="ml-6 mt-1 space-y-1">
             {item.children.map((child: any) => {
-              const isChildActive = pathname === child.href;
+              const isChildActive = pathname === getPathFromHref(child.href);
               return (
                 <Link
                   key={child.name}

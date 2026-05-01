@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 import Button from "../ui/Button";
 
 interface ConfirmationModalProps {
@@ -6,7 +6,7 @@ interface ConfirmationModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  message: ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: "danger" | "warning" | "info";
@@ -133,9 +133,7 @@ export default function ConfirmationModal({
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 {title}
               </h3>
-              <div className="mt-2">
-                <p className="text-sm text-gray-500">{message}</p>
-              </div>
+              <div className="mt-2 text-sm text-gray-500">{message}</div>
             </div>
           </div>
         </div>

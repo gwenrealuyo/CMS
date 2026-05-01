@@ -8,6 +8,7 @@ import { EvangelismWeeklyReport } from "@/src/types/evangelism";
 interface GroupReportsSectionProps {
   reports: EvangelismWeeklyReport[];
   onAddReport: () => void;
+  onViewReport: (report: EvangelismWeeklyReport) => void;
   onEditReport: (report: EvangelismWeeklyReport) => void;
   loading?: boolean;
 }
@@ -15,6 +16,7 @@ interface GroupReportsSectionProps {
 export default function GroupReportsSection({
   reports,
   onAddReport,
+  onViewReport,
   onEditReport,
   loading = false,
 }: GroupReportsSectionProps) {
@@ -65,20 +67,30 @@ export default function GroupReportsSection({
                 header: "Week",
                 accessor: "week_number" as keyof EvangelismWeeklyReport,
                 render: (value, row) => (
-                  <span className="text-sm text-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => onViewReport(row)}
+                    className="text-sm text-left text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
+                    title="Click to view report details"
+                  >
                     {row.year} W{value}
-                  </span>
+                  </button>
                 ),
               },
               {
                 header: "Meeting Date",
                 accessor: "meeting_date" as keyof EvangelismWeeklyReport,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">
-                    {value
-                      ? new Date(value as string).toLocaleDateString()
-                      : "N/A"}
-                  </span>
+                render: (value, row) => (
+                  <button
+                    type="button"
+                    onClick={() => onViewReport(row)}
+                    className="text-sm text-left text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
+                    title="Click to view report details"
+                  >
+                    {value ?
+                      new Date(value as string).toLocaleDateString()
+                    : "N/A"}
+                  </button>
                 ),
               },
               {
@@ -116,15 +128,13 @@ export default function GroupReportsSection({
                 header: "Actions",
                 accessor: "id" as keyof EvangelismWeeklyReport,
                 render: (_value, row) => (
-                  <div className="flex gap-1.5">
-                    <Button
-                      variant="secondary"
-                      onClick={() => onEditReport(row)}
-                      className="!text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-xs py-1 px-2"
-                    >
-                      Edit
-                    </Button>
-                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => onEditReport(row)}
+                    className="!text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-xs py-1 px-2"
+                  >
+                    Edit
+                  </Button>
                 ),
               },
             ]}

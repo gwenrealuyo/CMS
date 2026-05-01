@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Button from "@/src/components/ui/Button";
-import Table from "@/src/components/ui/Table";
 import { Person } from "@/src/types/person";
 
 interface GroupMembersSectionProps {
@@ -77,33 +76,27 @@ export default function GroupMembersSection({
           </div>
         ) : (
           <>
-            <Table
-              columns={[
-                {
-                  header: "Name",
-                  accessor: "id",
-                  render: (_value, row: Person) => (
-                    <span className="text-sm font-medium text-gray-900">
-                      {row.full_name || row.username || "N/A"}
-                    </span>
-                  ),
-                },
-                {
-                  header: "Actions",
-                  accessor: "id",
-                  render: (_value, row: Person) => (
+            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white divide-y divide-gray-200">
+              {displayedMembers.map((row) => (
+                <div
+                  key={row.id}
+                  className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 md:px-6"
+                >
+                  <span className="text-sm font-medium text-gray-900 sm:min-w-0 sm:flex-1 sm:truncate">
+                    {row.full_name || row.username || "N/A"}
+                  </span>
+                  <div className="flex shrink-0 sm:justify-end">
                     <Button
                       variant="secondary"
                       onClick={() => onRemoveMember(row)}
-                      className="!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 text-xs py-1 px-2"
+                      className="!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 text-xs py-1 px-2 w-full sm:w-auto"
                     >
                       Remove
                     </Button>
-                  ),
-                },
-              ]}
-              data={displayedMembers}
-            />
+                  </div>
+                </div>
+              ))}
+            </div>
             {hasMoreMembers && (
               <div className="flex justify-center pt-2">
                 <Button

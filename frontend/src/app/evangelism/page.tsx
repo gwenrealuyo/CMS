@@ -50,6 +50,7 @@ import ConversionForm, {
 import EvangelismWeeklyReportForm, {
   EvangelismWeeklyReportFormValues,
 } from "@/src/components/evangelism/EvangelismWeeklyReportForm";
+import ViewEvangelismWeeklyReportModal from "@/src/components/evangelism/ViewEvangelismWeeklyReportModal";
 import EvangelismSummary from "@/src/components/evangelism/EvangelismSummary";
 import Each1Reach1Dashboard from "@/src/components/evangelism/Each1Reach1Dashboard";
 import PeopleTallyReport from "@/src/components/evangelism/PeopleTallyReport";
@@ -236,6 +237,10 @@ export default function EvangelismPage() {
   );
   const [editingReport, setEditingReport] =
     useState<EvangelismWeeklyReport | null>(null);
+  const [viewingGroupReport, setViewingGroupReport] =
+    useState<EvangelismWeeklyReport | null>(null);
+  const [pendingDeleteGroupReport, setPendingDeleteGroupReport] =
+    useState<EvangelismWeeklyReport | null>(null);
   const [activeTab, setActiveTab] = useState<EvangelismPageTab>("groups");
   const [reportsSubmitNonce, setReportsSubmitNonce] = useState(0);
   const [reportsListRefresh, setReportsListRefresh] = useState(0);
@@ -261,6 +266,13 @@ export default function EvangelismPage() {
       setActiveTab("groups");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!viewEditGroup) {
+      setViewingGroupReport(null);
+      setPendingDeleteGroupReport(null);
+    }
+  }, [viewEditGroup]);
 
   // Debounced search
   const handleSearchChange = useCallback(
@@ -481,6 +493,29 @@ export default function EvangelismPage() {
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openGroupReportView = async (report: EvangelismWeeklyReport) => {
+    try {
+      const res = await evangelismApi.getWeeklyReport(report.id);
+      setViewingGroupReport(res.data);
+    } catch {
+      setViewingGroupReport(report);
+    }
+  };
+
+  const confirmDeleteGroupReport = async () => {
+    const rpt = pendingDeleteGroupReport;
+    if (!rpt) return;
+    try {
+      await deleteReport(rpt.id);
+      setPendingDeleteGroupReport(null);
+      setViewingGroupReport(null);
+      fetchReports();
+      setReportsListRefresh((n) => n + 1);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -1204,6 +1239,7 @@ export default function EvangelismPage() {
                     <GroupReportsSection
                       reports={reports}
                       onAddReport={() => setIsReportModalOpen(true)}
+                      onViewReport={(r) => void openGroupReportView(r)}
                       onEditReport={(report) => {
                         setEditingReport(report);
                         setIsReportModalOpen(true);
@@ -1414,6 +1450,35 @@ export default function EvangelismPage() {
           </Modal>
         )}
 
+        <ViewEvangelismWeeklyReportModal
+          report={viewingGroupReport}
+          isOpen={!!viewingGroupReport}
+          onClose={() => setViewingGroupReport(null)}
+          onEdit={() => {
+            if (!viewingGroupReport) return;
+            const rpt = viewingGroupReport;
+            setViewingGroupReport(null);
+            setEditingReport(rpt);
+            setIsReportModalOpen(true);
+          }}
+          onDelete={() => {
+            if (!viewingGroupReport) return;
+            setPendingDeleteGroupReport(viewingGroupReport);
+            setViewingGroupReport(null);
+          }}
+        />
+
+        <ConfirmationModal
+          isOpen={pendingDeleteGroupReport !== null}
+          title="Delete report"
+          message="Delete this evangelism weekly report? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+          onClose={() => setPendingDeleteGroupReport(null)}
+          onConfirm={() => void confirmDeleteGroupReport()}
+        />
+
         {/* Prospect Modal */}
         {isProspectModalOpen && (
           <Modal
@@ -1526,7 +1591,15 @@ export default function EvangelismPage() {
             }
           }}
           title="Delete Group"
-          message={`Are you sure you want to delete "${deleteConfirmation.group?.name}"? This action cannot be undone.`}
+          message={
+            <>
+              Are you sure you want to delete{" "}
+              <strong className="font-semibold text-gray-900">
+                {deleteConfirmation.group?.name ?? ""}
+              </strong>
+              ? This action cannot be undone.
+            </>
+          }
           confirmText="Delete"
           cancelText="Cancel"
           loading={deleteConfirmation.loading}
@@ -1585,7 +1658,16 @@ export default function EvangelismPage() {
             }
           }}
           title="Remove Member"
-          message={`Are you sure you want to remove "${removeMemberConfirmation.memberName}" from this group? This action cannot be undone.`}
+          message={
+            <>
+              Are you sure you want to remove{" "}
+              <strong className="font-semibold text-gray-900">
+                &quot;
+                {removeMemberConfirmation.memberName ?? ""}&quot;
+              </strong>{" "}
+              from this group? This action cannot be undone.
+            </>
+          }
           confirmText="Remove"
           cancelText="Cancel"
           loading={removeMemberConfirmation.loading}

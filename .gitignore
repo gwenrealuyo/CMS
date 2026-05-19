@@ -30,6 +30,7 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+.env.production
 
 # vercel
 .vercel
@@ -44,7 +45,12 @@ backend/test_db.sqlite3
 
 # venv
 backend/venv/
+backend/.venv/
 frontend/.next/server/vendor-chunks/axios.js
 
 # lesson commitment form uploads
 backend/media/lessons/commitment_forms/
+
+# Windows
+frontend/.env.production
+backend/staticfiles/

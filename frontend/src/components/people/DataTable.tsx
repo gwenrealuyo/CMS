@@ -661,9 +661,9 @@ export default function DataTable({
     const aValue = a[sortField];
     const bValue = b[sortField];
 
-    if (aValue === undefined && bValue === undefined) return 0;
-    if (aValue === undefined) return sortDirection === "asc" ? 1 : -1;
-    if (bValue === undefined) return sortDirection === "asc" ? -1 : 1;
+    if (aValue == null && bValue == null) return 0;
+    if (aValue == null) return sortDirection === "asc" ? 1 : -1;
+    if (bValue == null) return sortDirection === "asc" ? -1 : 1;
 
     if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
     if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;

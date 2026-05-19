@@ -300,7 +300,7 @@ export default function FamilyManagementDashboard({
       result = result.filter((family) => {
         const ids = new Set<string>(family.members);
         if (family.leader) ids.add(family.leader);
-        return [...ids].some((id) => {
+        return Array.from(ids).some((id) => {
           const p = people.find((pp) => pp.id === id);
           return p?.branch === bid;
         });

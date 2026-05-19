@@ -52,14 +52,14 @@ export default function ResourceAssignmentMultiPicker({
     const next = new Set(selectedIds);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    onSelectedIdsChange([...next].sort((a, b) => a - b));
+    onSelectedIdsChange(Array.from(next).sort((a, b) => a - b));
   };
 
   const selectAllFiltered = () => {
     if (disabled || filteredIds.length === 0) return;
     const next = new Set(selectedIds);
     for (const id of filteredIds) next.add(id);
-    onSelectedIdsChange([...next].sort((a, b) => a - b));
+    onSelectedIdsChange(Array.from(next).sort((a, b) => a - b));
   };
 
   const clearSelection = () => {

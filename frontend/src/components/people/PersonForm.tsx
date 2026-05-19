@@ -487,7 +487,7 @@ export default function PersonForm({
 
     if (
       !skipBranchRequirement &&
-      (formData.branch == null || formData.branch === "")
+      formData.branch == null
     ) {
       toast.error("Please select a branch.");
       return;

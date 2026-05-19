@@ -65,13 +65,13 @@ function buildMergedClusterCoordinatorRow(
   clusterCoordRows: ModuleCoordinator[],
 ): AccessTableRow | null {
   if (clusterCoordRows.length === 0) return null;
-  const labels = [
-    ...new Set(
+  const labels = Array.from(
+    new Set(
       clusterCoordRows
         .map((a) => scopeLabelForAssignment(a))
         .filter((s): s is string => s != null && s !== ""),
     ),
-  ].sort((x, y) => x.localeCompare(y));
+  ).sort((x, y) => x.localeCompare(y));
   const scope = labels.length > 0 ? labels.join(", ") : "—";
   const first = clusterCoordRows[0];
   return {

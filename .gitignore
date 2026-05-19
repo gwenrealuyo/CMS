@@ -54,3 +54,5 @@ backend/media/lessons/commitment_forms/
 # Windows
 frontend/.env.production
 backend/staticfiles/
+__pycache__/
+docker-compose.override.yml

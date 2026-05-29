@@ -651,7 +651,7 @@ export default function ClustersPageView({
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div
-                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 shadow-sm"
+                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 card-shadow"
                 role="region"
                 aria-label="Total Clusters"
               >
@@ -699,7 +699,7 @@ export default function ClustersPageView({
                 </div>
               </div>
               <div
-                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 shadow-sm"
+                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 card-shadow"
                 role="region"
                 aria-label="Total Members"
               >
@@ -747,7 +747,7 @@ export default function ClustersPageView({
                 </div>
               </div>
               <div
-                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 shadow-sm"
+                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 card-shadow"
                 role="region"
                 aria-label="Unassigned Members"
               >

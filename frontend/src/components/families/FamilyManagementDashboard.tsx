@@ -563,7 +563,7 @@ export default function FamilyManagementDashboard({
     <div className="space-y-6">
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
@@ -592,7 +592,7 @@ export default function FamilyManagementDashboard({
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -622,7 +622,7 @@ export default function FamilyManagementDashboard({
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">

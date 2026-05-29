@@ -12,7 +12,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-your-secret-key-here")
 
 # Production settings (DEBUG defaults to True for local development)
 DEBUG = os.getenv("DEBUG", "True") == "True"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else []
+ALLOWED_HOSTS = (
+    os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else []
+)
 
 # Application definition
 INSTALLED_APPS = [
@@ -123,7 +125,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 CORS_ALLOWED_ORIGINS = [
     FRONTEND_URL,
-] + ([origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin.strip()])
+] + (
+    [
+        origin.strip()
+        for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+)
 
 # Allow credentials for JWT
 CORS_ALLOW_CREDENTIALS = True

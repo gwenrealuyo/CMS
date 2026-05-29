@@ -296,6 +296,19 @@ export default function EvangelismPage() {
     }
   }, [searchParams]);
 
+  const action = searchParams.get("action");
+
+  useEffect(() => {
+    if (action !== "submit-report") {
+      return;
+    }
+    selectTab("reports");
+    setReportsPresetGroupId(null);
+    setEditingReport(null);
+    setReportsSubmitNonce((n) => n + 1);
+    router.replace(pathname);
+  }, [action, pathname, router, selectTab]);
+
   useEffect(() => {
     const groupId = searchParams.get("group");
     const reportId = searchParams.get("report");

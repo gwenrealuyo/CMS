@@ -31,6 +31,24 @@
 - Hidden for `VISITOR` role; badge count reflects **alerts** only
 - See [NOTIFICATIONS.md](./NOTIFICATIONS.md) for types, deep links, and coordinator report reminders
 
+### Navbar quick actions (+ menu)
+
+- `components/layout/NavbarQuickActions.tsx`: Circular **+** button before the notification bell; dropdown of role- and module-gated shortcuts
+- `lib/quickActionsConfig.ts`: Shared action definitions and `getAvailableQuickActions()` (also used by dashboard `QuickActions` card)
+- `hooks/useModuleSettings.ts`: Loads module on/off flags for gating (EVANGELISM, CLUSTER, etc.)
+- Hidden for `VISITOR`; hidden entirely when no actions apply to the user
+- Actions navigate via `?action=` query params on target pages (same pattern as dashboard quick actions)
+
+| Action | Deep link |
+|--------|-----------|
+| Add Person / Add Visitor | `/people?action=create` or `add-visitor` |
+| Create Event | `/events?action=create` |
+| Submit Cluster Report | `/clusters?action=submit-report` |
+| Submit Evangelism Report | `/evangelism?action=submit-report` |
+| Log Lesson Session | `/lessons?action=log-session` |
+
+Record Donation is intentionally not included (finance `?action=add-donation` can be wired later).
+
 ### Notes
 
 - Families page uses local state; wiring to backend families endpoints can be added later.

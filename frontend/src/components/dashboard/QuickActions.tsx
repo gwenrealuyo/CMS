@@ -3,109 +3,25 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/src/components/ui/Card";
-import { CalendarPlus, ClipboardCheck, UserPlus } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
-
-const ACTIONS = [
-  {
-    key: "people",
-    label: "Add Person",
-    href: "/people?action=create",
-    icon: UserPlus,
-    blurb: "Capture new members and returning guests.",
-  },
-  {
-    key: "lesson-session",
-    label: "Log Lesson Session",
-    href: "/lessons?action=log-session",
-    icon: ClipboardCheck,
-    blurb: "Record a lesson session report.",
-  },
-  {
-    key: "cluster-report",
-    label: "Submit Report",
-    href: "/clusters?action=submit-report",
-    icon: ClipboardCheck,
-    blurb: "Submit the weekly cluster report.",
-  },
-  {
-    key: "events",
-    label: "Create Event",
-    href: "/events?action=create",
-    icon: CalendarPlus,
-    blurb: "Schedule services, clusters, or special gatherings.",
-  },
-] as const;
+import { useModuleSettings } from "@/src/hooks/useModuleSettings";
+import { getAvailableQuickActions } from "@/src/lib/quickActionsConfig";
 
 export default function QuickActions() {
   const router = useRouter();
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
-  const isMember = user?.role === "MEMBER";
+  const { moduleEnabled } = useModuleSettings();
 
-  const canViewPeople = useMemo(() => {
-    if (!user) return false;
-    return (
-      ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"].includes(user.role) ||
-      isSeniorCoordinator()
-    );
-  }, [user, isSeniorCoordinator]);
-
-  const canViewEvents = useMemo(() => {
-    if (!user) return false;
-    return (
-      ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"].includes(user.role) ||
-      isModuleCoordinator("EVENTS") ||
-      isSeniorCoordinator()
-    );
-  }, [user, isModuleCoordinator, isSeniorCoordinator]);
-
-  const canLogLessonSession = useMemo(() => {
-    if (!user) return false;
-    return (
-      user.role === "PASTOR" ||
-      user.role === "ADMIN" ||
-      isModuleCoordinator("LESSONS") ||
-      isSeniorCoordinator("LESSONS")
-    );
-  }, [isModuleCoordinator, isSeniorCoordinator, user]);
-
-  const canSubmitClusterReport = useMemo(() => {
-    if (!user) return false;
-    return (
-      user.role === "COORDINATOR" ||
-      user.role === "PASTOR" ||
-      user.role === "ADMIN" ||
-      isModuleCoordinator("CLUSTER") ||
-      isSeniorCoordinator("CLUSTER")
-    );
-  }, [isModuleCoordinator, isSeniorCoordinator, user]);
-
-  const availableActions = useMemo(() => {
-    const normalized = ACTIONS.map((action) => {
-      if (action.key === "people" && isMember) {
-        return {
-          ...action,
-          label: "Add Visitor",
-          href: "/people?action=add-visitor",
-        };
-      }
-      return action;
-    });
-
-    return normalized.filter((action) => {
-      if (action.key === "people") return canViewPeople;
-      if (action.key === "lesson-session") return canLogLessonSession;
-      if (action.key === "cluster-report") return canSubmitClusterReport;
-      if (action.key === "events") return canViewEvents;
-      return false;
-    });
-  }, [
-    canSubmitClusterReport,
-    canLogLessonSession,
-    canViewEvents,
-    canViewPeople,
-    isMember,
-  ]);
+  const availableActions = useMemo(
+    () =>
+      getAvailableQuickActions({
+        user,
+        isModuleCoordinator,
+        isSeniorCoordinator,
+        moduleEnabled,
+      }),
+    [user, isModuleCoordinator, isSeniorCoordinator, moduleEnabled],
+  );
 
   return (
     <Card>
@@ -116,9 +32,9 @@ export default function QuickActions() {
         <p className="text-sm text-gray-500">No quick actions available.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {availableActions.map(({ label, blurb, icon: Icon, href }) => (
+          {availableActions.map(({ key, label, icon: Icon, href }) => (
             <button
-              key={label}
+              key={key}
               onClick={() => router.push(href)}
               className="group rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
@@ -130,7 +46,6 @@ export default function QuickActions() {
                   {label}
                 </span>
               </div>
-              {/* <p className="mt-2 text-xs text-[#4B5563] leading-snug">{blurb}</p> */}
             </button>
           ))}
         </div>

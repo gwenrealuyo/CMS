@@ -12,6 +12,7 @@ import { useSidebar } from "./SidebarContext";
 import { useAuth } from "@/src/contexts/AuthContext";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
+import NavbarQuickActions from "./NavbarQuickActions";
 
 export default function Navbar() {
   const [showProfile, setShowProfile] = useState(false);
@@ -92,6 +93,7 @@ export default function Navbar() {
         )}
 
         <div className="flex items-center space-x-2 md:space-x-4">
+          {showGlobalSearch && <NavbarQuickActions />}
           <NotificationBell />
 
           <div className="relative" ref={profileRef}>

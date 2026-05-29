@@ -13,7 +13,9 @@ interface TallyDrilldownModalProps {
   title: string;
   requestKey: string | null;
   onClose: () => void;
-  fetchPage: (page: number) => Promise<PaginatedResponse<EvangelismTallyDrilldownRow>>;
+  fetchPage: (
+    page: number,
+  ) => Promise<PaginatedResponse<EvangelismTallyDrilldownRow>>;
 }
 
 export default function TallyDrilldownModal({
@@ -57,8 +59,9 @@ export default function TallyDrilldownModal({
   const formatDate = (value?: string | null) =>
     value ? new Date(value).toLocaleDateString() : null;
 
-  const shouldShowEventDateChip = (metric: EvangelismTallyDrilldownRow["metric"]) =>
-    metric === "members" || metric === "visitors" || metric === "students";
+  const shouldShowEventDateChip = (
+    metric: EvangelismTallyDrilldownRow["metric"],
+  ) => metric === "members" || metric === "visitors" || metric === "students";
 
   const buildDisplayName = (row: EvangelismTallyDrilldownRow) => {
     const formatted = formatPersonName({
@@ -103,7 +106,7 @@ export default function TallyDrilldownModal({
         }
       }
     },
-    [fetchPage]
+    [fetchPage],
   );
 
   useEffect(() => {
@@ -118,17 +121,24 @@ export default function TallyDrilldownModal({
       <div className="space-y-3">
         {error && <ErrorMessage message={error} />}
         {loading ? (
-          <div className="py-8 text-center text-sm text-gray-500">Loading records...</div>
+          <div className="py-8 text-center text-sm text-gray-500">
+            Loading records...
+          </div>
         ) : rows.length === 0 ? (
           <div className="rounded-md border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500">
             No records found.
           </div>
         ) : (
           <>
-            <div className="text-xs text-gray-500">Showing {rows.length} of {count} records</div>
+            <div className="text-xs text-gray-500">
+              Showing {rows.length} of {count} records
+            </div>
             <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
               {rows.map((row) => (
-                <div key={`${row.entity_type}-${row.id}`} className="rounded-md border border-gray-200 p-3">
+                <div
+                  key={`${row.entity_type}-${row.id}`}
+                  className="rounded-md border border-gray-200 p-3"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -187,11 +197,13 @@ export default function TallyDrilldownModal({
                         Reached {formatDate(row.reached_date)}
                       </span>
                     )}
-                    {formatDate(row.event_date) && shouldShowEventDateChip(row.metric) && (
-                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                        {getEventDateLabel(row.metric)} {formatDate(row.event_date)}
-                      </span>
-                    )}
+                    {formatDate(row.event_date) &&
+                      shouldShowEventDateChip(row.metric) && (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                          {getEventDateLabel(row.metric)}{" "}
+                          {formatDate(row.event_date)}
+                        </span>
+                      )}
                   </div>
                 </div>
               ))}
@@ -220,4 +232,3 @@ export default function TallyDrilldownModal({
     </Modal>
   );
 }
-

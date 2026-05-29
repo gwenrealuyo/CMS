@@ -80,6 +80,11 @@ export default function Sidebar() {
   >({});
   const { collapsed, mobileOpen, toggle, closeMobile } = useSidebar();
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  const isCompact = collapsed && !mobileOpen;
+
+  useEffect(() => {
+    closeMobile();
+  }, [pathname, closeMobile]);
 
   useEffect(() => {
     const fetchModuleSettings = async () => {
@@ -244,12 +249,12 @@ export default function Sidebar() {
             <div className="flex items-center">
               <item.icon
                 className={`h-5 w-5 ${
-                  collapsed ? "mr-0" : "mr-3"
+                  isCompact ? "mr-0" : "mr-3"
                 } text-gray-400`}
               />
-              {!collapsed && <span className="font-medium">{item.name}</span>}
+              {!isCompact && <span className="font-medium">{item.name}</span>}
             </div>
-            {!collapsed &&
+            {!isCompact &&
               (isExpanded ? (
                 <ChevronUpIcon className="h-4 w-4" />
               ) : (
@@ -259,7 +264,7 @@ export default function Sidebar() {
         ) : (
           <Link
             href={item.href}
-            title={collapsed ? item.name : undefined}
+            title={isCompact ? item.name : undefined}
             onClick={closeMobile}
             className={`flex items-center px-3 py-3 rounded-lg transition-colors min-h-[44px] ${
               isActive
@@ -268,15 +273,15 @@ export default function Sidebar() {
             }`}
           >
             <item.icon
-              className={`h-5 w-5 ${collapsed ? "mr-0" : "mr-3"} ${
+              className={`h-5 w-5 ${isCompact ? "mr-0" : "mr-3"} ${
                 isActive ? "text-blue-700" : "text-gray-400"
               }`}
             />
-            {!collapsed && <span className="font-medium">{item.name}</span>}
+            {!isCompact && <span className="font-medium">{item.name}</span>}
           </Link>
         )}
 
-        {hasChildren && isExpanded && !collapsed && (
+        {hasChildren && isExpanded && !isCompact && (
           <div className="ml-6 mt-1 space-y-1">
             {item.children.map((child: any) => {
               const isChildActive = pathname === getPathFromHref(child.href);
@@ -320,17 +325,19 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen ${
-          collapsed ? "w-16" : "w-64"
-        } bg-white shadow-lg z-50 transition-all ${
+        className={`fixed left-0 top-0 flex h-screen flex-col ${
+          isCompact ? "w-16" : "w-64"
+        } bg-white shadow-lg z-[60] transition-transform duration-300 ease-in-out ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="p-6 flex items-center justify-between">
-          {!collapsed && (
-            <h1 className="text-2xl font-bold text-[#2D3748]">Church Manager</h1>
+        <div className="flex shrink-0 items-center justify-between gap-3 p-4 md:p-6">
+          {!isCompact && (
+            <h1 className="min-w-0 flex-1 text-xl font-bold leading-snug text-[#2D3748] md:text-2xl">
+              Church Manager
+            </h1>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {/* Mobile close button */}
             <button
               onClick={closeMobile}
@@ -356,11 +363,11 @@ export default function Sidebar() {
           </div>
         </div>
 
-      <nav className="mt-6 px-3">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-2">
         {filteredNavigation.map((item) => renderNavItem(item))}
       </nav>
 
-      {!collapsed && (
+      {false && !isCompact && (
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <div className="bg-blue-50 rounded-lg p-4">
             <h3 className="text-sm font-medium text-blue-800">Need Help?</h3>

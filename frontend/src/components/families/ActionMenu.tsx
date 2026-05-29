@@ -128,7 +128,7 @@ export default function ActionMenu({
               type="button"
             >
               <svg
-                className="w-4 h-4 text-blue-600"
+                className="w-4 h-4 text-primary"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

@@ -168,7 +168,7 @@ export default function FilterCard({
                 type="checkbox"
                 checked={selectedBranchIds.includes(option.value)}
                 onChange={() => toggleBranchId(option.value)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="rounded border-gray-300 text-primary focus:ring-ring"
               />
               <span>{option.label}</span>
             </label>
@@ -186,7 +186,7 @@ export default function FilterCard({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyPress={handleKeyPress}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         >
           <option value="">Select {field.label}</option>
           {field.options.map((option) => (
@@ -206,7 +206,7 @@ export default function FilterCard({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyPress={handleKeyPress}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       );
     }
@@ -219,7 +219,7 @@ export default function FilterCard({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyPress={handleKeyPress}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       );
     }
@@ -232,7 +232,7 @@ export default function FilterCard({
         onChange={(e) => setValue(e.target.value)}
         onKeyPress={handleKeyPress}
         placeholder={`Enter ${field.label.toLowerCase()}`}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
       />
     );
   };
@@ -278,7 +278,7 @@ export default function FilterCard({
           <select
             value={operator}
             onChange={(e) => setOperator(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           >
             {opList.map((op) => (
               <option key={op.value} value={op.value}>
@@ -305,14 +305,14 @@ export default function FilterCard({
                 type="date"
                 value={value2}
                 onChange={(e) => setValue2(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             ) : field.type === "number" ? (
               <input
                 type="number"
                 value={value2}
                 onChange={(e) => setValue2(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             ) : (
               <input
@@ -320,7 +320,7 @@ export default function FilterCard({
                 value={value2}
                 onChange={(e) => setValue2(e.target.value)}
                 placeholder={`Enter ${field.label.toLowerCase()}`}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             )}
           </div>
@@ -331,7 +331,7 @@ export default function FilterCard({
         <button
           type="button"
           onClick={onClose}
-          className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
         >
           Cancel
         </button>
@@ -343,7 +343,7 @@ export default function FilterCard({
               ? selectedBranchIds.length === 0
               : !value.trim() || (isBetween && !value2.trim())
           }
-          className="px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-lg hover:bg-beacon-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Apply Filter
         </button>

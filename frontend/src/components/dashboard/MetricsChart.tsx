@@ -19,7 +19,7 @@ const data = [
 export default function MetricsChart() {
   return (
     <Card>
-      <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
+      <h3 className="text-lg font-semibold text-foreground mb-4">
         Monthly Overview
       </h3>
       <div className="h-[300px] w-full">
@@ -36,7 +36,12 @@ export default function MetricsChart() {
               dataKey="attendance"
               stroke="#2563EB"
             />
-            <Line yAxisId="right" type="monotone" dataKey="giving" stroke="#4A5568" />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="giving"
+              stroke="#F59E0B"
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

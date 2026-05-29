@@ -120,7 +120,7 @@ export default function FamilyForm({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -156,7 +156,7 @@ export default function FamilyForm({
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             placeholder="Enter family name (e.g., Johnson)"
             required
           />
@@ -175,7 +175,7 @@ export default function FamilyForm({
             onChange={(e) =>
               setFormData({ ...formData, leader: e.target.value })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           >
             <option value="">Select a family leader (optional)</option>
             {getSelectedMembers().map((member) => (
@@ -203,7 +203,7 @@ export default function FamilyForm({
           onChange={(e) =>
             setFormData({ ...formData, address: e.target.value })
           }
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           placeholder="Enter family physical address..."
           rows={compactLayout ? 2 : 2}
         />
@@ -220,7 +220,7 @@ export default function FamilyForm({
         <textarea
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           placeholder="Enter family notes or description..."
           rows={compactLayout ? 3 : 3}
         />
@@ -245,7 +245,7 @@ export default function FamilyForm({
               setShowMemberDropdown(true);
             }}
             onFocus={() => setShowMemberDropdown(true)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             placeholder="Search members by name, role, or status..."
           />
 
@@ -313,7 +313,7 @@ export default function FamilyForm({
               {getSelectedMembers().map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center space-x-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2"
+                  className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
                 >
                   <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                     {getInitials(member)}

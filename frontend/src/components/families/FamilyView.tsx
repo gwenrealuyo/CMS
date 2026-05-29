@@ -156,7 +156,7 @@ export default function FamilyView({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -226,7 +226,7 @@ export default function FamilyView({
       <div className="p-4 sm:p-5 overflow-y-auto flex-1">
         <div className="space-y-4">
           {/* Family Header Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 sm:p-4 border border-blue-100">
+          <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-lg p-3 sm:p-4 border border-primary/20">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-gray-900">
                 The {family.name} Family
@@ -275,7 +275,7 @@ export default function FamilyView({
                       e.stopPropagation();
                       setShowSortDropdown(!showSortDropdown);
                     }}
-                    className="inline-flex items-center px-3 py-2 sm:py-1.5 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors min-h-[44px] sm:min-h-0 w-full sm:w-auto"
+                    className="inline-flex items-center px-3 py-2 sm:py-1.5 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] sm:min-h-0 w-full sm:w-auto"
                   >
                     <svg
                       className="w-4 h-4 mr-1.5"
@@ -321,7 +321,7 @@ export default function FamilyView({
                           onClick={() => handleSortSelect("last_name")}
                           className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
                             sortBy === "last_name"
-                              ? "bg-blue-50 text-blue-600"
+                              ? "bg-primary/10 text-primary"
                               : "text-gray-700 hover:bg-gray-50"
                           }`}
                         >
@@ -336,7 +336,7 @@ export default function FamilyView({
                           onClick={() => handleSortSelect("first_name")}
                           className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
                             sortBy === "first_name"
-                              ? "bg-blue-50 text-blue-600"
+                              ? "bg-primary/10 text-primary"
                               : "text-gray-700 hover:bg-gray-50"
                           }`}
                         >
@@ -353,7 +353,7 @@ export default function FamilyView({
                           }
                           className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
                             sortBy === "date_first_attended"
-                              ? "bg-blue-50 text-blue-600"
+                              ? "bg-primary/10 text-primary"
                               : "text-gray-700 hover:bg-gray-50"
                           }`}
                         >
@@ -368,7 +368,7 @@ export default function FamilyView({
                           onClick={() => handleSortSelect("water_baptism_date")}
                           className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
                             sortBy === "water_baptism_date"
-                              ? "bg-blue-50 text-blue-600"
+                              ? "bg-primary/10 text-primary"
                               : "text-gray-700 hover:bg-gray-50"
                           }`}
                         >
@@ -430,7 +430,7 @@ export default function FamilyView({
                               <span
                                 className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                                   c
-                                    ? "bg-blue-100 text-blue-800"
+                                    ? "bg-primary/15 text-primary"
                                     : "bg-red-100 text-red-800"
                                 }`}
                               >
@@ -546,7 +546,7 @@ export default function FamilyView({
               <Button
                 onClick={onEdit}
                 variant="secondary"
-                className="!text-blue-600 h-10 px-4 text-sm font-medium bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                className="!text-primary h-10 px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
               >
                 <svg
                   className="w-4 h-4"
@@ -616,7 +616,7 @@ export default function FamilyView({
               <Button
                 onClick={onEdit}
                 variant="secondary"
-                className="!text-blue-600 md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                className="!text-primary md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
               >
                 <svg
                   className="w-4 h-4"

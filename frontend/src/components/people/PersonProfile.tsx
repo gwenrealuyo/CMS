@@ -93,7 +93,7 @@ export default function PersonProfile({
   const getJourneyBadgeClasses = (type: string) => {
     switch (type) {
       case "BAPTISM":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "SPIRIT":
         return "bg-orange-100 text-orange-800";
       case "CLUSTER":
@@ -266,9 +266,9 @@ export default function PersonProfile({
     switch (type) {
       case "BAPTISM":
         return (
-          <div className="w-7 h-7 rounded-lg bg-blue-100 border border-blue-200 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/20 flex items-center justify-center">
             <svg
-              className="w-4 h-4 text-blue-600"
+              className="w-4 h-4 text-primary"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -468,7 +468,7 @@ export default function PersonProfile({
       case "LEADER":
         return "bg-purple-100 text-purple-800";
       case "MEMBER":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "VISITOR":
         return "bg-red-100 text-red-800";
       case "ADMIN":
@@ -571,7 +571,7 @@ export default function PersonProfile({
                 onClick={() => setActiveTab("overview")}
                 className={`py-2.5 px-1.5 border-b-2 font-medium text-sm min-h-[40px] whitespace-nowrap ${
                   activeTab === "overview"
-                    ? "border-blue-500 text-blue-600"
+                    ? "border-primary text-primary"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
@@ -582,7 +582,7 @@ export default function PersonProfile({
                   onClick={() => setActiveTab("timeline")}
                   className={`py-2.5 px-1.5 border-b-2 font-medium text-sm min-h-[40px] whitespace-nowrap ${
                     activeTab === "timeline"
-                      ? "border-blue-500 text-blue-600"
+                      ? "border-primary text-primary"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
@@ -656,7 +656,7 @@ export default function PersonProfile({
                                     onClick={() =>
                                       onViewFamily && onViewFamily(fam)
                                     }
-                                    className="font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2 text-right break-words"
+                                    className="font-medium text-primary hover:text-primary underline underline-offset-2 text-right break-words"
                                   >
                                     {fam.name}
                                   </button>
@@ -680,7 +680,7 @@ export default function PersonProfile({
                                 <button
                                   type="button"
                                   onClick={handleQuickFactsViewFamily}
-                                  className="text-xs font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                                  className="text-xs font-medium text-primary hover:text-primary underline underline-offset-2"
                                 >
                                   Assign family
                                 </button>
@@ -719,7 +719,7 @@ export default function PersonProfile({
                                     onClick={() =>
                                       onViewCluster && onViewCluster(cl)
                                     }
-                                    className="font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2 text-right break-words"
+                                    className="font-medium text-primary hover:text-primary underline underline-offset-2 text-right break-words"
                                   >
                                     {clusterQuickFactLabel(cl)}
                                   </button>
@@ -739,7 +739,7 @@ export default function PersonProfile({
                                 <button
                                   type="button"
                                   onClick={handleQuickFactsViewCluster}
-                                  className="text-xs font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                                  className="text-xs font-medium text-primary hover:text-primary underline underline-offset-2"
                                 >
                                   Assign cluster
                                 </button>
@@ -895,7 +895,7 @@ export default function PersonProfile({
                             value={journeySearch}
                             onChange={(e) => setJourneySearch(e.target.value)}
                             placeholder="Search by title, description, or type..."
-                            className="w-full px-3 py-2 min-h-[38px] text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 min-h-[38px] text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"
                           />
                         </div>
                         {/* Filter by Type */}
@@ -910,7 +910,7 @@ export default function PersonProfile({
                                 e.target.value as JourneyType | "ALL"
                               )
                             }
-                            className="w-full px-3 py-2 min-h-[38px] text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 min-h-[38px] text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"
                           >
                             <option value="ALL">All Types</option>
                             {[
@@ -996,7 +996,7 @@ export default function PersonProfile({
                           setJourneySearch("");
                           setJourneyFilter("ALL");
                         }}
-                        className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                        className="mt-2 text-sm text-primary hover:text-primary underline"
                       >
                         Clear filters
                       </button>
@@ -1088,7 +1088,7 @@ export default function PersonProfile({
                   <Button
                     onClick={onEdit}
                     variant="secondary"
-                    className="!text-blue-600 h-10 px-4 text-sm font-medium bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                    className="!text-primary h-10 px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
                   >
                     <svg
                       className="w-4 h-4"
@@ -1116,7 +1116,7 @@ export default function PersonProfile({
                 <Button
                   onClick={onEdit}
                   variant="secondary"
-                  className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                  className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
                 >
                   <svg
                     className="w-4 h-4"
@@ -1230,7 +1230,7 @@ export default function PersonProfile({
                   <Button
                     onClick={onEdit}
                     variant="secondary"
-                    className="!text-blue-600 px-6 md:py-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                    className="!text-primary px-6 md:py-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
                   >
                     <svg
                       className="w-4 h-4"

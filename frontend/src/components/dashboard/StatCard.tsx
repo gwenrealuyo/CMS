@@ -17,7 +17,7 @@ export default function StatCard({ title, value, icon, trend }: StatCardProps) {
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <p className="text-sm text-gray-500">{title}</p>
-          <h3 className="text-2xl font-bold text-[#2D3748] mt-1">{value}</h3>
+          <h3 className="text-2xl font-bold text-foreground mt-1">{value}</h3>
           {trend && (
             <p
               className={`text-sm mt-2 ${
@@ -28,7 +28,7 @@ export default function StatCard({ title, value, icon, trend }: StatCardProps) {
             </p>
           )}
         </div>
-        <div className="text-[#2563EB] text-2xl">{icon}</div>
+        <div className="text-primary text-2xl">{icon}</div>
       </div>
     </Card>
   );

@@ -123,8 +123,8 @@ export default function UnenrolledByCategory({
     <Card title="Unenrolled Students by Category">
       <div className="space-y-4">
         {totalUnenrolled > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-blue-900">
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+            <p className="text-sm font-medium text-primary">
               Total Unenrolled: {totalUnenrolled}{" "}
               {totalUnenrolled === 1 ? "person" : "people"}
             </p>
@@ -190,7 +190,7 @@ export default function UnenrolledByCategory({
                       </div>
                     </div>
                     {category.unenrolled_count > 0 && (
-                      <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 px-3 py-1 text-xs font-semibold">
+                      <span className="inline-flex items-center rounded-full bg-primary/15 text-primary px-3 py-1 text-xs font-semibold">
                         {category.unenrolled_count}
                       </span>
                     )}

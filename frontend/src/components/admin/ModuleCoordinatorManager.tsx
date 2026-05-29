@@ -184,7 +184,7 @@ const getModuleBadgeColor = (module: ModuleCoordinator["module"]): string => {
 // Get badge color classes for levels
 const getLevelBadgeColor = (level: ModuleCoordinator["level"]): string => {
   const colorMap: Record<ModuleCoordinator["level"], string> = {
-    COORDINATOR: "bg-blue-100 text-blue-800 border-blue-200",
+    COORDINATOR: "bg-primary/15 text-primary border-primary/20",
     SENIOR_COORDINATOR: "bg-violet-100 text-violet-800 border-violet-200",
     TEACHER: "bg-amber-100 text-amber-800 border-amber-200",
     BIBLE_SHARER: "bg-rose-100 text-rose-800 border-rose-200",
@@ -1000,7 +1000,7 @@ export default function ModuleCoordinatorManager() {
     <div className="space-y-4">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-[#2D3748]">
+          <h2 className="text-xl font-semibold text-foreground">
             Module Coordinator Assignments
           </h2>
           {/* View Toggle - Mobile Only */}
@@ -1010,7 +1010,7 @@ export default function ModuleCoordinatorManager() {
                 onClick={() => setViewMode("cards")}
                 className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                   viewMode === "cards"
-                    ? "bg-blue-500 text-white"
+                    ? "bg-primary/100 text-white"
                     : "bg-white text-gray-700 hover:bg-gray-50"
                 }`}
                 title="Card View"
@@ -1021,7 +1021,7 @@ export default function ModuleCoordinatorManager() {
                 onClick={() => setViewMode("table")}
                 className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                   viewMode === "table"
-                    ? "bg-blue-500 text-white"
+                    ? "bg-primary/100 text-white"
                     : "bg-white text-gray-700 hover:bg-gray-50"
                 }`}
                 title="Table View"
@@ -1069,7 +1069,7 @@ export default function ModuleCoordinatorManager() {
               onChange={(e) =>
                 setFilters({ ...filters, module: e.target.value })
               }
-              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">All Modules</option>
               {MODULE_OPTIONS.map((opt) => (
@@ -1088,7 +1088,7 @@ export default function ModuleCoordinatorManager() {
               onChange={(e) =>
                 setFilters({ ...filters, level: e.target.value })
               }
-              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">All Levels</option>
               {ALL_LEVEL_OPTIONS.map((opt) => (
@@ -1105,7 +1105,7 @@ export default function ModuleCoordinatorManager() {
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             placeholder="Search by name..."
-            className="w-full sm:flex-1 min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+            className="w-full sm:flex-1 min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <Button
             variant="tertiary"
@@ -1198,7 +1198,7 @@ export default function ModuleCoordinatorManager() {
                     <div className="pt-2 border-t border-gray-200 flex flex-col gap-2">
                       <button
                         onClick={() => handleEdit(assignment)}
-                        className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                        className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
                       >
                         <PencilIcon className="w-4 h-4" />
                         Edit
@@ -1292,7 +1292,7 @@ export default function ModuleCoordinatorManager() {
                         <div className="flex flex-col sm:flex-row gap-2">
                           <button
                             onClick={() => handleEdit(assignment)}
-                            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
                           >
                             <PencilIcon className="w-4 h-4" />
                             Edit
@@ -1384,7 +1384,7 @@ export default function ModuleCoordinatorManager() {
                 }
               }}
               required
-              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Select a module...</option>
               {MODULE_OPTIONS.map((opt) => (
@@ -1442,7 +1442,7 @@ export default function ModuleCoordinatorManager() {
               }}
               required
               disabled={!formData.module}
-              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">
                 {formData.module
@@ -1488,7 +1488,7 @@ export default function ModuleCoordinatorManager() {
                         formData.level === "TEACHER" ||
                         formData.level === "BIBLE_SHARER"
                       }
-                      className="mr-2 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <div>
                       <span
@@ -1516,7 +1516,7 @@ export default function ModuleCoordinatorManager() {
                         handleAssignmentTypeChange("resource-specific")
                       }
                       disabled={formData.level === "SENIOR_COORDINATOR"}
-                      className="mr-2 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <div>
                       <span
@@ -1553,7 +1553,7 @@ export default function ModuleCoordinatorManager() {
 
           {/* Resource selection — multi-select for CLUSTER / EVANGELISM / SUNDAY_SCHOOL */}
           {assignmentType === "resource-specific" && formData.module && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
               {loadingResources ? (
                 <div className="flex items-center justify-center py-4">
                   <LoadingSpinner />
@@ -1769,7 +1769,7 @@ export default function ModuleCoordinatorManager() {
                         e.target.value as ModuleCoordinator["module"] | ""
                       )
                     }
-                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">Select a module...</option>
                     {MODULE_OPTIONS.map((opt) => (
@@ -1791,7 +1791,7 @@ export default function ModuleCoordinatorManager() {
                       )
                     }
                     disabled={!bulkSimple.module}
-                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option value="">
                       {bulkSimple.module
@@ -1825,7 +1825,7 @@ export default function ModuleCoordinatorManager() {
                           bulkSimple.level === "TEACHER" ||
                           bulkSimple.level === "BIBLE_SHARER"
                         }
-                        className="mr-2 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       <span
                         className={
@@ -1853,7 +1853,7 @@ export default function ModuleCoordinatorManager() {
                         disabled={
                           bulkSimple.level === "SENIOR_COORDINATOR"
                         }
-                        className="mr-2 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       <span
                         className={
@@ -1884,7 +1884,7 @@ export default function ModuleCoordinatorManager() {
               )}
 
               {bulkSimpleShowsResourcePicker && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                   <p
                     id="bulk-resource-picker-label"
                     className="block text-sm font-medium text-gray-700 mb-2"
@@ -1927,7 +1927,7 @@ export default function ModuleCoordinatorManager() {
           <div className="border-t border-gray-200 pt-4">
             <button
               type="button"
-              className="text-sm font-medium text-[#2563EB] hover:underline min-h-[44px] text-left"
+              className="text-sm font-medium text-primary hover:underline min-h-[44px] text-left"
               onClick={() => {
                 const next = !bulkAdvancedOpen;
                 setBulkAdvancedOpen(next);
@@ -1996,7 +1996,7 @@ export default function ModuleCoordinatorManager() {
                             )
                           }
                           required
-                          className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                          className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                           <option value="">Select a module...</option>
                           {MODULE_OPTIONS.map((opt) => (
@@ -2022,7 +2022,7 @@ export default function ModuleCoordinatorManager() {
                           }
                           required
                           disabled={!assignment.module}
-                          className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
                         >
                           <option value="">
                             {assignment.module
@@ -2065,7 +2065,7 @@ export default function ModuleCoordinatorManager() {
                                     assignment.level === "TEACHER" ||
                                     assignment.level === "BIBLE_SHARER"
                                   }
-                                  className="mr-2 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                                 <span
                                   className={
@@ -2097,7 +2097,7 @@ export default function ModuleCoordinatorManager() {
                                   disabled={
                                     assignment.level === "SENIOR_COORDINATOR"
                                   }
-                                  className="mr-2 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                                 <span
                                   className={
@@ -2115,7 +2115,7 @@ export default function ModuleCoordinatorManager() {
 
                       {assignment.assignmentType === "resource-specific" &&
                         assignment.module && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Select resource{" "}
                               {assignment.level !== "SENIOR_COORDINATOR" && (
@@ -2153,7 +2153,7 @@ export default function ModuleCoordinatorManager() {
                                 required={
                                   assignment.level !== "SENIOR_COORDINATOR"
                                 }
-                                className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                                className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                                 onFocus={async () => {
                                   if (!assignment.module) return;
                                   setBulkLoadingResources(true);

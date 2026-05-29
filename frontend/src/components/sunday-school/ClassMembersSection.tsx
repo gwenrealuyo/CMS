@@ -42,7 +42,7 @@ export default function ClassMembersSection({
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case "TEACHER":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "ASSISTANT_TEACHER":
         return "bg-purple-100 text-purple-800";
       case "STUDENT":
@@ -130,7 +130,7 @@ export default function ClassMembersSection({
             <StatusBadge
               label="Teachers"
               count={teachers.length}
-              colorClass="bg-blue-100 text-blue-800"
+              colorClass="bg-primary/15 text-primary"
             />
             <StatusBadge
               label="Students"

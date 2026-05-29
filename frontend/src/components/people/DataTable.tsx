@@ -161,7 +161,7 @@ export default function DataTable({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -562,7 +562,7 @@ export default function DataTable({
                     className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-100 cursor-pointer"
                   >
                     <svg
-                      className="w-4 h-4 mr-2 text-blue-500"
+                      className="w-4 h-4 mr-2 text-primary"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -708,7 +708,7 @@ export default function DataTable({
                   onClick={() => setMobileViewMode("cards")}
                   className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                     mobileViewMode === "cards"
-                      ? "bg-blue-500 text-white"
+                      ? "bg-primary/100 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
                   }`}
                   title="Card View"
@@ -719,7 +719,7 @@ export default function DataTable({
                   onClick={() => setMobileViewMode("table")}
                   className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                     mobileViewMode === "table"
-                      ? "bg-blue-500 text-white"
+                      ? "bg-primary/100 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
                   }`}
                   title="Table View"
@@ -731,7 +731,7 @@ export default function DataTable({
               <div className="flex items-center flex-wrap gap-2 md:gap-4 !ml-0 md:ml-2">
                 <button
                   onClick={() => setShowColumnsModal(true)}
-                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
+                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0"
                 >
                   <svg
                     className="w-4 h-4 mr-2"
@@ -750,7 +750,7 @@ export default function DataTable({
                 </button>
                 <button
                   onClick={() => setShowExportModal(true)}
-                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
+                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0"
                 >
                   <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">Export All</span>
@@ -758,7 +758,7 @@ export default function DataTable({
                 </button>
                 <button
                   onClick={() => setShowImportModal(true)}
-                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
+                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0"
                 >
                   <svg
                     className="w-4 h-4 mr-2"
@@ -788,7 +788,7 @@ export default function DataTable({
                 key={person.id}
                 className={`rounded-lg p-4 shadow-sm transition-colors ${
                   highlightedPersonId === person.id
-                    ? "bg-blue-50 border border-blue-200 ring-1 ring-blue-100"
+                    ? "bg-primary/10 border border-primary/20 ring-1 ring-primary/20"
                     : "bg-white border border-gray-200"
                 }`}
               >
@@ -798,7 +798,7 @@ export default function DataTable({
                       type="checkbox"
                       checked={selectedPeople.has(person.id)}
                       onChange={() => handleSelectPerson(person.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1 flex-shrink-0"
+                      className="rounded border-gray-300 text-primary focus:ring-ring mt-1 flex-shrink-0"
                     />
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                       {`${person.first_name?.[0] || ""}${
@@ -811,7 +811,7 @@ export default function DataTable({
                         onClick={() => onView && onView(person as Person)}
                         className="text-left w-full"
                       >
-                        <div className="text-sm font-semibold text-blue-700 hover:underline truncate">
+                        <div className="text-sm font-semibold text-primary hover:underline truncate">
                           {person.first_name} {person.last_name}
                         </div>
                       </button>
@@ -904,7 +904,7 @@ export default function DataTable({
                         paginatedPeople.length > 0
                       }
                       onChange={handleSelectAll}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-primary focus:ring-ring"
                     />
                   </th>
                   {availableColumns.map((col) => {
@@ -932,7 +932,7 @@ export default function DataTable({
                     key={person.id}
                     className={`transition-colors ${
                       highlightedPersonId === person.id
-                        ? "bg-blue-50 hover:bg-blue-100"
+                        ? "bg-primary/10 hover:bg-primary/15"
                         : "hover:bg-gray-50"
                     }`}
                   >
@@ -941,7 +941,7 @@ export default function DataTable({
                         type="checkbox"
                         checked={selectedPeople.has(person.id)}
                         onChange={() => handleSelectPerson(person.id)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-gray-300 text-primary focus:ring-ring"
                       />
                     </td>
                     {availableColumns.map((col) => {
@@ -964,7 +964,7 @@ export default function DataTable({
                                 className="text-left"
                                 title="View profile"
                               >
-                                <div className="text-sm font-medium text-blue-700 hover:underline">
+                                <div className="text-sm font-medium text-primary hover:underline">
                                   {person.first_name || "-"}
                                 </div>
                               </button>
@@ -977,7 +977,7 @@ export default function DataTable({
                               className="text-left"
                               title="View profile"
                             >
-                              <div className="text-sm font-medium text-blue-700 hover:underline">
+                              <div className="text-sm font-medium text-primary hover:underline">
                                 {person.last_name || "-"}
                               </div>
                             </button>
@@ -1142,7 +1142,7 @@ export default function DataTable({
                       paginatedPeople.length > 0
                     }
                     onChange={handleSelectAll}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-primary focus:ring-ring"
                   />
                 </th>
                 {availableColumns.map((col) => {
@@ -1170,7 +1170,7 @@ export default function DataTable({
                   key={person.id}
                   className={`transition-colors ${
                     highlightedPersonId === person.id
-                      ? "bg-blue-50 hover:bg-blue-100"
+                      ? "bg-primary/10 hover:bg-primary/15"
                       : "hover:bg-gray-50"
                   }`}
                 >
@@ -1179,7 +1179,7 @@ export default function DataTable({
                       type="checkbox"
                       checked={selectedPeople.has(person.id)}
                       onChange={() => handleSelectPerson(person.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-primary focus:ring-ring"
                     />
                   </td>
                   {availableColumns.map((col) => {
@@ -1200,7 +1200,7 @@ export default function DataTable({
                               className="text-left"
                               title="View profile"
                             >
-                              <div className="text-sm font-medium text-blue-700 hover:underline">
+                              <div className="text-sm font-medium text-primary hover:underline">
                                 {person.first_name || "-"}
                               </div>
                             </button>
@@ -1213,7 +1213,7 @@ export default function DataTable({
                             className="text-left"
                             title="View profile"
                           >
-                            <div className="text-sm font-medium text-blue-700 hover:underline">
+                            <div className="text-sm font-medium text-primary hover:underline">
                               {person.last_name || "-"}
                             </div>
                           </button>
@@ -1377,7 +1377,7 @@ export default function DataTable({
                     setItemsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0"
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>
@@ -1461,7 +1461,7 @@ export default function DataTable({
                         }
                         setVisibleColumns(newVisible);
                       }}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-primary focus:ring-ring"
                     />
                     <span className="text-sm text-gray-700">{col.label}</span>
                   </label>
@@ -1481,7 +1481,7 @@ export default function DataTable({
               </button>
               <button
                 onClick={() => setShowColumnsModal(false)}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-beacon-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
                 Done
               </button>

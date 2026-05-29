@@ -886,7 +886,7 @@ export default function ClusterReportsDashboard({
       case "PHYSICAL":
         return "bg-green-100 text-green-800";
       case "ONLINE":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "HYBRID":
         return "bg-purple-100 text-purple-800";
       default:
@@ -1080,7 +1080,7 @@ export default function ClusterReportsDashboard({
     <div className="space-y-6">
       {/* Header */}
       {/* <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[#2D3748]">
+        <h1 className="text-2xl font-bold text-foreground">
           Cluster Weekly Reports
         </h1>
         <div className="flex gap-3">
@@ -1194,7 +1194,7 @@ export default function ClusterReportsDashboard({
               <div
                 className={`grid grid-cols-1 md:grid-cols-4 gap-4 transition-shadow duration-300 rounded-lg p-0.5 -m-0.5 ${
                   analyticsHighlightFlash
-                    ? "ring-2 ring-blue-200 ring-offset-2 ring-offset-gray-50"
+                    ? "ring-2 ring-primary/30 ring-offset-2 ring-offset-gray-50"
                     : ""
                 } ${analyticsLoading ? "opacity-60" : ""}`}
                 role="region"
@@ -1209,11 +1209,11 @@ export default function ClusterReportsDashboard({
                 >
                   <div className="flex items-center">
                     <div
-                      className="p-1.5 bg-blue-100 rounded-lg"
+                      className="p-1.5 bg-primary/15 rounded-lg"
                       aria-hidden="true"
                     >
                       <svg
-                        className="w-5 h-5 text-blue-600"
+                        className="w-5 h-5 text-primary"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1419,7 +1419,7 @@ export default function ClusterReportsDashboard({
             </h2>
             <button
               onClick={() => setShowCharts(!showCharts)}
-              className="flex items-center gap-2 px-3 py-1.5 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="flex items-center gap-2 px-3 py-1.5 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
             >
               {showCharts ? (
                 <>
@@ -1482,7 +1482,7 @@ export default function ClusterReportsDashboard({
                       <Line
                         type="monotone"
                         dataKey="members"
-                        stroke="#2563EB"
+                        stroke="primary"
                         strokeWidth={2}
                         name="Members"
                       />
@@ -1518,7 +1518,7 @@ export default function ClusterReportsDashboard({
                       <Legend />
                       <Bar
                         dataKey="attendanceRate"
-                        fill="#2563EB"
+                        fill="primary"
                         name="Attendance Rate (%)"
                       />
                     </BarChart>
@@ -1547,7 +1547,7 @@ export default function ClusterReportsDashboard({
                         dataKey="value"
                       >
                         {(() => {
-                          const COLORS = ["#2563EB", "#F59E0B", "#10B981"];
+                          const COLORS = ["primary", "#F59E0B", "#10B981"];
                           return chartGatheringPieData.map((_, index) => (
                             <Cell
                               key={`cell-${index}`}
@@ -1576,7 +1576,7 @@ export default function ClusterReportsDashboard({
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="members" fill="#2563EB" name="Members" />
+                      <Bar dataKey="members" fill="primary" name="Members" />
                       <Bar dataKey="visitors" fill="#F59E0B" name="Visitors" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -1637,7 +1637,7 @@ export default function ClusterReportsDashboard({
                     setSelectedMonth("");
                   }
                 }}
-                className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary hover:underline transition-colors"
                 title={
                   selectedMonth === ""
                     ? "Show Current Month"
@@ -1684,7 +1684,7 @@ export default function ClusterReportsDashboard({
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">All Months</option>
               {[
@@ -1732,7 +1732,7 @@ export default function ClusterReportsDashboard({
                     setSelectedWeek("");
                   }
                 }}
-                className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary hover:underline transition-colors"
                 title={
                   selectedWeek === "" ? "Show Current Week" : "Show All Weeks"
                 }
@@ -1777,7 +1777,7 @@ export default function ClusterReportsDashboard({
             <select
               value={selectedWeek}
               onChange={(e) => setSelectedWeek(e.target.value)}
-              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">All Weeks</option>
               {Array.from({ length: 53 }, (_, i) => {
@@ -1812,7 +1812,7 @@ export default function ClusterReportsDashboard({
               onChange={(e) =>
                 setSelectedYear(parseInt(e.target.value, 10))
               }
-              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
             >
               {yearsLoading ? (
                 <option value="">Loading…</option>
@@ -1835,7 +1835,7 @@ export default function ClusterReportsDashboard({
             <select
               value={selectedGatheringType}
               onChange={(e) => setSelectedGatheringType(e.target.value)}
-              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">All Types</option>
               <option value="PHYSICAL">Physical</option>
@@ -1856,7 +1856,7 @@ export default function ClusterReportsDashboard({
                 onClick={() => setViewMode("cards")}
                 className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                   viewMode === "cards"
-                    ? "bg-blue-500 text-white"
+                    ? "bg-primary/100 text-white"
                     : "bg-white text-gray-700 hover:bg-gray-50"
                 }`}
                 title="Card View"
@@ -1867,7 +1867,7 @@ export default function ClusterReportsDashboard({
                 onClick={() => setViewMode("table")}
                 className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                   viewMode === "table"
-                    ? "bg-blue-500 text-white"
+                    ? "bg-primary/100 text-white"
                     : "bg-white text-gray-700 hover:bg-gray-50"
                 }`}
                 title="Table View"
@@ -1877,7 +1877,7 @@ export default function ClusterReportsDashboard({
             </div>
             <button
               onClick={() => setShowColumnsModal(true)}
-              className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
             >
               <svg
                 className="w-4 h-4 mr-2"
@@ -1898,7 +1898,7 @@ export default function ClusterReportsDashboard({
               <button
                 ref={exportButtonRef}
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
                 <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
                 Export
@@ -1961,7 +1961,7 @@ export default function ClusterReportsDashboard({
                       className="flex items-center w-full px-4 py-2 min-h-[44px] text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <svg
-                        className="w-4 h-4 mr-2 text-blue-600"
+                        className="w-4 h-4 mr-2 text-primary"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2018,7 +2018,7 @@ export default function ClusterReportsDashboard({
                       <div>
                         <button
                           onClick={() => handleViewReport(report)}
-                          className="text-blue-600 hover:text-blue-800 hover:underline font-medium text-base"
+                          className="text-primary hover:text-primary hover:underline font-medium text-base"
                         >
                           {report.cluster_code
                             ? `${report.cluster_code} - ${report.cluster_name}`
@@ -2130,7 +2130,7 @@ export default function ClusterReportsDashboard({
                           <>
                             <button
                               onClick={() => handleEditReport(report)}
-                              className="flex-1 text-blue-600 hover:text-blue-900 py-2 px-3 rounded border border-blue-200 hover:bg-blue-50 text-sm font-medium"
+                              className="flex-1 text-primary hover:text-primary py-2 px-3 rounded border border-primary/20 hover:bg-primary/10 text-sm font-medium"
                             >
                               Edit
                             </button>
@@ -2191,7 +2191,7 @@ export default function ClusterReportsDashboard({
                             cellContent = (
                               <button
                                 onClick={() => handleViewReport(report)}
-                                className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150"
+                                className="text-primary hover:text-primary hover:underline cursor-pointer transition-colors duration-150"
                                 title="Click to view report details"
                               >
                                 {report.cluster_code
@@ -2332,7 +2332,7 @@ export default function ClusterReportsDashboard({
                             <>
                               <button
                                 onClick={() => handleEditReport(report)}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                className="text-primary hover:text-primary p-1 rounded hover:bg-primary/10 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                 title="Edit Report"
                               >
                                 <svg
@@ -2505,7 +2505,7 @@ export default function ClusterReportsDashboard({
                         }
                         setVisibleColumns(newVisible);
                       }}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-primary focus:ring-ring"
                     />
                     <span className="text-sm text-gray-700">{col.label}</span>
                   </label>
@@ -2529,7 +2529,7 @@ export default function ClusterReportsDashboard({
               </button>
               <button
                 onClick={() => setShowColumnsModal(false)}
-                className="px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-primary rounded-lg hover:bg-beacon-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
                 Done
               </button>

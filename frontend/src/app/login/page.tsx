@@ -15,10 +15,8 @@ export default function LoginPage() {
   const { login, isAuthenticated, isLoading: authLoading, user } = useAuth();
   const router = useRouter();
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
-      // Check if user must change password
       if (user.must_change_password || user.first_login) {
         router.push("/change-password");
       } else {
@@ -34,17 +32,18 @@ export default function LoginPage() {
 
     try {
       await login(username, password, rememberMe);
-      // AuthContext will handle redirect to change-password if needed
-      // Otherwise, redirect to dashboard
-      // Note: user state might not be updated yet, so we check in useEffect
     } catch (err: any) {
-      // Handle account locked error
-      if (err.response?.status === 423 || err.response?.data?.error === "account_locked") {
+      if (
+        err.response?.status === 423 ||
+        err.response?.data?.error === "account_locked"
+      ) {
         const lockedUntil = err.response?.data?.locked_until;
         if (lockedUntil) {
           const lockedDate = new Date(lockedUntil);
           const now = new Date();
-          const minutes = Math.ceil((lockedDate.getTime() - now.getTime()) / 60000);
+          const minutes = Math.ceil(
+            (lockedDate.getTime() - now.getTime()) / 60000
+          );
           setError(
             err.response?.data?.message ||
               `Account is locked. Please try again in ${minutes} minute(s) or contact an administrator.`
@@ -65,24 +64,32 @@ export default function LoginPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC]">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
 
   if (isAuthenticated) {
-    return null; // Will redirect
+    return null;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-lg shadow-md">
         <div className="mb-6 md:mb-8 text-center">
-          <h1 className="text-2xl md:text-3xl font-bold text-[#2D3748] mb-2">
-            Church Management System
+          <h1 className="text-2xl md:text-3xl font-bold text-primary mb-1">
+            The Beacon
           </h1>
-          <p className="text-sm md:text-base text-gray-600">Sign in to your account</p>
+          <p className="text-sm text-muted-foreground mb-2">
+            LAMP Church Care System
+          </p>
+          <p className="text-sm font-medium text-beacon-gold">
+            A soul kept is a soul won.
+          </p>
+          <p className="text-sm md:text-base text-muted-foreground mt-4">
+            Sign in to your account
+          </p>
         </div>
 
         {error && (
@@ -95,7 +102,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="username"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-foreground mb-1"
             >
               Username or Email
             </label>
@@ -105,7 +112,7 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              className="input-field text-base md:text-sm"
               placeholder="Enter your username or email"
             />
           </div>
@@ -113,7 +120,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-foreground mb-1"
             >
               Password
             </label>
@@ -133,21 +140,17 @@ export default function LoginPage() {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded"
+              className="h-4 w-4 text-primary focus:ring-ring border-input rounded"
             />
             <label
               htmlFor="remember-me"
-              className="ml-2 block text-sm text-gray-700"
+              className="ml-2 block text-sm text-foreground"
             >
               Remember me
             </label>
           </div>
 
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full"
-          >
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
@@ -155,7 +158,7 @@ export default function LoginPage() {
         <div className="mt-6 text-center">
           <a
             href="/forgot-password"
-            className="text-sm text-[#2563EB] hover:underline"
+            className="text-sm text-primary hover:underline"
           >
             Forgot your password?
           </a>
@@ -164,4 +167,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

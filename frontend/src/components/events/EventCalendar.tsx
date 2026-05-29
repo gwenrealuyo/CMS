@@ -126,7 +126,7 @@ export default function EventCalendar({
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6">
-        <h2 className="text-base md:text-lg font-semibold text-[#2D3748]">
+        <h2 className="text-base md:text-lg font-semibold text-foreground">
           {monthNames[month]} {year}
         </h2>
         <div className="flex items-center gap-2">
@@ -200,8 +200,8 @@ export default function EventCalendar({
               className={`
                 aspect-square flex flex-col items-center justify-start p-1 md:p-2 rounded-md min-h-[44px] md:min-h-0
                 ${date ? "hover:bg-gray-50 cursor-pointer active:bg-gray-100" : ""}
-                ${isCurrentDate ? "bg-blue-50 font-semibold" : ""}
-                ${isSelectedDate ? "bg-blue-100 ring-2 ring-blue-500" : ""}
+                ${isCurrentDate ? "bg-primary/10 font-semibold" : ""}
+                ${isSelectedDate ? "bg-primary/15 ring-2 ring-ring" : ""}
                 transition-colors
               `}
               onClick={() => date && onDateClick && onDateClick(date)}
@@ -210,13 +210,13 @@ export default function EventCalendar({
                 <>
                   <span
                     className={`text-xs md:text-sm ${
-                      isCurrentDate ? "text-blue-600" : "text-gray-900"
+                      isCurrentDate ? "text-primary" : "text-gray-900"
                     }`}
                   >
                     {date.getDate()}
                   </span>
                   {eventCount > 0 && (
-                    <span className="inline-flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full bg-blue-600 text-white text-[10px] md:text-xs font-semibold mt-0.5">
+                    <span className="inline-flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full bg-primary text-white text-[10px] md:text-xs font-semibold mt-0.5">
                       {eventCount}
                     </span>
                   )}

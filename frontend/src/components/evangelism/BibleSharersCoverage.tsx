@@ -110,7 +110,7 @@ export default function BibleSharersCoverageComponent() {
             <h3 className="text-sm font-medium text-gray-500">
               Bible Sharers Groups
             </h3>
-            <p className="text-2xl font-bold text-blue-600 mt-1">
+            <p className="text-2xl font-bold text-primary mt-1">
               {summary?.total_bible_sharers_groups || 0}
             </p>
           </div>

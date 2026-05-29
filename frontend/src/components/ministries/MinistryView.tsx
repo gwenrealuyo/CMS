@@ -67,7 +67,7 @@ export default function MinistryView({
       case "primary_coordinator":
         return "bg-purple-100 text-purple-800";
       case "coordinator":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "team_member":
         return "bg-green-100 text-green-800";
       case "guest_helper":
@@ -147,7 +147,7 @@ export default function MinistryView({
       <div className="p-4 md:p-5 overflow-y-auto flex-1">
         <div className="space-y-4 md:space-y-5">
           {/* Ministry Info Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+          <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-lg p-4 border border-primary/20">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
                 <h2 className="text-lg md:text-xl font-bold text-gray-900 truncate">
@@ -268,12 +268,12 @@ export default function MinistryView({
                     {ministry.support_coordinators.map((coordinator) => (
                       <div
                         key={coordinator.id}
-                        className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                        className="flex items-center gap-3 p-2 bg-primary/10 rounded-lg border border-primary/20 cursor-pointer hover:bg-primary/15 transition-colors"
                         onClick={() =>
                           onViewPerson && onViewPerson(coordinator)
                         }
                       >
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                           {coordinator.first_name?.[0] || ""}
                           {coordinator.last_name?.[0] || ""}
                         </div>
@@ -422,7 +422,7 @@ export default function MinistryView({
                 href={ministry.communication_channel}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:text-blue-800 hover:underline break-all"
+                className="text-sm text-primary hover:text-primary hover:underline break-all"
               >
                 {ministry.communication_channel}
               </a>
@@ -475,7 +475,7 @@ export default function MinistryView({
                               {getRoleLabel(membership.role)}
                             </span>
                             {membership.skills && (
-                              <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                              <span className="text-xs text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded">
                                 {membership.skills}
                               </span>
                             )}
@@ -551,7 +551,7 @@ export default function MinistryView({
           <Button
             onClick={onEdit}
             variant="secondary"
-            className="!text-blue-600 md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            className="!text-primary md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             <svg
               className="w-4 h-4"

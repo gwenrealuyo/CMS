@@ -42,8 +42,8 @@ export default function LessonList({
                 onClick={() => onSelect(lesson)}
                 className={`w-full text-left border rounded-lg px-4 py-3 transition-colors ${
                   isSelected
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-blue-200 hover:bg-blue-50/30"
+                    ? "border-primary bg-primary/10"
+                    : "border-gray-200 hover:border-primary/20 hover:bg-primary/10/30"
                 }`}
               >
                 <div className="flex justify-between items-start gap-3">
@@ -52,7 +52,7 @@ export default function LessonList({
                       <span className="text-sm font-semibold text-gray-500">
                         Step {lesson.order}
                       </span>
-                      {/* <span className="text-sm font-medium text-[#2563EB]">
+                      {/* <span className="text-sm font-medium text-primary">
                         {lesson.version_label}
                       </span>
                       {lesson.is_latest ? (
@@ -70,7 +70,7 @@ export default function LessonList({
                         </span>
                       )}
                     </div>
-                    <h4 className="text-lg font-semibold text-[#2D3748] mt-1">
+                    <h4 className="text-lg font-semibold text-foreground mt-1">
                       {lesson.title}
                     </h4>
                     {lesson.summary && (

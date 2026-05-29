@@ -984,7 +984,7 @@ export default function Dashboard() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#2D3748]">
+            <h1 className="text-2xl font-bold text-foreground">
               Dashboard Overview
             </h1>
             <p className="text-sm text-gray-600 mt-1">
@@ -1136,7 +1136,7 @@ export default function Dashboard() {
             <Card>
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-[#2D3748]">
+                  <h3 className="text-lg font-semibold text-foreground">
                     NCC Completion Pipeline
                   </h3>
                   <p className="text-sm text-gray-500">
@@ -1168,7 +1168,7 @@ export default function Dashboard() {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold text-[#2D3748] break-words">
+                          <h4 className="text-sm font-semibold text-foreground break-words">
                             {lesson.lesson_title}
                           </h4>
                           <p className="text-xs text-gray-500">
@@ -1176,7 +1176,7 @@ export default function Dashboard() {
                             {lesson.is_latest ? "(Latest)" : "(Superseded)"}
                           </p>
                         </div>
-                        <span className="text-sm font-semibold text-[#2563EB] flex-shrink-0">
+                        <span className="text-sm font-semibold text-primary flex-shrink-0">
                           {lesson.completed}/{lesson.total} completed
                         </span>
                       </div>
@@ -1221,7 +1221,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {allowEventsWidgets ? (
             <Card>
-              <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
                 Upcoming Events
               </h3>
               <p className="text-xs text-gray-500 mb-3">
@@ -1240,7 +1240,7 @@ export default function Dashboard() {
                       key={event.id}
                       className="border border-gray-200 rounded-lg p-3 text-sm text-gray-600"
                     >
-                      <p className="font-semibold text-[#2D3748]">
+                      <p className="font-semibold text-foreground">
                         {event.title}
                       </p>
                       <p>{event.schedule}</p>
@@ -1254,7 +1254,7 @@ export default function Dashboard() {
             </Card>
           ) : (
             <Card>
-              <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
                 Upcoming Events
               </h3>
               <p className="text-sm text-gray-500">
@@ -1264,7 +1264,7 @@ export default function Dashboard() {
           )}
 
           <Card>
-            <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               Next Steps
             </h3>
             <div className="space-y-3 text-sm text-gray-600">
@@ -1369,7 +1369,7 @@ function MetricCard({
           </div>
         ) : (
           <>
-            <p className="text-3xl font-bold text-[#2563EB] mt-1">{value}</p>
+            <p className="text-3xl font-bold text-primary mt-1">{value}</p>
             {subtitle && (
               <p className="text-xs text-gray-500 mt-2 leading-snug">
                 {subtitle}

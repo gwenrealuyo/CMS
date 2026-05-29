@@ -60,7 +60,7 @@ export default function ClassSessionsSection({
         row.event_id ? (
           <a
             href={`/events?event=${row.event_id}`}
-            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+            className="text-sm text-primary hover:text-primary hover:underline"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -80,7 +80,7 @@ export default function ClassSessionsSection({
             <Button
               variant="tertiary"
               onClick={() => onEditSession(row)}
-              className="text-xs !px-2 !py-1 !text-blue-600 !border-blue-200 hover:!bg-blue-50 hover:!border-blue-300"
+              className="text-xs !px-2 !py-1 !text-primary !border-primary/20 hover:!bg-primary/10 hover:!border-primary/30"
             >
               Edit
             </Button>

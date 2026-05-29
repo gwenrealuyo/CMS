@@ -69,7 +69,7 @@ export default function BranchForm({
           onChange={(e) =>
             setFormData((prev) => ({ ...prev, name: e.target.value }))
           }
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           required
         />
       </div>
@@ -84,7 +84,7 @@ export default function BranchForm({
           onChange={(e) =>
             setFormData((prev) => ({ ...prev, code: e.target.value }))
           }
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           placeholder="e.g., HQ, BRANCH1"
         />
       </div>
@@ -99,7 +99,7 @@ export default function BranchForm({
             setFormData((prev) => ({ ...prev, address: e.target.value }))
           }
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
 
@@ -114,7 +114,7 @@ export default function BranchForm({
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, phone: e.target.value }))
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           />
         </div>
 
@@ -128,7 +128,7 @@ export default function BranchForm({
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, email: e.target.value }))
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           />
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function BranchForm({
                 is_headquarters: e.target.checked,
               }))
             }
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
           />
           <span className="ml-2 text-sm text-gray-700">
             Mark as Headquarters
@@ -163,7 +163,7 @@ export default function BranchForm({
                 is_active: e.target.checked,
               }))
             }
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
           />
           <span className="ml-2 text-sm text-gray-700">Active</span>
         </label>

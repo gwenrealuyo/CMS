@@ -219,14 +219,14 @@ export default function ScalableSelect({
                       ? "text-gray-400 cursor-not-allowed"
                       : "text-gray-900 hover:bg-gray-100"
                   }
-                  ${option.value === value ? "bg-blue-50 text-blue-900" : ""}
+                  ${option.value === value ? "bg-primary/10 text-primary" : ""}
                 `}
               >
                 <div className="flex items-center justify-between">
                   <span className="truncate">{option.label}</span>
                   <span className="ml-2 flex shrink-0 flex-wrap items-center justify-end gap-1 text-xs">
                     {option.typeLabel === "cluster" && (
-                      <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                      <span className="inline-flex rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
                         Cluster
                       </span>
                     )}
@@ -236,7 +236,7 @@ export default function ScalableSelect({
                       </span>
                     )}
                     {option.clusterCode && (
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                      <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
                         {option.clusterCode}
                       </span>
                     )}
@@ -247,7 +247,7 @@ export default function ScalableSelect({
                     )}
                     {option.value === value && (
                       <svg
-                        className="w-4 h-4 text-blue-600"
+                        className="w-4 h-4 text-primary"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -287,14 +287,14 @@ export default function ScalableSelect({
               ? "text-gray-400 cursor-not-allowed"
               : "text-gray-900 hover:bg-gray-100"
           }
-          ${option.value === value ? "bg-blue-50 text-blue-900" : ""}
+          ${option.value === value ? "bg-primary/10 text-primary" : ""}
         `}
       >
         <div className="flex items-center justify-between gap-2">
           <span className="truncate">{option.label}</span>
           <span className="ml-2 flex shrink-0 flex-wrap items-center justify-end gap-1 text-xs">
             {option.typeLabel === "cluster" && (
-              <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+              <span className="inline-flex rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
                 Cluster
               </span>
             )}
@@ -304,7 +304,7 @@ export default function ScalableSelect({
               </span>
             )}
             {option.clusterCode && (
-              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+              <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
                 {option.clusterCode}
               </span>
             )}
@@ -315,7 +315,7 @@ export default function ScalableSelect({
             )}
             {option.value === value && (
             <svg
-              className="w-4 h-4 text-blue-600"
+              className="w-4 h-4 text-primary"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -356,7 +356,7 @@ export default function ScalableSelect({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             </div>
           </div>
@@ -391,7 +391,7 @@ export default function ScalableSelect({
         tabIndex={interactionBlocked ? -1 : undefined}
         className={`
           flex h-11 w-full shrink-0 items-center px-3 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+          focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
           ${
             disabled && !interactionBlocked
               ? "bg-gray-50 text-gray-500 cursor-not-allowed"
@@ -401,7 +401,7 @@ export default function ScalableSelect({
           }
           ${
             isOpen && !interactionBlocked && !disabled
-              ? "ring-2 ring-blue-500 border-transparent"
+              ? "ring-2 ring-ring border-transparent"
               : ""
           }
         `}

@@ -149,7 +149,7 @@ export default function ClusterView({
           : role === "PASTOR"
             ? "bg-red-100 text-red-800"
             : role === "ADMIN"
-              ? "bg-blue-100 text-blue-800"
+              ? "bg-primary/15 text-primary"
               : "bg-gray-100 text-gray-800";
 
   const peopleGridClass =
@@ -264,7 +264,7 @@ export default function ClusterView({
             className={`rounded-lg p-4 border ${
               isPanelMode
                 ? "bg-white border-gray-200 shadow-sm"
-                : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100"
+                : "bg-gradient-to-r from-beacon-ivory to-muted border-primary/20"
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
@@ -468,7 +468,7 @@ export default function ClusterView({
                     <Button
                       onClick={onSubmitReport}
                       variant="secondary"
-                      className="!text-blue-600 py-2.5 md:py-2 px-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                      className="!text-primary py-2.5 md:py-2 px-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
                     >
                       <svg
                         className="w-4 h-4"
@@ -650,7 +650,7 @@ export default function ClusterView({
                 <Button
                   onClick={onEdit}
                   variant="secondary"
-                  className="!text-blue-600 h-10 px-4 text-sm font-medium bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                  className="!text-primary h-10 px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
                 >
                   <svg
                     className="w-4 h-4"
@@ -721,7 +721,7 @@ export default function ClusterView({
               <Button
                 onClick={onEdit}
                 variant="secondary"
-                className="!text-blue-600 md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                className="!text-primary md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
               >
                 <svg
                   className="w-4 h-4"

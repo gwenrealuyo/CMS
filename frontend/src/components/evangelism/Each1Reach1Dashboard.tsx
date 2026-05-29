@@ -604,7 +604,7 @@ export default function Each1Reach1Dashboard({
                             goal.status === "COMPLETED"
                               ? "bg-green-100 text-green-800"
                               : goal.status === "IN_PROGRESS"
-                                ? "bg-blue-100 text-blue-800"
+                                ? "bg-primary/15 text-primary"
                                 : "bg-gray-100 text-gray-800"
                           }`}
                         >
@@ -759,7 +759,7 @@ export default function Each1Reach1Dashboard({
                 {suggestedTarget !== targetConversions && (
                   <button
                     type="button"
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-primary hover:text-primary"
                     onClick={() => {
                       setTargetConversions(suggestedTarget);
                       setIsTargetDirty(false);

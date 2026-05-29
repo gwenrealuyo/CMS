@@ -102,7 +102,7 @@ export default function FilterBar({
       case "status":
         return "bg-green-100 text-green-800 border-green-200";
       case "role":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-primary/15 text-primary border-primary/20";
       case "date_first_attended":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "email":
@@ -195,7 +195,7 @@ export default function FilterBar({
             placeholder="Search by name, email, or phone..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className={`block w-full pl-10 py-2.5 md:py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+            className={`block w-full pl-10 py-2.5 md:py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
               searchQuery ? "pr-10" : "pr-3"
             }`}
           />
@@ -361,7 +361,7 @@ export default function FilterBar({
           {activeFilters.length > 0 && (
             <button
               onClick={onClearAllFilters}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors min-h-[44px] md:min-h-0 px-2 md:px-0"
+              className="text-sm text-primary hover:text-primary font-medium transition-colors min-h-[44px] md:min-h-0 px-2 md:px-0"
             >
               Clear All
             </button>
@@ -373,7 +373,7 @@ export default function FilterBar({
                 (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
               )
             }
-            className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors min-h-[44px] md:min-h-0"
+            className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0"
           >
             <svg
               className="w-4 h-4 mr-1"

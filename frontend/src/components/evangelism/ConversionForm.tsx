@@ -214,7 +214,7 @@ export default function ConversionForm({
             type="date"
             value={values.date_first_invited ?? ""}
             onChange={handleChange("date_first_invited")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
         <div className="space-y-1">
@@ -225,7 +225,7 @@ export default function ConversionForm({
             type="date"
             value={values.date_first_attended ?? ""}
             onChange={handleChange("date_first_attended")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
@@ -241,7 +241,7 @@ export default function ConversionForm({
             setLessonDateTouched(true);
             handleChange("lesson_start_date")(event);
           }}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
         {loadingLessonDate && (
           <p className="text-xs text-gray-500">Loading lesson assignment...</p>
@@ -257,7 +257,7 @@ export default function ConversionForm({
             type="date"
             value={values.water_baptism_date}
             onChange={handleChange("water_baptism_date")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -269,7 +269,7 @@ export default function ConversionForm({
             type="date"
             value={values.spirit_baptism_date}
             onChange={handleChange("spirit_baptism_date")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
@@ -281,7 +281,7 @@ export default function ConversionForm({
           onChange={handleChange("notes")}
           placeholder="Conversion notes..."
           rows={3}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 

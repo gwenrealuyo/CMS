@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   ASSIGNED: "bg-gray-100 text-gray-700",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  IN_PROGRESS: "bg-primary/15 text-primary",
   COMPLETED: "bg-green-100 text-green-700",
   SKIPPED: "bg-yellow-100 text-yellow-700",
 };

@@ -76,7 +76,7 @@ export default function EventView({
 
   const getEventTypeColor = (type: string) => {
     const colors: Record<string, string> = {
-      SUNDAY_SERVICE: "bg-blue-100 text-blue-800 border-blue-200",
+      SUNDAY_SERVICE: "bg-primary/15 text-primary border-primary/20",
       BIBLE_STUDY: "bg-purple-100 text-purple-800 border-purple-200",
       PRAYER_MEETING: "bg-green-100 text-green-800 border-green-200",
       SPECIAL_EVENT: "bg-orange-100 text-orange-800 border-orange-200",
@@ -332,7 +332,7 @@ export default function EventView({
       <div className="p-5 overflow-y-auto flex-1">
         <div className="space-y-5">
           <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <h3 className="text-xl font-semibold text-[#2D3748] mb-3">
+            <h3 className="text-xl font-semibold text-foreground mb-3">
               {event.title}
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
@@ -548,7 +548,7 @@ export default function EventView({
                         setAttendanceSearchTerm(event.target.value)
                       }
                       placeholder="Search attendees for this date..."
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                     <svg
                       className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
@@ -591,7 +591,7 @@ export default function EventView({
                             <span className="inline-flex items-center gap-1">
                               {record.person.cluster_codes &&
                               record.person.cluster_codes.length > 0 ? (
-                                <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                                <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                   {record.person.cluster_codes[0]}
                                 </span>
                               ) : (
@@ -685,7 +685,7 @@ export default function EventView({
           <Button
             onClick={onEdit}
             variant="secondary"
-            className="!text-blue-600 min-h-[44px] px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
+            className="!text-primary min-h-[44px] px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 w-full sm:w-auto"
           >
             <svg
               className="w-4 h-4"

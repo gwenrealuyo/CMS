@@ -109,7 +109,7 @@ export default function QuickActions() {
 
   return (
     <Card>
-      <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
+      <h3 className="text-lg font-semibold text-foreground mb-4">
         Quick Actions
       </h3>
       {availableActions.length === 0 ? (
@@ -120,11 +120,11 @@ export default function QuickActions() {
             <button
               key={label}
               onClick={() => router.push(href)}
-              className="group rounded-xl border border-[#2563EB]/20 bg-[#2563EB]/5 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#2563EB]/40 hover:bg-[#2563EB]/10 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/40"
+              className="group rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-sm font-semibold text-[#1F2937]">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2563EB] shadow-sm shadow-[#2563EB]/20">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-primary shadow-sm shadow-[primary]/20">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
                   {label}

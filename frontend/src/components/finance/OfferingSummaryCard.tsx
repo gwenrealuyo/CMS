@@ -15,7 +15,7 @@ export default function OfferingSummaryCard({
     <Card>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-[#2D3748]">
+          <h3 className="text-lg font-semibold text-foreground">
             Weekly Offerings
           </h3>
           <p className="text-xs text-gray-500">
@@ -40,7 +40,7 @@ export default function OfferingSummaryCard({
               className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3"
             >
               <div>
-                <p className="text-sm font-semibold text-[#2D3748]">
+                <p className="text-sm font-semibold text-foreground">
                   Week of{" "}
                   {entry.weekStart
                     ? new Date(entry.weekStart).toLocaleDateString()
@@ -50,7 +50,7 @@ export default function OfferingSummaryCard({
                   Derived from all recorded services
                 </p>
               </div>
-              <span className="text-lg font-bold text-[#2563EB]">
+              <span className="text-lg font-bold text-primary">
                 ₱{entry.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </span>
             </div>

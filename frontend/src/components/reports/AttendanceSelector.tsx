@@ -396,7 +396,7 @@ export default function AttendanceSelector({
             onClick={() =>
               setViewMode(viewMode === "search" ? "list" : "search")
             }
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+            className="text-xs text-primary hover:text-primary font-medium"
           >
             {viewMode === "search" ? "Show List" : "Show Search"}
           </button>
@@ -413,8 +413,8 @@ export default function AttendanceSelector({
                 onClick={selectAll}
                 className={`text-xs px-2 py-1 border rounded transition-colors ${
                   lastClickedButton === "selectAll"
-                    ? "bg-blue-600 text-white border-blue-600 font-semibold"
-                    : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                    ? "bg-primary text-white border-primary font-semibold"
+                    : "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15"
                 }`}
               >
                 Select All
@@ -495,13 +495,13 @@ export default function AttendanceSelector({
             return (
               <span
                 key={person.id}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                className="inline-flex items-center gap-1 px-3 py-1 bg-primary/15 text-primary rounded-full text-sm font-medium"
               >
                 {displayName}
                 <button
                   type="button"
                   onClick={() => removePerson(person.id)}
-                  className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                  className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -525,7 +525,7 @@ export default function AttendanceSelector({
               if (searchTerm.trim().length >= 1) setIsDropdownOpen(true);
             }}
             placeholder={`Search ${filterRole.toLowerCase()}s...`}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
           />
 
           {/* Dropdown */}
@@ -547,7 +547,7 @@ export default function AttendanceSelector({
                         setSearchTerm("");
                       }}
                       className={`w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors ${
-                        isSelected ? "bg-blue-50" : ""
+                        isSelected ? "bg-primary/10" : ""
                       }`}
                     >
                       <div className="font-medium text-gray-900">
@@ -616,14 +616,14 @@ export default function AttendanceSelector({
                   <label
                     key={person.id}
                     className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                      isSelected ? "bg-blue-50" : ""
+                      isSelected ? "bg-primary/10" : ""
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => togglePerson(person.id)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 text-sm">
@@ -662,14 +662,14 @@ export default function AttendanceSelector({
                   <label
                     key={person.id}
                     className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                      isSelected ? "bg-blue-50" : ""
+                      isSelected ? "bg-primary/10" : ""
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => togglePerson(person.id)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 text-sm">
@@ -692,8 +692,8 @@ export default function AttendanceSelector({
           {/* Visitors in selected cluster */}
           {filterRole === "VISITOR" && selectedCluster && clusterVisitors.length > 0 && (
             <>
-              <div className="p-2 border-b sticky top-0 bg-blue-50 border-blue-200">
-                <div className="text-xs font-semibold text-blue-900">
+              <div className="p-2 border-b sticky top-0 bg-primary/10 border-primary/20">
+                <div className="text-xs font-semibold text-primary">
                   {`Visitors in this cluster (${clusterVisitors.length})`}
                 </div>
               </div>
@@ -703,14 +703,14 @@ export default function AttendanceSelector({
                   <label
                     key={person.id}
                     className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                      isSelected ? "bg-blue-50" : ""
+                      isSelected ? "bg-primary/10" : ""
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => togglePerson(person.id)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 text-sm">
@@ -757,14 +757,14 @@ export default function AttendanceSelector({
                     <label
                       key={person.id}
                       className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                        isSelected ? "bg-blue-50" : ""
+                        isSelected ? "bg-primary/10" : ""
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => togglePerson(person.id)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-gray-900 text-sm">

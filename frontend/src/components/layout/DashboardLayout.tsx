@@ -13,7 +13,7 @@ interface DashboardLayoutProps {
 function LayoutShell({ children }: { children: ReactNode }) {
   const { collapsed } = useSidebar();
   return (
-    <div className="min-h-screen bg-[#F7FAFC]">
+    <div className="min-h-screen bg-background">
       <Sidebar />
       <div
         className={`${

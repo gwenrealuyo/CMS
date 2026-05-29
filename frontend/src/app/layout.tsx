@@ -6,10 +6,11 @@ import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: {
-    default: "CMS",
-    template: "%s | CMS",
+    default: "The Beacon",
+    template: "%s | The Beacon",
   },
-  description: "Church Management System admin dashboard",
+  description:
+    "The Beacon — LAMP Church Care System. A soul kept is a soul won.",
 };
 
 const inter = Inter({

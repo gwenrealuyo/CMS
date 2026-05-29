@@ -1,3 +1,8 @@
+/*
+ * The Beacon — design tokens
+ * primary = blue (#2563EB-style) for buttons, links, active nav
+ * beacon-gold = amber accent (#F59E0B) — tagline, sidebar highlights — use text-beacon-gold / border-beacon-gold
+ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,36 +10,69 @@
 @layer base {
   :root {
     --background: 220 33% 98%;
+    --foreground: 218 27% 23%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 218 27% 23%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 218 27% 23%;
+
     --primary: 220 80% 56%;
+    --primary-foreground: 0 0% 100%;
+
     --secondary: 215 16% 35%;
-    --accent: 48 97% 51%;
-    --text: 218 27% 23%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 218 27% 23%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 120 18% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 220 80% 56%;
+
+    --radius: 0.5rem;
+
+    --chart-1: 220 80% 56%;
+    --chart-2: 38 92% 50%;
+    --chart-3: 120 18% 36%;
+    --chart-4: 215 16% 47%;
+    --chart-5: 0 84% 60%;
   }
 
   body {
-    @apply bg-[#F7FAFC] text-[#2D3748];
+    @apply bg-background text-[#2D3748] antialiased;
   }
 
   h1 {
-    @apply text-2xl md:text-4xl font-bold tracking-tight;
+    @apply text-2xl md:text-4xl font-bold tracking-tight text-[#2D3748];
   }
 
   h2 {
-    @apply text-xl md:text-3xl font-semibold tracking-tight;
+    @apply text-xl md:text-3xl font-semibold tracking-tight text-[#2D3748];
   }
 
   h3 {
-    @apply text-lg md:text-2xl font-semibold;
+    @apply text-lg md:text-2xl font-semibold text-[#2D3748];
   }
 
   h4 {
-    @apply text-base md:text-xl font-medium;
+    @apply text-base md:text-xl font-medium text-[#2D3748];
   }
 }
 
 @layer components {
   .input-field {
-    @apply w-full px-4 py-2.5 md:py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-transparent min-h-[44px] md:min-h-0 text-base;
+    @apply w-full px-4 py-2.5 md:py-2 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-h-[44px] md:min-h-0 text-base;
   }
 
   .card-shadow {
@@ -46,7 +84,7 @@
   }
 
   .btn-accent {
-    @apply bg-yellow-400 text-black hover:bg-yellow-500;
+    @apply bg-beacon-gold text-beacon-navy hover:bg-beacon-gold/90 font-medium;
   }
 }
 

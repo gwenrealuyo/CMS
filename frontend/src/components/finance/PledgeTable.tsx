@@ -23,7 +23,7 @@ type SortColumn =
 type SortDirection = "asc" | "desc";
 
 const STATUS_COLORS: Record<Pledge["status"], string> = {
-  ACTIVE: "bg-blue-100 text-blue-700",
+  ACTIVE: "bg-primary/15 text-primary",
   FULFILLED: "bg-green-100 text-green-700",
   CANCELLED: "bg-gray-200 text-gray-600",
 };
@@ -111,9 +111,9 @@ export default function PledgeTable({
   const SortIcon = ({ field }: { field: SortColumn }) => {
     if (field !== sortColumn) return null;
     return sortDirection === "asc" ? (
-      <ChevronUpIcon className="w-4 h-4 inline-block text-[#2563EB]" />
+      <ChevronUpIcon className="w-4 h-4 inline-block text-primary" />
     ) : (
-      <ChevronDownIcon className="w-4 h-4 inline-block text-[#2563EB]" />
+      <ChevronDownIcon className="w-4 h-4 inline-block text-primary" />
     );
   };
 
@@ -149,7 +149,7 @@ export default function PledgeTable({
     <Card>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-[#2D3748]">
+          <h3 className="text-lg font-semibold text-foreground">
             Pledge Tracker
           </h3>
           <p className="text-xs text-gray-500">
@@ -159,7 +159,7 @@ export default function PledgeTable({
         {onAddPledge && (
           <button
             onClick={onAddPledge}
-            className="w-full sm:w-auto min-h-[44px] rounded-md bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB]"
+            className="w-full sm:w-auto min-h-[44px] rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
           >
             Add Pledge
           </button>
@@ -209,9 +209,9 @@ export default function PledgeTable({
                       <button
                         type="button"
                         onClick={() => onManageContributions(pledge)}
-                        className="group text-left focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 rounded"
+                        className="group text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
                       >
-                        <div className="font-medium text-[#2563EB] group-hover:text-[#1D4ED8] group-hover:underline transition-colors cursor-pointer">
+                        <div className="font-medium text-primary group-hover:text-beacon-navy group-hover:underline transition-colors cursor-pointer">
                           {pledge.pledgeTitle}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
@@ -223,7 +223,7 @@ export default function PledgeTable({
                       </button>
                     ) : (
                       <>
-                        <div className="font-medium text-[#2D3748]">
+                        <div className="font-medium text-foreground">
                           {pledge.pledgeTitle}
                         </div>
                         <div className="text-xs text-gray-500">
@@ -245,7 +245,7 @@ export default function PledgeTable({
                         pledge.status.slice(1).toLowerCase()}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-sm font-semibold text-[#2D3748]">
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-foreground">
                     ₱
                     {pledge.pledgeAmount.toLocaleString(undefined, {
                       maximumFractionDigits: 2,
@@ -270,7 +270,7 @@ export default function PledgeTable({
                           className={`h-2 rounded-full ${
                             pledge.status === "FULFILLED"
                               ? "bg-green-500"
-                              : "bg-[#2563EB]"
+                              : "bg-primary"
                           }`}
                           style={{
                             width: `${Math.min(
@@ -295,7 +295,7 @@ export default function PledgeTable({
                               e.stopPropagation();
                               onEditPledge(pledge);
                             }}
-                            className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] transition-colors focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 rounded"
+                            className="text-xs font-semibold text-primary hover:text-beacon-navy transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
                           >
                             Edit
                           </button>

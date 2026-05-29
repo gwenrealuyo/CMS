@@ -128,7 +128,7 @@ export default function AssignMembersModal({
   const getRoleColor = (role: string) => {
     switch (role) {
       case "MEMBER":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "VISITOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
@@ -196,7 +196,7 @@ export default function AssignMembersModal({
                 }}
                 onFocus={() => setShowMemberDropdown(true)}
                 placeholder="Search by name, email, or member ID..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
               />
 
               {/* Search Dropdown */}
@@ -213,7 +213,7 @@ export default function AssignMembersModal({
                           : ""
                       }`}
                     >
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                         {getInitials(person.first_name, person.last_name)}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -276,7 +276,7 @@ export default function AssignMembersModal({
                     key={member.id}
                     className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg"
                   >
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
                       {getInitials(member.first_name, member.last_name)}
                     </div>
                     <div className="flex-1 min-w-0">

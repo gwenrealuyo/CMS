@@ -53,7 +53,7 @@ export default function Modal({
             className={`pt-4 pl-4 pr-2 pb-0 md:pt-2 md:pl-6 md:pr-2 md:pb-0 flex-shrink-0 border-b border-gray-200 ${headerClassName}`}
           >
             <div className="flex justify-between items-center mb-4 md:mb-1.5">
-              <h2 className="text-lg font-semibold text-[#2D3748]">{title}</h2>
+              <h2 className="text-lg font-semibold text-foreground">{title}</h2>
               <button
                 onClick={onClose}
                 className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"

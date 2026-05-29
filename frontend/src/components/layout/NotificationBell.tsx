@@ -52,7 +52,7 @@ function SeverityIcon({ severity }: { severity: NotificationSeverity }) {
       <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 shrink-0" />
     );
   }
-  return <InformationCircleIcon className="h-5 w-5 text-blue-500 shrink-0" />;
+  return <InformationCircleIcon className="h-5 w-5 text-primary shrink-0" />;
 }
 
 function NotificationRow({
@@ -204,7 +204,7 @@ export default function NotificationBell() {
               <button
                 type="button"
                 onClick={handleDismissAll}
-                className="text-xs text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                className="text-xs text-primary hover:text-primary whitespace-nowrap"
               >
                 Mark all read
               </button>

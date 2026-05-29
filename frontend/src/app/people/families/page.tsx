@@ -22,7 +22,7 @@ export default function FamiliesPage() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[#2D3748]">Families</h1>
+          <h1 className="text-2xl font-bold text-foreground">Families</h1>
           <Button onClick={() => setCreateTrigger((n) => n + 1)}>
             Add Family
           </Button>

@@ -1,3 +1,5 @@
+import SegmentedControl from "@/src/components/ui/SegmentedControl";
+
 export type LessonContentTab =
   | "lesson"
   | "progress"
@@ -19,24 +21,20 @@ export default function LessonContentTabs({
   disableSessions,
   disableCommitment,
 }: LessonContentTabsProps) {
-  const tabs: Array<{
-    id: LessonContentTab;
-    label: string;
-    disabled: boolean;
-  }> = [
-    { id: "lesson", label: "Lesson Content", disabled: false },
+  const tabs = [
+    { id: "lesson" as const, label: "Lesson Content", disabled: false },
     {
-      id: "progress",
+      id: "progress" as const,
       label: "Student Progress",
       disabled: Boolean(disableProgress),
     },
     {
-      id: "sessions",
+      id: "sessions" as const,
       label: "Session Reports",
       disabled: Boolean(disableSessions),
     },
     {
-      id: "commitment",
+      id: "commitment" as const,
       label: "Commitment Forms",
       disabled: Boolean(disableCommitment),
     },
@@ -44,30 +42,11 @@ export default function LessonContentTabs({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="inline-flex rounded-full bg-blue-50 p-1 shadow-inner">
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                if (!tab.disabled) {
-                  onTabChange(tab.id);
-                }
-              }}
-              disabled={tab.disabled}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-white text-[#1D4ED8] shadow-sm border border-[#2563EB]"
-                  : "text-[#1E40AF] hover:text-[#1D4ED8]"
-              } ${tab.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <SegmentedControl
+        value={activeTab}
+        onChange={onTabChange}
+        options={tabs}
+      />
     </div>
   );
 }

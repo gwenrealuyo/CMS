@@ -296,7 +296,7 @@ export default function MinistryForm({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -484,7 +484,7 @@ export default function MinistryForm({
             value={values.name}
             onChange={handleChange("name")}
             placeholder="e.g. Worship Team"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -497,7 +497,7 @@ export default function MinistryForm({
             onChange={handleChange("description")}
             rows={3}
             placeholder="Describe the ministry's focus and activities."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -508,7 +508,7 @@ export default function MinistryForm({
           <select
             value={values.category}
             onChange={handleChange("category")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {categoryOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -526,7 +526,7 @@ export default function MinistryForm({
             required
             value={values.activity_cadence}
             onChange={handleChange("activity_cadence")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {cadenceOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -588,12 +588,12 @@ export default function MinistryForm({
                     ?.label ?? id;
                 return (
                   <li key={id}>
-                    <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary border border-primary/20">
                       {label}
                       <button
                         type="button"
                         onClick={() => handleRemoveSupportCoordinator(id)}
-                        className="text-blue-600 hover:text-blue-800 focus:outline-none"
+                        className="text-primary hover:text-primary focus:outline-none"
                         aria-label={`Remove ${label}`}
                       >
                         ×
@@ -620,7 +620,7 @@ export default function MinistryForm({
             value={values.meeting_location}
             onChange={handleChange("meeting_location")}
             placeholder="e.g. Main Building Room 203"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -633,7 +633,7 @@ export default function MinistryForm({
             value={values.communication_channel}
             onChange={handleChange("communication_channel")}
             placeholder="https://..."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <p className="mt-1 text-xs text-gray-500">
             Optional link to the group chat, email list, or coordination doc.
@@ -652,7 +652,7 @@ export default function MinistryForm({
               <select
                 value={values.meeting_schedule_day}
                 onChange={handleChange("meeting_schedule_day")}
-                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 {DAYS_OF_WEEK.map((option) => (
                   <option key={option.value || "unset"} value={option.value}>
@@ -669,7 +669,7 @@ export default function MinistryForm({
                 type="time"
                 value={values.meeting_schedule_time}
                 onChange={handleChange("meeting_schedule_time")}
-                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
             <div>
@@ -681,7 +681,7 @@ export default function MinistryForm({
                 value={values.meeting_schedule_window}
                 onChange={handleChange("meeting_schedule_window")}
                 placeholder="e.g. Holy Week, Summer Camp, Anniversary Week"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
             <div>
@@ -693,7 +693,7 @@ export default function MinistryForm({
                 onChange={handleChange("meeting_schedule_notes")}
                 rows={2}
                 placeholder="Optional: add rotation details, prep time, or other schedule notes."
-                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
@@ -709,7 +709,7 @@ export default function MinistryForm({
             type="checkbox"
             checked={values.is_active}
             onChange={handleChange("is_active")}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
           />
           <label
             htmlFor="is_active"
@@ -737,7 +737,7 @@ export default function MinistryForm({
                     setShowMemberDropdown(true);
                   }}
                   onFocus={() => setShowMemberDropdown(true)}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Search members by name, email, or role..."
                 />
               </div>
@@ -746,7 +746,7 @@ export default function MinistryForm({
                 onChange={(e) =>
                   setSelectedMemberRole(e.target.value as MinistryRole)
                 }
-                className="rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 {ROLE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -822,7 +822,7 @@ export default function MinistryForm({
                                   e.target.value as MinistryRole
                                 )
                               }
-                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
+                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring w-full"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {ROLE_OPTIONS.map((option) => (
@@ -838,7 +838,7 @@ export default function MinistryForm({
                                 updateMemberSkills(member_id, e.target.value)
                               }
                               placeholder="Skills/Designation (e.g., Pianist, Singer)"
-                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
+                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring w-full"
                               onClick={(e) => e.stopPropagation()}
                             />
                             <textarea
@@ -848,7 +848,7 @@ export default function MinistryForm({
                               }
                               placeholder="Notes (optional)"
                               rows={2}
-                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full resize-none"
+                              className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring w-full resize-none"
                               onClick={(e) => e.stopPropagation()}
                             />
                           </div>

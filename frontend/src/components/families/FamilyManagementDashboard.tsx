@@ -213,7 +213,7 @@ export default function FamilyManagementDashboard({
           setBranchFilterId(e.target.value);
           setFamilyPage(1);
         }}
-        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-ring focus:border-transparent ${
           familyBranchSelectInteractive
             ? "w-52 shrink-0"
             : "w-full pointer-events-none cursor-default"
@@ -547,7 +547,7 @@ export default function FamilyManagementDashboard({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -566,9 +566,9 @@ export default function FamilyManagementDashboard({
         <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
                 <svg
-                  className="w-4 h-4 text-blue-600"
+                  className="w-4 h-4 text-primary"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -680,7 +680,7 @@ export default function FamilyManagementDashboard({
                   setSearchQuery(e.target.value);
                   setFamilyPage(1);
                 }}
-                className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm ${
                   searchQuery ? "pr-10" : "pr-4"
                 }`}
               />
@@ -744,7 +744,7 @@ export default function FamilyManagementDashboard({
             <button
               ref={sortButtonRef}
               onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors"
             >
               <svg
                 className="w-4 h-4 mr-1"
@@ -765,7 +765,7 @@ export default function FamilyManagementDashboard({
             <button
               ref={familyFilterButtonRef}
               onClick={handleFamilyFilterClick}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors"
             >
               <svg
                 className="w-4 h-4 mr-1"
@@ -810,7 +810,7 @@ export default function FamilyManagementDashboard({
                       onClick={() => handleSortSelect(option.key, "asc")}
                       className={`px-2 py-1 text-xs rounded ${
                         sortBy === option.key && sortOrder === "asc"
-                          ? "bg-blue-100 text-blue-800"
+                          ? "bg-primary/15 text-primary"
                           : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
@@ -820,7 +820,7 @@ export default function FamilyManagementDashboard({
                       onClick={() => handleSortSelect(option.key, "desc")}
                       className={`px-2 py-1 text-xs rounded ${
                         sortBy === option.key && sortOrder === "desc"
-                          ? "bg-blue-100 text-blue-800"
+                          ? "bg-primary/15 text-primary"
                           : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
@@ -843,7 +843,7 @@ export default function FamilyManagementDashboard({
             </h2>
             <button
               onClick={() => setShowUnassignedMembers(!showUnassignedMembers)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors"
             >
               <svg
                 className={`w-4 h-4 mr-1 transition-transform ${
@@ -890,7 +890,7 @@ export default function FamilyManagementDashboard({
                       setUnassignedSearch(e.target.value);
                       setUnassignedPage(1);
                     }}
-                    className={`w-full pl-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                    className={`w-full pl-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm ${
                       unassignedSearch ? "pr-10" : "pr-3"
                     }`}
                   />
@@ -999,7 +999,7 @@ export default function FamilyManagementDashboard({
           {familyFilters.map((filter, index) => (
             <span
               key={index}
-              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20"
             >
               {filter.label}
               <button
@@ -1010,7 +1010,7 @@ export default function FamilyManagementDashboard({
                   setFamilyFilters(newFilters);
                   setFamilyPage(1);
                 }}
-                className="ml-1 text-blue-600 hover:text-blue-800"
+                className="ml-1 text-primary hover:text-primary"
               >
                 <svg
                   className="w-3 h-3"
@@ -1085,7 +1085,7 @@ export default function FamilyManagementDashboard({
                         <button
                           type="button"
                           onClick={() => onViewFamily(family)}
-                          className="text-left text-blue-600 hover:text-blue-700 hover:underline"
+                          className="text-left text-primary hover:text-primary hover:underline"
                         >
                           The {family.name} Family
                         </button>
@@ -1125,14 +1125,14 @@ export default function FamilyManagementDashboard({
               return (
                 <div
                   key={family.id}
-                  className="bg-white rounded-lg shadow-md p-4 transition-all hover:shadow-lg hover:border-blue-200 hover:bg-blue-50/30 border-2 border-transparent cursor-pointer"
+                  className="bg-white rounded-lg shadow-md p-4 transition-all hover:shadow-lg hover:border-primary/20 hover:bg-primary/10/30 border-2 border-transparent cursor-pointer"
                   onClick={() => onViewFamily(family)}
                 >
                   <div className="space-y-3">
                     {/* Family Header */}
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-all">
+                        <h3 className="text-lg font-semibold text-primary hover:text-primary hover:underline transition-all">
                           The {family.name} Family
                         </h3>
                         <p className="text-xs text-gray-600 mt-1">

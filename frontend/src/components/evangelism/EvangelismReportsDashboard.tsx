@@ -67,11 +67,11 @@ const GATHERING_FILTER = [
 
 /** Matches ScalableSelect trigger: fixed height and border/shadow */
 const FILTERS_NATIVE_SELECT_CLASS =
-  "h-11 w-full shrink-0 box-border rounded-md border border-gray-300 bg-white px-3 py-0 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  "h-11 w-full shrink-0 box-border rounded-md border border-gray-300 bg-white px-3 py-0 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent";
 
 /** Matches cluster weekly toolbar: white pill, gray border, icon + label */
 const REPORT_TOOLBAR_BTN_CLASS =
-  "inline-flex min-h-[44px] flex-shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2";
+  "inline-flex min-h-[44px] flex-shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
 
 /** Data columns configurable via Columns modal (Actions stays fixed) */
 const REPORT_AVAILABLE_COLUMNS: {
@@ -555,7 +555,7 @@ export default function EvangelismReportsDashboard({
       case "PHYSICAL":
         return "bg-green-100 text-green-800";
       case "ONLINE":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "HYBRID":
         return "bg-purple-100 text-purple-800";
       default:
@@ -641,7 +641,7 @@ export default function EvangelismReportsDashboard({
           <button
             type="button"
             onClick={() => void openView(row)}
-            className="text-sm text-left text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
+            className="text-sm text-left text-primary hover:text-primary hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
             title="Click to view report details"
           >
             {row.evangelism_group?.name ?? "—"}
@@ -766,7 +766,7 @@ export default function EvangelismReportsDashboard({
               setEditingReport(row);
               setShowReportModal(true);
             }}
-            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="text-primary hover:text-primary p-1 rounded hover:bg-primary/10 min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Edit Report"
           >
             <svg
@@ -1056,7 +1056,7 @@ export default function EvangelismReportsDashboard({
                           setItemsPerPage(Number(e.target.value));
                           setCurrentPage(1);
                         }}
-                        className="min-h-[44px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 md:min-h-0"
+                        className="min-h-[44px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:min-h-0"
                         aria-label="Items per page"
                       >
                         <option value={10}>10</option>
@@ -1175,7 +1175,7 @@ export default function EvangelismReportsDashboard({
                   else next.delete(col.key);
                   setVisibleReportColumns(next);
                 }}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="rounded border-gray-300 text-primary focus:ring-ring"
               />
               <span className="text-sm text-gray-800">{col.label}</span>
             </label>

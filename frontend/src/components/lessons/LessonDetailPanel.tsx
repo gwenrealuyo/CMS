@@ -50,7 +50,7 @@ export default function LessonDetailPanel({
       <div className="space-y-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+            <span className="inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
               {lesson.version_label}
             </span>
             {lesson.is_latest ? (
@@ -68,7 +68,7 @@ export default function LessonDetailPanel({
               </span>
             )}
           </div>
-          <h2 className="text-2xl font-semibold text-[#2D3748] mt-3">
+          <h2 className="text-2xl font-semibold text-foreground mt-3">
             {lesson.title}
           </h2>
           <p className="text-sm text-gray-500 mt-1 uppercase tracking-wide">
@@ -107,7 +107,7 @@ export default function LessonDetailPanel({
               <button
                 type="button"
                 onClick={() => setShowJourney((prev) => !prev)}
-                className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                className="text-xs font-medium text-primary hover:text-primary"
               >
                 {showJourney ? "Hide" : "Show"}
               </button>
@@ -153,7 +153,7 @@ export default function LessonDetailPanel({
               <button
                 type="button"
                 onClick={() => setShowMetadata((prev) => !prev)}
-                className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                className="text-xs font-medium text-primary hover:text-primary"
               >
                 {showMetadata ? "Hide" : "Show"}
               </button>

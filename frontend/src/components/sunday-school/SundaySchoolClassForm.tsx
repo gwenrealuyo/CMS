@@ -138,7 +138,7 @@ export default function SundaySchoolClassForm({
           onChange={handleChange("name")}
           required
           placeholder="e.g., Kids Primary Class"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -150,7 +150,7 @@ export default function SundaySchoolClassForm({
           value={values.category_id}
           onChange={handleChange("category_id")}
           required
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option value="">Select a category</option>
           {categories
@@ -175,7 +175,7 @@ export default function SundaySchoolClassForm({
           onChange={handleChange("description")}
           rows={3}
           placeholder="Brief description of the class..."
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -188,7 +188,7 @@ export default function SundaySchoolClassForm({
           value={values.yearly_theme}
           onChange={handleChange("yearly_theme")}
           placeholder="e.g., Growing in Faith 2024"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -202,7 +202,7 @@ export default function SundaySchoolClassForm({
             value={values.room_location}
             onChange={handleChange("room_location")}
             placeholder="e.g., Room 101"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -213,7 +213,7 @@ export default function SundaySchoolClassForm({
           <select
             value={values.meeting_time}
             onChange={handleChange("meeting_time")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="">Select time</option>
             {generateTimeOptions().map((option) => (
@@ -231,7 +231,7 @@ export default function SundaySchoolClassForm({
           id="is_active"
           checked={values.is_active}
           onChange={handleChange("is_active")}
-          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          className="rounded border-gray-300 text-primary focus:ring-ring"
         />
         <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
           Active

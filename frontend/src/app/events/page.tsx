@@ -478,7 +478,7 @@ export default function EventsPage() {
     <DashboardLayout>
       {/* Page header with Add Event */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-[#2D3748]">Church Events</h1>
+        <h1 className="text-2xl font-bold text-foreground">Church Events</h1>
         <Button
           onClick={() => {
             setViewEditEvent(null);
@@ -567,7 +567,7 @@ export default function EventsPage() {
                     placeholder="Search events..."
                     value={searchQuery}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className={`w-full pl-10 pr-10 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+                    className={`w-full pl-10 pr-10 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
                       searchQuery ? "pr-10" : "pr-4"
                     }`}
                   />
@@ -602,7 +602,7 @@ export default function EventsPage() {
                   <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
-                    className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+                    className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
                   >
                     {eventTypeFilterOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -618,7 +618,7 @@ export default function EventsPage() {
                     <select
                       value={filterMonth}
                       onChange={(e) => handleMonthFilterChange(e.target.value)}
-                      className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+                      className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
                     >
                       <option value="all">All Months</option>
                       {monthNames.map((label, index) => (
@@ -634,7 +634,7 @@ export default function EventsPage() {
                     <select
                       value={filterYear}
                       onChange={(e) => setFilterYear(e.target.value)}
-                      className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+                      className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
                     >
                       <option value="all">All Years</option>
                       {availableYears.map((year) => (
@@ -670,12 +670,12 @@ export default function EventsPage() {
               selectedDate) && (
               <div className="flex flex-wrap items-center gap-2 mt-4">
                 {searchQuery && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
                     <span className="mr-1">Search:</span>
                     <span className="font-medium">{searchQuery}</span>
                     <button
                       onClick={() => handleSearchChange("")}
-                      className="ml-2 text-blue-600 hover:text-blue-800"
+                      className="ml-2 text-primary hover:text-primary"
                     >
                       <svg
                         className="w-3 h-3"
@@ -694,7 +694,7 @@ export default function EventsPage() {
                   </span>
                 )}
                 {filterType !== "all" && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
                     Type:{" "}
                     {
                       eventTypeFilterOptions.find((opt) => opt.value === filterType)
@@ -702,7 +702,7 @@ export default function EventsPage() {
                     }
                     <button
                       onClick={clearTypeFilter}
-                      className="ml-2 text-blue-600 hover:text-blue-800"
+                      className="ml-2 text-primary hover:text-primary"
                     >
                       <svg
                         className="w-3 h-3"
@@ -721,11 +721,11 @@ export default function EventsPage() {
                   </span>
                 )}
                 {filterYear !== "all" && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
                     Year: {filterYear}
                     <button
                       onClick={clearYearFilter}
-                      className="ml-2 text-blue-600 hover:text-blue-800"
+                      className="ml-2 text-primary hover:text-primary"
                     >
                       <svg
                         className="w-3 h-3"
@@ -744,11 +744,11 @@ export default function EventsPage() {
                   </span>
                 )}
                 {shouldShowMonthBadge && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
                     Month: {monthNames[Number(filterMonth)]}
                     <button
                       onClick={clearMonthFilter}
-                      className="ml-2 text-blue-600 hover:text-blue-800"
+                      className="ml-2 text-primary hover:text-primary"
                     >
                       <svg
                         className="w-3 h-3"
@@ -767,11 +767,11 @@ export default function EventsPage() {
                   </span>
                 )}
                 {selectedDate && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
                     Date: {selectedDate.toLocaleDateString()}
                     <button
                       onClick={clearDateFilter}
-                      className="ml-2 text-blue-600 hover:text-blue-800"
+                      className="ml-2 text-primary hover:text-primary"
                     >
                       <svg
                         className="w-3 h-3"

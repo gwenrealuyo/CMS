@@ -99,7 +99,7 @@ export default function SessionForm({
           value={values.session_date}
           onChange={handleChange("session_date")}
           required
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -110,7 +110,7 @@ export default function SessionForm({
         <select
           value={values.session_time}
           onChange={handleChange("session_time")}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option value="">Select time</option>
           {generateTimeOptions().map((option) => (
@@ -128,7 +128,7 @@ export default function SessionForm({
           value={values.topic}
           onChange={handleChange("topic")}
           placeholder="Bible study topic"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -139,7 +139,7 @@ export default function SessionForm({
           onChange={handleChange("notes")}
           placeholder="Session notes..."
           rows={4}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -149,7 +149,7 @@ export default function SessionForm({
           id="create_event"
           checked={values.create_event ?? false}
           onChange={handleChange("create_event")}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
         />
         <label htmlFor="create_event" className="ml-2 text-sm text-gray-700">
           Create event for this session

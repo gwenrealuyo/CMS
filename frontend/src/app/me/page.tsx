@@ -110,10 +110,10 @@ function MePageContent() {
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-4 px-2 sm:px-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <h1 className="text-2xl font-bold text-[#2D3748]">My record</h1>
+          <h1 className="text-2xl font-bold text-foreground">My record</h1>
           <Link
             href="/profile"
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="text-sm font-medium text-primary hover:text-primary"
           >
             Account settings
           </Link>

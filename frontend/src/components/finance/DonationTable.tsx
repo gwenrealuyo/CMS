@@ -112,9 +112,9 @@ export default function DonationTable({
   const SortIcon = ({ field }: { field: SortColumn }) => {
     if (field !== sortColumn) return null;
     return sortDirection === "asc" ? (
-      <ChevronUpIcon className="w-4 h-4 inline-block text-[#2563EB]" />
+      <ChevronUpIcon className="w-4 h-4 inline-block text-primary" />
     ) : (
-      <ChevronDownIcon className="w-4 h-4 inline-block text-[#2563EB]" />
+      <ChevronDownIcon className="w-4 h-4 inline-block text-primary" />
     );
   };
 
@@ -150,7 +150,7 @@ export default function DonationTable({
     <Card>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-[#2D3748]">Donation Log</h3>
+          <h3 className="text-lg font-semibold text-foreground">Donation Log</h3>
           <p className="text-xs text-gray-500">
             Track all individual donations and contributions.
           </p>
@@ -158,7 +158,7 @@ export default function DonationTable({
         {onAddDonation && (
           <button
             onClick={onAddDonation}
-            className="rounded-md bg-[#2563EB] px-3 py-2.5 md:py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            className="rounded-md bg-primary px-3 py-2.5 md:py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             Record Donation
           </button>
@@ -207,9 +207,9 @@ export default function DonationTable({
                         <button
                           type="button"
                           onClick={() => onEditDonation(donation)}
-                          className="group text-left focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 rounded"
+                          className="group text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
                         >
-                          <div className="font-medium text-[#2563EB] group-hover:text-[#1D4ED8] group-hover:underline transition-colors cursor-pointer">
+                          <div className="font-medium text-primary group-hover:text-beacon-navy group-hover:underline transition-colors cursor-pointer">
                             {new Date(donation.date).toLocaleDateString()}
                           </div>
                           {donation.receiptNumber && (
@@ -220,7 +220,7 @@ export default function DonationTable({
                         </button>
                       ) : (
                         <>
-                          <div className="font-medium text-[#2D3748]">
+                          <div className="font-medium text-foreground">
                             {new Date(donation.date).toLocaleDateString()}
                           </div>
                           {donation.receiptNumber && (
@@ -239,7 +239,7 @@ export default function DonationTable({
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {donation.purpose || "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-[#2563EB]">
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-primary">
                       {formatCurrency(donation.amount)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">

@@ -157,7 +157,7 @@ export default function BulkEnrollModal({
             value={role}
             onChange={(e) => setRole(e.target.value as ClassMemberRole)}
             required
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="STUDENT">Student</option>
             <option value="TEACHER">Teacher</option>
@@ -172,7 +172,7 @@ export default function BulkEnrollModal({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name, email, or username..."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
           {searchQuery && !loading && (
             <p className="text-xs text-gray-500">
@@ -190,7 +190,7 @@ export default function BulkEnrollModal({
               type="button"
               onClick={handleSelectAll}
               disabled={people.length === 0}
-              className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+              className="text-sm text-primary hover:text-primary disabled:text-gray-400 disabled:cursor-not-allowed"
             >
               {visibleSelectedCount === people.length && people.length > 0 ? "Deselect Visible" : "Select Visible"}
             </button>
@@ -224,7 +224,7 @@ export default function BulkEnrollModal({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => handleTogglePerson(personId)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-primary focus:ring-ring"
                     />
                     <div className="ml-3 flex-1">
                       <p className="text-sm font-medium text-gray-900">{fullName}</p>

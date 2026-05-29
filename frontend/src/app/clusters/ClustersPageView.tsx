@@ -415,7 +415,7 @@ export default function ClustersPageView({
           if (!clusterBranchSelectInteractive) return;
           onClusterBranchChange(e.target.value);
         }}
-        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-ring focus:border-transparent ${
           clusterBranchSelectInteractive
             ? "w-52 shrink-0"
             : "w-full pointer-events-none cursor-default"
@@ -601,7 +601,7 @@ export default function ClustersPageView({
       <div className="space-y-6">
         <div className="relative isolate flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-1 min-w-0">
-            <h1 className="text-2xl font-bold text-[#2D3748]">Clusters</h1>
+            <h1 className="text-2xl font-bold text-foreground">Clusters</h1>
             <p className="text-sm text-gray-600">
               Manage clusters and weekly reports
             </p>
@@ -658,11 +658,11 @@ export default function ClustersPageView({
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div
-                      className="p-1.5 bg-blue-100 rounded-lg"
+                      className="p-1.5 bg-primary/15 rounded-lg"
                       aria-hidden="true"
                     >
                       <svg
-                        className="w-5 h-5 text-blue-600"
+                        className="w-5 h-5 text-primary"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -819,7 +819,7 @@ export default function ClustersPageView({
                       placeholder="Search clusters…"
                       value={clusterSearchQuery}
                       onChange={(e) => onClusterSearchChange(e.target.value)}
-                      className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                      className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm ${
                         clusterSearchQuery ? "pr-10" : "pr-4"
                       }`}
                     />
@@ -884,13 +884,13 @@ export default function ClustersPageView({
                         onClick={onToggleSelectionMode}
                         className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-lg transition-colors ${
                           isSelectionMode
-                            ? "bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            : "border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/15 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                            : "border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
                         }`}
                       >
                         <svg
                           className={`w-4 h-4 mr-1 shrink-0 ${
-                            isSelectionMode ? "text-blue-600" : "text-gray-500"
+                            isSelectionMode ? "text-primary" : "text-gray-500"
                           }`}
                           fill="none"
                           stroke="currentColor"
@@ -920,7 +920,7 @@ export default function ClustersPageView({
                       {clusterActiveFilters.map((filter) => (
                         <span
                           key={filter.id}
-                          className="inline-flex items-center px-2 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 min-h-[32px]"
+                          className="inline-flex items-center px-2 py-1.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20 min-h-[32px]"
                         >
                           <span className="truncate max-w-[150px] md:max-w-none">
                             {filter.label}
@@ -928,7 +928,7 @@ export default function ClustersPageView({
                           <button
                             type="button"
                             onClick={() => onClusterFilterRemove(filter.id)}
-                            className="ml-1 text-blue-600 hover:text-blue-800 min-w-[20px] min-h-[20px] flex items-center justify-center flex-shrink-0"
+                            className="ml-1 text-primary hover:text-primary min-w-[20px] min-h-[20px] flex items-center justify-center flex-shrink-0"
                             aria-label="Remove filter"
                           >
                             <svg
@@ -966,7 +966,7 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shrink-0"
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors shrink-0"
                   >
                     <svg
                       className="w-4 h-4 mr-1"
@@ -993,7 +993,7 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shrink-0"
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors shrink-0"
                   >
                     <svg
                       className="w-4 h-4 mr-1"
@@ -1075,7 +1075,7 @@ export default function ClustersPageView({
                           clusterPaginatedData.length > 0
                         }
                         onChange={onSelectAllClusters}
-                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-ring"
                       />
                       Select All ({selectedClusters.size} selected)
                     </label>
@@ -1095,7 +1095,7 @@ export default function ClustersPageView({
                                   clusterPaginatedData.length > 0
                                 }
                                 onChange={onSelectAllClusters}
-                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
                               />
                             </th>
                           )}
@@ -1163,7 +1163,7 @@ export default function ClustersPageView({
                                     type="checkbox"
                                     checked={selectedClusters.has(c.id.toString())}
                                     onChange={() => onSelectCluster(c.id.toString())}
-                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
                                   />
                                 </td>
                               )}
@@ -1171,7 +1171,7 @@ export default function ClustersPageView({
                                 <button
                                   type="button"
                                   onClick={() => onViewCluster(c)}
-                                  className="text-left text-blue-600 hover:text-blue-700 hover:underline"
+                                  className="text-left text-primary hover:text-primary hover:underline"
                                 >
                                   {c.name || "Untitled Cluster"}
                                 </button>

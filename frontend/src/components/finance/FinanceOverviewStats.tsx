@@ -83,7 +83,7 @@ export default function FinanceOverviewStats({
               onCustomEndDateChange("");
             }
           }}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 md:py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 w-full sm:w-auto min-w-[180px] min-h-[44px] md:min-h-0"
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 md:py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 w-full sm:w-auto min-w-[180px] min-h-[44px] md:min-h-0"
         >
           <option value="thisWeek">This Week</option>
           <option value="thisMonth">This Month</option>
@@ -107,7 +107,7 @@ export default function FinanceOverviewStats({
                 type="date"
                 value={customStartDate}
                 onChange={(e) => onCustomStartDateChange?.(e.target.value)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 min-h-[44px] md:min-h-0"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 min-h-[44px] md:min-h-0"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export default function FinanceOverviewStats({
                 value={customEndDate}
                 onChange={(e) => onCustomEndDateChange?.(e.target.value)}
                 min={customStartDate}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 min-h-[44px] md:min-h-0"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 min-h-[44px] md:min-h-0"
               />
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function FinanceOverviewStats({
           label="Total Committed"
           value={formatAmount(pledgeStats.totalPledged, currencySymbol)}
           description="Total amount pledged across all campaigns"
-          badgeClass="bg-blue-100 text-blue-700"
+          badgeClass="bg-primary/15 text-primary"
         />
         <SnapshotTile
           label="Outstanding Balance"

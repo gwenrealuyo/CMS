@@ -890,7 +890,7 @@ export default function FinancePage() {
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-[#2D3748]">Finance</h1>
+              <h1 className="text-2xl font-bold text-foreground">Finance</h1>
               <p className="text-sm text-gray-600 mt-1">
                 Track donations, weekly offerings, and pledge progress in one
                 view.
@@ -961,7 +961,7 @@ export default function FinancePage() {
                       label="Total Pledged"
                       value={formatCurrency(pledgeMetrics.totalPledged)}
                       description="Across active commitments"
-                      badgeClass="bg-blue-100 text-blue-700"
+                      badgeClass="bg-primary/15 text-primary"
                     />
                     <SnapshotTile
                       label="Received"
@@ -1138,7 +1138,7 @@ export default function FinancePage() {
               className="space-y-4 rounded-lg border border-slate-200 p-4 shadow-sm"
               data-contribution-form
             >
-              <h3 className="text-sm font-semibold text-[#2D3748]">
+              <h3 className="text-sm font-semibold text-foreground">
                 {editingContribution ? "Edit Contribution" : "Add Contribution"}
               </h3>
               <div className="space-y-2">
@@ -1264,7 +1264,7 @@ export default function FinancePage() {
             </div>
 
             <div className="space-y-3 rounded-lg border border-slate-200 p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-[#2D3748]">
+              <h3 className="text-sm font-semibold text-foreground">
                 Contribution History
               </h3>
               {contributionsLoading ? (
@@ -1292,35 +1292,35 @@ export default function FinancePage() {
                       {contributions.map((contribution) => (
                         <tr key={contribution.id}>
                           <td
-                            className="px-3 py-2 text-gray-700 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
+                            className="px-3 py-2 text-gray-700 cursor-pointer hover:text-primary hover:underline transition-colors"
                             onClick={() => handleEditContribution(contribution)}
                             title="Click to edit this contribution"
                           >
                             {formatDate(contribution.contributionDate)}
                           </td>
                           <td
-                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
+                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-primary hover:underline transition-colors"
                             onClick={() => handleEditContribution(contribution)}
                             title="Click to edit this contribution"
                           >
                             {contribution.contributorName ?? "—"}
                           </td>
                           <td
-                            className="px-3 py-2 text-right font-semibold text-[#2563EB] cursor-pointer hover:text-blue-700 hover:underline transition-colors"
+                            className="px-3 py-2 text-right font-semibold text-primary cursor-pointer hover:text-primary hover:underline transition-colors"
                             onClick={() => handleEditContribution(contribution)}
                             title="Click to edit this contribution"
                           >
                             {formatCurrency(contribution.amount)}
                           </td>
                           <td
-                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
+                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-primary hover:underline transition-colors"
                             onClick={() => handleEditContribution(contribution)}
                             title="Click to edit this contribution"
                           >
                             {contribution.recordedByName ?? "—"}
                           </td>
                           <td
-                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-[#2563EB] hover:underline transition-colors"
+                            className="px-3 py-2 text-gray-600 cursor-pointer hover:text-primary hover:underline transition-colors"
                             onClick={() => handleEditContribution(contribution)}
                             title="Click to edit this contribution"
                           >
@@ -1346,7 +1346,7 @@ export default function FinancePage() {
                                   contributionSubmitting ||
                                   deleteContributionLoading
                                 }
-                                className="text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-blue-300"
+                                className="text-xs font-semibold text-primary hover:text-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
                               >
                                 Edit
                               </button>

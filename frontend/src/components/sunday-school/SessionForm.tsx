@@ -107,7 +107,7 @@ export default function SessionForm({
             value={values.session_date}
             onChange={handleChange("session_date")}
             required
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -118,7 +118,7 @@ export default function SessionForm({
           <select
             value={values.session_time}
             onChange={handleChange("session_time")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="">Select time</option>
             {generateTimeOptions().map((option) => (
@@ -139,7 +139,7 @@ export default function SessionForm({
           value={values.lesson_title}
           onChange={handleChange("lesson_title")}
           placeholder="What lesson or theme will be covered?"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -150,11 +150,11 @@ export default function SessionForm({
           onChange={handleChange("notes")}
           rows={3}
           placeholder="Additional notes..."
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
+      <div className="bg-primary/10 border border-primary/20 rounded-md p-3 text-sm text-primary">
         <p className="font-medium">Note:</p>
         <p>An event will be automatically created on the calendar for this session.</p>
       </div>

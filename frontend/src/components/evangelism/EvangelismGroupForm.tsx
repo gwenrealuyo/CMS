@@ -197,7 +197,7 @@ export default function EvangelismGroupForm({
           onChange={handleChange("name")}
           required
           placeholder="e.g., North Bible Study"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -210,7 +210,7 @@ export default function EvangelismGroupForm({
           onChange={handleChange("description")}
           placeholder="Group description..."
           rows={3}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -264,7 +264,7 @@ export default function EvangelismGroupForm({
             value={values.location}
             onChange={handleChange("location")}
             placeholder="Meeting location"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -275,7 +275,7 @@ export default function EvangelismGroupForm({
           <select
             value={values.meeting_day}
             onChange={handleChange("meeting_day")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {dayOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -293,7 +293,7 @@ export default function EvangelismGroupForm({
             type="time"
             value={values.meeting_time || ""}
             onChange={handleChange("meeting_time")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
@@ -337,11 +337,11 @@ export default function EvangelismGroupForm({
                 const label = personObj ? formatPersonName(personObj) : id;
                 return (
                   <li key={id}>
-                    <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary border border-primary/20">
                       {label}
                       <button
                         type="button"
-                        className="text-blue-600 hover:text-blue-900"
+                        className="text-primary hover:text-primary"
                         onClick={() => removeInitialMember(id)}
                         aria-label={`Remove ${label}`}
                       >
@@ -367,7 +367,7 @@ export default function EvangelismGroupForm({
             id="is_active"
             checked={values.is_active}
             onChange={handleChange("is_active")}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5"
+            className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded mt-0.5"
           />
           <label
             htmlFor="is_active"
@@ -383,7 +383,7 @@ export default function EvangelismGroupForm({
             id="is_bible_sharers_group"
             checked={values.is_bible_sharers_group || false}
             onChange={handleChange("is_bible_sharers_group")}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5"
+            className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded mt-0.5"
           />
           <label
             htmlFor="is_bible_sharers_group"

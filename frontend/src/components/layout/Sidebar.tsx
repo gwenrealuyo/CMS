@@ -234,6 +234,12 @@ export default function Sidebar() {
     const isActive = pathname === getPathFromHref(item.href);
     const isExpanded = expandedSections.includes(item.name);
     const hasChildren = item.children && item.children.length > 0;
+    const childActive =
+      hasChildren &&
+      item.children.some(
+        (child: { href: string }) =>
+          pathname === getPathFromHref(child.href)
+      );
 
     return (
       <div key={item.name} className="mb-1">
@@ -241,7 +247,7 @@ export default function Sidebar() {
           <button
             onClick={() => toggleSection(item.name)}
             className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors min-h-[44px] ${
-              isExpanded
+              childActive || isExpanded
                 ? "bg-blue-50 text-blue-700"
                 : "text-gray-700 hover:bg-gray-50"
             }`}
@@ -250,7 +256,7 @@ export default function Sidebar() {
               <item.icon
                 className={`h-5 w-5 ${
                   isCompact ? "mr-0" : "mr-3"
-                } text-gray-400`}
+                } ${childActive ? "text-blue-700" : "text-gray-400"}`}
               />
               {!isCompact && <span className="font-medium">{item.name}</span>}
             </div>
@@ -268,7 +274,7 @@ export default function Sidebar() {
             onClick={closeMobile}
             className={`flex items-center px-3 py-3 rounded-lg transition-colors min-h-[44px] ${
               isActive
-                ? "bg-blue-50 text-blue-700"
+                ? "bg-blue-50 text-blue-700 border-l-2 border-primary"
                 : "text-gray-700 hover:bg-gray-50"
             }`}
           >
@@ -333,8 +339,8 @@ export default function Sidebar() {
       >
         <div className="flex shrink-0 items-center justify-between gap-3 p-4 md:p-6">
           {!isCompact && (
-            <h1 className="min-w-0 flex-1 text-xl font-bold leading-snug text-[#2D3748] md:text-2xl">
-              Church Manager
+            <h1 className="min-w-0 flex-1 text-xl font-bold leading-snug text-primary md:text-2xl">
+              The Beacon
             </h1>
           )}
           <div className="flex shrink-0 items-center gap-2">
@@ -369,9 +375,9 @@ export default function Sidebar() {
 
       {false && !isCompact && (
         <div className="absolute bottom-0 left-0 right-0 p-6">
-          <div className="bg-blue-50 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-blue-800">Need Help?</h3>
-            <p className="text-sm text-blue-600 mt-1">
+          <div className="bg-primary/10 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-primary">Need Help?</h3>
+            <p className="text-sm text-primary mt-1">
               Check our documentation or contact support
             </p>
           </div>

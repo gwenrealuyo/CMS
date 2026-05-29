@@ -44,7 +44,7 @@ def add_title_slide(prs, notes=None):
     slide.shapes.title.text = "The Beacon"
     subtitle = slide.placeholders[1]
     subtitle.text = (
-        "Lighthouse Ministry Care System\n"
+        "LAMP Church Care System\n"
         "A soul kept is a soul won.\n"
         "Caring for every soul God has placed in our care."
     )

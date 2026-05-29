@@ -200,7 +200,7 @@ export default function MinistriesPage() {
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-[#2D3748]">
+              <h1 className="text-2xl font-bold text-foreground">
                 Ministry Teams
               </h1>
               <p className="text-sm text-gray-500">
@@ -222,7 +222,7 @@ export default function MinistriesPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <p className="text-sm text-gray-500">Total ministries</p>
-              <p className="text-3xl font-semibold text-[#2D3748]">
+              <p className="text-3xl font-semibold text-foreground">
                 {stats.total}
               </p>
             </Card>
@@ -234,7 +234,7 @@ export default function MinistriesPage() {
             </Card>
             <Card>
               <p className="text-sm text-gray-500">Weekly cadence</p>
-              <p className="text-3xl font-semibold text-blue-600">
+              <p className="text-3xl font-semibold text-primary">
                 {stats.byCadence.weekly ?? 0}
               </p>
             </Card>
@@ -258,7 +258,7 @@ export default function MinistriesPage() {
                   value={searchQuery}
                   onChange={(event) => handleSearchChange(event.target.value)}
                   placeholder="Name, description, coordinator"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
 
@@ -274,7 +274,7 @@ export default function MinistriesPage() {
                       event.target.value as typeof filters.activity_cadence
                     )
                   }
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {cadenceOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -296,7 +296,7 @@ export default function MinistriesPage() {
                       event.target.value as typeof filters.category
                     )
                   }
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {categoryOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -326,7 +326,7 @@ export default function MinistriesPage() {
                       setFilter("is_active", value === "active");
                     }
                   }}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="all">All</option>
                   <option value="active">Active</option>
@@ -375,7 +375,7 @@ export default function MinistriesPage() {
                     accessor: "name" as const,
                     render: (_value, row: any) => (
                       <div>
-                        <p className="font-semibold text-[#2D3748]">
+                        <p className="font-semibold text-foreground">
                           {row.name}
                         </p>
                         {row.description && (
@@ -443,7 +443,7 @@ export default function MinistriesPage() {
                     header: "Members",
                     accessor: "membersCount" as const,
                     render: (value: number) => (
-                      <span className="text-sm font-medium text-[#2D3748]">
+                      <span className="text-sm font-medium text-foreground">
                         {value}
                       </span>
                     ),
@@ -497,7 +497,7 @@ export default function MinistriesPage() {
                           </button>
                           <button
                             onClick={() => handleEdit(row as Ministry)}
-                            className="flex items-center justify-center space-x-2 py-2.5 px-4 text-sm font-medium text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 rounded-md transition-colors min-h-[44px] w-full"
+                            className="flex items-center justify-center space-x-2 py-2.5 px-4 text-sm font-medium text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 rounded-md transition-colors min-h-[44px] w-full"
                           >
                             <svg
                               className="w-4 h-4"
@@ -564,7 +564,7 @@ export default function MinistriesPage() {
                           </button>
                           <button
                             onClick={() => handleEdit(row as Ministry)}
-                            className="flex items-center justify-center p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                            className="flex items-center justify-center p-2 text-primary hover:bg-primary/10 rounded-md transition-colors"
                             title="Edit Ministry"
                           >
                             <svg

@@ -20,7 +20,7 @@ export default function RecentActivity({
 }: RecentActivityProps) {
   return (
     <Card>
-      <h3 className="text-lg font-semibold text-[#2D3748] mb-4">
+      <h3 className="text-lg font-semibold text-foreground mb-4">
         Recent Activity
       </h3>
       {isLoading ? (
@@ -32,7 +32,7 @@ export default function RecentActivity({
           {activities.map((activity) => (
             <div key={activity.id} className="flex items-start space-x-3">
               <div className="flex-1">
-                <p className="text-sm text-[#2D3748]">{activity.description}</p>
+                <p className="text-sm text-foreground">{activity.description}</p>
                 <p className="text-xs text-gray-500">{activity.timestamp}</p>
               </div>
             </div>

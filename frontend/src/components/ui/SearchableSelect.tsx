@@ -147,7 +147,7 @@ export default function SearchableSelect({
           className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white ${controlClassName} ${
             disabled
               ? "bg-gray-50 cursor-not-allowed opacity-60"
-              : "focus-within:border-blue-500 focus-within:outline-none focus-within:ring-1 focus-within:ring-blue-500 cursor-pointer"
+              : "focus-within:border-primary focus-within:outline-none focus-within:ring-1 focus-within:ring-ring cursor-pointer"
           }`}
           onClick={() => {
             if (!disabled && !isOpen) {
@@ -199,7 +199,7 @@ export default function SearchableSelect({
                 type="button"
                 onClick={handleClear}
                 className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                  !value ? "bg-blue-50 text-blue-700" : "text-gray-900"
+                  !value ? "bg-primary/10 text-primary" : "text-gray-900"
                 }`}
               >
                 {emptyOptionLabel}
@@ -221,7 +221,7 @@ export default function SearchableSelect({
                     onClick={() => handleSelect(optionId)}
                     className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
                       isSelected
-                        ? "bg-blue-50 text-blue-700 font-medium"
+                        ? "bg-primary/10 text-primary font-medium"
                         : "text-gray-900"
                     }`}
                   >

@@ -31,7 +31,7 @@ export default function DonationStats({
           label="Total Giving"
           value={formatAmount(stats.totalAmount, currencySymbol)}
           description="Across all logged contributions"
-          badgeClass="bg-blue-100 text-blue-700"
+          badgeClass="bg-primary/15 text-primary"
         />
         <SnapshotTile
           label="Average Per Entry"
@@ -50,7 +50,7 @@ export default function DonationStats({
       <Card>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#2D3748]">Purpose Mix</p>
+            <p className="text-sm font-semibold text-foreground">Purpose Mix</p>
             <span className="text-xs uppercase tracking-wide text-gray-500">
               {sortedBreakdown.length === 0
                 ? "No data"
@@ -72,7 +72,7 @@ export default function DonationStats({
                 return (
                   <div key={purpose} className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-[#2D3748]">
+                      <span className="font-medium text-foreground">
                         {purpose}
                       </span>
                       <span className="text-gray-500">
@@ -80,13 +80,13 @@ export default function DonationStats({
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="h-2 flex-1 rounded-full bg-blue-50">
+                      <div className="h-2 flex-1 rounded-full bg-primary/10">
                         <div
-                          className="h-2 rounded-full bg-[#2563EB]"
+                          className="h-2 rounded-full bg-primary"
                           style={{ width: `${Math.max(6, percentage)}%` }}
                         />
                       </div>
-                      <span className="w-10 text-right text-xs font-semibold text-[#2563EB]">
+                      <span className="w-10 text-right text-xs font-semibold text-primary">
                         {percentage}%
                       </span>
                     </div>

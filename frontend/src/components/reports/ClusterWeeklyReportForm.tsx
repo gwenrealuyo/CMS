@@ -500,7 +500,7 @@ export default function ClusterWeeklyReportForm({
             onClick={() => setShowClusterDropdown(true)}
             readOnly
             placeholder="Select cluster..."
-            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent cursor-pointer"
             required
           />
           {showClusterDropdown && (
@@ -511,7 +511,7 @@ export default function ClusterWeeklyReportForm({
                   value={clusterSearchTerm}
                   onChange={(e) => handleClusterSearchChange(e.target.value)}
                   placeholder="Search clusters..."
-                  className="w-full px-2 py-1.5 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2 py-1.5 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
                 />
               </div>
               {filteredClusters.length > 0 ? (
@@ -556,7 +556,7 @@ export default function ClusterWeeklyReportForm({
             onChange={(e) => handleChange("year", parseInt(e.target.value))}
             min="2020"
             max="2030"
-            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             required
           />
         </div>
@@ -573,7 +573,7 @@ export default function ClusterWeeklyReportForm({
             }
             min="1"
             max="53"
-            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             required
           />
         </div>
@@ -586,7 +586,7 @@ export default function ClusterWeeklyReportForm({
             type="date"
             value={formData.meeting_date || ""}
             onChange={(e) => handleChange("meeting_date", e.target.value)}
-            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             required
           />
         </div>
@@ -600,7 +600,7 @@ export default function ClusterWeeklyReportForm({
             onChange={(e) =>
               handleChange("gathering_type", e.target.value as GatheringType)
             }
-            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             required
           >
             <option value="PHYSICAL">Physical</option>
@@ -648,7 +648,7 @@ export default function ClusterWeeklyReportForm({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium border border-blue-300 hover:border-blue-500 rounded-lg px-3 py-1.5 transition-colors"
+                className="text-sm text-primary hover:text-primary font-medium border border-primary/30 hover:border-primary rounded-lg px-3 py-1.5 transition-colors"
               >
                 + Add New Visitor
               </button>
@@ -690,7 +690,7 @@ export default function ClusterWeeklyReportForm({
             )
           }
           min="0"
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
 
@@ -711,7 +711,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("activities_held", e.target.value)}
           rows={3}
           placeholder="Describe activities or events held during the cluster meeting..."
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
 
@@ -724,7 +724,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("prayer_requests", e.target.value)}
           rows={3}
           placeholder="List prayer requests shared during the meeting..."
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
 
@@ -737,7 +737,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("testimonies", e.target.value)}
           rows={3}
           placeholder="Share testimonies or encouraging stories from members..."
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
 
@@ -751,7 +751,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("highlights", e.target.value)}
           rows={3}
           placeholder="Positive events, achievements, or encouraging moments..."
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
 
@@ -764,7 +764,7 @@ export default function ClusterWeeklyReportForm({
           onChange={(e) => handleChange("lowlights", e.target.value)}
           rows={3}
           placeholder="Challenges, concerns, or areas needing attention..."
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         />
       </div>
 

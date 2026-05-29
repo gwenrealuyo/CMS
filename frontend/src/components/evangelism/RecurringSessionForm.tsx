@@ -87,7 +87,7 @@ export default function RecurringSessionForm({
             value={values.start_date}
             onChange={handleChange("start_date")}
             required
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -99,7 +99,7 @@ export default function RecurringSessionForm({
             type="date"
             value={values.end_date}
             onChange={handleChange("end_date")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function RecurringSessionForm({
           value={values.recurrence_pattern}
           onChange={handleChange("recurrence_pattern")}
           required
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option value="weekly">Weekly</option>
           <option value="bi_weekly">Bi-weekly</option>
@@ -129,7 +129,7 @@ export default function RecurringSessionForm({
             value={values.day_of_week}
             onChange={handleChange("day_of_week")}
             required
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value={0}>Monday</option>
             <option value={1}>Tuesday</option>
@@ -151,7 +151,7 @@ export default function RecurringSessionForm({
           value={values.default_topic}
           onChange={handleChange("default_topic")}
           placeholder="Default Bible study topic"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 

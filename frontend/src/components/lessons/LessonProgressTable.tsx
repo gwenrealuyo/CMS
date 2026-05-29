@@ -109,7 +109,7 @@ export default function LessonProgressTable({
 
   const statusBadgeStyles: Record<LessonProgressStatus | "ASSIGNED", string> = {
     ASSIGNED: "bg-gray-100 text-gray-700",
-    IN_PROGRESS: "bg-blue-100 text-blue-700",
+    IN_PROGRESS: "bg-primary/15 text-primary",
     COMPLETED: "bg-green-100 text-green-700",
     SKIPPED: "bg-yellow-100 text-yellow-700",
   };
@@ -180,7 +180,7 @@ export default function LessonProgressTable({
                       <button
                         type="button"
                         onClick={() => onPersonClick(summary.person)}
-                        className="text-left font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer break-words"
+                        className="text-left font-medium text-primary hover:text-primary hover:underline cursor-pointer break-words"
                       >
                         {personName}
                       </button>
@@ -213,7 +213,7 @@ export default function LessonProgressTable({
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2.5">
                         <div
-                          className="bg-blue-600 h-2.5 rounded-full transition-all"
+                          className="bg-primary h-2.5 rounded-full transition-all"
                           style={{ width: `${summary.progressPercentage}%` }}
                         />
                       </div>

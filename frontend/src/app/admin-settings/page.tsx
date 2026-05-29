@@ -453,12 +453,12 @@ function AdminSettingsPageContent() {
       LOGIN_SUCCESS: "bg-green-100 text-green-800 border-green-200",
       LOGIN_FAILURE: "bg-red-100 text-red-800 border-red-200",
       LOGOUT: "bg-gray-100 text-gray-800 border-gray-200",
-      PASSWORD_CHANGE: "bg-blue-100 text-blue-800 border-blue-200",
+      PASSWORD_CHANGE: "bg-primary/15 text-primary border-primary/20",
       PASSWORD_RESET_REQUEST: "bg-yellow-100 text-yellow-800 border-yellow-200",
       PASSWORD_RESET_APPROVED: "bg-green-100 text-green-800 border-green-200",
       PASSWORD_RESET_REJECTED: "bg-red-100 text-red-800 border-red-200",
       ACCOUNT_LOCKED: "bg-red-100 text-red-800 border-red-200",
-      ACCOUNT_UNLOCKED: "bg-blue-100 text-blue-800 border-blue-200",
+      ACCOUNT_UNLOCKED: "bg-primary/15 text-primary border-primary/20",
       TOKEN_REFRESH: "bg-purple-100 text-purple-800 border-purple-200",
       ROLE_CHANGE: "bg-indigo-100 text-indigo-800 border-indigo-200",
       ACCOUNT_ACTIVATED: "bg-green-100 text-green-800 border-green-200",
@@ -471,7 +471,7 @@ function AdminSettingsPageContent() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#2D3748]">Admin Settings</h1>
+          <h1 className="text-2xl font-bold text-foreground">Admin Settings</h1>
           <p className="text-gray-500">
             Manage password reset requests, locked accounts, and view audit logs
           </p>
@@ -484,7 +484,7 @@ function AdminSettingsPageContent() {
               onClick={() => setActiveTab("overview")}
               className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "overview"
-                  ? "border-[#2563EB] text-[#2563EB]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -494,7 +494,7 @@ function AdminSettingsPageContent() {
               onClick={() => setActiveTab("password-resets")}
               className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "password-resets"
-                  ? "border-[#2563EB] text-[#2563EB]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -504,7 +504,7 @@ function AdminSettingsPageContent() {
               onClick={() => setActiveTab("locked-accounts")}
               className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "locked-accounts"
-                  ? "border-[#2563EB] text-[#2563EB]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -514,7 +514,7 @@ function AdminSettingsPageContent() {
               onClick={() => setActiveTab("audit-logs")}
               className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "audit-logs"
-                  ? "border-[#2563EB] text-[#2563EB]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -524,7 +524,7 @@ function AdminSettingsPageContent() {
               onClick={() => setActiveTab("module-coordinators")}
               className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "module-coordinators"
-                  ? "border-[#2563EB] text-[#2563EB]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -534,7 +534,7 @@ function AdminSettingsPageContent() {
               onClick={() => setActiveTab("module-controls")}
               className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "module-controls"
-                  ? "border-[#2563EB] text-[#2563EB]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -544,7 +544,7 @@ function AdminSettingsPageContent() {
               onClick={() => setActiveTab("branches")}
               className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
                 activeTab === "branches"
-                  ? "border-[#2563EB] text-[#2563EB]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
@@ -568,7 +568,7 @@ function AdminSettingsPageContent() {
             {/* Overview Tab */}
             {activeTab === "overview" && (
               <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-[#2D3748]">
+                <h2 className="text-xl font-semibold text-foreground">
                   Dashboard Overview
                 </h2>
 
@@ -580,7 +580,7 @@ function AdminSettingsPageContent() {
                         <p className="text-sm font-medium text-gray-500">
                           Pending Password Resets
                         </p>
-                        <p className="text-3xl font-bold text-[#2D3748] mt-2">
+                        <p className="text-3xl font-bold text-foreground mt-2">
                           {dashboardStats?.pending_password_resets ?? 0}
                         </p>
                       </div>
@@ -596,7 +596,7 @@ function AdminSettingsPageContent() {
                         <p className="text-sm font-medium text-gray-500">
                           Locked Accounts
                         </p>
-                        <p className="text-3xl font-bold text-[#2D3748] mt-2">
+                        <p className="text-3xl font-bold text-foreground mt-2">
                           {dashboardStats?.locked_accounts ?? 0}
                         </p>
                       </div>
@@ -610,7 +610,7 @@ function AdminSettingsPageContent() {
                 {/* Recent Activity */}
                 <div className="bg-white rounded-lg shadow-md">
                   <div className="px-4 md:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-[#2D3748]">
+                    <h3 className="text-lg font-semibold text-foreground">
                       Recent Activity
                     </h3>
                     {/* View Toggle - Mobile Only */}
@@ -620,7 +620,7 @@ function AdminSettingsPageContent() {
                           onClick={() => setOverviewViewMode("cards")}
                           className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                             overviewViewMode === "cards"
-                              ? "bg-blue-500 text-white"
+                              ? "bg-primary/100 text-white"
                               : "bg-white text-gray-700 hover:bg-gray-50"
                           }`}
                           title="Card View"
@@ -631,7 +631,7 @@ function AdminSettingsPageContent() {
                           onClick={() => setOverviewViewMode("table")}
                           className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                             overviewViewMode === "table"
-                              ? "bg-blue-500 text-white"
+                              ? "bg-primary/100 text-white"
                               : "bg-white text-gray-700 hover:bg-gray-50"
                           }`}
                           title="Table View"
@@ -783,7 +783,7 @@ function AdminSettingsPageContent() {
             {activeTab === "password-resets" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-[#2D3748]">
+                  <h2 className="text-xl font-semibold text-foreground">
                     Password Reset Requests
                   </h2>
                   {/* View Toggle - Mobile Only */}
@@ -793,7 +793,7 @@ function AdminSettingsPageContent() {
                         onClick={() => setPasswordResetsViewMode("cards")}
                         className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                           passwordResetsViewMode === "cards"
-                            ? "bg-blue-500 text-white"
+                            ? "bg-primary/100 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                         title="Card View"
@@ -804,7 +804,7 @@ function AdminSettingsPageContent() {
                         onClick={() => setPasswordResetsViewMode("table")}
                         className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                           passwordResetsViewMode === "table"
-                            ? "bg-blue-500 text-white"
+                            ? "bg-primary/100 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                         title="Table View"
@@ -829,7 +829,7 @@ function AdminSettingsPageContent() {
                           setResetRequestsSearch(e.target.value);
                         }}
                         placeholder="Search by name, email, or username..."
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -842,7 +842,7 @@ function AdminSettingsPageContent() {
                           setStatusFilter(e.target.value);
                           setResetRequestsPage(1);
                         }}
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="ALL">All Statuses</option>
                         <option value="PENDING">Pending</option>
@@ -1086,7 +1086,7 @@ function AdminSettingsPageContent() {
             {activeTab === "locked-accounts" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-[#2D3748]">
+                  <h2 className="text-xl font-semibold text-foreground">
                     Locked Accounts
                   </h2>
                   {/* View Toggle - Mobile Only */}
@@ -1096,7 +1096,7 @@ function AdminSettingsPageContent() {
                         onClick={() => setLockedAccountsViewMode("cards")}
                         className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                           lockedAccountsViewMode === "cards"
-                            ? "bg-blue-500 text-white"
+                            ? "bg-primary/100 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                         title="Card View"
@@ -1107,7 +1107,7 @@ function AdminSettingsPageContent() {
                         onClick={() => setLockedAccountsViewMode("table")}
                         className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                           lockedAccountsViewMode === "table"
-                            ? "bg-blue-500 text-white"
+                            ? "bg-primary/100 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                         title="Table View"
@@ -1132,7 +1132,7 @@ function AdminSettingsPageContent() {
                           setLockedAccountsSearch(e.target.value);
                         }}
                         placeholder="Search by name, email, or username..."
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -1145,7 +1145,7 @@ function AdminSettingsPageContent() {
                           setLockedAccountsFilter(e.target.value);
                           setLockedAccountsPage(1);
                         }}
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">All Lockouts</option>
                         <option value="temporary">Temporary</option>
@@ -1323,7 +1323,7 @@ function AdminSettingsPageContent() {
                                 </button>
                                 <button
                                   onClick={() => handleUnlockAccount(account)}
-                                  className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                  className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
                                 >
                                   <LockOpenIcon className="w-4 h-4" />
                                   Unlock
@@ -1516,7 +1516,7 @@ function AdminSettingsPageContent() {
                                         onClick={() =>
                                           handleUnlockAccount(account)
                                         }
-                                        className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                        className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
                                       >
                                         <LockOpenIcon className="w-4 h-4" />
                                         Unlock
@@ -1619,7 +1619,7 @@ function AdminSettingsPageContent() {
             {activeTab === "audit-logs" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-[#2D3748]">
+                  <h2 className="text-xl font-semibold text-foreground">
                     Audit Logs
                   </h2>
                   {/* View Toggle - Mobile Only */}
@@ -1629,7 +1629,7 @@ function AdminSettingsPageContent() {
                         onClick={() => setAuditLogsViewMode("cards")}
                         className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                           auditLogsViewMode === "cards"
-                            ? "bg-blue-500 text-white"
+                            ? "bg-primary/100 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                         title="Card View"
@@ -1640,7 +1640,7 @@ function AdminSettingsPageContent() {
                         onClick={() => setAuditLogsViewMode("table")}
                         className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
                           auditLogsViewMode === "table"
-                            ? "bg-blue-500 text-white"
+                            ? "bg-primary/100 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                         title="Table View"
@@ -1668,7 +1668,7 @@ function AdminSettingsPageContent() {
                           })
                         }
                         placeholder="Search by username or name..."
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -1685,7 +1685,7 @@ function AdminSettingsPageContent() {
                           })
                         }
                         placeholder="Filter by IP address..."
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -1741,7 +1741,7 @@ function AdminSettingsPageContent() {
                           }
                           e.target.value = "";
                         }}
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">Select preset...</option>
                         <option value="today">Today</option>
@@ -1764,7 +1764,7 @@ function AdminSettingsPageContent() {
                             action: e.target.value,
                           })
                         }
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">All Actions</option>
                         <option value="LOGIN_SUCCESS">Login Success</option>
@@ -1807,7 +1807,7 @@ function AdminSettingsPageContent() {
                             start_date: e.target.value,
                           })
                         }
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -1823,7 +1823,7 @@ function AdminSettingsPageContent() {
                             end_date: e.target.value,
                           })
                         }
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div className="flex items-end">
@@ -2115,7 +2115,7 @@ function AdminSettingsPageContent() {
             {activeTab === "branches" && (
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                  <h2 className="text-lg sm:text-xl font-semibold text-[#2D3748]">
+                  <h2 className="text-lg sm:text-xl font-semibold text-foreground">
                     Branch Management
                   </h2>
                   <Button
@@ -2123,7 +2123,7 @@ function AdminSettingsPageContent() {
                       setEditingBranch(null);
                       setShowBranchForm(true);
                     }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto min-h-[44px] sm:min-h-0"
+                    className="bg-primary hover:bg-beacon-navy text-white w-full sm:w-auto min-h-[44px] sm:min-h-0"
                   >
                     Create Branch
                   </Button>
@@ -2143,7 +2143,7 @@ function AdminSettingsPageContent() {
                           setBranchSearch(e.target.value);
                         }}
                         placeholder="Search by name or code..."
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -2158,7 +2158,7 @@ function AdminSettingsPageContent() {
                             is_active: e.target.value,
                           }));
                         }}
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="ALL">All Statuses</option>
                         <option value="ACTIVE">Active</option>
@@ -2177,7 +2177,7 @@ function AdminSettingsPageContent() {
                             is_headquarters: e.target.value,
                           }));
                         }}
-                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="ALL">All Types</option>
                         <option value="HQ">Headquarters</option>
@@ -2200,7 +2200,7 @@ function AdminSettingsPageContent() {
                                 | "created_at",
                             }));
                           }}
-                          className="flex-1 min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-sm sm:text-base"
+                          className="flex-1 min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
                         >
                           <option value="name">Name</option>
                           <option value="code">Code</option>
@@ -2344,7 +2344,7 @@ function AdminSettingsPageContent() {
                               setEditingBranch(branch);
                               setShowBranchForm(true);
                             }}
-                            className="w-full min-h-[44px] flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-sm font-medium bg-white border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                            className="w-full min-h-[44px] flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 active:bg-primary/15 transition-colors"
                           >
                             Edit
                           </button>
@@ -2366,7 +2366,7 @@ function AdminSettingsPageContent() {
                   {viewingBranch && (
                     <div className="space-y-4 sm:space-y-6">
                       {/* Profile Header Card */}
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100">
+                      <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-xl p-4 sm:p-6 border border-primary/20">
                         <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
                           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0">
                             {viewingBranch.name[0]}
@@ -2416,9 +2416,9 @@ function AdminSettingsPageContent() {
                           viewingBranch.email) && (
                           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                             <div className="flex items-center space-x-2 mb-4">
-                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <svg
-                                  className="w-4 h-4 text-blue-600"
+                                  className="w-4 h-4 text-primary"
                                   fill="none"
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
@@ -2519,7 +2519,7 @@ function AdminSettingsPageContent() {
                               setShowBranchForm(true);
                             }}
                             variant="secondary"
-                            className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                            className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
                           >
                             <svg
                               className="w-4 h-4"
@@ -2651,7 +2651,7 @@ function AdminSettingsPageContent() {
                                 setShowBranchForm(true);
                               }}
                               variant="secondary"
-                              className="!text-blue-600 px-6 md:py-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+                              className="!text-primary px-6 md:py-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
                             >
                               <svg
                                 className="w-4 h-4"

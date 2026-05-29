@@ -131,7 +131,7 @@ function SummaryCard({
   title,
   value,
   subtitle,
-  valueClassName = "text-[#2563EB]",
+  valueClassName = "text-primary",
 }: SummaryCardProps) {
   return (
     <Card>

@@ -172,7 +172,7 @@ export default function AssignLessonsDropdown({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search by name, nickname, or member ID..."
-                    className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     autoFocus
                   />
                 </div>
@@ -203,7 +203,7 @@ export default function AssignLessonsDropdown({
                           onClick={() => handlePersonSelect(person.id)}
                           className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                         >
-                          <div className="font-medium text-[#2D3748]">
+                          <div className="font-medium text-foreground">
                             {formatPersonName(person)}
                           </div>
                           {person.member_id && (
@@ -230,7 +230,7 @@ export default function AssignLessonsDropdown({
                         setSelectedPersonId(null);
                         setSelectedLessonIds(new Set());
                       }}
-                      className="text-sm text-blue-600 hover:text-blue-800"
+                      className="text-sm text-primary hover:text-primary"
                     >
                       Change
                     </button>
@@ -249,7 +249,7 @@ export default function AssignLessonsDropdown({
                       >
                         <input
                           type="checkbox"
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-gray-300 text-primary focus:ring-ring"
                           checked={selectedLessonIds.has(lesson.id)}
                           onChange={() => handleLessonToggle(lesson.id)}
                         />

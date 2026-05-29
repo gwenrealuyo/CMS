@@ -367,7 +367,7 @@ export default function EventForm({
                   required
                   value={formData.title}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                   placeholder="e.g., Sunday Worship Service"
                 />
               </div>
@@ -382,7 +382,7 @@ export default function EventForm({
                     name="type"
                     value={formData.type}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                   >
                     {eventTypeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -401,7 +401,7 @@ export default function EventForm({
                     required
                     value={formData.location}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     placeholder="e.g., Main Sanctuary"
                   />
                 </div>
@@ -417,7 +417,7 @@ export default function EventForm({
                   value={formData.description}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                   placeholder="Add any additional details about the event..."
                 />
               </div>
@@ -458,7 +458,7 @@ export default function EventForm({
                         return nextState;
                       });
                     }}
-                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -474,7 +474,7 @@ export default function EventForm({
                       const value = e.target.value;
                       setFormData((prev) => ({ ...prev, end_date: value }));
                     }}
-                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                 </div>
               </div>
@@ -487,7 +487,7 @@ export default function EventForm({
                   name="is_recurring"
                   checked={formData.is_recurring}
                   onChange={handleChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
                 />
                 <label
                   htmlFor="is_recurring"
@@ -523,7 +523,7 @@ export default function EventForm({
                       onChange={(e) =>
                         handleRecurrenceThroughChange(e.target.value)
                       }
-                      className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
                     />
                     <p className="text-[11px] text-gray-400 mt-1">
                       Weekly schedule can be adjusted anytime. You can skip an

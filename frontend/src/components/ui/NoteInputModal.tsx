@@ -96,7 +96,7 @@ export default function NoteInputModal({
                 onKeyDown={handleKeyDown}
                 placeholder={placeholder}
                 rows={4}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 aria-label="Note input"
                 disabled={loading}
               />

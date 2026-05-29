@@ -24,7 +24,7 @@ export default function EventCard({
 
   const getEventTypeColor = (type: string) => {
     const colors: Record<string, string> = {
-      SUNDAY_SERVICE: "bg-blue-100 text-blue-800 border-blue-200",
+      SUNDAY_SERVICE: "bg-primary/15 text-primary border-primary/20",
       BIBLE_STUDY: "bg-purple-100 text-purple-800 border-purple-200",
       PRAYER_MEETING: "bg-green-100 text-green-800 border-green-200",
       SPECIAL_EVENT: "bg-orange-100 text-orange-800 border-orange-200",
@@ -37,7 +37,7 @@ export default function EventCard({
       <div className="space-y-4">
         <div className="flex justify-between items-start">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-[#2D3748]">
+            <h3 className="text-lg font-semibold text-foreground">
               {event.title}
             </h3>
             <span
@@ -176,7 +176,7 @@ export default function EventCard({
               <Button
                 variant="tertiary"
                 onClick={onView}
-                className="flex-1 text-xs min-h-[44px] !text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+                className="flex-1 text-xs min-h-[44px] !text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30"
               >
                 View
               </Button>

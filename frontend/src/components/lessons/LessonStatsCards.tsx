@@ -67,7 +67,7 @@ export default function LessonStatsCards({
           value={formatNumber(completedCount)}
           subtitle="Students who completed all lessons"
           valueClassName={
-            completedCount > 0 ? "text-green-600" : "text-[#2563EB]"
+            completedCount > 0 ? "text-green-600" : "text-primary"
           }
         />
         <SummaryCard
@@ -92,7 +92,7 @@ function SummaryCard({
   title,
   value,
   subtitle,
-  valueClassName = "text-[#2563EB]",
+  valueClassName = "text-primary",
 }: SummaryCardProps) {
   return (
     <Card>

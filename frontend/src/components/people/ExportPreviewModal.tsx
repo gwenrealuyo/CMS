@@ -76,7 +76,7 @@ export default function ExportPreviewModal({
                   type="checkbox"
                   defaultChecked={defaultSelected.has(f.key)}
                   data-field={f.key}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 text-primary focus:ring-ring"
                 />
                 <span>{f.label}</span>
               </label>

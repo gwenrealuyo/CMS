@@ -157,7 +157,7 @@ export default function RecurringSessionForm({
           value={values.start_date}
           onChange={handleChange("start_date")}
           required
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -166,7 +166,7 @@ export default function RecurringSessionForm({
         <select
           value={values.recurrence_pattern}
           onChange={handleChange("recurrence_pattern")}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option value="weekly">Weekly</option>
           <option value="bi_weekly">Bi-weekly</option>
@@ -180,7 +180,7 @@ export default function RecurringSessionForm({
           <select
             value={values.day_of_week}
             onChange={(e) => setValues({ ...values, day_of_week: parseInt(e.target.value) })}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {DAYS_OF_WEEK.map((day) => (
               <option key={day.value} value={day.value}>
@@ -198,7 +198,7 @@ export default function RecurringSessionForm({
             id="use_end_date"
             checked={useEndDate}
             onChange={() => setUseEndDate(true)}
-            className="text-blue-600 focus:ring-blue-500"
+            className="text-primary focus:ring-ring"
           />
           <label htmlFor="use_end_date" className="text-sm font-medium text-gray-700">
             End Date
@@ -209,7 +209,7 @@ export default function RecurringSessionForm({
             type="date"
             value={values.end_date}
             onChange={handleChange("end_date")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         )}
 
@@ -219,7 +219,7 @@ export default function RecurringSessionForm({
             id="use_num_occurrences"
             checked={!useEndDate}
             onChange={() => setUseEndDate(false)}
-            className="text-blue-600 focus:ring-blue-500"
+            className="text-primary focus:ring-ring"
           />
           <label htmlFor="use_num_occurrences" className="text-sm font-medium text-gray-700">
             Number of Occurrences
@@ -233,7 +233,7 @@ export default function RecurringSessionForm({
             value={values.num_occurrences || ""}
             onChange={handleChange("num_occurrences")}
             placeholder="e.g., 12"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         )}
       </div>
@@ -245,7 +245,7 @@ export default function RecurringSessionForm({
           value={values.default_lesson_title}
           onChange={handleChange("default_lesson_title")}
           placeholder="Optional: default lesson title for all sessions"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -264,7 +264,7 @@ export default function RecurringSessionForm({
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
+      <div className="bg-primary/10 border border-primary/20 rounded-md p-3 text-sm text-primary">
         <p className="font-medium">Note:</p>
         <p>Events will be automatically created on the calendar for each session.</p>
       </div>

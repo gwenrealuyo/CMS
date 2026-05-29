@@ -463,7 +463,7 @@ export default function SundaySchoolPage() {
       accessor: "name" as const,
       render: (_value: any, row: SundaySchoolClass) => (
         <div>
-          <p className="font-semibold text-[#2D3748]">{row.name}</p>
+          <p className="font-semibold text-foreground">{row.name}</p>
           {row.description && (
             <p className="text-sm text-gray-500 line-clamp-2">
               {row.description}
@@ -549,7 +549,7 @@ export default function SundaySchoolPage() {
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-[#2D3748]">
+              <h1 className="text-2xl font-bold text-foreground">
                 Sunday School
               </h1>
               <p className="text-sm text-gray-500">
@@ -585,13 +585,13 @@ export default function SundaySchoolPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <p className="text-sm text-gray-500">Total classes</p>
-                <p className="text-3xl font-semibold text-[#2D3748]">
+                <p className="text-3xl font-semibold text-foreground">
                   {summary.total_classes}
                 </p>
               </Card>
               <Card>
                 <p className="text-sm text-gray-500">Total students</p>
-                <p className="text-3xl font-semibold text-blue-600">
+                <p className="text-3xl font-semibold text-primary">
                   {summary.total_students}
                 </p>
               </Card>
@@ -956,7 +956,7 @@ export default function SundaySchoolPage() {
                     setViewMode("edit");
                   }}
                   variant="secondary"
-                  className="!text-blue-600 min-h-[44px] px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 w-full sm:w-auto"
+                  className="!text-primary min-h-[44px] px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 w-full sm:w-auto"
                 >
                   <svg
                     className="w-4 h-4"

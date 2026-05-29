@@ -1494,7 +1494,7 @@ export default function PeoplePage() {
     <DashboardLayout>
       {/* Page header with Add Person */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-[#2D3748]">People</h1>
+        <h1 className="text-2xl font-bold text-foreground">People</h1>
         <Button
           onClick={() => {
             openCreatePersonModal();
@@ -1510,7 +1510,7 @@ export default function PeoplePage() {
             <button
               className={`px-4 py-2 font-medium rounded-md ${
                 activeTab === "people"
-                  ? "bg-[#2563EB] text-white"
+                  ? "bg-primary text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
               onClick={() => setActiveTab("people")}
@@ -1520,7 +1520,7 @@ export default function PeoplePage() {
             <button
               className={`px-4 py-2 font-medium rounded-md ${
                 activeTab === "families"
-                  ? "bg-[#2563EB] text-white"
+                  ? "bg-primary text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
               onClick={() => setActiveTab("families")}
@@ -1530,7 +1530,7 @@ export default function PeoplePage() {
             <button
               className={`px-4 py-2 font-medium rounded-md ${
                 activeTab === "clusters"
-                  ? "bg-[#2563EB] text-white"
+                  ? "bg-primary text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
               onClick={() => {
@@ -1543,7 +1543,7 @@ export default function PeoplePage() {
             <button
               className={`px-4 py-2 font-medium rounded-md ${
                 activeTab === "reports"
-                  ? "bg-[#2563EB] text-white"
+                  ? "bg-primary text-white"
                   : "text-gray-600 hover:text-gray-900"
               }`}
               onClick={() => {
@@ -1703,9 +1703,9 @@ export default function PeoplePage() {
                   <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
                           <svg
-                            className="w-4 h-4 text-blue-600"
+                            className="w-4 h-4 text-primary"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -1826,7 +1826,7 @@ export default function PeoplePage() {
                           onChange={(e) =>
                             setClusterSearchQuery(e.target.value)
                           }
-                          className={`w-full pl-10 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                          className={`w-full pl-10 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm ${
                             clusterSearchQuery ? "pr-10" : "pr-4"
                           }`}
                         />
@@ -1862,7 +1862,7 @@ export default function PeoplePage() {
                           {clusterActiveFilters.map((filter) => (
                             <span
                               key={filter.id}
-                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20"
                             >
                               {filter.label}
                               <button
@@ -1873,7 +1873,7 @@ export default function PeoplePage() {
                                     );
                                   setClusterActiveFilters(newFilters);
                                 }}
-                                className="ml-1 text-blue-600 hover:text-blue-800"
+                                className="ml-1 text-primary hover:text-primary"
                               >
                                 <svg
                                   className="w-3 h-3"
@@ -1909,7 +1909,7 @@ export default function PeoplePage() {
                             ).getBoundingClientRect(),
                           )
                         }
-                        className="inline-flex items-center px-3 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        className="inline-flex items-center px-3 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors"
                       >
                         <svg
                           className="w-4 h-4 mr-1"
@@ -1940,7 +1940,7 @@ export default function PeoplePage() {
                             ).getBoundingClientRect(),
                           )
                         }
-                        className="inline-flex items-center px-3 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        className="inline-flex items-center px-3 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors"
                       >
                         <svg
                           className="w-4 h-4 mr-1"
@@ -2730,7 +2730,7 @@ export default function PeoplePage() {
                 Select an existing family
               </span>
               <button
-                className="text-sm text-blue-600 hover:text-blue-700"
+                className="text-sm text-primary hover:text-primary"
                 onClick={() => {
                   setShowCreateFamilyOverlay(true);
                 }}
@@ -2749,7 +2749,7 @@ export default function PeoplePage() {
                   setFamilySelectSearch(e.target.value);
                   setFamilySelectPage(1);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
               />
               <span className="text-xs text-gray-500 whitespace-nowrap">
                 {families.length} total
@@ -2927,7 +2927,7 @@ export default function PeoplePage() {
                 Select an existing cluster
               </span>
               <button
-                className="text-sm text-blue-600 hover:text-blue-700"
+                className="text-sm text-primary hover:text-primary"
                 onClick={() => {
                   setClusterCreateContextPerson(selectClusterModal.person!);
                   setShowCreateClusterOverlay(true);
@@ -2953,7 +2953,7 @@ export default function PeoplePage() {
                     e.stopPropagation();
                   }
                 }}
-                className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
               />
               <span className="text-xs text-gray-500 whitespace-nowrap flex items-center">
                 {clusters.length} total

@@ -123,7 +123,7 @@ export default function LessonForm({
             type="text"
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="conversion-journey-01"
             required
           />
@@ -140,7 +140,7 @@ export default function LessonForm({
             type="text"
             value={versionLabel}
             onChange={(event) => setVersionLabel(event.target.value)}
-            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="v1"
           />
         </div>
@@ -153,7 +153,7 @@ export default function LessonForm({
             min={1}
             value={order}
             onChange={(event) => setOrder(event.target.value)}
-            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             required
           />
         </div>
@@ -163,7 +163,7 @@ export default function LessonForm({
               type="checkbox"
               checked={isLatest}
               onChange={(event) => setIsLatest(event.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-primary focus:ring-ring"
             />
             Mark as latest version
           </label>
@@ -172,7 +172,7 @@ export default function LessonForm({
               type="checkbox"
               checked={isActive}
               onChange={(event) => setIsActive(event.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-primary focus:ring-ring"
             />
             Active
           </label>
@@ -187,7 +187,7 @@ export default function LessonForm({
           type="text"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           placeholder="Living on Mission Every Day"
           required
         />
@@ -201,7 +201,7 @@ export default function LessonForm({
           value={summary}
           onChange={(event) => setSummary(event.target.value)}
           rows={3}
-          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           placeholder="Short overview of the lesson focus..."
         />
       </div>
@@ -214,7 +214,7 @@ export default function LessonForm({
           value={outline}
           onChange={(event) => setOutline(event.target.value)}
           rows={4}
-          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           placeholder="Key points or sections..."
         />
       </div>
@@ -251,7 +251,7 @@ export default function LessonForm({
                   onChange={(event) =>
                     setJourneyType(event.target.value as JourneyType)
                   }
-                  className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   {JOURNEY_TYPE_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -268,7 +268,7 @@ export default function LessonForm({
                   type="text"
                   value={journeyTitle}
                   onChange={(event) => setJourneyTitle(event.target.value)}
-                  className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="Completed Lesson X: ..."
                 />
               </div>
@@ -282,7 +282,7 @@ export default function LessonForm({
                 value={journeyNote}
                 onChange={(event) => setJourneyNote(event.target.value)}
                 rows={3}
-                className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="Comment that appears when the journey note is created..."
               />
             </div>

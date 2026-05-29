@@ -28,7 +28,7 @@ function renderDesktopThClasses<T>(
   return [
     baseDesktop,
     column.onHeaderClick
-      ? "cursor-pointer transition-colors hover:bg-gray-100 select-none outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-0"
+      ? "cursor-pointer transition-colors hover:bg-gray-100 select-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
       : "",
     column.headerClassName ?? "",
   ]

@@ -218,7 +218,7 @@ export default function ClusterFilterCard({
           <select
             value={operator}
             onChange={(e) => setOperator(e.target.value)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
           >
             {OPERATORS[field.type].map((op) => (
               <option key={op.value} value={op.value}>
@@ -241,7 +241,7 @@ export default function ClusterFilterCard({
               value={selectedOption}
               onChange={(e) => setSelectedOption(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
             >
               <option value="">Select {field.label}</option>
               {field.options?.map((option) => (
@@ -268,7 +268,7 @@ export default function ClusterFilterCard({
                 placeholder={
                   operator === "between" ? "Min value" : "Enter value"
                 }
-                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
+                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
               />
             </div>
             {operator === "between" && (
@@ -281,7 +281,7 @@ export default function ClusterFilterCard({
                   value={value2}
                   onChange={(e) => setValue2(e.target.value)}
                   placeholder="Max value"
-                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
+                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
                 />
               </div>
             )}
@@ -300,7 +300,7 @@ export default function ClusterFilterCard({
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
+                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
               />
             </div>
             {operator === "between" && (
@@ -312,7 +312,7 @@ export default function ClusterFilterCard({
                   type="date"
                   value={value2}
                   onChange={(e) => setValue2(e.target.value)}
-                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
+                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
                 />
               </div>
             )}
@@ -332,7 +332,7 @@ export default function ClusterFilterCard({
                 onChange={(e) => setValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={`Enter ${field.label.toLowerCase()}`}
-                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
+                className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
               />
             </div>
             {operator === "between" && (
@@ -345,7 +345,7 @@ export default function ClusterFilterCard({
                   value={value2}
                   onChange={(e) => setValue2(e.target.value)}
                   placeholder={`Enter second ${field.label.toLowerCase()}`}
-                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] md:min-h-0"
+                  className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
                 />
               </div>
             )}
@@ -356,13 +356,13 @@ export default function ClusterFilterCard({
         <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-3 py-2.5 md:py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            className="px-3 py-2.5 md:py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             Cancel
           </button>
           <button
             onClick={handleApply}
-            className="px-3 py-2.5 md:py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            className="px-3 py-2.5 md:py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-beacon-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             Apply Filter
           </button>

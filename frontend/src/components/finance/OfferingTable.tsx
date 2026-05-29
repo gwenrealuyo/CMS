@@ -93,9 +93,9 @@ export default function OfferingTable({
   const SortIcon = ({ field }: { field: SortColumn }) => {
     if (field !== sortColumn) return null;
     return sortDirection === "asc" ? (
-      <ChevronUpIcon className="w-4 h-4 inline-block text-[#2563EB]" />
+      <ChevronUpIcon className="w-4 h-4 inline-block text-primary" />
     ) : (
-      <ChevronDownIcon className="w-4 h-4 inline-block text-[#2563EB]" />
+      <ChevronDownIcon className="w-4 h-4 inline-block text-primary" />
     );
   };
 
@@ -130,7 +130,7 @@ export default function OfferingTable({
     <Card>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-[#2D3748]">Offering Log</h3>
+          <h3 className="text-lg font-semibold text-foreground">Offering Log</h3>
           <p className="text-xs text-gray-500">
             Capture weekly Sunday service offerings for quick tracking.
           </p>
@@ -138,7 +138,7 @@ export default function OfferingTable({
         {onAddOffering && (
           <button
             onClick={onAddOffering}
-            className="w-full sm:w-auto min-h-[44px] rounded-md bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB]"
+            className="w-full sm:w-auto min-h-[44px] rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1E4DB7] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
           >
             Record Offering
           </button>
@@ -179,9 +179,9 @@ export default function OfferingTable({
                       <button
                         type="button"
                         onClick={() => onEditOffering(offering)}
-                        className="group text-left focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-1 rounded"
+                        className="group text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
                       >
-                        <div className="font-medium text-[#2563EB] group-hover:text-[#1D4ED8] group-hover:underline transition-colors cursor-pointer">
+                        <div className="font-medium text-primary group-hover:text-beacon-navy group-hover:underline transition-colors cursor-pointer">
                           {offering.serviceName}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
@@ -190,7 +190,7 @@ export default function OfferingTable({
                       </button>
                     ) : (
                       <>
-                        <div className="font-medium text-[#2D3748]">
+                        <div className="font-medium text-foreground">
                           {offering.serviceName}
                         </div>
                         <div className="text-xs text-gray-500">
@@ -202,7 +202,7 @@ export default function OfferingTable({
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {offering.fund || "General Fund"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold text-[#2563EB]">
+                  <td className="px-4 py-3 text-sm text-right font-semibold text-primary">
                     ₱
                     {offering.amount.toLocaleString(undefined, {
                       maximumFractionDigits: 2,

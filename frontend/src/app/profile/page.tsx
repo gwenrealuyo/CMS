@@ -139,13 +139,13 @@ function ProfilePageContent() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#2D3748]">Your Profile</h1>
+          <h1 className="text-2xl font-bold text-foreground">Your Profile</h1>
           <p className="text-gray-500">Manage your profile information and password</p>
           {user.role !== "VISITOR" && (
             <p className="mt-2">
               <Link
                 href="/me"
-                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                className="text-sm font-medium text-primary hover:text-primary"
               >
                 View full church record
               </Link>
@@ -155,7 +155,7 @@ function ProfilePageContent() {
 
         {/* Profile Information Section */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-[#2D3748] mb-4">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
             Profile Information
           </h2>
           <form onSubmit={handleProfileSubmit} className="space-y-4">
@@ -193,7 +193,7 @@ function ProfilePageContent() {
                   onChange={(e) =>
                     setProfileData({ ...profileData, first_name: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
 
@@ -211,7 +211,7 @@ function ProfilePageContent() {
                   onChange={(e) =>
                     setProfileData({ ...profileData, last_name: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
             </div>
@@ -230,7 +230,7 @@ function ProfilePageContent() {
                 onChange={(e) =>
                   setProfileData({ ...profileData, middle_name: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
 
@@ -248,7 +248,7 @@ function ProfilePageContent() {
                 onChange={(e) =>
                   setProfileData({ ...profileData, email: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
 
@@ -269,7 +269,7 @@ function ProfilePageContent() {
                     setProfileData({ ...profileData, photo: file });
                   }
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
 
@@ -295,7 +295,7 @@ function ProfilePageContent() {
 
         {/* Change Password Section */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-[#2D3748] mb-4">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
             Change Password
           </h2>
           <form onSubmit={handlePasswordSubmit} className="space-y-4">

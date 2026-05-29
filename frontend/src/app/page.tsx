@@ -18,24 +18,32 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] px-4">
-        <div className="text-sm md:text-base text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-sm md:text-base text-muted-foreground">
+          Loading...
+        </div>
       </div>
     );
   }
 
   if (isAuthenticated) {
-    return null; // Will redirect
+    return null;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] px-4 py-8 sm:px-6">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6">
       <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-lg shadow-md text-center">
-        <h1 className="text-2xl sm:text-3xl font-bold text-[#2D3748] mb-3 leading-tight break-words">
-          Church Management System
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-1 leading-tight break-words">
+          The Beacon
         </h1>
-        <p className="text-sm sm:text-base text-gray-600 mb-8">
-          Manage members, events, finances, and more in one place.
+        <p className="text-sm text-muted-foreground mb-2">
+          LAMP Church Care System
+        </p>
+        <p className="text-sm font-medium text-beacon-gold mb-6">
+          A soul kept is a soul won.
+        </p>
+        <p className="text-sm sm:text-base text-muted-foreground mb-8">
+          Shepherd every person from first visit to faithful service.
         </p>
         <Link href="/login" className="block w-full">
           <Button className="w-full">Sign In</Button>

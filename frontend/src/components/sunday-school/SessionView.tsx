@@ -73,7 +73,7 @@ export default function SessionView({
         <div className="space-y-5">
           {/* Session Information */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <h3 className="text-lg font-semibold text-[#2D3748] mb-4">Session Information</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Session Information</h3>
             <div className="space-y-3">
               <div className="flex items-start">
                 <svg
@@ -180,7 +180,7 @@ export default function SessionView({
                       href={`/events?event=${session.event_id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                      className="text-sm text-primary hover:text-primary hover:underline"
                     >
                       View Event on Calendar
                     </a>
@@ -207,9 +207,9 @@ export default function SessionView({
             ) : attendanceReport ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-xs text-blue-600 font-medium uppercase">Total Enrolled</p>
-                    <p className="text-xl font-bold text-blue-900">{attendanceReport.total_enrolled}</p>
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                    <p className="text-xs text-primary font-medium uppercase">Total Enrolled</p>
+                    <p className="text-xl font-bold text-primary">{attendanceReport.total_enrolled}</p>
                   </div>
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <p className="text-xs text-green-600 font-medium uppercase">Present</p>
@@ -234,7 +234,7 @@ export default function SessionView({
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all"
+                      className="bg-primary h-2 rounded-full transition-all"
                       style={{ width: `${Math.min(100, attendanceReport.attendance_rate)}%` }}
                     />
                   </div>
@@ -285,7 +285,7 @@ export default function SessionView({
             <Button
               onClick={onViewAttendance}
               variant="secondary"
-              className="!text-blue-600 py-4 px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+              className="!text-primary py-4 px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -301,7 +301,7 @@ export default function SessionView({
           <Button
             onClick={onEdit}
             variant="secondary"
-            className="!text-blue-600 py-4 px-6 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2"
+            className="!text-primary py-4 px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

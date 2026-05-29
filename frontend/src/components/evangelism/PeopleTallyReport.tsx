@@ -209,7 +209,7 @@ export default function PeopleTallyReport({
     return (
       <button
         type="button"
-        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        className="text-sm font-medium text-primary hover:text-primary hover:underline"
         onClick={() => openDrilldown(row, metric, label, count)}
       >
         {count}

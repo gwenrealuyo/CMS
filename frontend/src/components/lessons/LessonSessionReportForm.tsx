@@ -316,7 +316,7 @@ export default function LessonSessionReportForm({
                 }
               }}
               placeholder="Search teacher by name or username..."
-              className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
               aria-label="Search for teacher"
               aria-expanded={isTeacherDropdownOpen}
               aria-haspopup="listbox"
@@ -350,7 +350,7 @@ export default function LessonSessionReportForm({
                         setTeacherQuery(formatPersonName(person));
                         setTeacherDropdownOpen(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-primary/10 focus:bg-primary/10 focus:outline-none"
                     >
                       <div className="flex flex-col">
                         <span className="font-medium text-gray-800">
@@ -400,7 +400,7 @@ export default function LessonSessionReportForm({
               className={`w-full min-h-[44px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
                 fieldErrors.studentId
                   ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  : "border-gray-300 focus:border-primary focus:ring-ring"
               }`}
               required
               aria-invalid={!!fieldErrors.studentId}
@@ -440,7 +440,7 @@ export default function LessonSessionReportForm({
                         setStudentQuery(formatPersonName(person));
                         setStudentDropdownOpen(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-primary/10 focus:bg-primary/10 focus:outline-none"
                     >
                       <div className="flex flex-col">
                         <span className="font-medium text-gray-800">
@@ -483,7 +483,7 @@ export default function LessonSessionReportForm({
           className={`w-full min-h-[44px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
             fieldErrors.lessonId
               ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-              : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              : "border-gray-300 focus:border-primary focus:ring-ring"
           }`}
           value={formState.lessonId}
           onChange={(event) => handleChange("lessonId", event.target.value)}
@@ -526,7 +526,7 @@ export default function LessonSessionReportForm({
             className={`w-full min-h-[44px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
               fieldErrors.sessionDate
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                : "border-gray-300 focus:border-primary focus:ring-ring"
             }`}
             value={formState.sessionDate}
             onChange={(event) =>
@@ -565,7 +565,7 @@ export default function LessonSessionReportForm({
             className={`w-full min-h-[44px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
               fieldErrors.sessionStart
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                : "border-gray-300 focus:border-primary focus:ring-ring"
             }`}
             value={formState.sessionStart}
             onChange={(event) =>
@@ -596,7 +596,7 @@ export default function LessonSessionReportForm({
           </label>
           <input
             type="text"
-            className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
             value={formState.score}
             onChange={(event) => handleChange("score", event.target.value)}
             placeholder="e.g. 10/10 or Passed"
@@ -616,7 +616,7 @@ export default function LessonSessionReportForm({
             className={`w-full min-h-[44px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
               fieldErrors.nextSessionDate
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                : "border-gray-300 focus:border-primary focus:ring-ring"
             }`}
             value={formState.nextSessionDate}
             onChange={(event) =>
@@ -645,7 +645,7 @@ export default function LessonSessionReportForm({
           Remarks
         </label>
         <textarea
-          className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           rows={4}
           value={formState.remarks}
           onChange={(event) => handleChange("remarks", event.target.value)}

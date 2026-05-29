@@ -81,7 +81,7 @@ export default function ViewEvangelismWeeklyReportModal({
       case "PHYSICAL":
         return "bg-green-100 text-green-800";
       case "ONLINE":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "HYBRID":
         return "bg-purple-100 text-purple-800";
       default:
@@ -109,7 +109,7 @@ export default function ViewEvangelismWeeklyReportModal({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -209,7 +209,7 @@ export default function ViewEvangelismWeeklyReportModal({
 
         <div className="p-5 overflow-y-auto flex-1">
           <div className="space-y-5">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+            <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-lg p-4 border border-primary/20">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-xl font-bold text-gray-900">{groupTitle}</h2>
                 <div className="flex flex-col items-end text-sm text-gray-700 shrink-0">
@@ -264,7 +264,7 @@ export default function ViewEvangelismWeeklyReportModal({
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total Attendance</p>
-                  <p className="text-xl font-bold text-blue-600">
+                  <p className="text-xl font-bold text-primary">
                     {totalAttendance}
                   </p>
                 </div>
@@ -307,7 +307,7 @@ export default function ViewEvangelismWeeklyReportModal({
                         <button
                           type="button"
                           onClick={() => setMembersExpanded(!membersExpanded)}
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                          className="text-sm text-primary hover:text-primary font-medium flex items-center gap-1"
                         >
                           {membersExpanded ? (
                             <>
@@ -367,7 +367,7 @@ export default function ViewEvangelismWeeklyReportModal({
                           onClick={() =>
                             setVisitorsExpanded(!visitorsExpanded)
                           }
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                          className="text-sm text-primary hover:text-primary font-medium flex items-center gap-1"
                         >
                           {visitorsExpanded ? (
                             <>
@@ -507,7 +507,7 @@ export default function ViewEvangelismWeeklyReportModal({
                   <Button
                     onClick={onEdit}
                     variant="secondary"
-                    className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                    className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
                   >
                     <svg
                       className="w-4 h-4"
@@ -634,7 +634,7 @@ export default function ViewEvangelismWeeklyReportModal({
                   <Button
                     onClick={onEdit}
                     variant="secondary"
-                    className="!text-blue-600 px-6 md:py-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px]"
+                    className="!text-primary px-6 md:py-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px]"
                   >
                     <svg
                       className="w-4 h-4"

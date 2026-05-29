@@ -101,8 +101,8 @@ const ClusterCard = memo(
     return (
       <div
         className={`p-4 md:p-5 bg-white rounded-lg border-2 ${
-          isSelected ? "border-blue-500 bg-blue-50/50" : "border-transparent"
-        } shadow-md relative transition-all hover:shadow-md hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer`}
+          isSelected ? "border-primary bg-primary/10/50" : "border-transparent"
+        } shadow-md relative transition-all hover:shadow-md hover:border-primary/20 hover:bg-primary/10/30 cursor-pointer`}
         onClick={onView}
       >
         <div className="flex items-start justify-between gap-2">
@@ -123,12 +123,12 @@ const ClusterCard = memo(
                   onSelect();
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-ring"
               />
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-base md:text-lg text-blue-600 hover:text-blue-700 hover:underline transition-all truncate">
+            <h4 className="font-semibold text-base md:text-lg text-primary hover:text-primary hover:underline transition-all truncate">
               {cluster.name || "Untitled Cluster"}
             </h4>
             <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">

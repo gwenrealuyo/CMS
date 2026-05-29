@@ -36,7 +36,7 @@ export default function FilterOptions({
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            className="text-sm text-primary hover:text-primary font-medium"
           >
             Clear All Filters
           </button>
@@ -52,7 +52,7 @@ export default function FilterOptions({
           <select
             value={filters.role}
             onChange={(e) => handleFilterChange("role", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           >
             <option value="">All Roles</option>
             <option value="PASTOR">Pastor</option>
@@ -70,7 +70,7 @@ export default function FilterOptions({
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange("status", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           >
             <option value="">All Statuses</option>
             <option value="ACTIVE">Active</option>
@@ -88,7 +88,7 @@ export default function FilterOptions({
           <select
             value={filters.dateRange}
             onChange={(e) => handleFilterChange("dateRange", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           >
             <option value="">All Time</option>
             <option value="week">Last Week</option>
@@ -138,11 +138,11 @@ export default function FilterOptions({
             </span>
             <div className="flex flex-wrap gap-2">
               {filters.role && (
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                <span className="px-2 py-1 bg-primary/15 text-primary text-xs rounded-full">
                   Role: {filters.role}
                   <button
                     onClick={() => handleFilterChange("role", "")}
-                    className="ml-1 hover:text-blue-600"
+                    className="ml-1 hover:text-primary"
                   >
                     ×
                   </button>

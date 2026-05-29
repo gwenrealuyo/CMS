@@ -42,9 +42,9 @@ export default function ConfirmationModal({
         };
       case "info":
         return {
-          icon: "text-blue-600",
-          iconBg: "bg-blue-100",
-          confirmButton: "bg-blue-600 hover:bg-blue-700 text-white",
+          icon: "text-primary",
+          iconBg: "bg-primary/15",
+          confirmButton: "bg-primary hover:bg-beacon-navy text-white",
         };
       default:
         return {

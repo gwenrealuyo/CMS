@@ -288,7 +288,7 @@ export default function SessionReportsSection({
                 Month
               </label>
               <select
-                className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 value={sessionFilterDraft.month}
                 onChange={(event) =>
                   onFilterChange("month", event.target.value)
@@ -306,7 +306,7 @@ export default function SessionReportsSection({
                 Year
               </label>
               <select
-                className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 value={sessionFilterDraft.year}
                 onChange={(event) =>
                   onFilterChange("year", event.target.value)
@@ -481,7 +481,7 @@ export default function SessionReportsSection({
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#2D3748]">
+                    <p className="text-sm font-semibold text-foreground">
                       {formatPersonName(report.student)}
                     </p>
                     <p className="text-xs text-gray-500">

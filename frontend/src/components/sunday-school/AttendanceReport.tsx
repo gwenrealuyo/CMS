@@ -42,9 +42,9 @@ export default function AttendanceReport({ report, loading, error }: AttendanceR
     <Card title="Attendance Report">
       <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-xs text-blue-600 font-medium uppercase">Total Enrolled</p>
-            <p className="text-2xl font-bold text-blue-900">{report.total_enrolled}</p>
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+            <p className="text-xs text-primary font-medium uppercase">Total Enrolled</p>
+            <p className="text-2xl font-bold text-primary">{report.total_enrolled}</p>
           </div>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-xs text-green-600 font-medium uppercase">Present</p>
@@ -67,7 +67,7 @@ export default function AttendanceReport({ report, loading, error }: AttendanceR
           </div>
           <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
             <div
-              className="bg-blue-600 h-2 rounded-full"
+              className="bg-primary h-2 rounded-full"
               style={{ width: `${Math.min(100, report.attendance_rate)}%` }}
             />
           </div>

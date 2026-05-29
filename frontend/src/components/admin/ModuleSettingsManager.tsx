@@ -133,7 +133,7 @@ export default function ModuleSettingsManager() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg sm:text-xl font-semibold text-[#2D3748]">
+        <h2 className="text-lg sm:text-xl font-semibold text-foreground">
           Module Controls
         </h2>
         <p className="text-sm text-gray-600 mt-1">

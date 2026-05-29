@@ -59,7 +59,7 @@ export default function Navbar() {
           <button
             onClick={toggleMobile}
             aria-label="Open menu"
-            className="p-2 rounded-md hover:bg-gray-100 text-gray-600 md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-2 rounded-md hover:bg-muted text-muted-foreground md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <Bars3Icon className="h-6 w-6" />
           </button>
@@ -73,7 +73,7 @@ export default function Navbar() {
               <button
                 onClick={() => setShowSearch(!showSearch)}
                 aria-label="Toggle search"
-                className="p-2 rounded-md hover:bg-gray-100 text-gray-600 md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="p-2 rounded-md hover:bg-muted text-muted-foreground md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <MagnifyingGlassIcon className="h-6 w-6" />
               </button>
@@ -97,7 +97,7 @@ export default function Navbar() {
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setShowProfile(!showProfile)}
-              className="flex items-center space-x-2 md:space-x-3 p-2 rounded-lg hover:bg-gray-100 min-h-[44px]"
+              className="flex items-center space-x-2 md:space-x-3 p-2 rounded-lg hover:bg-muted min-h-[44px]"
               aria-label="User menu"
             >
               {user?.photo ? (
@@ -107,14 +107,14 @@ export default function Navbar() {
                   className="h-8 w-8 rounded-full object-cover"
                 />
               ) : (
-                <UserCircleIcon className="h-8 w-8 text-gray-600" />
+                <UserCircleIcon className="h-8 w-8 text-muted-foreground" />
               )}
               <div className="text-left hidden md:block">
-                <span className="text-sm font-medium text-gray-700 block">
+                <span className="text-sm font-medium text-foreground block">
                   {displayName}
                 </span>
                 {userRole && (
-                  <span className="text-xs text-gray-500 block">
+                  <span className="text-xs text-muted-foreground block">
                     {userRole}
                   </span>
                 )}
@@ -126,7 +126,7 @@ export default function Navbar() {
                 {user?.role !== "VISITOR" && (
                   <Link
                     href="/me"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 min-h-[44px] flex items-center"
+                    className="block px-4 py-2 text-sm text-foreground hover:bg-muted min-h-[44px] flex items-center"
                     onClick={() => setShowProfile(false)}
                   >
                     My record
@@ -142,7 +142,7 @@ export default function Navbar() {
                 {user?.role === "ADMIN" && (
                   <Link
                     href="/admin-settings"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 min-h-[44px] flex items-center"
+                    className="block px-4 py-2 text-sm text-foreground hover:bg-muted min-h-[44px] flex items-center"
                     onClick={() => setShowProfile(false)}
                   >
                     Admin Settings
@@ -151,7 +151,7 @@ export default function Navbar() {
                 <hr className="my-2" />
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 min-h-[44px] flex items-center"
+                  className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-muted min-h-[44px] flex items-center"
                 >
                   Sign out
                 </button>

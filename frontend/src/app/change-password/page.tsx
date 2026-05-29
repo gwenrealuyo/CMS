@@ -68,17 +68,17 @@ function ChangePasswordPageContent() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC]">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-lg shadow-md">
         <div className="mb-6 md:mb-8 text-center">
-          <h1 className="text-2xl md:text-3xl font-bold text-[#2D3748] mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary mb-2">
             {isFirstLogin ? "Set Your Password" : "Change Your Password"}
           </h1>
           <p className="text-sm md:text-base text-gray-600">

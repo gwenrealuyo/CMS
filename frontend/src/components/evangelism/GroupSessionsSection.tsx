@@ -55,7 +55,7 @@ export default function GroupSessionsSection({
           </Button>
           <Button
             onClick={onAddSession}
-            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px]"
+            className="bg-primary hover:bg-beacon-navy w-full sm:w-auto min-h-[44px]"
           >
             Add Session
           </Button>
@@ -108,7 +108,7 @@ export default function GroupSessionsSection({
                   value ? (
                     <a
                       href={`/events?event=${value}`}
-                      className="text-sm text-blue-600 hover:underline"
+                      className="text-sm text-primary hover:underline"
                     >
                       View Event
                     </a>
@@ -131,7 +131,7 @@ export default function GroupSessionsSection({
                     <Button
                       variant="secondary"
                       onClick={() => onEditSession(row)}
-                      className="!text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-xs py-1 px-2"
+                      className="!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 text-xs py-1 px-2"
                     >
                       Edit
                     </Button>

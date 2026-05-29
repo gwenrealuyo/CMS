@@ -33,7 +33,7 @@ export default function GroupReportsSection({
       case "PHYSICAL":
         return "bg-green-100 text-green-800";
       case "ONLINE":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "HYBRID":
         return "bg-purple-100 text-purple-800";
       default:
@@ -47,7 +47,7 @@ export default function GroupReportsSection({
         <h3 className="text-lg font-semibold text-gray-900">Reports</h3>
         <Button
           onClick={onAddReport}
-          className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px]"
+          className="bg-primary hover:bg-beacon-navy w-full sm:w-auto min-h-[44px]"
         >
           Submit Report
         </Button>
@@ -70,7 +70,7 @@ export default function GroupReportsSection({
                   <button
                     type="button"
                     onClick={() => onViewReport(row)}
-                    className="text-sm text-left text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
+                    className="text-sm text-left text-primary hover:text-primary hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
                     title="Click to view report details"
                   >
                     {row.year} W{value}
@@ -84,7 +84,7 @@ export default function GroupReportsSection({
                   <button
                     type="button"
                     onClick={() => onViewReport(row)}
-                    className="text-sm text-left text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
+                    className="text-sm text-left text-primary hover:text-primary hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
                     title="Click to view report details"
                   >
                     {value ?
@@ -131,7 +131,7 @@ export default function GroupReportsSection({
                   <Button
                     variant="secondary"
                     onClick={() => onEditReport(row)}
-                    className="!text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-xs py-1 px-2"
+                    className="!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 text-xs py-1 px-2"
                   >
                     Edit
                   </Button>

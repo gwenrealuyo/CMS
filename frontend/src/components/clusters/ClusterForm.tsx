@@ -248,7 +248,7 @@ export default function ClusterForm({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -278,7 +278,7 @@ export default function ClusterForm({
           value={branchId}
           onChange={(e) => setBranchId(e.target.value)}
           disabled={!canEditBranch}
-          className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
+          className={`w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
             !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
           }`}
         >
@@ -311,7 +311,7 @@ export default function ClusterForm({
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             placeholder="CLU-001"
           />
         </div>
@@ -323,7 +323,7 @@ export default function ClusterForm({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             required
           />
         </div>
@@ -405,7 +405,7 @@ export default function ClusterForm({
               setShowFamilyDropdown(true);
             }}
             onFocus={() => setShowFamilyDropdown(true)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             placeholder="Search families by name..."
             disabled={familiesLoading}
           />
@@ -513,7 +513,7 @@ export default function ClusterForm({
               setShowMemberDropdown(true);
             }}
             onFocus={() => setShowMemberDropdown(true)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             placeholder="Search members by name, role, or status..."
           />
 
@@ -589,7 +589,7 @@ export default function ClusterForm({
               {getSelectedMembers().map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center space-x-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2"
+                  className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
                 >
                   <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                     {getInitials(member)}
@@ -640,7 +640,7 @@ export default function ClusterForm({
             type="text"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -653,7 +653,7 @@ export default function ClusterForm({
               onChange={(e) =>
                 setMeetingDay(e.target.value as MeetingDayKey)
               }
-              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             >
               {CLUSTER_MEETING_DAY_OPTIONS.map((option) => (
                 <option key={option.value || "none"} value={option.value}>
@@ -670,7 +670,7 @@ export default function ClusterForm({
               type="time"
               value={meetingTime || ""}
               onChange={(e) => setMeetingTime(e.target.value)}
-              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+              className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             />
           </div>
         </div>
@@ -685,7 +685,7 @@ export default function ClusterForm({
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base md:text-sm min-h-[100px] md:min-h-0"
+          className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[100px] md:min-h-0"
           rows={3}
         />
       </div>

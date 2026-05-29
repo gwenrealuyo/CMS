@@ -579,7 +579,7 @@ export default function PersonForm({
             type="button"
             className={`px-4 py-2 font-medium ${
               activeTab === "basic"
-                ? "border-b-2 border-blue-600 text-blue-600"
+                ? "border-b-2 border-primary text-primary"
                 : "text-gray-500"
             }`}
             onClick={() => handleTabSwitch("basic")}
@@ -591,7 +591,7 @@ export default function PersonForm({
               type="button"
               className={`px-4 py-2 font-medium ${
                 activeTab === "timeline"
-                  ? "border-b-2 border-blue-600 text-blue-600"
+                  ? "border-b-2 border-primary text-primary"
                   : "text-gray-500"
               }`}
               onClick={() => handleTabSwitch("timeline")}
@@ -627,7 +627,7 @@ export default function PersonForm({
                         required
                         value={formData.first_name || ""}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -639,7 +639,7 @@ export default function PersonForm({
                         name="middle_name"
                         value={formData.middle_name || ""}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -652,7 +652,7 @@ export default function PersonForm({
                         required
                         value={formData.last_name || ""}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -667,7 +667,7 @@ export default function PersonForm({
                         name="suffix"
                         value={(formData as any).suffix || ""}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -679,7 +679,7 @@ export default function PersonForm({
                         name="nickname"
                         value={(formData as any).nickname || ""}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -690,7 +690,7 @@ export default function PersonForm({
                         name="gender"
                         value={formData.gender || ""}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       >
                         <option value="">Select gender</option>
                         <option value="MALE">Male</option>
@@ -720,7 +720,7 @@ export default function PersonForm({
                       name="email"
                       value={formData.email || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -750,7 +750,7 @@ export default function PersonForm({
                           setHasUnsavedChanges(true);
                         }}
                         placeholder="##########"
-                        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -776,7 +776,7 @@ export default function PersonForm({
                           syncPhoneToForm(meta.code, nextLocal);
                         }
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     >
                       {ALL_COUNTRIES.map((c) => (
                         <option key={c} value={c}>
@@ -793,7 +793,7 @@ export default function PersonForm({
                       name="address"
                       value={formData.address || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -809,7 +809,7 @@ export default function PersonForm({
                   Membership and system roles.
                 </p>
                 {isMember && (
-                  <p className="text-xs text-blue-600 mb-4">
+                  <p className="text-xs text-primary mb-4">
                     Members can only add visitors. The role is fixed to Visitor.
                   </p>
                 )}
@@ -823,7 +823,7 @@ export default function PersonForm({
                       value={formData.role}
                       onChange={handleChange}
                       disabled={isMember}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     >
                       {(isMember
                         ? ["VISITOR"]
@@ -849,7 +849,7 @@ export default function PersonForm({
                       name="status"
                       value={formData.status}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     >
                       {statusOptions.map((status) => (
                         <option key={status} value={status}>
@@ -867,7 +867,7 @@ export default function PersonForm({
                       name="member_id"
                       value={formData.member_id || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -892,7 +892,7 @@ export default function PersonForm({
                       required={
                         canEditBranch && !(isMember && !initialData?.id)
                       }
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
                         !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
                       }`}
                     >
@@ -929,7 +929,7 @@ export default function PersonForm({
                         }));
                         setHasUnsavedChanges(true);
                       }}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                     />
                     <label
                       htmlFor="has_finished_lessons"
@@ -969,7 +969,7 @@ export default function PersonForm({
                       name="date_of_birth"
                       value={formData.date_of_birth || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -981,7 +981,7 @@ export default function PersonForm({
                       name="date_first_invited"
                       value={(formData as any).date_first_invited || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -993,7 +993,7 @@ export default function PersonForm({
                       name="date_first_attended"
                       value={formData.date_first_attended || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1005,7 +1005,7 @@ export default function PersonForm({
                       name="water_baptism_date"
                       value={(formData as any).water_baptism_date || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1017,7 +1017,7 @@ export default function PersonForm({
                       name="spirit_baptism_date"
                       value={(formData as any).spirit_baptism_date || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1029,7 +1029,7 @@ export default function PersonForm({
                       name="lessons_finished_at"
                       value={(formData as any).lessons_finished_at || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                     {formData.has_finished_lessons &&
                       !formData.lessons_finished_at && (
@@ -1060,7 +1060,7 @@ export default function PersonForm({
                       name="facebook_name"
                       value={formData.facebook_name || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1071,7 +1071,7 @@ export default function PersonForm({
                       name="first_activity_attended"
                       value={(formData as any).first_activity_attended || ""}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     >
                       <option value="">Select activity</option>
                       {[
@@ -1122,7 +1122,7 @@ export default function PersonForm({
                   Link to the inviter.
                 </p>
                 {isMember && (
-                  <p className="text-xs text-blue-600 mb-4">
+                  <p className="text-xs text-primary mb-4">
                     Inviter defaults to you. Coordinators can edit this later.
                   </p>
                 )}
@@ -1205,7 +1205,7 @@ export default function PersonForm({
                     title: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                 placeholder="e.g., Baptism, First attendance"
               />
             </div>
@@ -1219,7 +1219,7 @@ export default function PersonForm({
                 onChange={(e) =>
                   setNewJourney((prev) => ({ ...prev, date: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             </div>
             <div>
@@ -1234,7 +1234,7 @@ export default function PersonForm({
                     type: e.target.value as JourneyType,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               >
                 {JOURNEY_TYPE_OPTIONS.map((type) => (
                   <option key={type} value={type}>
@@ -1255,7 +1255,7 @@ export default function PersonForm({
                     description: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                 placeholder="Event description..."
               />
             </div>
@@ -1323,7 +1323,7 @@ export default function PersonForm({
                       value={journeySearch}
                       onChange={(e) => setJourneySearch(e.target.value)}
                       placeholder="Search by title, description, or type..."
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
                   {/* Filter by Type */}
@@ -1336,7 +1336,7 @@ export default function PersonForm({
                       onChange={(e) =>
                         setJourneyFilter(e.target.value as JourneyType | "ALL")
                       }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     >
                       <option value="ALL">All Types</option>
                       {JOURNEY_TYPE_OPTIONS.map((type) => (
@@ -1375,7 +1375,7 @@ export default function PersonForm({
                         onClick={() => handleEditJourney(originalIndex)}
                         className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all ${
                           isEditing
-                            ? "border-2 border-blue-500 shadow-md"
+                            ? "border-2 border-primary shadow-md"
                             : "border border-transparent hover:border-gray-300 hover:shadow-sm"
                         }`}
                       >
@@ -1460,7 +1460,7 @@ export default function PersonForm({
                             onClick={() => handleEditJourney(originalIndex)}
                             className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all h-full ${
                               isEditing
-                                ? "border-2 border-blue-500 shadow-md"
+                                ? "border-2 border-primary shadow-md"
                                 : "border border-transparent hover:border-gray-300 hover:shadow-sm"
                             }`}
                           >
@@ -1531,7 +1531,7 @@ export default function PersonForm({
                       setJourneySearch("");
                       setJourneyFilter("ALL");
                     }}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                    className="mt-2 text-sm text-primary hover:text-primary underline"
                   >
                     Clear filters
                   </button>

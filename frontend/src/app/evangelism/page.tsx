@@ -750,7 +750,7 @@ export default function EvangelismPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold text-[#2D3748]">Evangelism</h1>
+            <h1 className="text-2xl font-bold text-foreground">Evangelism</h1>
             <p className="text-sm text-gray-600">
               Manage Bible Study groups, track visitors, and monitor conversion
               progress.
@@ -808,7 +808,7 @@ export default function EvangelismPage() {
                 onClick={() => selectTab("groups")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[60px] ${
                   activeTab === "groups"
-                    ? "border-[#2563EB] text-[#2563EB]"
+                    ? "border-primary text-primary"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
@@ -818,7 +818,7 @@ export default function EvangelismPage() {
                 onClick={() => selectTab("each1reach1")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[100px] ${
                   activeTab === "each1reach1"
-                    ? "border-[#2563EB] text-[#2563EB]"
+                    ? "border-primary text-primary"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
@@ -828,7 +828,7 @@ export default function EvangelismPage() {
                 onClick={() => selectTab("tally")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
                   activeTab === "tally"
-                    ? "border-[#2563EB] text-[#2563EB]"
+                    ? "border-primary text-primary"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
@@ -838,7 +838,7 @@ export default function EvangelismPage() {
                 onClick={() => selectTab("reports")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[70px] ${
                   activeTab === "reports"
-                    ? "border-[#2563EB] text-[#2563EB]"
+                    ? "border-primary text-primary"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
@@ -848,7 +848,7 @@ export default function EvangelismPage() {
                 onClick={() => selectTab("bible_sharers")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[110px] ${
                   activeTab === "bible_sharers"
-                    ? "border-[#2563EB] text-[#2563EB]"
+                    ? "border-primary text-primary"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
@@ -873,7 +873,7 @@ export default function EvangelismPage() {
                     placeholder="Name, description"
                     value={searchValue}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    className="w-full px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div className="w-full lg:w-56">
@@ -899,7 +899,7 @@ export default function EvangelismPage() {
                           if (!evangelismBranchSelectInteractive) return;
                           setFilter("branch", e.target.value || "all");
                         }}
-                        className={`w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] ${
+                        className={`w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-primary ${
                           evangelismBranchSelectInteractive
                             ? ""
                             : "pointer-events-none cursor-default bg-white text-gray-900"
@@ -1010,18 +1010,18 @@ export default function EvangelismPage() {
                           }}
                           className={`w-full text-left border rounded-lg px-4 py-3 transition-colors ${
                             isSelected
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-200 hover:border-blue-200 hover:bg-blue-50/30"
+                              ? "border-primary bg-primary/10"
+                              : "border-gray-200 hover:border-primary/20 hover:bg-primary/10/30"
                           }`}
                         >
                           <div className="flex justify-between items-start gap-3">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="text-lg font-semibold text-[#2D3748]">
+                                <h4 className="text-lg font-semibold text-foreground">
                                   {group.name}
                                 </h4>
                                 {group.is_bible_sharers_group && (
-                                  <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                                  <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
                                     Bible Sharers
                                   </span>
                                 )}
@@ -1204,7 +1204,7 @@ export default function EvangelismPage() {
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 mt-0.5">
                           <svg
-                            className="w-5 h-5 text-blue-600"
+                            className="w-5 h-5 text-primary"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1416,7 +1416,7 @@ export default function EvangelismPage() {
                             setViewMode("edit");
                           }}
                           variant="secondary"
-                          className="!text-blue-600 py-3 px-4 text-sm font-medium bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                          className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
                         >
                           <svg
                             className="w-4 h-4"
@@ -1541,7 +1541,7 @@ export default function EvangelismPage() {
                               setViewMode("edit");
                             }}
                             variant="secondary"
-                            className="!text-blue-600 px-6 md:py-4 text-sm font-normal bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center space-x-2 min-h-[44px]"
+                            className="!text-primary px-6 md:py-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px]"
                           >
                             <svg
                               className="w-4 h-4"
@@ -2092,12 +2092,12 @@ function BulkEnrollModalContent({
                 id;
               return (
                 <li key={id}>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 border border-blue-200">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary border border-primary/20">
                     {label}
                     <button
                       type="button"
                       onClick={() => handleRemoveMember(id)}
-                      className="text-blue-600 hover:text-blue-800 focus:outline-none"
+                      className="text-primary hover:text-primary focus:outline-none"
                       aria-label={`Remove ${label}`}
                     >
                       ×
@@ -2199,7 +2199,7 @@ function UpdateProgressModalContent({
         <select
           value={selectedStage}
           onChange={(e) => setSelectedStage(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           disabled={loading}
         >
           {pipelineStages.map((stage) => (
@@ -2217,7 +2217,7 @@ function UpdateProgressModalContent({
           type="date"
           value={activityDate}
           onChange={(e) => setActivityDate(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           disabled={loading}
           required
         />

@@ -36,7 +36,7 @@ export default function BulkActionsMenu({
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+        className="px-3 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-beacon-navy flex items-center gap-2"
       >
         Bulk Actions
         <svg
@@ -105,7 +105,7 @@ export default function BulkActionsMenu({
             className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-3"
           >
             <svg
-              className="w-4 h-4 text-blue-600"
+              className="w-4 h-4 text-primary"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

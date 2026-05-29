@@ -8,7 +8,7 @@ function roleBadgeClass(role: string): string {
     case "PASTOR":
       return "bg-purple-100 text-purple-800";
     case "COORDINATOR":
-      return "bg-blue-100 text-blue-800";
+      return "bg-primary/15 text-primary";
     case "MEMBER":
       return "bg-slate-100 text-slate-800";
     case "VISITOR":
@@ -180,7 +180,7 @@ export default function ProfileAccessSection({ user }: { user: User }) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold text-[#2D3748] mb-1">
+      <h2 className="text-xl font-semibold text-foreground mb-1">
         Your access
       </h2>
       <p className="text-sm text-gray-500 mb-4">

@@ -33,7 +33,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
       case "PHYSICAL":
         return "bg-green-100 text-green-800";
       case "ONLINE":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "HYBRID":
         return "bg-purple-100 text-purple-800";
       default:
@@ -74,7 +74,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
     return (
       <button
         type="button"
-        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        className="text-sm font-medium text-primary hover:text-primary hover:underline"
         onClick={() => openWeeklyDrilldown(row, metric, label, count)}
       >
         {count}

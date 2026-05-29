@@ -86,9 +86,9 @@ export default function DonationForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <section className="rounded-2xl border border-blue-100 bg-blue-50/40 p-5">
+      <section className="rounded-2xl border border-primary/20 bg-primary/10 p-5">
         <div className="space-y-1">
-          <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+          <span className="inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
             Donation Details
           </span>
         </div>
@@ -116,7 +116,7 @@ export default function DonationForm({
                         : Number.parseFloat(e.target.value),
                   }))
                 }
-                className="w-full min-h-[44px] rounded-lg border border-blue-100 bg-white py-2 pl-7 pr-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] rounded-lg border border-primary/20 bg-white py-2 pl-7 pr-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
                 required
               />
             </div>
@@ -135,7 +135,7 @@ export default function DonationForm({
                   receiptNumber: e.target.value,
                 }))
               }
-              className="w-full min-h-[44px] rounded-lg border border-blue-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] rounded-lg border border-primary/20 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
               required
             />
           </div>
@@ -153,7 +153,7 @@ export default function DonationForm({
                   date: e.target.value,
                 }))
               }
-              className="w-full min-h-[44px] rounded-lg border border-blue-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] rounded-lg border border-primary/20 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
               required
             />
           </div>
@@ -170,7 +170,7 @@ export default function DonationForm({
                   paymentMethod: e.target.value as PaymentMethod,
                 }))
               }
-              className="w-full min-h-[44px] rounded-lg border border-blue-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] rounded-lg border border-primary/20 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
             >
               {PAYMENT_METHOD_OPTIONS.map(({ value, label }) => (
                 <option key={value} value={value}>
@@ -192,7 +192,7 @@ export default function DonationForm({
                   purpose: e.target.value as DonationPurpose,
                 }))
               }
-              className="w-full min-h-[44px] rounded-lg border border-blue-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] rounded-lg border border-primary/20 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
             >
               {PURPOSE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -202,7 +202,7 @@ export default function DonationForm({
             </select>
           </div>
 
-          <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-white/70 px-4 py-3">
+          <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-white/70 px-4 py-3">
             <input
               id="anonymous"
               type="checkbox"
@@ -214,7 +214,7 @@ export default function DonationForm({
                   donorName: e.target.checked ? "" : previous.donorName,
                 }))
               }
-              className="mt-0.5 h-4 w-4 rounded border-blue-200 text-blue-600 focus:ring-blue-500"
+              className="mt-0.5 h-4 w-4 rounded border-primary/20 text-primary focus:ring-ring"
             />
             <label htmlFor="anonymous" className="text-sm text-gray-700">
               Anonymous Donation
@@ -246,7 +246,7 @@ export default function DonationForm({
                   }))
                 }
                 placeholder="e.g., Juan Dela Cruz"
-                className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
           )}
@@ -265,7 +265,7 @@ export default function DonationForm({
               }
               rows={4}
               placeholder="Add any remarks or fund designation details"
-              className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[44px] rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm leading-relaxed focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
         </div>

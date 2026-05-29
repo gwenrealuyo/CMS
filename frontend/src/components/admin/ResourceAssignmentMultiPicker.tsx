@@ -82,7 +82,7 @@ export default function ResourceAssignmentMultiPicker({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search resources…"
           disabled={disabled || loading}
-          className="w-full sm:max-w-xs min-h-[40px] px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] disabled:bg-gray-100"
+          className="w-full sm:max-w-xs min-h-[40px] px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
           autoComplete="off"
         />
         <div className="flex flex-wrap gap-2">
@@ -92,7 +92,7 @@ export default function ResourceAssignmentMultiPicker({
             disabled={
               disabled || loading || filteredIds.length === 0 || allFilteredSelected
             }
-            className="text-sm font-medium text-[#2563EB] hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px] px-2"
+            className="text-sm font-medium text-primary hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px] px-2"
           >
             Select all shown
           </button>
@@ -141,7 +141,7 @@ export default function ResourceAssignmentMultiPicker({
                       checked={checked}
                       onChange={() => toggleId(r.id)}
                       disabled={disabled}
-                      className="h-4 w-4 rounded border-gray-300 text-[#2563EB] focus:ring-[#2563EB]"
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                     />
                     <span className="text-sm text-gray-900 flex-1 truncate">
                       {r.name}

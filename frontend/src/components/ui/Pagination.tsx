@@ -60,7 +60,7 @@ export default function Pagination({
               id="items-per-page"
               value={itemsPerPage}
               onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-              className="rounded-md border border-gray-300 px-2 py-2 md:py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[44px] md:min-h-0"
+              className="rounded-md border border-gray-300 px-2 py-2 md:py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring min-h-[44px] md:min-h-0"
               aria-label="Items per page"
             >
               <option value={10}>10</option>

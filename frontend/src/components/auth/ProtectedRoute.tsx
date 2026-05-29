@@ -51,7 +51,7 @@ export default function ProtectedRoute({
   // Show loading state while checking authentication
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-gray-600">Loading...</div>
       </div>
     );

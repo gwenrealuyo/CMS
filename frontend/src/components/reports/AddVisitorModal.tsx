@@ -204,7 +204,7 @@ export default function AddVisitorModal({
               onChange={(e) =>
                 setFormData({ ...formData, first_name: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               required
             />
           </div>
@@ -219,7 +219,7 @@ export default function AddVisitorModal({
               onChange={(e) =>
                 setFormData({ ...formData, middle_name: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
 
@@ -233,7 +233,7 @@ export default function AddVisitorModal({
               onChange={(e) =>
                 setFormData({ ...formData, last_name: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               required
             />
           </div>
@@ -249,7 +249,7 @@ export default function AddVisitorModal({
                 setFormData({ ...formData, suffix: e.target.value })
               }
               placeholder="Jr., Sr., III, etc."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
         </div>
@@ -266,7 +266,7 @@ export default function AddVisitorModal({
               onChange={(e) =>
                 setFormData({ ...formData, facebook_name: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
 
@@ -282,7 +282,7 @@ export default function AddVisitorModal({
                   gender: e.target.value as "MALE" | "FEMALE" | "",
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">Select...</option>
               <option value="MALE">Male</option>
@@ -301,7 +301,7 @@ export default function AddVisitorModal({
               setFormData({ ...formData, note: e.target.value })
             }
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             placeholder="Add notes about this visitor..."
           />
         </div>
@@ -321,7 +321,7 @@ export default function AddVisitorModal({
                   date_first_attended: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               required
             />
           </div>
@@ -338,7 +338,7 @@ export default function AddVisitorModal({
                   first_activity_attended: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">Select...</option>
               <option value="BS/CLUSTER_EVANGELISM">
@@ -373,7 +373,7 @@ export default function AddVisitorModal({
               }}
               onFocus={() => setShowInviterDropdown(true)}
               placeholder="Search for inviter..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             />
             {showInviterDropdown && filteredPeople.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">

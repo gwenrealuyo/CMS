@@ -60,7 +60,7 @@ export default function SelectedPeoplePreview({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/15 text-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -82,10 +82,10 @@ export default function SelectedPeoplePreview({
   const shouldShowSummary = selectedPeople.length > 3;
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4">
+    <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 sm:p-4 mb-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+          <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
             <svg
               className="w-4 h-4 text-white"
               fill="none"
@@ -100,7 +100,7 @@ export default function SelectedPeoplePreview({
               />
             </svg>
           </div>
-          <h3 className="text-sm sm:text-base font-semibold text-blue-900">
+          <h3 className="text-sm sm:text-base font-semibold text-primary">
             Selected People ({selectedPeople.length})
           </h3>
         </div>
@@ -108,7 +108,7 @@ export default function SelectedPeoplePreview({
           {shouldShowSummary && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center space-x-1 min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-0 rounded-lg sm:rounded-none bg-white sm:bg-transparent border border-blue-200 sm:border-0"
+              className="text-primary hover:text-primary text-sm font-medium flex items-center justify-center space-x-1 min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-0 rounded-lg sm:rounded-none bg-white sm:bg-transparent border border-primary/20 sm:border-0"
             >
               <svg
                 className={`w-4 h-4 transition-transform ${
@@ -130,7 +130,7 @@ export default function SelectedPeoplePreview({
           )}
           <button
             onClick={onClearSelection}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center space-x-1 min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-0 rounded-lg sm:rounded-none bg-white sm:bg-transparent border border-blue-200 sm:border-0"
+            className="text-primary hover:text-primary text-sm font-medium flex items-center justify-center space-x-1 min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-0 rounded-lg sm:rounded-none bg-white sm:bg-transparent border border-primary/20 sm:border-0"
           >
             <svg
               className="w-4 h-4"
@@ -152,7 +152,7 @@ export default function SelectedPeoplePreview({
 
       {/* Summary Statistics */}
       {shouldShowSummary && isExpanded && (
-        <div className="mb-3 p-2 sm:p-3 bg-white rounded-lg border border-blue-100">
+        <div className="mb-3 p-2 sm:p-3 bg-white rounded-lg border border-primary/20">
           <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
             Selection Summary
           </h4>
@@ -210,7 +210,7 @@ export default function SelectedPeoplePreview({
         {displayedPeople.map((person) => (
           <div
             key={person.id}
-            className="bg-white rounded-lg p-2.5 sm:p-2.5 md:p-2.5 border border-blue-100 shadow-sm hover:shadow-md transition-shadow"
+            className="bg-white rounded-lg p-2.5 sm:p-2.5 md:p-2.5 border border-primary/20 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
@@ -246,7 +246,7 @@ export default function SelectedPeoplePreview({
       {/* Pagination Controls */}
       {shouldShowPagination && (
         <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="text-xs sm:text-sm text-blue-600 text-center sm:text-left">
+          <div className="text-xs sm:text-sm text-primary text-center sm:text-left">
             Showing {startIndex + 1}-{Math.min(endIndex, selectedPeople.length)}{" "}
             of {selectedPeople.length} selected people
           </div>
@@ -254,7 +254,7 @@ export default function SelectedPeoplePreview({
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-2 min-h-[44px] sm:min-h-0 sm:px-2 sm:py-1 text-xs rounded-md bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 min-h-[44px] sm:min-h-0 sm:px-2 sm:py-1 text-xs rounded-md bg-white text-primary border border-primary/20 hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
@@ -266,7 +266,7 @@ export default function SelectedPeoplePreview({
                 setCurrentPage(Math.min(totalPages, currentPage + 1))
               }
               disabled={currentPage === totalPages}
-              className="px-3 py-2 min-h-[44px] sm:min-h-0 sm:px-2 sm:py-1 text-xs rounded-md bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 min-h-[44px] sm:min-h-0 sm:px-2 sm:py-1 text-xs rounded-md bg-white text-primary border border-primary/20 hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>

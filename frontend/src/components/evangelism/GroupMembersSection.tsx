@@ -61,7 +61,7 @@ export default function GroupMembersSection({
               setShowAll(false);
             }
           }}
-          className="text-sm text-blue-600 hover:text-blue-700 underline underline-offset-4"
+          className="text-sm text-primary hover:text-primary underline underline-offset-4"
         >
           {showMembers ? "Hide Members" : "Show Members"}
         </button>

@@ -213,6 +213,26 @@ role (primary_coordinator|coordinator|team_member|guest_helper), join_date (read
 is_active, availability? (JSON object), skills?, notes?
 ```
 
+### Notifications
+
+Base URL: `/api/notifications/`
+
+See [NOTIFICATIONS.md](./NOTIFICATIONS.md) for full feature documentation (alert types, activity feed, coordinator scoping).
+
+- List feed: `GET /api/notifications/`
+  - Access: Authenticated non-visitor users
+  - Returns: `{ unread_count, alert_count, activity_count, items[] }`
+- Dismiss one: `POST /api/notifications/{notification_key}/dismiss/`
+  - `notification_key` must be URL-encoded
+- Dismiss all visible: `POST /api/notifications/dismiss-all/`
+
+Notification item fields
+
+```
+key, category (alert|activity), type, severity (info|warning|success),
+title, body, href, occurred_at (ISO 8601)
+```
+
 ### Notes
 
 - Media uploads for `photo` use `MEDIA_URL = /media/` and `MEDIA_ROOT` from settings.

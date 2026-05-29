@@ -8,6 +8,7 @@ package-lock.json
 
 # testing
 /coverage
+backend/test_db.sqlite3
 
 # next.js
 frontend/.next/
@@ -56,3 +57,4 @@ frontend/.env.production
 backend/staticfiles/
 __pycache__/
 docker-compose.override.yml
+

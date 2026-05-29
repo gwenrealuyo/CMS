@@ -26,6 +26,7 @@ import EvangelismWeeklyReportForm, {
 import ViewEvangelismWeeklyReportModal from "@/src/components/evangelism/ViewEvangelismWeeklyReportModal";
 import { evangelismApi, PaginatedResponse } from "@/src/lib/api";
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
+import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import Table from "@/src/components/ui/Table";
 import {
   ChevronDownIcon,
@@ -51,6 +52,10 @@ export interface EvangelismReportsDashboardProps {
   /** Increment (e.g. Submit Report header) opens the report modal */
   openSubmitNonce?: number;
   refreshTrigger?: number;
+  /** Pre-select group when opening submit from notification deep link */
+  presetGroupId?: string | null;
+  /** Open view modal for a report id from notification deep link */
+  initialViewReportId?: string | null;
 }
 
 const GATHERING_FILTER = [
@@ -88,6 +93,8 @@ export default function EvangelismReportsDashboard({
   branches,
   openSubmitNonce = 0,
   refreshTrigger = 0,
+  presetGroupId = null,
+  initialViewReportId = null,
 }: EvangelismReportsDashboardProps) {
   const { user, isSeniorCoordinator } = useAuth();
   const canChangeBranchFilter = useMemo(
@@ -152,10 +159,32 @@ export default function EvangelismReportsDashboard({
     if (openSubmitNonce > lastNonceRef.current) {
       lastNonceRef.current = openSubmitNonce;
       setEditingReport(null);
-      setSelectedGroupForForm(null);
+      if (presetGroupId) {
+        const group = groups.find((g) => String(g.id) === presetGroupId);
+        setSelectedGroupForForm(group ?? null);
+        setGroupPickerId(presetGroupId);
+      } else {
+        setSelectedGroupForForm(null);
+        setGroupPickerId("");
+      }
       setShowReportModal(true);
     }
-  }, [openSubmitNonce]);
+  }, [openSubmitNonce, presetGroupId, groups]);
+
+  useEffect(() => {
+    if (!initialViewReportId) {
+      return;
+    }
+    let cancelled = false;
+    evangelismApi.getWeeklyReport(initialViewReportId).then((res) => {
+      if (!cancelled) {
+        setViewingReport(res.data);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialViewReportId]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -412,6 +441,7 @@ export default function EvangelismReportsDashboard({
       }
       closeReportModal();
       await refetchReports();
+      requestNotificationsRefetch();
     } catch (err: unknown) {
       const e = err as { response?: { data?: Record<string, unknown> } };
       const data = e.response?.data;

@@ -75,6 +75,7 @@ import {
 } from "@/src/types/finance";
 import { Branch } from "@/src/types/branch";
 import { ModuleSetting } from "@/src/types/moduleSettings";
+import { NotificationFeedResponse } from "@/src/types/notifications";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
@@ -1580,6 +1581,16 @@ export const authApi = {
       locked_accounts: number;
       recent_activity: AuditLog[];
     }>("/auth/admin/dashboard-stats/"),
+};
+
+export const notificationsApi = {
+  list: () => api.get<NotificationFeedResponse>("/notifications/"),
+  dismiss: (notificationKey: string) =>
+    api.post<NotificationFeedResponse>(
+      `/notifications/${encodeURIComponent(notificationKey)}/dismiss/`,
+    ),
+  dismissAll: () =>
+    api.post<NotificationFeedResponse>("/notifications/dismiss-all/"),
 };
 
 export default api;

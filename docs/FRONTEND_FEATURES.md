@@ -24,6 +24,13 @@
 - Tailwind CSS, Radix UI, Heroicons, React Hook Form, Zod
 - Charts/tables libraries are available (Recharts, FullCalendar) for future pages
 
+### Navbar notifications
+
+- `components/layout/NotificationBell.tsx`: Bell dropdown in the top navbar (alerts + recent activity)
+- `hooks/useNotifications.ts`: Fetches `/api/notifications/`, polls every 60s, dismiss / dismiss-all
+- Hidden for `VISITOR` role; badge count reflects **alerts** only
+- See [NOTIFICATIONS.md](./NOTIFICATIONS.md) for types, deep links, and coordinator report reminders
+
 ### Notes
 
 - Families page uses local state; wiring to backend families endpoints can be added later.

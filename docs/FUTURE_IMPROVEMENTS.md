@@ -296,17 +296,18 @@ This document outlines planned improvements and feature recommendations for the 
 
 ### 3.2 Notification System
 
-#### Automated Notifications
+**Implemented (in-app):** Navbar bell with actionable alerts and recent activity. See [NOTIFICATIONS.md](./NOTIFICATIONS.md).
+
+#### Automated Notifications (planned)
 
 - Email/SMS reminders for report submission
-- Alerts for overdue reports
-- Notifications for frequently absent members
+- Alerts for frequently absent members (beyond current oversight alerts)
 - Weekly summary emails for coordinators
 
-#### Notification Preferences
+#### Notification Preferences (planned)
 
 - User-configurable notification settings
-- Notification channels (email, SMS, in-app)
+- Notification channels (email, SMS, in addition to in-app)
 - Frequency settings
 - Cluster-specific preferences
 

@@ -59,6 +59,7 @@ import TallyReport from "@/src/components/evangelism/TallyReport";
 import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
 import EvangelismReportsDashboard from "@/src/components/evangelism/EvangelismReportsDashboard";
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
+import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   canChangeEvangelismBranchFilter,
@@ -266,6 +267,12 @@ export default function EvangelismPage() {
   const [activeTab, setActiveTab] = useState<EvangelismPageTab>("groups");
   const [reportsSubmitNonce, setReportsSubmitNonce] = useState(0);
   const [reportsListRefresh, setReportsListRefresh] = useState(0);
+  const [reportsPresetGroupId, setReportsPresetGroupId] = useState<
+    string | null
+  >(null);
+  const [reportsViewReportId, setReportsViewReportId] = useState<string | null>(
+    null,
+  );
   const [tallyYear, setTallyYear] = useState(currentYear);
   const [tallyBranch, setTallyBranch] = useState<number | "">("");
   const [tallyScope, setTallyScope] = useState("");
@@ -288,6 +295,28 @@ export default function EvangelismPage() {
       setActiveTab("groups");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const groupId = searchParams.get("group");
+    const reportId = searchParams.get("report");
+
+    if (!groupId && !reportId) {
+      return;
+    }
+
+    selectTab("reports");
+
+    if (groupId) {
+      setReportsPresetGroupId(groupId);
+      setReportsSubmitNonce((n) => n + 1);
+    }
+
+    if (reportId) {
+      setReportsViewReportId(reportId);
+    }
+
+    router.replace(pathname);
+  }, [searchParams, pathname, router, selectTab]);
 
   useEffect(() => {
     if (!viewEditGroup) {
@@ -485,6 +514,7 @@ export default function EvangelismPage() {
       setEditingReport(null);
       fetchReports();
       setReportsListRefresh((n) => n + 1);
+      requestNotificationsRefetch();
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
       const errorData = err.response?.data || {};
@@ -1097,6 +1127,8 @@ export default function EvangelismPage() {
             branches={branches}
             openSubmitNonce={reportsSubmitNonce}
             refreshTrigger={reportsListRefresh}
+            presetGroupId={reportsPresetGroupId}
+            initialViewReportId={reportsViewReportId}
           />
         )}
 

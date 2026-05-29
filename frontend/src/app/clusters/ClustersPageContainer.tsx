@@ -10,7 +10,8 @@ import ClustersPageView from "./ClustersPageView";
 import { Cluster, ClusterInput } from "@/src/types/cluster";
 import { ClusterWeeklyReport, ClusterWeeklyReportInput } from "@/src/types/cluster";
 import { Person, PersonUI, Family } from "@/src/types/person";
-import { clustersApi, branchesApi } from "@/src/lib/api";
+import { clustersApi, branchesApi, clusterReportsApi } from "@/src/lib/api";
+import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import toast from "react-hot-toast";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -927,6 +928,62 @@ export default function ClustersPageContainer() {
     };
   }, [openClusterId, openClusterInteraction, pathname, router]);
 
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const clusterId = searchParams.get("cluster");
+    const reportId = searchParams.get("report");
+
+    if (tab === "reports") {
+      setActiveTab("reports");
+    }
+
+    if (!clusterId && !reportId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const handleNotificationDeepLink = async () => {
+      setActiveTab("reports");
+
+      if (reportId) {
+        try {
+          const response = await clusterReportsApi.getById(reportId);
+          if (!cancelled) {
+            setEditingReport(response.data);
+            setReportFormOpen(true);
+            const cluster = allClusters.find(
+              (c) => c.id === response.data.cluster,
+            );
+            if (cluster) {
+              setReportSelectedCluster(cluster);
+            }
+          }
+        } catch {
+          // Report may be inaccessible.
+        } finally {
+          if (!cancelled) {
+            router.replace(pathname);
+          }
+        }
+      } else if (clusterId) {
+        const cluster = allClusters.find((c) => String(c.id) === clusterId);
+        if (!cancelled && cluster) {
+          setReportSelectedCluster(cluster);
+          setEditingReport(null);
+          setReportFormOpen(true);
+          router.replace(pathname);
+        }
+      }
+    };
+
+    handleNotificationDeepLink();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, allClusters, pathname, router]);
+
   const openPersonInPanel = useCallback(
     (person: Person) => {
       if (isDesktop) {
@@ -1070,6 +1127,7 @@ export default function ClustersPageContainer() {
       setReportFormOpen(false);
       setReportSelectedCluster(null);
       refetchReports();
+      requestNotificationsRefetch();
     } catch (error: any) {
       throw error;
     }
@@ -1081,6 +1139,7 @@ export default function ClustersPageContainer() {
       setEditingReport(null);
       setReportFormOpen(false);
       refetchReports();
+      requestNotificationsRefetch();
     } catch (error: any) {
       throw error;
     }

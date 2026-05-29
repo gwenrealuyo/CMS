@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  BellIcon,
   UserCircleIcon,
   Bars3Icon,
   MagnifyingGlassIcon,
@@ -12,15 +11,14 @@ import {
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "@/src/contexts/AuthContext";
 import GlobalSearch from "./GlobalSearch";
+import NotificationBell from "./NotificationBell";
 
 export default function Navbar() {
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const { collapsed, toggleMobile } = useSidebar();
   const { user, logout } = useAuth();
   const router = useRouter();
-  const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
@@ -31,12 +29,6 @@ export default function Navbar() {
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        notificationsRef.current &&
-        !notificationsRef.current.contains(event.target as Node)
-      ) {
-        setShowNotifications(false);
-      }
       if (
         profileRef.current &&
         !profileRef.current.contains(event.target as Node)
@@ -100,35 +92,7 @@ export default function Navbar() {
         )}
 
         <div className="flex items-center space-x-2 md:space-x-4">
-          <div className="relative" ref={notificationsRef}>
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 rounded-full hover:bg-gray-100 relative min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Notifications"
-            >
-              <BellIcon className="h-6 w-6 text-gray-600" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg py-2 border z-50">
-                <div className="px-4 py-2 border-b">
-                  <h3 className="font-semibold">Notifications</h3>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {/* Sample notifications */}
-                  <div className="px-4 py-3 hover:bg-gray-50 min-h-[44px] flex flex-col justify-center">
-                    <p className="text-sm">New member registration</p>
-                    <p className="text-xs text-gray-500">2 minutes ago</p>
-                  </div>
-                  <div className="px-4 py-3 hover:bg-gray-50 min-h-[44px] flex flex-col justify-center">
-                    <p className="text-sm">Upcoming event: Sunday Service</p>
-                    <p className="text-xs text-gray-500">1 hour ago</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <NotificationBell />
 
           <div className="relative" ref={profileRef}>
             <button

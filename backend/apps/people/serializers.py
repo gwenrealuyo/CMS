@@ -251,6 +251,7 @@ class PersonSerializer(serializers.ModelSerializer):
     note = serializers.CharField(write_only=True, required=False, allow_blank=True)
     journeys = JourneySerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()
+    branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     module_coordinator_assignments = ModuleCoordinatorSerializer(
         many=True, read_only=True
@@ -284,6 +285,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "lessons_finished_at",
             "inviter",
             "branch",
+            "branch_code",
             "member_id",
             "status",
             "note",
@@ -485,6 +487,12 @@ class PersonSerializer(serializers.ModelSerializer):
         from apps.clusters.models import Cluster
 
         return [code for code in obj.clusters.values_list("code", flat=True) if code]
+
+    def get_branch_code(self, obj: Person):
+        branch = getattr(obj, "branch", None)
+        if branch and branch.code:
+            return branch.code
+        return None
 
     def get_family_names(self, obj: Person):
         return list(obj.families.values_list("name", flat=True))

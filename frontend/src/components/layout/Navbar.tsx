@@ -11,6 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "@/src/contexts/AuthContext";
+import GlobalSearch from "./GlobalSearch";
 
 export default function Navbar() {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -52,6 +53,7 @@ export default function Navbar() {
 
   const displayName = user?.full_name || user?.username || "User";
   const userRole = user?.role || "";
+  const showGlobalSearch = user?.role !== "VISITOR";
 
   return (
     <nav
@@ -70,33 +72,29 @@ export default function Navbar() {
             <Bars3Icon className="h-6 w-6" />
           </button>
 
-          {/* Desktop search */}
-          <div className="hidden md:flex items-center gap-3 flex-1">
-            <input
-              type="search"
-              placeholder="Search..."
-              className="w-64 px-4 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
+          {showGlobalSearch && (
+            <>
+              <div className="hidden md:flex items-center gap-3 flex-1">
+                <GlobalSearch variant="desktop" />
+              </div>
 
-          {/* Mobile search toggle */}
-          <button
-            onClick={() => setShowSearch(!showSearch)}
-            aria-label="Toggle search"
-            className="p-2 rounded-md hover:bg-gray-100 text-gray-600 md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
-          >
-            <MagnifyingGlassIcon className="h-6 w-6" />
-          </button>
+              <button
+                onClick={() => setShowSearch(!showSearch)}
+                aria-label="Toggle search"
+                className="p-2 rounded-md hover:bg-gray-100 text-gray-600 md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
+              >
+                <MagnifyingGlassIcon className="h-6 w-6" />
+              </button>
+            </>
+          )}
         </div>
 
-        {/* Mobile search bar */}
-        {showSearch && (
+        {showGlobalSearch && showSearch && (
           <div className="absolute top-full left-0 right-0 bg-white border-b px-4 py-3 md:hidden z-40">
-            <input
-              type="search"
-              placeholder="Search..."
-              className="w-full px-4 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            <GlobalSearch
+              variant="mobile"
               autoFocus
+              onClose={() => setShowSearch(false)}
             />
           </div>
         )}

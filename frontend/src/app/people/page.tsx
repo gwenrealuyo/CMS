@@ -176,6 +176,37 @@ export default function PeoplePage() {
     setViewEditPerson(null);
   }, []);
 
+  const openPersonId = searchParams.get("open");
+
+  useEffect(() => {
+    if (!openPersonId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const openFromGlobalSearch = async () => {
+      try {
+        const response = await peopleApi.getById(openPersonId);
+        if (!cancelled) {
+          openPersonInteraction("view", response.data);
+        }
+      } catch {
+        // Person may be inaccessible; still clear the query param.
+      } finally {
+        if (!cancelled) {
+          router.replace(pathname);
+        }
+      }
+    };
+
+    openFromGlobalSearch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openPersonId, openPersonInteraction, pathname, router]);
+
   useEffect(() => {
     if (action === "create") {
       openCreatePersonModal();

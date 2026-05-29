@@ -81,6 +81,7 @@ export interface Person {
   /** Branch ID; may be absent/null on legacy records created before branch was enforced */
   branch?: number | null;
   branch_name?: string; // Branch name (if nested data included)
+  branch_code?: string; // Branch code (if nested data included)
   member_id?: string;
   status: PersonStatus;
   journeys?: Journey[];

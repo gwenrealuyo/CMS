@@ -213,8 +213,12 @@ api.interceptors.response.use(
 
 export const peopleApi = {
   getAll: () => api.get<Person[]>("/people/people"),
-  search: (params?: { search?: string; role?: string }) =>
-    api.get<Person[]>("/people/people/", { params }),
+  search: (params?: {
+    search?: string;
+    role?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get<Person[]>("/people/people/", { params }),
   getById: (id: string) => api.get<Person>(`/people/people/${id}/`),
   create: (data: Partial<Person>) => api.post<Person>("/people/people/", data),
   update: (id: string, data: Partial<Person>) =>
@@ -225,7 +229,8 @@ export const peopleApi = {
 };
 
 export const familiesApi = {
-  getAll: () => api.get<Family[]>("/people/families/"),
+  getAll: (params?: { search?: string; page?: number; page_size?: number }) =>
+    api.get<Family[]>("/people/families/", { params }),
   getById: (id: string) => api.get<Family>(`/people/families/${id}/`),
   create: (data: Partial<Family>) =>
     api.post<Family>("/people/families/", data),
@@ -324,6 +329,7 @@ export const clustersApi = {
       page_size?: number;
       branch_id?: string | number;
       branch?: string | number;
+      search?: string;
     }
   ): Promise<AxiosResponse<Cluster[]>> => {
     const response = await api.get<Cluster[] | { results: Cluster[] }>(
@@ -455,6 +461,9 @@ export const eventsApi = {
     start?: string;
     end?: string;
     type?: string;
+    search?: string;
+    page?: number;
+    page_size?: number;
   }) =>
     api.get<Event[]>("/events/", {
       params,
@@ -1187,6 +1196,9 @@ export const evangelismApi = {
     pipeline_stage?: string;
     endorsed_cluster?: number | string;
     is_dropped_off?: boolean;
+    search?: string;
+    page?: number;
+    page_size?: number;
   }) => api.get<Prospect[]>("/evangelism/prospects/", { params }),
   getProspect: (id: number | string) =>
     api.get<Prospect>(`/evangelism/prospects/${id}/`),

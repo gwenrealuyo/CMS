@@ -24,7 +24,9 @@ from apps.authentication.permissions import (
 
 
 class PersonViewSet(viewsets.ModelViewSet):
-    queryset = Person.objects.all().prefetch_related("clusters", "families")
+    queryset = Person.objects.all().select_related("branch").prefetch_related(
+        "clusters", "families"
+    )
     serializer_class = PersonSerializer
     permission_classes = [IsAuthenticatedAndNotVisitor]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
@@ -254,6 +256,8 @@ class FamilyViewSet(viewsets.ModelViewSet):
     queryset = Family.objects.all()
     serializer_class = FamilySerializer
     permission_classes = [IsAuthenticatedAndNotVisitor]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name"]
 
     def get_queryset(self):
         user = self.request.user

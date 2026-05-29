@@ -896,6 +896,37 @@ export default function ClustersPageContainer() {
     [isDesktop, pushCurrentPanelToHistory]
   );
 
+  const openClusterId = searchParams.get("open");
+
+  useEffect(() => {
+    if (!openClusterId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const openFromGlobalSearch = async () => {
+      try {
+        const response = await clustersApi.getById(openClusterId);
+        if (!cancelled) {
+          openClusterInteraction("view", response.data);
+        }
+      } catch {
+        // Cluster may be inaccessible; still clear the query param.
+      } finally {
+        if (!cancelled) {
+          router.replace(pathname);
+        }
+      }
+    };
+
+    openFromGlobalSearch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openClusterId, openClusterInteraction, pathname, router]);
+
   const openPersonInPanel = useCallback(
     (person: Person) => {
       if (isDesktop) {

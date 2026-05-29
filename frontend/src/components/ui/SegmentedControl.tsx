@@ -50,8 +50,8 @@ export default function SegmentedControl<T extends string>({
               fullWidthOnMobile ? "flex-1 sm:flex-none" : ""
             } ${
               isActive
-                ? "bg-white text-gray-900 shadow-sm"
-                : "bg-transparent text-gray-500 hover:text-gray-700"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-transparent text-gray-500 hover:text-gray-700 hover:bg-white/50"
             } ${option.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {option.icon}

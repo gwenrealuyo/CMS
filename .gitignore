@@ -52,9 +52,17 @@ frontend/.next/server/vendor-chunks/axios.js
 # lesson commitment form uploads
 backend/media/lessons/commitment_forms/
 
-# Windows
-frontend/.env.production
-backend/staticfiles/
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Django collected static files (run: python manage.py collectstatic)
+backend/staticfiles/
+
+# Server-only Docker overrides (see docker-compose.override.yml.example)
 docker-compose.override.yml
+
+# Frontend production env (copy from .env.production.example)
+frontend/.env.production
 

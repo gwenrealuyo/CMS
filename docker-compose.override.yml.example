@@ -1,0 +1,14 @@
+# Copy to docker-compose.override.yml on a server (file is gitignored).
+# Docker Compose automatically merges this with docker-compose.yml.
+#
+# Example: custom Postgres password without editing tracked compose.
+#
+# services:
+#   db:
+#     environment:
+#       POSTGRES_PASSWORD: your_server_password
+
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}

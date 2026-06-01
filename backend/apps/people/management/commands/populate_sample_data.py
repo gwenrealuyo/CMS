@@ -484,6 +484,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             self.style.WARNING(
-                "\nNote: To create cluster data, run: python manage.py populate_clusters_data"
+                "\nNote: For full dev seeding (people + clusters + evangelism), run:\n"
+                "  python manage.py populate_dev_sample_data"
             )
         )

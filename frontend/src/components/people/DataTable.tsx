@@ -17,6 +17,7 @@ import {
   Squares2X2Icon,
   TableCellsIcon,
 } from "@heroicons/react/24/outline";
+import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 
 interface DataTableProps {
   people: Person[];
@@ -961,12 +962,10 @@ export default function DataTable({
                                 onClick={() =>
                                   onView && onView(person as Person)
                                 }
-                                className="text-left"
+                                className={TABLE_ENTITY_LINK_CLASS}
                                 title="View profile"
                               >
-                                <div className="text-sm font-medium text-primary hover:underline">
-                                  {person.first_name || "-"}
-                                </div>
+                                {person.first_name || "-"}
                               </button>
                             </div>
                           )}
@@ -974,12 +973,10 @@ export default function DataTable({
                             <button
                               type="button"
                               onClick={() => onView && onView(person as Person)}
-                              className="text-left"
+                              className={TABLE_ENTITY_LINK_CLASS}
                               title="View profile"
                             >
-                              <div className="text-sm font-medium text-primary hover:underline">
-                                {person.last_name || "-"}
-                              </div>
+                              {person.last_name || "-"}
                             </button>
                           )}
                           {field === "middle_name" && (
@@ -1197,12 +1194,10 @@ export default function DataTable({
                             <button
                               type="button"
                               onClick={() => onView && onView(person as Person)}
-                              className="text-left"
+                              className={TABLE_ENTITY_LINK_CLASS}
                               title="View profile"
                             >
-                              <div className="text-sm font-medium text-primary hover:underline">
-                                {person.first_name || "-"}
-                              </div>
+                              {person.first_name || "-"}
                             </button>
                           </div>
                         )}
@@ -1210,12 +1205,10 @@ export default function DataTable({
                           <button
                             type="button"
                             onClick={() => onView && onView(person as Person)}
-                            className="text-left"
+                            className={TABLE_ENTITY_LINK_CLASS}
                             title="View profile"
                           >
-                            <div className="text-sm font-medium text-primary hover:underline">
-                              {person.last_name || "-"}
-                            </div>
+                            {person.last_name || "-"}
                           </button>
                         )}
                         {field === "middle_name" && (

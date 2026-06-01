@@ -1,5 +1,7 @@
 # Render Deployment Guide
 
+For self-hosting on a **Windows server** with Cloudflare and **Waitress**, see [WINDOWS_SELF_HOSTED.md](./WINDOWS_SELF_HOSTED.md). For **git pull**, migrations, and server-only Docker config, see [GIT_AND_SERVER_SYNC.md](./GIT_AND_SERVER_SYNC.md).
+
 ## Prerequisites
 - GitHub account with your repository
 - Render account (sign up at https://render.com)

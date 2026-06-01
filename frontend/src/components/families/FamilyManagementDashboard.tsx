@@ -7,6 +7,7 @@ import FamilyFilterDropdown from "./FamilyFilterDropdown";
 import ClusterFilterCard from "../clusters/ClusterFilterCard";
 import { FilterCondition } from "../people/FilterBar";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { branchesApi } from "@/src/lib/api";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
@@ -1085,7 +1086,7 @@ export default function FamilyManagementDashboard({
                         <button
                           type="button"
                           onClick={() => onViewFamily(family)}
-                          className="text-left text-primary hover:text-primary hover:underline"
+                          className={TABLE_ENTITY_LINK_CLASS}
                         >
                           The {family.name} Family
                         </button>

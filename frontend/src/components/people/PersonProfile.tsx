@@ -93,7 +93,7 @@ export default function PersonProfile({
   const getJourneyBadgeClasses = (type: string) => {
     switch (type) {
       case "BAPTISM":
-        return "bg-primary/15 text-primary";
+        return "bg-blue-100 text-blue-800";
       case "SPIRIT":
         return "bg-orange-100 text-orange-800";
       case "CLUSTER":
@@ -266,9 +266,9 @@ export default function PersonProfile({
     switch (type) {
       case "BAPTISM":
         return (
-          <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/20 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-blue-100 border border-blue-200 flex items-center justify-center">
             <svg
-              className="w-4 h-4 text-primary"
+              className="w-4 h-4 text-blue-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -962,7 +962,7 @@ export default function PersonProfile({
                                   {journey.title}
                                 </div>
                                 <span
-                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${getJourneyBadgeClasses(
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getJourneyBadgeClasses(
                                     journey.type
                                   )}`}
                                 >

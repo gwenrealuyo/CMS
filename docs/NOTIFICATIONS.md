@@ -1,6 +1,6 @@
 # In-App Notifications (Navbar Bell)
 
-The navbar bell provides a unified **in-app notification feed** for authenticated staff users. It combines **actionable alerts** (things that need attention) with a **recent activity** section (confirmations of actions the current user performed).
+The navbar bell provides a unified **in-app notification feed** for authenticated staff users. It combines **actionable alerts** (things that need attention) with a **recent activity** section  (confirmations of actions the current user performed).
 
 Email, SMS, push notifications, and system-wide events (for example “new member registered”) are **not** part of this feature. See [FUTURE_IMPROVEMENTS.md](./FUTURE_IMPROVEMENTS.md) for planned channel and preference work.
 

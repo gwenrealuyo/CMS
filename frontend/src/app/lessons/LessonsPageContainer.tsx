@@ -14,6 +14,7 @@ import {
 } from "@/src/types/lesson";
 import { usePeople } from "@/src/hooks/usePeople";
 import { formatPersonName } from "@/src/lib/name";
+import { formatDisplayDate } from "@/src/lib/date";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import {
   createEmptySessionFilters,
@@ -209,11 +210,8 @@ export default function LessonsPageContainer() {
     if (!value) {
       return "—";
     }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-    return date.toLocaleDateString();
+    const formatted = formatDisplayDate(value);
+    return formatted ?? value;
   };
 
   const formatDateTime = (value?: string | null) => {

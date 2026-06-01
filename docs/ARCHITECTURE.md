@@ -4,7 +4,7 @@
 
 - Backend: Django + Django REST Framework (DRF)
 - Frontend: Next.js 13 (App Router) + Tailwind CSS + Radix UI
-- Database: SQLite (dev)
+- Database: PostgreSQL (local dev via Docker or native; tests use SQLite via `core.settings_test`)
 - Auth: Custom user model `apps.people.models.Person`
 
 ### Directory Layout
@@ -20,7 +20,7 @@
 1. Frontend pages and hooks (e.g. `usePeople`) call the backend via HTTP (CORS allows `http://localhost:3000`).
 2. DRF viewsets in `apps.people.views` expose CRUD endpoints on `Person`, `Family`, and `Cluster`.
 3. Serializers in `apps.people.serializers` validate/shape data. `PersonSerializer.create` generates unique usernames from first/last names.
-4. ORM models in `apps.people.models` persist to SQLite.
+4. ORM models in `apps.people.models` persist to PostgreSQL.
 
 ### URLs and Settings
 

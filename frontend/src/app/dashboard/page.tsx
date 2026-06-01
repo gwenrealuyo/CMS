@@ -21,6 +21,7 @@ import {
   LessonProgressSummaryByLesson,
 } from "@/src/types/lesson";
 import { usePeople } from "@/src/hooks/usePeople";
+import { Person } from "@/src/types/person";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import QuickActions from "@/src/components/dashboard/QuickActions";
 import RecentActivity, {
@@ -63,7 +64,7 @@ const formatApiDate = (date: Date) => date.toISOString().slice(0, 10);
 function collectSundayServiceOccurrencesThroughDate(
   events: Event[],
   monthStart: Date,
-  throughDate: Date
+  throughDate: Date,
 ): { eventId: string; occurrenceDate: Date }[] {
   const monthEnd = new Date(
     throughDate.getFullYear(),
@@ -72,10 +73,10 @@ function collectSundayServiceOccurrencesThroughDate(
     23,
     59,
     59,
-    999
+    999,
   );
   const windowEnd = new Date(
-    Math.min(monthEnd.getTime(), throughDate.getTime())
+    Math.min(monthEnd.getTime(), throughDate.getTime()),
   );
   const out: { eventId: string; occurrenceDate: Date }[] = [];
 
@@ -84,27 +85,19 @@ function collectSundayServiceOccurrencesThroughDate(
     if (event.occurrences && event.occurrences.length > 0) {
       for (const occ of event.occurrences) {
         const d = new Date(occ.start_date);
-        if (
-          d >= monthStart &&
-          d <= windowEnd &&
-          !Number.isNaN(d.getTime())
-        ) {
+        if (d >= monthStart && d <= windowEnd && !Number.isNaN(d.getTime())) {
           out.push({ eventId: String(event.id), occurrenceDate: d });
         }
       }
     } else {
       const d = new Date(event.start_date);
-      if (
-        d >= monthStart &&
-        d <= windowEnd &&
-        !Number.isNaN(d.getTime())
-      ) {
+      if (d >= monthStart && d <= windowEnd && !Number.isNaN(d.getTime())) {
         out.push({ eventId: String(event.id), occurrenceDate: d });
       }
     }
   }
   return out.sort(
-    (a, b) => a.occurrenceDate.getTime() - b.occurrenceDate.getTime()
+    (a, b) => a.occurrenceDate.getTime() - b.occurrenceDate.getTime(),
   );
 }
 
@@ -155,26 +148,18 @@ function getPriorMonthMtdThroughDate(now: Date): Date {
   const dom = now.getDate();
   const lastPrev = new Date(now.getFullYear(), now.getMonth(), 0);
   const cap = Math.min(dom, lastPrev.getDate());
-  return new Date(
-    now.getFullYear(),
-    now.getMonth() - 1,
-    cap,
-    23,
-    59,
-    59,
-    999
-  );
+  return new Date(now.getFullYear(), now.getMonth() - 1, cap, 23, 59, 59, 999);
 }
 
 async function computeSundayServiceMtdAverageHeadcount(
   eventsList: Event[],
   monthStart: Date,
-  throughDate: Date
+  throughDate: Date,
 ): Promise<number | null> {
   const occs = collectSundayServiceOccurrencesThroughDate(
     eventsList,
     monthStart,
-    throughDate
+    throughDate,
   );
   if (occs.length === 0) return null;
   const counts: number[] = [];
@@ -184,23 +169,19 @@ async function computeSundayServiceMtdAverageHeadcount(
         occurrence_date: formatApiDate(o.occurrenceDate),
       });
       const list = att.data ?? [];
-      counts.push(
-        list.filter((rec) => rec.status === "PRESENT").length
-      );
+      counts.push(list.filter((rec) => rec.status === "PRESENT").length);
     } catch {
       counts.push(0);
     }
   }
   const sum = counts.reduce((a, b) => a + b, 0);
-  return counts.length
-    ? Math.round((sum / counts.length) * 10) / 10
-    : null;
+  return counts.length ? Math.round((sum / counts.length) * 10) / 10 : null;
 }
 
 function countMomTrend(
   current: number | null | undefined,
   previous: number | null | undefined,
-  loading: boolean
+  loading: boolean,
 ): { direction: TrendDirection; label: string } | undefined {
   if (loading) return undefined;
   const cur = current ?? 0;
@@ -219,7 +200,7 @@ function countMomTrend(
 function percentPointsMomTrend(
   current: number | null | undefined,
   previous: number | null | undefined,
-  loading: boolean
+  loading: boolean,
 ): { direction: TrendDirection; label: string } | undefined {
   if (loading) return undefined;
   if (current === null || current === undefined) {
@@ -241,7 +222,7 @@ function avgAttendeesMomTrend(
   current: number | null,
   previous: number | null,
   loading: boolean,
-  placeholder: boolean
+  placeholder: boolean,
 ): { direction: TrendDirection; label: string } | undefined {
   if (loading || placeholder) return undefined;
   if (current === null || previous === null) {
@@ -266,14 +247,13 @@ function avgAttendeesMomTrend(
 }
 
 function averageClusterMemberRates(
-  results: Pick<ClusterWeeklyReport, "member_attendance_rate">[]
+  results: Pick<ClusterWeeklyReport, "member_attendance_rate">[],
 ): number | null {
   const rates = results
     .map((r) => r.member_attendance_rate)
     .filter((n): n is number => typeof n === "number" && !Number.isNaN(n));
   return rates.length
-    ? Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * 10) /
-        10
+    ? Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * 10) / 10
     : null;
 }
 
@@ -283,7 +263,7 @@ export default function Dashboard() {
     useState<LessonProgressSummary | null>(null);
   const [lessonSummaryLoading, setLessonSummaryLoading] = useState(true);
   const [lessonSummaryError, setLessonSummaryError] = useState<string | null>(
-    null
+    null,
   );
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -304,7 +284,7 @@ export default function Dashboard() {
   const [clusterAttendanceAvgPctPrev, setClusterAttendanceAvgPctPrev] =
     useState<number | null>(null);
   const [sundayServiceMtdAvg, setSundayServiceMtdAvg] = useState<number | null>(
-    null
+    null,
   );
   const [sundayServiceMtdAvgPrev, setSundayServiceMtdAvgPrev] = useState<
     number | null
@@ -369,9 +349,11 @@ export default function Dashboard() {
   /** Coordinators and above: extra ministry metric tiles (evangelism, clusters, Sunday School, Sunday Service). */
   const allowExtendedDashboardMetrics = isCoordinatorPlus;
 
-  const { people, loading: peopleLoading, error: peopleError } = usePeople(
-    allowPeopleMetrics
-  );
+  const {
+    people,
+    loading: peopleLoading,
+    error: peopleError,
+  } = usePeople(allowPeopleMetrics);
 
   useEffect(() => {
     if (!allowLessonWidgets) {
@@ -455,7 +437,7 @@ export default function Dashboard() {
           .filter(
             (occurrence) =>
               occurrence.startDate >= recentCutoff &&
-              occurrence.startDate <= now
+              occurrence.startDate <= now,
           )
           .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
           .slice(0, 5)
@@ -500,8 +482,7 @@ export default function Dashboard() {
         const now = new Date();
         const year = now.getFullYear();
         const month = now.getMonth() + 1;
-        const { year: prevYear, month: prevMonth } =
-          getPriorCalendarMonth(now);
+        const { year: prevYear, month: prevMonth } = getPriorCalendarMonth(now);
 
         const tallyRequests = [
           evangelismApi.getPeopleTally({ year }),
@@ -512,34 +493,29 @@ export default function Dashboard() {
         const tallyResponses = await Promise.all(tallyRequests);
         const tallyRows = tallyResponses.flatMap((r) => r.data ?? []);
 
-        const [
-          ssCurrentRes,
-          ssPrevRes,
-          clusterCurrentRes,
-          clusterPrevRes,
-        ] = await Promise.all([
-          sundaySchoolApi.summary({ year, month }),
-          sundaySchoolApi.summary({ year: prevYear, month: prevMonth }),
-          clusterReportsApi.getAll({
-            year,
-            month,
-            page_size: 500,
-          }),
-          clusterReportsApi.getAll({
-            year: prevYear,
-            month: prevMonth,
-            page_size: 500,
-          }),
-        ]);
+        const [ssCurrentRes, ssPrevRes, clusterCurrentRes, clusterPrevRes] =
+          await Promise.all([
+            sundaySchoolApi.summary({ year, month }),
+            sundaySchoolApi.summary({ year: prevYear, month: prevMonth }),
+            clusterReportsApi.getAll({
+              year,
+              month,
+              page_size: 500,
+            }),
+            clusterReportsApi.getAll({
+              year: prevYear,
+              month: prevMonth,
+              page_size: 500,
+            }),
+          ]);
 
         if (cancelled) return;
 
         const rowCurrent =
           tallyRows.find((r) => r.month === month && r.year === year) ?? null;
         const rowPrev =
-          tallyRows.find(
-            (r) => r.month === prevMonth && r.year === prevYear
-          ) ?? null;
+          tallyRows.find((r) => r.month === prevMonth && r.year === prevYear) ??
+          null;
         setPeopleTallyMonth(rowCurrent);
         setPeopleTallyPrevMonth(rowPrev);
 
@@ -554,9 +530,7 @@ export default function Dashboard() {
         setExtendedMetricsError(null);
       } catch {
         if (!cancelled) {
-          setExtendedMetricsError(
-            "Unable to load some ministry metrics."
-          );
+          setExtendedMetricsError("Unable to load some ministry metrics.");
           setPeopleTallyMonth(null);
           setPeopleTallyPrevMonth(null);
           setSundaySchoolSummary(null);
@@ -603,7 +577,7 @@ export default function Dashboard() {
         const avgCurrent = await computeSundayServiceMtdAverageHeadcount(
           eventsCurrent,
           monthStart,
-          now
+          now,
         );
 
         const prevMonthStart = new Date(y, m - 1, 1);
@@ -618,7 +592,7 @@ export default function Dashboard() {
         const avgPrev = await computeSundayServiceMtdAverageHeadcount(
           eventsPrev,
           prevMonthStart,
-          throughPrior
+          throughPrior,
         );
 
         if (cancelled) return;
@@ -675,8 +649,9 @@ export default function Dashboard() {
     const metrics = {
       total: people.length,
       members: 0,
-      visitors: 0,
-      leaders: 0,
+      attendedVisitors: 0,
+      invitedVisitors: 0,
+      pastors: 0,
       newVisitorsThisMonth: 0,
     };
 
@@ -688,23 +663,55 @@ export default function Dashboard() {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
+    const isAdminPerson = (person: Person) =>
+      (person.role ?? "").toUpperCase() === "ADMIN" ||
+      (person.username ?? "").toLowerCase() === "admin";
+
+    const isDashboardPerson = (person: Person) =>
+      !isAdminPerson(person) &&
+      ((person.first_name ?? "") !== "" || (person.last_name ?? "") !== "");
+
+    const countsAsActiveMember = (person: Person) => {
+      if (isAdminPerson(person)) {
+        return false;
+      }
+      if (person.status === "DECEASED") {
+        return false;
+      }
+      // Leaders are always included; regular members use attendance status.
+      if (person.role === "COORDINATOR" || person.role === "PASTOR") {
+        return true;
+      }
+      return person.status === "ACTIVE";
+    };
+
     people.forEach((person) => {
+      if (!isDashboardPerson(person)) {
+        return;
+      }
+
       if (person.role === "VISITOR") {
-        metrics.visitors += 1;
-        if (person.date_first_attended) {
-          const attendedDate = new Date(person.date_first_attended);
-          if (
-            !Number.isNaN(attendedDate.getTime()) &&
-            attendedDate.getMonth() === currentMonth &&
-            attendedDate.getFullYear() === currentYear
-          ) {
-            metrics.newVisitorsThisMonth += 1;
+        if (person.status === "ATTENDED") {
+          metrics.attendedVisitors += 1;
+          if (person.date_first_attended) {
+            const attendedDate = new Date(person.date_first_attended);
+            if (
+              !Number.isNaN(attendedDate.getTime()) &&
+              attendedDate.getMonth() === currentMonth &&
+              attendedDate.getFullYear() === currentYear
+            ) {
+              metrics.newVisitorsThisMonth += 1;
+            }
           }
+        } else if (person.status === "INVITED") {
+          metrics.invitedVisitors += 1;
         }
       } else {
-        metrics.members += 1;
-        if (person.role === "PASTOR" || person.role === "COORDINATOR") {
-          metrics.leaders += 1;
+        if (countsAsActiveMember(person)) {
+          metrics.members += 1;
+        }
+        if (person.role === "PASTOR") {
+          metrics.pastors += 1;
         }
       }
     });
@@ -716,21 +723,28 @@ export default function Dashboard() {
     if (peopleMetrics.total === 0) {
       return { direction: "flat" as const, label: "No people records yet" };
     }
-    const difference = peopleMetrics.members - peopleMetrics.visitors;
+    const difference = peopleMetrics.members - peopleMetrics.attendedVisitors;
     if (difference > 0) {
       return {
         direction: "up" as const,
-        label: `${difference} more members than visitors`,
+        label: `${difference} more active members than attended visitors`,
       };
     }
     if (difference < 0) {
       return {
         direction: "down" as const,
-        label: `${Math.abs(difference)} fewer members than visitors`,
+        label: `${Math.abs(difference)} fewer active members than attended visitors`,
       };
     }
-    return { direction: "flat" as const, label: "Members equal visitors" };
-  }, [peopleMetrics.members, peopleMetrics.visitors, peopleMetrics.total]);
+    return {
+      direction: "flat" as const,
+      label: "Active members equal attended visitors",
+    };
+  }, [
+    peopleMetrics.members,
+    peopleMetrics.attendedVisitors,
+    peopleMetrics.total,
+  ]);
 
   const visitorsTrend = useMemo(() => {
     if (peopleMetrics.total === 0) {
@@ -744,7 +758,7 @@ export default function Dashboard() {
     }
     return {
       direction: "down" as const,
-      label: "No new visitors recorded this month",
+      label: "No new visitors this month",
     };
   }, [peopleMetrics.total, peopleMetrics.newVisitorsThisMonth]);
 
@@ -784,12 +798,12 @@ export default function Dashboard() {
     const steps: string[] = [];
     if (allowLessonWidgets && lessonMetrics.outstanding > 0) {
       steps.push(
-        "Review members with outstanding NCC assignments and schedule follow-ups."
+        "Review members with outstanding NCC assignments and schedule follow-ups.",
       );
     }
     if (allowPeopleMetrics && peopleMetrics.newVisitorsThisMonth > 0) {
       steps.push(
-        "Welcome new visitors and connect them with a coordinator this week."
+        "Welcome new visitors and connect them with a coordinator this week.",
       );
     }
     if (allowEventsWidgets && upcomingEvents.length > 0) {
@@ -828,7 +842,8 @@ export default function Dashboard() {
         .slice(0, 3);
 
       recentPeople.forEach(({ person, date }) => {
-        const name = person.full_name || `${person.first_name} ${person.last_name}`.trim();
+        const name =
+          person.full_name || `${person.first_name} ${person.last_name}`.trim();
         items.push({
           id: `person-${person.id}`,
           type: "people",
@@ -910,13 +925,13 @@ export default function Dashboard() {
       countMomTrend(
         peopleTallyMonth?.baptized_count,
         peopleTallyPrevMonth?.baptized_count,
-        extendedMetricsLoading
+        extendedMetricsLoading,
       ),
     [
       extendedMetricsLoading,
       peopleTallyMonth?.baptized_count,
       peopleTallyPrevMonth?.baptized_count,
-    ]
+    ],
   );
 
   const receivedHolyGhostTrend = useMemo(
@@ -924,13 +939,13 @@ export default function Dashboard() {
       countMomTrend(
         peopleTallyMonth?.received_hg_count,
         peopleTallyPrevMonth?.received_hg_count,
-        extendedMetricsLoading
+        extendedMetricsLoading,
       ),
     [
       extendedMetricsLoading,
       peopleTallyMonth?.received_hg_count,
       peopleTallyPrevMonth?.received_hg_count,
-    ]
+    ],
   );
 
   const clusterAttendanceTrend = useMemo(
@@ -938,13 +953,13 @@ export default function Dashboard() {
       percentPointsMomTrend(
         clusterAttendanceAvgPct,
         clusterAttendanceAvgPctPrev,
-        extendedMetricsLoading
+        extendedMetricsLoading,
       ),
     [
       clusterAttendanceAvgPct,
       clusterAttendanceAvgPctPrev,
       extendedMetricsLoading,
-    ]
+    ],
   );
 
   const sundaySchoolTrend = useMemo(
@@ -952,13 +967,13 @@ export default function Dashboard() {
       percentPointsMomTrend(
         sundaySchoolSummary?.average_attendance_rate,
         sundaySchoolSummaryPrev?.average_attendance_rate,
-        extendedMetricsLoading
+        extendedMetricsLoading,
       ),
     [
       extendedMetricsLoading,
       sundaySchoolSummary?.average_attendance_rate,
       sundaySchoolSummaryPrev?.average_attendance_rate,
-    ]
+    ],
   );
 
   const sundayServiceMomTrend = useMemo(
@@ -967,7 +982,7 @@ export default function Dashboard() {
         sundayServicePlaceholder ? null : sundayServiceMtdAvg,
         sundayServiceMtdAvgPrev,
         sundayServiceLoading || extendedMetricsLoading,
-        sundayServicePlaceholder
+        sundayServicePlaceholder,
       ),
     [
       extendedMetricsLoading,
@@ -975,344 +990,346 @@ export default function Dashboard() {
       sundayServiceMtdAvgPrev,
       sundayServicePlaceholder,
       sundayServiceLoading,
-    ]
+    ],
   );
 
   return (
     <ProtectedRoute>
       <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Dashboard Overview
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Monitor key ministry metrics, NCC progress, and quick actions for
-              the week.
-            </p>
-          </div>
-          {canSubmitClusterReport && (
-            <Button
-              variant="primary"
-              className="w-full md:w-auto"
-              onClick={openReportForm}
-            >
-              Submit Report
-            </Button>
-          )}
-        </div>
-
-        {(extendedMetricsError ||
-          (allowLessonWidgets && lessonSummaryError) ||
-          (allowPeopleMetrics && peopleError) ||
-          (allowEventsWidgets && eventsError)) && (
-          <div className="space-y-2">
-            {allowLessonWidgets && lessonSummaryError && (
-              <ErrorMessage message={lessonSummaryError} />
-            )}
-            {extendedMetricsError && (
-              <ErrorMessage message={extendedMetricsError} />
-            )}
-            {allowPeopleMetrics && peopleError && (
-              <ErrorMessage message={peopleError} />
-            )}
-            {allowEventsWidgets && eventsError && (
-              <ErrorMessage message={eventsError} />
-            )}
-          </div>
-        )}
-
-        {allowPeopleMetrics ||
-        allowLessonWidgets ||
-        allowExtendedDashboardMetrics ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {allowPeopleMetrics && (
-              <MetricCard
-                title="Active Members"
-                value={peopleMetrics.members}
-                subtitle={`${peopleMetrics.leaders} pastors & coordinators`}
-                loading={peopleLoading}
-                trend={memberTrend}
-              />
-            )}
-            {allowPeopleMetrics && (
-              <MetricCard
-                title="Active Visitors"
-                value={peopleMetrics.visitors}
-                subtitle={`${peopleMetrics.newVisitorsThisMonth} newcomers this month`}
-                loading={peopleLoading}
-                trend={visitorsTrend}
-              />
-            )}
-            {allowLessonWidgets && (
-              <MetricCard
-                title="NCC Completion Rate"
-                value={`${lessonMetrics.completionRate}%`}
-                subtitle={
-                  lessonSummaryLoading
-                    ? ""
-                    : lessonMetrics.total > 0
-                      ? `${lessonMetrics.completed}/${lessonMetrics.total} completed`
-                      : "No NCC assignments yet"
-                }
-                loading={lessonSummaryLoading}
-                trend={lessonCompletionTrend}
-              />
-            )}
-            {allowLessonWidgets && (
-              <MetricCard
-                title="Outstanding NCC Assignments"
-                value={lessonMetrics.outstanding}
-                subtitle="Assigned or currently in progress"
-                loading={lessonSummaryLoading}
-                trend={outstandingTrend}
-              />
-            )}
-            {allowExtendedDashboardMetrics && (
-              <MetricCard
-                title="Water Baptism"
-                value={peopleTallyMonth?.baptized_count ?? "—"}
-                subtitle="This month (people tally)"
-                loading={extendedMetricsLoading}
-                trend={waterBaptismTrend}
-              />
-            )}
-            {allowExtendedDashboardMetrics && (
-              <MetricCard
-                title="Received Holy Ghost"
-                value={peopleTallyMonth?.received_hg_count ?? "—"}
-                subtitle="This month (people tally)"
-                loading={extendedMetricsLoading}
-                trend={receivedHolyGhostTrend}
-              />
-            )}
-            {allowExtendedDashboardMetrics && (
-              <MetricCard
-                title="Cluster Attendance (Avg)"
-                value={
-                  clusterAttendanceAvgPct !== null
-                    ? `${clusterAttendanceAvgPct}%`
-                    : "—"
-                }
-                subtitle="Avg. member attendance rate — weekly reports (MTD)"
-                loading={extendedMetricsLoading}
-                trend={clusterAttendanceTrend}
-              />
-            )}
-            {allowExtendedDashboardMetrics && (
-              <MetricCard
-                title="Sunday School Attendance"
-                value={
-                  sundaySchoolSummary?.average_attendance_rate != null
-                    ? `${Math.round(sundaySchoolSummary.average_attendance_rate)}%`
-                    : "—"
-                }
-                subtitle="Average rate across classes (this month)"
-                loading={extendedMetricsLoading}
-                trend={sundaySchoolTrend}
-              />
-            )}
-            {allowExtendedDashboardMetrics && (
-              <MetricCard
-                title="Sunday Service Attendees"
-                value={sundayServiceMetricValue}
-                subtitle={sundayServiceMetricSubtitle}
-                loading={extendedMetricsLoading || sundayServiceLoading}
-                trend={sundayServiceMomTrend}
-              />
-            )}
-          </div>
-        ) : (
-          <Card>
-            <p className="text-sm text-gray-500">
-              Metrics are unavailable for your current access level.
-            </p>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {allowLessonWidgets && (
-            <Card>
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">
-                    NCC Completion Pipeline
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Track lesson status across current and superseded versions.
-                  </p>
-                </div>
-                <Button
-                  variant="tertiary"
-                  className="text-xs w-full sm:w-auto"
-                  onClick={() => {
-                    window.location.href = "/lessons";
-                  }}
-                >
-                  Manage Lessons
-                </Button>
-              </div>
-              {lessonSummaryLoading ? (
-                <LoadingSpinner />
-              ) : topLessons.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No NCC assignments recorded yet.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {topLessons.map((lesson) => (
-                    <div
-                      key={`${lesson.lesson_id}-${lesson.version_label}`}
-                      className="border rounded-lg px-4 py-3"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold text-foreground break-words">
-                            {lesson.lesson_title}
-                          </h4>
-                          <p className="text-xs text-gray-500">
-                            Step {lesson.order} • {lesson.version_label}{" "}
-                            {lesson.is_latest ? "(Latest)" : "(Superseded)"}
-                          </p>
-                        </div>
-                        <span className="text-sm font-semibold text-primary flex-shrink-0">
-                          {lesson.completed}/{lesson.total} completed
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-xs text-gray-600">
-                        <div>
-                          <span className="block font-semibold text-gray-700">
-                            Assigned
-                          </span>
-                          {lesson.assigned}
-                        </div>
-                        <div>
-                          <span className="block font-semibold text-gray-700">
-                            In Progress
-                          </span>
-                          {lesson.in_progress}
-                        </div>
-                        <div>
-                          <span className="block font-semibold text-gray-700">
-                            Completed
-                          </span>
-                          {lesson.completed}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          )}
-
-          <QuickActions />
-          <RecentActivity
-            activities={recentActivities}
-            isLoading={
-              (allowPeopleMetrics && peopleLoading) ||
-              (allowEventsWidgets && eventsLoading)
-            }
-            emptyMessage={activityEmptyMessage}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {allowEventsWidgets ? (
-            <Card>
-              <h3 className="text-lg font-semibold text-foreground mb-4">
-                Upcoming Events
-              </h3>
-              <p className="text-xs text-gray-500 mb-3">
-                Next 60 days of upcoming gatherings.
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                Dashboard Overview
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Monitor key ministry metrics, NCC progress, and quick actions
+                for the week.
               </p>
-              {eventsLoading ? (
-                <LoadingSpinner />
-              ) : upcomingEvents.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No upcoming events found.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {upcomingEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="border border-gray-200 rounded-lg p-3 text-sm text-gray-600"
-                    >
-                      <p className="font-semibold text-foreground">
-                        {event.title}
-                      </p>
-                      <p>{event.schedule}</p>
-                      <p className="text-xs text-gray-500">
-                        Location: {event.location}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+            </div>
+            {canSubmitClusterReport && (
+              <Button
+                variant="primary"
+                className="w-full md:w-auto"
+                onClick={openReportForm}
+              >
+                Submit Report
+              </Button>
+            )}
+          </div>
+
+          {(extendedMetricsError ||
+            (allowLessonWidgets && lessonSummaryError) ||
+            (allowPeopleMetrics && peopleError) ||
+            (allowEventsWidgets && eventsError)) && (
+            <div className="space-y-2">
+              {allowLessonWidgets && lessonSummaryError && (
+                <ErrorMessage message={lessonSummaryError} />
               )}
-            </Card>
+              {extendedMetricsError && (
+                <ErrorMessage message={extendedMetricsError} />
+              )}
+              {allowPeopleMetrics && peopleError && (
+                <ErrorMessage message={peopleError} />
+              )}
+              {allowEventsWidgets && eventsError && (
+                <ErrorMessage message={eventsError} />
+              )}
+            </div>
+          )}
+
+          {allowPeopleMetrics ||
+          allowLessonWidgets ||
+          allowExtendedDashboardMetrics ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {allowPeopleMetrics && (
+                <MetricCard
+                  title="Active Members"
+                  value={peopleMetrics.members}
+                  subtitle={`${peopleMetrics.pastors} pastor${peopleMetrics.pastors === 1 ? "" : "s"}`}
+                  loading={peopleLoading}
+                  trend={memberTrend}
+                />
+              )}
+              {allowPeopleMetrics && (
+                <MetricCard
+                  title="Attended Visitors"
+                  value={peopleMetrics.attendedVisitors}
+                  note={`${peopleMetrics.invitedVisitors} invited visitor${peopleMetrics.invitedVisitors === 1 ? "" : "s"}`}
+                  subtitle={`${peopleMetrics.newVisitorsThisMonth} newcomers this month`}
+                  loading={peopleLoading}
+                  trend={visitorsTrend}
+                />
+              )}
+              {allowLessonWidgets && (
+                <MetricCard
+                  title="NCC Completion Rate"
+                  value={`${lessonMetrics.completionRate}%`}
+                  subtitle={
+                    lessonSummaryLoading
+                      ? ""
+                      : lessonMetrics.total > 0
+                        ? `${lessonMetrics.completed}/${lessonMetrics.total} completed`
+                        : "No NCC assignments yet"
+                  }
+                  loading={lessonSummaryLoading}
+                  trend={lessonCompletionTrend}
+                />
+              )}
+              {allowLessonWidgets && (
+                <MetricCard
+                  title="Outstanding NCC Assignments"
+                  value={lessonMetrics.outstanding}
+                  subtitle="Assigned or currently in progress"
+                  loading={lessonSummaryLoading}
+                  trend={outstandingTrend}
+                />
+              )}
+              {allowExtendedDashboardMetrics && (
+                <MetricCard
+                  title="Water Baptism"
+                  value={peopleTallyMonth?.baptized_count ?? "—"}
+                  subtitle="This month (people tally)"
+                  loading={extendedMetricsLoading}
+                  trend={waterBaptismTrend}
+                />
+              )}
+              {allowExtendedDashboardMetrics && (
+                <MetricCard
+                  title="Received Holy Ghost"
+                  value={peopleTallyMonth?.received_hg_count ?? "—"}
+                  subtitle="This month (people tally)"
+                  loading={extendedMetricsLoading}
+                  trend={receivedHolyGhostTrend}
+                />
+              )}
+              {allowExtendedDashboardMetrics && (
+                <MetricCard
+                  title="Cluster Attendance (Avg)"
+                  value={
+                    clusterAttendanceAvgPct !== null
+                      ? `${clusterAttendanceAvgPct}%`
+                      : "—"
+                  }
+                  subtitle="Avg. member attendance rate — weekly reports (MTD)"
+                  loading={extendedMetricsLoading}
+                  trend={clusterAttendanceTrend}
+                />
+              )}
+              {allowExtendedDashboardMetrics && (
+                <MetricCard
+                  title="Sunday School Attendance"
+                  value={
+                    sundaySchoolSummary?.average_attendance_rate != null
+                      ? `${Math.round(sundaySchoolSummary.average_attendance_rate)}%`
+                      : "—"
+                  }
+                  subtitle="Average rate across classes (this month)"
+                  loading={extendedMetricsLoading}
+                  trend={sundaySchoolTrend}
+                />
+              )}
+              {allowExtendedDashboardMetrics && (
+                <MetricCard
+                  title="Sunday Service Attendees"
+                  value={sundayServiceMetricValue}
+                  subtitle={sundayServiceMetricSubtitle}
+                  loading={extendedMetricsLoading || sundayServiceLoading}
+                  trend={sundayServiceMomTrend}
+                />
+              )}
+            </div>
           ) : (
             <Card>
-              <h3 className="text-lg font-semibold text-foreground mb-4">
-                Upcoming Events
-              </h3>
               <p className="text-sm text-gray-500">
-                Events data is not available for your access level.
+                Metrics are unavailable for your current access level.
               </p>
             </Card>
           )}
 
-          <Card>
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              Next Steps
-            </h3>
-            <div className="space-y-3 text-sm text-gray-600">
-              {nextSteps.map((step) => (
-                <p key={step}>• {step}</p>
-              ))}
-            </div>
-          </Card>
-        </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {allowLessonWidgets && (
+              <Card>
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      NCC Completion Pipeline
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Track lesson status across current and superseded
+                      versions.
+                    </p>
+                  </div>
+                  <Button
+                    variant="tertiary"
+                    className="text-xs w-full sm:w-auto"
+                    onClick={() => {
+                      window.location.href = "/lessons";
+                    }}
+                  >
+                    Manage Lessons
+                  </Button>
+                </div>
+                {lessonSummaryLoading ? (
+                  <LoadingSpinner />
+                ) : topLessons.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No NCC assignments recorded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {topLessons.map((lesson) => (
+                      <div
+                        key={`${lesson.lesson_id}-${lesson.version_label}`}
+                        className="border rounded-lg px-4 py-3"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-semibold text-foreground break-words">
+                              {lesson.lesson_title}
+                            </h4>
+                            <p className="text-xs text-gray-500">
+                              Step {lesson.order} • {lesson.version_label}{" "}
+                              {lesson.is_latest ? "(Latest)" : "(Superseded)"}
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-primary flex-shrink-0">
+                            {lesson.completed}/{lesson.total} completed
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-xs text-gray-600">
+                          <div>
+                            <span className="block font-semibold text-gray-700">
+                              Assigned
+                            </span>
+                            {lesson.assigned}
+                          </div>
+                          <div>
+                            <span className="block font-semibold text-gray-700">
+                              In Progress
+                            </span>
+                            {lesson.in_progress}
+                          </div>
+                          <div>
+                            <span className="block font-semibold text-gray-700">
+                              Completed
+                            </span>
+                            {lesson.completed}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
 
-        {showReportForm && (
-          <Modal
-            isOpen={showReportForm}
-            onClose={() => {
-              setShowReportForm(false);
-              setReportSelectedCluster(null);
-            }}
-            title="Submit Report"
-            className="!mt-0"
-          >
-            <ClusterWeeklyReportForm
-              cluster={reportSelectedCluster}
-              clusters={reportClusters}
+            <QuickActions />
+            <RecentActivity
+              activities={recentActivities}
+              isLoading={
+                (allowPeopleMetrics && peopleLoading) ||
+                (allowEventsWidgets && eventsLoading)
+              }
+              emptyMessage={activityEmptyMessage}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {allowEventsWidgets ? (
+              <Card>
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Upcoming Events
+                </h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Next 60 days of upcoming gatherings.
+                </p>
+                {eventsLoading ? (
+                  <LoadingSpinner />
+                ) : upcomingEvents.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No upcoming events found.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {upcomingEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="border border-gray-200 rounded-lg p-3 text-sm text-gray-600"
+                      >
+                        <p className="font-semibold text-foreground">
+                          {event.title}
+                        </p>
+                        <p>{event.schedule}</p>
+                        <p className="text-xs text-gray-500">
+                          Location: {event.location}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            ) : (
+              <Card>
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Upcoming Events
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Events data is not available for your access level.
+                </p>
+              </Card>
+            )}
+
+            <Card>
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Next Steps
+              </h3>
+              <div className="space-y-3 text-sm text-gray-600">
+                {nextSteps.map((step) => (
+                  <p key={step}>• {step}</p>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          {showReportForm && (
+            <Modal
               isOpen={showReportForm}
               onClose={() => {
                 setShowReportForm(false);
                 setReportSelectedCluster(null);
               }}
-              onSubmit={async (data) => {
-                await clusterReportsApi.create(data as any);
-                setShowReportForm(false);
-                setReportSelectedCluster(null);
-              }}
-            />
-            {reportClustersLoading && (
-              <p className="text-xs text-gray-500 mt-2">
-                Loading clusters for report submission...
-              </p>
-            )}
-            {!reportClustersLoading && reportClusters.length === 0 && (
-              <p className="text-xs text-gray-500 mt-2">
-                No clusters available for reporting.
-              </p>
-            )}
-          </Modal>
-        )}
-      </div>
-    </DashboardLayout>
+              title="Submit Report"
+              className="!mt-0"
+            >
+              <ClusterWeeklyReportForm
+                cluster={reportSelectedCluster}
+                clusters={reportClusters}
+                isOpen={showReportForm}
+                onClose={() => {
+                  setShowReportForm(false);
+                  setReportSelectedCluster(null);
+                }}
+                onSubmit={async (data) => {
+                  await clusterReportsApi.create(data as any);
+                  setShowReportForm(false);
+                  setReportSelectedCluster(null);
+                }}
+              />
+              {reportClustersLoading && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Loading clusters for report submission...
+                </p>
+              )}
+              {!reportClustersLoading && reportClusters.length === 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  No clusters available for reporting.
+                </p>
+              )}
+            </Modal>
+          )}
+        </div>
+      </DashboardLayout>
     </ProtectedRoute>
   );
 }
@@ -1320,6 +1337,8 @@ export default function Dashboard() {
 interface MetricCardProps {
   title: string;
   value: number | string;
+  /** Shown directly under the main value (e.g. invited visitors count). */
+  note?: string;
   subtitle?: string;
   loading?: boolean;
   trend?: MetricTrend;
@@ -1328,6 +1347,7 @@ interface MetricCardProps {
 function MetricCard({
   title,
   value,
+  note,
   subtitle,
   loading,
   trend,
@@ -1370,8 +1390,13 @@ function MetricCard({
         ) : (
           <>
             <p className="text-3xl font-bold text-primary mt-1">{value}</p>
+            {note && (
+              <p className="text-xs text-gray-500 mt-2 leading-snug">{note}</p>
+            )}
             {subtitle && (
-              <p className="text-xs text-gray-500 mt-2 leading-snug">
+              <p
+                className={`text-xs text-gray-500 leading-snug ${note ? "mt-1" : "mt-2"}`}
+              >
                 {subtitle}
               </p>
             )}

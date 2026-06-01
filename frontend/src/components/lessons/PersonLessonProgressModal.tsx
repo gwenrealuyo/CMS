@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Modal from "@/src/components/ui/Modal";
 import { LessonPersonSummary, PersonLessonProgress, Lesson } from "@/src/types/lesson";
 import { formatPersonName } from "@/src/lib/name";
+import { formatDisplayDate } from "@/src/lib/date";
 
 interface PersonLessonProgressModalProps {
   isOpen: boolean;
@@ -105,19 +106,19 @@ export default function PersonLessonProgressModal({
                     {progress.assigned_at && (
                       <div>
                         <span className="font-medium">Assigned:</span>{" "}
-                        {new Date(progress.assigned_at).toLocaleDateString()}
+                        {formatDisplayDate(progress.assigned_at)}
                       </div>
                     )}
                     {progress.started_at && (
                       <div>
                         <span className="font-medium">Started:</span>{" "}
-                        {new Date(progress.started_at).toLocaleDateString()}
+                        {formatDisplayDate(progress.started_at)}
                       </div>
                     )}
                     {progress.completed_at && (
                       <div>
                         <span className="font-medium">Completed:</span>{" "}
-                        {new Date(progress.completed_at).toLocaleDateString()}
+                        {formatDisplayDate(progress.completed_at)}
                       </div>
                     )}
                     {progress.notes && (
@@ -135,7 +136,7 @@ export default function PersonLessonProgressModal({
                         </span>
                         {progress.commitment_signed_at && (
                           <span className="text-gray-500 ml-2">
-                            ({new Date(progress.commitment_signed_at).toLocaleDateString()})
+                            ({formatDisplayDate(progress.commitment_signed_at)})
                           </span>
                         )}
                       </div>

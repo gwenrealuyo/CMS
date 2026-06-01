@@ -12,6 +12,7 @@ import {
   branchesApi,
 } from "@/src/lib/api";
 import { formatPersonName } from "@/src/lib/name";
+import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import ClusterWeeklyReportForm from "./ClusterWeeklyReportForm";
 import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
 import Modal from "@/src/components/ui/Modal";
@@ -2191,7 +2192,7 @@ export default function ClusterReportsDashboard({
                             cellContent = (
                               <button
                                 onClick={() => handleViewReport(report)}
-                                className="text-primary hover:text-primary hover:underline cursor-pointer transition-colors duration-150"
+                                className={`${TABLE_ENTITY_LINK_CLASS} cursor-pointer transition-colors duration-150`}
                                 title="Click to view report details"
                               >
                                 {report.cluster_code

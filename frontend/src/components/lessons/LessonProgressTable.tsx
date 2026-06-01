@@ -8,6 +8,7 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Pagination from "@/src/components/ui/Pagination";
 import { formatPersonName } from "@/src/lib/name";
+import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
 type ProgressSortField =
@@ -180,7 +181,7 @@ export default function LessonProgressTable({
                       <button
                         type="button"
                         onClick={() => onPersonClick(summary.person)}
-                        className="text-left font-medium text-primary hover:text-primary hover:underline cursor-pointer break-words"
+                        className={`${TABLE_ENTITY_LINK_CLASS} cursor-pointer break-words`}
                       >
                         {personName}
                       </button>

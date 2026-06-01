@@ -124,7 +124,65 @@ If you encounter connection errors:
 
 If port 5432 is already in use, update the `DB_PORT` in your `.env` file.
 
+## Changing the Postgres password (Docker)
+
+Changing only `docker-compose.yml` or `POSTGRES_PASSWORD` in compose **does not** change the password inside an **existing** data volume. Update Postgres and Django together.
+
+### Windows / cross-platform (Docker)
+
+1. Ensure the container is running: `docker ps` (look for `cms-postgres`).
+
+2. Open `psql` in the container:
+
+   ```bash
+   docker exec -it cms-postgres psql -U postgres -d church_management
+   ```
+
+3. Set the password:
+
+   ```sql
+   ALTER USER postgres WITH PASSWORD 'your_new_password';
+   \q
+   ```
+
+4. Set the **same** value in `backend/.env`:
+
+   ```env
+   DB_PASSWORD=your_new_password
+   ```
+
+5. Restart your WSGI server (e.g. Waitress on Windows).
+
+6. Verify:
+
+   ```bash
+   cd backend
+   python manage.py migrate --plan
+   ```
+
+**Optional:** Keep secrets out of tracked compose by using `docker-compose.override.yml` (gitignored). See `docker-compose.override.yml.example` at the repo root and [docs/GIT_AND_SERVER_SYNC.md](../docs/GIT_AND_SERVER_SYNC.md).
+
+**Reset to default (`postgres`):** use `ALTER USER postgres WITH PASSWORD 'postgres';` and `DB_PASSWORD=postgres` in `.env`.
+
+### Native Postgres (Windows pgAdmin / psql)
+
+- **SQL Shell (psql)** from the Start menu, or **pgAdmin** → Query Tool on `church_management`.
+- Run the same `ALTER USER` statement.
+- Update `backend/.env` and restart Django.
+
+## Server updates (new migrations from Git)
+
+After `git pull` on a machine that already has data:
+
+```bash
+cd backend
+python manage.py migrate
+```
+
+See [docs/GIT_AND_SERVER_SYNC.md](../docs/GIT_AND_SERVER_SYNC.md).
+
 ## Notes
 
 - The old SQLite database (`db.sqlite3`) will be ignored by git
 - If you need to migrate data from SQLite to PostgreSQL, use Django's `dumpdata` and `loaddata` commands
+- Default Django settings use **PostgreSQL** (`backend/core/settings.py`), not SQLite for normal `runserver` / production

@@ -730,6 +730,16 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         fallback = f"{person.first_name or ''} {person.last_name or ''}".strip()
         return fallback or person.username
 
+    @staticmethod
+    def _to_date(value):
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            if timezone.is_aware(value):
+                value = timezone.localtime(value)
+            return value.date()
+        return value
+
     def _serialize_people_rows(
         self,
         people_qs,
@@ -767,13 +777,13 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     "status": person.status,
                     "pipeline_stage": None,
                     "person_id": person.id,
-                    "event_date": event_date,
+                    "event_date": self._to_date(event_date),
                     "date_first_invited": person.date_first_invited,
                     "date_first_attended": person.date_first_attended,
                     "lessons_finished_at": person.lessons_finished_at,
                     "water_baptism_date": person.water_baptism_date,
                     "spirit_baptism_date": person.spirit_baptism_date,
-                    "reached_date": get_reached_date(person),
+                    "reached_date": self._to_date(get_reached_date(person)),
                     "metric": metric,
                 }
             )
@@ -812,7 +822,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 "status": prospect.person.status if prospect.person else None,
                 "pipeline_stage": prospect.pipeline_stage,
                 "person_id": prospect.person.id if prospect.person else None,
-                "event_date": (
+                "event_date": self._to_date(
                     date_map_by_person_id.get(prospect.person_id)
                     if date_map_by_person_id and prospect.person_id
                     else None
@@ -834,7 +844,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 "spirit_baptism_date": (
                     prospect.person.spirit_baptism_date if prospect.person else None
                 ),
-                "reached_date": get_reached_date(prospect.person),
+                "reached_date": self._to_date(get_reached_date(prospect.person)),
                 "metric": metric,
             }
             for prospect in prospects_qs

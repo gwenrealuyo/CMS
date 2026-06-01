@@ -37,6 +37,7 @@ import { FilterCondition } from "@/src/components/people/FilterBar";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { userCanManageCluster } from "@/src/lib/clusterPermissions";
+import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 
 interface ClustersPageViewProps {
   activeTab: ClusterContentTab;
@@ -1171,7 +1172,7 @@ export default function ClustersPageView({
                                 <button
                                   type="button"
                                   onClick={() => onViewCluster(c)}
-                                  className="text-left text-primary hover:text-primary hover:underline"
+                                  className={TABLE_ENTITY_LINK_CLASS}
                                 >
                                   {c.name || "Untitled Cluster"}
                                 </button>

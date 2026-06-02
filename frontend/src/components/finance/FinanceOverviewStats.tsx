@@ -136,7 +136,7 @@ export default function FinanceOverviewStats({
           label="Total Committed"
           value={formatAmount(pledgeStats.totalPledged, currencySymbol)}
           description="Total amount pledged across all campaigns"
-          badgeClass="bg-primary/15 text-primary"
+          badgeClass="chip-primary"
         />
         <SnapshotTile
           label="Outstanding Balance"

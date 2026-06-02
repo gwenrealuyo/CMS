@@ -453,12 +453,12 @@ function AdminSettingsPageContent() {
       LOGIN_SUCCESS: "bg-green-100 text-green-800 border-green-200",
       LOGIN_FAILURE: "bg-red-100 text-red-800 border-red-200",
       LOGOUT: "bg-gray-100 text-gray-800 border-gray-200",
-      PASSWORD_CHANGE: "bg-primary/15 text-primary border-primary/20",
+      PASSWORD_CHANGE: "chip-primary",
       PASSWORD_RESET_REQUEST: "bg-yellow-100 text-yellow-800 border-yellow-200",
       PASSWORD_RESET_APPROVED: "bg-green-100 text-green-800 border-green-200",
       PASSWORD_RESET_REJECTED: "bg-red-100 text-red-800 border-red-200",
       ACCOUNT_LOCKED: "bg-red-100 text-red-800 border-red-200",
-      ACCOUNT_UNLOCKED: "bg-primary/15 text-primary border-primary/20",
+      ACCOUNT_UNLOCKED: "chip-primary",
       TOKEN_REFRESH: "bg-purple-100 text-purple-800 border-purple-200",
       ROLE_CHANGE: "bg-indigo-100 text-indigo-800 border-indigo-200",
       ACCOUNT_ACTIVATED: "bg-green-100 text-green-800 border-green-200",
@@ -2416,7 +2416,7 @@ function AdminSettingsPageContent() {
                           viewingBranch.email) && (
                           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
                             <div className="flex items-center space-x-2 mb-4">
-                              <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <div className="w-8 h-8 chip-primary-surface rounded-lg flex items-center justify-center flex-shrink-0">
                                 <svg
                                   className="w-4 h-4 text-primary"
                                   fill="none"

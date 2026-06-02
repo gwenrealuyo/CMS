@@ -379,9 +379,9 @@ export default function AssignLessonsDropdown({
                             Lesson {lesson.order}: {lesson.title}
                           </div>
                           {lesson.version_label && (
-                            <div className="text-xs text-gray-500">
+                            <span className="chip-primary-sm mt-1">
                               {lesson.version_label}
-                            </div>
+                            </span>
                           )}
                         </div>
                       </label>

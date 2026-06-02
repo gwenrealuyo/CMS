@@ -201,7 +201,7 @@ export default function EventCalendar({
                 aspect-square flex flex-col items-center justify-start p-1 md:p-2 rounded-md min-h-[44px] md:min-h-0
                 ${date ? "hover:bg-gray-50 cursor-pointer active:bg-gray-100" : ""}
                 ${isCurrentDate ? "bg-primary/10 font-semibold" : ""}
-                ${isSelectedDate ? "bg-primary/15 ring-2 ring-ring" : ""}
+                ${isSelectedDate ? "chip-primary-surface ring-2 ring-ring" : ""}
                 transition-colors
               `}
               onClick={() => date && onDateClick && onDateClick(date)}

@@ -33,7 +33,7 @@ export default function GroupReportsSection({
       case "PHYSICAL":
         return "bg-green-100 text-green-800";
       case "ONLINE":
-        return "bg-primary/15 text-primary";
+        return "chip-primary";
       case "HYBRID":
         return "bg-purple-100 text-purple-800";
       default:

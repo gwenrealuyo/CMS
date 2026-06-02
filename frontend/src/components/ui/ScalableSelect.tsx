@@ -226,7 +226,7 @@ export default function ScalableSelect({
                   <span className="truncate">{option.label}</span>
                   <span className="ml-2 flex shrink-0 flex-wrap items-center justify-end gap-1 text-xs">
                     {option.typeLabel === "cluster" && (
-                      <span className="inline-flex rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      <span className="chip-primary-sm">
                         Cluster
                       </span>
                     )}
@@ -236,7 +236,7 @@ export default function ScalableSelect({
                       </span>
                     )}
                     {option.clusterCode && (
-                      <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      <span className="chip-primary-sm">
                         {option.clusterCode}
                       </span>
                     )}
@@ -294,7 +294,7 @@ export default function ScalableSelect({
           <span className="truncate">{option.label}</span>
           <span className="ml-2 flex shrink-0 flex-wrap items-center justify-end gap-1 text-xs">
             {option.typeLabel === "cluster" && (
-              <span className="inline-flex rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              <span className="chip-primary-sm">
                 Cluster
               </span>
             )}
@@ -304,7 +304,7 @@ export default function ScalableSelect({
               </span>
             )}
             {option.clusterCode && (
-              <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              <span className="chip-primary-sm">
                 {option.clusterCode}
               </span>
             )}

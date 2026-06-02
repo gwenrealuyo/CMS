@@ -1024,7 +1024,7 @@ export default function EvangelismPage() {
                           className={`w-full text-left border rounded-lg px-4 py-3 transition-colors ${
                             isSelected
                               ? "border-primary bg-primary/10"
-                              : "border-gray-200 hover:border-primary/20 hover:bg-primary/10/30"
+                              : "border-gray-200 hover:border-primary/20 hover:bg-primary/10"
                           }`}
                         >
                           <div className="flex justify-between items-start gap-3">
@@ -1034,7 +1034,7 @@ export default function EvangelismPage() {
                                   {group.name}
                                 </h4>
                                 {group.is_bible_sharers_group && (
-                                  <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                                  <span className="chip-primary-sm">
                                     Bible Sharers
                                   </span>
                                 )}

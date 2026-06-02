@@ -887,7 +887,7 @@ export default function ClusterReportsDashboard({
       case "PHYSICAL":
         return "bg-green-100 text-green-800";
       case "ONLINE":
-        return "bg-primary/15 text-primary";
+        return "chip-primary";
       case "HYBRID":
         return "bg-purple-100 text-purple-800";
       default:
@@ -1210,7 +1210,7 @@ export default function ClusterReportsDashboard({
                 >
                   <div className="flex items-center">
                     <div
-                      className="p-1.5 bg-primary/15 rounded-lg"
+                      className="p-1.5 chip-primary-surface rounded-lg"
                       aria-hidden="true"
                     >
                       <svg

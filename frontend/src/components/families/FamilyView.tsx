@@ -156,7 +156,7 @@ export default function FamilyView({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-primary/15 text-primary";
+        return "chip-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -430,7 +430,7 @@ export default function FamilyView({
                               <span
                                 className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                                   c
-                                    ? "bg-primary/15 text-primary"
+                                    ? "chip-primary"
                                     : "bg-red-100 text-red-800"
                                 }`}
                               >

@@ -81,7 +81,7 @@ export default function ViewEvangelismWeeklyReportModal({
       case "PHYSICAL":
         return "bg-green-100 text-green-800";
       case "ONLINE":
-        return "bg-primary/15 text-primary";
+        return "chip-primary";
       case "HYBRID":
         return "bg-purple-100 text-purple-800";
       default:
@@ -109,7 +109,7 @@ export default function ViewEvangelismWeeklyReportModal({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-primary/15 text-primary";
+        return "chip-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":

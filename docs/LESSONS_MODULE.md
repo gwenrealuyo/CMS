@@ -7,15 +7,20 @@
 - `PersonLessonProgress` links a `Person` to a specific lesson version and tracks status (`ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `SKIPPED`) along with timestamps and notes. Completing a lesson automatically creates (or updates) a `people.models.Journey` of type `LESSON`.
 - `LessonStudentEnrollment` is the canonical per-student lessons record (teacher assignment + one-time commitment signature fields: `commitment_signed`, `commitment_signed_at`, `commitment_signed_by`).
 - `LessonSettings` is a singleton row (id=1) that stores the globally uploaded commitment-form PDF (`commitment_form`) and who uploaded it.
-- `LessonSessionReport` captures the 1-on-1 teaching workflow: teacher, student, lesson version, optional linked `PersonLessonProgress`, `session_date` (Scheduled Session Date), `session_start` (Actual Session Date), qualitative score, next schedule, remarks, and the submitting user. Reports are ordered by newest session first. Saving a report auto-links (or creates) the relevant `PersonLessonProgress` row so progress dashboards stay in sync.
+- `LessonSessionReport` captures the 1-on-1 teaching workflow:
+  - `session_type`: `LESSON` (linked to a catalog lesson) or `PRE_LESSON` (introduction / other pre-course sessions; `lesson` is null).
+  - `pre_lesson_kind`: `INTRODUCTION` or `OTHER` when `session_type=PRE_LESSON`.
+  - Teacher, student, optional `lesson`, optional linked `PersonLessonProgress`, `session_date` (scheduled), `session_start` (actual), score, next schedule, remarks, and submitter.
+  - Reports are ordered by newest session first.
 
-Default data for the “New Converts Course” (7 lessons) is seeded via the `0002_default_lessons` migration. Re-running that migration after edits requires rolling back to `0001` first.
+Default data for the “New Converts Course” (7 lessons) is seeded via the `0002_default_lessons` migration. The app migration chain is intentionally minimal (`0001_initial` + `0002_default_lessons`); re-running `0002` after edits requires rolling back to `0001` first.
 
 ## Progress & Journey Synchronisation
 
 - `apps.lessons.services.mark_progress_completed` generates the `LESSON` journey when a progress record transitions to `COMPLETED`. Rolling a lesson back triggers `revert_progress_completion`.
 - Commitment form signatures are tracked on `LessonStudentEnrollment` and create a `NOTE`-type journey titled “Commitment Form Signed”. Clearing the signature removes that journey entry.
-- Session reports call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` doesn’t exist it is created, then completion is applied using `mark_progress_completed`. This means the first logged session for a student+lesson marks that lesson progress as `COMPLETED`.
+- **LESSON session reports** call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` does not exist it is created, then completion is applied via `mark_progress_completed`. **PRE_LESSON** reports do not complete catalog progress.
+- **Deleting a session report** (API or Django admin) calls `reconcile_student_progress_from_reports(student, force_report_rules=True)`, which realigns progress with remaining LESSON-type reports. Students with zero LESSON reports keep legacy completion via `has_finished_lessons` / `lessons_finished_at` when applicable.
 
 ## Legacy Completion Backfill
 
@@ -26,52 +31,128 @@ Default data for the “New Converts Course” (7 lessons) is seeded via the `00
 - Backfill behavior is non-destructive: existing lesson progress records are not overwritten (create-missing-only).
 - If `has_finished_lessons=True` but `lessons_finished_at` is missing, legacy backfill does not run.
 
+## Lesson Assignment Eligibility
+
+Bulk assign (`POST /api/lessons/progress/assign/`) and the frontend **Assign Lessons** dropdown only target students who:
+
+- Do **not** have `has_finished_lessons=True`
+- Do **not** already have any `PersonLessonProgress` row
+
+Validation is enforced in `LessonBulkAssignSerializer` via `person_assignment_eligibility_error()` in `apps.lessons.services`. The UI also hides students who already appear in the global progress list.
+
+## Branch Scoping
+
+Student-linked data is filtered by church branch (`people.Person.branch`), consistent with Clusters and Evangelism.
+
+**Backend** — `apps.lessons.branch_scope.apply_lessons_branch_filter()`:
+
+| Who can pick branch (`branch_id` query param) | Scope |
+|-----------------------------------------------|--------|
+| `ADMIN`, `PASTOR`, senior Lessons coordinator | Optional `branch_id` / `branch`; omit param for all branches |
+| Everyone else with `user.branch` | Forced to `user.branch` (query param ignored) |
+| Users without a branch | Empty queryset |
+
+Applied to:
+
+- `PersonLessonProgressViewSet` (`person__branch_id`)
+- `LessonSessionReportViewSet` (`student__branch_id`)
+- `LessonStudentEnrollmentViewSet` (`student__branch_id`)
+- Progress `summary` action (`unassigned_visitors` via `apply_branch_to_person_queryset`)
+
+**Not branch-scoped:** lesson catalog CRUD (`LessonViewSet`) and global commitment PDF (`commitment-form` action).
+
+**Frontend** — [`lessonsBranchFilter.ts`](../frontend/src/lib/lessonsBranchFilter.ts):
+
+- Branch `<select>` on the right of the content tab row (`Lesson Content` | `Student Progress` | `Session Reports` | `Commitment Forms`).
+- Editable for ADMIN, PASTOR, and `isSeniorCoordinator("LESSONS")`; locked with tooltip for teachers and other roles.
+- Changing branch refetches summary, progress, enrollments, and session reports (when that tab is active). Assign/session people dropdowns are filtered client-side to the selected branch.
+
 ## Commitment Form Management
 
-- `LessonSettingsViewSet` (route: `/api/lessons/lessons/commitment-form/`) allows GET/POST of the PDF. Uploads replace the existing file and log the `uploaded_by`.
-- Frontend surfaces the current PDF with download & replace actions, plus a modal uploader. Uploaded files are stored under `backend/media/lessons/commitment_forms/` which is ignored via `.gitignore`.
-- Commitment signing is a single student-level action from the person progress modal (after all lessons are completed), and updates enrollment commitment fields server-side.
+- Commitment form route: `/api/lessons/lessons/commitment-form/` (GET/POST on `LessonViewSet` action). Uploads replace the existing file and log `uploaded_by`.
+- Frontend **Commitment Forms** tab surfaces the current PDF with download and replace actions. Uploaded files live under `backend/media/lessons/commitment_forms/` (gitignored).
+- Commitment signing is a one-time student-level action from the person progress modal (after all active latest lessons are completed) via `/api/lessons/enrollments/{id}/commitment/`.
 
 ## Session Reports & Teacher Workflow
 
-- `LessonSessionReportViewSet` is mounted at `/api/lessons/session-reports/` with full CRUD. Query params `lesson`, `teacher`, `student`, `date_from`, `date_to` filter the list view.
-- Teachers default to the submitting user when no `teacher_id` is provided (any role except `VISITOR` is accepted). When historical data is imported, an explicit `teacher_id` can be supplied.
-- Creating or updating a report associates the latest matching `PersonLessonProgress` (or creates one if none exists) and then marks it as `COMPLETED`.
-- Deleting a report does **not** roll back progress automatically; use the progress API if the completion status needs to change.
+- `LessonSessionReportViewSet` at `/api/lessons/session-reports/` with full CRUD.
+- **Query params:** `lesson`, `teacher`, `student`, `session_type`, `date_from`, `date_to`, `branch_id` (or `branch`).
+- Teachers default to the submitting user when no `teacher_id` is provided. Role-based queryset rules still apply (teachers see only their reports; members see only their own).
+- **Frontend Session Reports tab:**
+  - Loads **all** reports when the tab is opened (not tied to the sidebar lesson picker).
+  - Default date filters: **current month** and **current year** (`createDefaultSessionFilters` in `lessonsUtils.ts`).
+  - Optional filters: lesson (catalog lesson only—pre-lessons appear when lesson filter is “All lessons”), teacher, student, month, year.
+  - **Cards** and **table** views; table groups rows by student with expand/collapse; table includes a **Session** column (lesson title or pre-lesson label).
+  - CSV export uses `formatSessionTopicLabel` for the lesson column (`session-reports.csv`).
+- Deep link: `/lessons?action=log-session` switches to the Session Reports tab and opens the log modal (no sidebar lesson required).
 
 ## API Surface
 
-- `/api/lessons/lessons/` – CRUD for lesson definitions (includes nested journey config).
-- `/api/lessons/progress/` – list/create/update participant progress; supports filtering by `person`, `lesson`, `status`.
-- `/api/lessons/progress/{id}/complete/` – marks a progress record complete; accepts optional note, timestamp, and `completed_by`.
-- `/api/lessons/progress/assign/` – bulk assignment of a lesson to multiple people.
-- `/api/lessons/progress/summary/` – aggregates status counts per lesson plus `unassigned_visitors` (visitors without any lesson progress).
-- `/api/lessons/lessons/commitment-form/` – upload/get the global commitment PDF.
-- `/api/lessons/enrollments/{id}/commitment/` – set or clear the one-time student commitment signature.
-- `/api/lessons/session-reports/` – CRUD endpoint for 1-on-1 monitoring reports with filtering.
+| Endpoint | Purpose |
+|----------|---------|
+| `/api/lessons/lessons/` | CRUD for lesson definitions (includes journey config). Not branch-filtered. |
+| `/api/lessons/progress/` | List/create/update progress; filter: `person`, `lesson`, `status`, `branch_id`. |
+| `/api/lessons/progress/{id}/complete/` | Mark progress complete (optional note, timestamp, `completed_by`). |
+| `/api/lessons/progress/assign/` | Bulk assign one lesson to multiple people (eligibility rules apply). |
+| `/api/lessons/progress/summary/` | Person-level status buckets, lesson breakdown, `unassigned_visitors`; supports `year`, `lesson`, `include_superseded`, `branch_id`. |
+| `/api/lessons/lessons/commitment-form/` | Upload/get global commitment PDF. |
+| `/api/lessons/enrollments/` | Student–teacher enrollments; filter: `student`, `teacher`, `branch_id`. |
+| `/api/lessons/enrollments/{id}/commitment/` | Set/clear commitment signature. |
+| `/api/lessons/enrollments/{id}/transfer/` | Transfer student to another teacher. |
+| `/api/lessons/session-reports/` | Session report CRUD; filters above including `branch_id`. |
 
-## Frontend Behavior
+## Frontend Architecture
 
-- `app/lessons/page.tsx` orchestrates the module: loads lessons (including superseded versions), renders stats cards, handles lesson CRUD modal, assignment modal with search, and the commitment-form upload flow.
-- `LessonDetailPanel` defaults the “Journey Settings” and “Metadata” cards to collapsed, with toggles to reveal details, keeping the UI focused on actionable info.
-- `LessonProgressTable` shows participant status, member IDs, commitment checkbox, and exposes a “Log Session” button that opens the session-report modal prefilled with the participant.
-- `PersonLessonProgressModal` contains the one-time commitment sign/remove action, gated until all active latest lessons are completed for the student.
-- `LessonSessionReportForm` powers both new and edit flows, pre-filling the teacher with the “current user” (cached in `localStorage`), and validates date/time inputs before submit.
-- A dedicated “Session Reports” card lists reports with teacher/student badges, supports teacher/student/date filters, and can export the current view to CSV.
-- `LessonStatsCards` (also used on the dashboard) highlights quick metrics: visitors with no lessons, assigned/in-progress/completed counts, and aligns badge colours with the progress table legend.
+Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.tsx) → [`LessonsPageContainer.tsx`](../frontend/src/app/lessons/LessonsPageContainer.tsx) → [`LessonsPageView.tsx`](../frontend/src/app/lessons/LessonsPageView.tsx).
+
+### Content tabs
+
+| Tab | Purpose |
+|-----|---------|
+| **Lesson Content** | Sidebar lesson catalog + `LessonDetailPanel`; global, not branch-filtered. |
+| **Student Progress** | `MemberProgressSection` + `LessonProgressTable`; branch-scoped. Person column shows **status** and **cluster** chips (not member ID). |
+| **Session Reports** | `SessionReportsSection`; branch-scoped; see above. |
+| **Commitment Forms** | `CommitmentFormSection`; global PDF only. |
+
+### Key components
+
+- `LessonList` / `LessonDetailPanel` / `LessonForm` — catalog CRUD.
+- `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators, cluster coordinators); respects `branch_id` on summary API.
+- `AssignLessonsDropdown` — multi-select assign; eligible students only; status/cluster under names.
+- `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators).
+- `LessonSessionReportForm` — log/edit sessions (lesson vs pre-lesson topic picker).
+- `LessonContentTabs` — tab bar plus optional `branchFilter` slot on the right.
+
+### Permissions (UI)
+
+- Lesson write / assign / session log: module coordinators and roles with `HasModuleAccess('LESSONS', 'write')` (see [ACCESS_CONTROL.md](./ACCESS_CONTROL.md)).
+- Branch picker: ADMIN, PASTOR, senior Lessons coordinator only.
 
 ## Testing
 
-- There are currently no automated tests in `apps.lessons.tests`. When adding coverage, focus first on:
-  - Progress completion + journey creation/reversion.
-  - Enrollment-level commitment signature flow (including journey toggling).
-  - Session report synchronisation of progress records and filtering logic.
-- Run the existing suite (placeholder) with:
+Automated tests live under `apps.lessons.tests`:
+
+| Module | Coverage |
+|--------|----------|
+| `test_session_reports.py` | PRE_LESSON vs LESSON progress, remarks validation, delete + reconcile |
+| `test_enrollments.py` | Assign eligibility, commitment, transfers |
+| `test_branch_scope.py` | `branch_id` filtering, teacher cannot override branch, no-branch user |
+
+Run with SQLite test settings (required in this repo):
 
 ```bash
 cd backend
-source venv/bin/activate
-python manage.py test apps.lessons
+python3 manage.py test apps.lessons.tests --settings=core.settings_test
 ```
 
-Add `--settings=core.settings_test` if you introduce tests that rely on the lightweight SQLite configuration already used elsewhere.
+Or a single file:
+
+```bash
+python3 manage.py test apps.lessons.tests.test_branch_scope --settings=core.settings_test
+```
+
+## Related Documentation
+
+- [ACCESS_CONTROL.md](./ACCESS_CONTROL.md) — role and module permissions
+- [FRONTEND_FEATURES.md](./FRONTEND_FEATURES.md) — app routes and deep links
+- [RUNBOOK.md](./RUNBOOK.md) — migrations and local setup

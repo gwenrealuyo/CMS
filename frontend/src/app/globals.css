@@ -86,6 +86,64 @@
   .btn-accent {
     @apply bg-beacon-gold text-beacon-navy hover:bg-beacon-gold/90 font-medium;
   }
+
+  .chip-primary {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--primary) / 1);
+    background-color: transparent;
+    color: hsl(var(--primary) / 1);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-primary-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--primary) / 1);
+    background-color: transparent;
+    color: hsl(var(--primary) / 1);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-in-progress {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--primary) / 0.25);
+    background-color: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary) / 1);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-in-progress-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--primary) / 0.25);
+    background-color: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary) / 1);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-primary-surface {
+    background-color: transparent;
+    border: 1px solid hsl(var(--primary) / 1);
+    color: hsl(var(--primary) / 1);
+  }
 }
 
 @layer utilities {

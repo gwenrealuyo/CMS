@@ -548,7 +548,7 @@ export default function FamilyManagementDashboard({
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":
-        return "bg-primary/15 text-primary";
+        return "chip-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":
@@ -567,7 +567,7 @@ export default function FamilyManagementDashboard({
         <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 chip-primary-surface rounded-lg flex items-center justify-center">
                 <svg
                   className="w-4 h-4 text-primary"
                   fill="none"
@@ -811,7 +811,7 @@ export default function FamilyManagementDashboard({
                       onClick={() => handleSortSelect(option.key, "asc")}
                       className={`px-2 py-1 text-xs rounded ${
                         sortBy === option.key && sortOrder === "asc"
-                          ? "bg-primary/15 text-primary"
+                          ? "chip-primary"
                           : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
@@ -821,7 +821,7 @@ export default function FamilyManagementDashboard({
                       onClick={() => handleSortSelect(option.key, "desc")}
                       className={`px-2 py-1 text-xs rounded ${
                         sortBy === option.key && sortOrder === "desc"
-                          ? "bg-primary/15 text-primary"
+                          ? "chip-primary"
                           : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
@@ -1000,7 +1000,7 @@ export default function FamilyManagementDashboard({
           {familyFilters.map((filter, index) => (
             <span
               key={index}
-              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20"
+              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium chip-primary"
             >
               {filter.label}
               <button
@@ -1126,7 +1126,7 @@ export default function FamilyManagementDashboard({
               return (
                 <div
                   key={family.id}
-                  className="bg-white rounded-lg shadow-md p-4 transition-all hover:shadow-lg hover:border-primary/20 hover:bg-primary/10/30 border-2 border-transparent cursor-pointer"
+                  className="bg-white rounded-lg shadow-md p-4 transition-all hover:shadow-lg hover:border-primary/20 hover:bg-primary/10 border-2 border-transparent cursor-pointer"
                   onClick={() => onViewFamily(family)}
                 >
                   <div className="space-y-3">

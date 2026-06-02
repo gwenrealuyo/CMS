@@ -102,7 +102,7 @@ export default function FilterBar({
       case "status":
         return "bg-green-100 text-green-800 border-green-200";
       case "role":
-        return "bg-primary/15 text-primary border-primary/20";
+        return "chip-primary";
       case "date_first_attended":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "email":

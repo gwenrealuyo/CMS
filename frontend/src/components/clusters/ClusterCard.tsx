@@ -102,7 +102,7 @@ const ClusterCard = memo(
       <div
         className={`p-4 md:p-5 bg-white rounded-lg border-2 ${
           isSelected ? "border-primary bg-primary/10/50" : "border-transparent"
-        } shadow-md relative transition-all hover:shadow-md hover:border-primary/20 hover:bg-primary/10/30 cursor-pointer`}
+        } shadow-md relative transition-all hover:shadow-md hover:border-primary/20 hover:bg-primary/10 cursor-pointer`}
         onClick={onView}
       >
         <div className="flex items-start justify-between gap-2">

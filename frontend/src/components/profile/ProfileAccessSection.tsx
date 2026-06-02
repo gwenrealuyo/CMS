@@ -8,7 +8,7 @@ function roleBadgeClass(role: string): string {
     case "PASTOR":
       return "bg-purple-100 text-purple-800";
     case "COORDINATOR":
-      return "bg-primary/15 text-primary";
+      return "chip-primary";
     case "MEMBER":
       return "bg-slate-100 text-slate-800";
     case "VISITOR":

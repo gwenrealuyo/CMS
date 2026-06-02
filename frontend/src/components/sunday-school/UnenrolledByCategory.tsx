@@ -190,7 +190,7 @@ export default function UnenrolledByCategory({
                       </div>
                     </div>
                     {category.unenrolled_count > 0 && (
-                      <span className="inline-flex items-center rounded-full bg-primary/15 text-primary px-3 py-1 text-xs font-semibold">
+                      <span className="chip-primary">
                         {category.unenrolled_count}
                       </span>
                     )}

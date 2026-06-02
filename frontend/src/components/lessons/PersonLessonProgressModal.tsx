@@ -47,7 +47,6 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   ASSIGNED: "bg-gray-100 text-gray-700",
-  IN_PROGRESS: "bg-primary/15 text-primary",
   COMPLETED: "bg-green-100 text-green-700",
   SKIPPED: "bg-yellow-100 text-yellow-700",
 };
@@ -289,17 +288,21 @@ export default function PersonLessonProgressModal({
                         </h3>
                       </div>
                       {lesson.version_label && (
-                        <p className="text-xs text-gray-500 mt-1">
+                        <span className="chip-primary-sm mt-1">
                           {lesson.version_label}
-                        </p>
+                        </span>
                       )}
                     </div>
                     {progress && (
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          STATUS_COLORS[progress.status] ||
-                          STATUS_COLORS.ASSIGNED
-                        }`}
+                        className={
+                          progress.status === "IN_PROGRESS"
+                            ? "chip-in-progress"
+                            : `inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                STATUS_COLORS[progress.status] ||
+                                STATUS_COLORS.ASSIGNED
+                              }`
+                        }
                       >
                         {STATUS_LABELS[progress.status] || progress.status}
                       </span>

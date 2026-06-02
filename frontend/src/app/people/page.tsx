@@ -1703,7 +1703,7 @@ export default function PeoplePage() {
                   <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 chip-primary-surface rounded-lg flex items-center justify-center">
                           <svg
                             className="w-4 h-4 text-primary"
                             fill="none"
@@ -1862,7 +1862,7 @@ export default function PeoplePage() {
                           {clusterActiveFilters.map((filter) => (
                             <span
                               key={filter.id}
-                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20"
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium chip-primary"
                             >
                               {filter.label}
                               <button

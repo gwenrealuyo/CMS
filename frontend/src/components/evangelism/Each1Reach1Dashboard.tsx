@@ -616,13 +616,15 @@ export default function Each1Reach1Dashboard({
                       </td>
                       <td className="px-3 py-2 text-sm">
                         <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            goal.status === "COMPLETED"
-                              ? "bg-green-100 text-green-800"
-                              : goal.status === "IN_PROGRESS"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                          }`}
+                          className={
+                            goal.status === "IN_PROGRESS"
+                              ? "chip-in-progress"
+                              : `inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                  goal.status === "COMPLETED"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`
+                          }
                         >
                           {goal.status?.replace("_", " ") || "Not Started"}
                         </span>
@@ -674,13 +676,15 @@ export default function Each1Reach1Dashboard({
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <span className="text-gray-600">Status:</span>
                 <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 font-semibold ${
-                    goal.status === "COMPLETED"
-                      ? "bg-green-100 text-green-800"
-                      : goal.status === "IN_PROGRESS"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-gray-100 text-gray-700"
-                  }`}
+                  className={
+                    goal.status === "IN_PROGRESS"
+                      ? "chip-in-progress"
+                      : `inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          goal.status === "COMPLETED"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-700"
+                        }`
+                  }
                 >
                   {goal.status?.replace("_", " ") || "Not Started"}
                 </span>

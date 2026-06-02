@@ -138,7 +138,7 @@ export default function FilterOptions({
             </span>
             <div className="flex flex-wrap gap-2">
               {filters.role && (
-                <span className="px-2 py-1 bg-primary/15 text-primary text-xs rounded-full">
+                <span className="chip-primary">
                   Role: {filters.role}
                   <button
                     onClick={() => handleFilterChange("role", "")}

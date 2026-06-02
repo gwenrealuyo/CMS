@@ -101,7 +101,7 @@ export default function ClusterSortDropdown({
                   onClick={() => onSelectSort(option.key, "asc")}
                   className={`px-2.5 py-1.5 md:px-2 md:py-1 text-xs rounded min-h-[36px] md:min-h-0 ${
                     currentSortBy === option.key && currentSortOrder === "asc"
-                      ? "bg-primary/15 text-primary"
+                      ? "chip-primary"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                   aria-label={`Sort ${option.label} ascending`}
@@ -112,7 +112,7 @@ export default function ClusterSortDropdown({
                   onClick={() => onSelectSort(option.key, "desc")}
                   className={`px-2.5 py-1.5 md:px-2 md:py-1 text-xs rounded min-h-[36px] md:min-h-0 ${
                     currentSortBy === option.key && currentSortOrder === "desc"
-                      ? "bg-primary/15 text-primary"
+                      ? "chip-primary"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                   aria-label={`Sort ${option.label} descending`}

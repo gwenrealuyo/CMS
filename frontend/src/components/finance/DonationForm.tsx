@@ -88,7 +88,7 @@ export default function DonationForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <section className="rounded-2xl border border-primary/20 bg-primary/10 p-5">
         <div className="space-y-1">
-          <span className="inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+          <span className="chip-primary uppercase tracking-wide">
             Donation Details
           </span>
         </div>

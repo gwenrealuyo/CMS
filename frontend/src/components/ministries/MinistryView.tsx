@@ -67,7 +67,7 @@ export default function MinistryView({
       case "primary_coordinator":
         return "bg-purple-100 text-purple-800";
       case "coordinator":
-        return "bg-primary/15 text-primary";
+        return "chip-primary";
       case "team_member":
         return "bg-green-100 text-green-800";
       case "guest_helper":

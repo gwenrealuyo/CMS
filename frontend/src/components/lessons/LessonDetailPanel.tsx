@@ -50,9 +50,7 @@ export default function LessonDetailPanel({
       <div className="space-y-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
-              {lesson.version_label}
-            </span>
+            <span className="chip-primary">{lesson.version_label}</span>
             {lesson.is_latest ? (
               <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                 Latest version

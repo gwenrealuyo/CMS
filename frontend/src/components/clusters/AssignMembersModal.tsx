@@ -128,7 +128,7 @@ export default function AssignMembersModal({
   const getRoleColor = (role: string) => {
     switch (role) {
       case "MEMBER":
-        return "bg-primary/15 text-primary";
+        return "chip-primary";
       case "VISITOR":
         return "bg-purple-100 text-purple-800";
       case "COORDINATOR":

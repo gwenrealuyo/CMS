@@ -49,6 +49,15 @@
 
 Record Donation is intentionally not included (finance `?action=add-donation` can be wired later).
 
+### Lessons page (`/lessons`)
+
+- Container/view split: `LessonsPageContainer` (data, branch filter, API) + `LessonsPageView` (layout).
+- **Tabs:** Lesson Content (catalog) | Student Progress | Session Reports | Commitment Forms.
+- **Branch filter** (right of tab row): scopes progress, enrollments, session reports, and summary stats; lesson catalog and commitment PDF stay global. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
+- **Session Reports:** all lessons and pre-lessons by default; filters for lesson, teacher, student, month/year (defaults to current month/year).
+- **Assign Lessons:** dropdown on Student Progress; only visitors/members without finished lessons and without existing progress.
+- Deep link `?action=log-session` opens Session Reports and the log-session modal.
+
 ### Notes
 
 - Families page uses local state; wiring to backend families endpoints can be added later.

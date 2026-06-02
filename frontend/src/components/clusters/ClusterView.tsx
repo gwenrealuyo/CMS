@@ -149,7 +149,7 @@ export default function ClusterView({
           : role === "PASTOR"
             ? "bg-red-100 text-red-800"
             : role === "ADMIN"
-              ? "bg-primary/15 text-primary"
+              ? "chip-primary"
               : "bg-gray-100 text-gray-800";
 
   const peopleGridClass =

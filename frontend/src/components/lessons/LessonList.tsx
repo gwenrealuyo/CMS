@@ -43,7 +43,7 @@ export default function LessonList({
                 className={`w-full text-left border rounded-lg px-4 py-3 transition-colors ${
                   isSelected
                     ? "border-primary bg-primary/10"
-                    : "border-gray-200 hover:border-primary/20 hover:bg-primary/10/30"
+                    : "border-gray-200 hover:border-primary/20 hover:bg-primary/10"
                 }`}
               >
                 <div className="flex justify-between items-start gap-3">
@@ -52,7 +52,7 @@ export default function LessonList({
                       <span className="text-sm font-semibold text-gray-500">
                         Step {lesson.order}
                       </span>
-                      {/* <span className="text-sm font-medium text-primary">
+                      <span className="chip-primary-sm">
                         {lesson.version_label}
                       </span>
                       {lesson.is_latest ? (
@@ -63,7 +63,7 @@ export default function LessonList({
                         <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-semibold text-yellow-700">
                           Superseded
                         </span>
-                      )} */}
+                      )}
                       {!lesson.is_active && (
                         <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
                           Inactive

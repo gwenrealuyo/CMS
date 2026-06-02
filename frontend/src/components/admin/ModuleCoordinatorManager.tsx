@@ -184,7 +184,7 @@ const getModuleBadgeColor = (module: ModuleCoordinator["module"]): string => {
 // Get badge color classes for levels
 const getLevelBadgeColor = (level: ModuleCoordinator["level"]): string => {
   const colorMap: Record<ModuleCoordinator["level"], string> = {
-    COORDINATOR: "bg-primary/15 text-primary border-primary/20",
+    COORDINATOR: "chip-primary",
     SENIOR_COORDINATOR: "bg-violet-100 text-violet-800 border-violet-200",
     TEACHER: "bg-amber-100 text-amber-800 border-amber-200",
     BIBLE_SHARER: "bg-rose-100 text-rose-800 border-rose-200",

@@ -659,7 +659,7 @@ export default function ClustersPageView({
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div
-                      className="p-1.5 bg-primary/15 rounded-lg"
+                      className="p-1.5 chip-primary-surface rounded-lg"
                       aria-hidden="true"
                     >
                       <svg
@@ -921,7 +921,7 @@ export default function ClustersPageView({
                       {clusterActiveFilters.map((filter) => (
                         <span
                           key={filter.id}
-                          className="inline-flex items-center px-2 py-1.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20 min-h-[32px]"
+                          className="inline-flex items-center px-2 py-1.5 rounded-full text-xs font-medium chip-primary min-h-[32px]"
                         >
                           <span className="truncate max-w-[150px] md:max-w-none">
                             {filter.label}

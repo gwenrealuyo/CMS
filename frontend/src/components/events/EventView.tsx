@@ -76,7 +76,7 @@ export default function EventView({
 
   const getEventTypeColor = (type: string) => {
     const colors: Record<string, string> = {
-      SUNDAY_SERVICE: "bg-primary/15 text-primary border-primary/20",
+      SUNDAY_SERVICE: "chip-primary",
       BIBLE_STUDY: "bg-purple-100 text-purple-800 border-purple-200",
       PRAYER_MEETING: "bg-green-100 text-green-800 border-green-200",
       SPECIAL_EVENT: "bg-orange-100 text-orange-800 border-orange-200",
@@ -591,7 +591,7 @@ export default function EventView({
                             <span className="inline-flex items-center gap-1">
                               {record.person.cluster_codes &&
                               record.person.cluster_codes.length > 0 ? (
-                                <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                <span className="chip-primary-sm">
                                   {record.person.cluster_codes[0]}
                                 </span>
                               ) : (

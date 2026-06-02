@@ -43,7 +43,7 @@ export default function ConfirmationModal({
       case "info":
         return {
           icon: "text-primary",
-          iconBg: "bg-primary/15",
+          iconBg: "chip-primary-surface",
           confirmButton: "bg-primary hover:bg-beacon-navy text-white",
         };
       default:

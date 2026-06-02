@@ -495,14 +495,14 @@ export default function AttendanceSelector({
             return (
               <span
                 key={person.id}
-                className="inline-flex items-center gap-1.5 max-w-full pl-3 pr-1.5 py-1.5 bg-blue-100 text-blue-900 border border-blue-200 rounded-full text-sm font-medium shadow-sm"
+                className="chip-primary inline-flex items-center gap-1.5 max-w-full shadow-sm text-sm"
               >
                 <span className="truncate">{displayName}</span>
                 <button
                   type="button"
                   onClick={() => removePerson(person.id)}
                   aria-label={`Remove ${displayName}`}
-                  className="flex-shrink-0 rounded-full p-0.5 text-blue-600 hover:bg-blue-200 hover:text-blue-800 transition-colors"
+                  className="flex-shrink-0 rounded-full p-0.5 text-primary hover:bg-primary/20 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

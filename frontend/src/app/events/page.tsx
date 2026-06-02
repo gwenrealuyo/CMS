@@ -670,7 +670,7 @@ export default function EventsPage() {
               selectedDate) && (
               <div className="flex flex-wrap items-center gap-2 mt-4">
                 {searchQuery && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
                     <span className="mr-1">Search:</span>
                     <span className="font-medium">{searchQuery}</span>
                     <button
@@ -694,7 +694,7 @@ export default function EventsPage() {
                   </span>
                 )}
                 {filterType !== "all" && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
                     Type:{" "}
                     {
                       eventTypeFilterOptions.find((opt) => opt.value === filterType)
@@ -721,7 +721,7 @@ export default function EventsPage() {
                   </span>
                 )}
                 {filterYear !== "all" && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
                     Year: {filterYear}
                     <button
                       onClick={clearYearFilter}
@@ -744,7 +744,7 @@ export default function EventsPage() {
                   </span>
                 )}
                 {shouldShowMonthBadge && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
                     Month: {monthNames[Number(filterMonth)]}
                     <button
                       onClick={clearMonthFilter}
@@ -767,7 +767,7 @@ export default function EventsPage() {
                   </span>
                 )}
                 {selectedDate && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
                     Date: {selectedDate.toLocaleDateString()}
                     <button
                       onClick={clearDateFilter}

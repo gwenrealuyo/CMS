@@ -562,6 +562,7 @@ export const lessonsApi = {
     person?: string | number;
     lesson?: string | number;
     status?: string;
+    branch_id?: string | number;
   }) =>
     api.get<PersonLessonProgress[]>("/lessons/progress/", {
       params,
@@ -576,6 +577,7 @@ export const lessonsApi = {
   listEnrollments: (params?: {
     student?: string | number;
     teacher?: string | number;
+    branch_id?: string | number;
   }) =>
     api.get<LessonStudentEnrollment[]>("/lessons/enrollments/", { params }),
   createEnrollment: (payload: {
@@ -617,6 +619,7 @@ export const lessonsApi = {
     version_label?: string;
     include_superseded?: boolean;
     year?: number;
+    branch_id?: string | number;
   }) =>
     api.get<LessonProgressSummary>("/lessons/progress/summary/", { params }),
   listSessionReports: (params?: {
@@ -625,6 +628,7 @@ export const lessonsApi = {
     teacher?: string | number;
     date_from?: string;
     date_to?: string;
+    branch_id?: string | number;
   }) => api.get<LessonSessionReport[]>("/lessons/session-reports/", { params }),
   getSessionReport: (id: number | string) =>
     api.get<LessonSessionReport>(`/lessons/session-reports/${id}/`),

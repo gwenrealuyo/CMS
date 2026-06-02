@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
+import { LESSONS_BRANCH_LOCKED_HINT } from "@/src/lib/lessonsBranchFilter";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import LessonList from "@/src/components/lessons/LessonList";
 import LessonDetailPanel from "@/src/components/lessons/LessonDetailPanel";
@@ -123,6 +125,13 @@ interface LessonsPageViewProps {
   };
   // Content tab state
   activeContentTab: LessonContentTab;
+  // Branch filter
+  lessonsBranchSelectedId: string;
+  onLessonsBranchChange: (branchId: string) => void;
+  lessonsBranchCanChangeFilter: boolean;
+  lessonsBranchEditableOptions: { value: string; label: string }[];
+  lessonsBranchReadonlyOptions: { value: string; label: string }[];
+  lessonsBranchesLoading: boolean;
   // Session reports state
   sessionReports: LessonSessionReport[];
   sessionReportsLoading: boolean;
@@ -265,6 +274,12 @@ export default function LessonsPageView({
   peopleLoading,
   peopleError,
   activeContentTab,
+  lessonsBranchSelectedId,
+  onLessonsBranchChange,
+  lessonsBranchCanChangeFilter,
+  lessonsBranchEditableOptions,
+  lessonsBranchReadonlyOptions,
+  lessonsBranchesLoading,
   sessionReports,
   sessionReportsLoading,
   sessionReportsError,
@@ -371,6 +386,69 @@ export default function LessonsPageView({
     user?.role === "PASTOR" || 
     isSeniorCoordinator() ||
     isModuleCoordinator("CLUSTER", "COORDINATOR");
+
+  const lessonsBranchSelectInteractive =
+    lessonsBranchCanChangeFilter && !lessonsBranchesLoading;
+
+  const lessonsBranchHoverHint = useMemo(() => {
+    if (lessonsBranchSelectInteractive) return "";
+    if (lessonsBranchesLoading && lessonsBranchCanChangeFilter) {
+      return "Loading branches…";
+    }
+    return LESSONS_BRANCH_LOCKED_HINT;
+  }, [
+    lessonsBranchSelectInteractive,
+    lessonsBranchesLoading,
+    lessonsBranchCanChangeFilter,
+  ]);
+
+  const renderLessonsBranchSelect = () => {
+    const options =
+      lessonsBranchesLoading && lessonsBranchCanChangeFilter ? (
+        <option value="">Loading…</option>
+      ) : (
+        (
+          lessonsBranchCanChangeFilter
+            ? lessonsBranchEditableOptions
+            : lessonsBranchReadonlyOptions
+        ).map((option) => (
+          <option
+            key={option.value === "" ? "__all_branches__" : option.value}
+            value={option.value}
+          >
+            {option.label}
+          </option>
+        ))
+      );
+
+    const selectEl = (
+      <select
+        aria-label="Branch"
+        aria-disabled={!lessonsBranchSelectInteractive}
+        tabIndex={lessonsBranchSelectInteractive ? 0 : -1}
+        value={lessonsBranchSelectedId}
+        onChange={(event) => {
+          if (!lessonsBranchSelectInteractive) return;
+          onLessonsBranchChange(event.target.value);
+        }}
+        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-ring ${
+          lessonsBranchSelectInteractive
+            ? "w-52 shrink-0"
+            : "pointer-events-none w-full cursor-default"
+        }`}
+      >
+        {options}
+      </select>
+    );
+
+    return lessonsBranchSelectInteractive ? (
+      selectEl
+    ) : (
+      <LockedControlTooltip label={lessonsBranchHoverHint}>
+        {selectEl}
+      </LockedControlTooltip>
+    );
+  };
   
   return (
     <DashboardLayout>
@@ -411,6 +489,7 @@ export default function LessonsPageView({
           <LessonContentTabs
             activeTab={activeContentTab}
             onTabChange={onSetActiveContentTab}
+            branchFilter={renderLessonsBranchSelect()}
           />
 
           <div

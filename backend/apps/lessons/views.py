@@ -38,6 +38,7 @@ from .serializers import (
     LessonTeacherTransferSerializer,
     PersonLessonProgressSerializer,
 )
+from .branch_scope import apply_branch_to_person_queryset, apply_lessons_branch_filter
 from .services import (
     bulk_assign_lessons,
     mark_progress_completed,
@@ -152,6 +153,10 @@ class PersonLessonProgressViewSet(
         status_param = self.request.query_params.get("status")
         if status_param:
             queryset = queryset.filter(status=status_param)
+
+        queryset = apply_lessons_branch_filter(
+            queryset, user, self.request, person_lookup="person"
+        )
         return queryset.order_by("lesson__order", "-updated_at")
     
     def get_permissions(self):
@@ -326,12 +331,13 @@ class PersonLessonProgressViewSet(
         # Person-level total used by yearly summary cards.
         total_participants = len(cohort_person_ids)
 
-        unassigned_visitors = (
-            Person.objects.filter(role="VISITOR")
-            .filter(lesson_progress__isnull=True)
-            .distinct()
-            .count()
+        unassigned_visitors_qs = Person.objects.filter(role="VISITOR").filter(
+            lesson_progress__isnull=True
         )
+        unassigned_visitors_qs = apply_branch_to_person_queryset(
+            unassigned_visitors_qs, request.user, request
+        )
+        unassigned_visitors = unassigned_visitors_qs.distinct().count()
 
         return Response(
             {
@@ -416,6 +422,9 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
         if date_to:
             queryset = queryset.filter(session_date__lte=date_to)
 
+        queryset = apply_lessons_branch_filter(
+            queryset, user, self.request, person_lookup="student"
+        )
         return queryset.order_by("-session_date", "-session_start")
     
     def get_permissions(self):
@@ -557,6 +566,9 @@ class LessonStudentEnrollmentViewSet(viewsets.ModelViewSet):
         if teacher_id:
             queryset = queryset.filter(teacher_id=teacher_id)
 
+        queryset = apply_lessons_branch_filter(
+            queryset, user, self.request, person_lookup="student"
+        )
         return queryset.order_by("student__last_name", "student__first_name")
 
     def get_permissions(self):

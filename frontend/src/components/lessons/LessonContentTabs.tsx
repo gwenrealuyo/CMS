@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import SegmentedControl from "@/src/components/ui/SegmentedControl";
 
 export type LessonContentTab =
@@ -12,6 +13,7 @@ interface LessonContentTabsProps {
   disableProgress?: boolean;
   disableSessions?: boolean;
   disableCommitment?: boolean;
+  branchFilter?: ReactNode;
 }
 
 export default function LessonContentTabs({
@@ -20,6 +22,7 @@ export default function LessonContentTabs({
   disableProgress,
   disableSessions,
   disableCommitment,
+  branchFilter,
 }: LessonContentTabsProps) {
   const tabs = [
     { id: "lesson" as const, label: "Lesson Content", disabled: false },
@@ -47,6 +50,9 @@ export default function LessonContentTabs({
         onChange={onTabChange}
         options={tabs}
       />
+      {branchFilter ? (
+        <div className="flex shrink-0 items-center">{branchFilter}</div>
+      ) : null}
     </div>
   );
 }

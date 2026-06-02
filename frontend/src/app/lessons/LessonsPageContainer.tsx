@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { lessonsApi } from "@/src/lib/api";
+import { branchesApi, lessonsApi } from "@/src/lib/api";
+import { canChangeLessonsBranchFilter as canChangeLessonsBranchFilterForUser } from "@/src/lib/lessonsBranchFilter";
 import {
   Lesson,
   LessonCommitmentSettings,
@@ -176,7 +177,119 @@ export default function LessonsPageContainer() {
   ]);
 
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
-  const { user } = useAuth();
+  const { user, isSeniorCoordinator } = useAuth();
+
+  const lessonsBranchCanChangeFilter = useMemo(
+    () => canChangeLessonsBranchFilterForUser(user, isSeniorCoordinator),
+    [user, isSeniorCoordinator],
+  );
+
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [branchPickerOptions, setBranchPickerOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const lessonsBranchUserIdRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!user) {
+      setSelectedBranchId("");
+      lessonsBranchUserIdRef.current = undefined;
+      return;
+    }
+    if (lessonsBranchUserIdRef.current !== user.id) {
+      lessonsBranchUserIdRef.current = user.id;
+      setSelectedBranchId(
+        user.branch != null && user.branch !== undefined
+          ? String(user.branch)
+          : "",
+      );
+      return;
+    }
+    if (user.branch != null && user.branch !== undefined) {
+      setSelectedBranchId((previous) =>
+        previous === "" ? String(user.branch) : previous,
+      );
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!lessonsBranchCanChangeFilter) {
+      setBranchPickerOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setBranchesLoading(true);
+    branchesApi
+      .getAll({ is_active: true })
+      .then((response) => {
+        if (cancelled) return;
+        const rows = Array.isArray(response.data) ? response.data : [];
+        setBranchPickerOptions(
+          rows.map((branch) => ({
+            value: String(branch.id),
+            label: branch.name,
+          })),
+        );
+      })
+      .catch((error) => {
+        console.error("Failed to load branches", error);
+        if (!cancelled) setBranchPickerOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBranchesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lessonsBranchCanChangeFilter]);
+
+  const lessonsBranchEditableOptions = useMemo(
+    () => [{ value: "", label: "All branches" }, ...branchPickerOptions],
+    [branchPickerOptions],
+  );
+
+  const lessonsBranchFilterLabel = useMemo(() => {
+    if (!selectedBranchId) return "All branches";
+    if (
+      user?.branch_name &&
+      user.branch != null &&
+      String(user.branch) === selectedBranchId
+    ) {
+      return user.branch_name;
+    }
+    const match = branchPickerOptions.find(
+      (option) => option.value === selectedBranchId,
+    );
+    return match?.label ?? `Branch #${selectedBranchId}`;
+  }, [
+    selectedBranchId,
+    user?.branch,
+    user?.branch_name,
+    branchPickerOptions,
+  ]);
+
+  const lessonsBranchReadonlyOptions = useMemo(() => {
+    if (selectedBranchId) {
+      return [{ value: selectedBranchId, label: lessonsBranchFilterLabel }];
+    }
+    return [{ value: "", label: "No branch" }];
+  }, [selectedBranchId, lessonsBranchFilterLabel]);
+
+  const branchApiParams = useMemo(
+    () => (selectedBranchId ? { branch_id: selectedBranchId } : {}),
+    [selectedBranchId],
+  );
+
+  const peopleInBranchScope = useMemo(() => {
+    if (!selectedBranchId) {
+      return people;
+    }
+    return people.filter(
+      (person) =>
+        person.branch != null && String(person.branch) === selectedBranchId,
+    );
+  }, [people, selectedBranchId]);
 
   const sessionLoggedInTeacherId = useMemo(() => {
     if (!user?.id || !isLessonTeacherCandidate(user)) {
@@ -223,20 +336,20 @@ export default function LessonsPageContainer() {
   };
 
   const teacherChoices = useMemo(() => {
-    return [...people]
+    return [...peopleInBranchScope]
       .filter((person) => isLessonTeacherCandidate(person))
       .sort((first, second) =>
         formatPersonName(first).localeCompare(formatPersonName(second))
       );
-  }, [people]);
+  }, [peopleInBranchScope]);
 
   const studentChoices = useMemo(() => {
-    return [...people]
+    return [...peopleInBranchScope]
       .filter(isSelectablePerson)
       .sort((first, second) =>
       formatPersonName(first).localeCompare(formatPersonName(second))
       );
-  }, [people]);
+  }, [peopleInBranchScope]);
 
   // Get active latest lessons for grouping
   const activeLatestLessons = useMemo(() => {
@@ -450,6 +563,19 @@ export default function LessonsPageContainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeContentTab, sessionFilters]);
 
+  useEffect(() => {
+    fetchSummary();
+    fetchAllProgress();
+    fetchEnrollments();
+    if (activeContentTab === "sessions") {
+      fetchSessionReports(sessionFilters);
+    }
+    if (selectedLessonId) {
+      fetchProgress(selectedLessonId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranchId]);
+
   const fetchLessons = async () => {
     try {
       setLessonsLoading(true);
@@ -480,6 +606,7 @@ export default function LessonsPageContainer() {
       const response = await lessonsApi.summary({
         include_superseded: true,
         year: new Date().getFullYear(),
+        ...branchApiParams,
       });
       setSummary(response.data);
       setSummaryError(null);
@@ -540,7 +667,10 @@ export default function LessonsPageContainer() {
         params.date_to = end.toISOString().slice(0, 10);
       }
 
-      const response = await lessonsApi.listSessionReports(params);
+      const response = await lessonsApi.listSessionReports({
+        ...params,
+        ...branchApiParams,
+      });
       const sorted = [...response.data].sort((first, second) => {
         const firstTime = new Date(first.session_start).getTime();
         const secondTime = new Date(second.session_start).getTime();
@@ -600,7 +730,7 @@ export default function LessonsPageContainer() {
   const fetchAllProgress = async () => {
     try {
       setAllProgressLoading(true);
-      const response = await lessonsApi.getProgress();
+      const response = await lessonsApi.getProgress(branchApiParams);
       setAllProgress(response.data);
       setAllProgressError(null);
     } catch (error) {
@@ -614,7 +744,7 @@ export default function LessonsPageContainer() {
 
   const fetchEnrollments = async () => {
     try {
-      const response = await lessonsApi.listEnrollments();
+      const response = await lessonsApi.listEnrollments(branchApiParams);
       setEnrollments(response.data);
     } catch {
       setEnrollments([]);
@@ -624,7 +754,10 @@ export default function LessonsPageContainer() {
   const fetchProgress = async (lessonId: number) => {
     try {
       setProgressLoading(true);
-      const response = await lessonsApi.getProgress({ lesson: lessonId });
+      const response = await lessonsApi.getProgress({
+        lesson: lessonId,
+        ...branchApiParams,
+      });
       setProgress(response.data);
       setProgressError(null);
     } catch (error) {
@@ -1298,8 +1431,15 @@ export default function LessonsPageContainer() {
       lessonDeleteTarget={lessonDeleteTarget}
       lessonDeleteLoading={lessonDeleteLoading}
       lessonDeleteError={lessonDeleteError}
+      // Branch filter
+      lessonsBranchSelectedId={selectedBranchId}
+      onLessonsBranchChange={setSelectedBranchId}
+      lessonsBranchCanChangeFilter={lessonsBranchCanChangeFilter}
+      lessonsBranchEditableOptions={lessonsBranchEditableOptions}
+      lessonsBranchReadonlyOptions={lessonsBranchReadonlyOptions}
+      lessonsBranchesLoading={branchesLoading}
       // People data
-      people={people}
+      people={peopleInBranchScope}
       studentChoices={studentChoices}
       enrollmentByStudentForAssign={enrollmentByStudent}
       defaultAssignTeacherId={sessionLoggedInTeacherId}

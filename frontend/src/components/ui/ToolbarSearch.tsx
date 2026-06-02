@@ -19,7 +19,7 @@ export default function ToolbarSearch({
   return (
     <div
       className={`relative w-full min-w-0 ${
-        fullWidth ? "" : "max-w-md flex-1"
+        fullWidth ? "" : "min-w-[12rem] max-w-md flex-1"
       } ${className}`}
     >
       <svg

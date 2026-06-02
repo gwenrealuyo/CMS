@@ -93,10 +93,12 @@ This document outlines the mobile responsiveness improvements made across the Ch
 - Currency displays readable on small screens
 
 #### Events (`frontend/src/app/events/page.tsx`)
-- EventCalendar responsive with touch-friendly date cells
-- Filters stack on mobile
-- Search bar full-width on mobile
-- Event cards optimized for mobile viewing
+- Full-width filter toolbar (search + type) stacks on mobile; filter chips wrap below
+- Calendar and agenda panel stack vertically on mobile; side-by-side on `lg+`
+- Calendar collapsible on mobile via toggle; agenda remains accessible below
+- Card-style agenda rows with clear borders; location visible on mobile
+- Compact agenda rows with 44px touch targets; row tap opens edit modal
+- Agenda panel scrolls independently on desktop (`sticky` + max-height)
 
 #### Auth Pages (Login, Forgot Password, Change Password)
 - Centered forms with responsive padding

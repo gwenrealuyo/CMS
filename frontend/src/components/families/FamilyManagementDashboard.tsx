@@ -9,6 +9,7 @@ import {
   TOOLBAR_BRANCH_SELECT_CLASS,
   TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
+  TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
 } from "@/src/lib/toolbarStyles";
 import ActionMenu from "./ActionMenu";
 import FamilyFilterDropdown from "./FamilyFilterDropdown";
@@ -664,7 +665,8 @@ export default function FamilyManagementDashboard({
 
       {/* Header */}
       <div className={TOOLBAR_CARD_CLASS}>
-        <div className="flex flex-col gap-3">
+        {/* Mobile — stacked 3-row toolbar */}
+        <div className="flex flex-col gap-3 md:hidden">
           <ToolbarSearch
             fullWidth
             value={searchQuery}
@@ -676,7 +678,7 @@ export default function FamilyManagementDashboard({
             ariaLabel="Search families"
           />
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between gap-3">
             {renderFamilyBranchSelect()}
             <ViewModeToggle
               viewMode={viewMode}
@@ -735,9 +737,7 @@ export default function FamilyManagementDashboard({
                   key={index}
                   className="inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium chip-primary"
                 >
-                  <span className="max-w-[150px] truncate md:max-w-none">
-                    {filter.label}
-                  </span>
+                  <span className="max-w-[150px] truncate">{filter.label}</span>
                   <button
                     onClick={() => {
                       const newFilters = familyFilters.filter(
@@ -770,12 +770,121 @@ export default function FamilyManagementDashboard({
                   setFamilyFilters([]);
                   setFamilyPage(1);
                 }}
-                className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700 md:min-h-0"
+                className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
               >
                 Clear All
               </button>
             </div>
           )}
+        </div>
+
+        {/* Desktop — single-row toolbar */}
+        <div className="hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <ToolbarSearch
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setFamilyPage(1);
+              }}
+              placeholder="Search families…"
+              ariaLabel="Search families"
+            />
+            {renderFamilyBranchSelect()}
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <ViewModeToggle
+              compact
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+            {familyFilters.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {familyFilters.map((filter, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium chip-primary"
+                  >
+                    <span className="max-w-none truncate">{filter.label}</span>
+                    <button
+                      onClick={() => {
+                        const newFilters = familyFilters.filter(
+                          (_, i) => i !== index
+                        );
+                        setFamilyFilters(newFilters);
+                        setFamilyPage(1);
+                      }}
+                      className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
+                      aria-label="Remove filter"
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+                <button
+                  onClick={() => {
+                    setFamilyFilters([]);
+                    setFamilyPage(1);
+                  }}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
+            <button
+              ref={sortButtonRef}
+              onClick={() => setShowSortDropdown(!showSortDropdown)}
+              className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
+            >
+              <svg
+                className="w-4 h-4 mr-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                />
+              </svg>
+              Sort {sortOrder === "asc" ? "↑" : "↓"}
+            </button>
+            <button
+              ref={familyFilterButtonRef}
+              onClick={handleFamilyFilterClick}
+              className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
+            >
+              <svg
+                className="w-4 h-4 mr-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              Filter
+            </button>
+          </div>
         </div>
       </div>
 

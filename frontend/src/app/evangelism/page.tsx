@@ -70,6 +70,7 @@ import {
   TOOLBAR_ACTION_BUTTON_CLASS,
   TOOLBAR_ACTIONS_ROW_CLASS,
   TOOLBAR_CARD_CLASS,
+  TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
 } from "@/src/lib/toolbarStyles";
 import {
   effectiveListViewMode,
@@ -1241,7 +1242,8 @@ export default function EvangelismPage() {
           <div className="space-y-6">
             {/* Filters */}
             <div className={TOOLBAR_CARD_CLASS}>
-              <div className="flex flex-col gap-3">
+              {/* Mobile — stacked 3-row toolbar */}
+              <div className="flex flex-col gap-3 md:hidden">
                 <ToolbarSearch
                   fullWidth
                   value={searchValue}
@@ -1250,7 +1252,7 @@ export default function EvangelismPage() {
                   ariaLabel="Search groups"
                 />
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center justify-between gap-3">
                   {renderEvangelismGroupsBranchSelect()}
                   <ViewModeToggle
                     viewMode={groupListViewMode}
@@ -1262,7 +1264,7 @@ export default function EvangelismPage() {
                   <button
                     type="button"
                     onClick={handleToggleGroupSelectionMode}
-                    className={`inline-flex min-h-[44px] shrink-0 items-center border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring sm:min-h-0 ${
+                    className={`inline-flex min-h-[44px] shrink-0 items-center border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ${
                       isGroupSelectionMode
                         ? "rounded-lg border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
                         : "rounded-lg border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -1350,7 +1352,7 @@ export default function EvangelismPage() {
                         key={filter.id}
                         className="chip-primary inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium"
                       >
-                        <span className="max-w-[150px] truncate md:max-w-none">
+                        <span className="max-w-[150px] truncate">
                           {filter.label}
                         </span>
                         <button
@@ -1382,12 +1384,157 @@ export default function EvangelismPage() {
                     <button
                       type="button"
                       onClick={() => setGroupActiveFilters([])}
-                      className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700 md:min-h-0"
+                      className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
                     >
                       Clear All
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* Desktop — single-row toolbar */}
+              <div className="hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <ToolbarSearch
+                    value={searchValue}
+                    onChange={handleSearchChange}
+                    placeholder="Search groups…"
+                    ariaLabel="Search groups"
+                  />
+                  {renderEvangelismGroupsBranchSelect()}
+                  <ViewModeToggle
+                    compact
+                    viewMode={groupListViewMode}
+                    onViewModeChange={setGroupListViewMode}
+                  />
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleGroupSelectionMode}
+                    className={`inline-flex shrink-0 items-center border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ${
+                      isGroupSelectionMode
+                        ? "rounded-lg border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                        : "rounded-lg border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <svg
+                      className={`mr-1 h-4 w-4 shrink-0 ${
+                        isGroupSelectionMode ? "text-primary" : "text-gray-500"
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {isGroupSelectionMode ? "Cancel Selection" : "Select"}
+                  </button>
+                  {isGroupSelectionMode && selectedGroups.size > 0 && (
+                    <BulkActionsMenu
+                      onBulkMarkInactive={handleBulkMarkInactive}
+                      onBulkDelete={handleBulkDeleteGroups}
+                      onBulkExport={(format) => void handleBulkExportGroups(format)}
+                      selectedCount={selectedGroups.size}
+                    />
+                  )}
+                  {groupActiveFilters.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {groupActiveFilters.map((filter) => (
+                        <span
+                          key={filter.id}
+                          className="chip-primary inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium"
+                        >
+                          <span className="max-w-none truncate">{filter.label}</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGroupActiveFilters((prev) =>
+                                prev.filter((f) => f.id !== filter.id)
+                              )
+                            }
+                            className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
+                            aria-label="Remove filter"
+                          >
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setGroupActiveFilters([])}
+                        className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      handleGroupSortDropdown(
+                        (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
+                      )
+                    }
+                    className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
+                  >
+                    <svg
+                      className="mr-1 h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                      />
+                    </svg>
+                    Sort {groupSortOrder === "asc" ? "↑" : "↓"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      handleGroupAddFilter(
+                        (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
+                      )
+                    }
+                    className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
+                  >
+                    <svg
+                      className="mr-1 h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    Filter
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2039,6 +2186,30 @@ export default function EvangelismPage() {
   );
 }
 
+function getEvangelismMemberModalErrorMessage(
+  err: unknown,
+  fallback: string
+): string {
+  if (typeof err !== "object" || err === null || !("response" in err)) {
+    return fallback;
+  }
+  const errorData = (
+    err as { response?: { data?: Record<string, unknown> } }
+  ).response?.data;
+  if (!errorData) return fallback;
+  if (typeof errorData.detail === "string") return errorData.detail;
+  const firstError = Object.values(errorData)[0];
+  if (Array.isArray(firstError) && firstError.length > 0) {
+    return String(firstError[0]);
+  }
+  if (typeof firstError === "string") return firstError;
+  return fallback;
+}
+
+function isEvangelismGroupMemberCandidate(person: Person): boolean {
+  return isSelectablePerson(person) && person.role !== "VISITOR";
+}
+
 // Add Member Modal Content Component
 function AddMemberModalContent({
   groupId,
@@ -2066,7 +2237,8 @@ function AddMemberModalContent({
     () =>
       people.filter(
         (p) =>
-          p.role !== "VISITOR" && !existingMemberIds.includes(p.id.toString())
+          isEvangelismGroupMemberCandidate(p) &&
+          !existingMemberIds.includes(p.id.toString())
       ),
     [people, existingMemberIds]
   );
@@ -2089,13 +2261,14 @@ function AddMemberModalContent({
     try {
       setLoading(true);
       setError(null);
-      const next = Array.from(
-        new Set([...existingMemberIds.map(Number), Number(selectedPersonId)])
-      ).filter((n) => Number.isFinite(n));
-      await evangelismApi.updateGroup(groupId, { members: next });
+      await evangelismApi.enroll(groupId, {
+        person_ids: [Number(selectedPersonId)],
+      });
       onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to add member");
+    } catch (err: unknown) {
+      setError(
+        getEvangelismMemberModalErrorMessage(err, "Failed to add member")
+      );
     } finally {
       setLoading(false);
     }
@@ -2166,7 +2339,8 @@ function BulkEnrollModalContent({
     () =>
       people.filter(
         (p) =>
-          p.role !== "VISITOR" && !existingMemberIds.includes(p.id.toString())
+          isEvangelismGroupMemberCandidate(p) &&
+          !existingMemberIds.includes(p.id.toString())
       ),
     [people, existingMemberIds]
   );
@@ -2206,8 +2380,10 @@ function BulkEnrollModalContent({
         person_ids: selectedPersonIds.map(Number),
       });
       onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to enroll members");
+    } catch (err: unknown) {
+      setError(
+        getEvangelismMemberModalErrorMessage(err, "Failed to enroll members")
+      );
     } finally {
       setLoading(false);
     }

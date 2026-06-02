@@ -1059,12 +1059,6 @@ export default function LessonsPageContainer() {
     setProgressStatusFilter(value);
   };
 
-  const handleResetProgressFilters = () => {
-    setProgressFilterLessonId(null);
-    setProgressStatusFilter("ALL");
-    setProgressSearchQuery("");
-  };
-
   const handleProgressSortChange = (field: ProgressSortField) => {
     if (progressSortField === field) {
       setProgressSortDirection((previous) =>
@@ -1503,7 +1497,6 @@ export default function LessonsPageContainer() {
       onProgressFilterChange={handleProgressFilterChange}
       onProgressSearchQueryChange={handleProgressSearchQueryChange}
       onProgressStatusFilterChange={handleProgressStatusFilterChange}
-      onResetProgressFilters={handleResetProgressFilters}
       onProgressSortChange={handleProgressSortChange}
       onOpenPersonProgressModal={openPersonProgressModal}
       onClosePersonProgressModal={closePersonProgressModal}

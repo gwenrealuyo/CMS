@@ -1082,7 +1082,7 @@ export const evangelismApi = {
   createGroup: (data: EvangelismGroupWrite) =>
     api.post<EvangelismGroup>("/evangelism/groups/", data),
   updateGroup: (id: number | string, data: EvangelismGroupWrite) =>
-    api.put<EvangelismGroup>(`/evangelism/groups/${id}/`, data),
+    api.patch<EvangelismGroup>(`/evangelism/groups/${id}/`, data),
   deleteGroup: (id: number | string) => api.delete(`/evangelism/groups/${id}/`),
   enroll: (groupId: number | string, payload: BulkEnrollData) =>
     api.post<{ created: number; message: string }>(

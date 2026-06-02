@@ -36,6 +36,7 @@ import {
   TOOLBAR_ACTION_BUTTON_CLASS,
   TOOLBAR_BRANCH_SELECT_CLASS,
   TOOLBAR_CARD_CLASS,
+  TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
 } from "@/src/lib/toolbarStyles";
 
 interface Each1Reach1DashboardProps {
@@ -389,10 +390,77 @@ export default function Each1Reach1Dashboard({
     );
   };
 
+  const renderEach1BranchSelect = (touchTarget = false) => {
+    const each1BranchInteractive = canChangeBranchFilter && !branchesLoading;
+    const branchSelectEl = (
+      <select
+        aria-label="Filter by branch"
+        aria-disabled={!each1BranchInteractive}
+        tabIndex={each1BranchInteractive ? 0 : -1}
+        value={filterBranch}
+        onChange={(e) => {
+          if (!each1BranchInteractive) return;
+          setFilterBranch(Number(e.target.value) || "");
+        }}
+        disabled={canChangeBranchFilter && branchesLoading}
+        className={`${
+          each1BranchInteractive
+            ? TOOLBAR_BRANCH_SELECT_CLASS
+            : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
+        } ${touchTarget ? "min-h-[44px]" : ""} ${
+          canChangeBranchFilter && branchesLoading
+            ? "cursor-wait bg-gray-50 text-gray-500"
+            : ""
+        }`}
+      >
+        {canChangeBranchFilter ? (
+          <>
+            <option value="">All branches</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </>
+        ) : user?.branch != null ? (
+          <>
+            {branches
+              .filter((b) => Number(b.id) === Number(user.branch))
+              .map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            {!branches.some((b) => Number(b.id) === Number(user.branch)) && (
+              <option value={Number(user.branch)}>
+                {user.branch_name?.trim() ?? `Branch #${user.branch}`}
+              </option>
+            )}
+          </>
+        ) : (
+          <option value="">No branch assigned</option>
+        )}
+      </select>
+    );
+    return !canChangeBranchFilter ? (
+      <LockedControlTooltip
+        label={EVANGELISM_BRANCH_LOCKED_HINT}
+        wrapperClassName={`block min-w-0 w-full cursor-default ${
+          touchTarget ? "" : "md:w-52 md:shrink-0"
+        }`}
+      >
+        {branchSelectEl}
+      </LockedControlTooltip>
+    ) : (
+      branchSelectEl
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className={TOOLBAR_CARD_CLASS}>
-        <div className="flex flex-col gap-3">
+        {/* Mobile — stacked 3-row toolbar */}
+        <div className="flex flex-col gap-3 md:hidden">
           <EvangelismToolbarSearch
             value={searchInput}
             onChange={setSearchInput}
@@ -401,73 +469,8 @@ export default function Each1Reach1Dashboard({
             fullWidth
           />
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {(() => {
-              const each1BranchInteractive =
-                canChangeBranchFilter && !branchesLoading;
-              const branchSelectEl = (
-                <select
-                  aria-label="Filter by branch"
-                  aria-disabled={!each1BranchInteractive}
-                  tabIndex={each1BranchInteractive ? 0 : -1}
-                  value={filterBranch}
-                  onChange={(e) => {
-                    if (!each1BranchInteractive) return;
-                    setFilterBranch(Number(e.target.value) || "");
-                  }}
-                  disabled={canChangeBranchFilter && branchesLoading}
-                  className={`${
-                    each1BranchInteractive
-                      ? TOOLBAR_BRANCH_SELECT_CLASS
-                      : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
-                  } min-h-[44px] sm:min-h-0 ${
-                    canChangeBranchFilter && branchesLoading
-                      ? "cursor-wait bg-gray-50 text-gray-500"
-                      : ""
-                  }`}
-                >
-                  {canChangeBranchFilter ? (
-                    <>
-                      <option value="">All branches</option>
-                      {branches.map((branch) => (
-                        <option key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </option>
-                      ))}
-                    </>
-                  ) : user?.branch != null ? (
-                    <>
-                      {branches
-                        .filter((b) => Number(b.id) === Number(user.branch))
-                        .map((branch) => (
-                          <option key={branch.id} value={branch.id}>
-                            {branch.name}
-                          </option>
-                        ))}
-                      {!branches.some(
-                        (b) => Number(b.id) === Number(user.branch),
-                      ) && (
-                        <option value={Number(user.branch)}>
-                          {user.branch_name?.trim() ?? `Branch #${user.branch}`}
-                        </option>
-                      )}
-                    </>
-                  ) : (
-                    <option value="">No branch assigned</option>
-                  )}
-                </select>
-              );
-              return !canChangeBranchFilter ? (
-                <LockedControlTooltip
-                  label={EVANGELISM_BRANCH_LOCKED_HINT}
-                  wrapperClassName="block min-w-0 w-full sm:w-52 sm:shrink-0 cursor-default"
-                >
-                  {branchSelectEl}
-                </LockedControlTooltip>
-              ) : (
-                branchSelectEl
-              );
-            })()}
+          <div className="flex items-center justify-between gap-3">
+            {renderEach1BranchSelect(true)}
             <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </div>
 
@@ -478,7 +481,7 @@ export default function Each1Reach1Dashboard({
               onChange={(e) =>
                 setFilterYear(Number(e.target.value) || currentYear)
               }
-              className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm sm:min-h-0 sm:w-auto sm:flex-none"
+              className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
               min={currentYear - 10}
               max={currentYear + 10}
               aria-label="Filter by year"
@@ -487,7 +490,7 @@ export default function Each1Reach1Dashboard({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm sm:min-h-0 sm:w-auto sm:flex-none"
+              className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
               aria-label="Filter by status"
             >
               <option value="ALL">All status</option>
@@ -504,9 +507,62 @@ export default function Each1Reach1Dashboard({
             </button>
             <Button
               variant="primary"
-              className="min-h-[44px] w-full sm:min-h-0 sm:w-auto"
+              className="min-h-[44px] w-full"
               onClick={openCreateGoalModal}
             >
+              Create Goal
+            </Button>
+          </div>
+        </div>
+
+        {/* Desktop — single-row toolbar */}
+        <div className="hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <EvangelismToolbarSearch
+              value={searchInput}
+              onChange={setSearchInput}
+              placeholder="Search groups…"
+              ariaLabel="Search by cluster or evangelism group name"
+            />
+            {renderEach1BranchSelect()}
+            <ViewModeToggle
+              compact
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <input
+              type="number"
+              value={filterYear}
+              onChange={(e) =>
+                setFilterYear(Number(e.target.value) || currentYear)
+              }
+              className="w-auto rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              min={currentYear - 10}
+              max={currentYear + 10}
+              aria-label="Filter by year"
+              placeholder="Year"
+            />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              aria-label="Filter by status"
+            >
+              <option value="ALL">All status</option>
+              <option value="NOT_STARTED">Not Started</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
+            >
+              Reset
+            </button>
+            <Button variant="primary" className="text-sm" onClick={openCreateGoalModal}>
               Create Goal
             </Button>
           </div>

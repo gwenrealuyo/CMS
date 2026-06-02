@@ -10,7 +10,6 @@ import { evangelismApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 import {
-  effectiveListViewMode,
   getInitialListViewMode,
   useIsMdUp,
 } from "@/src/lib/listViewMode";
@@ -38,7 +37,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
     getInitialListViewMode("cards"),
   );
   const isMdUp = useIsMdUp();
-  const effectiveViewMode = effectiveListViewMode(viewMode, isMdUp);
+  const effectiveViewMode: "table" | "cards" = isMdUp ? "table" : viewMode;
 
   const openWeeklyDrilldown = (
     row: EvangelismTallyRow,
@@ -122,9 +121,9 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
           </div>
         ) : (
           <>
-            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-3 flex flex-col gap-2 md:hidden">
               <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-              {viewMode === "table" && !isMdUp && (
+              {viewMode === "table" && (
                 <span className="text-xs text-gray-500">
                   Table scrolls horizontally.
                 </span>

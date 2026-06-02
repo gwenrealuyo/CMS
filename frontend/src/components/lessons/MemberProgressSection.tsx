@@ -22,8 +22,6 @@ import {
   useIsMdUp,
 } from "@/src/lib/listViewMode";
 import {
-  TOOLBAR_ACTIONS_ROW_CLASS,
-  TOOLBAR_ACTION_BUTTON_CLASS,
   TOOLBAR_CARD_CLASS,
 } from "@/src/lib/toolbarStyles";
 
@@ -49,7 +47,6 @@ interface MemberProgressSectionProps {
   onProgressSearchQueryChange: (value: string) => void;
   progressStatusFilter: ProgressStatusFilter;
   onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
-  onResetProgressFilters: () => void;
   progressSortField: ProgressSortField;
   progressSortDirection: "asc" | "desc";
   onProgressSortChange: (field: ProgressSortField) => void;
@@ -91,7 +88,6 @@ export default function MemberProgressSection({
   onProgressSearchQueryChange,
   progressStatusFilter,
   onProgressStatusFilterChange,
-  onResetProgressFilters,
   progressSortField,
   progressSortDirection,
   onProgressSortChange,
@@ -124,7 +120,8 @@ export default function MemberProgressSection({
         </p>
 
         <div className={TOOLBAR_CARD_CLASS}>
-          <div className="flex flex-col gap-3">
+          {/* Mobile — stacked full-width controls */}
+          <div className="flex flex-col gap-3 md:hidden">
             <ToolbarSearch
               fullWidth
               value={progressSearchQuery}
@@ -133,8 +130,13 @@ export default function MemberProgressSection({
               ariaLabel="Search student"
             />
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+            <ViewModeToggle
+              className="w-full"
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+
+            <div className="w-full">
               <AssignLessonsDropdown
                 allLessons={activeLatestLessons}
                 people={people}
@@ -150,47 +152,103 @@ export default function MemberProgressSection({
               />
             </div>
 
-            <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
-              <select
-                className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm sm:min-h-0 sm:w-auto sm:flex-none"
-                value={progressFilterLessonId || ""}
-                onChange={(e) =>
-                  onProgressFilterChange(
-                    e.target.value ? Number(e.target.value) : null,
-                  )
-                }
-                aria-label="Filter by lesson"
-              >
-                <option value="">All lessons</option>
-                {activeLatestLessons.map((lesson) => (
-                  <option key={lesson.id} value={lesson.id}>
-                    {lesson.title}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={progressStatusFilter}
-                onChange={(e) =>
-                  onProgressStatusFilterChange(
-                    e.target.value as ProgressStatusFilter,
-                  )
-                }
-                className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm sm:min-h-0 sm:w-auto sm:flex-none"
-                aria-label="Filter by status"
-              >
+            <select
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              value={progressFilterLessonId || ""}
+              onChange={(e) =>
+                onProgressFilterChange(
+                  e.target.value ? Number(e.target.value) : null,
+                )
+              }
+              aria-label="Filter by lesson"
+            >
+              <option value="">All lessons</option>
+              {activeLatestLessons.map((lesson) => (
+                <option key={lesson.id} value={lesson.id}>
+                  {lesson.title}
+                </option>
+              ))}
+            </select>
+            <select
+              value={progressStatusFilter}
+              onChange={(e) =>
+                onProgressStatusFilterChange(
+                  e.target.value as ProgressStatusFilter,
+                )
+              }
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              aria-label="Filter by status"
+            >
                 <option value="ALL">All status</option>
                 <option value="ASSIGNED">Assigned</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="COMPLETED">Completed</option>
                 <option value="SKIPPED">Skipped</option>
-              </select>
-              <button
-                type="button"
-                onClick={onResetProgressFilters}
-                className={TOOLBAR_ACTION_BUTTON_CLASS}
-              >
-                Reset
-              </button>
+            </select>
+          </div>
+
+          {/* Desktop — single full-width row */}
+          <div className="hidden md:flex md:w-full md:items-center md:gap-2">
+            <ToolbarSearch
+              className="min-w-0 max-w-none flex-[2]"
+              value={progressSearchQuery}
+              onChange={onProgressSearchQueryChange}
+              placeholder="Search student..."
+              ariaLabel="Search student"
+            />
+            <ViewModeToggle
+              compact
+              className="shrink-0"
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+            <select
+              className="min-w-0 max-w-[9rem] flex-1 truncate rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              value={progressFilterLessonId || ""}
+              onChange={(e) =>
+                onProgressFilterChange(
+                  e.target.value ? Number(e.target.value) : null,
+                )
+              }
+              aria-label="Filter by lesson"
+            >
+              <option value="">All lessons</option>
+              {activeLatestLessons.map((lesson) => (
+                <option key={lesson.id} value={lesson.id}>
+                  {lesson.title}
+                </option>
+              ))}
+            </select>
+            <select
+              value={progressStatusFilter}
+              onChange={(e) =>
+                onProgressStatusFilterChange(
+                  e.target.value as ProgressStatusFilter,
+                )
+              }
+              className="min-w-0 max-w-[8rem] flex-1 truncate rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              aria-label="Filter by status"
+            >
+              <option value="ALL">All status</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="SKIPPED">Skipped</option>
+            </select>
+            <div className="shrink-0">
+              <AssignLessonsDropdown
+                allLessons={activeLatestLessons}
+                people={people}
+                peopleLoading={peopleLoading}
+                peopleError={peopleError}
+                assigning={assigning}
+                assignError={assignError}
+                onAssignLessons={onAssignLessons}
+                enrollmentByStudent={enrollmentByStudent}
+                assignedStudentIds={assignedStudentIds}
+                defaultTeacherId={defaultTeacherId}
+                teacherChoices={teacherChoices}
+              />
             </div>
           </div>
         </div>

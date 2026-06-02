@@ -13,17 +13,31 @@ import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import EventCalendar from "@/src/components/events/EventCalendar";
-import EventCard from "@/src/components/events/EventCard";
 import EventForm from "@/src/components/events/EventForm";
 import EventView from "@/src/components/events/EventView";
-import { Event, EventOccurrence } from "@/src/types/event";
+import EventsFilterToolbar from "@/src/components/events/EventsFilterToolbar";
+import EventAgendaPanel from "@/src/components/events/EventAgendaPanel";
+import { Event } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
+import {
+  buildAgendaGroups,
+  EventCardItem,
+} from "@/src/lib/events/agenda";
 
-type EventCardItem = {
-  id: string;
-  event: Event;
-  occurrence: EventOccurrence;
-};
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 export default function EventsPage() {
   const searchParams = useSearchParams();
@@ -53,44 +67,25 @@ export default function EventsPage() {
   const [calendarMonthDate, setCalendarMonthDate] = useState<Date>(
     () => new Date()
   );
-  const [filterMonth, setFilterMonth] = useState<string>(
-    () => new Date().getMonth().toString()
-  );
   const [showCalendar, setShowCalendar] = useState(true);
   const [filterType, setFilterType] = useState<string>("all");
-  const [filterYear, setFilterYear] = useState<string>("all");
+  const [filterMonth, setFilterMonth] = useState<string>(() =>
+    new Date().getMonth().toString()
+  );
+  const [filterYear, setFilterYear] = useState<string>(() =>
+    new Date().getFullYear().toString()
+  );
   const [yearFilterInitialized, setYearFilterInitialized] = useState(false);
   const currentYear = new Date().getFullYear().toString();
-  const isMonthFilterDefault =
-    filterMonth !== "all" &&
-    Number(filterMonth) === calendarMonthDate.getMonth();
-  const shouldShowMonthBadge = filterMonth !== "all";
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
 
   const {
     events,
     eventTypes,
-    calendarEvents,
     loading,
     error,
     createEvent,
     updateEvent,
     deleteEvent,
-    refreshEvents,
-    getEvent,
     listAttendance,
     addAttendance,
     removeAttendance,
@@ -105,24 +100,20 @@ export default function EventsPage() {
     }
   }, [action, pathname, router]);
 
-  // Debounced search for better performance
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
     setIsSearching(true);
 
-    // Clear existing timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Set new timeout for debounced search
     searchTimeoutRef.current = setTimeout(() => {
       setDebouncedSearchQuery(query);
       setIsSearching(false);
-    }, 300); // 300ms delay
+    }, 300);
   }, []);
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) {
@@ -166,11 +157,9 @@ export default function EventsPage() {
     });
   }, [events]);
 
-  // Memoized search and filter function
-  const filteredEventCards = useMemo(() => {
+  const baseFilteredItems = useMemo(() => {
     let filtered = eventCardItems;
 
-    // Apply search query filter
     if (debouncedSearchQuery) {
       const lowerQuery = debouncedSearchQuery.toLowerCase();
       filtered = filtered.filter((item) => {
@@ -186,62 +175,72 @@ export default function EventsPage() {
       });
     }
 
-    // Apply type filter
     if (filterType !== "all") {
       filtered = filtered.filter((item) => item.event.type === filterType);
     }
 
-    if (filterYear !== "all") {
+    const yearValue = Number(filterYear);
+    if (!Number.isNaN(yearValue)) {
       filtered = filtered.filter((item) => {
-        const year = new Date(item.occurrence.start_date).getFullYear();
-        if (Number.isNaN(year)) return false;
-        return year.toString() === filterYear;
+        const occurrenceDate = new Date(item.occurrence.start_date);
+        return occurrenceDate.getFullYear() === yearValue;
       });
     }
 
     if (filterMonth !== "all") {
-      const monthValue = Number(filterMonth);
-      if (!Number.isNaN(monthValue)) {
-        const yearValue =
-          filterYear !== "all"
-            ? Number(filterYear)
-            : calendarMonthDate.getFullYear();
+      const month = Number(filterMonth);
+      if (!Number.isNaN(month)) {
         filtered = filtered.filter((item) => {
           const occurrenceDate = new Date(item.occurrence.start_date);
-          return (
-            occurrenceDate.getMonth() === monthValue &&
-            occurrenceDate.getFullYear() === yearValue
-          );
+          return occurrenceDate.getMonth() === month;
         });
       }
     }
 
-    // Apply date filter
-    if (selectedDate) {
-      filtered = filtered.filter((item) => {
-        const occurrenceDate = new Date(item.occurrence.start_date);
-        return (
-          occurrenceDate.getDate() === selectedDate.getDate() &&
-          occurrenceDate.getMonth() === selectedDate.getMonth() &&
-          occurrenceDate.getFullYear() === selectedDate.getFullYear()
-        );
-      });
-    }
-
-    // Sort by start date (most recent first)
     return filtered.sort((a, b) => {
       const dateA = new Date(a.occurrence.start_date).getTime();
       const dateB = new Date(b.occurrence.start_date).getTime();
-      return dateB - dateA;
+      return dateA - dateB;
     });
-  }, [
-    debouncedSearchQuery,
-    eventCardItems,
-    filterMonth,
-    filterType,
-    filterYear,
-    selectedDate,
-  ]);
+  }, [debouncedSearchQuery, eventCardItems, filterType, filterMonth, filterYear]);
+
+  const filteredCalendarEvents = useMemo(
+    () =>
+      baseFilteredItems.map((item) => ({
+        start_date: item.occurrence.start_date,
+      })),
+    [baseFilteredItems]
+  );
+
+  const agendaGroups = useMemo(() => {
+    const yearValue = Number(filterYear);
+    const monthDate =
+      filterMonth === "all"
+        ? null
+        : new Date(yearValue, Number(filterMonth), 1);
+
+    return buildAgendaGroups(baseFilteredItems, {
+      selectedDate,
+      monthDate: selectedDate ? null : monthDate,
+      yearOnly:
+        selectedDate || filterMonth !== "all" || Number.isNaN(yearValue)
+          ? null
+          : yearValue,
+    });
+  }, [baseFilteredItems, selectedDate, filterMonth, filterYear]);
+
+  const isDefaultDateFilter =
+    filterMonth === new Date().getMonth().toString() &&
+    filterYear === currentYear &&
+    filterMonth !== "all";
+
+  const hasActiveFilters =
+    Boolean(searchQuery) ||
+    filterType !== "all" ||
+    selectedDate !== null ||
+    filterMonth === "all" ||
+    filterYear !== currentYear ||
+    !isDefaultDateFilter;
 
   useEffect(() => {
     if (!viewEditEvent) return;
@@ -310,20 +309,12 @@ export default function EventsPage() {
     });
   };
 
-  const handleViewEvent = useCallback(
-    async (selected: Event, occurrenceStartDate?: string) => {
-      setViewEditEvent(selected);
-      setViewOccurrenceDate(occurrenceStartDate ?? null);
-      setViewMode("view");
-      setIsModalOpen(true);
-      try {
-        await getEvent(selected.id, { include_attendance: true });
-      } catch (error) {
-        console.error("Failed to load event details", error);
-      }
-    },
-    [getEvent]
-  );
+  const handleEditItem = useCallback((item: EventCardItem) => {
+    setViewEditEvent(item.event);
+    setViewOccurrenceDate(null);
+    setViewMode("edit");
+    setIsModalOpen(true);
+  }, []);
 
   const handleDateClick = (date: Date) => {
     if (
@@ -332,7 +323,6 @@ export default function EventsPage() {
       selectedDate.getMonth() === date.getMonth() &&
       selectedDate.getFullYear() === date.getFullYear()
     ) {
-      // Clicking the same date clears the filter
       setSelectedDate(null);
     } else {
       setSelectedDate(date);
@@ -352,24 +342,53 @@ export default function EventsPage() {
 
       setCalendarMonthDate(date);
       setSelectedDate(null);
+      setFilterYear(date.getFullYear().toString());
+      if (filterMonth !== "all") {
+        setFilterMonth(date.getMonth().toString());
+      }
     },
-    [calendarMonthDate]
+    [calendarMonthDate, filterMonth]
   );
 
-  const handleMonthFilterChange = (nextMonth: string) => {
-    setFilterMonth(nextMonth);
-    if (nextMonth !== "all") {
-      const monthValue = Number(nextMonth);
-      if (!Number.isNaN(monthValue)) {
-        const nextYear =
-          filterYear !== "all"
-            ? Number(filterYear)
-            : calendarMonthDate.getFullYear();
-        setCalendarMonthDate(new Date(nextYear, monthValue, 1));
-      }
-    } else if (filterYear === "all") {
-      setFilterYear(calendarMonthDate.getFullYear().toString());
+  const handleMonthFilterChange = (monthValue: string) => {
+    if (monthValue === "all") {
+      setFilterMonth("all");
+      setSelectedDate(null);
+      return;
     }
+    const month = Number(monthValue);
+    if (Number.isNaN(month)) return;
+    setFilterMonth(monthValue);
+    setCalendarMonthDate(new Date(Number(filterYear), month, 1));
+    setSelectedDate(null);
+  };
+
+  const handleYearFilterChange = (yearValue: string) => {
+    const year = Number(yearValue);
+    if (Number.isNaN(year)) return;
+    setFilterYear(yearValue);
+    const month =
+      filterMonth !== "all" ? Number(filterMonth) : calendarMonthDate.getMonth();
+    setCalendarMonthDate(new Date(year, month, 1));
+    setSelectedDate(null);
+  };
+
+  const clearMonthFilter = () => {
+    const now = new Date();
+    setFilterMonth(now.getMonth().toString());
+    setFilterYear(now.getFullYear().toString());
+    setCalendarMonthDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    setSelectedDate(null);
+  };
+
+  const clearYearFilter = () => {
+    const now = new Date();
+    setFilterYear(now.getFullYear().toString());
+    const month =
+      filterMonth !== "all" ? Number(filterMonth) : calendarMonthDate.getMonth();
+    setCalendarMonthDate(
+      new Date(now.getFullYear(), month, 1)
+    );
     setSelectedDate(null);
   };
 
@@ -377,28 +396,25 @@ export default function EventsPage() {
     setSelectedDate(null);
   };
 
-  const clearMonthFilter = () => {
-    setFilterMonth(calendarMonthDate.getMonth().toString());
-    setSelectedDate(null);
-  };
-
   const clearTypeFilter = () => {
     setFilterType("all");
-  };
-
-  const clearYearFilter = () => {
-    setFilterYear("all");
   };
 
   const clearAllFilters = () => {
     setSearchQuery("");
     setDebouncedSearchQuery("");
     setFilterType("all");
-    setFilterYear("all");
     setSelectedDate(null);
     const now = new Date();
     setFilterMonth(now.getMonth().toString());
-    setCalendarMonthDate(now);
+    setFilterYear(now.getFullYear().toString());
+    setCalendarMonthDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  };
+
+  const openCreateModal = () => {
+    setViewEditEvent(null);
+    setViewMode("edit");
+    setIsModalOpen(true);
   };
 
   const eventTypeFilterOptions = useMemo(
@@ -415,78 +431,152 @@ export default function EventsPage() {
   );
 
   const availableYears = useMemo(() => {
-    const years = new Set<string>();
+    const years = new Set<number>();
 
-    events.forEach((event) => {
-      if (event.start_date) {
-        const year = new Date(event.start_date).getFullYear();
-        if (!Number.isNaN(year)) years.add(year.toString());
-      }
-
-      if (event.next_occurrence?.start_date) {
-        const year = new Date(event.next_occurrence.start_date).getFullYear();
-        if (!Number.isNaN(year)) years.add(year.toString());
-      }
-
-      if (event.occurrences && event.occurrences.length > 0) {
-        event.occurrences.forEach((occurrence) => {
-          const occurrenceYear = new Date(occurrence.start_date).getFullYear();
-          if (!Number.isNaN(occurrenceYear)) {
-            years.add(occurrenceYear.toString());
-          }
-        });
+    eventCardItems.forEach((item) => {
+      const year = new Date(item.occurrence.start_date).getFullYear();
+      if (!Number.isNaN(year)) {
+        years.add(year);
       }
     });
 
-    return Array.from(years).sort((a, b) => Number(b) - Number(a));
-  }, [events]);
+    if (years.size === 0) {
+      return [Number(currentYear)];
+    }
+
+    return Array.from(years).sort((a, b) => b - a);
+  }, [eventCardItems, currentYear]);
 
   useEffect(() => {
     if (!yearFilterInitialized) {
-      if (availableYears.includes(currentYear)) {
+      if (availableYears.includes(Number(currentYear))) {
         setFilterYear(currentYear);
         setYearFilterInitialized(true);
       } else if (availableYears.length > 0) {
-        setFilterYear(availableYears[0]);
+        setFilterYear(availableYears[0].toString());
         setYearFilterInitialized(true);
       }
-    } else if (filterYear !== "all" && !availableYears.includes(filterYear)) {
-      if (availableYears.includes(currentYear)) {
-        setFilterYear(currentYear);
-      } else if (availableYears.length > 0) {
-        setFilterYear(availableYears[0]);
-      } else {
-        setFilterYear("all");
-      }
+    } else if (
+      !availableYears.includes(Number(filterYear)) &&
+      availableYears.length > 0
+    ) {
+      const nextYear = availableYears.includes(Number(currentYear))
+        ? Number(currentYear)
+        : availableYears[0];
+      setFilterYear(nextYear.toString());
     }
   }, [availableYears, currentYear, filterYear, yearFilterInitialized]);
 
   useEffect(() => {
-    if (filterYear === "all") return;
-    const nextYear = Number(filterYear);
-    if (Number.isNaN(nextYear)) return;
-    if (calendarMonthDate.getFullYear() !== nextYear) {
-      const monthValue =
-        filterMonth !== "all" && !Number.isNaN(Number(filterMonth))
+    const year = Number(filterYear);
+    if (Number.isNaN(year)) return;
+    if (calendarMonthDate.getFullYear() !== year) {
+      const month =
+        filterMonth !== "all"
           ? Number(filterMonth)
           : calendarMonthDate.getMonth();
-      setCalendarMonthDate(new Date(nextYear, monthValue, 1));
+      setCalendarMonthDate(new Date(year, month, 1));
     }
   }, [calendarMonthDate, filterMonth, filterYear]);
 
+  const monthFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "All Months" },
+      ...MONTH_NAMES.map((label, index) => ({
+        value: index.toString(),
+        label,
+      })),
+    ],
+    []
+  );
+
+  const yearFilterOptions = useMemo(
+    () =>
+      availableYears.map((year) => ({
+        value: year.toString(),
+        label: year.toString(),
+      })),
+    [availableYears]
+  );
+
+  const filterChips = useMemo(() => {
+    const chips: { id: string; label: string; onRemove: () => void }[] = [];
+
+    if (searchQuery) {
+      chips.push({
+        id: "search",
+        label: `Search: ${searchQuery}`,
+        onRemove: () => handleSearchChange(""),
+      });
+    }
+
+    if (filterType !== "all") {
+      chips.push({
+        id: "type",
+        label: `Type: ${
+          eventTypeFilterOptions.find((opt) => opt.value === filterType)
+            ?.label ?? filterType
+        }`,
+        onRemove: clearTypeFilter,
+      });
+    }
+
+    if (filterMonth === "all") {
+      chips.push({
+        id: "month",
+        label: "Month: All Months",
+        onRemove: clearMonthFilter,
+      });
+    } else if (filterMonth !== "all" && !isDefaultDateFilter) {
+      chips.push({
+        id: "month",
+        label: `Month: ${MONTH_NAMES[Number(filterMonth)]}`,
+        onRemove: clearMonthFilter,
+      });
+    }
+
+    if (filterYear !== currentYear) {
+      chips.push({
+        id: "year",
+        label: `Year: ${filterYear}`,
+        onRemove: clearYearFilter,
+      });
+    }
+
+    if (selectedDate) {
+      chips.push({
+        id: "date",
+        label: `Date: ${selectedDate.toLocaleDateString()}`,
+        onRemove: clearDateFilter,
+      });
+    }
+
+    return chips;
+  }, [
+    searchQuery,
+    filterType,
+    filterMonth,
+    filterYear,
+    selectedDate,
+    isDefaultDateFilter,
+    currentYear,
+    eventTypeFilterOptions,
+    handleSearchChange,
+  ]);
+
+  const showClearAll =
+    Boolean(searchQuery) ||
+    filterType !== "all" ||
+    selectedDate !== null ||
+    filterMonth === "all" ||
+    filterYear !== currentYear ||
+    !isDefaultDateFilter;
+
   return (
     <DashboardLayout>
-      {/* Page header with Add Event */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-foreground">Church Events</h1>
-        <Button
-          onClick={() => {
-            setViewEditEvent(null);
-            setViewMode("edit");
-            setIsModalOpen(true);
-          }}
-          className="w-full sm:w-auto min-h-[44px]"
-        >
+        <Button onClick={openCreateModal} className="w-full sm:w-auto min-h-[44px]">
           Add Event
         </Button>
       </div>
@@ -497,409 +587,81 @@ export default function EventsPage() {
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="flex-1 min-w-0">
-          {/* Calendar View */}
-          <div className="mb-6 lg:mb-0">
-            <div className="flex items-center mb-3 gap-2">
-              <h2 className="text-lg font-semibold text-gray-700">Calendar</h2>
-              <Button
-                variant="tertiary"
-                onClick={() => setShowCalendar((prev) => !prev)}
-                className="flex items-center gap-1 text-xs !px-2 !py-1 min-h-[44px] lg:hidden"
-              >
-                <svg
-                  className={`w-4 h-4 transition-transform ${
-                    showCalendar ? "rotate-90" : "rotate-0"
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Button>
-            </div>
-            {!showCalendar && (
-              <div className="lg:hidden mb-3 text-xs text-gray-500">
-                Calendar hidden. Tap the arrow to show it.
-              </div>
-            )}
-            <div className={showCalendar ? "block" : "hidden lg:block"}>
-              <EventCalendar
-                events={calendarEvents}
-                currentMonthDate={calendarMonthDate}
-                onDateClick={handleDateClick}
-                onMonthChange={handleMonthChange}
-                selectedDate={selectedDate}
-              />
-            </div>
-          </div>
-        </div>
+      <EventsFilterToolbar
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        filterType={filterType}
+        typeOptions={eventTypeFilterOptions}
+        onTypeChange={setFilterType}
+        filterMonth={filterMonth}
+        monthOptions={monthFilterOptions}
+        onMonthChange={handleMonthFilterChange}
+        filterYear={filterYear}
+        yearOptions={yearFilterOptions}
+        onYearChange={handleYearFilterChange}
+        chips={filterChips}
+        onClearAll={clearAllFilters}
+        isSearching={isSearching}
+        showClearAll={showClearAll}
+        resultCount={baseFilteredItems.length}
+        totalCount={eventCardItems.length}
+      />
 
-        <div className="w-full lg:w-96 shrink-0 space-y-6 lg:sticky lg:top-6 self-start">
-          {/* Filters */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
-            <div className="flex flex-col gap-4">
-              {/* Search */}
-              <div className="w-full">
-                <div className="relative">
-                  <svg
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Search events..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className={`w-full pl-10 pr-10 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${
-                      searchQuery ? "pr-10" : "pr-4"
-                    }`}
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => handleSearchChange("")}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Type, Month, and Year Filters */}
-              <div className="flex flex-col gap-3">
-                {/* Type Filter */}
-                <div className="w-full">
-                  <select
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-                  >
-                    {eventTypeFilterOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Month Filter */}
-                  <div className="w-full">
-                    <select
-                      value={filterMonth}
-                      onChange={(e) => handleMonthFilterChange(e.target.value)}
-                      className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-                    >
-                      <option value="all">All Months</option>
-                      {monthNames.map((label, index) => (
-                        <option key={label} value={index.toString()}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Year Filter */}
-                  <div className="w-full">
-                    <select
-                      value={filterYear}
-                      onChange={(e) => setFilterYear(e.target.value)}
-                      className="w-full py-2.5 md:py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
-                    >
-                      <option value="all">All Years</option>
-                      {availableYears.map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Clear Filters */}
-                {(searchQuery ||
-                  filterType !== "all" ||
-                  filterYear !== "all" ||
-                  !isMonthFilterDefault ||
-                  selectedDate) && (
-                  <button
-                    onClick={clearAllFilters}
-                    className="px-4 py-2.5 md:py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg border border-gray-300 transition-colors min-h-[44px] md:min-h-0 w-full"
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Active Filters Display */}
-            {(searchQuery ||
-              filterType !== "all" ||
-              filterYear !== "all" ||
-              shouldShowMonthBadge ||
-              selectedDate) && (
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                {searchQuery && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
-                    <span className="mr-1">Search:</span>
-                    <span className="font-medium">{searchQuery}</span>
-                    <button
-                      onClick={() => handleSearchChange("")}
-                      className="ml-2 text-primary hover:text-primary"
-                    >
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                )}
-                {filterType !== "all" && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
-                    Type:{" "}
-                    {
-                      eventTypeFilterOptions.find((opt) => opt.value === filterType)
-                        ?.label
-                    }
-                    <button
-                      onClick={clearTypeFilter}
-                      className="ml-2 text-primary hover:text-primary"
-                    >
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                )}
-                {filterYear !== "all" && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
-                    Year: {filterYear}
-                    <button
-                      onClick={clearYearFilter}
-                      className="ml-2 text-primary hover:text-primary"
-                    >
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                )}
-                {shouldShowMonthBadge && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
-                    Month: {monthNames[Number(filterMonth)]}
-                    <button
-                      onClick={clearMonthFilter}
-                      className="ml-2 text-primary hover:text-primary"
-                    >
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                )}
-                {selectedDate && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium chip-primary">
-                    Date: {selectedDate.toLocaleDateString()}
-                    <button
-                      onClick={clearDateFilter}
-                      className="ml-2 text-primary hover:text-primary"
-                    >
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Search Results Count */}
-          {(searchQuery || filterType !== "all" || selectedDate) && (
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <span>
-                  {isSearching
-                    ? "Searching..."
-                    : `${filteredEventCards.length} event${
-                        filteredEventCards.length !== 1 ? "s" : ""
-                      } found`}
-                </span>
-                {filteredEventCards.length !== eventCardItems.length && (
-                  <span className="text-gray-400">
-                    (of {eventCardItems.length} total)
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Events Grid */}
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex items-center gap-2 text-gray-500">
-                <svg
-                  className="animate-spin h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                <span>Loading events...</span>
-              </div>
-            </div>
-          ) : filteredEventCards.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:grid-cols-[minmax(0,1fr)_minmax(340px,480px)] gap-4 lg:gap-6 lg:items-start">
+        <div className="min-w-0">
+          <div className="flex items-center mb-3 gap-2 lg:hidden">
+            <h2 className="text-lg font-semibold text-gray-700">Calendar</h2>
+            <Button
+              variant="tertiary"
+              onClick={() => setShowCalendar((prev) => !prev)}
+              className="flex items-center gap-1 text-xs !px-2 !py-1 min-h-[44px]"
+              aria-expanded={showCalendar}
+            >
               <svg
-                className="w-12 h-12 text-gray-400 mx-auto mb-4"
+                className={`w-4 h-4 transition-transform ${
+                  showCalendar ? "rotate-90" : "rotate-0"
+                }`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  d="M9 5l7 7-7 7"
                 />
               </svg>
-              <p className="text-lg font-medium text-gray-900 mb-2">
-                No events found
-              </p>
-              <p className="text-gray-500 mb-6">
-                {searchQuery || filterType !== "all" || selectedDate
-                  ? "Try adjusting your filters"
-                  : "Get started by creating your first church event"}
-              </p>
-              {!(searchQuery || filterType !== "all" || selectedDate) && (
-                <Button
-                  onClick={() => {
-                    setViewEditEvent(null);
-                    setViewMode("edit");
-                    setIsModalOpen(true);
-                  }}
-                  className="w-full min-h-[44px]"
-                >
-                  Create Event
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {filteredEventCards.map((item) => (
-                <EventCard
-                  key={item.id}
-                  event={item.event}
-                  occurrenceStartDate={item.occurrence.start_date}
-                  occurrenceEndDate={item.occurrence.end_date}
-                  onView={() =>
-                    handleViewEvent(item.event, item.occurrence.start_date)
-                  }
-                  onEdit={() => {
-                    setViewEditEvent(item.event);
-                    setViewOccurrenceDate(null);
-                    setViewMode("edit");
-                    setIsModalOpen(true);
-                  }}
-                />
-              ))}
+            </Button>
+          </div>
+          {!showCalendar && (
+            <div className="lg:hidden mb-3 text-xs text-gray-500">
+              Calendar hidden. Tap the arrow to show it.
             </div>
           )}
+          <div className={showCalendar ? "block" : "hidden lg:block"}>
+            <EventCalendar
+              events={filteredCalendarEvents}
+              currentMonthDate={calendarMonthDate}
+              onDateClick={handleDateClick}
+              onMonthChange={handleMonthChange}
+              selectedDate={selectedDate}
+            />
+          </div>
         </div>
+
+        <EventAgendaPanel
+          groups={agendaGroups}
+          loading={loading}
+          hasActiveFilters={hasActiveFilters}
+          selectedDate={selectedDate}
+          onEdit={handleEditItem}
+          onClearDate={clearDateFilter}
+          onCreateEvent={openCreateModal}
+        />
       </div>
 
-      {/* Modal for View/Create/Edit Event */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
@@ -912,8 +674,8 @@ export default function EventsPage() {
           viewMode === "view"
             ? "Event Details"
             : viewEditEvent
-            ? "Edit Event"
-            : "Create New Event"
+              ? "Edit Event"
+              : "Create New Event"
         }
         hideHeader={viewMode === "view"}
       >
@@ -963,7 +725,6 @@ export default function EventsPage() {
         )}
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={deleteConfirmation.isOpen}
         onClose={closeDeleteConfirmation}

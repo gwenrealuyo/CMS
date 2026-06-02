@@ -1,6 +1,7 @@
 import { Event } from "@/src/types/event";
 import Card from "@/src/components/ui/Card";
 import Button from "../ui/Button";
+import { getEventTypeChipClass } from "@/src/lib/events/eventTypeStyles";
 
 interface EventCardProps {
   event: Event;
@@ -22,16 +23,6 @@ export default function EventCard({
   const nextEnd =
     occurrenceEndDate || event.next_occurrence?.end_date || event.end_date;
 
-  const getEventTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      SUNDAY_SERVICE: "chip-primary",
-      BIBLE_STUDY: "chip-purple",
-      PRAYER_MEETING: "chip-green",
-      SPECIAL_EVENT: "chip-orange",
-    };
-    return colors[type] || "chip-gray";
-  };
-
   return (
     <Card>
       <div className="space-y-4">
@@ -41,9 +32,7 @@ export default function EventCard({
               {event.title}
             </h3>
             <span
-              className={`mt-2 ${getEventTypeColor(
-                event.type
-              )}`}
+              className={`mt-2 ${getEventTypeChipClass(event.type)}`}
             >
               {event.type_display || event.type}
             </span>

@@ -216,7 +216,6 @@ interface LessonsPageViewProps {
   onProgressFilterChange: (lessonId: number | null) => void;
   onProgressSearchQueryChange: (value: string) => void;
   onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
-  onResetProgressFilters: () => void;
   onProgressSortChange: (field: ProgressSortField) => void;
   onOpenPersonProgressModal: (person: LessonPersonSummary) => void;
   onClosePersonProgressModal: () => void;
@@ -334,7 +333,6 @@ export default function LessonsPageView({
   onProgressFilterChange,
   onProgressSearchQueryChange,
   onProgressStatusFilterChange,
-  onResetProgressFilters,
   onProgressSortChange,
   onOpenPersonProgressModal,
   onClosePersonProgressModal,
@@ -542,7 +540,6 @@ export default function LessonsPageView({
               onProgressSearchQueryChange={onProgressSearchQueryChange}
               progressStatusFilter={progressStatusFilter}
               onProgressStatusFilterChange={onProgressStatusFilterChange}
-              onResetProgressFilters={onResetProgressFilters}
               progressSortField={progressSortField}
               progressSortDirection={progressSortDirection}
               onProgressSortChange={onProgressSortChange}

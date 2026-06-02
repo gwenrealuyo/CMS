@@ -402,11 +402,11 @@ export default function AssignLessonsDropdown({
   );
 
   return (
-    <div className="relative w-full sm:w-auto" ref={containerRef}>
+    <div className="relative w-full md:w-auto" ref={containerRef}>
       <Button
         variant="primary"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full sm:w-auto min-h-[44px]"
+        className="min-h-[44px] w-full md:w-auto"
       >
         Assign Lessons
       </Button>

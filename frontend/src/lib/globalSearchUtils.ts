@@ -51,9 +51,8 @@ export function isEntityEnabled(
 
 export function mapPersonToResult(person: Person): GlobalSearchResult {
   const clusterCodes = (person.cluster_codes ?? []).filter(Boolean);
-  const branchCode =
-    person.branch_code?.trim() ||
-    undefined;
+  const branchCode = person.branch_code?.trim() || undefined;
+  const memberId = person.member_id?.trim() || undefined;
 
   return {
     id: String(person.id),
@@ -64,6 +63,7 @@ export function mapPersonToResult(person: Person): GlobalSearchResult {
       status: person.status,
       clusterCodes,
       branchCode,
+      memberId,
     },
   };
 }

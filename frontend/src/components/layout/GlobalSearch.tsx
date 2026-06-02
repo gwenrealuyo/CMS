@@ -57,6 +57,9 @@ interface GlobalSearchProps {
 
 function formatPersonLocation(meta: PersonSearchMeta): string | null {
   const parts: string[] = [];
+  if (meta.memberId) {
+    parts.push(meta.memberId);
+  }
   if (meta.clusterCodes.length > 0) {
     parts.push(meta.clusterCodes.join(", "));
   }
@@ -66,16 +69,14 @@ function formatPersonLocation(meta: PersonSearchMeta): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function PersonSearchResultContent({
-  result,
-}: {
-  result: GlobalSearchResult;
-}) {
+function PersonSearchResultContent({ result }: { result: GlobalSearchResult }) {
   const meta = result.personMeta;
   if (!meta) {
     return (
       <>
-        <span className="text-sm font-medium text-gray-900">{result.title}</span>
+        <span className="text-sm font-medium text-gray-900">
+          {result.title}
+        </span>
         {result.subtitle && (
           <span className="text-xs text-gray-500">{result.subtitle}</span>
         )}
@@ -96,9 +97,7 @@ function PersonSearchResultContent({
         >
           {formatPersonStatusLabel(meta.status)}
         </span>
-        {location && (
-          <span className="text-xs text-gray-500">{location}</span>
-        )}
+        {location && <span className="text-xs text-gray-500">{location}</span>}
       </div>
     </>
   );
@@ -175,14 +174,10 @@ export default function GlobalSearch({
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveIndex((prev) =>
-        prev < flatResults.length - 1 ? prev + 1 : 0,
-      );
+      setActiveIndex((prev) => (prev < flatResults.length - 1 ? prev + 1 : 0));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActiveIndex((prev) =>
-        prev > 0 ? prev - 1 : flatResults.length - 1,
-      );
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : flatResults.length - 1));
     } else if (event.key === "Enter" && activeIndex >= 0) {
       event.preventDefault();
       const selected = flatResults[activeIndex];
@@ -202,8 +197,8 @@ export default function GlobalSearch({
 
   const inputClassName =
     variant === "desktop"
-      ? "w-64 pl-10 pr-9 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-      : "w-full pl-10 pr-9 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500";
+      ? "w-96 max-w-xl pl-10 pr-9 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+      : "w-full pl-10 pr-9 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary";
 
   const clearSearch = () => {
     setQuery("");
@@ -255,7 +250,7 @@ export default function GlobalSearch({
     return (
       <div
         className={`absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto z-[60] ${
-          variant === "desktop" ? "min-w-[20rem]" : ""
+          variant === "desktop" ? "min-w-full max-w-xl" : ""
         }`}
         role="listbox"
       >
@@ -287,7 +282,10 @@ export default function GlobalSearch({
           const label = GLOBAL_SEARCH_ENTITY_LABELS[entity];
 
           return (
-            <div key={entity} className="border-t border-gray-100 first:border-t-0">
+            <div
+              key={entity}
+              className="border-t border-gray-100 first:border-t-0"
+            >
               <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
                 <Icon className="h-4 w-4" />
                 {label}
@@ -334,7 +332,10 @@ export default function GlobalSearch({
   }
 
   return (
-    <div ref={containerRef} className="relative hidden md:block">
+    <div
+      ref={containerRef}
+      className="relative hidden md:block w-full max-w-xl"
+    >
       {renderSearchInput()}
       {renderResults()}
     </div>

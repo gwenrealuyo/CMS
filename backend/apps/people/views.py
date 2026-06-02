@@ -30,7 +30,13 @@ class PersonViewSet(viewsets.ModelViewSet):
     serializer_class = PersonSerializer
     permission_classes = [IsAuthenticatedAndNotVisitor]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
-    search_fields = ["username", "email", "first_name", "last_name"]
+    search_fields = [
+        "username",
+        "email",
+        "first_name",
+        "last_name",
+        "member_id",
+    ]
     filterset_fields = ["role"]
 
     def _scoped_people_queryset(self):

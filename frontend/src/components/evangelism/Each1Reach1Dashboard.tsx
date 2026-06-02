@@ -29,6 +29,8 @@ interface Each1Reach1DashboardProps {
   year?: number;
 }
 
+const DUPLICATE_GOAL_ERROR = "A goal already exists for this cluster and year.";
+
 export default function Each1Reach1Dashboard({
   year,
 }: Each1Reach1DashboardProps) {
@@ -280,24 +282,38 @@ export default function Each1Reach1Dashboard({
       fetchGoals();
     } catch (err: any) {
       const errorData = err?.response?.data;
-      const firstError = errorData ? Object.values(errorData)[0] : null;
-      const firstErrorMessage = Array.isArray(firstError)
-        ? String(firstError[0])
-        : typeof firstError === "string"
-          ? firstError
-          : null;
+      const errorDetails = errorData?.details ?? {};
+      const nonFieldSource = errorDetails?.non_field_errors ?? errorData?.non_field_errors;
+      const nonFieldError = Array.isArray(nonFieldSource)
+        ? String(nonFieldSource[0] || "")
+        : typeof nonFieldSource === "string"
+          ? nonFieldSource
+          : "";
+      const firstError =
+        errorDetails && Object.keys(errorDetails).length > 0
+          ? Object.values(errorDetails)[0]
+          : errorData
+            ? Object.values(errorData)[0]
+            : null;
+      const firstErrorMessage =
+        Array.isArray(firstError) && firstError.length > 0
+          ? String(firstError[0])
+          : typeof firstError === "string"
+            ? firstError
+            : "";
+      const conflictCandidate = String(
+        nonFieldError || errorData?.message || firstErrorMessage || "",
+      );
       const isConflict =
-        String(errorData?.non_field_errors?.[0] || firstErrorMessage || "")
-          .toLowerCase()
-          .includes("unique") ||
-        String(errorData?.non_field_errors?.[0] || firstErrorMessage || "")
-          .toLowerCase()
-          .includes("already exists");
+        conflictCandidate.toLowerCase().includes("unique") ||
+        conflictCandidate.toLowerCase().includes("already exists");
       if (isConflict) {
-        setFormError("A goal already exists for this cluster and year.");
+        setFormError(DUPLICATE_GOAL_ERROR);
       } else {
         setFormError(
-          errorData?.detail ||
+          nonFieldError ||
+            errorData?.message ||
+            errorData?.detail ||
             firstErrorMessage ||
             `Failed to ${modalMode === "create" ? "create" : "update"} goal.`,
         );
@@ -604,7 +620,7 @@ export default function Each1Reach1Dashboard({
                             goal.status === "COMPLETED"
                               ? "bg-green-100 text-green-800"
                               : goal.status === "IN_PROGRESS"
-                                ? "bg-primary/15 text-primary"
+                                ? "bg-blue-100 text-blue-800"
                                 : "bg-gray-100 text-gray-800"
                           }`}
                         >
@@ -657,7 +673,15 @@ export default function Each1Reach1Dashboard({
               </div>
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <span className="text-gray-600">Status:</span>
-                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-700">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 font-semibold ${
+                    goal.status === "COMPLETED"
+                      ? "bg-green-100 text-green-800"
+                      : goal.status === "IN_PROGRESS"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-gray-100 text-gray-700"
+                  }`}
+                >
                   {goal.status?.replace("_", " ") || "Not Started"}
                 </span>
                 <Button

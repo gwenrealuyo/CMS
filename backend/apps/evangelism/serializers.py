@@ -624,6 +624,8 @@ class MonthlyStatisticsSerializer(serializers.Serializer):
 
 
 class Each1Reach1GoalSerializer(serializers.ModelSerializer):
+    DUPLICATE_GOAL_ERROR = "A goal already exists for this cluster and year."
+
     cluster = ClusterSummarySerializer(read_only=True)
     cluster_id = serializers.PrimaryKeyRelatedField(
         source="cluster",
@@ -647,12 +649,23 @@ class Each1Reach1GoalSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("created_at", "updated_at", "progress_percentage")
+        validators = []
         extra_kwargs = {
             "target_conversions": {"required": False},
         }
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        cluster = attrs.get("cluster", getattr(self.instance, "cluster", None))
+        year = attrs.get("year", getattr(self.instance, "year", None))
+
+        if cluster is not None and year is not None:
+            duplicate_qs = Each1Reach1Goal.objects.filter(cluster=cluster, year=year)
+            if self.instance is not None:
+                duplicate_qs = duplicate_qs.exclude(pk=self.instance.pk)
+            if duplicate_qs.exists():
+                raise serializers.ValidationError(self.DUPLICATE_GOAL_ERROR)
+
         if attrs.get("target_conversions") is None and attrs.get("cluster"):
             attrs["target_conversions"] = get_default_each1reach1_target(attrs["cluster"])
         return attrs

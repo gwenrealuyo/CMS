@@ -128,6 +128,45 @@ class LessonEnrollmentAPITests(TestCase):
             LessonTeacherTransfer.objects.filter(enrollment=enrollment).exists()
         )
 
+    def test_assign_rejects_has_finished_lessons_true(self):
+        self.student.has_finished_lessons = True
+        self.student.save(update_fields=["has_finished_lessons"])
+        self.client.force_authenticate(user=self.admin)
+        url = reverse("lessons:lesson-progress-assign")
+        response = self.client.post(
+            url,
+            {
+                "lesson_id": self.lesson.id,
+                "person_ids": [self.student.id],
+                "teacher_id": self.teacher_a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details", response.data)
+        self.assertIn("person_ids", details)
+
+    def test_assign_rejects_person_with_existing_progress(self):
+        PersonLessonProgress.objects.create(
+            person=self.student,
+            lesson=self.lesson,
+            status=PersonLessonProgress.Status.ASSIGNED,
+        )
+        self.client.force_authenticate(user=self.admin)
+        url = reverse("lessons:lesson-progress-assign")
+        response = self.client.post(
+            url,
+            {
+                "lesson_id": self.lesson.id,
+                "person_ids": [self.student.id],
+                "teacher_id": self.teacher_a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details", response.data)
+        self.assertIn("person_ids", details)
+
     def test_reassign_lessons_does_not_change_teacher(self):
         LessonStudentEnrollment.objects.create(
             student=self.student,

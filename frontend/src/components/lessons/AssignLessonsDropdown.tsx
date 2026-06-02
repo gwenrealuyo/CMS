@@ -10,6 +10,12 @@ import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { LessonPersonLike } from "@/src/lib/lessonsUtils";
+import {
+  formatPersonClusterLabel,
+  formatPersonStatusLabel,
+  getPersonClusterChipClass,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
 
 interface AssignLessonsDropdownProps {
   allLessons: Lesson[];
@@ -24,6 +30,7 @@ interface AssignLessonsDropdownProps {
     teacherId: string
   ) => void;
   enrollmentByStudent: Map<number, LessonStudentEnrollment>;
+  assignedStudentIds: Set<number>;
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
 }
@@ -37,6 +44,7 @@ export default function AssignLessonsDropdown({
   assignError,
   onAssignLessons,
   enrollmentByStudent,
+  assignedStudentIds,
   defaultTeacherId,
   teacherChoices,
 }: AssignLessonsDropdownProps) {
@@ -50,10 +58,33 @@ export default function AssignLessonsDropdown({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const eligiblePeople = useMemo(() => {
-    return people.filter(
-      (person) => !person.has_finished_lessons && isSelectablePerson(person)
-    );
-  }, [people]);
+    return people.filter((person) => {
+      if (!isSelectablePerson(person) || person.has_finished_lessons) {
+        return false;
+      }
+      const personId = Number(person.id);
+      if (Number.isNaN(personId)) {
+        return true;
+      }
+      return !assignedStudentIds.has(personId);
+    });
+  }, [assignedStudentIds, people]);
+
+  const emptyEligibleMessage = useMemo(() => {
+    const selectable = people.filter(isSelectablePerson);
+    const notFinished = selectable.filter((person) => !person.has_finished_lessons);
+    if (notFinished.length === 0) {
+      return "No people available (all have finished lessons).";
+    }
+    const allAlreadyAssigned = notFinished.every((person) => {
+      const personId = Number(person.id);
+      return !Number.isNaN(personId) && assignedStudentIds.has(personId);
+    });
+    if (allAlreadyAssigned) {
+      return "No people available (all eligible students already have lessons assigned).";
+    }
+    return "No people available.";
+  }, [assignedStudentIds, people]);
 
   const filteredPeople = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -249,7 +280,7 @@ export default function AssignLessonsDropdown({
                     ) : filteredPeople.length === 0 ? (
                       <div className="p-4 text-sm text-gray-500">
                         {eligiblePeople.length === 0
-                          ? "No people available (all have finished lessons)."
+                          ? emptyEligibleMessage
                           : "No people match your search."}
                       </div>
                     ) : (
@@ -263,11 +294,20 @@ export default function AssignLessonsDropdown({
                           <div className="font-medium text-foreground">
                             {formatPersonName(person)}
                           </div>
-                          {person.member_id && (
-                            <div className="text-xs text-gray-500">
-                              Member ID: {person.member_id}
-                            </div>
-                          )}
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(person.status)}`}
+                            >
+                              {formatPersonStatusLabel(person.status)}
+                            </span>
+                            <span
+                              className={getPersonClusterChipClass(
+                                (person.cluster_codes?.length ?? 0) > 0,
+                              )}
+                            >
+                              {formatPersonClusterLabel(person.cluster_codes)}
+                            </span>
+                          </div>
                         </button>
                       ))
                     )}

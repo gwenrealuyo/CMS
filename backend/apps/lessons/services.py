@@ -267,6 +267,17 @@ def transfer_lesson_teacher(
     return transfer
 
 
+def person_assignment_eligibility_error(person: Person) -> str | None:
+    """
+    Return a human-readable reason when a person cannot receive initial lesson assignment.
+  """
+    if person.has_finished_lessons:
+        return "has finished lessons"
+    if PersonLessonProgress.objects.filter(person=person).exists():
+        return "already has lesson progress"
+    return None
+
+
 @transaction.atomic
 def bulk_assign_lessons(
     lesson: Lesson,

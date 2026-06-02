@@ -8,6 +8,12 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Pagination from "@/src/components/ui/Pagination";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  formatPersonClusterLabel,
+  formatPersonStatusLabel,
+  getPersonClusterChipClass,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
@@ -221,12 +227,20 @@ export default function LessonProgressTable({
                       >
                         {personName}
                       </button>
-                      <span className="text-xs text-gray-500">
-                        Member ID:{" "}
-                        {summary.person.member_id?.trim()
-                          ? summary.person.member_id
-                          : (summary.person.id ?? "N/A")}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(summary.person.status)}`}
+                        >
+                          {formatPersonStatusLabel(summary.person.status)}
+                        </span>
+                        <span
+                          className={getPersonClusterChipClass(
+                            (summary.person.cluster_codes?.length ?? 0) > 0,
+                          )}
+                        >
+                          {formatPersonClusterLabel(summary.person.cluster_codes)}
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-700">

@@ -19,7 +19,7 @@ import { formatDisplayDate } from "@/src/lib/date";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
-  createEmptySessionFilters,
+  createDefaultSessionFilters,
   extractErrorMessage,
   sanitizeNumericValue,
   escapeCsvValue,
@@ -30,6 +30,7 @@ import {
   enrollmentByStudentId,
   isLessonTeacherCandidate,
 } from "@/src/lib/lessonsUtils";
+import { formatSessionTopicLabel } from "@/src/lib/sessionTopic";
 import { PersonProgressSummary, LessonPersonSummary } from "@/src/types/lesson";
 import { LessonFormValues } from "@/src/components/lessons/LessonForm";
 import { LessonContentTab } from "@/src/components/lessons/LessonContentTabs";
@@ -165,10 +166,10 @@ export default function LessonsPageContainer() {
     progressId?: string | number | null;
   }>({});
   const [sessionFilters, setSessionFilters] = useState(
-    createEmptySessionFilters
+    createDefaultSessionFilters
   );
   const [sessionFilterDraft, setSessionFilterDraft] = useState(
-    createEmptySessionFilters
+    createDefaultSessionFilters
   );
   const [sessionYearOptions, setSessionYearOptions] = useState<string[]>([
     String(new Date().getFullYear()),
@@ -221,16 +222,6 @@ export default function LessonsPageContainer() {
     return date.toLocaleString();
   };
 
-  const getDefaultSessionYear = useCallback(
-    (years: string[] = sessionYearOptions): string => {
-      if (years.length > 0) {
-        return years[0];
-      }
-      return String(new Date().getFullYear());
-    },
-    [sessionYearOptions]
-  );
-
   const teacherChoices = useMemo(() => {
     return [...people]
       .filter((person) => isLessonTeacherCandidate(person))
@@ -279,6 +270,16 @@ export default function LessonsPageContainer() {
     () => enrollmentByStudentId(enrollments),
     [enrollments],
   );
+
+  const assignedStudentIds = useMemo(() => {
+    const ids = new Set<number>();
+    allProgress.forEach((record) => {
+      if (record.person?.id != null) {
+        ids.add(record.person.id);
+      }
+    });
+    return ids;
+  }, [allProgress]);
 
   const getLifecycleStatus = useCallback(
     (summary: PersonProgressSummary): LessonProgressStatus | "ASSIGNED" => {
@@ -436,36 +437,18 @@ export default function LessonsPageContainer() {
   useEffect(() => {
     if (selectedLessonId) {
       fetchProgress(selectedLessonId);
-      const defaults = createEmptySessionFilters();
-      setSessionFilters(defaults);
-      setSessionFilterDraft(defaults);
-      setSessionYearOptions([String(new Date().getFullYear())]);
     } else {
       setProgress([]);
-      setSessionReports([]);
-      const defaults = createEmptySessionFilters();
-      setSessionFilters(defaults);
-      setSessionFilterDraft(defaults);
-      setSessionYearOptions([String(new Date().getFullYear())]);
     }
   }, [selectedLessonId]);
 
   useEffect(() => {
-    if (!selectedLessonId || sessionFilters.year) {
+    if (activeContentTab !== "sessions") {
       return;
     }
-
-    const defaultYear = getDefaultSessionYear();
-    setSessionFilters((previous) => ({ ...previous, year: defaultYear }));
-    setSessionFilterDraft((previous) => ({ ...previous, year: defaultYear }));
-  }, [getDefaultSessionYear, selectedLessonId, sessionFilters.year]);
-
-  useEffect(() => {
-    if (!selectedLessonId) {
-      return;
-    }
-    fetchSessionReports(selectedLessonId, sessionFilters);
-  }, [sessionFilters, selectedLessonId]);
+    fetchSessionReports(sessionFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeContentTab, sessionFilters]);
 
   const fetchLessons = async () => {
     try {
@@ -510,13 +493,7 @@ export default function LessonsPageContainer() {
   };
 
   const fetchSessionReports = async (
-    lessonId?: number | null,
-    filtersOverride?: {
-      teacherId?: string;
-      studentId?: string;
-      month?: string;
-      year?: string;
-    }
+    filtersOverride?: SessionFilterValues
   ) => {
     try {
       setSessionReportsLoading(true);
@@ -528,8 +505,10 @@ export default function LessonsPageContainer() {
         date_from?: string;
         date_to?: string;
       } = {};
-      if (lessonId != null) {
-        params.lesson = lessonId;
+
+      const lessonValue = sanitizeNumericValue(activeFilters.lessonId);
+      if (lessonValue) {
+        params.lesson = lessonValue;
       }
 
       const teacherValue = sanitizeNumericValue(activeFilters.teacherId);
@@ -544,16 +523,14 @@ export default function LessonsPageContainer() {
 
       const monthValue = sanitizeNumericValue(activeFilters.month);
       const yearValue = sanitizeNumericValue(activeFilters.year);
-      const defaultYearValue = sanitizeNumericValue(getDefaultSessionYear());
-      const effectiveYearValue = yearValue ?? defaultYearValue;
       if (
-        effectiveYearValue &&
+        yearValue &&
         monthValue &&
         monthValue >= 1 &&
         monthValue <= 12
       ) {
-        const start = new Date(effectiveYearValue, monthValue - 1, 1);
-        const end = new Date(effectiveYearValue, monthValue, 0);
+        const start = new Date(yearValue, monthValue - 1, 1);
+        const end = new Date(yearValue, monthValue, 0);
         params.date_from = start.toISOString().slice(0, 10);
         params.date_to = end.toISOString().slice(0, 10);
       } else if (yearValue) {
@@ -569,23 +546,31 @@ export default function LessonsPageContainer() {
         const secondTime = new Date(second.session_start).getTime();
         return secondTime - firstTime;
       });
-      if (!activeFilters.year) {
-        const years = Array.from(
-          new Set(
-            sorted
-              .map((report) => {
-                const source = report.session_start || report.session_date;
-                const date = source ? new Date(source) : null;
-                if (!date || Number.isNaN(date.getTime())) {
-                  return null;
-                }
-                return String(date.getFullYear());
-              })
-              .filter((year): year is string => Boolean(year))
-          )
-        ).sort((a, b) => Number(b) - Number(a));
-        setSessionYearOptions(years.length > 0 ? years : [String(new Date().getFullYear())]);
-      }
+      const yearsFromReports = Array.from(
+        new Set(
+          sorted
+            .map((report) => {
+              const source = report.session_start || report.session_date;
+              const date = source ? new Date(source) : null;
+              if (!date || Number.isNaN(date.getTime())) {
+                return null;
+              }
+              return String(date.getFullYear());
+            })
+            .filter((year): year is string => Boolean(year))
+        )
+      );
+      setSessionYearOptions((previous) => {
+        const merged = new Set([
+          ...previous,
+          ...yearsFromReports,
+          activeFilters.year,
+          String(new Date().getFullYear()),
+        ]);
+        return Array.from(merged)
+          .filter(Boolean)
+          .sort((a, b) => Number(b) - Number(a));
+      });
       setSessionReports(sorted);
       setSessionReportsError(null);
     } catch (error) {
@@ -958,10 +943,7 @@ export default function LessonsPageContainer() {
   };
 
   const resetSessionFilters = () => {
-    const defaults = {
-      ...createEmptySessionFilters(),
-      year: getDefaultSessionYear(),
-    };
+    const defaults = createDefaultSessionFilters();
     setSessionFilterDraft(defaults);
     setSessionFilters(defaults);
   };
@@ -989,7 +971,11 @@ export default function LessonsPageContainer() {
     ];
 
     const rows = sessionReports.map((report) => [
-      report.lesson?.title ?? "",
+      formatSessionTopicLabel(
+        report.session_type,
+        report.pre_lesson_kind,
+        report.lesson?.title ?? null
+      ),
       formatPersonName(report.student),
       formatPersonName(report.teacher),
       formatDateOnly(report.session_date),
@@ -1009,14 +995,7 @@ export default function LessonsPageContainer() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    const lessonSlug = (selectedLesson?.title ?? "lesson-session")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    link.setAttribute(
-      "download",
-      `${lessonSlug || "lesson-session"}-reports.csv`
-    );
+    link.setAttribute("download", "session-reports.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1056,12 +1035,9 @@ export default function LessonsPageContainer() {
     if (!autoOpenSessionReport) {
       return;
     }
-    if (!selectedLessonId) {
-      return;
-    }
     openSessionReportModal();
     setAutoOpenSessionReport(false);
-  }, [autoOpenSessionReport, openSessionReportModal, selectedLessonId]);
+  }, [autoOpenSessionReport, openSessionReportModal]);
 
   const openSessionReportForEdit = (report: LessonSessionReport) => {
     setEditingSessionReport(report);
@@ -1167,11 +1143,13 @@ export default function LessonsPageContainer() {
       }
 
       closeSessionModal();
+      if (activeContentTab === "sessions") {
+        await fetchSessionReports(sessionFilters);
+      }
       if (lessonIdForRefresh != null) {
-        await fetchSessionReports(lessonIdForRefresh);
         await fetchProgress(lessonIdForRefresh);
       } else if (selectedLessonId) {
-        await fetchSessionReports(selectedLessonId);
+        await fetchProgress(selectedLessonId);
       }
       await fetchAllProgress();
       fetchSummary();
@@ -1213,12 +1191,14 @@ export default function LessonsPageContainer() {
       setSessionDeleteLoading(true);
       setSessionDeleteError(null);
       await lessonsApi.deleteSessionReport(sessionDeleteTarget.id);
-      if (selectedLessonId) {
-        await fetchSessionReports(selectedLessonId);
-        await fetchProgress(selectedLessonId);
-        await fetchAllProgress();
-        fetchSummary();
+      if (activeContentTab === "sessions") {
+        await fetchSessionReports(sessionFilters);
       }
+      if (selectedLessonId) {
+        await fetchProgress(selectedLessonId);
+      }
+      await fetchAllProgress();
+      fetchSummary();
       setSessionDeleteTarget(null);
     } catch (error) {
       setSessionDeleteError(
@@ -1278,6 +1258,7 @@ export default function LessonsPageContainer() {
       allProgressLoading={allProgressLoading}
       allProgressError={allProgressError}
       groupedProgress={displayedGroupedProgress}
+      assignedStudentIds={assignedStudentIds}
       studentTeacherById={studentTeacherById}
       enrollmentByStudent={enrollmentByStudent}
       teacherChoices={teacherChoices}

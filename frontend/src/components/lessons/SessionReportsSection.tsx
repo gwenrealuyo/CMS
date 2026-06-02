@@ -5,8 +5,11 @@ import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Pagination from "@/src/components/ui/Pagination";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
-import { SessionFilterValues } from "@/src/lib/lessonsUtils";
-import { Lesson, LessonSessionReport } from "@/src/types/lesson";
+import {
+  hasNonDefaultSessionDateFilters,
+  SessionFilterValues,
+} from "@/src/lib/lessonsUtils";
+import { LessonSessionReport } from "@/src/types/lesson";
 import { formatSessionTopicLabel } from "@/src/lib/sessionTopic";
 import { formatPersonName } from "@/src/lib/name";
 import {
@@ -55,26 +58,30 @@ function formatSessionDateTime(value?: string | null): string {
   });
 }
 
+function reportTopicLabel(report: LessonSessionReport): string {
+  return formatSessionTopicLabel(
+    report.session_type,
+    report.pre_lesson_kind,
+    report.lesson?.title ?? null,
+  );
+}
+
 interface SessionReportCardProps {
   report: LessonSessionReport;
-  selectedLesson: Lesson | null;
   formatDateOnly: (value?: string | null) => string;
   onEditSession: (report: LessonSessionReport) => void;
   onRequestDelete: (report: LessonSessionReport) => void;
+  hideStudentHeader?: boolean;
 }
 
 function SessionReportCard({
   report,
-  selectedLesson,
   formatDateOnly,
   onEditSession,
   onRequestDelete,
+  hideStudentHeader = false,
 }: SessionReportCardProps) {
-  const topicLabel = formatSessionTopicLabel(
-    report.session_type,
-    report.pre_lesson_kind,
-    report.lesson?.title ?? selectedLesson?.title ?? null,
-  );
+  const topicLabel = reportTopicLabel(report);
   const isPreLesson = report.session_type === "PRE_LESSON";
 
   return (
@@ -82,33 +89,35 @@ function SessionReportCard({
       <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50/90 to-white px-4 py-3.5 sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-base font-semibold text-foreground">
-                {formatPersonName(report.student)}
-              </h4>
-              {report.student && (
-                <>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(report.student.status)}`}
-                  >
-                    {formatPersonStatusLabel(report.student.status)}
-                  </span>
-                  <span
-                    className={getPersonClusterChipClass(
-                      (report.student.cluster_codes?.length ?? 0) > 0,
-                    )}
-                  >
-                    {formatPersonClusterLabel(report.student.cluster_codes)}
-                  </span>
-                </>
-              )}
-            </div>
+            {!hideStudentHeader && (
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-base font-semibold text-foreground">
+                  {formatPersonName(report.student)}
+                </h4>
+                {report.student && (
+                  <>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(report.student.status)}`}
+                    >
+                      {formatPersonStatusLabel(report.student.status)}
+                    </span>
+                    <span
+                      className={getPersonClusterChipClass(
+                        (report.student.cluster_codes?.length ?? 0) > 0,
+                      )}
+                    >
+                      {formatPersonClusterLabel(report.student.cluster_codes)}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
             <span
-              className={`mt-2 inline-flex max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+              className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
                 isPreLesson
                   ? "border-amber-200 bg-amber-50 text-amber-900"
                   : "border-blue-200 bg-blue-50 text-blue-900"
-              }`}
+              } ${hideStudentHeader ? "" : "mt-2"}`}
             >
               <span className="truncate">{topicLabel}</span>
             </span>
@@ -198,8 +207,18 @@ type SessionReportsSortField =
   | "score"
   | "linkedProgress";
 
+type StudentReportGroup = {
+  key: string;
+  student: LessonSessionReport["student"];
+  reports: LessonSessionReport[];
+  latestSessionStart: string | null;
+  lessonCount: number;
+  preLessonCount: number;
+  latestLessonTopic: string;
+};
+
 interface SessionReportsSectionProps {
-  selectedLesson: Lesson | null;
+  lessonChoices: LessonPersonLike[];
   sessionReports: LessonSessionReport[];
   sessionReportsLoading: boolean;
   sessionReportsError: string | null;
@@ -219,8 +238,17 @@ interface SessionReportsSectionProps {
   canExport: boolean;
 }
 
+function hasActiveSessionFilters(filters: SessionFilterValues): boolean {
+  return Boolean(
+    filters.teacherId ||
+      filters.studentId ||
+      filters.lessonId ||
+      hasNonDefaultSessionDateFilters(filters),
+  );
+}
+
 export default function SessionReportsSection({
-  selectedLesson,
+  lessonChoices,
   sessionReports,
   sessionReportsLoading,
   sessionReportsError,
@@ -265,6 +293,7 @@ export default function SessionReportsSection({
   const [sortField, setSortField] =
     useState<SessionReportsSortField>("actualDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
 
   const sortedReports = useMemo(() => {
     if (viewMode !== "table") {
@@ -342,13 +371,142 @@ export default function SessionReportsSection({
     );
   };
 
-  const paginatedReports = useMemo(() => {
+  const groupedReports = useMemo<StudentReportGroup[]>(() => {
+    const groups = new Map<string, StudentReportGroup>();
+    sessionReports.forEach((report) => {
+      const student = report.student;
+      const key = String(student?.id ?? `unknown-${report.id}`);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          student,
+          reports: [],
+          latestSessionStart: null,
+          lessonCount: 0,
+          preLessonCount: 0,
+          latestLessonTopic: "—",
+        });
+      }
+      const group = groups.get(key)!;
+      group.reports.push(report);
+      if (report.session_type === "LESSON") {
+        group.lessonCount += 1;
+        if (group.latestLessonTopic === "—") {
+          group.latestLessonTopic = formatSessionTopicLabel(
+            report.session_type,
+            report.pre_lesson_kind,
+            report.lesson?.title ?? null,
+          );
+        }
+      } else {
+        group.preLessonCount += 1;
+      }
+      if (
+        !group.latestSessionStart ||
+        new Date(report.session_start).getTime() >
+          new Date(group.latestSessionStart).getTime()
+      ) {
+        group.latestSessionStart = report.session_start ?? null;
+      }
+    });
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        reports: [...group.reports].sort(
+          (a, b) =>
+            new Date(b.session_start).getTime() -
+            new Date(a.session_start).getTime(),
+        ),
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.latestSessionStart || 0).getTime() -
+          new Date(a.latestSessionStart || 0).getTime(),
+      );
+  }, [sessionReports]);
+
+  useEffect(() => {
+    setExpandedGroupKeys(groupedReports.map((group) => group.key));
+  }, [groupedReports]);
+
+  const paginatedCardGroups = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return sortedReports.slice(startIndex, endIndex);
-  }, [sortedReports, currentPage, itemsPerPage]);
+    return groupedReports.slice(startIndex, endIndex);
+  }, [groupedReports, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(sortedReports.length / itemsPerPage);
+  const groupedTableReports = useMemo<StudentReportGroup[]>(() => {
+    const groups = new Map<string, StudentReportGroup>();
+    sortedReports.forEach((report) => {
+      const student = report.student;
+      const key = String(student?.id ?? `unknown-${report.id}`);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          student,
+          reports: [],
+          latestSessionStart: null,
+          lessonCount: 0,
+          preLessonCount: 0,
+          latestLessonTopic: "—",
+        });
+      }
+      const group = groups.get(key)!;
+      group.reports.push(report);
+      if (report.session_type === "LESSON") {
+        group.lessonCount += 1;
+      } else {
+        group.preLessonCount += 1;
+      }
+      if (
+        !group.latestSessionStart ||
+        new Date(report.session_start).getTime() >
+          new Date(group.latestSessionStart).getTime()
+      ) {
+        group.latestSessionStart = report.session_start ?? null;
+      }
+      if (
+        group.latestLessonTopic === "—" &&
+        report.session_type === "LESSON"
+      ) {
+        group.latestLessonTopic = formatSessionTopicLabel(
+          report.session_type,
+          report.pre_lesson_kind,
+          report.lesson?.title ?? null,
+        );
+      }
+    });
+
+    return Array.from(groups.values());
+  }, [sortedReports]);
+
+  const paginatedTableGroups = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return groupedTableReports.slice(startIndex, endIndex);
+  }, [groupedTableReports, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(
+    (viewMode === "table" ? groupedTableReports.length : groupedReports.length) /
+      itemsPerPage,
+  );
+
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroupKeys((previous) =>
+      previous.includes(groupKey)
+        ? previous.filter((key) => key !== groupKey)
+        : [...previous, groupKey],
+    );
+  };
+
+  const expandAllGroups = () => {
+    setExpandedGroupKeys(groupedReports.map((group) => group.key));
+  };
+
+  const collapseAllGroups = () => {
+    setExpandedGroupKeys([]);
+  };
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -356,23 +514,13 @@ export default function SessionReportsSection({
     }
   }, [currentPage, totalPages]);
 
-  if (!selectedLesson) {
-    return (
-      <Card title="Session Reports">
-        <div className="rounded-lg border border-dashed border-gray-200 py-16 text-center text-gray-500">
-          Select a lesson to review and log coaching sessions.
-        </div>
-      </Card>
-    );
-  }
-
   return (
     <Card title="Session Reports">
       <div className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <p className="text-sm text-gray-500 sm:max-w-lg">
-            Log 1-on-1 lesson sessions to capture coaching notes beyond journey
-            updates and export them for follow-up.
+            View and log all lesson and pre-lesson sessions across the catalog.
+            Use the filters below to narrow by teacher, student, lesson, or date.
           </p>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
@@ -424,7 +572,17 @@ export default function SessionReportsSection({
 
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <SearchableSelect
+                value={sessionFilterDraft.lessonId}
+                onChange={(value) => onFilterChange("lessonId", value)}
+                options={lessonChoices}
+                placeholder="Search lessons..."
+                label="Lesson"
+                emptyOptionLabel="All lessons"
+                emptyMessage="No lessons found"
+                controlClassName="h-10"
+              />
               <SearchableSelect
                 value={sessionFilterDraft.teacherId}
                 onChange={(value) => onFilterChange("teacherId", value)}
@@ -474,6 +632,7 @@ export default function SessionReportsSection({
                     onFilterChange("year", event.target.value)
                   }
                 >
+                  <option value="">All years</option>
                   {sessionYearOptions.map((year) => (
                     <option key={year} value={year}>
                       {year}
@@ -502,10 +661,25 @@ export default function SessionReportsSection({
           </div>
         ) : sessionReports.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-gray-500">
-            No session reports recorded for this lesson yet.
+            {hasActiveSessionFilters(sessionFilterDraft)
+              ? "No session reports match the current filters."
+              : "No session reports recorded yet."}
           </div>
         ) : viewMode === "table" ? (
-          <div className="overflow-hidden rounded-md border border-gray-200">
+          <div className="space-y-3">
+            <div className="flex justify-end gap-2">
+              <Button variant="tertiary" className="text-xs" onClick={expandAllGroups}>
+                Expand all
+              </Button>
+              <Button
+                variant="tertiary"
+                className="text-xs"
+                onClick={collapseAllGroups}
+              >
+                Collapse all
+              </Button>
+            </div>
+            <div className="overflow-hidden rounded-md border border-gray-200">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -529,6 +703,9 @@ export default function SessionReportsSection({
                         Teacher
                         <SortIcon field="teacher" />
                       </button>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      Session
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                       <button
@@ -585,77 +762,213 @@ export default function SessionReportsSection({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {paginatedReports.map((report) => (
-                    <tr key={report.id}>
-                      <td className="px-3 py-2 text-sm font-semibold text-primary">
-                        {formatPersonName(report.student)}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
-                        {formatPersonName(report.teacher)}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
-                        {formatDateOnly(report.session_date)}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
-                        {formatSessionDateTime(report.session_start)}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
-                        {formatDateOnly(report.next_session_date)}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
-                        {report.score || "—"}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
-                        {report.progress ? `Record #${report.progress}` : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-right text-sm">
-                        <div className="inline-flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            className="!text-primary min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center gap-1.5"
-                            onClick={() => onEditSession(report)}
-                            aria-label="Edit session report"
-                            title="Edit session report"
-                          >
-                            <PencilSquareIcon className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            className="!text-red-600 min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
-                            onClick={() => onRequestDelete(report)}
-                            aria-label="Delete session report"
-                            title="Delete session report"
-                          >
-                            <TrashIcon className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="bg-white">
+                  {paginatedTableGroups.map((group) => {
+                    const isExpanded = expandedGroupKeys.includes(group.key);
+                    return (
+                      <>
+                        <tr
+                          key={`${group.key}-header`}
+                          className="border-t border-gray-200 bg-gray-50/70"
+                        >
+                          <td className="px-3 py-2 text-sm font-semibold text-foreground">
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5"
+                              onClick={() => toggleGroup(group.key)}
+                              aria-expanded={isExpanded}
+                            >
+                              {isExpanded ? (
+                                <ChevronUpIcon className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                              )}
+                              {formatPersonName(group.student)}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-600">
+                            {group.reports.length} session
+                            {group.reports.length === 1 ? "" : "s"}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-600">
+                            {group.latestLessonTopic}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-600" colSpan={2}>
+                            Latest: {formatSessionDateTime(group.latestSessionStart)}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-600" colSpan={2}>
+                            Lesson: {group.lessonCount} | Pre-lesson:{" "}
+                            {group.preLessonCount}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-600">—</td>
+                          <td className="px-3 py-2 text-right text-xs text-gray-500">
+                            Group
+                          </td>
+                        </tr>
+                        {isExpanded &&
+                          group.reports.map((report) => (
+                            <tr
+                              key={report.id}
+                              className="border-t border-gray-100"
+                            >
+                              <td className="px-3 py-2 text-sm font-semibold text-primary">
+                                <span className="pl-5">{formatPersonName(report.student)}</span>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-700">
+                                {formatPersonName(report.teacher)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-700">
+                                {reportTopicLabel(report)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-700">
+                                {formatDateOnly(report.session_date)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-700">
+                                {formatSessionDateTime(report.session_start)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-700">
+                                {formatDateOnly(report.next_session_date)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-700">
+                                {report.score || "—"}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-700">
+                                {report.progress ? `Record #${report.progress}` : "—"}
+                              </td>
+                              <td className="px-3 py-2 text-right text-sm">
+                                <div className="inline-flex items-center gap-2">
+                                  <Button
+                                    variant="secondary"
+                                    className="!text-primary min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center gap-1.5"
+                                    onClick={() => onEditSession(report)}
+                                    aria-label="Edit session report"
+                                    title="Edit session report"
+                                  >
+                                    <PencilSquareIcon className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    className="!text-red-600 min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
+                                    onClick={() => onRequestDelete(report)}
+                                    aria-label="Delete session report"
+                                    title="Delete session report"
+                                  >
+                                    <TrashIcon className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
+          </div>
         ) : (
           <div className="space-y-3">
-            {paginatedReports.map((report) => (
-              <SessionReportCard
-                key={report.id}
-                report={report}
-                selectedLesson={selectedLesson}
-                formatDateOnly={formatDateOnly}
-                onEditSession={onEditSession}
-                onRequestDelete={onRequestDelete}
-              />
-            ))}
+            <div className="flex justify-end gap-2">
+              <Button variant="tertiary" className="text-xs" onClick={expandAllGroups}>
+                Expand all
+              </Button>
+              <Button
+                variant="tertiary"
+                className="text-xs"
+                onClick={collapseAllGroups}
+              >
+                Collapse all
+              </Button>
+            </div>
+            {paginatedCardGroups.map((group) => {
+              const isExpanded = expandedGroupKeys.includes(group.key);
+              return (
+                <article
+                  key={group.key}
+                  className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                >
+                  <button
+                    type="button"
+                    className="flex w-full items-start justify-between gap-3 border-b border-gray-100 bg-gray-50/70 px-4 py-3 text-left hover:bg-gray-50 sm:px-5"
+                    onClick={() => toggleGroup(group.key)}
+                    aria-expanded={isExpanded}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm font-semibold text-foreground">
+                          {formatPersonName(group.student)}
+                        </h4>
+                        {group.student && (
+                          <>
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(group.student.status)}`}
+                            >
+                              {formatPersonStatusLabel(group.student.status)}
+                            </span>
+                            <span
+                              className={getPersonClusterChipClass(
+                                (group.student.cluster_codes?.length ?? 0) > 0,
+                              )}
+                            >
+                              {formatPersonClusterLabel(group.student.cluster_codes)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700">
+                          {group.reports.length} session
+                          {group.reports.length === 1 ? "" : "s"}
+                        </span>
+                        <span className="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">
+                          Lesson: {group.lessonCount}
+                        </span>
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                          Pre-lesson: {group.preLessonCount}
+                        </span>
+                        <span>
+                          Latest: {formatSessionDateTime(group.latestSessionStart)}
+                        </span>
+                        <span>Latest topic: {group.latestLessonTopic}</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 pt-1">
+                      {isExpanded ? (
+                        <ChevronUpIcon className="h-5 w-5 text-gray-500" />
+                      ) : (
+                        <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+                      )}
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="space-y-3 p-3 sm:p-4">
+                      {group.reports.map((report) => (
+                        <SessionReportCard
+                          key={report.id}
+                          report={report}
+                          formatDateOnly={formatDateOnly}
+                          onEditSession={onEditSession}
+                          onRequestDelete={onRequestDelete}
+                          hideStudentHeader
+                        />
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         )}
         {totalPages > 1 && (
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            totalItems={sessionReports.length}
+            totalItems={
+              viewMode === "table"
+                ? groupedTableReports.length
+                : groupedReports.length
+            }
             itemsPerPage={itemsPerPage}
             onPageChange={setCurrentPage}
             onItemsPerPageChange={setItemsPerPage}

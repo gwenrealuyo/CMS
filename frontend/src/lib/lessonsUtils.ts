@@ -28,16 +28,42 @@ export function isLessonTeacherCandidate(
 export type SessionFilterValues = {
   teacherId: string;
   studentId: string;
+  lessonId: string;
   month: string;
   year: string;
 };
 
-export const createEmptySessionFilters = (): SessionFilterValues => ({
-  teacherId: "",
-  studentId: "",
-  month: "",
-  year: "",
-});
+export function getDefaultSessionMonthYear(): { month: string; year: string } {
+  const now = new Date();
+  return {
+    month: String(now.getMonth() + 1),
+    year: String(now.getFullYear()),
+  };
+}
+
+export const createDefaultSessionFilters = (): SessionFilterValues => {
+  const { month, year } = getDefaultSessionMonthYear();
+  return {
+    teacherId: "",
+    studentId: "",
+    lessonId: "",
+    month,
+    year,
+  };
+};
+
+/** @deprecated Use createDefaultSessionFilters */
+export const createEmptySessionFilters = createDefaultSessionFilters;
+
+export function hasNonDefaultSessionDateFilters(
+  filters: SessionFilterValues
+): boolean {
+  const { month: defaultMonth, year: defaultYear } = getDefaultSessionMonthYear();
+  if (!filters.month || !filters.year) {
+    return true;
+  }
+  return filters.month !== defaultMonth || filters.year !== defaultYear;
+}
 
 export function sanitizeNumericValue(value: unknown): number | undefined {
   if (value === null || value === undefined) {

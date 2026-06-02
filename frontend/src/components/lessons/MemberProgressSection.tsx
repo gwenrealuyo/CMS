@@ -46,9 +46,10 @@ interface MemberProgressSectionProps {
   onAssignLessons: (
     personIds: string[],
     lessonIds: number[],
-    teacherId: string
+    teacherId: string,
   ) => void;
   enrollmentByStudent: Map<number, LessonStudentEnrollment>;
+  assignedStudentIds: Set<number>;
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
   onPersonClick: (person: {
@@ -86,6 +87,7 @@ export default function MemberProgressSection({
   assignError,
   onAssignLessons,
   enrollmentByStudent,
+  assignedStudentIds,
   defaultTeacherId,
   teacherChoices,
   onPersonClick,
@@ -110,6 +112,7 @@ export default function MemberProgressSection({
             assignError={assignError}
             onAssignLessons={onAssignLessons}
             enrollmentByStudent={enrollmentByStudent}
+            assignedStudentIds={assignedStudentIds}
             defaultTeacherId={defaultTeacherId}
             teacherChoices={teacherChoices}
           />
@@ -154,8 +157,8 @@ export default function MemberProgressSection({
             value={progressSearchQuery}
             onChange={(e) => onProgressSearchQueryChange(e.target.value)}
             className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-            placeholder="Search participant..."
-            aria-label="Search participant"
+            placeholder="Search student..."
+            aria-label="Search student"
           />
           <button
             type="button"

@@ -108,6 +108,7 @@ interface LessonsPageViewProps {
   allProgressLoading: boolean;
   allProgressError: string | null;
   groupedProgress: PersonProgressSummary[];
+  assignedStudentIds: Set<number>;
   studentTeacherById: Map<number, LessonPersonSummary>;
   progressFilterLessonId: number | null;
   progressSearchQuery: string;
@@ -322,6 +323,7 @@ export default function LessonsPageView({
   allProgressLoading,
   allProgressError,
   groupedProgress,
+  assignedStudentIds,
   studentTeacherById,
   progressFilterLessonId,
   progressSearchQuery,
@@ -386,7 +388,7 @@ export default function LessonsPageView({
           <Button
             variant="primary"
             onClick={onOpenSessionReportModal}
-            disabled={!selectedLesson}
+            disabled={lessons.length === 0}
             className="w-full sm:w-auto min-h-[44px] self-start md:self-auto"
           >
             Log Session
@@ -409,7 +411,6 @@ export default function LessonsPageView({
           <LessonContentTabs
             activeTab={activeContentTab}
             onTabChange={onSetActiveContentTab}
-            disableSessions={!selectedLesson}
           />
 
           <div
@@ -469,6 +470,7 @@ export default function LessonsPageView({
               assignError={assignError}
               onAssignLessons={onAssignLessons}
               enrollmentByStudent={enrollmentByStudentForAssign}
+              assignedStudentIds={assignedStudentIds}
               defaultTeacherId={defaultAssignTeacherId}
               teacherChoices={teacherChoices}
               onPersonClick={onOpenPersonProgressModal}
@@ -479,7 +481,11 @@ export default function LessonsPageView({
             className={activeContentTab === "sessions" ? "space-y-6" : "hidden"}
           >
             <SessionReportsSection
-              selectedLesson={selectedLesson}
+              lessonChoices={activeLatestLessons.map((lesson) => ({
+                id: lesson.id,
+                first_name: lesson.title,
+                username: lesson.title,
+              }))}
               sessionReports={sessionReports}
               sessionReportsLoading={sessionReportsLoading}
               sessionReportsError={sessionReportsError}
@@ -495,7 +501,7 @@ export default function LessonsPageView({
               onRequestDelete={onRequestDeleteSessionReport}
               formatDateOnly={formatDateOnly}
               formatDateTime={formatDateTime}
-              canLogSession={Boolean(selectedLesson)}
+              canLogSession={lessons.length > 0}
               canExport={sessionReports.length > 0}
             />
           </div>

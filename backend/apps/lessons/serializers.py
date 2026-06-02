@@ -19,6 +19,7 @@ from .models import (
 from .services import (
     clear_enrollment_commitment_signed,
     ensure_lesson_enrollment,
+    person_assignment_eligibility_error,
     set_enrollment_commitment_signed,
     mark_progress_completed,
     revert_progress_completion,
@@ -520,6 +521,23 @@ class LessonBulkAssignSerializer(serializers.Serializer):
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         persons = attrs.get("persons") or []
+        ineligible_labels = []
+        for person in persons:
+            reason = person_assignment_eligibility_error(person)
+            if reason:
+                display_name = person.get_full_name() or person.username
+                ineligible_labels.append(f"{display_name} ({reason})")
+        if ineligible_labels:
+            raise serializers.ValidationError(
+                {
+                    "person_ids": (
+                        "Cannot assign lessons to: "
+                        + "; ".join(ineligible_labels)
+                        + "."
+                    )
+                }
+            )
+
         teacher = attrs.get("teacher")
         needs_teacher = [
             person

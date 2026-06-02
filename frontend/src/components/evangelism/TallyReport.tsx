@@ -3,11 +3,17 @@
 import { useCallback, useMemo, useState } from "react";
 import Card from "@/src/components/ui/Card";
 import Table from "@/src/components/ui/Table";
+import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import { EvangelismTallyDrilldownMetric, EvangelismTallyRow } from "@/src/types/evangelism";
 import { useEvangelismTally } from "@/src/hooks/useEvangelism";
 import { evangelismApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
+import {
+  effectiveListViewMode,
+  getInitialListViewMode,
+  useIsMdUp,
+} from "@/src/lib/listViewMode";
 
 interface TallyReportProps {
   year?: number;
@@ -28,6 +34,11 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
     metric: Extract<EvangelismTallyDrilldownMetric, "members" | "visitors">;
     label: string;
   } | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
+    getInitialListViewMode("cards"),
+  );
+  const isMdUp = useIsMdUp();
+  const effectiveViewMode = effectiveListViewMode(viewMode, isMdUp);
 
   const openWeeklyDrilldown = (
     row: EvangelismTallyRow,
@@ -110,7 +121,17 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
             No tally data available
           </div>
         ) : (
-          <Table
+          <>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              {viewMode === "table" && !isMdUp && (
+                <span className="text-xs text-gray-500">
+                  Table scrolls horizontally.
+                </span>
+              )}
+            </div>
+            <Table
+              mobileCardView={effectiveViewMode === "cards"}
             columns={[
               {
                 header: "Cluster",
@@ -188,6 +209,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
             ]}
             data={rows}
           />
+          </>
         )}
       </div>
       <TallyDrilldownModal

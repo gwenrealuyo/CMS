@@ -484,7 +484,7 @@ export default function EvangelismWeeklyReportForm({
         </div>
       </div>
 
-      <div className="mt-8 flex w-full flex-row gap-3 border-t border-gray-200 pt-4">
+      <div className="mt-8 flex w-full flex-col-reverse sm:flex-row gap-3 border-t border-gray-200 pt-4">
         <Button
           variant="tertiary"
           className="flex-1 min-h-[44px] rounded-md border border-[#d9d9d9] bg-white px-4 py-2.5 text-sm font-medium text-[#262626] shadow-none hover:bg-gray-50 md:min-h-0"

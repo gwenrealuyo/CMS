@@ -6,17 +6,12 @@ import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Modal from "@/src/components/ui/Modal";
+import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import EvangelismToolbarSearch, {
-  EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS,
   EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  Squares2X2Icon,
-  TableCellsIcon,
-} from "@heroicons/react/24/outline";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import { Each1Reach1Goal } from "@/src/types/evangelism";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
@@ -31,6 +26,17 @@ import {
   getEach1Reach1GoalStatusChipClass,
   getEach1Reach1ProgressBarBgClass,
 } from "@/src/lib/each1Reach1ProgressStyles";
+import {
+  effectiveListViewMode,
+  getInitialListViewMode,
+  useIsMdUp,
+} from "@/src/lib/listViewMode";
+import {
+  TOOLBAR_ACTIONS_ROW_CLASS,
+  TOOLBAR_ACTION_BUTTON_CLASS,
+  TOOLBAR_BRANCH_SELECT_CLASS,
+  TOOLBAR_CARD_CLASS,
+} from "@/src/lib/toolbarStyles";
 
 interface Each1Reach1DashboardProps {
   year?: number;
@@ -67,7 +73,11 @@ export default function Each1Reach1Dashboard({
   const [clustersLoading, setClustersLoading] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
+    getInitialListViewMode("cards"),
+  );
+  const isMdUp = useIsMdUp();
+  const effectiveViewMode = effectiveListViewMode(viewMode, isMdUp);
   const [editingGoalId, setEditingGoalId] = useState<number | string | null>(
     null,
   );
@@ -380,150 +390,130 @@ export default function Each1Reach1Dashboard({
   };
 
   return (
-    <Card
-      title={`Each 1 Reach 1 Goals - ${filterYear}`}
-      headerAction={
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                viewMode === "table"
-                  ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                  : "bg-transparent text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              <TableCellsIcon className="h-3.5 w-3.5" />
-              Table
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("cards")}
-              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                viewMode === "cards"
-                  ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                  : "bg-transparent text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              <Squares2X2Icon className="h-3.5 w-3.5" />
-              Cards
-            </button>
-          </div>
-          <Button
-            variant="primary"
-            className="w-full sm:w-auto min-h-[44px] text-sm sm:ml-2"
-            onClick={openCreateGoalModal}
-          >
-            Create Goal
-          </Button>
-        </div>
-      }
-    >
-      <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-5">
-        <input
-          type="number"
-          value={filterYear}
-          onChange={(e) => setFilterYear(Number(e.target.value) || currentYear)}
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-          min={currentYear - 10}
-          max={currentYear + 10}
-          aria-label="Filter by year"
-          placeholder="Year"
-        />
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-          aria-label="Filter by status"
-        >
-          <option value="ALL">All status</option>
-          <option value="NOT_STARTED">Not Started</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="COMPLETED">Completed</option>
-        </select>
-        {(() => {
-          const each1BranchInteractive =
-            canChangeBranchFilter && !branchesLoading;
-          const branchSelectEl = (
-            <select
-              aria-label="Filter by branch"
-              aria-disabled={!each1BranchInteractive}
-              tabIndex={each1BranchInteractive ? 0 : -1}
-              value={filterBranch}
-              onChange={(e) => {
-                if (!each1BranchInteractive) return;
-                setFilterBranch(Number(e.target.value) || "");
-              }}
-              disabled={canChangeBranchFilter && branchesLoading}
-              className={`${
-                each1BranchInteractive
-                  ? `${EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS} min-h-[38px]`
-                  : `${EVANGELISM_BRANCH_SELECT_LOCKED_CLASS} min-h-[38px]`
-              } ${
-                canChangeBranchFilter && branchesLoading
-                  ? "cursor-wait bg-gray-50 text-gray-500"
-                  : ""
-              }`}
-            >
-              {canChangeBranchFilter ? (
-                <>
-                  <option value="">All branches</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </>
-              ) : user?.branch != null ? (
-                <>
-                  {branches
-                    .filter((b) => Number(b.id) === Number(user.branch))
-                    .map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  {!branches.some(
-                    (b) => Number(b.id) === Number(user.branch),
-                  ) && (
-                    <option value={Number(user.branch)}>
-                      {user.branch_name?.trim() ?? `Branch #${user.branch}`}
-                    </option>
+    <div className="space-y-6">
+      <div className={TOOLBAR_CARD_CLASS}>
+        <div className="flex flex-col gap-3">
+          <EvangelismToolbarSearch
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="Search groups…"
+            ariaLabel="Search by cluster or evangelism group name"
+            fullWidth
+          />
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {(() => {
+              const each1BranchInteractive =
+                canChangeBranchFilter && !branchesLoading;
+              const branchSelectEl = (
+                <select
+                  aria-label="Filter by branch"
+                  aria-disabled={!each1BranchInteractive}
+                  tabIndex={each1BranchInteractive ? 0 : -1}
+                  value={filterBranch}
+                  onChange={(e) => {
+                    if (!each1BranchInteractive) return;
+                    setFilterBranch(Number(e.target.value) || "");
+                  }}
+                  disabled={canChangeBranchFilter && branchesLoading}
+                  className={`${
+                    each1BranchInteractive
+                      ? TOOLBAR_BRANCH_SELECT_CLASS
+                      : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
+                  } min-h-[44px] sm:min-h-0 ${
+                    canChangeBranchFilter && branchesLoading
+                      ? "cursor-wait bg-gray-50 text-gray-500"
+                      : ""
+                  }`}
+                >
+                  {canChangeBranchFilter ? (
+                    <>
+                      <option value="">All branches</option>
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </option>
+                      ))}
+                    </>
+                  ) : user?.branch != null ? (
+                    <>
+                      {branches
+                        .filter((b) => Number(b.id) === Number(user.branch))
+                        .map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </option>
+                        ))}
+                      {!branches.some(
+                        (b) => Number(b.id) === Number(user.branch),
+                      ) && (
+                        <option value={Number(user.branch)}>
+                          {user.branch_name?.trim() ?? `Branch #${user.branch}`}
+                        </option>
+                      )}
+                    </>
+                  ) : (
+                    <option value="">No branch assigned</option>
                   )}
-                </>
+                </select>
+              );
+              return !canChangeBranchFilter ? (
+                <LockedControlTooltip
+                  label={EVANGELISM_BRANCH_LOCKED_HINT}
+                  wrapperClassName="block min-w-0 w-full sm:w-52 sm:shrink-0 cursor-default"
+                >
+                  {branchSelectEl}
+                </LockedControlTooltip>
               ) : (
-                <option value="">No branch assigned</option>
-              )}
-            </select>
-          );
-          return !canChangeBranchFilter ? (
-            <LockedControlTooltip
-              label={EVANGELISM_BRANCH_LOCKED_HINT}
-              wrapperClassName="block min-w-0 w-full align-middle cursor-default"
+                branchSelectEl
+              );
+            })()}
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
+
+          <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
+            <input
+              type="number"
+              value={filterYear}
+              onChange={(e) =>
+                setFilterYear(Number(e.target.value) || currentYear)
+              }
+              className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm sm:min-h-0 sm:w-auto sm:flex-none"
+              min={currentYear - 10}
+              max={currentYear + 10}
+              aria-label="Filter by year"
+              placeholder="Year"
+            />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm sm:min-h-0 sm:w-auto sm:flex-none"
+              aria-label="Filter by status"
             >
-              {branchSelectEl}
-            </LockedControlTooltip>
-          ) : (
-            branchSelectEl
-          );
-        })()}
-        <EvangelismToolbarSearch
-          value={searchInput}
-          onChange={setSearchInput}
-          placeholder="Search groups…"
-          ariaLabel="Search by cluster or evangelism group name"
-          fullWidth
-        />
-        <Button
-          variant="tertiary"
-          onClick={resetFilters}
-          className="min-h-[44px] text-sm"
-        >
-          Reset
-        </Button>
+              <option value="ALL">All status</option>
+              <option value="NOT_STARTED">Not Started</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className={TOOLBAR_ACTION_BUTTON_CLASS}
+            >
+              Reset
+            </button>
+            <Button
+              variant="primary"
+              className="min-h-[44px] w-full sm:min-h-0 sm:w-auto"
+              onClick={openCreateGoalModal}
+            >
+              Create Goal
+            </Button>
+          </div>
+        </div>
       </div>
 
+      <Card title={`Each 1 Reach 1 Goals - ${filterYear}`}>
       {error && <ErrorMessage message={error} />}
       {loading && goals.length === 0 ? (
         <div className="flex justify-center py-8">
@@ -533,7 +523,7 @@ export default function Each1Reach1Dashboard({
         <div className="text-center text-gray-500 py-16 border border-dashed border-gray-200 rounded-lg">
           No goals found for {filterYear} with current filters.
         </div>
-      ) : viewMode === "table" ? (
+      ) : effectiveViewMode === "table" ? (
         <div className="overflow-hidden rounded-md border border-gray-200">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -839,6 +829,7 @@ export default function Each1Reach1Dashboard({
           </div>
         </div>
       </Modal>
-    </Card>
+      </Card>
+    </div>
   );
 }

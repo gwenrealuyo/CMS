@@ -1112,12 +1112,18 @@ export default function EvangelismReportsDashboard({
               options={groupPickerOptions}
               onChange={(v) => setGroupPickerId(v)}
             />
-            <div className="flex gap-2 justify-end pt-2">
-              <Button type="button" variant="secondary" onClick={closeReportModal}>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-0"
+                onClick={closeReportModal}
+              >
                 Cancel
               </Button>
               <Button
                 type="button"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-0"
                 onClick={() => void handleContinueGroupPick()}
               >
                 Continue

@@ -21,6 +21,12 @@ import {
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
+import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
+import {
+  effectiveListViewMode,
+  getInitialListViewMode,
+  useIsMdUp,
+} from "@/src/lib/listViewMode";
 
 const MONTH_NAMES = [
   "January",
@@ -88,19 +94,16 @@ export default function PeopleTallyReport({
   const selectedYear = year || new Date().getFullYear();
   const selectedBranch = branch === "" ? "" : Number(branch);
 
-  const scopeParams = useMemo(
-    () => parseTallyScope(tallyScope),
-    [tallyScope],
-  );
+  const scopeParams = useMemo(() => parseTallyScope(tallyScope), [tallyScope]);
 
   const [yearOptions, setYearOptions] = useState<number[]>([]);
   const [yearsLoading, setYearsLoading] = useState(false);
 
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
-  const [evangelismGroups, setEvangelismGroups] = useState<
-    EvangelismGroup[]
-  >([]);
+  const [evangelismGroups, setEvangelismGroups] = useState<EvangelismGroup[]>(
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -181,10 +184,16 @@ export default function PeopleTallyReport({
     label: string;
   } | null>(null);
 
-  /** Below md, Table defaults to cards; when true, use horizontal-scroll table instead. */
-  const [useMobileTableLayout, setUseMobileTableLayout] = useState(false);
+  /** Cards on mobile by default; table uses horizontal scroll on small screens. */
+  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
+    getInitialListViewMode("cards"),
+  );
+  const isMdUp = useIsMdUp();
+  const effectiveViewMode = effectiveListViewMode(viewMode, isMdUp);
 
-  const hasFilterControls = Boolean(onYearChange || onBranchChange || onTallyScopeChange);
+  const hasFilterControls = Boolean(
+    onYearChange || onBranchChange || onTallyScopeChange,
+  );
 
   const openDrilldown = (
     row: EvangelismPeopleTallyRow,
@@ -237,7 +246,8 @@ export default function PeopleTallyReport({
           ...scopeParams,
         });
         const years = response.data.years || [];
-        const fallbackYear = response.data.default_year || new Date().getFullYear();
+        const fallbackYear =
+          response.data.default_year || new Date().getFullYear();
         const options = years.length > 0 ? years : [fallbackYear];
         setYearOptions(options);
       } catch (err) {
@@ -300,8 +310,10 @@ export default function PeopleTallyReport({
 
   return (
     <Card>
-      <div className="p-4">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Monthly People Tally</h3>
+      <div className="">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">
+          Monthly People Tally
+        </h3>
         {hasFilterControls && (
           <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center">
             {onYearChange && (
@@ -426,93 +438,66 @@ export default function PeopleTallyReport({
           </div>
         ) : (
           <>
-            <div className="mb-3 flex flex-wrap items-center gap-2 md:hidden">
-              <span className="text-sm text-gray-600">Layout</span>
-              <div
-                className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
-                role="group"
-                aria-label="Monthly tally layout on small screens"
-              >
-                <button
-                  type="button"
-                  aria-pressed={!useMobileTableLayout}
-                  onClick={() => setUseMobileTableLayout(false)}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    !useMobileTableLayout
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Cards
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={useMobileTableLayout}
-                  onClick={() => setUseMobileTableLayout(true)}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    useMobileTableLayout
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Table
-                </button>
-              </div>
-              <span className="text-xs text-gray-500">
-                Table scrolls horizontally.
-              </span>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              {viewMode === "table" && !isMdUp && (
+                <span className="text-xs text-gray-500">
+                  Table scrolls horizontally.
+                </span>
+              )}
             </div>
             <Table
-              mobileCardView={!useMobileTableLayout}
+              mobileCardView={effectiveViewMode === "cards"}
               columns={[
-              {
-                header: "Month",
-                accessor: "month" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) => (
-                  <span className="text-sm text-gray-700">
-                    {MONTH_NAMES[row.month - 1]}
-                  </span>
-                ),
-              },
-              {
-                header: "Invited",
-                accessor: "invited_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) =>
-                  renderDrilldownCell(row, "invited", "Invited"),
-              },
-              {
-                header: "Attended",
-                accessor: "attended_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) =>
-                  renderDrilldownCell(row, "attended", "Attended"),
-              },
-              {
-                header: "NCC",
-                accessor: "students_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) =>
-                  renderDrilldownCell(row, "students", "NCC"),
-              },
-              {
-                header: "Baptized",
-                accessor: "baptized_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) =>
-                  renderDrilldownCell(row, "baptized", "Baptized"),
-              },
-              {
-                header: "Received HG",
-                accessor: "received_hg_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) =>
-                  renderDrilldownCell(row, "received_hg", "Received HG"),
-              },
-              {
-                header: "REACHED",
-                accessor: "reached_count" as keyof EvangelismPeopleTallyRow,
-                render: (_value, row) =>
-                  renderDrilldownCell(row, "reached", "Reached"),
-              },
-            ]}
-            data={rows}
-          />
+                {
+                  header: "Month",
+                  accessor: "month" as keyof EvangelismPeopleTallyRow,
+                  render: (_value, row) => (
+                    <span className="text-sm text-gray-700">
+                      {MONTH_NAMES[row.month - 1]}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Invited",
+                  accessor: "invited_count" as keyof EvangelismPeopleTallyRow,
+                  render: (_value, row) =>
+                    renderDrilldownCell(row, "invited", "Invited"),
+                },
+                {
+                  header: "Attended",
+                  accessor: "attended_count" as keyof EvangelismPeopleTallyRow,
+                  render: (_value, row) =>
+                    renderDrilldownCell(row, "attended", "Attended"),
+                },
+                {
+                  header: "NCC",
+                  accessor: "students_count" as keyof EvangelismPeopleTallyRow,
+                  render: (_value, row) =>
+                    renderDrilldownCell(row, "students", "NCC"),
+                },
+                {
+                  header: "Baptized",
+                  accessor: "baptized_count" as keyof EvangelismPeopleTallyRow,
+                  render: (_value, row) =>
+                    renderDrilldownCell(row, "baptized", "Baptized"),
+                },
+                {
+                  header: "Received HG",
+                  accessor:
+                    "received_hg_count" as keyof EvangelismPeopleTallyRow,
+                  render: (_value, row) =>
+                    renderDrilldownCell(row, "received_hg", "Received HG"),
+                },
+                {
+                  header: "REACHED",
+                  accessor: "reached_count" as keyof EvangelismPeopleTallyRow,
+                  render: (_value, row) =>
+                    renderDrilldownCell(row, "reached", "Reached"),
+                },
+              ]}
+              data={rows}
+            />
           </>
         )}
       </div>

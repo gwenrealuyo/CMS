@@ -19,7 +19,7 @@
 - Forms: `components/people/PersonForm`, `components/families/FamilyForm`
 - Tables/Cards: `components/people/PeopleTable`, `components/families/FamilyCard`
 - Layout/UI: `components/layout/DashboardLayout`, `components/ui/*`, `SearchBar`, `FilterOptions`
-- **List toolbars** (Families, Clusters, Evangelism Groups): shared `ToolbarSearch`, `ViewModeToggle`, and classes in `lib/toolbarStyles.ts`. Mobile layout stacks rows — full-width search, branch + Table/Cards, then wrapping action buttons (Select, Sort, Filter, etc.) and filter chips; toolbar card uses `p-4 md:p-6`.
+- **List toolbars** (Families, Clusters, Evangelism Groups, Each 1 Reach 1): shared `ToolbarSearch`, `ViewModeToggle`, and classes in `lib/toolbarStyles.ts`. Mobile layout stacks rows — full-width search, branch + Table/Cards, then wrapping action buttons (Select, Sort, Filter, etc.) and filter chips; toolbar card uses `p-4 md:p-6`. On viewports below `md`, Table list mode falls back to cards (`lib/listViewMode.ts`).
 
 ### Styling & Libraries
 
@@ -56,11 +56,12 @@ Record Donation is intentionally not included (finance `?action=add-donation` ca
 - Main hub: `src/app/evangelism/page.tsx` with tabs **Groups | Each 1 Reach 1 | Tally | Reports | Bible Sharers**.
 - **Groups tab** (shared list toolbar pattern):
   - Row 1: full-width search; row 2: branch + Table/Cards; row 3: Select, Bulk Actions, Sort, Filter; row 4: filter chips
-  - Table: `EvangelismGroupTable`; cards: `EvangelismGroupCard`
+  - Table: `EvangelismGroupTable`; cards: `EvangelismGroupCard` (Table coerced to cards below `md`)
   - Client-side filter/sort via `evangelismGroupListUtils.ts`; server-side search/branch via `useEvangelismGroups`
   - Bulk actions: export (Excel/PDF/CSV), mark inactive, delete — all destructive/inactive flows use `ConfirmationModal`
   - Default group list shows active groups only (`is_active: true`)
-- **Each 1 Reach 1:** `Each1Reach1Dashboard` with filled tonal goal status chips
+- **Each 1 Reach 1:** `Each1Reach1Dashboard` uses the same toolbar pattern as Groups (search, branch, Table/Cards, year/status filters, Create Goal); defaults to cards; Table coerced to cards below `md`
+- **Add Visitor (`ProspectForm`)** and **weekly report modals** stack Cancel/Submit full-width on mobile (`flex-col-reverse sm:flex-row`, 44px touch targets)
 - **Tally / Reports:** monthly people tally and weekly unified tally; gathering type badges use filled tonal styling in evangelism components
 - Deep link `?action=submit-report` opens weekly report submission flow
 - See [EVANGELISM_MODULE.md](./EVANGELISM_MODULE.md) for API, models, and full component map

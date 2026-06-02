@@ -72,6 +72,10 @@ import {
   TOOLBAR_CARD_CLASS,
 } from "@/src/lib/toolbarStyles";
 import {
+  effectiveListViewMode,
+  useIsMdUp,
+} from "@/src/lib/listViewMode";
+import {
   EVANGELISM_BRANCH_SELECT_CLASS,
   EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
@@ -164,6 +168,11 @@ export default function EvangelismPage() {
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
   const [groupListViewMode, setGroupListViewMode] = useState<"cards" | "table">(
     "cards"
+  );
+  const isMdUp = useIsMdUp();
+  const effectiveGroupListViewMode = effectiveListViewMode(
+    groupListViewMode,
+    isMdUp,
   );
   const [groupActiveFilters, setGroupActiveFilters] = useState<
     FilterCondition[]
@@ -1409,7 +1418,7 @@ export default function EvangelismPage() {
                   </div>
                 ) : (
                   <>
-                    {isGroupSelectionMode && groupListViewMode === "cards" && (
+                    {isGroupSelectionMode && effectiveGroupListViewMode === "cards" && (
                       <div className="mb-4 flex items-center gap-2">
                         <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-gray-700">
                           <input
@@ -1425,7 +1434,7 @@ export default function EvangelismPage() {
                         </label>
                       </div>
                     )}
-                    {groupListViewMode === "table" ? (
+                    {effectiveGroupListViewMode === "table" ? (
                       <EvangelismGroupTable
                         groups={filteredGroups}
                         clusters={clusters}

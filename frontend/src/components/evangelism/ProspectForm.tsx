@@ -293,7 +293,7 @@ export default function ProspectForm({
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             First Name *
@@ -346,7 +346,7 @@ export default function ProspectForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Facebook Name
@@ -387,7 +387,7 @@ export default function ProspectForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Date First Invited *
@@ -508,17 +508,21 @@ export default function ProspectForm({
         </div>
       </div>
 
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
         <Button
           variant="tertiary"
-          className="flex-1"
+          className="flex-1 min-h-[44px] sm:min-h-0"
           onClick={onCancel}
           disabled={isSubmitting}
           type="button"
         >
           Cancel
         </Button>
-        <Button className="flex-1" disabled={isSubmitting} type="submit">
+        <Button
+          className="flex-1 min-h-[44px] sm:min-h-0"
+          disabled={isSubmitting}
+          type="submit"
+        >
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>

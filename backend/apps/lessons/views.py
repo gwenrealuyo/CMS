@@ -400,6 +400,10 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
         if lesson_id:
             queryset = queryset.filter(lesson_id=lesson_id)
 
+        session_type = self.request.query_params.get("session_type")
+        if session_type:
+            queryset = queryset.filter(session_type=session_type)
+
         date_from = self.request.query_params.get("date_from")
         if date_from:
             queryset = queryset.filter(session_date__gte=date_from)
@@ -458,6 +462,9 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
         self._sync_progress(report)
 
     def _sync_progress(self, report: LessonSessionReport) -> None:
+        if report.session_type != LessonSessionReport.SessionType.LESSON:
+            return
+
         student = report.student
         lesson = report.lesson
         if not student or not lesson:

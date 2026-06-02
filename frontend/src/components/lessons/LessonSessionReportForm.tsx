@@ -12,6 +12,13 @@ import { formatPersonName } from "@/src/lib/name";
 import { isLessonTeacherCandidate } from "@/src/lib/lessonsUtils";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import {
+  DEFAULT_SESSION_TOPIC,
+  LESSON_TOPIC_PREFIX,
+  parseSessionTopicValue,
+  PRE_LESSON_KIND_OPTIONS,
+  sessionTopicFromReport,
+} from "@/src/lib/sessionTopic";
+import {
   formatPersonClusterLabel,
   formatPersonStatusLabel,
   getPersonClusterChipClass,
@@ -29,6 +36,7 @@ export interface LessonSessionReportFormProps {
   defaultTeacherId?: number | string | null;
   loggedInTeacherId?: number | string | null;
   defaultStudentId?: number | string | null;
+  defaultProgressId?: number | string | null;
   enrollmentTeacherByStudentId?: Map<number, number>;
   error?: string | null;
 }
@@ -36,7 +44,7 @@ export interface LessonSessionReportFormProps {
 interface FormState {
   teacherId: string;
   studentId: string;
-  lessonId: string;
+  sessionTopic: string;
   sessionDate: string;
   sessionStart: string;
   score: string;
@@ -98,6 +106,7 @@ export default function LessonSessionReportForm({
   defaultTeacherId,
   loggedInTeacherId: loggedInTeacherIdProp,
   defaultStudentId,
+  defaultProgressId,
   enrollmentTeacherByStudentId,
   error,
 }: LessonSessionReportFormProps) {
@@ -127,8 +136,11 @@ export default function LessonSessionReportForm({
           : loggedInTeacherId),
       studentId:
         report?.student?.id?.toString() ?? defaultStudentId?.toString() ?? "",
-      lessonId:
-        report?.lesson?.id?.toString() ?? defaultLessonId?.toString() ?? "",
+      sessionTopic: report
+        ? sessionTopicFromReport(report)
+        : defaultStudentId && defaultLessonId
+          ? `${LESSON_TOPIC_PREFIX}${defaultLessonId}`
+          : DEFAULT_SESSION_TOPIC,
       sessionDate:
         report?.session_date ?? new Date().toISOString().slice(0, 10),
       sessionStart:
@@ -304,14 +316,8 @@ export default function LessonSessionReportForm({
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const {
-      teacherId,
-      studentId,
-      lessonId,
-      sessionDate,
-      sessionStart,
-      nextSessionDate,
-    } = formState;
+    const { teacherId, studentId, sessionDate, sessionStart, nextSessionDate } =
+      formState;
 
     const errors: Partial<Record<keyof FormState, string>> = {};
 
@@ -326,8 +332,17 @@ export default function LessonSessionReportForm({
       errors.teacherId = "Select who led this session.";
     }
 
-    if (!lessonId) {
-      errors.lessonId = "Select the lesson covered in this session.";
+    if (!formState.sessionTopic) {
+      errors.sessionTopic = "Select what this session covered.";
+    }
+
+    const topic = parseSessionTopicValue(formState.sessionTopic);
+    if (
+      topic.sessionType === "PRE_LESSON" &&
+      topic.preLessonKind === "OTHER" &&
+      !formState.remarks.trim()
+    ) {
+      errors.remarks = "Add remarks describing this pre-lesson session.";
     }
 
     if (!sessionDate) {
@@ -370,7 +385,7 @@ export default function LessonSessionReportForm({
     const payload: LessonSessionReportInput = {
       teacher_id: teacherId ? Number(teacherId) : undefined,
       student_id: Number(studentId),
-      lesson_id: Number(lessonId),
+      session_type: topic.sessionType,
       session_date: sessionDate,
       session_start: sessionStartDate.toISOString(),
       score: formState.score.trim() || undefined,
@@ -378,8 +393,14 @@ export default function LessonSessionReportForm({
       remarks: formState.remarks.trim() || undefined,
     };
 
-    if (report?.progress) {
-      payload.progress_id = report.progress;
+    if (topic.sessionType === "PRE_LESSON") {
+      payload.pre_lesson_kind = topic.preLessonKind;
+    } else if (topic.lessonId != null && !Number.isNaN(topic.lessonId)) {
+      payload.lesson_id = topic.lessonId;
+      const progressId = report?.progress ?? defaultProgressId;
+      if (progressId != null && progressId !== "") {
+        payload.progress_id = Number(progressId);
+      }
     }
 
     setFormError(null);
@@ -542,41 +563,60 @@ export default function LessonSessionReportForm({
 
       <div className="space-y-1">
         <label
-          htmlFor="lesson-select"
+          htmlFor="session-topic-select"
           className="block text-sm font-medium text-gray-700"
         >
-          Lesson{" "}
+          Session topic{" "}
           <span className="text-red-500" aria-label="required">
             *
           </span>
         </label>
         <select
-          id="lesson-select"
+          id="session-topic-select"
           className={`w-full min-h-[44px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-            fieldErrors.lessonId
+            fieldErrors.sessionTopic
               ? "border-red-300 focus:border-red-500 focus:ring-red-500"
               : "border-gray-300 focus:border-primary focus:ring-ring"
           }`}
-          value={formState.lessonId}
-          onChange={(event) => handleChange("lessonId", event.target.value)}
+          value={formState.sessionTopic}
+          onChange={(event) =>
+            handleChange("sessionTopic", event.target.value)
+          }
           required
-          aria-invalid={!!fieldErrors.lessonId}
-          aria-describedby={fieldErrors.lessonId ? "lesson-error" : undefined}
+          aria-invalid={!!fieldErrors.sessionTopic}
+          aria-describedby={
+            fieldErrors.sessionTopic ? "session-topic-error" : "session-topic-help"
+          }
         >
-          <option value="">Select lesson</option>
-          {lessonOptions.map((lesson) => (
-            <option key={lesson.id} value={lesson.id}>
-              {lesson.title}
-            </option>
-          ))}
+          <optgroup label="Before lessons (not counted)">
+            {PRE_LESSON_KIND_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Lesson content">
+            {lessonOptions.map((lesson) => (
+              <option
+                key={lesson.id}
+                value={`${LESSON_TOPIC_PREFIX}${lesson.id}`}
+              >
+                {lesson.title}
+              </option>
+            ))}
+          </optgroup>
         </select>
-        {fieldErrors.lessonId && (
+        <p id="session-topic-help" className="text-xs text-gray-500">
+          Pre-lesson visits are logged for history only and do not complete
+          assigned lessons.
+        </p>
+        {fieldErrors.sessionTopic && (
           <p
-            id="lesson-error"
+            id="session-topic-error"
             className="text-xs text-red-600 mt-1"
             role="alert"
           >
-            {fieldErrors.lessonId}
+            {fieldErrors.sessionTopic}
           </p>
         )}
       </div>
@@ -717,12 +757,22 @@ export default function LessonSessionReportForm({
           Remarks
         </label>
         <textarea
-          className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+          className={`w-full min-h-[44px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+            fieldErrors.remarks
+              ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+              : "border-gray-300 focus:border-primary focus:ring-ring"
+          }`}
           rows={4}
           value={formState.remarks}
           onChange={(event) => handleChange("remarks", event.target.value)}
           placeholder="Notes, observations, or reminders"
+          aria-invalid={!!fieldErrors.remarks}
         />
+        {fieldErrors.remarks && (
+          <p className="text-xs text-red-600 mt-1" role="alert">
+            {fieldErrors.remarks}
+          </p>
+        )}
       </div>
 
       {formError && <ErrorMessage message={formError} />}

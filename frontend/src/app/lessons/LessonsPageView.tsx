@@ -671,6 +671,7 @@ export default function LessonsPageView({
               : (sessionFormDefaults.teacherId ?? currentTeacherId ?? undefined)
           }
           defaultStudentId={sessionFormDefaults.studentId ?? undefined}
+          defaultProgressId={sessionFormDefaults.progressId ?? undefined}
           enrollmentTeacherByStudentId={enrollmentTeacherByStudentId}
           error={sessionFormError}
         />

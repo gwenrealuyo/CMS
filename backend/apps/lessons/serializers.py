@@ -185,7 +185,11 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
     )
     lesson = LessonSerializer(read_only=True)
     lesson_id = serializers.PrimaryKeyRelatedField(
-        queryset=Lesson.objects.all(), source="lesson", write_only=True
+        queryset=Lesson.objects.all(),
+        source="lesson",
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
     progress = serializers.PrimaryKeyRelatedField(read_only=True)
     progress_id = serializers.PrimaryKeyRelatedField(
@@ -204,6 +208,8 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
             "teacher_id",
             "student",
             "student_id",
+            "session_type",
+            "pre_lesson_kind",
             "lesson",
             "lesson_id",
             "progress",
@@ -234,7 +240,51 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Validate that next_session_date is after the scheduled session date."""
+        """Validate session type vs lesson, and next_session_date."""
+        instance = getattr(self, "instance", None)
+        session_type = attrs.get(
+            "session_type",
+            instance.session_type if instance else LessonSessionReport.SessionType.LESSON,
+        )
+        pre_lesson_kind = attrs.get(
+            "pre_lesson_kind",
+            instance.pre_lesson_kind if instance else None,
+        )
+        lesson = attrs.get("lesson", instance.lesson if instance else None)
+        remarks = attrs.get("remarks", instance.remarks if instance else "")
+
+        if session_type == LessonSessionReport.SessionType.PRE_LESSON:
+            if not pre_lesson_kind:
+                raise serializers.ValidationError(
+                    {"pre_lesson_kind": "Select a pre-lesson type."}
+                )
+            if lesson is not None:
+                raise serializers.ValidationError(
+                    {"lesson_id": "Pre-lesson sessions cannot be linked to a lesson."}
+                )
+            if pre_lesson_kind == LessonSessionReport.PreLessonKind.OTHER and not (
+                remarks and remarks.strip()
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "remarks": "Add remarks describing this pre-lesson session."
+                    }
+                )
+            attrs["lesson"] = None
+            attrs["progress"] = None
+        else:
+            if pre_lesson_kind:
+                raise serializers.ValidationError(
+                    {
+                        "pre_lesson_kind": "Only pre-lesson sessions may set a pre-lesson type."
+                    }
+                )
+            if lesson is None:
+                raise serializers.ValidationError(
+                    {"lesson_id": "Select the lesson covered in this session."}
+                )
+            attrs["pre_lesson_kind"] = None
+
         session_date = attrs.get("session_date")
         next_session_date = attrs.get("next_session_date")
 

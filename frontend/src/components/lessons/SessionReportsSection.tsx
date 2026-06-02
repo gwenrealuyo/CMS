@@ -7,6 +7,7 @@ import Pagination from "@/src/components/ui/Pagination";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import { SessionFilterValues } from "@/src/lib/lessonsUtils";
 import { Lesson, LessonSessionReport } from "@/src/types/lesson";
+import { formatSessionTopicLabel } from "@/src/lib/sessionTopic";
 import { formatPersonName } from "@/src/lib/name";
 import {
   ChevronDownIcon,
@@ -488,10 +489,12 @@ export default function SessionReportsSection({
                       Teacher: {formatPersonName(report.teacher)}
                     </p>
                     <p className="text-xs text-gray-500">
-                      Lesson:{" "}
-                      {report.lesson?.title ??
-                        selectedLesson?.title ??
-                        "Unassigned"}
+                      Session topic:{" "}
+                      {formatSessionTopicLabel(
+                        report.session_type,
+                        report.pre_lesson_kind,
+                        report.lesson?.title ?? selectedLesson?.title ?? null
+                      )}
                     </p>
                   </div>
                   <div className="flex flex-col items-start gap-2 md:items-end">

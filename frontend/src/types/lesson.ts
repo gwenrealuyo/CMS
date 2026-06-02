@@ -87,10 +87,16 @@ export interface LessonProgressSummary {
   unassigned_visitors?: number;
 }
 
+export type LessonSessionType = "LESSON" | "PRE_LESSON";
+
+export type PreLessonKind = "INTRODUCTION" | "OTHER";
+
 export interface LessonSessionReport {
   id: number;
   teacher: LessonPersonSummary | null;
   student: LessonPersonSummary | null;
+  session_type: LessonSessionType;
+  pre_lesson_kind: PreLessonKind | null;
   lesson: Lesson | null;
   progress: number | null;
   session_date: string;
@@ -106,7 +112,9 @@ export interface LessonSessionReport {
 export interface LessonSessionReportInput {
   teacher_id?: number | string | null;
   student_id: number | string;
-  lesson_id: number | string;
+  session_type: LessonSessionType;
+  pre_lesson_kind?: PreLessonKind | null;
+  lesson_id?: number | string | null;
   progress_id?: number | string | null;
   session_date: string;
   session_start: string;

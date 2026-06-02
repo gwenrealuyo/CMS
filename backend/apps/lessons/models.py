@@ -258,6 +258,26 @@ class LessonSessionReport(models.Model):
     Records a 1:1 lesson session between a teacher and student.
     """
 
+    class SessionType(models.TextChoices):
+        LESSON = "LESSON", "Lesson"
+        PRE_LESSON = "PRE_LESSON", "Pre-lesson"
+
+    class PreLessonKind(models.TextChoices):
+        INTRODUCTION = "INTRODUCTION", "Introduction"
+        OTHER = "OTHER", "Other"
+
+    session_type = models.CharField(
+        max_length=20,
+        choices=SessionType.choices,
+        default=SessionType.LESSON,
+    )
+    pre_lesson_kind = models.CharField(
+        max_length=20,
+        choices=PreLessonKind.choices,
+        null=True,
+        blank=True,
+    )
+
     teacher = models.ForeignKey(
         Person,
         on_delete=models.SET_NULL,

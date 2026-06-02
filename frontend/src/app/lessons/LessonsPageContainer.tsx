@@ -474,7 +474,7 @@ export default function LessonsPageContainer() {
   };
 
   const fetchSessionReports = async (
-    lessonId: number,
+    lessonId?: number | null,
     filtersOverride?: {
       teacherId?: string;
       studentId?: string;
@@ -486,14 +486,15 @@ export default function LessonsPageContainer() {
       setSessionReportsLoading(true);
       const activeFilters = filtersOverride ?? sessionFilters;
       const params: {
-        lesson: number;
+        lesson?: number;
         teacher?: number;
         student?: number;
         date_from?: string;
         date_to?: string;
-      } = {
-        lesson: lessonId,
-      };
+      } = {};
+      if (lessonId != null) {
+        params.lesson = lessonId;
+      }
 
       const teacherValue = sanitizeNumericValue(activeFilters.teacherId);
       if (teacherValue) {
@@ -957,9 +958,6 @@ export default function LessonsPageContainer() {
     studentId?: string | number | null;
     progressId?: string | number | null;
   }) => {
-    if (!selectedLessonId) {
-      return;
-    }
     const studentNumericId =
       defaults?.studentId != null ? Number(defaults.studentId) : null;
     const enrollmentTeacherId =
@@ -975,7 +973,7 @@ export default function LessonsPageContainer() {
           ? enrollmentTeacherId.toString()
           : null
         : sessionLoggedInTeacherId,
-      lessonId: selectedLessonId,
+      lessonId: selectedLessonId ?? null,
       progressId: defaults?.progressId ?? null,
     });
     setSessionModalOpen(true);
@@ -1013,10 +1011,7 @@ export default function LessonsPageContainer() {
   };
 
   const handleSessionFormSubmit = async (values: LessonSessionReportInput) => {
-    if (!selectedLessonId) {
-      setSessionFormError("Select a lesson before logging a session.");
-      return;
-    }
+    const isPreLesson = values.session_type === "PRE_LESSON";
 
     try {
       setSessionFormSubmitting(true);
@@ -1026,15 +1021,21 @@ export default function LessonsPageContainer() {
         ...values,
       };
 
-      const normalizedLessonId =
-        sanitizeNumericValue(payload.lesson_id) ??
-        sanitizeNumericValue(selectedLessonId);
-      if (!normalizedLessonId) {
-        setSessionFormError("The lesson could not be determined.");
-        return;
+      let lessonIdForRefresh: number | null = null;
+      if (isPreLesson) {
+        delete payload.lesson_id;
+        delete payload.progress_id;
+      } else {
+        const normalizedLessonId =
+          sanitizeNumericValue(payload.lesson_id) ??
+          sanitizeNumericValue(selectedLessonId);
+        if (!normalizedLessonId) {
+          setSessionFormError("Select a lesson for this session.");
+          return;
+        }
+        payload.lesson_id = normalizedLessonId;
+        lessonIdForRefresh = normalizedLessonId;
       }
-      payload.lesson_id = normalizedLessonId;
-      const lessonIdForRefresh = normalizedLessonId;
 
       const normalizedStudentId = sanitizeNumericValue(payload.student_id);
       if (!normalizedStudentId) {
@@ -1053,13 +1054,15 @@ export default function LessonsPageContainer() {
       }
       payload.teacher_id = normalizedTeacherId;
 
-      const normalizedProgressId =
-        sanitizeNumericValue(payload.progress_id) ??
-        sanitizeNumericValue(sessionFormDefaults.progressId ?? null);
-      if (normalizedProgressId) {
-        payload.progress_id = normalizedProgressId;
-      } else {
-        delete payload.progress_id;
+      if (!isPreLesson) {
+        const normalizedProgressId =
+          sanitizeNumericValue(payload.progress_id) ??
+          sanitizeNumericValue(sessionFormDefaults.progressId ?? null);
+        if (normalizedProgressId) {
+          payload.progress_id = normalizedProgressId;
+        } else {
+          delete payload.progress_id;
+        }
       }
 
       if (!payload.session_start) {
@@ -1074,8 +1077,12 @@ export default function LessonsPageContainer() {
       }
 
       closeSessionModal();
-      await fetchSessionReports(lessonIdForRefresh);
-      await fetchProgress(lessonIdForRefresh);
+      if (lessonIdForRefresh != null) {
+        await fetchSessionReports(lessonIdForRefresh);
+        await fetchProgress(lessonIdForRefresh);
+      } else if (selectedLessonId) {
+        await fetchSessionReports(selectedLessonId);
+      }
       await fetchAllProgress();
       fetchSummary();
     } catch (error) {

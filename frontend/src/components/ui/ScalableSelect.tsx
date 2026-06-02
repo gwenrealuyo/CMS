@@ -241,7 +241,7 @@ export default function ScalableSelect({
                       </span>
                     )}
                     {option.familyName && (
-                      <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                      <span className="chip-green-sm text-[10px]">
                         {option.familyName}
                       </span>
                     )}
@@ -309,7 +309,7 @@ export default function ScalableSelect({
               </span>
             )}
             {option.familyName && (
-              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+              <span className="chip-green-sm text-[10px]">
                 {option.familyName}
               </span>
             )}

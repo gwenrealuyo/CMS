@@ -795,40 +795,33 @@ export default function LessonsPageView({
         />
       </Modal>
 
-      <Modal
+      <ConfirmationModal
         isOpen={Boolean(sessionDeleteTarget)}
-        onClose={() => onSetSessionDeleteTarget(null)}
+        onClose={() => {
+          if (sessionDeleteLoading) return;
+          onSetSessionDeleteTarget(null);
+        }}
+        onConfirm={onConfirmDeleteSessionReport}
         title="Delete Session Report"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Delete the session report for{" "}
-            <span className="font-semibold text-gray-800">
-              {formatPersonName(sessionDeleteTarget?.student)}
-            </span>{" "}
-            recorded on {formatDateTime(sessionDeleteTarget?.session_start)}?
-            This action cannot be undone.
-          </p>
-          {sessionDeleteError && <ErrorMessage message={sessionDeleteError} />}
-        </div>
-        <div className="flex flex-col-reverse sm:flex-row gap-4 mt-6">
-          <Button
-            variant="tertiary"
-            onClick={() => onSetSessionDeleteTarget(null)}
-            disabled={sessionDeleteLoading}
-            className="w-full sm:flex-1 min-h-[44px]"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={onConfirmDeleteSessionReport}
-            disabled={sessionDeleteLoading}
-            className="w-full sm:flex-1 min-h-[44px]"
-          >
-            {sessionDeleteLoading ? "Deleting..." : "Delete"}
-          </Button>
-        </div>
-      </Modal>
+        message={
+          sessionDeleteError ? (
+            <>{sessionDeleteError} Please try again.</>
+          ) : (
+            <>
+              Delete the session report for{" "}
+              <span className="font-semibold text-gray-900">
+                {formatPersonName(sessionDeleteTarget?.student)}
+              </span>{" "}
+              recorded on {formatDateTime(sessionDeleteTarget?.session_start)}?
+              This action cannot be undone.
+            </>
+          )
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={sessionDeleteLoading}
+      />
 
       <PersonLessonProgressModal
         isOpen={personProgressModal.isOpen}

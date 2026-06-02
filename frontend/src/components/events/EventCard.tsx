@@ -25,11 +25,11 @@ export default function EventCard({
   const getEventTypeColor = (type: string) => {
     const colors: Record<string, string> = {
       SUNDAY_SERVICE: "chip-primary",
-      BIBLE_STUDY: "bg-purple-100 text-purple-800 border-purple-200",
-      PRAYER_MEETING: "bg-green-100 text-green-800 border-green-200",
-      SPECIAL_EVENT: "bg-orange-100 text-orange-800 border-orange-200",
+      BIBLE_STUDY: "chip-purple",
+      PRAYER_MEETING: "chip-green",
+      SPECIAL_EVENT: "chip-orange",
     };
-    return colors[type] || "bg-gray-100 text-gray-800 border-gray-200";
+    return colors[type] || "chip-gray";
   };
 
   return (
@@ -41,14 +41,14 @@ export default function EventCard({
               {event.title}
             </h3>
             <span
-              className={`inline-block px-3 py-1 text-xs font-medium rounded-full border mt-2 ${getEventTypeColor(
+              className={`mt-2 ${getEventTypeColor(
                 event.type
               )}`}
             >
               {event.type_display || event.type}
             </span>
             {event.is_recurring && (
-              <span className="ml-2 inline-block px-2 py-1 text-xs text-gray-600 bg-gray-50 rounded-full border border-gray-200">
+              <span className="ml-2 chip-gray-sm">
                 🔁 Recurring
               </span>
             )}
@@ -176,7 +176,7 @@ export default function EventCard({
               <Button
                 variant="tertiary"
                 onClick={onView}
-                className="flex-1 text-xs min-h-[44px] !text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30"
+                className="flex-1 text-xs min-h-[44px]"
               >
                 View
               </Button>

@@ -1260,7 +1260,7 @@ export default function ClusterReportsDashboard({
                 >
                   <div className="flex items-center">
                     <div
-                      className="p-1.5 bg-green-100 rounded-lg"
+                      className="p-1.5 chip-green-surface rounded-lg"
                       aria-hidden="true"
                     >
                       <svg
@@ -1308,7 +1308,7 @@ export default function ClusterReportsDashboard({
                 >
                   <div className="flex items-center">
                     <div
-                      className="p-1.5 bg-yellow-100 rounded-lg"
+                      className="p-1.5 chip-yellow-surface rounded-lg"
                       aria-hidden="true"
                     >
                       <svg
@@ -1363,7 +1363,7 @@ export default function ClusterReportsDashboard({
                 >
                   <div className="flex items-center">
                     <div
-                      className="p-1.5 bg-purple-100 rounded-lg"
+                      className="p-1.5 chip-purple-surface rounded-lg"
                       aria-hidden="true"
                     >
                       <svg

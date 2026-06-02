@@ -42,8 +42,8 @@ export function formatPersonStatusLabel(
 
 export function getPersonClusterChipClass(hasCluster: boolean): string {
   return hasCluster
-    ? "inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800"
-    : "inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700";
+    ? "inline-flex items-center rounded-full border border-blue-300 bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800"
+    : "inline-flex items-center rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700";
 }
 
 export function formatPersonClusterLabel(clusterCodes?: string[] | null): string {

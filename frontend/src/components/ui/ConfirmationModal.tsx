@@ -121,7 +121,7 @@ export default function ConfirmationModal({
       />
 
       {/* Modal panel */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+      <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 overflow-hidden">
         <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
           <div className="sm:flex sm:items-start">
             <div

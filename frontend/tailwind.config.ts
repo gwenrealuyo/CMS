@@ -6,6 +6,17 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  safelist: [
+    "chip-sky-sm",
+    "chip-green-sm",
+    "chip-purple-sm",
+    "chip-orange-sm",
+    "chip-pink-sm",
+    "chip-indigo-sm",
+    "chip-yellow-sm",
+    "chip-red-sm",
   ],
   theme: {
     extend: {

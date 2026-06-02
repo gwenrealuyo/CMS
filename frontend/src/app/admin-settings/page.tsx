@@ -584,7 +584,7 @@ function AdminSettingsPageContent() {
                           {dashboardStats?.pending_password_resets ?? 0}
                         </p>
                       </div>
-                      <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <div className="w-12 h-12 chip-yellow-surface rounded-full flex items-center justify-center">
                         <CheckCircleIcon className="w-6 h-6 text-yellow-600" />
                       </div>
                     </div>
@@ -600,7 +600,7 @@ function AdminSettingsPageContent() {
                           {dashboardStats?.locked_accounts ?? 0}
                         </p>
                       </div>
-                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                      <div className="w-12 h-12 chip-red-surface rounded-full flex items-center justify-center">
                         <LockOpenIcon className="w-6 h-6 text-red-600" />
                       </div>
                     </div>
@@ -2285,11 +2285,11 @@ function AdminSettingsPageContent() {
                           </div>
                           <div className="flex items-center flex-shrink-0">
                             {branch.is_active ? (
-                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full whitespace-nowrap">
+                              <span className="chip-green whitespace-nowrap">
                                 Active
                               </span>
                             ) : (
-                              <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full whitespace-nowrap">
+                              <span className="chip-gray whitespace-nowrap">
                                 Inactive
                               </span>
                             )}

@@ -3,6 +3,10 @@ import { Cluster } from "@/src/types/cluster";
 import { PersonUI } from "@/src/types/person";
 import ActionMenu from "@/src/components/families/ActionMenu";
 import { useBranches } from "@/src/hooks/useBranches";
+import {
+  BRANCH_CHIP_CLASSNAME,
+  getBranchChipStyle,
+} from "@/src/lib/branchChipColor";
 
 interface ClusterCardProps {
   cluster: Cluster;
@@ -33,8 +37,9 @@ const ClusterCard = memo(
     
     // Find the branch for this cluster
     const clusterBranch = React.useMemo(() => {
-      if (!cluster.branch) return null;
-      return branches.find((b) => b.id === cluster.branch) || null;
+      if (cluster.branch == null) return null;
+      const branchId = Number(cluster.branch);
+      return branches.find((b) => b.id === branchId) || null;
     }, [branches, cluster.branch]);
 
     // Memoize expensive calculations
@@ -100,9 +105,9 @@ const ClusterCard = memo(
 
     return (
       <div
-        className={`p-4 md:p-5 bg-white rounded-lg border-2 ${
-          isSelected ? "border-primary bg-primary/10/50" : "border-transparent"
-        } shadow-md relative transition-all hover:shadow-md hover:border-primary/20 hover:bg-primary/10 cursor-pointer`}
+        className={`p-4 md:p-5 rounded-lg card-list relative ${
+          isSelected ? "card-list--selected" : ""
+        }`}
         onClick={onView}
       >
         <div className="flex items-start justify-between gap-2">
@@ -128,15 +133,21 @@ const ClusterCard = memo(
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-base md:text-lg text-primary hover:text-primary hover:underline transition-all truncate">
+            <h4 className="font-semibold text-base md:text-lg text-primary hover:underline transition-all truncate">
               {cluster.name || "Untitled Cluster"}
             </h4>
             <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 font-bold">
+              <span className="chip-gray-sm font-extrabold">
                 {cluster.code || "—"}
               </span>
               {clusterBranch && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-medium">
+                <span
+                  className={BRANCH_CHIP_CLASSNAME}
+                  style={getBranchChipStyle(
+                    clusterBranch.id,
+                    clusterBranch.is_headquarters
+                  )}
+                >
                   <svg
                     className="w-3 h-3"
                     fill="none"

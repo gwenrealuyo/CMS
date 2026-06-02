@@ -77,11 +77,11 @@ export default function EventView({
   const getEventTypeColor = (type: string) => {
     const colors: Record<string, string> = {
       SUNDAY_SERVICE: "chip-primary",
-      BIBLE_STUDY: "bg-purple-100 text-purple-800 border-purple-200",
-      PRAYER_MEETING: "bg-green-100 text-green-800 border-green-200",
-      SPECIAL_EVENT: "bg-orange-100 text-orange-800 border-orange-200",
+      BIBLE_STUDY: "chip-purple",
+      PRAYER_MEETING: "chip-green",
+      SPECIAL_EVENT: "chip-orange",
     };
-    return colors[type] || "bg-gray-100 text-gray-800 border-gray-200";
+    return colors[type] || "chip-gray";
   };
 
   const recurrenceWeekdayLabel = useMemo(() => {
@@ -337,14 +337,14 @@ export default function EventView({
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
               <span
-                className={`inline-block px-3 py-1 text-sm font-medium rounded-full border ${getEventTypeColor(
+                className={getEventTypeColor(
                   event.type
-                )}`}
+                )}
               >
                 {event.type_display || event.type}
               </span>
               {event.is_recurring && (
-                <span className="inline-block px-3 py-1 text-sm text-gray-600 bg-gray-50 rounded-full border border-gray-200">
+                <span className="chip-gray">
                   🔁 Recurring Event
                 </span>
               )}
@@ -601,7 +601,7 @@ export default function EventView({
                               )}
                               {record.person.family_names &&
                               record.person.family_names.length > 0 ? (
-                                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                                <span className="chip-green-sm text-[10px]">
                                   {record.person.family_names[0]}
                                 </span>
                               ) : (

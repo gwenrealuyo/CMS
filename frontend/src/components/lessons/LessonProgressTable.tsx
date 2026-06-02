@@ -181,7 +181,7 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%] hover:bg-gray-100"
                 onClick={() => onSortChange("progress")}
               >
                 <div className="flex items-center gap-1">
@@ -199,7 +199,7 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[14%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%] hover:bg-gray-100"
                 onClick={() => onSortChange("status")}
               >
                 <div className="flex items-center gap-1">
@@ -267,11 +267,11 @@ export default function LessonProgressTable({
                     )}
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
-                    <div className="space-y-2 min-w-[120px]">
-                      <div className="text-xs md:text-sm font-medium">
+                    <div className="max-w-[7.5rem] space-y-1.5">
+                      <div className="text-xs font-medium leading-snug">
                         {progressText}
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div className="h-2.5 w-full max-w-[6.5rem] rounded-full bg-gray-200">
                         <div
                           className="h-2.5 rounded-full transition-all"
                           style={{
@@ -304,7 +304,7 @@ export default function LessonProgressTable({
                     <span
                       className={
                         summaryStatus === "IN_PROGRESS"
-                          ? "chip-in-progress"
+                          ? "chip-in-progress whitespace-nowrap"
                           : `inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${
                               statusBadgeStyles[summaryStatus]
                             }`

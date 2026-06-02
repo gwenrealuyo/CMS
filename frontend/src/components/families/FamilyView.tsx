@@ -443,7 +443,7 @@ export default function FamilyView({
                             );
                           })()}
                           {member.id === family.leader && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
+                            <span className="chip-yellow-sm text-[10px]">
                               Leader
                             </span>
                           )}

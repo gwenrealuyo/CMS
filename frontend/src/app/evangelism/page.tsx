@@ -58,6 +58,7 @@ import PeopleTallyReport from "@/src/components/evangelism/PeopleTallyReport";
 import TallyReport from "@/src/components/evangelism/TallyReport";
 import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
 import EvangelismReportsDashboard from "@/src/components/evangelism/EvangelismReportsDashboard";
+import EvangelismGroupCard from "@/src/components/evangelism/EvangelismGroupCard";
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -1008,81 +1009,22 @@ export default function EvangelismPage() {
                       : "No groups available yet. Create the first one to get started."}
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {filteredGroups.map((group) => {
-                      const isSelected =
-                        viewEditGroup?.id === group.id && viewMode === "view";
-
-                      return (
-                        <button
-                          key={group.id}
-                          type="button"
-                          onClick={() => {
-                            setViewEditGroup(group);
-                            setViewMode("view");
-                          }}
-                          className={`w-full text-left border rounded-lg px-4 py-3 transition-colors ${
-                            isSelected
-                              ? "border-primary bg-primary/10"
-                              : "border-gray-200 hover:border-primary/20 hover:bg-primary/10"
-                          }`}
-                        >
-                          <div className="flex justify-between items-start gap-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="text-lg font-semibold text-foreground">
-                                  {group.name}
-                                </h4>
-                                {group.is_bible_sharers_group && (
-                                  <span className="chip-primary-sm">
-                                    Bible Sharers
-                                  </span>
-                                )}
-                                {!group.is_active && (
-                                  <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                                    Inactive
-                                  </span>
-                                )}
-                                {group.is_active && (
-                                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">
-                                    Active
-                                  </span>
-                                )}
-                              </div>
-                              {group.description && (
-                                <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                                  {group.description}
-                                </p>
-                              )}
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-gray-600">
-                                {group.coordinator && (
-                                  <span>
-                                    Coordinator:{" "}
-                                    <span className="font-medium">
-                                      {group.coordinator.full_name}
-                                    </span>
-                                  </span>
-                                )}
-                                {group.cluster && (
-                                  <span>
-                                    Cluster:{" "}
-                                    <span className="font-medium">
-                                      {group.cluster.name}
-                                    </span>
-                                  </span>
-                                )}
-                                <span>
-                                  Members:{" "}
-                                  <span className="font-medium">
-                                    {group.members_count || 0}
-                                  </span>
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredGroups.map((group) => (
+                      <EvangelismGroupCard
+                        key={group.id}
+                        group={group}
+                        clusters={clusters}
+                        branches={branches}
+                        isSelected={
+                          viewEditGroup?.id === group.id && viewMode === "view"
+                        }
+                        onClick={() => {
+                          setViewEditGroup(group);
+                          setViewMode("view");
+                        }}
+                      />
+                    ))}
                   </div>
                 )}
               </Card>

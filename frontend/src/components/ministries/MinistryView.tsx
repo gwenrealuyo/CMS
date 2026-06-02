@@ -154,15 +154,15 @@ export default function MinistryView({
                   {ministry.name}
                 </h2>
                 {ministry.category && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm font-medium flex-shrink-0">
+                  <span className="chip-gray text-sm flex-shrink-0">
                     {getCategoryLabel(ministry.category)}
                   </span>
                 )}
                 <span
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium flex-shrink-0 ${
+                  className={`text-sm flex-shrink-0 ${
                     ministry.is_active
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-200 text-gray-600"
+                      ? "chip-green"
+                      : "chip-gray"
                   }`}
                 >
                   {ministry.is_active ? "Active" : "Inactive"}

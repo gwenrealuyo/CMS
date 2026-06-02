@@ -707,7 +707,7 @@ export default function ClustersPageView({
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div
-                      className="p-1.5 bg-green-100 rounded-lg"
+                      className="p-1.5 chip-green-surface rounded-lg"
                       aria-hidden="true"
                     >
                       <svg
@@ -755,7 +755,7 @@ export default function ClustersPageView({
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div
-                      className="p-1.5 bg-orange-100 rounded-lg"
+                      className="p-1.5 chip-orange-surface rounded-lg"
                       aria-hidden="true"
                     >
                       <svg

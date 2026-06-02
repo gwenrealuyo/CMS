@@ -52,11 +52,11 @@ export default function LessonDetailPanel({
           <div className="flex flex-wrap items-center gap-2">
             <span className="chip-primary">{lesson.version_label}</span>
             {lesson.is_latest ? (
-              <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+              <span className="chip-green">
                 Latest version
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
+              <span className="chip-yellow">
                 Superseded version
               </span>
             )}

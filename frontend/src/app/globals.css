@@ -113,6 +113,240 @@
     line-height: 1;
   }
 
+  .chip-green {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #16a34a;
+    background-color: transparent;
+    color: #15803d;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-green-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #16a34a;
+    background-color: transparent;
+    color: #15803d;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-yellow {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #ca8a04;
+    background-color: transparent;
+    color: #a16207;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-yellow-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #ca8a04;
+    background-color: transparent;
+    color: #a16207;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-gray {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #9ca3af;
+    background-color: transparent;
+    color: #4b5563;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-gray-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #9ca3af;
+    background-color: transparent;
+    color: #4b5563;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-purple {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #9333ea;
+    background-color: transparent;
+    color: #7e22ce;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-purple-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #9333ea;
+    background-color: transparent;
+    color: #7e22ce;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-orange {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #ea580c;
+    background-color: transparent;
+    color: #c2410c;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-orange-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #ea580c;
+    background-color: transparent;
+    color: #c2410c;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-indigo {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #4f46e5;
+    background-color: transparent;
+    color: #4338ca;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-indigo-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #4f46e5;
+    background-color: transparent;
+    color: #4338ca;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-pink {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #db2777;
+    background-color: transparent;
+    color: #be185d;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-pink-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #db2777;
+    background-color: transparent;
+    color: #be185d;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-sky {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #0284c7;
+    background-color: transparent;
+    color: #0369a1;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-sky-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #0284c7;
+    background-color: transparent;
+    color: #0369a1;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-red {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #dc2626;
+    background-color: transparent;
+    color: #b91c1c;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .chip-red-sm {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #dc2626;
+    background-color: transparent;
+    color: #b91c1c;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
   .chip-in-progress {
     display: inline-flex;
     align-items: center;
@@ -143,6 +377,58 @@
     background-color: transparent;
     border: 1px solid hsl(var(--primary) / 1);
     color: hsl(var(--primary) / 1);
+  }
+
+  .chip-green-surface {
+    background-color: transparent;
+    border: 1px solid #16a34a;
+  }
+
+  .chip-yellow-surface {
+    background-color: transparent;
+    border: 1px solid #ca8a04;
+  }
+
+  .chip-purple-surface {
+    background-color: transparent;
+    border: 1px solid #9333ea;
+  }
+
+  .chip-orange-surface {
+    background-color: transparent;
+    border: 1px solid #ea580c;
+  }
+
+  .chip-red-surface {
+    background-color: transparent;
+    border: 1px solid #dc2626;
+  }
+
+  .card-list {
+    @apply bg-white border-2 border-transparent shadow-md transition-all cursor-pointer;
+    @apply hover:shadow-md hover:border-primary/20;
+    background-color: white;
+  }
+
+  .card-list:hover {
+    background-color: hsl(var(--primary) / 0.03);
+  }
+
+  .card-list--selected {
+    @apply border-primary bg-primary/5;
+  }
+
+  .card-list-row {
+    @apply bg-white border border-gray-200 rounded-lg transition-all cursor-pointer;
+    @apply hover:shadow-md hover:border-primary/20;
+  }
+
+  .card-list-row:hover {
+    background-color: hsl(var(--primary) / 0.03);
+  }
+
+  .card-list-row--selected {
+    @apply border-primary bg-primary/10;
   }
 }
 

@@ -157,7 +157,7 @@ export default function TallyDrilldownModal({
                         )}
                       </div>
                     </div>
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-700">
+                    <span className="chip-gray-sm text-[11px] uppercase tracking-wide">
                       {row.member_id?.trim() || "No Member ID"}
                     </span>
                   </div>

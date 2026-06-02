@@ -596,7 +596,7 @@ export default function FamilyManagementDashboard({
         <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 chip-green-surface rounded-lg flex items-center justify-center">
                 <svg
                   className="w-4 h-4 text-green-600"
                   fill="none"
@@ -626,7 +626,7 @@ export default function FamilyManagementDashboard({
         <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 chip-orange-surface rounded-lg flex items-center justify-center">
                 <svg
                   className="w-4 h-4 text-orange-600"
                   fill="none"
@@ -1126,14 +1126,14 @@ export default function FamilyManagementDashboard({
               return (
                 <div
                   key={family.id}
-                  className="bg-white rounded-lg shadow-md p-4 transition-all hover:shadow-lg hover:border-primary/20 hover:bg-primary/10 border-2 border-transparent cursor-pointer"
+                  className="p-4 rounded-lg card-list"
                   onClick={() => onViewFamily(family)}
                 >
                   <div className="space-y-3">
                     {/* Family Header */}
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-primary hover:text-primary hover:underline transition-all">
+                        <h3 className="text-lg font-semibold text-primary hover:underline transition-all">
                           The {family.name} Family
                         </h3>
                         <p className="text-xs text-gray-600 mt-1">

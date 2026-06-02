@@ -40,10 +40,8 @@ export default function LessonList({
                 key={`${lesson.code}-${lesson.version_label}-${lesson.id}`}
                 type="button"
                 onClick={() => onSelect(lesson)}
-                className={`w-full text-left border rounded-lg px-4 py-3 transition-colors ${
-                  isSelected
-                    ? "border-primary bg-primary/10"
-                    : "border-gray-200 hover:border-primary/20 hover:bg-primary/10"
+                className={`card-list-row px-4 py-3 ${
+                  isSelected ? "card-list-row--selected" : ""
                 }`}
               >
                 <div className="flex justify-between items-start gap-3">
@@ -56,11 +54,11 @@ export default function LessonList({
                         {lesson.version_label}
                       </span>
                       {lesson.is_latest ? (
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                        <span className="chip-green-sm text-[11px]">
                           Latest
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-semibold text-yellow-700">
+                        <span className="chip-yellow-sm text-[11px]">
                           Superseded
                         </span>
                       )}

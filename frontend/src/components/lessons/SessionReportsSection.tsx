@@ -917,7 +917,7 @@ export default function SessionReportsSection({
                         )}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700">
+                        <span className="chip-gray-sm font-medium">
                           {group.reports.length} session
                           {group.reports.length === 1 ? "" : "s"}
                         </span>

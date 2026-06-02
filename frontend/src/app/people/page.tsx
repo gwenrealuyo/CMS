@@ -1732,7 +1732,7 @@ export default function PeoplePage() {
                   <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 chip-green-surface rounded-lg flex items-center justify-center">
                           <svg
                             className="w-4 h-4 text-green-600"
                             fill="none"
@@ -1764,7 +1764,7 @@ export default function PeoplePage() {
                   <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 chip-orange-surface rounded-lg flex items-center justify-center">
                           <svg
                             className="w-4 h-4 text-orange-600"
                             fill="none"

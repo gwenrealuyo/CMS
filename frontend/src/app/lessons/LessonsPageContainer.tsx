@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { branchesApi, lessonsApi } from "@/src/lib/api";
 import { canChangeLessonsBranchFilter as canChangeLessonsBranchFilterForUser } from "@/src/lib/lessonsBranchFilter";
@@ -191,7 +198,7 @@ export default function LessonsPageContainer() {
   const [branchesLoading, setBranchesLoading] = useState(false);
   const lessonsBranchUserIdRef = useRef<number | undefined>(undefined);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!user) {
       setSelectedBranchId("");
       lessonsBranchUserIdRef.current = undefined;
@@ -276,10 +283,29 @@ export default function LessonsPageContainer() {
     return [{ value: "", label: "No branch" }];
   }, [selectedBranchId, lessonsBranchFilterLabel]);
 
-  const branchApiParams = useMemo(
-    () => (selectedBranchId ? { branch_id: selectedBranchId } : {}),
-    [selectedBranchId],
-  );
+  const branchApiParams = useMemo((): { branch_id: string } | Record<
+    string,
+    never
+  > | null => {
+    if (!user) {
+      return null;
+    }
+
+    const userBranchId =
+      user.branch != null && user.branch !== undefined
+        ? String(user.branch)
+        : "";
+
+    let branchId: string;
+    if (lessonsBranchCanChangeFilter) {
+      const branchSyncedForUser = lessonsBranchUserIdRef.current === user.id;
+      branchId = branchSyncedForUser ? selectedBranchId : userBranchId;
+    } else {
+      branchId = userBranchId;
+    }
+
+    return branchId ? { branch_id: branchId } : {};
+  }, [user, lessonsBranchCanChangeFilter, selectedBranchId]);
 
   const peopleInBranchScope = useMemo(() => {
     if (!selectedBranchId) {
@@ -532,10 +558,7 @@ export default function LessonsPageContainer() {
 
   useEffect(() => {
     fetchLessons();
-    fetchSummary();
     fetchCommitmentForm();
-    fetchAllProgress();
-    fetchEnrollments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -564,6 +587,9 @@ export default function LessonsPageContainer() {
   }, [activeContentTab, sessionFilters]);
 
   useEffect(() => {
+    if (branchApiParams === null) {
+      return;
+    }
     fetchSummary();
     fetchAllProgress();
     fetchEnrollments();
@@ -574,7 +600,7 @@ export default function LessonsPageContainer() {
       fetchProgress(selectedLessonId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranchId]);
+  }, [branchApiParams, selectedBranchId, activeContentTab, sessionFilters]);
 
   const fetchLessons = async () => {
     try {
@@ -730,7 +756,7 @@ export default function LessonsPageContainer() {
   const fetchAllProgress = async () => {
     try {
       setAllProgressLoading(true);
-      const response = await lessonsApi.getProgress(branchApiParams);
+      const response = await lessonsApi.getProgress(branchApiParams ?? {});
       setAllProgress(response.data);
       setAllProgressError(null);
     } catch (error) {
@@ -744,7 +770,7 @@ export default function LessonsPageContainer() {
 
   const fetchEnrollments = async () => {
     try {
-      const response = await lessonsApi.listEnrollments(branchApiParams);
+      const response = await lessonsApi.listEnrollments(branchApiParams ?? {});
       setEnrollments(response.data);
     } catch {
       setEnrollments([]);
@@ -756,7 +782,7 @@ export default function LessonsPageContainer() {
       setProgressLoading(true);
       const response = await lessonsApi.getProgress({
         lesson: lessonId,
-        ...branchApiParams,
+        ...(branchApiParams ?? {}),
       });
       setProgress(response.data);
       setProgressError(null);

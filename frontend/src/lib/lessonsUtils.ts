@@ -1,9 +1,11 @@
 import {
   Lesson,
+  LessonPersonSummary,
+  LessonStudentEnrollment,
   PersonLessonProgress,
   PersonProgressSummary,
-  LessonPersonSummary,
 } from "@/src/types/lesson";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 export type LessonPersonLike = {
   id?: string | number;
@@ -12,7 +14,16 @@ export type LessonPersonLike = {
   last_name?: string;
   suffix?: string;
   username: string;
+  role?: string | null;
 };
+
+/** Matches lesson session / enrollment teacher pickers (excludes VISITOR and ADMIN). */
+export function isLessonTeacherCandidate(
+  person: Pick<LessonPersonLike, "role" | "username">,
+): boolean {
+  const role = (person.role || "").toUpperCase();
+  return role !== "VISITOR" && isSelectablePerson(person);
+}
 
 export type SessionFilterValues = {
   teacherId: string;
@@ -148,4 +159,28 @@ export function calculatePersonProgress(
     progressPercentage,
     allProgress: personProgress,
   };
+}
+
+export function buildStudentTeacherMapFromEnrollments(
+  enrollments: LessonStudentEnrollment[],
+): Map<number, LessonPersonSummary> {
+  const map = new Map<number, LessonPersonSummary>();
+  for (const enrollment of enrollments) {
+    if (enrollment.is_active && enrollment.student?.id && enrollment.teacher) {
+      map.set(enrollment.student.id, enrollment.teacher);
+    }
+  }
+  return map;
+}
+
+export function enrollmentByStudentId(
+  enrollments: LessonStudentEnrollment[],
+): Map<number, LessonStudentEnrollment> {
+  const map = new Map<number, LessonStudentEnrollment>();
+  for (const enrollment of enrollments) {
+    if (enrollment.student?.id) {
+      map.set(enrollment.student.id, enrollment);
+    }
+  }
+  return map;
 }

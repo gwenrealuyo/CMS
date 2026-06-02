@@ -18,6 +18,8 @@ import {
   LessonProgressSummary,
   LessonSessionReport,
   LessonSessionReportInput,
+  LessonStudentEnrollment,
+  LessonTeacherTransfer,
   PersonLessonProgress,
 } from "@/src/types/lesson";
 import {
@@ -569,7 +571,27 @@ export const lessonsApi = {
   assign: (payload: {
     lesson_id: number | string;
     person_ids: Array<number | string>;
+    teacher_id?: number | string;
   }) => api.post<{ created: number }>("/lessons/progress/assign/", payload),
+  listEnrollments: (params?: {
+    student?: string | number;
+    teacher?: string | number;
+  }) =>
+    api.get<LessonStudentEnrollment[]>("/lessons/enrollments/", { params }),
+  createEnrollment: (payload: {
+    student_id: number | string;
+    teacher_id: number | string;
+  }) => api.post<LessonStudentEnrollment>("/lessons/enrollments/", payload),
+  transferEnrollment: (
+    id: number | string,
+    payload: { teacher_id: number | string; note?: string }
+  ) =>
+    api.post<LessonStudentEnrollment>(
+      `/lessons/enrollments/${id}/transfer/`,
+      payload
+    ),
+  listEnrollmentTransfers: (id: number | string) =>
+    api.get<LessonTeacherTransfer[]>(`/lessons/enrollments/${id}/transfers/`),
   complete: (
     id: number | string,
     payload: {

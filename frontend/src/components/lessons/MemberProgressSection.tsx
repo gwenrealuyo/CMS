@@ -4,13 +4,17 @@ import LessonProgressTable from "./LessonProgressTable";
 import AssignLessonsDropdown from "./AssignLessonsDropdown";
 import {
   Lesson,
+  LessonPersonSummary,
   LessonProgressStatus,
+  LessonStudentEnrollment,
   PersonProgressSummary,
 } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
+import { LessonPersonLike } from "@/src/lib/lessonsUtils";
 
 type ProgressSortField =
   | "person"
+  | "teacher"
   | "previousLesson"
   | "progress"
   | "nextLesson"
@@ -20,6 +24,7 @@ type ProgressStatusFilter = "ALL" | LessonProgressStatus;
 interface MemberProgressSectionProps {
   allLessons: Lesson[];
   groupedProgress: PersonProgressSummary[];
+  studentTeacherById: Map<number, LessonPersonSummary>;
   progressLoading: boolean;
   progressError: string | null;
   progressActionError: string | null;
@@ -38,7 +43,14 @@ interface MemberProgressSectionProps {
   peopleError: string | null;
   assigning: boolean;
   assignError: string | null;
-  onAssignLessons: (personIds: string[], lessonIds: number[]) => void;
+  onAssignLessons: (
+    personIds: string[],
+    lessonIds: number[],
+    teacherId: string
+  ) => void;
+  enrollmentByStudent: Map<number, LessonStudentEnrollment>;
+  defaultTeacherId: string | null;
+  teacherChoices: LessonPersonLike[];
   onPersonClick: (person: {
     id: number;
     first_name?: string;
@@ -53,6 +65,7 @@ interface MemberProgressSectionProps {
 export default function MemberProgressSection({
   allLessons,
   groupedProgress,
+  studentTeacherById,
   progressLoading,
   progressError,
   progressActionError,
@@ -72,6 +85,9 @@ export default function MemberProgressSection({
   assigning,
   assignError,
   onAssignLessons,
+  enrollmentByStudent,
+  defaultTeacherId,
+  teacherChoices,
   onPersonClick,
 }: MemberProgressSectionProps) {
   const activeLatestLessons = allLessons.filter(
@@ -93,6 +109,9 @@ export default function MemberProgressSection({
             assigning={assigning}
             assignError={assignError}
             onAssignLessons={onAssignLessons}
+            enrollmentByStudent={enrollmentByStudent}
+            defaultTeacherId={defaultTeacherId}
+            teacherChoices={teacherChoices}
           />
         </div>
 
@@ -152,6 +171,7 @@ export default function MemberProgressSection({
 
         <LessonProgressTable
           groupedProgress={groupedProgress}
+          studentTeacherById={studentTeacherById}
           loading={progressLoading}
           error={progressError}
           sortField={progressSortField}

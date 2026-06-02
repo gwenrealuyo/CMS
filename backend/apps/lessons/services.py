@@ -9,7 +9,13 @@ from django.utils import timezone
 
 from apps.people.models import Journey, Person
 
-from .models import Lesson, LessonJourney, PersonLessonProgress
+from .models import (
+    Lesson,
+    LessonJourney,
+    LessonStudentEnrollment,
+    LessonTeacherTransfer,
+    PersonLessonProgress,
+)
 
 
 @dataclass
@@ -185,19 +191,83 @@ def revert_progress_completion(
 
 
 @transaction.atomic
+def ensure_lesson_enrollment(
+    student: Person,
+    teacher: Person,
+    *,
+    assigned_by: Optional[Person] = None,
+    note: str = "",
+) -> LessonStudentEnrollment:
+    """
+    Create enrollment and initial transfer record if the student has none.
+    Does not change teacher when enrollment already exists.
+    """
+    existing = (
+        LessonStudentEnrollment.objects.filter(student=student)
+        .select_related("teacher", "student")
+        .first()
+    )
+    if existing:
+        return existing
+
+    enrollment = LessonStudentEnrollment.objects.create(
+        student=student,
+        teacher=teacher,
+        assigned_by=assigned_by,
+    )
+    LessonTeacherTransfer.objects.create(
+        enrollment=enrollment,
+        from_teacher=None,
+        to_teacher=teacher,
+        transferred_by=assigned_by,
+        note=note or "Initial teacher assignment.",
+    )
+    return enrollment
+
+
+@transaction.atomic
+def transfer_lesson_teacher(
+    enrollment: LessonStudentEnrollment,
+    new_teacher: Person,
+    *,
+    transferred_by: Optional[Person] = None,
+    note: str = "",
+) -> LessonTeacherTransfer:
+    transfer = LessonTeacherTransfer.objects.create(
+        enrollment=enrollment,
+        from_teacher=enrollment.teacher,
+        to_teacher=new_teacher,
+        transferred_by=transferred_by,
+        note=note,
+    )
+    enrollment.teacher = new_teacher
+    enrollment.save(update_fields=["teacher", "updated_at"])
+    return transfer
+
+
+@transaction.atomic
 def bulk_assign_lessons(
     lesson: Lesson,
     persons: Iterable[Person],
     *,
     assigned_by: Optional[Person] = None,
+    teacher: Optional[Person] = None,
 ) -> int:
     """
     Ensures each target person has an assignment entry for the given lesson.
     Returns the number of records created.
+    When teacher is provided, creates lesson enrollment for students who lack one.
     """
 
     created_count = 0
     for person in persons:
+        if teacher and not LessonStudentEnrollment.objects.filter(student=person).exists():
+            ensure_lesson_enrollment(
+                person,
+                teacher,
+                assigned_by=assigned_by,
+            )
+
         progress, created = PersonLessonProgress.objects.get_or_create(
             person=person,
             lesson=lesson,

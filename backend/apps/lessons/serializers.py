@@ -12,12 +12,16 @@ from .models import (
     LessonJourney,
     LessonSessionReport,
     LessonSettings,
+    LessonStudentEnrollment,
+    LessonTeacherTransfer,
     PersonLessonProgress,
 )
 from .services import (
+    ensure_lesson_enrollment,
     mark_commitment_signed,
     mark_progress_completed,
     revert_progress_completion,
+    transfer_lesson_teacher,
 )
 
 
@@ -288,6 +292,100 @@ class LessonCompletionSerializer(serializers.Serializer):
     )
 
 
+class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
+    student = PersonNestedSerializer(read_only=True)
+    student_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.all(),
+        source="student",
+        write_only=True,
+    )
+    teacher = PersonNestedSerializer(read_only=True)
+    teacher_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.exclude(role="VISITOR").exclude(role="ADMIN"),
+        source="teacher",
+        write_only=True,
+    )
+
+    class Meta:
+        model = LessonStudentEnrollment
+        fields = [
+            "id",
+            "student",
+            "student_id",
+            "teacher",
+            "teacher_id",
+            "is_active",
+            "assigned_at",
+            "updated_at",
+        ]
+        read_only_fields = ["assigned_at", "updated_at"]
+
+    def create(self, validated_data: Dict[str, Any]) -> LessonStudentEnrollment:
+        request = self.context.get("request")
+        assigned_by = (
+            request.user if request and isinstance(request.user, Person) else None
+        )
+        student = validated_data["student"]
+        teacher = validated_data["teacher"]
+        if LessonStudentEnrollment.objects.filter(student=student).exists():
+            raise serializers.ValidationError(
+                {"student_id": "This student already has a lessons teacher assigned."}
+            )
+        return ensure_lesson_enrollment(
+            student,
+            teacher,
+            assigned_by=assigned_by,
+        )
+
+
+class LessonTeacherTransferSerializer(serializers.ModelSerializer):
+    from_teacher = PersonNestedSerializer(read_only=True)
+    to_teacher = PersonNestedSerializer(read_only=True)
+    transferred_by = PersonNestedSerializer(read_only=True)
+
+    class Meta:
+        model = LessonTeacherTransfer
+        fields = [
+            "id",
+            "from_teacher",
+            "to_teacher",
+            "transferred_by",
+            "note",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class LessonTeacherTransferRequestSerializer(serializers.Serializer):
+    teacher_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.exclude(role="VISITOR").exclude(role="ADMIN"),
+        source="teacher",
+    )
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        enrollment: LessonStudentEnrollment = self.context["enrollment"]
+        teacher = attrs.get("teacher")
+        if teacher and enrollment.teacher_id == teacher.id:
+            raise serializers.ValidationError(
+                {"teacher_id": "This student is already assigned to that teacher."}
+            )
+        return attrs
+
+    def create(self, validated_data: Dict[str, Any]) -> LessonTeacherTransfer:
+        enrollment: LessonStudentEnrollment = self.context["enrollment"]
+        request = self.context.get("request")
+        transferred_by = (
+            request.user if request and isinstance(request.user, Person) else None
+        )
+        return transfer_lesson_teacher(
+            enrollment,
+            validated_data["teacher"],
+            transferred_by=transferred_by,
+            note=validated_data.get("note") or "",
+        )
+
+
 class LessonBulkAssignSerializer(serializers.Serializer):
     lesson_id = serializers.PrimaryKeyRelatedField(
         queryset=Lesson.objects.all(), source="lesson"
@@ -295,3 +393,28 @@ class LessonBulkAssignSerializer(serializers.Serializer):
     person_ids = serializers.PrimaryKeyRelatedField(
         queryset=Person.objects.all(), many=True, source="persons"
     )
+    teacher_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.exclude(role="VISITOR").exclude(role="ADMIN"),
+        source="teacher",
+        required=False,
+        allow_null=True,
+    )
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        persons = attrs.get("persons") or []
+        teacher = attrs.get("teacher")
+        needs_teacher = [
+            person
+            for person in persons
+            if not LessonStudentEnrollment.objects.filter(student=person).exists()
+        ]
+        if needs_teacher and not teacher:
+            raise serializers.ValidationError(
+                {
+                    "teacher_id": (
+                        "Teacher is required when assigning lessons to students "
+                        "who do not yet have a lessons teacher."
+                    )
+                }
+            )
+        return attrs

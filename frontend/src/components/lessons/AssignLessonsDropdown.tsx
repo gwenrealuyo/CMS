@@ -4,10 +4,12 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
-import { Lesson } from "@/src/types/lesson";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
+import { Lesson, LessonStudentEnrollment } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { LessonPersonLike } from "@/src/lib/lessonsUtils";
 
 interface AssignLessonsDropdownProps {
   allLessons: Lesson[];
@@ -16,7 +18,14 @@ interface AssignLessonsDropdownProps {
   peopleError: string | null;
   assigning: boolean;
   assignError: string | null;
-  onAssignLessons: (personIds: string[], lessonIds: number[]) => void;
+  onAssignLessons: (
+    personIds: string[],
+    lessonIds: number[],
+    teacherId: string
+  ) => void;
+  enrollmentByStudent: Map<number, LessonStudentEnrollment>;
+  defaultTeacherId: string | null;
+  teacherChoices: LessonPersonLike[];
 }
 
 export default function AssignLessonsDropdown({
@@ -27,6 +36,9 @@ export default function AssignLessonsDropdown({
   assigning,
   assignError,
   onAssignLessons,
+  enrollmentByStudent,
+  defaultTeacherId,
+  teacherChoices,
 }: AssignLessonsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,18 +46,15 @@ export default function AssignLessonsDropdown({
   const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(
     new Set()
   );
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Filter people by has_finished_lessons === false and exclude ADMIN users
   const eligiblePeople = useMemo(() => {
     return people.filter(
-      (person) =>
-        !person.has_finished_lessons &&
-        isSelectablePerson(person)
+      (person) => !person.has_finished_lessons && isSelectablePerson(person)
     );
   }, [people]);
 
-  // Filter people by search query (name including nickname, member_id, NOT username)
   const filteredPeople = useMemo(() => {
     if (!searchQuery.trim()) {
       return eligiblePeople;
@@ -63,18 +72,47 @@ export default function AssignLessonsDropdown({
     });
   }, [eligiblePeople, searchQuery]);
 
-  // Initialize selected lessons when person is selected
+  const teacherSelectOptions = useMemo(
+    () =>
+      teacherChoices.map((person) => ({
+        value: person.id?.toString() ?? "",
+        label: formatPersonName(person),
+      })),
+    [teacherChoices]
+  );
+
+  const selectedPersonNumericId = selectedPersonId
+    ? Number(selectedPersonId)
+    : null;
+  const existingEnrollment =
+    selectedPersonNumericId != null && !Number.isNaN(selectedPersonNumericId)
+      ? enrollmentByStudent.get(selectedPersonNumericId)
+      : undefined;
+  const requiresTeacherPicker = Boolean(
+    selectedPersonId && !existingEnrollment
+  );
+
   useEffect(() => {
     if (selectedPersonId) {
-      // All active latest lessons checked by default
       const defaultLessonIds = new Set(
         allLessons
           .filter((lesson) => lesson.is_latest && lesson.is_active)
           .map((lesson) => lesson.id)
       );
       setSelectedLessonIds(defaultLessonIds);
+
+      if (existingEnrollment?.teacher?.id) {
+        setSelectedTeacherId(existingEnrollment.teacher.id.toString());
+      } else {
+        setSelectedTeacherId(defaultTeacherId ?? "");
+      }
     }
-  }, [selectedPersonId, allLessons]);
+  }, [
+    selectedPersonId,
+    allLessons,
+    existingEnrollment?.teacher?.id,
+    defaultTeacherId,
+  ]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -86,6 +124,7 @@ export default function AssignLessonsDropdown({
         setSearchQuery("");
         setSelectedPersonId(null);
         setSelectedLessonIds(new Set());
+        setSelectedTeacherId("");
       }
     };
 
@@ -118,11 +157,19 @@ export default function AssignLessonsDropdown({
     if (!selectedPersonId || selectedLessonIds.size === 0) {
       return;
     }
-    onAssignLessons([selectedPersonId], Array.from(selectedLessonIds));
+    if (requiresTeacherPicker && !selectedTeacherId) {
+      return;
+    }
+    onAssignLessons(
+      [selectedPersonId],
+      Array.from(selectedLessonIds),
+      selectedTeacherId
+    );
     setIsOpen(false);
     setSearchQuery("");
     setSelectedPersonId(null);
     setSelectedLessonIds(new Set());
+    setSelectedTeacherId("");
   };
 
   const handleCancel = () => {
@@ -130,6 +177,7 @@ export default function AssignLessonsDropdown({
     setSearchQuery("");
     setSelectedPersonId(null);
     setSelectedLessonIds(new Set());
+    setSelectedTeacherId("");
   };
 
   const selectedPerson = selectedPersonId
@@ -141,6 +189,11 @@ export default function AssignLessonsDropdown({
       .filter((lesson) => lesson.is_latest && lesson.is_active)
       .sort((a, b) => a.order - b.order);
   }, [allLessons]);
+
+  const canSubmit =
+    selectedPersonId &&
+    selectedLessonIds.size > 0 &&
+    (!requiresTeacherPicker || Boolean(selectedTeacherId));
 
   return (
     <div className="relative" ref={containerRef}>
@@ -229,12 +282,36 @@ export default function AssignLessonsDropdown({
                       onClick={() => {
                         setSelectedPersonId(null);
                         setSelectedLessonIds(new Set());
+                        setSelectedTeacherId("");
                       }}
                       className="text-sm text-primary hover:text-primary"
                     >
                       Change
                     </button>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Teacher
+                    {requiresTeacherPicker && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                  </label>
+                  {existingEnrollment ? (
+                    <p className="text-sm text-gray-600 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                      {formatPersonName(existingEnrollment.teacher)} (assigned)
+                    </p>
+                  ) : (
+                    <ScalableSelect
+                      options={teacherSelectOptions}
+                      value={selectedTeacherId}
+                      onChange={setSelectedTeacherId}
+                      placeholder="Select teacher..."
+                      searchPlaceholder="Search teacher..."
+                      emptyMessage="No teachers found"
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -280,7 +357,7 @@ export default function AssignLessonsDropdown({
             >
               Cancel
             </Button>
-            {selectedPersonId && selectedLessonIds.size > 0 && (
+            {canSubmit && (
               <Button
                 onClick={handleSubmit}
                 disabled={assigning}

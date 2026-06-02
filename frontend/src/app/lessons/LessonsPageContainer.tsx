@@ -10,12 +10,14 @@ import {
   LessonProgressSummary,
   LessonSessionReport,
   LessonSessionReportInput,
+  LessonStudentEnrollment,
   PersonLessonProgress,
 } from "@/src/types/lesson";
 import { usePeople } from "@/src/hooks/usePeople";
 import { formatPersonName } from "@/src/lib/name";
 import { formatDisplayDate } from "@/src/lib/date";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { useAuth } from "@/src/contexts/AuthContext";
 import {
   createEmptySessionFilters,
   extractErrorMessage,
@@ -24,6 +26,9 @@ import {
   SessionFilterValues,
   LessonPersonLike,
   groupProgressByPerson,
+  buildStudentTeacherMapFromEnrollments,
+  enrollmentByStudentId,
+  isLessonTeacherCandidate,
 } from "@/src/lib/lessonsUtils";
 import { PersonProgressSummary, LessonPersonSummary } from "@/src/types/lesson";
 import { LessonFormValues } from "@/src/components/lessons/LessonForm";
@@ -32,6 +37,7 @@ import LessonsPageView from "./LessonsPageView";
 
 type ProgressSortField =
   | "person"
+  | "teacher"
   | "previousLesson"
   | "progress"
   | "nextLesson"
@@ -127,6 +133,7 @@ export default function LessonsPageContainer() {
   const [sessionReports, setSessionReports] = useState<LessonSessionReport[]>(
     []
   );
+  const [enrollments, setEnrollments] = useState<LessonStudentEnrollment[]>([]);
   const [sessionReportsLoading, setSessionReportsLoading] = useState(false);
   const [sessionReportsError, setSessionReportsError] = useState<string | null>(
     null
@@ -156,7 +163,6 @@ export default function LessonsPageContainer() {
     lessonId?: string | number | null;
     progressId?: string | number | null;
   }>({});
-  const [currentTeacherId, setCurrentTeacherId] = useState<string | null>(null);
   const [sessionFilters, setSessionFilters] = useState(
     createEmptySessionFilters
   );
@@ -165,28 +171,14 @@ export default function LessonsPageContainer() {
   );
 
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
+  const sessionLoggedInTeacherId = useMemo(() => {
+    if (!user?.id || !isLessonTeacherCandidate(user)) {
+      return null;
     }
-    const stored = window.localStorage.getItem("currentUserId");
-    if (stored) {
-      setCurrentTeacherId(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (currentTeacherId) {
-      return;
-    }
-    const firstTeacher = people.find(
-      (person) => person.role !== "VISITOR" && isSelectablePerson(person)
-    );
-    if (firstTeacher) {
-      setCurrentTeacherId(firstTeacher.id);
-    }
-  }, [people, currentTeacherId]);
+    return String(user.id);
+  }, [user]);
 
   const selectedLesson = useMemo(
     () => lessons.find((lesson) => lesson.id === selectedLessonId) ?? null,
@@ -227,9 +219,7 @@ export default function LessonsPageContainer() {
 
   const teacherChoices = useMemo(() => {
     return [...people]
-      .filter(
-        (person) => person.role !== "VISITOR" && isSelectablePerson(person)
-      )
+      .filter((person) => isLessonTeacherCandidate(person))
       .sort((first, second) =>
         formatPersonName(first).localeCompare(formatPersonName(second))
       );
@@ -255,6 +245,16 @@ export default function LessonsPageContainer() {
     }
     return groupProgressByPerson(allProgress, lessons);
   }, [allProgress, lessons, allProgressLoading]);
+
+  const studentTeacherById = useMemo(
+    () => buildStudentTeacherMapFromEnrollments(enrollments),
+    [enrollments],
+  );
+
+  const enrollmentByStudent = useMemo(
+    () => enrollmentByStudentId(enrollments),
+    [enrollments],
+  );
 
   const getLifecycleStatus = useCallback(
     (summary: PersonProgressSummary): LessonProgressStatus | "ASSIGNED" => {
@@ -321,6 +321,17 @@ export default function LessonsPageContainer() {
               formatPersonName(second.person)
             ) * direction
           );
+        case "teacher": {
+          const firstTeacher = studentTeacherById.get(first.person.id);
+          const secondTeacher = studentTeacherById.get(second.person.id);
+          const firstName = firstTeacher
+            ? formatPersonName(firstTeacher)
+            : "";
+          const secondName = secondTeacher
+            ? formatPersonName(secondTeacher)
+            : "";
+          return firstName.localeCompare(secondName) * direction;
+        }
         case "previousLesson": {
           const firstOrder = first.previousLesson?.order ?? Number.POSITIVE_INFINITY;
           const secondOrder = second.previousLesson?.order ?? Number.POSITIVE_INFINITY;
@@ -369,6 +380,7 @@ export default function LessonsPageContainer() {
     progressSortDirection,
     progressSortField,
     progressStatusFilter,
+    studentTeacherById,
   ]);
 
   const ongoingStudentsCount = useMemo(() => {
@@ -385,6 +397,7 @@ export default function LessonsPageContainer() {
     fetchSummary();
     fetchCommitmentForm();
     fetchAllProgress();
+    fetchEnrollments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -550,6 +563,15 @@ export default function LessonsPageContainer() {
       );
     } finally {
       setAllProgressLoading(false);
+    }
+  };
+
+  const fetchEnrollments = async () => {
+    try {
+      const response = await lessonsApi.listEnrollments();
+      setEnrollments(response.data);
+    } catch {
+      setEnrollments([]);
     }
   };
 
@@ -755,7 +777,8 @@ export default function LessonsPageContainer() {
 
   const handleAssignLessons = async (
     personIds: string[],
-    lessonIds: number[]
+    lessonIds: number[],
+    teacherId: string
   ) => {
     if (personIds.length === 0) {
       setAssignError("Choose at least one person to assign.");
@@ -763,6 +786,14 @@ export default function LessonsPageContainer() {
     }
     if (lessonIds.length === 0) {
       setAssignError("Choose at least one lesson to assign.");
+      return;
+    }
+    const numericTeacherId = Number(teacherId);
+    const needsTeacher = personIds.some(
+      (personId) => !enrollmentByStudent.has(Number(personId))
+    );
+    if (needsTeacher && Number.isNaN(numericTeacherId)) {
+      setAssignError("Select a teacher for students without one assigned.");
       return;
     }
 
@@ -773,15 +804,26 @@ export default function LessonsPageContainer() {
         .map((id) => Number(id))
         .filter((value) => !Number.isNaN(value));
 
-      // Assign each lesson to all selected people
+      const assignPayload: {
+        lesson_id: number;
+        person_ids: number[];
+        teacher_id?: number;
+      } = {
+        lesson_id: 0,
+        person_ids: numericPersonIds,
+      };
+      if (needsTeacher && !Number.isNaN(numericTeacherId)) {
+        assignPayload.teacher_id = numericTeacherId;
+      }
+
       for (const lessonId of lessonIds) {
         await lessonsApi.assign({
+          ...assignPayload,
           lesson_id: lessonId,
-          person_ids: numericPersonIds,
         });
       }
 
-      // Refresh all progress and summary
+      await fetchEnrollments();
       await fetchAllProgress();
       if (selectedLessonId) {
         await fetchProgress(selectedLessonId);
@@ -918,16 +960,26 @@ export default function LessonsPageContainer() {
     if (!selectedLessonId) {
       return;
     }
+    const studentNumericId =
+      defaults?.studentId != null ? Number(defaults.studentId) : null;
+    const enrollmentTeacherId =
+      studentNumericId != null && !Number.isNaN(studentNumericId)
+        ? enrollmentByStudent.get(studentNumericId)?.teacher?.id ?? null
+        : null;
     setEditingSessionReport(null);
     setSessionFormError(null);
     setSessionFormDefaults({
       studentId: defaults?.studentId ?? null,
-      teacherId: currentTeacherId,
+      teacherId: defaults?.studentId
+        ? enrollmentTeacherId != null
+          ? enrollmentTeacherId.toString()
+          : null
+        : sessionLoggedInTeacherId,
       lessonId: selectedLessonId,
       progressId: defaults?.progressId ?? null,
     });
     setSessionModalOpen(true);
-  }, [currentTeacherId, selectedLessonId]);
+  }, [sessionLoggedInTeacherId, enrollmentByStudent, selectedLessonId]);
 
   useEffect(() => {
     if (!autoOpenSessionReport) {
@@ -945,7 +997,7 @@ export default function LessonsPageContainer() {
     setSessionFormError(null);
     setSessionFormDefaults({
       studentId: report.student?.id ?? null,
-      teacherId: report.teacher?.id ?? currentTeacherId,
+      teacherId: report.teacher?.id ?? sessionLoggedInTeacherId,
       lessonId: report.lesson?.id ?? selectedLessonId,
       progressId: report.progress ?? null,
     });
@@ -993,7 +1045,7 @@ export default function LessonsPageContainer() {
 
       let normalizedTeacherId = sanitizeNumericValue(payload.teacher_id);
       if (!normalizedTeacherId) {
-        normalizedTeacherId = sanitizeNumericValue(currentTeacherId);
+        normalizedTeacherId = sanitizeNumericValue(sessionLoggedInTeacherId);
       }
       if (!normalizedTeacherId) {
         setSessionFormError("Select a teacher for this session.");
@@ -1129,6 +1181,16 @@ export default function LessonsPageContainer() {
       allProgressLoading={allProgressLoading}
       allProgressError={allProgressError}
       groupedProgress={displayedGroupedProgress}
+      studentTeacherById={studentTeacherById}
+      enrollmentByStudent={enrollmentByStudent}
+      teacherChoices={teacherChoices}
+      onTransferTeacher={async (enrollmentId, teacherId, note) => {
+        await lessonsApi.transferEnrollment(enrollmentId, {
+          teacher_id: teacherId,
+          note,
+        });
+        await fetchEnrollments();
+      }}
       progressFilterLessonId={progressFilterLessonId}
       progressSearchQuery={progressSearchQuery}
       progressStatusFilter={progressStatusFilter}
@@ -1159,9 +1221,10 @@ export default function LessonsPageContainer() {
       lessonDeleteError={lessonDeleteError}
       // People data
       people={people}
-      teacherChoices={teacherChoices}
       studentChoices={studentChoices}
-      currentTeacherId={currentTeacherId}
+      enrollmentByStudentForAssign={enrollmentByStudent}
+      defaultAssignTeacherId={sessionLoggedInTeacherId}
+      currentTeacherId={sessionLoggedInTeacherId}
       // Format functions
       formatDateOnly={formatDateOnly}
       formatDateTime={formatDateTime}

@@ -124,3 +124,21 @@ export interface PersonProgressSummary {
   progressPercentage: number;
   allProgress: PersonLessonProgress[];
 }
+
+export interface LessonStudentEnrollment {
+  id: number;
+  student: LessonPersonSummary;
+  teacher: LessonPersonSummary;
+  is_active: boolean;
+  assigned_at: string;
+  updated_at: string;
+}
+
+export interface LessonTeacherTransfer {
+  id: number;
+  from_teacher: LessonPersonSummary | null;
+  to_teacher: LessonPersonSummary;
+  transferred_by: LessonPersonSummary | null;
+  note: string;
+  created_at: string;
+}

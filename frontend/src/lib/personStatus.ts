@@ -1,7 +1,13 @@
 import { PersonStatus } from "@/src/types/person";
 
-export function getPersonStatusColor(status: string): string {
-  switch (status) {
+function normalizePersonStatus(status: PersonStatus | string | null | undefined): string {
+  return (status ?? "").trim().toUpperCase();
+}
+
+export function getPersonStatusColor(
+  status: PersonStatus | string | null | undefined,
+): string {
+  switch (normalizePersonStatus(status)) {
     case "ACTIVE":
       return "bg-green-100 text-green-800";
     case "SEMIACTIVE":
@@ -14,11 +20,36 @@ export function getPersonStatusColor(status: string): string {
       return "bg-red-100 text-red-800";
     case "DECEASED":
       return "bg-gray-100 text-gray-800";
+    case "":
+      return "bg-gray-100 text-gray-500";
     default:
       return "bg-gray-100 text-gray-800";
   }
 }
 
-export function formatPersonStatusLabel(status: PersonStatus | string): string {
-  return status.replace(/_/g, " ").toLowerCase();
+export function formatPersonStatusLabel(
+  status: PersonStatus | string | null | undefined,
+): string {
+  const normalized = normalizePersonStatus(status);
+  if (!normalized) {
+    return "Not set";
+  }
+  return normalized
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function getPersonClusterChipClass(hasCluster: boolean): string {
+  return hasCluster
+    ? "inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary"
+    : "inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700";
+}
+
+export function formatPersonClusterLabel(clusterCodes?: string[] | null): string {
+  const codes = (clusterCodes ?? []).filter(Boolean);
+  if (codes.length === 0) {
+    return "No cluster";
+  }
+  return codes.join(", ");
 }

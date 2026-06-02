@@ -13,6 +13,7 @@ import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
 type ProgressSortField =
   | "person"
+  | "teacher"
   | "previousLesson"
   | "progress"
   | "nextLesson"
@@ -20,6 +21,7 @@ type ProgressSortField =
 
 interface LessonProgressTableProps {
   groupedProgress: PersonProgressSummary[];
+  studentTeacherById?: Map<number, LessonPersonSummary>;
   loading: boolean;
   error?: string | null;
   sortField: ProgressSortField;
@@ -33,6 +35,7 @@ const DEFAULT_ITEMS_PER_PAGE = 25;
 
 export default function LessonProgressTable({
   groupedProgress,
+  studentTeacherById = new Map(),
   loading,
   error,
   sortField,
@@ -110,19 +113,26 @@ export default function LessonProgressTable({
 
   const statusBadgeStyles: Record<LessonProgressStatus | "ASSIGNED", string> = {
     ASSIGNED: "bg-gray-100 text-gray-700",
-    IN_PROGRESS: "bg-primary/15 text-primary",
+    IN_PROGRESS: "bg-blue-100 text-blue-800",
     COMPLETED: "bg-green-100 text-green-700",
     SKIPPED: "bg-yellow-100 text-yellow-700",
+  };
+
+  const statusLabels: Record<LessonProgressStatus | "ASSIGNED", string> = {
+    ASSIGNED: "Assigned",
+    IN_PROGRESS: "In Progress",
+    COMPLETED: "Completed",
+    SKIPPED: "Skipped",
   };
 
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto border rounded-lg">
-        <table className="w-full min-w-[900px] divide-y divide-gray-200">
+        <table className="w-full min-w-[1000px] divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[22%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[18%] hover:bg-gray-100"
                 onClick={() => onSortChange("person")}
               >
                 <div className="flex items-center gap-1">
@@ -131,7 +141,16 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[26%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%] hover:bg-gray-100"
+                onClick={() => onSortChange("teacher")}
+              >
+                <div className="flex items-center gap-1">
+                  <span>Teacher</span>
+                  {renderSortIcon("teacher")}
+                </div>
+              </th>
+              <th
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[22%] hover:bg-gray-100"
                 onClick={() => onSortChange("previousLesson")}
               >
                 <div className="flex items-center gap-1">
@@ -173,6 +192,7 @@ export default function LessonProgressTable({
               const personName = formatPersonName(summary.person);
               const progressText = `Completed ${summary.completedCount} of ${summary.totalLessons}`;
               const summaryStatus = getSummaryStatus(summary);
+              const teacher = studentTeacherById.get(summary.person.id);
 
               return (
                 <tr key={summary.person.id} className="hover:bg-gray-50">
@@ -192,6 +212,15 @@ export default function LessonProgressTable({
                           : (summary.person.id ?? "N/A")}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-700">
+                    {teacher ? (
+                      <span className="font-medium text-gray-900 break-words">
+                        {formatPersonName(teacher)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">No teacher</span>
+                    )}
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
                     {summary.previousLesson ? (
@@ -242,7 +271,7 @@ export default function LessonProgressTable({
                         statusBadgeStyles[summaryStatus]
                       }`}
                     >
-                      {summaryStatus.replace("_", " ")}
+                      {statusLabels[summaryStatus]}
                     </span>
                   </td>
                 </tr>

@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     LessonSessionReportViewSet,
+    LessonStudentEnrollmentViewSet,
     LessonViewSet,
     PersonLessonProgressViewSet,
 )
@@ -16,6 +17,11 @@ router.register(
     r"session-reports",
     LessonSessionReportViewSet,
     basename="lesson-session-report",
+)
+router.register(
+    r"enrollments",
+    LessonStudentEnrollmentViewSet,
+    basename="lesson-enrollment",
 )
 
 urlpatterns = [

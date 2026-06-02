@@ -19,13 +19,22 @@ from apps.authentication.permissions import (
 )
 from apps.people.models import ModuleCoordinator
 
-from .models import Lesson, LessonSessionReport, LessonSettings, PersonLessonProgress
+from .models import (
+    Lesson,
+    LessonSessionReport,
+    LessonSettings,
+    LessonStudentEnrollment,
+    PersonLessonProgress,
+)
 from .serializers import (
     LessonBulkAssignSerializer,
     LessonCompletionSerializer,
     LessonSerializer,
     LessonSettingsSerializer,
     LessonSessionReportSerializer,
+    LessonStudentEnrollmentSerializer,
+    LessonTeacherTransferRequestSerializer,
+    LessonTeacherTransferSerializer,
     PersonLessonProgressSerializer,
 )
 from .services import bulk_assign_lessons, mark_progress_completed
@@ -120,11 +129,7 @@ class PersonLessonProgressViewSet(
             ModuleCoordinator.ModuleType.LESSONS,
             level=ModuleCoordinator.CoordinatorLevel.TEACHER
         ):
-            # Get all students where this user is the teacher
-            student_ids = LessonSessionReport.objects.filter(
-                teacher=user
-            ).values_list('student_id', flat=True).distinct()
-            queryset = queryset.filter(person_id__in=student_ids)
+            queryset = queryset.filter(person__lesson_enrollment__teacher=user)
         # MEMBER: Only own progress
         elif user.role == "MEMBER":
             queryset = queryset.filter(person=user)
@@ -186,7 +191,13 @@ class PersonLessonProgressViewSet(
         persons: Iterable[Person] = serializer.validated_data["persons"]
         assigned_by = request.user if isinstance(request.user, Person) else None
 
-        created_count = bulk_assign_lessons(lesson, persons, assigned_by=assigned_by)
+        teacher = serializer.validated_data.get("teacher")
+        created_count = bulk_assign_lessons(
+            lesson,
+            persons,
+            assigned_by=assigned_by,
+            teacher=teacher,
+        )
 
         return Response(
             {"created": created_count},
@@ -413,6 +424,15 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
         request = self.request
         validated = serializer.validated_data
         teacher = validated.get("teacher")
+        student = validated.get("student")
+        if teacher is None and student is not None:
+            enrollment = (
+                LessonStudentEnrollment.objects.filter(student=student, is_active=True)
+                .select_related("teacher")
+                .first()
+            )
+            if enrollment:
+                teacher = enrollment.teacher
         if (
             teacher is None
             and isinstance(request.user, Person)
@@ -483,3 +503,71 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
         if report.progress_id != progress.id:
             report.progress = progress
             report.save(update_fields=["progress", "updated_at"])
+
+
+class LessonStudentEnrollmentViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedAndNotVisitor]
+    serializer_class = LessonStudentEnrollmentSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = LessonStudentEnrollment.objects.select_related(
+            "student", "teacher", "assigned_by"
+        )
+
+        if user.role in ["ADMIN", "PASTOR"]:
+            pass
+        elif user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+        ):
+            pass
+        elif user.is_module_coordinator(
+            ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER,
+        ):
+            queryset = queryset.filter(teacher=user)
+        elif user.role == "MEMBER":
+            queryset = queryset.filter(student=user)
+        else:
+            queryset = queryset.none()
+
+        student_id = self.request.query_params.get("student")
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+        teacher_id = self.request.query_params.get("teacher")
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+
+        return queryset.order_by("student__last_name", "student__first_name")
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve", "transfers"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("LESSONS", "write")]
+
+    @action(detail=True, methods=["post"])
+    def transfer(self, request, pk=None):
+        enrollment = self.get_object()
+        serializer = LessonTeacherTransferRequestSerializer(
+            data=request.data,
+            context={"enrollment": enrollment, "request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        enrollment.refresh_from_db()
+        return Response(
+            LessonStudentEnrollmentSerializer(
+                enrollment, context={"request": request}
+            ).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["get"])
+    def transfers(self, request, pk=None):
+        enrollment = self.get_object()
+        transfers = enrollment.transfers.select_related(
+            "from_teacher", "to_teacher", "transferred_by"
+        )
+        serializer = LessonTeacherTransferSerializer(transfers, many=True)
+        return Response(serializer.data)

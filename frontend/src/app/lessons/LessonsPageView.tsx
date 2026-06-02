@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import LessonList from "@/src/components/lessons/LessonList";
 import LessonDetailPanel from "@/src/components/lessons/LessonDetailPanel";
@@ -33,6 +34,7 @@ import {
   PersonLessonProgress,
   PersonProgressSummary,
   LessonPersonSummary,
+  LessonStudentEnrollment,
 } from "@/src/types/lesson";
 import PersonLessonProgressModal from "@/src/components/lessons/PersonLessonProgressModal";
 import { Person } from "@/src/types/person";
@@ -40,6 +42,7 @@ import { formatPersonName } from "@/src/lib/name";
 
 type ProgressSortField =
   | "person"
+  | "teacher"
   | "previousLesson"
   | "progress"
   | "nextLesson"
@@ -104,6 +107,7 @@ interface LessonsPageViewProps {
   allProgressLoading: boolean;
   allProgressError: string | null;
   groupedProgress: PersonProgressSummary[];
+  studentTeacherById: Map<number, LessonPersonSummary>;
   progressFilterLessonId: number | null;
   progressSearchQuery: string;
   progressStatusFilter: ProgressStatusFilter;
@@ -175,7 +179,19 @@ interface LessonsPageViewProps {
       nextValue: boolean;
     } | null
   ) => void;
-  onAssignLessons: (personIds: string[], lessonIds: number[]) => void;
+  onAssignLessons: (
+    personIds: string[],
+    lessonIds: number[],
+    teacherId: string
+  ) => void;
+  enrollmentByStudent: Map<number, LessonStudentEnrollment>;
+  enrollmentByStudentForAssign: Map<number, LessonStudentEnrollment>;
+  defaultAssignTeacherId: string | null;
+  onTransferTeacher: (
+    enrollmentId: number,
+    teacherId: number,
+    note?: string
+  ) => Promise<void>;
   onProgressFilterChange: (lessonId: number | null) => void;
   onProgressSearchQueryChange: (value: string) => void;
   onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
@@ -279,6 +295,10 @@ export default function LessonsPageView({
   onCloseAlertModal,
   onSetCommitmentConfirm,
   onAssignLessons,
+  enrollmentByStudent,
+  enrollmentByStudentForAssign,
+  defaultAssignTeacherId,
+  onTransferTeacher,
   onProgressFilterChange,
   onProgressSearchQueryChange,
   onProgressStatusFilterChange,
@@ -290,6 +310,7 @@ export default function LessonsPageView({
   allProgressLoading,
   allProgressError,
   groupedProgress,
+  studentTeacherById,
   progressFilterLessonId,
   progressSearchQuery,
   progressStatusFilter,
@@ -313,7 +334,23 @@ export default function LessonsPageView({
   onSetLessonDeleteError,
 }: LessonsPageViewProps) {
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
-  
+  const canTransferLessonTeacher = Boolean(
+    user &&
+      (user.role === "ADMIN" ||
+        user.role === "PASTOR" ||
+        isSeniorCoordinator("LESSONS") ||
+        isModuleCoordinator("LESSONS"))
+  );
+  const enrollmentTeacherByStudentId = useMemo(() => {
+    const map = new Map<number, number>();
+    enrollmentByStudent.forEach((enrollment, studentId) => {
+      if (enrollment.teacher?.id) {
+        map.set(studentId, enrollment.teacher.id);
+      }
+    });
+    return map;
+  }, [enrollmentByStudent]);
+
   // Show stats cards for: ADMIN, PASTOR, Senior Coordinators, Cluster Coordinators
   const shouldShowStats = 
     user?.role === "ADMIN" || 
@@ -399,6 +436,7 @@ export default function LessonsPageView({
             <MemberProgressSection
               allLessons={lessons}
               groupedProgress={groupedProgress}
+              studentTeacherById={studentTeacherById}
               progressLoading={allProgressLoading}
               progressError={allProgressError}
               progressActionError={progressActionError}
@@ -418,6 +456,9 @@ export default function LessonsPageView({
               assigning={assigning}
               assignError={assignError}
               onAssignLessons={onAssignLessons}
+              enrollmentByStudent={enrollmentByStudentForAssign}
+              defaultTeacherId={defaultAssignTeacherId}
+              teacherChoices={teacherChoices}
               onPersonClick={onOpenPersonProgressModal}
             />
           </div>
@@ -623,10 +664,14 @@ export default function LessonsPageView({
           defaultLessonId={
             sessionFormDefaults.lessonId ?? selectedLessonId ?? undefined
           }
+          loggedInTeacherId={currentTeacherId ?? undefined}
           defaultTeacherId={
-            sessionFormDefaults.teacherId ?? currentTeacherId ?? undefined
+            sessionFormDefaults.studentId
+              ? sessionFormDefaults.teacherId ?? undefined
+              : (sessionFormDefaults.teacherId ?? currentTeacherId ?? undefined)
           }
           defaultStudentId={sessionFormDefaults.studentId ?? undefined}
+          enrollmentTeacherByStudentId={enrollmentTeacherByStudentId}
           error={sessionFormError}
         />
       </Modal>
@@ -671,6 +716,14 @@ export default function LessonsPageView({
         person={personProgressModal.person}
         allProgress={allProgress}
         allLessons={lessons}
+        enrollment={
+          personProgressModal.person
+            ? enrollmentByStudent.get(personProgressModal.person.id) ?? null
+            : null
+        }
+        teacherChoices={teacherChoices}
+        canTransferTeacher={canTransferLessonTeacher}
+        onTransferTeacher={onTransferTeacher}
         onClose={onClosePersonProgressModal}
       />
     </DashboardLayout>

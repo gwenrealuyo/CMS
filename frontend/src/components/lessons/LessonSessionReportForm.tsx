@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   Lesson,
   LessonSessionReport,
@@ -8,7 +9,14 @@ import {
 } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
+import { isLessonTeacherCandidate } from "@/src/lib/lessonsUtils";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import {
+  formatPersonClusterLabel,
+  formatPersonStatusLabel,
+  getPersonClusterChipClass,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
 
 export interface LessonSessionReportFormProps {
   report?: LessonSessionReport | null;
@@ -19,7 +27,9 @@ export interface LessonSessionReportFormProps {
   lessons: Lesson[];
   defaultLessonId?: number | string | null;
   defaultTeacherId?: number | string | null;
+  loggedInTeacherId?: number | string | null;
   defaultStudentId?: number | string | null;
+  enrollmentTeacherByStudentId?: Map<number, number>;
   error?: string | null;
 }
 
@@ -43,6 +53,28 @@ function toLocalDateValue(value?: string | null): string {
   return date.toISOString().slice(0, 10);
 }
 
+const NO_TEACHER_ASSIGNED_LABEL = "No teacher assigned";
+
+function StudentOptionBadges({ person }: { person: Person }) {
+  const clusterCodes = person.cluster_codes?.filter(Boolean) ?? [];
+  const hasCluster = clusterCodes.length > 0;
+
+  return (
+    <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(
+          person.status
+        )}`}
+      >
+        {formatPersonStatusLabel(person.status)}
+      </span>
+      <span className={getPersonClusterChipClass(hasCluster)}>
+        {formatPersonClusterLabel(clusterCodes)}
+      </span>
+    </span>
+  );
+}
+
 function toLocalDateTimeValue(value?: string | null): string {
   if (!value) return "";
   const date = new Date(value);
@@ -64,16 +96,13 @@ export default function LessonSessionReportForm({
   lessons,
   defaultLessonId,
   defaultTeacherId,
+  loggedInTeacherId: loggedInTeacherIdProp,
   defaultStudentId,
+  enrollmentTeacherByStudentId,
   error,
 }: LessonSessionReportFormProps) {
   const teacherOptions = useMemo(
-    () =>
-      people.filter(
-        (person) =>
-          person.role !== "VISITOR" &&
-          isSelectablePerson(person)
-      ),
+    () => people.filter((person) => isLessonTeacherCandidate(person)),
     [people]
   );
 
@@ -87,10 +116,15 @@ export default function LessonSessionReportForm({
       });
   }, [people]);
 
+  const loggedInTeacherId = loggedInTeacherIdProp?.toString() ?? "";
+
   const defaultState = useMemo(
     (): FormState => ({
       teacherId:
-        report?.teacher?.id?.toString() ?? defaultTeacherId?.toString() ?? "",
+        report?.teacher?.id?.toString() ??
+        (defaultStudentId
+          ? defaultTeacherId?.toString() ?? ""
+          : loggedInTeacherId),
       studentId:
         report?.student?.id?.toString() ?? defaultStudentId?.toString() ?? "",
       lessonId:
@@ -104,7 +138,7 @@ export default function LessonSessionReportForm({
       nextSessionDate: report?.next_session_date ?? "",
       remarks: report?.remarks ?? "",
     }),
-    [report, defaultTeacherId, defaultStudentId, defaultLessonId]
+    [report, loggedInTeacherId, defaultTeacherId, defaultStudentId, defaultLessonId]
   );
 
   const [formState, setFormState] = useState<FormState>(defaultState);
@@ -112,23 +146,76 @@ export default function LessonSessionReportForm({
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<keyof FormState, string>>
   >({});
-  const [teacherQuery, setTeacherQuery] = useState("");
   const [studentQuery, setStudentQuery] = useState("");
-  const [isTeacherDropdownOpen, setTeacherDropdownOpen] = useState(false);
   const [isStudentDropdownOpen, setStudentDropdownOpen] = useState(false);
+
+  const isTeacherLocked = Boolean(formState.studentId.trim()) && !report;
 
   useEffect(() => {
     setFormState(defaultState);
-    const teacherMatch = teacherOptions.find(
-      (person) => person.id?.toString() === defaultState.teacherId
-    );
-    setTeacherQuery(teacherMatch ? formatPersonName(teacherMatch) : "");
-
     const studentMatch = studentOptions.find(
       (person) => person.id?.toString() === defaultState.studentId
     );
     setStudentQuery(studentMatch ? formatPersonName(studentMatch) : "");
-  }, [defaultState, teacherOptions, studentOptions]);
+  }, [defaultState, studentOptions]);
+
+  useEffect(() => {
+    if (report) {
+      return;
+    }
+
+    const studentId = formState.studentId.trim();
+    if (!studentId) {
+      const nextTeacherId = loggedInTeacherId;
+      setFormState((previous) =>
+        previous.teacherId === nextTeacherId
+          ? previous
+          : { ...previous, teacherId: nextTeacherId }
+      );
+      return;
+    }
+
+    const numericStudentId = Number(studentId);
+    if (Number.isNaN(numericStudentId)) {
+      return;
+    }
+
+    const enrollmentTeacherId =
+      enrollmentTeacherByStudentId?.get(numericStudentId) ?? null;
+    const nextTeacherId = enrollmentTeacherId?.toString() ?? "";
+
+    setFormState((previous) =>
+      previous.teacherId === nextTeacherId
+        ? previous
+        : { ...previous, teacherId: nextTeacherId }
+    );
+  }, [
+    formState.studentId,
+    report,
+    loggedInTeacherId,
+    enrollmentTeacherByStudentId,
+  ]);
+
+  const teacherHelperText = useMemo(() => {
+    if (report) {
+      return null;
+    }
+    if (isTeacherLocked) {
+      if (!formState.teacherId) {
+        return "This student has no lessons teacher. Assign one in Student Progress first.";
+      }
+      return "Assigned lessons teacher for this student (cannot be changed here).";
+    }
+    return loggedInTeacherId
+      ? "Defaults to you. Select a student to use their assigned lessons teacher."
+      : "Select who led this session. Choosing a student locks the teacher to their assigned lessons teacher.";
+  }, [formState.teacherId, isTeacherLocked, loggedInTeacherId, report]);
+
+  const clearStudentSelection = () => {
+    handleChange("studentId", "");
+    setStudentQuery("");
+    setStudentDropdownOpen(false);
+  };
 
   const lessonOptions = useMemo(() => {
     if (!lessons.length) {
@@ -142,17 +229,26 @@ export default function LessonSessionReportForm({
     });
   }, [lessons]);
 
-  const filteredTeacherOptions = useMemo(() => {
-    const query = teacherQuery.trim().toLowerCase();
-    if (!query) {
-      return teacherOptions;
+  const teacherSelectOptions = useMemo(
+    () =>
+      teacherOptions
+        .map((person) => ({
+          value: person.id?.toString() ?? "",
+          label: formatPersonName(person),
+        }))
+        .filter((option) => option.value),
+    [teacherOptions]
+  );
+
+  const lockedTeacherLabel = useMemo(() => {
+    if (!formState.teacherId) {
+      return NO_TEACHER_ASSIGNED_LABEL;
     }
-    return teacherOptions.filter((person) => {
-      const name = formatPersonName(person).toLowerCase();
-      const username = person.username?.toLowerCase() ?? "";
-      return name.includes(query) || username.includes(query);
-    });
-  }, [teacherOptions, teacherQuery]);
+    const teacherMatch = teacherOptions.find(
+      (person) => person.id?.toString() === formState.teacherId
+    );
+    return teacherMatch ? formatPersonName(teacherMatch) : NO_TEACHER_ASSIGNED_LABEL;
+  }, [formState.teacherId, teacherOptions]);
 
   const filteredStudentOptions = useMemo(() => {
     const query = studentQuery.trim().toLowerCase();
@@ -187,17 +283,10 @@ export default function LessonSessionReportForm({
     }
   };
 
-  const teacherDropdownRef = useRef<HTMLDivElement | null>(null);
   const studentDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        teacherDropdownRef.current &&
-        !teacherDropdownRef.current.contains(event.target as Node)
-      ) {
-        setTeacherDropdownOpen(false);
-      }
       if (
         studentDropdownRef.current &&
         !studentDropdownRef.current.contains(event.target as Node)
@@ -228,6 +317,13 @@ export default function LessonSessionReportForm({
 
     if (!studentId) {
       errors.studentId = "Select a student for this session.";
+    }
+
+    if (!report && studentId && !teacherId) {
+      errors.teacherId =
+        "This student has no lessons teacher assigned. Assign one in Student Progress first.";
+    } else if (!report && !teacherId) {
+      errors.teacherId = "Select who led this session.";
     }
 
     if (!lessonId) {
@@ -293,82 +389,48 @@ export default function LessonSessionReportForm({
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2" ref={teacherDropdownRef}>
+        <div className="space-y-2">
           <label
-            htmlFor="teacher-search"
+            htmlFor={isTeacherLocked ? "teacher-display" : "teacher-select"}
             className="block text-sm font-medium text-gray-700 mb-1"
           >
             Teacher
           </label>
-          <div className="relative">
+          {isTeacherLocked ? (
             <input
-              id="teacher-search"
+              id="teacher-display"
               type="text"
-              value={teacherQuery}
-              onChange={(event) => {
-                setTeacherQuery(event.target.value);
-                setTeacherDropdownOpen(true);
-              }}
-              onFocus={() => setTeacherDropdownOpen(true)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setTeacherDropdownOpen(false);
-                }
-              }}
-              placeholder="Search teacher by name or username..."
-              className="w-full min-h-[44px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-              aria-label="Search for teacher"
-              aria-expanded={isTeacherDropdownOpen}
-              aria-haspopup="listbox"
-              aria-controls="teacher-options"
+              readOnly
+              disabled
+              value={lockedTeacherLabel}
+              className="w-full min-h-[44px] rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 cursor-not-allowed"
+              aria-invalid={!!fieldErrors.teacherId}
+              aria-describedby={
+                fieldErrors.teacherId ? "teacher-error" : undefined
+              }
             />
-            {isTeacherDropdownOpen && (
-              <div
-                id="teacher-options"
-                role="listbox"
-                className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto"
-                aria-label="Teacher options"
-              >
-                {filteredTeacherOptions.length === 0 ? (
-                  <div
-                    className="px-3 py-2 text-sm text-gray-500"
-                    role="option"
-                  >
-                    No teachers match your search.
-                  </div>
-                ) : (
-                  filteredTeacherOptions.map((person) => (
-                    <button
-                      key={person.id}
-                      type="button"
-                      role="option"
-                      aria-selected={
-                        formState.teacherId === person.id?.toString()
-                      }
-                      onClick={() => {
-                        handleChange("teacherId", person.id.toString());
-                        setTeacherQuery(formatPersonName(person));
-                        setTeacherDropdownOpen(false);
-                      }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-primary/10 focus:bg-primary/10 focus:outline-none"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-800">
-                          {formatPersonName(person)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {person.username}
-                        </span>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-          <p className="text-xs text-gray-500">
-            Defaults to the currently logged in user when available.
-          </p>
+          ) : (
+            <ScalableSelect
+              options={teacherSelectOptions}
+              value={formState.teacherId}
+              onChange={(value) => handleChange("teacherId", value)}
+              placeholder="Select teacher..."
+              searchPlaceholder="Search by name..."
+              emptyMessage="No teachers found"
+            />
+          )}
+          {fieldErrors.teacherId && (
+            <p
+              id="teacher-error"
+              className="text-xs text-red-600 mt-1"
+              role="alert"
+            >
+              {fieldErrors.teacherId}
+            </p>
+          )}
+          {teacherHelperText && (
+            <p className="text-xs text-gray-500">{teacherHelperText}</p>
+          )}
         </div>
 
         <div className="space-y-2" ref={studentDropdownRef}>
@@ -397,7 +459,9 @@ export default function LessonSessionReportForm({
                 }
               }}
               placeholder="Search student by name, username, or member ID..."
-              className={`w-full min-h-[44px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+              className={`w-full min-h-[44px] rounded-md border py-2 text-sm focus:outline-none focus:ring-1 ${
+                formState.studentId ? "pl-3 pr-16" : "px-3"
+              } ${
                 fieldErrors.studentId
                   ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                   : "border-gray-300 focus:border-primary focus:ring-ring"
@@ -412,6 +476,16 @@ export default function LessonSessionReportForm({
               aria-haspopup="listbox"
               aria-controls="student-options"
             />
+            {formState.studentId && (
+              <button
+                type="button"
+                onClick={clearStudentSelection}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                aria-label="Clear student"
+              >
+                Clear
+              </button>
+            )}
             {isStudentDropdownOpen && (
               <div
                 id="student-options"
@@ -446,9 +520,7 @@ export default function LessonSessionReportForm({
                         <span className="font-medium text-gray-800">
                           {formatPersonName(person)}
                         </span>
-                        <span className="text-xs text-gray-500">
-                          {person.member_id || person.username}
-                        </span>
+                        <StudentOptionBadges person={person} />
                       </div>
                     </button>
                   ))
@@ -494,7 +566,7 @@ export default function LessonSessionReportForm({
           <option value="">Select lesson</option>
           {lessonOptions.map((lesson) => (
             <option key={lesson.id} value={lesson.id}>
-              {lesson.title} ({lesson.version_label})
+              {lesson.title}
             </option>
           ))}
         </select>

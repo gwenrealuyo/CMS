@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Squares2X2Icon, TableCellsIcon } from "@heroicons/react/24/outline";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import ClusterContentTabs, {
   ClusterContentTab,
@@ -24,6 +23,15 @@ import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import Pagination from "@/src/components/ui/Pagination";
 import Button from "@/src/components/ui/Button";
+import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
+import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
+import {
+  TOOLBAR_ACTION_BUTTON_CLASS,
+  TOOLBAR_ACTIONS_ROW_CLASS,
+  TOOLBAR_BRANCH_SELECT_CLASS,
+  TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
+  TOOLBAR_CARD_CLASS,
+} from "@/src/lib/toolbarStyles";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
@@ -439,11 +447,11 @@ export default function ClustersPageView({
           if (!clusterBranchSelectInteractive) return;
           onClusterBranchChange(e.target.value);
         }}
-        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-ring focus:border-transparent ${
+        className={
           clusterBranchSelectInteractive
-            ? "w-52 shrink-0"
-            : "w-full pointer-events-none cursor-default"
-        }`}
+            ? TOOLBAR_BRANCH_SELECT_CLASS
+            : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
+        }
       >
         {options}
       </select>
@@ -821,99 +829,38 @@ export default function ClustersPageView({
             </div>
 
             {/* Search + branch + actions (Families-style toolbar) */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-1 min-w-0 items-center gap-2">
-                  <div className="relative flex-1 max-w-md min-w-[12rem]">
-                    <svg
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-                    <input
-                      type="text"
-                      placeholder="Search clusters…"
-                      value={clusterSearchQuery}
-                      onChange={(e) => onClusterSearchChange(e.target.value)}
-                      className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm ${
-                        clusterSearchQuery ? "pr-10" : "pr-4"
-                      }`}
-                    />
-                    {clusterSearchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => onClusterSearchChange("")}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        aria-label="Clear search"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
+            <div className={TOOLBAR_CARD_CLASS}>
+              <div className="flex flex-col gap-3">
+                <ToolbarSearch
+                  fullWidth
+                  value={clusterSearchQuery}
+                  onChange={onClusterSearchChange}
+                  placeholder="Search clusters…"
+                  ariaLabel="Search clusters"
+                />
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   {renderClusterBranchSelect()}
+                  <ViewModeToggle
+                    viewMode={clusterListViewMode}
+                    onViewModeChange={setClusterListViewMode}
+                  />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setClusterListViewMode("table")}
-                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                        clusterListViewMode === "table"
-                          ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                          : "bg-transparent text-gray-400 hover:text-gray-600"
-                      }`}
-                    >
-                      <TableCellsIcon className="h-3.5 w-3.5" />
-                      Table
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClusterListViewMode("cards")}
-                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                        clusterListViewMode === "cards"
-                          ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                          : "bg-transparent text-gray-400 hover:text-gray-600"
-                      }`}
-                    >
-                      <Squares2X2Icon className="h-3.5 w-3.5" />
-                      Cards
-                    </button>
-                  </div>
-
+                <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
                   {hasClusterModuleWideAccess && (
                     <>
                       <button
                         type="button"
                         onClick={onToggleSelectionMode}
-                        className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-lg transition-colors ${
+                        className={`inline-flex min-h-[44px] shrink-0 items-center rounded-lg border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring sm:min-h-0 ${
                           isSelectionMode
-                            ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/15 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
-                            : "border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                            ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         <svg
-                          className={`w-4 h-4 mr-1 shrink-0 ${
+                          className={`mr-1 h-4 w-4 shrink-0 ${
                             isSelectionMode ? "text-primary" : "text-gray-500"
                           }`}
                           fill="none"
@@ -939,48 +886,6 @@ export default function ClustersPageView({
                     </>
                   )}
 
-                  {clusterActiveFilters.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                      {clusterActiveFilters.map((filter) => (
-                        <span
-                          key={filter.id}
-                          className="inline-flex items-center px-2 py-1.5 rounded-full text-xs font-medium chip-primary min-h-[32px]"
-                        >
-                          <span className="truncate max-w-[150px] md:max-w-none">
-                            {filter.label}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => onClusterFilterRemove(filter.id)}
-                            className="ml-1 text-primary hover:text-primary min-w-[20px] min-h-[20px] flex items-center justify-center flex-shrink-0"
-                            aria-label="Remove filter"
-                          >
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        </span>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={onClusterClearFilters}
-                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 min-h-[32px] md:min-h-0"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                  )}
-
                   <button
                     type="button"
                     onClick={(e) =>
@@ -990,7 +895,7 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors shrink-0"
+                    className={TOOLBAR_ACTION_BUTTON_CLASS}
                   >
                     <svg
                       className="w-4 h-4 mr-1"
@@ -1017,7 +922,7 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors shrink-0"
+                    className={TOOLBAR_ACTION_BUTTON_CLASS}
                   >
                     <svg
                       className="w-4 h-4 mr-1"
@@ -1035,6 +940,48 @@ export default function ClustersPageView({
                     Filter
                   </button>
                 </div>
+
+                {clusterActiveFilters.length > 0 && (
+                  <div className="flex w-full flex-wrap items-center gap-2">
+                    {clusterActiveFilters.map((filter) => (
+                      <span
+                        key={filter.id}
+                        className="inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium chip-primary"
+                      >
+                        <span className="max-w-[150px] truncate md:max-w-none">
+                          {filter.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onClusterFilterRemove(filter.id)}
+                          className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
+                          aria-label="Remove filter"
+                        >
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={onClusterClearFilters}
+                      className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700 md:min-h-0"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -567,6 +567,7 @@ The Groups tab toolbar mirrors the clusters page layout:
 
 #### Group Management
 
+- **`EvangelismGroupView`**: Mobile-first group detail layout (custom header, scrollable sections, sticky footer) used in the view modal
 - **`EvangelismGroupTable`**: Tabular groups list with bulk checkboxes, branch/cluster chips, status badges, and row action menu
 - **`EvangelismGroupCard`**: Card layout for groups; supports bulk selection and view highlight when detail modal is open
 - **`EvangelismToolbarSearch`**: Icon-prefixed search input shared by the Groups tab toolbar (matches clusters styling)
@@ -727,17 +728,22 @@ The Groups tab toolbar mirrors the clusters page layout:
 
 ### Group Detail Modal
 
-When viewing a group, a modal displays:
+When viewing a group, a modal displays group details and related sections. Layout follows the same mobile patterns as cluster detail (`ClusterView`):
 
-- **Group Information**: Leader, cluster, location, meeting time, meeting day
+**View mode**
+
+- `Modal` uses `hideHeader`; [`EvangelismGroupView`](frontend/src/components/evangelism/EvangelismGroupView.tsx) renders its own header with truncated group name, status chips (Active/Inactive, Bible Sharers), and a 44px close control
+- Full-screen on mobile (`Modal` shell); scrollable body for info grid and sections; **sticky footer** with Edit, Cancel, and Delete (stacked full-width buttons on mobile; icon-only delete + Cancel/Edit on desktop)
+- **Group Information**: Coordinator, cluster, branch code, location, meeting time, description
 - **Members Section**: List of enrolled members with management options
-- **Reports Section**: Weekly evangelism reports for the group
-- **Visitors Section**: List of prospects associated with the group
-- **Conversions Section**: List of conversions from the group
-- **Footer Actions**:
-  - Delete button (left, red icon)
-  - Close button (right)
-  - Edit button (right, blue)
+- **Reports Section**: Weekly evangelism reports (`Table` mobile cards on small screens)
+- **Visitors Section**: Prospects list (`Table` mobile cards)
+- **Conversions Section**: Conversions list (`Table` mobile cards)
+
+**Edit mode**
+
+- Standard `Modal` header with title **Edit Group** (no long name in header)
+- [`EvangelismGroupForm`](frontend/src/components/evangelism/EvangelismGroupForm.tsx) with responsive stacked fields and full-width submit/cancel on mobile
 
 ### Data Loading & Updates
 

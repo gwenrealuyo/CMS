@@ -1,7 +1,15 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Squares2X2Icon, TableCellsIcon } from "@heroicons/react/24/outline";
 import { Family, Person, PersonUI } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
+import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
+import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
+import {
+  TOOLBAR_ACTION_BUTTON_CLASS,
+  TOOLBAR_ACTIONS_ROW_CLASS,
+  TOOLBAR_BRANCH_SELECT_CLASS,
+  TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
+  TOOLBAR_CARD_CLASS,
+} from "@/src/lib/toolbarStyles";
 import ActionMenu from "./ActionMenu";
 import FamilyFilterDropdown from "./FamilyFilterDropdown";
 import ClusterFilterCard from "../clusters/ClusterFilterCard";
@@ -214,11 +222,11 @@ export default function FamilyManagementDashboard({
           setBranchFilterId(e.target.value);
           setFamilyPage(1);
         }}
-        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:ring-2 focus:ring-ring focus:border-transparent ${
+        className={
           familyBranchSelectInteractive
-            ? "w-52 shrink-0"
-            : "w-full pointer-events-none cursor-default"
-        }`}
+            ? TOOLBAR_BRANCH_SELECT_CLASS
+            : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
+        }
       >
         {options}
       </select>
@@ -655,97 +663,32 @@ export default function FamilyManagementDashboard({
       </div>
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        {/* Search + branch */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-1 min-w-0 items-center gap-2">
-            <div className="relative flex-1 max-w-md min-w-[12rem]">
-              <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search families…"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setFamilyPage(1);
-                }}
-                className={`w-full pl-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm ${
-                  searchQuery ? "pr-10" : "pr-4"
-                }`}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setFamilyPage(1);
-                  }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
+      <div className={TOOLBAR_CARD_CLASS}>
+        <div className="flex flex-col gap-3">
+          <ToolbarSearch
+            fullWidth
+            value={searchQuery}
+            onChange={(value) => {
+              setSearchQuery(value);
+              setFamilyPage(1);
+            }}
+            placeholder="Search families…"
+            ariaLabel="Search families"
+          />
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {renderFamilyBranchSelect()}
+            <ViewModeToggle
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
           </div>
 
-          {/* Sort and Filter Buttons */}
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  viewMode === "table"
-                    ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                    : "bg-transparent text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                <TableCellsIcon className="h-3.5 w-3.5" />
-                Table
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("cards")}
-                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  viewMode === "cards"
-                    ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                    : "bg-transparent text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                <Squares2X2Icon className="h-3.5 w-3.5" />
-                Cards
-              </button>
-            </div>
-
+          <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
             <button
               ref={sortButtonRef}
               onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors"
+              className={TOOLBAR_ACTION_BUTTON_CLASS}
             >
               <svg
                 className="w-4 h-4 mr-1"
@@ -766,7 +709,7 @@ export default function FamilyManagementDashboard({
             <button
               ref={familyFilterButtonRef}
               onClick={handleFamilyFilterClick}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors"
+              className={TOOLBAR_ACTION_BUTTON_CLASS}
             >
               <svg
                 className="w-4 h-4 mr-1"
@@ -784,6 +727,55 @@ export default function FamilyManagementDashboard({
               Filter
             </button>
           </div>
+
+          {familyFilters.length > 0 && (
+            <div className="flex w-full flex-wrap items-center gap-2">
+              {familyFilters.map((filter, index) => (
+                <span
+                  key={index}
+                  className="inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium chip-primary"
+                >
+                  <span className="max-w-[150px] truncate md:max-w-none">
+                    {filter.label}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const newFilters = familyFilters.filter(
+                        (_, i) => i !== index
+                      );
+                      setFamilyFilters(newFilters);
+                      setFamilyPage(1);
+                    }}
+                    className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
+                    aria-label="Remove filter"
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+              <button
+                onClick={() => {
+                  setFamilyFilters([]);
+                  setFamilyPage(1);
+                }}
+                className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700 md:min-h-0"
+              >
+                Clear All
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -838,13 +830,13 @@ export default function FamilyManagementDashboard({
       {/* Unassigned Members Section */}
       {unassignedMembers.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">
               Unassigned Members ({filteredUnassignedMembers.length})
             </h2>
             <button
               onClick={() => setShowUnassignedMembers(!showUnassignedMembers)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors"
+              className={`${TOOLBAR_ACTION_BUTTON_CLASS} w-full sm:w-auto`}
             >
               <svg
                 className={`w-4 h-4 mr-1 transition-transform ${
@@ -868,8 +860,8 @@ export default function FamilyManagementDashboard({
           {showUnassignedMembers && (
             <>
               {/* Unassigned Controls */}
-              <div className="flex items-center justify-between gap-4">
-                <div className="relative w-full max-w-xs">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:max-w-xs">
                   <svg
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
                     fill="none"
@@ -920,7 +912,7 @@ export default function FamilyManagementDashboard({
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center justify-between gap-2 text-sm text-gray-600 sm:justify-end">
                   <span>
                     Page {unassignedPage} of {totalUnassignedPages}
                   </span>
@@ -950,7 +942,7 @@ export default function FamilyManagementDashboard({
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
                 {visibleUnassignedMembers.slice(0, 16).map((member) => (
                   <div
                     key={member.id}
@@ -994,56 +986,9 @@ export default function FamilyManagementDashboard({
         </div>
       )}
 
-      {/* Active Family Filters Display */}
-      {familyFilters.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {familyFilters.map((filter, index) => (
-            <span
-              key={index}
-              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium chip-primary"
-            >
-              {filter.label}
-              <button
-                onClick={() => {
-                  const newFilters = familyFilters.filter(
-                    (_, i) => i !== index
-                  );
-                  setFamilyFilters(newFilters);
-                  setFamilyPage(1);
-                }}
-                className="ml-1 text-primary hover:text-primary"
-              >
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </span>
-          ))}
-          <button
-            onClick={() => {
-              setFamilyFilters([]);
-              setFamilyPage(1);
-            }}
-            className="text-xs text-gray-500 hover:text-gray-700"
-          >
-            Clear All
-          </button>
-        </div>
-      )}
-
       {/* Family Cards Section */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">
           Families ({sortedFamilies.length})
         </h2>
         {viewMode === "table" ? (

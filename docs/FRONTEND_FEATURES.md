@@ -8,7 +8,8 @@
   - Tabs: People | Families
   - People: search, filter (role, date range), table listing via `PeopleTable`
   - Create person via `PersonForm` (uses `usePeople` hook → backend)
-  - Families: cards via `FamilyCard`; local state create/delete (UI stub)
+  - **Families tab:** `FamilyManagementDashboard` with stacked mobile toolbar (search, branch, Table/Cards, Sort, Filter), filter chips in toolbar card, responsive unassigned-members grid
+- `src/app/clusters/page.tsx`: Clusters hub via `ClustersPageView` — same stacked list toolbar on the Clusters tab (search, branch, Table/Cards, Select, Bulk, Sort, Filter)
 - `src/app/finance/page.tsx`: Finance hub for donations, offerings, and pledges
 - `src/app/members/page.tsx`: Members listing placeholder
 
@@ -18,6 +19,7 @@
 - Forms: `components/people/PersonForm`, `components/families/FamilyForm`
 - Tables/Cards: `components/people/PeopleTable`, `components/families/FamilyCard`
 - Layout/UI: `components/layout/DashboardLayout`, `components/ui/*`, `SearchBar`, `FilterOptions`
+- **List toolbars** (Families, Clusters, Evangelism Groups): shared `ToolbarSearch`, `ViewModeToggle`, and classes in `lib/toolbarStyles.ts`. Mobile layout stacks rows — full-width search, branch + Table/Cards, then wrapping action buttons (Select, Sort, Filter, etc.) and filter chips; toolbar card uses `p-4 md:p-6`.
 
 ### Styling & Libraries
 
@@ -52,9 +54,8 @@ Record Donation is intentionally not included (finance `?action=add-donation` ca
 ### Evangelism page (`/evangelism`)
 
 - Main hub: `src/app/evangelism/page.tsx` with tabs **Groups | Each 1 Reach 1 | Tally | Reports | Bible Sharers**.
-- **Groups tab** (clusters-style toolbar):
-  - Left: search, branch filter (API), Table/Cards toggle
-  - Right: Select, Bulk Actions, filter chips, Sort, Filter
+- **Groups tab** (shared list toolbar pattern):
+  - Row 1: full-width search; row 2: branch + Table/Cards; row 3: Select, Bulk Actions, Sort, Filter; row 4: filter chips
   - Table: `EvangelismGroupTable`; cards: `EvangelismGroupCard`
   - Client-side filter/sort via `evangelismGroupListUtils.ts`; server-side search/branch via `useEvangelismGroups`
   - Bulk actions: export (Excel/PDF/CSV), mark inactive, delete — all destructive/inactive flows use `ConfirmationModal`

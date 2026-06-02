@@ -37,10 +37,7 @@ import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import EvangelismGroupForm from "@/src/components/evangelism/EvangelismGroupForm";
-import GroupMembersSection from "@/src/components/evangelism/GroupMembersSection";
-import GroupReportsSection from "@/src/components/evangelism/GroupReportsSection";
-import GroupProspectsSection from "@/src/components/evangelism/GroupProspectsSection";
-import GroupConversionsSection from "@/src/components/evangelism/GroupConversionsSection";
+import EvangelismGroupView from "@/src/components/evangelism/EvangelismGroupView";
 import ProspectForm, {
   ProspectFormValues,
 } from "@/src/components/evangelism/ProspectForm";
@@ -67,7 +64,14 @@ import EvangelismGroupSortDropdown from "@/src/components/evangelism/EvangelismG
 import ClusterFilterCard from "@/src/components/clusters/ClusterFilterCard";
 import BulkActionsMenu from "@/src/components/people/BulkActionsMenu";
 import { FilterCondition } from "@/src/components/people/FilterBar";
-import EvangelismToolbarSearch, {
+import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
+import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
+import {
+  TOOLBAR_ACTION_BUTTON_CLASS,
+  TOOLBAR_ACTIONS_ROW_CLASS,
+  TOOLBAR_CARD_CLASS,
+} from "@/src/lib/toolbarStyles";
+import {
   EVANGELISM_BRANCH_SELECT_CLASS,
   EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
@@ -81,10 +85,6 @@ import {
   getEvangelismGroupMemberCount,
   resolveEvangelismGroupClusterMeta,
 } from "@/src/lib/evangelismGroupDisplay";
-import {
-  Squares2X2Icon,
-  TableCellsIcon,
-} from "@heroicons/react/24/outline";
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -1231,48 +1231,29 @@ export default function EvangelismPage() {
         {activeTab === "groups" && (
           <div className="space-y-6">
             {/* Filters */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <EvangelismToolbarSearch
-                    value={searchValue}
-                    onChange={handleSearchChange}
-                    placeholder="Search groups…"
-                    ariaLabel="Search groups"
-                  />
+            <div className={TOOLBAR_CARD_CLASS}>
+              <div className="flex flex-col gap-3">
+                <ToolbarSearch
+                  fullWidth
+                  value={searchValue}
+                  onChange={handleSearchChange}
+                  placeholder="Search groups…"
+                  ariaLabel="Search groups"
+                />
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   {renderEvangelismGroupsBranchSelect()}
-                  <div className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-gray-100 p-0.25">
-                    <button
-                      type="button"
-                      onClick={() => setGroupListViewMode("table")}
-                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                        groupListViewMode === "table"
-                          ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                          : "bg-transparent text-gray-400 hover:text-gray-600"
-                      }`}
-                    >
-                      <TableCellsIcon className="h-3.5 w-3.5" />
-                      Table
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGroupListViewMode("cards")}
-                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                        groupListViewMode === "cards"
-                          ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                          : "bg-transparent text-gray-400 hover:text-gray-600"
-                      }`}
-                    >
-                      <Squares2X2Icon className="h-3.5 w-3.5" />
-                      Cards
-                    </button>
-                  </div>
+                  <ViewModeToggle
+                    viewMode={groupListViewMode}
+                    onViewModeChange={setGroupListViewMode}
+                  />
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+
+                <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
                   <button
                     type="button"
                     onClick={handleToggleGroupSelectionMode}
-                    className={`inline-flex shrink-0 items-center border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ${
+                    className={`inline-flex min-h-[44px] shrink-0 items-center border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring sm:min-h-0 ${
                       isGroupSelectionMode
                         ? "rounded-lg border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
                         : "rounded-lg border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -1303,51 +1284,6 @@ export default function EvangelismPage() {
                       selectedCount={selectedGroups.size}
                     />
                   )}
-                  {groupActiveFilters.length > 0 && (
-                    <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
-                      {groupActiveFilters.map((filter) => (
-                        <span
-                          key={filter.id}
-                          className="chip-primary inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium"
-                        >
-                          <span className="max-w-[150px] truncate md:max-w-none">
-                            {filter.label}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setGroupActiveFilters((prev) =>
-                                prev.filter((f) => f.id !== filter.id)
-                              )
-                            }
-                            className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
-                            aria-label="Remove filter"
-                          >
-                            <svg
-                              className="h-3 w-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        </span>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => setGroupActiveFilters([])}
-                        className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700 md:min-h-0"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                  )}
                   <button
                     type="button"
                     onClick={(e) =>
@@ -1355,7 +1291,7 @@ export default function EvangelismPage() {
                         (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex shrink-0 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                    className={TOOLBAR_ACTION_BUTTON_CLASS}
                   >
                     <svg
                       className="mr-1 h-4 w-4"
@@ -1379,7 +1315,7 @@ export default function EvangelismPage() {
                         (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
                       )
                     }
-                    className="inline-flex shrink-0 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                    className={TOOLBAR_ACTION_BUTTON_CLASS}
                   >
                     <svg
                       className="mr-1 h-4 w-4"
@@ -1397,6 +1333,52 @@ export default function EvangelismPage() {
                     Filter
                   </button>
                 </div>
+
+                {groupActiveFilters.length > 0 && (
+                  <div className="flex w-full flex-wrap items-center gap-2">
+                    {groupActiveFilters.map((filter) => (
+                      <span
+                        key={filter.id}
+                        className="chip-primary inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium"
+                      >
+                        <span className="max-w-[150px] truncate md:max-w-none">
+                          {filter.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setGroupActiveFilters((prev) =>
+                              prev.filter((f) => f.id !== filter.id)
+                            )
+                          }
+                          className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
+                          aria-label="Remove filter"
+                        >
+                          <svg
+                            className="h-3 w-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setGroupActiveFilters([])}
+                      className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700 md:min-h-0"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1628,11 +1610,8 @@ export default function EvangelismPage() {
               setViewMode("view");
               setFormError(null);
             }}
-            title={
-              viewMode === "view"
-                ? `View Group: ${viewEditGroup.name}`
-                : "Edit Group"
-            }
+            hideHeader={viewMode === "view"}
+            title={viewMode === "edit" ? "Edit Group" : ""}
           >
             {viewMode === "edit" ? (
               <EvangelismGroupForm
@@ -1650,375 +1629,62 @@ export default function EvangelismPage() {
                 initialData={groupData || viewEditGroup}
               />
             ) : (
-              <div className="space-y-6">
-                {groupLoading ? (
-                  <LoadingSpinner />
-                ) : (
-                  <>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg
-                            className="w-5 h-5 text-primary"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Coordinator</p>
-                          <p className="font-medium">
-                            {groupData?.coordinator?.full_name || "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg
-                            className="w-5 h-5 text-purple-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Cluster</p>
-                          <p className="font-medium">
-                            {groupData?.cluster?.name || "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg
-                            className="w-5 h-5 text-indigo-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M7 7h10M7 11h10M7 15h10M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Branch Code</p>
-                          <p className="font-medium">
-                            {(() => {
-                              const clusterId = groupData?.cluster?.id;
-                              const clusterMatch = clusters.find(
-                                (cluster) => cluster.id === clusterId
-                              );
-                              const branchMatch = branches.find(
-                                (branch) => branch.id === clusterMatch?.branch
-                              );
-                              return branchMatch?.code || "N/A";
-                            })()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg
-                            className="w-5 h-5 text-green-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Location</p>
-                          <p className="font-medium">
-                            {groupData?.location || "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg
-                            className="w-5 h-5 text-orange-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Meeting Time</p>
-                          <p className="font-medium">
-                            {groupData?.meeting_day}{" "}
-                            {groupData?.meeting_time || ""}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    {groupData?.description && (
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg
-                            className="w-5 h-5 text-amber-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Description</p>
-                          <p className="font-medium">{groupData.description}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    <GroupMembersSection
-                      members={groupData?.members || []}
-                      onAddMember={() => setIsAddMemberModalOpen(true)}
-                      onBulkEnroll={() => setIsBulkEnrollModalOpen(true)}
-                      onRemoveMember={(person) => {
-                        const memberName =
-                          person.full_name || person.username || "this member";
-                        setRemoveMemberConfirmation({
-                          isOpen: true,
-                          personId: String(person.id),
-                          memberName,
-                          loading: false,
-                        });
-                      }}
-                      loading={groupLoading}
-                    />
-
-                    <GroupReportsSection
-                      reports={reports}
-                      onAddReport={() => setIsReportModalOpen(true)}
-                      onViewReport={(r) => void openGroupReportView(r)}
-                      onEditReport={(report) => {
-                        setEditingReport(report);
-                        setIsReportModalOpen(true);
-                      }}
-                      loading={reportsLoading}
-                    />
-
-                    <GroupProspectsSection
-                      prospects={prospects}
-                      onAddProspect={() => setIsProspectModalOpen(true)}
-                      onUpdateProgress={(prospect) => {
-                        setSelectedProspect(prospect);
-                        setIsUpdateProgressModalOpen(true);
-                      }}
-                      loading={prospectsLoading}
-                    />
-
-                    <GroupConversionsSection
-                      conversions={conversions}
-                      onAddConversion={() => {
-                        setEditingConversion(null);
-                        setIsConversionModalOpen(true);
-                      }}
-                      onEditConversion={(c) => {
-                        setEditingConversion(c);
-                        setIsConversionModalOpen(true);
-                      }}
-                      loading={conversionsLoading}
-                    />
-
-                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 px-6 pt-6 pb-6 border-t border-gray-200 bg-gray-50 -mx-6 !-mb-6 rounded-b-lg">
-                      {/* Mobile buttons - full width with text */}
-                      <div className="flex flex-col md:hidden gap-3 w-full">
-                        <Button
-                          onClick={() => {
-                            setViewMode("edit");
-                          }}
-                          variant="secondary"
-                          className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                          </svg>
-                          <span>Edit</span>
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setViewEditGroup(null);
-                            setViewMode("view");
-                          }}
-                          variant="secondary"
-                          className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                          <span>Cancel</span>
-                        </Button>
-                        <div className="border-t border-gray-200 my-1"></div>
-                        <Button
-                          onClick={() =>
-                            setDeleteConfirmation({
-                              isOpen: true,
-                              group: viewEditGroup,
-                              loading: false,
-                            })
-                          }
-                          variant="secondary"
-                          className="!text-red-600 py-3 px-4 text-sm font-medium bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                          <span>Delete</span>
-                        </Button>
-                      </div>
-
-                      {/* Desktop/Tablet buttons - icon-only delete on left, cancel/edit on right */}
-                      <div className="hidden md:flex md:items-center md:justify-between md:w-full">
-                        <Button
-                          onClick={() =>
-                            setDeleteConfirmation({
-                              isOpen: true,
-                              group: viewEditGroup,
-                              loading: false,
-                            })
-                          }
-                          variant="secondary"
-                          className="!text-red-600 px-4 md:py-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center min-h-[44px]"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </Button>
-                        <div className="flex items-center gap-3">
-                          <Button
-                            onClick={() => {
-                              setViewEditGroup(null);
-                              setViewMode("view");
-                            }}
-                            variant="secondary"
-                            className="!text-black px-6 md:py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px]"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                            <span>Cancel</span>
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              setViewMode("edit");
-                            }}
-                            variant="secondary"
-                            className="!text-primary px-6 md:py-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px]"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                            <span>Edit</span>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+              <EvangelismGroupView
+                group={viewEditGroup}
+                groupData={groupData}
+                clusters={clusters}
+                branches={branches}
+                groupLoading={groupLoading}
+                reports={reports}
+                reportsLoading={reportsLoading}
+                prospects={prospects}
+                prospectsLoading={prospectsLoading}
+                conversions={conversions}
+                conversionsLoading={conversionsLoading}
+                onAddMember={() => setIsAddMemberModalOpen(true)}
+                onBulkEnroll={() => setIsBulkEnrollModalOpen(true)}
+                onRemoveMember={(person) => {
+                  const memberName =
+                    person.full_name || person.username || "this member";
+                  setRemoveMemberConfirmation({
+                    isOpen: true,
+                    personId: String(person.id),
+                    memberName,
+                    loading: false,
+                  });
+                }}
+                onAddReport={() => setIsReportModalOpen(true)}
+                onViewReport={(r) => void openGroupReportView(r)}
+                onEditReport={(report) => {
+                  setEditingReport(report);
+                  setIsReportModalOpen(true);
+                }}
+                onAddProspect={() => setIsProspectModalOpen(true)}
+                onUpdateProgress={(prospect) => {
+                  setSelectedProspect(prospect);
+                  setIsUpdateProgressModalOpen(true);
+                }}
+                onAddConversion={() => {
+                  setEditingConversion(null);
+                  setIsConversionModalOpen(true);
+                }}
+                onEditConversion={(c) => {
+                  setEditingConversion(c);
+                  setIsConversionModalOpen(true);
+                }}
+                onEdit={() => setViewMode("edit")}
+                onDelete={() =>
+                  setDeleteConfirmation({
+                    isOpen: true,
+                    group: viewEditGroup,
+                    loading: false,
+                  })
+                }
+                onClose={() => {
+                  setViewEditGroup(null);
+                  setViewMode("view");
+                }}
+              />
             )}
           </Modal>
         )}

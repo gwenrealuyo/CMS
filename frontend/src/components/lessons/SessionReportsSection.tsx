@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
+import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Pagination from "@/src/components/ui/Pagination";
@@ -23,8 +24,6 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   PencilSquareIcon,
-  Squares2X2Icon,
-  TableCellsIcon,
   TrashIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
@@ -523,32 +522,7 @@ export default function SessionReportsSection({
             Use the filters below to narrow by teacher, student, lesson, or date.
           </p>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  viewMode === "table"
-                    ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                    : "bg-transparent text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                <TableCellsIcon className="h-3.5 w-3.5" />
-                Table
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("cards")}
-                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  viewMode === "cards"
-                    ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                    : "bg-transparent text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                <Squares2X2Icon className="h-3.5 w-3.5" />
-                Cards
-              </button>
-            </div>
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
             <div className="flex flex-col-reverse sm:flex-row gap-3 sm:ml-2">
               <Button
                 variant="secondary"

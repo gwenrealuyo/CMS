@@ -169,6 +169,9 @@ export default function LessonsPageContainer() {
   const [sessionFilterDraft, setSessionFilterDraft] = useState(
     createEmptySessionFilters
   );
+  const [sessionYearOptions, setSessionYearOptions] = useState<string[]>([
+    String(new Date().getFullYear()),
+  ]);
 
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
   const { user } = useAuth();
@@ -216,6 +219,16 @@ export default function LessonsPageContainer() {
     }
     return date.toLocaleString();
   };
+
+  const getDefaultSessionYear = useCallback(
+    (years: string[] = sessionYearOptions): string => {
+      if (years.length > 0) {
+        return years[0];
+      }
+      return String(new Date().getFullYear());
+    },
+    [sessionYearOptions]
+  );
 
   const teacherChoices = useMemo(() => {
     return [...people]
@@ -415,14 +428,26 @@ export default function LessonsPageContainer() {
       const defaults = createEmptySessionFilters();
       setSessionFilters(defaults);
       setSessionFilterDraft(defaults);
+      setSessionYearOptions([String(new Date().getFullYear())]);
     } else {
       setProgress([]);
       setSessionReports([]);
       const defaults = createEmptySessionFilters();
       setSessionFilters(defaults);
       setSessionFilterDraft(defaults);
+      setSessionYearOptions([String(new Date().getFullYear())]);
     }
   }, [selectedLessonId]);
+
+  useEffect(() => {
+    if (!selectedLessonId || sessionFilters.year) {
+      return;
+    }
+
+    const defaultYear = getDefaultSessionYear();
+    setSessionFilters((previous) => ({ ...previous, year: defaultYear }));
+    setSessionFilterDraft((previous) => ({ ...previous, year: defaultYear }));
+  }, [getDefaultSessionYear, selectedLessonId, sessionFilters.year]);
 
   useEffect(() => {
     if (!selectedLessonId) {
@@ -508,9 +533,16 @@ export default function LessonsPageContainer() {
 
       const monthValue = sanitizeNumericValue(activeFilters.month);
       const yearValue = sanitizeNumericValue(activeFilters.year);
-      if (yearValue && monthValue && monthValue >= 1 && monthValue <= 12) {
-        const start = new Date(yearValue, monthValue - 1, 1);
-        const end = new Date(yearValue, monthValue, 0);
+      const defaultYearValue = sanitizeNumericValue(getDefaultSessionYear());
+      const effectiveYearValue = yearValue ?? defaultYearValue;
+      if (
+        effectiveYearValue &&
+        monthValue &&
+        monthValue >= 1 &&
+        monthValue <= 12
+      ) {
+        const start = new Date(effectiveYearValue, monthValue - 1, 1);
+        const end = new Date(effectiveYearValue, monthValue, 0);
         params.date_from = start.toISOString().slice(0, 10);
         params.date_to = end.toISOString().slice(0, 10);
       } else if (yearValue) {
@@ -526,6 +558,23 @@ export default function LessonsPageContainer() {
         const secondTime = new Date(second.session_start).getTime();
         return secondTime - firstTime;
       });
+      if (!activeFilters.year) {
+        const years = Array.from(
+          new Set(
+            sorted
+              .map((report) => {
+                const source = report.session_start || report.session_date;
+                const date = source ? new Date(source) : null;
+                if (!date || Number.isNaN(date.getTime())) {
+                  return null;
+                }
+                return String(date.getFullYear());
+              })
+              .filter((year): year is string => Boolean(year))
+          )
+        ).sort((a, b) => Number(b) - Number(a));
+        setSessionYearOptions(years.length > 0 ? years : [String(new Date().getFullYear())]);
+      }
       setSessionReports(sorted);
       setSessionReportsError(null);
     } catch (error) {
@@ -892,7 +941,10 @@ export default function LessonsPageContainer() {
   };
 
   const resetSessionFilters = () => {
-    const defaults = createEmptySessionFilters();
+    const defaults = {
+      ...createEmptySessionFilters(),
+      year: getDefaultSessionYear(),
+    };
     setSessionFilterDraft(defaults);
     setSessionFilters(defaults);
   };
@@ -1222,6 +1274,7 @@ export default function LessonsPageContainer() {
       sessionFormDefaults={sessionFormDefaults}
       sessionFilters={sessionFilters}
       sessionFilterDraft={sessionFilterDraft}
+      sessionYearOptions={sessionYearOptions}
       // Delete lesson state
       lessonDeleteTarget={lessonDeleteTarget}
       lessonDeleteLoading={lessonDeleteLoading}

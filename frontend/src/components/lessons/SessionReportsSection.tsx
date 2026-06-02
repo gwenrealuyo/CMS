@@ -10,10 +10,20 @@ import { Lesson, LessonSessionReport } from "@/src/types/lesson";
 import { formatSessionTopicLabel } from "@/src/lib/sessionTopic";
 import { formatPersonName } from "@/src/lib/name";
 import {
+  formatPersonClusterLabel,
+  formatPersonStatusLabel,
+  getPersonClusterChipClass,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
+import {
+  CalendarIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  PencilSquareIcon,
   Squares2X2Icon,
   TableCellsIcon,
+  TrashIcon,
+  UserIcon,
 } from "@heroicons/react/24/outline";
 
 export type LessonPersonLike = {
@@ -27,6 +37,158 @@ export type LessonPersonLike = {
 
 const DEFAULT_SESSION_ITEMS_PER_PAGE = 10;
 type SessionReportsViewMode = "cards" | "table";
+
+function formatSessionDateTime(value?: string | null): string {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+interface SessionReportCardProps {
+  report: LessonSessionReport;
+  selectedLesson: Lesson | null;
+  formatDateOnly: (value?: string | null) => string;
+  onEditSession: (report: LessonSessionReport) => void;
+  onRequestDelete: (report: LessonSessionReport) => void;
+}
+
+function SessionReportCard({
+  report,
+  selectedLesson,
+  formatDateOnly,
+  onEditSession,
+  onRequestDelete,
+}: SessionReportCardProps) {
+  const topicLabel = formatSessionTopicLabel(
+    report.session_type,
+    report.pre_lesson_kind,
+    report.lesson?.title ?? selectedLesson?.title ?? null,
+  );
+  const isPreLesson = report.session_type === "PRE_LESSON";
+
+  return (
+    <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50/90 to-white px-4 py-3.5 sm:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-base font-semibold text-foreground">
+                {formatPersonName(report.student)}
+              </h4>
+              {report.student && (
+                <>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(report.student.status)}`}
+                  >
+                    {formatPersonStatusLabel(report.student.status)}
+                  </span>
+                  <span
+                    className={getPersonClusterChipClass(
+                      (report.student.cluster_codes?.length ?? 0) > 0,
+                    )}
+                  >
+                    {formatPersonClusterLabel(report.student.cluster_codes)}
+                  </span>
+                </>
+              )}
+            </div>
+            <span
+              className={`mt-2 inline-flex max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                isPreLesson
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-blue-200 bg-blue-50 text-blue-900"
+              }`}
+            >
+              <span className="truncate">{topicLabel}</span>
+            </span>
+          </div>
+          <div className="flex shrink-0 gap-1.5">
+            <Button
+              variant="secondary"
+              className="!text-primary min-h-[36px] px-3 py-1.5 text-xs font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center gap-1.5"
+              onClick={() => onEditSession(report)}
+            >
+              <PencilSquareIcon className="h-3.5 w-3.5" />
+              Edit
+            </Button>
+            <Button
+              variant="secondary"
+              className="!text-red-600 min-h-[36px] px-3 py-1.5 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
+              onClick={() => onRequestDelete(report)}
+              aria-label="Delete session report"
+            >
+              <TrashIcon className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          </div>
+        </div>
+        <dl className="mt-3 flex flex-col gap-1.5 text-sm text-gray-600 sm:flex-row sm:flex-wrap sm:gap-x-5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <UserIcon
+              className="h-4 w-4 shrink-0 text-gray-400"
+              aria-hidden="true"
+            />
+            <dt className="sr-only">Teacher</dt>
+            <dd className="truncate">{formatPersonName(report.teacher)}</dd>
+          </div>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <CalendarIcon
+              className="h-4 w-4 shrink-0 text-gray-400"
+              aria-hidden="true"
+            />
+            <dt className="sr-only">Actual session</dt>
+            <dd>{formatSessionDateTime(report.session_start)}</dd>
+          </div>
+        </dl>
+        <dl className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-gray-100 pt-2.5 text-xs text-gray-600">
+          <div className="inline-flex items-baseline gap-1">
+            <dt className="text-gray-500">Score</dt>
+            <dd className="text-gray-800">{report.score || "—"}</dd>
+          </div>
+          <div className="inline-flex items-baseline gap-1">
+            <dt className="text-gray-500">Scheduled</dt>
+            <dd className="text-gray-800">
+              {formatDateOnly(report.session_date)}
+            </dd>
+          </div>
+          <div className="inline-flex items-baseline gap-1">
+            <dt className="text-gray-500">Next</dt>
+            <dd className="text-gray-800">
+              {formatDateOnly(report.next_session_date)}
+            </dd>
+          </div>
+          <div className="inline-flex items-baseline gap-1">
+            <dt className="text-gray-500">Progress</dt>
+            <dd className="text-gray-800">
+              {report.progress ? `#${report.progress}` : "—"}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      {report.remarks ? (
+        <div className="border-t border-gray-100 px-4 py-2.5 sm:px-5">
+          <p className="text-xs text-gray-500">Notes</p>
+          <p className="mt-0.5 text-sm text-gray-700 whitespace-pre-line">
+            {report.remarks}
+          </p>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 type SessionReportsSortField =
   | "student"
   | "teacher"
@@ -42,6 +204,7 @@ interface SessionReportsSectionProps {
   sessionReportsLoading: boolean;
   sessionReportsError: string | null;
   sessionFilterDraft: SessionFilterValues;
+  sessionYearOptions: string[];
   teacherChoices: LessonPersonLike[];
   studentChoices: LessonPersonLike[];
   onFilterChange: (field: keyof SessionFilterValues, value: string) => void;
@@ -62,6 +225,7 @@ export default function SessionReportsSection({
   sessionReportsLoading,
   sessionReportsError,
   sessionFilterDraft,
+  sessionYearOptions,
   teacherChoices,
   studentChoices,
   onFilterChange,
@@ -91,18 +255,12 @@ export default function SessionReportsSection({
       { value: "11", label: "November" },
       { value: "12", label: "December" },
     ],
-    []
+    [],
   );
-  const yearOptions = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years: string[] = [];
-    for (let year = currentYear + 1; year >= currentYear - 7; year -= 1) {
-      years.push(String(year));
-    }
-    return years;
-  }, []);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_SESSION_ITEMS_PER_PAGE);
+  const [itemsPerPage, setItemsPerPage] = useState(
+    DEFAULT_SESSION_ITEMS_PER_PAGE,
+  );
   const [viewMode, setViewMode] = useState<SessionReportsViewMode>("cards");
   const [sortField, setSortField] =
     useState<SessionReportsSortField>("actualDate");
@@ -119,14 +277,14 @@ export default function SessionReportsSection({
       if (sortField === "student") {
         return (
           formatPersonName(first.student).localeCompare(
-            formatPersonName(second.student)
+            formatPersonName(second.student),
           ) * direction
         );
       }
       if (sortField === "teacher") {
         return (
           formatPersonName(first.teacher).localeCompare(
-            formatPersonName(second.teacher)
+            formatPersonName(second.teacher),
           ) * direction
         );
       }
@@ -154,7 +312,10 @@ export default function SessionReportsSection({
         return (firstValue - secondValue) * direction;
       }
       if (sortField === "score") {
-        return ((first.score || "").localeCompare(second.score || "") || 0) * direction;
+        return (
+          ((first.score || "").localeCompare(second.score || "") || 0) *
+          direction
+        );
       }
 
       const firstProgress = first.progress ?? Number.POSITIVE_INFINITY;
@@ -210,8 +371,8 @@ export default function SessionReportsSection({
       <div className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <p className="text-sm text-gray-500 sm:max-w-lg">
-            Log 1-on-1 lesson sessions to capture coaching notes beyond
-            journey updates and export them for follow-up.
+            Log 1-on-1 lesson sessions to capture coaching notes beyond journey
+            updates and export them for follow-up.
           </p>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.25">
@@ -264,71 +425,70 @@ export default function SessionReportsSection({
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
             <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SearchableSelect
-              value={sessionFilterDraft.teacherId}
-              onChange={(value) => onFilterChange("teacherId", value)}
-              options={teacherChoices}
-              placeholder="Search teachers..."
-              label="Teacher"
-              emptyOptionLabel="All teachers"
-              emptyMessage="No teachers found"
-              controlClassName="h-10"
-            />
-            <SearchableSelect
-              value={sessionFilterDraft.studentId}
-              onChange={(value) => onFilterChange("studentId", value)}
-              options={studentChoices}
-              placeholder="Search students..."
-              label="Student"
-              emptyOptionLabel="All students"
-              emptyMessage="No students found"
-              controlClassName="h-10"
-            />
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                Month
-              </label>
-              <select
-                className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                value={sessionFilterDraft.month}
-                onChange={(event) =>
-                  onFilterChange("month", event.target.value)
-                }
-              >
-                {monthOptions.map((month) => (
-                  <option key={month.value || "all"} value={month.value}>
-                    {month.label}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={sessionFilterDraft.teacherId}
+                onChange={(value) => onFilterChange("teacherId", value)}
+                options={teacherChoices}
+                placeholder="Search teachers..."
+                label="Teacher"
+                emptyOptionLabel="All teachers"
+                emptyMessage="No teachers found"
+                controlClassName="h-10"
+              />
+              <SearchableSelect
+                value={sessionFilterDraft.studentId}
+                onChange={(value) => onFilterChange("studentId", value)}
+                options={studentChoices}
+                placeholder="Search students..."
+                label="Student"
+                emptyOptionLabel="All students"
+                emptyMessage="No students found"
+                controlClassName="h-10"
+              />
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  Month
+                </label>
+                <select
+                  className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={sessionFilterDraft.month}
+                  onChange={(event) =>
+                    onFilterChange("month", event.target.value)
+                  }
+                >
+                  {monthOptions.map((month) => (
+                    <option key={month.value || "all"} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  Year
+                </label>
+                <select
+                  className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={sessionFilterDraft.year}
+                  onChange={(event) =>
+                    onFilterChange("year", event.target.value)
+                  }
+                >
+                  {sessionYearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                Year
-              </label>
-              <select
-                className="w-full h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                value={sessionFilterDraft.year}
-                onChange={(event) =>
-                  onFilterChange("year", event.target.value)
-                }
-              >
-                <option value="">All years</option>
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
             <div className="flex justify-end">
               <Button
-              variant="tertiary" 
-              onClick={onResetFilters}
-              className="w-full min-h-[44px] text-sm xl:w-auto"
-            >
-              Reset Filters
+                variant="tertiary"
+                onClick={onResetFilters}
+                className="w-full min-h-[44px] text-sm xl:w-auto"
+              >
+                Reset Filters
               </Button>
             </div>
           </div>
@@ -376,7 +536,7 @@ export default function SessionReportsSection({
                         className="inline-flex items-center gap-1 hover:text-gray-700"
                         onClick={() => handleSort("scheduledDate")}
                       >
-                        Scheduled Session Date
+                        Scheduled Session
                         <SortIcon field="scheduledDate" />
                       </button>
                     </th>
@@ -386,7 +546,7 @@ export default function SessionReportsSection({
                         className="inline-flex items-center gap-1 hover:text-gray-700"
                         onClick={() => handleSort("actualDate")}
                       >
-                        Actual Session Date
+                        Actual Session
                         <SortIcon field="actualDate" />
                       </button>
                     </th>
@@ -396,7 +556,7 @@ export default function SessionReportsSection({
                         className="inline-flex items-center gap-1 hover:text-gray-700"
                         onClick={() => handleSort("nextScheduledDate")}
                       >
-                        Next Scheduled Session Date
+                        Next Schedule
                         <SortIcon field="nextScheduledDate" />
                       </button>
                     </th>
@@ -428,7 +588,7 @@ export default function SessionReportsSection({
                 <tbody className="bg-white divide-y divide-gray-100">
                   {paginatedReports.map((report) => (
                     <tr key={report.id}>
-                      <td className="px-3 py-2 text-sm text-gray-700">
+                      <td className="px-3 py-2 text-sm font-semibold text-primary">
                         {formatPersonName(report.student)}
                       </td>
                       <td className="px-3 py-2 text-sm text-gray-700">
@@ -438,7 +598,7 @@ export default function SessionReportsSection({
                         {formatDateOnly(report.session_date)}
                       </td>
                       <td className="px-3 py-2 text-sm text-gray-700">
-                        {formatDateTime(report.session_start)}
+                        {formatSessionDateTime(report.session_start)}
                       </td>
                       <td className="px-3 py-2 text-sm text-gray-700">
                         {formatDateOnly(report.next_session_date)}
@@ -452,18 +612,22 @@ export default function SessionReportsSection({
                       <td className="px-3 py-2 text-right text-sm">
                         <div className="inline-flex items-center gap-2">
                           <Button
-                            variant="tertiary"
-                            className="min-h-[32px] px-2 py-1 text-xs"
+                            variant="secondary"
+                            className="!text-primary min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center gap-1.5"
                             onClick={() => onEditSession(report)}
+                            aria-label="Edit session report"
+                            title="Edit session report"
                           >
-                            Edit
+                            <PencilSquareIcon className="h-3.5 w-3.5" />
                           </Button>
                           <Button
-                            variant="tertiary"
-                            className="min-h-[32px] px-2 py-1 text-xs"
+                            variant="secondary"
+                            className="!text-red-600 min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
                             onClick={() => onRequestDelete(report)}
+                            aria-label="Delete session report"
+                            title="Delete session report"
                           >
-                            Delete
+                            <TrashIcon className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </td>
@@ -476,83 +640,14 @@ export default function SessionReportsSection({
         ) : (
           <div className="space-y-3">
             {paginatedReports.map((report) => (
-              <div
+              <SessionReportCard
                 key={report.id}
-                className="rounded-lg border border-gray-200 bg-white p-4"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {formatPersonName(report.student)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Teacher: {formatPersonName(report.teacher)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Session topic:{" "}
-                      {formatSessionTopicLabel(
-                        report.session_type,
-                        report.pre_lesson_kind,
-                        report.lesson?.title ?? selectedLesson?.title ?? null
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-start gap-2 md:items-end">
-                    <span className="text-xs font-medium text-gray-600">
-                      Actual Session Date: {formatDateTime(report.session_start)}
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="tertiary"
-                        className="text-xs"
-                        onClick={() => onEditSession(report)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="tertiary"
-                        className="text-xs"
-                        onClick={() => onRequestDelete(report)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-gray-600 sm:grid-cols-4">
-                  <div>
-                    <span className="block text-xs font-semibold uppercase text-gray-500">
-                      Score / Rating
-                    </span>
-                    <span>{report.score || "—"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-xs font-semibold uppercase text-gray-500">
-                      Scheduled Session Date
-                    </span>
-                    <span>{formatDateOnly(report.session_date)}</span>
-                  </div>
-                  <div>
-                    <span className="block text-xs font-semibold uppercase text-gray-500">
-                      Next Scheduled Session Date
-                    </span>
-                    <span>{formatDateOnly(report.next_session_date)}</span>
-                  </div>
-                  <div>
-                    <span className="block text-xs font-semibold uppercase text-gray-500">
-                      Linked Progress
-                    </span>
-                    <span>
-                      {report.progress ? `Record #${report.progress}` : "—"}
-                    </span>
-                  </div>
-                </div>
-                {report.remarks && (
-                  <p className="mt-3 text-sm text-gray-600 whitespace-pre-line">
-                    {report.remarks}
-                  </p>
-                )}
-              </div>
+                report={report}
+                selectedLesson={selectedLesson}
+                formatDateOnly={formatDateOnly}
+                onEditSession={onEditSession}
+                onRequestDelete={onRequestDelete}
+              />
             ))}
           </div>
         )}
@@ -571,4 +666,3 @@ export default function SessionReportsSection({
     </Card>
   );
 }
-

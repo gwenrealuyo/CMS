@@ -35,6 +35,8 @@ export interface LessonPersonSummary {
   suffix?: string;
   username: string;
   member_id?: string;
+  status?: string | null;
+  cluster_codes?: string[] | null;
 }
 
 export interface PersonLessonProgress {

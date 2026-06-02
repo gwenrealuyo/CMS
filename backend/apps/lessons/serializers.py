@@ -70,6 +70,11 @@ class LessonSerializer(serializers.ModelSerializer):
 
 
 class PersonNestedSerializer(serializers.ModelSerializer):
+    cluster_codes = serializers.SerializerMethodField()
+
+    def get_cluster_codes(self, obj):
+        return [code for code in obj.clusters.values_list("code", flat=True) if code]
+
     class Meta:
         model = Person
         fields = [
@@ -80,6 +85,8 @@ class PersonNestedSerializer(serializers.ModelSerializer):
             "suffix",
             "username",
             "member_id",
+            "status",
+            "cluster_codes",
         ]
 
 

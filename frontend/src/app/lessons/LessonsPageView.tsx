@@ -140,6 +140,7 @@ interface LessonsPageViewProps {
   };
   sessionFilters: SessionFilterValues;
   sessionFilterDraft: SessionFilterValues;
+  sessionYearOptions: string[];
   // Delete lesson state
   lessonDeleteTarget: Lesson | null;
   lessonDeleteLoading: boolean;
@@ -267,6 +268,7 @@ export default function LessonsPageView({
   sessionFormDefaults,
   sessionFilters,
   sessionFilterDraft,
+  sessionYearOptions,
   lessonDeleteTarget,
   lessonDeleteLoading,
   lessonDeleteError,
@@ -472,6 +474,7 @@ export default function LessonsPageView({
               sessionReportsLoading={sessionReportsLoading}
               sessionReportsError={sessionReportsError}
               sessionFilterDraft={sessionFilterDraft}
+              sessionYearOptions={sessionYearOptions}
               teacherChoices={teacherChoices}
               studentChoices={studentChoices}
               onFilterChange={onUpdateSessionFilterDraft}

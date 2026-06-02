@@ -44,14 +44,17 @@ export default function LessonContentTabs({
   ];
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <SegmentedControl
         value={activeTab}
         onChange={onTabChange}
         options={tabs}
+        fullWidthOnMobile
       />
       {branchFilter ? (
-        <div className="flex shrink-0 items-center">{branchFilter}</div>
+        <div className="flex w-full shrink-0 items-center sm:w-auto">
+          {branchFilter}
+        </div>
       ) : null}
     </div>
   );

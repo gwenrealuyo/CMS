@@ -69,10 +69,11 @@ Record Donation is intentionally not included (finance `?action=add-donation` ca
 ### Lessons page (`/lessons`)
 
 - Container/view split: `LessonsPageContainer` (data, branch filter, API) + `LessonsPageView` (layout).
-- **Tabs:** Lesson Content (catalog) | Student Progress | Session Reports | Commitment Forms.
-- **Branch filter** (right of tab row): scopes progress, enrollments, session reports, and summary stats; lesson catalog and commitment PDF stay global. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
-- **Session Reports:** all lessons and pre-lessons by default; filters for lesson, teacher, student, month/year (defaults to current month/year).
-- **Assign Lessons:** dropdown on Student Progress; only visitors/members without finished lessons and without existing progress.
+- **Tabs:** Lesson Content (catalog) | Student Progress | Session Reports | Commitment Forms — full-width segmented control on mobile; branch filter stacks below (`LessonContentTabs` + `TOOLBAR_BRANCH_SELECT_*`).
+- **Branch filter** (below tab row on mobile): scopes progress, enrollments, session reports, and summary stats; lesson catalog and commitment PDF stay global. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
+- **Student Progress:** shared toolbar (`ToolbarSearch`, `ViewModeToggle`, `toolbarStyles`); cards on mobile by default; table coerced to cards below `md` via `listViewMode.ts`.
+- **Session Reports:** Table/Cards toggle; table coerced to cards below `md` when selected on a narrow viewport.
+- **Assign Lessons:** full-screen modal on mobile; dropdown popover on desktop (`AssignLessonsDropdown`).
 - Deep link `?action=log-session` opens Session Reports and the log-session modal.
 
 ### Notes

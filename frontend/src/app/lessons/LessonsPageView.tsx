@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import { LESSONS_BRANCH_LOCKED_HINT } from "@/src/lib/lessonsBranchFilter";
+import {
+  TOOLBAR_BRANCH_SELECT_CLASS,
+  TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
+} from "@/src/lib/toolbarStyles";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import LessonList from "@/src/components/lessons/LessonList";
 import LessonDetailPanel from "@/src/components/lessons/LessonDetailPanel";
@@ -431,11 +435,11 @@ export default function LessonsPageView({
           if (!lessonsBranchSelectInteractive) return;
           onLessonsBranchChange(event.target.value);
         }}
-        className={`rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-ring ${
+        className={
           lessonsBranchSelectInteractive
-            ? "w-52 shrink-0"
-            : "pointer-events-none w-full cursor-default"
-        }`}
+            ? TOOLBAR_BRANCH_SELECT_CLASS
+            : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
+        }
       >
         {options}
       </select>

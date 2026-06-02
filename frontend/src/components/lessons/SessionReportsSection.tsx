@@ -2,6 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
+import {
+  effectiveListViewMode,
+  useIsMdUp,
+} from "@/src/lib/listViewMode";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Pagination from "@/src/components/ui/Pagination";
@@ -289,13 +293,15 @@ export default function SessionReportsSection({
     DEFAULT_SESSION_ITEMS_PER_PAGE,
   );
   const [viewMode, setViewMode] = useState<SessionReportsViewMode>("cards");
+  const isMdUp = useIsMdUp();
+  const effectiveViewMode = effectiveListViewMode(viewMode, isMdUp);
   const [sortField, setSortField] =
     useState<SessionReportsSortField>("actualDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
 
   const sortedReports = useMemo(() => {
-    if (viewMode !== "table") {
+    if (effectiveViewMode !== "table") {
       return sessionReports;
     }
 
@@ -350,7 +356,7 @@ export default function SessionReportsSection({
       const secondProgress = second.progress ?? Number.POSITIVE_INFINITY;
       return (firstProgress - secondProgress) * direction;
     });
-  }, [sessionReports, sortDirection, sortField, viewMode]);
+  }, [sessionReports, sortDirection, sortField, effectiveViewMode]);
 
   const handleSort = (field: SessionReportsSortField) => {
     if (sortField === field) {
@@ -487,7 +493,7 @@ export default function SessionReportsSection({
   }, [groupedTableReports, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(
-    (viewMode === "table" ? groupedTableReports.length : groupedReports.length) /
+    (effectiveViewMode === "table" ? groupedTableReports.length : groupedReports.length) /
       itemsPerPage,
   );
 
@@ -639,7 +645,7 @@ export default function SessionReportsSection({
               ? "No session reports match the current filters."
               : "No session reports recorded yet."}
           </div>
-        ) : viewMode === "table" ? (
+        ) : effectiveViewMode === "table" ? (
           <div className="space-y-3">
             <div className="flex justify-end gap-2">
               <Button variant="tertiary" className="text-xs" onClick={expandAllGroups}>
@@ -939,7 +945,7 @@ export default function SessionReportsSection({
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={
-              viewMode === "table"
+              effectiveViewMode === "table"
                 ? groupedTableReports.length
                 : groupedReports.length
             }

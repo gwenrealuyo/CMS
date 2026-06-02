@@ -34,6 +34,7 @@ interface LessonProgressTableProps {
   sortDirection: "asc" | "desc";
   onSortChange: (field: ProgressSortField) => void;
   onPersonClick: (person: LessonPersonSummary) => void;
+  displayMode?: "table" | "cards";
 }
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
@@ -64,6 +65,7 @@ export default function LessonProgressTable({
   sortDirection,
   onSortChange,
   onPersonClick,
+  displayMode = "table",
 }: LessonProgressTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
@@ -146,6 +148,151 @@ export default function LessonProgressTable({
     COMPLETED: "Completed",
     SKIPPED: "Skipped",
   };
+
+  const pagination =
+    totalPages > 1 ? (
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={groupedProgress.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={setItemsPerPage}
+        showItemsPerPage={true}
+      />
+    ) : null;
+
+  if (displayMode === "cards") {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          {paginatedProgress.map((summary) => {
+            const personName = formatPersonName(summary.person);
+            const progressText = `Completed ${summary.completedCount} of ${summary.totalLessons}`;
+            const summaryStatus = getSummaryStatus(summary);
+            const teacher = studentTeacherById.get(summary.person.id);
+
+            return (
+              <article
+                key={summary.person.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <div className="space-y-3">
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => onPersonClick(summary.person)}
+                      className={`${TABLE_ENTITY_LINK_CLASS} cursor-pointer text-left text-base font-semibold break-words`}
+                    >
+                      {personName}
+                    </button>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(summary.person.status)}`}
+                      >
+                        {formatPersonStatusLabel(summary.person.status)}
+                      </span>
+                      <span
+                        className={getPersonClusterChipClass(
+                          (summary.person.cluster_codes?.length ?? 0) > 0,
+                        )}
+                      >
+                        {formatPersonClusterLabel(summary.person.cluster_codes)}
+                      </span>
+                      <span
+                        className={
+                          summaryStatus === "IN_PROGRESS"
+                            ? "chip-in-progress whitespace-nowrap"
+                            : `inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                statusBadgeStyles[summaryStatus]
+                              }`
+                        }
+                      >
+                        {statusLabels[summaryStatus]}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Teacher
+                      </div>
+                      <div className="mt-1 text-gray-900">
+                        {teacher ? formatPersonName(teacher) : "No teacher"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Progress
+                      </div>
+                      <div className="mt-1 space-y-1.5">
+                        <div className="text-xs font-medium text-gray-700">
+                          {progressText}
+                        </div>
+                        <div className="h-2.5 w-full max-w-xs rounded-full bg-gray-200">
+                          <div
+                            className="h-2.5 rounded-full transition-all"
+                            style={{
+                              width: `${summary.progressPercentage}%`,
+                              backgroundColor: getProgressBarColor(
+                                summary.progressPercentage,
+                              ),
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Previous Lesson
+                      </div>
+                      <div className="mt-1 text-gray-900">
+                        {summary.previousLesson ? (
+                          <>
+                            <div className="font-medium break-words">
+                              {summary.previousLesson.title}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Lesson {summary.previousLesson.order}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Next Lesson
+                      </div>
+                      <div className="mt-1 text-gray-900">
+                        {summary.nextLesson ? (
+                          <>
+                            <div className="font-medium break-words">
+                              {summary.nextLesson.title}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Lesson {summary.nextLesson.order}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">
+                            All lessons completed
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        {pagination}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -319,17 +466,7 @@ export default function LessonProgressTable({
           </tbody>
         </table>
       </div>
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={groupedProgress.length}
-          itemsPerPage={itemsPerPage}
-          onPageChange={setCurrentPage}
-          onItemsPerPageChange={setItemsPerPage}
-          showItemsPerPage={true}
-        />
-      )}
+      {pagination}
     </div>
   );
 }

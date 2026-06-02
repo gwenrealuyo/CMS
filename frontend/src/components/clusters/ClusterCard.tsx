@@ -4,8 +4,11 @@ import { PersonUI } from "@/src/types/person";
 import ActionMenu from "@/src/components/families/ActionMenu";
 import { useBranches } from "@/src/hooks/useBranches";
 import {
-  BRANCH_CHIP_CLASSNAME,
-  getBranchChipStyle,
+  CLUSTER_BRANCH_CHIP_CLASSNAME,
+  CLUSTER_CODE_BADGE_CLASSNAME,
+  getBranchOutlineBadgeStyle,
+  getClusterCodeBadgeStyle,
+  getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
 
 interface ClusterCardProps {
@@ -136,20 +139,26 @@ const ClusterCard = memo(
             <h4 className="font-semibold text-base md:text-lg text-primary hover:underline transition-all truncate">
               {cluster.name || "Untitled Cluster"}
             </h4>
-            <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
-              <span className="chip-gray-sm font-extrabold">
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
+              <span
+                className={CLUSTER_CODE_BADGE_CLASSNAME}
+                style={getClusterCodeBadgeStyle(
+                  clusterBranch?.id,
+                  clusterBranch?.is_headquarters
+                )}
+              >
                 {cluster.code || "—"}
               </span>
               {clusterBranch && (
                 <span
-                  className={BRANCH_CHIP_CLASSNAME}
-                  style={getBranchChipStyle(
+                  className={CLUSTER_BRANCH_CHIP_CLASSNAME}
+                  style={getBranchOutlineBadgeStyle(
                     clusterBranch.id,
                     clusterBranch.is_headquarters
                   )}
                 >
                   <svg
-                    className="w-3 h-3"
+                    className="w-3 h-3 shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -161,8 +170,7 @@ const ClusterCard = memo(
                       d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                     />
                   </svg>
-                  {clusterBranch.name}
-                  {clusterBranch.is_headquarters && " (HQ)"}
+                  {getBranchDisplayCode(clusterBranch)}
                 </span>
               )}
             </div>

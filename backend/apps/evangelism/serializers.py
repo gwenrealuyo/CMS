@@ -106,6 +106,7 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
         allow_empty=True,
     )
     members_count = serializers.SerializerMethodField()
+    visitors_count = serializers.SerializerMethodField()
     conversions_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -127,6 +128,7 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
             "updated_at",
             "members",
             "members_count",
+            "visitors_count",
             "conversions_count",
         )
         read_only_fields = ("created_at", "updated_at")
@@ -158,6 +160,12 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
 
     def get_members_count(self, obj):
         return obj.members.exclude(role__in=["ADMIN", "VISITOR"]).count()
+
+    def get_visitors_count(self, obj):
+        return (
+            obj.prospects.filter(is_dropped_off=False).count()
+            + obj.members.filter(role="VISITOR").count()
+        )
 
     def get_conversions_count(self, obj):
         return obj.conversions.count()

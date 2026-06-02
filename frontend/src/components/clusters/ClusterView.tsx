@@ -5,8 +5,11 @@ import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import { useBranches } from "@/src/hooks/useBranches";
 import {
-  BRANCH_CHIP_CLASSNAME,
-  getBranchChipStyle,
+  CLUSTER_BRANCH_CHIP_CLASSNAME,
+  CLUSTER_CODE_BADGE_CLASSNAME,
+  getBranchOutlineBadgeStyle,
+  getClusterCodeBadgeStyle,
+  getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
 
 const ROLE_PRIORITY: Record<string, number> = {
@@ -283,7 +286,13 @@ export default function ClusterView({
                   {cluster.name || "Untitled Cluster"}
                 </h2>
                 {cluster.code && (
-                  <span className="chip-gray text-sm flex-shrink-0">
+                  <span
+                    className={`${CLUSTER_CODE_BADGE_CLASSNAME} flex-shrink-0`}
+                    style={getClusterCodeBadgeStyle(
+                      clusterBranch?.id,
+                      clusterBranch?.is_headquarters
+                    )}
+                  >
                     {cluster.code}
                   </span>
                 )}
@@ -379,14 +388,14 @@ export default function ClusterView({
                 )}
                 {clusterBranch && (
                   <span
-                    className={BRANCH_CHIP_CLASSNAME}
-                    style={getBranchChipStyle(
+                    className={CLUSTER_BRANCH_CHIP_CLASSNAME}
+                    style={getBranchOutlineBadgeStyle(
                       clusterBranch.id,
                       clusterBranch.is_headquarters
                     )}
                   >
                     <svg
-                      className="w-3.5 h-3.5"
+                      className="w-3 h-3 shrink-0"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -398,8 +407,7 @@ export default function ClusterView({
                         d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                       />
                     </svg>
-                    {clusterBranch.name}
-                    {clusterBranch.is_headquarters && " (HQ)"}
+                    {getBranchDisplayCode(clusterBranch)}
                   </span>
                 )}
               </div>

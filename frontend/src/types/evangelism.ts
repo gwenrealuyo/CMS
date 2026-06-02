@@ -18,6 +18,7 @@ export interface EvangelismGroup {
   updated_at: string;
   members?: Person[];
   members_count?: number;
+  visitors_count?: number;
   conversions_count?: number;
 }
 

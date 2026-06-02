@@ -38,6 +38,11 @@ import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { userCanManageCluster } from "@/src/lib/clusterPermissions";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
+import { useBranches } from "@/src/hooks/useBranches";
+import {
+  getBranchChipStyle,
+  getBranchDisplayCode,
+} from "@/src/lib/branchChipColor";
 
 interface ClustersPageViewProps {
   activeTab: ClusterContentTab;
@@ -281,6 +286,13 @@ export default function ClustersPageView({
   );
 
   const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
+  const { branches } = useBranches();
+
+  const branchById = useMemo(() => {
+    const map = new Map<number, (typeof branches)[number]>();
+    branches.forEach((branch) => map.set(branch.id, branch));
+    return map;
+  }, [branches]);
   /** CLUSTER-level coordinator assignment without senior — uses Submit Report primary like backend scope */
   const isOnlyNonSeniorClusterCoordinator =
     isModuleCoordinator("CLUSTER", "COORDINATOR") &&
@@ -1104,6 +1116,9 @@ export default function ClustersPageView({
                             Cluster
                           </th>
                           <th className="px-4 py-3 text-left font-medium text-gray-600">
+                            Branch
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">
                             Coordinator
                           </th>
                           <th className="px-4 py-3 text-left font-medium text-gray-600">
@@ -1155,6 +1170,10 @@ export default function ClustersPageView({
                             coordinator.role === "VISITOR"
                               ? 1
                               : 0);
+                          const clusterBranch =
+                            c.branch != null ?
+                              branchById.get(Number(c.branch)) ?? null
+                            : null;
 
                           return (
                             <tr key={c.id} className="hover:bg-gray-50">
@@ -1179,6 +1198,21 @@ export default function ClustersPageView({
                                 <div className="mt-1 text-xs text-gray-500">
                                   {c.code || "—"}
                                 </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {clusterBranch ?
+                                  <span
+                                    className="font-medium"
+                                    style={{
+                                      color: getBranchChipStyle(
+                                        clusterBranch.id,
+                                        clusterBranch.is_headquarters,
+                                      ).color,
+                                    }}
+                                  >
+                                    {getBranchDisplayCode(clusterBranch)}
+                                  </span>
+                                : <span className="text-gray-700">—</span>}
                               </td>
                               <td className="px-4 py-3 text-gray-700">
                                 {coordinator

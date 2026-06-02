@@ -17,8 +17,9 @@ from .models import (
     PersonLessonProgress,
 )
 from .services import (
+    clear_enrollment_commitment_signed,
     ensure_lesson_enrollment,
-    mark_commitment_signed,
+    set_enrollment_commitment_signed,
     mark_progress_completed,
     revert_progress_completion,
     transfer_lesson_teacher,
@@ -116,17 +117,12 @@ class PersonLessonProgressSerializer(serializers.ModelSerializer):
             "completed_by",
             "journey",
             "notes",
-            "commitment_signed",
-            "commitment_signed_at",
-            "commitment_signed_by",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "assigned_at",
             "journey",
-            "commitment_signed_at",
-            "commitment_signed_by",
             "created_at",
             "updated_at",
         ]
@@ -135,7 +131,6 @@ class PersonLessonProgressSerializer(serializers.ModelSerializer):
         self, instance: PersonLessonProgress, validated_data: Dict[str, Any]
     ) -> PersonLessonProgress:
         status_before = instance.status
-        commitment_signed_before = instance.commitment_signed
         instance = super().update(instance, validated_data)
 
         status_after = instance.status
@@ -155,25 +150,6 @@ class PersonLessonProgressSerializer(serializers.ModelSerializer):
             )
         elif status_after != PersonLessonProgress.Status.COMPLETED:
             revert_progress_completion(instance, previous_status=status_before)
-
-        commitment_signed_after = instance.commitment_signed
-        request = self.context.get("request")
-        updated_fields = []
-
-        if commitment_signed_after and not commitment_signed_before:
-            signed_by = (
-                request.user if request and isinstance(request.user, Person) else None
-            )
-            mark_commitment_signed(
-                instance,
-                signed_by=signed_by,
-                signed_at=instance.commitment_signed_at or timezone.now(),
-                note=validated_data.get("notes"),
-            )
-        elif not commitment_signed_after and commitment_signed_before:
-            instance.commitment_signed_at = None
-            instance.commitment_signed_by = None
-            updated_fields.extend(["commitment_signed_at", "commitment_signed_by"])
 
         return instance
 
@@ -371,11 +347,20 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
             "student_id",
             "teacher",
             "teacher_id",
+            "commitment_signed",
+            "commitment_signed_at",
+            "commitment_signed_by",
             "is_active",
             "assigned_at",
             "updated_at",
         ]
-        read_only_fields = ["assigned_at", "updated_at"]
+        read_only_fields = [
+            "commitment_signed",
+            "commitment_signed_at",
+            "commitment_signed_by",
+            "assigned_at",
+            "updated_at",
+        ]
 
     def create(self, validated_data: Dict[str, Any]) -> LessonStudentEnrollment:
         request = self.context.get("request")
@@ -393,6 +378,82 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
             teacher,
             assigned_by=assigned_by,
         )
+
+
+class EnrollmentCommitmentSerializer(serializers.Serializer):
+    commitment_signed = serializers.BooleanField()
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        enrollment: LessonStudentEnrollment = self.context["enrollment"]
+        if attrs["commitment_signed"]:
+            progresses = PersonLessonProgress.objects.filter(
+                person=enrollment.student,
+                lesson__is_latest=True,
+                lesson__is_active=True,
+            )
+            lesson_ids = list(
+                Lesson.objects.filter(is_latest=True, is_active=True).values_list(
+                    "id", flat=True
+                )
+            )
+            if not lesson_ids:
+                raise serializers.ValidationError(
+                    {
+                        "commitment_signed": (
+                            "Commitment can only be marked after all lessons are completed."
+                        )
+                    }
+                )
+
+            report_lesson_ids = set(
+                LessonSessionReport.objects.filter(
+                    student=enrollment.student,
+                    session_type=LessonSessionReport.SessionType.LESSON,
+                    lesson_id__isnull=False,
+                    lesson_id__in=lesson_ids,
+                ).values_list("lesson_id", flat=True)
+            )
+
+            # Legacy path: no lesson reports yet, fallback to manual progress completion.
+            if not report_lesson_ids:
+                is_complete = (
+                    progresses.exists()
+                    and progresses.count() == len(lesson_ids)
+                    and not progresses.exclude(
+                        status=PersonLessonProgress.Status.COMPLETED
+                    ).exists()
+                )
+            else:
+                is_complete = set(lesson_ids).issubset(report_lesson_ids)
+
+            if not is_complete:
+                raise serializers.ValidationError(
+                    {
+                        "commitment_signed": (
+                            "Commitment can only be marked after all lessons are completed."
+                        )
+                    }
+                )
+        return attrs
+
+    def save(self) -> LessonStudentEnrollment:
+        enrollment: LessonStudentEnrollment = self.context["enrollment"]
+        request = self.context.get("request")
+        signed_by = request.user if request and isinstance(request.user, Person) else None
+        commit = self.validated_data["commitment_signed"]
+        note = self.validated_data.get("note") or None
+        if commit:
+            set_enrollment_commitment_signed(
+                enrollment,
+                signed_by=signed_by,
+                signed_at=timezone.now(),
+                note=note,
+            )
+        else:
+            clear_enrollment_commitment_signed(enrollment)
+        enrollment.refresh_from_db()
+        return enrollment
 
 
 class LessonTeacherTransferSerializer(serializers.ModelSerializer):

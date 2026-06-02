@@ -116,6 +116,10 @@ export default function AssignLessonsDropdown({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-scalable-select-portal="true"]')) {
+        return;
+      }
       if (
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)

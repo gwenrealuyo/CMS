@@ -27,6 +27,7 @@ from .models import (
     PersonLessonProgress,
 )
 from .serializers import (
+    EnrollmentCommitmentSerializer,
     LessonBulkAssignSerializer,
     LessonCompletionSerializer,
     LessonSerializer,
@@ -37,7 +38,11 @@ from .serializers import (
     LessonTeacherTransferSerializer,
     PersonLessonProgressSerializer,
 )
-from .services import bulk_assign_lessons, mark_progress_completed
+from .services import (
+    bulk_assign_lessons,
+    mark_progress_completed,
+    reconcile_student_progress_from_reports,
+)
 
 
 class LessonViewSet(viewsets.ModelViewSet):
@@ -461,6 +466,12 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
         )
         self._sync_progress(report)
 
+    def perform_destroy(self, instance):
+        student = instance.student
+        super().perform_destroy(instance)
+        if student:
+            reconcile_student_progress_from_reports(student, force_report_rules=True)
+
     def _sync_progress(self, report: LessonSessionReport) -> None:
         if report.session_type != LessonSessionReport.SessionType.LESSON:
             return
@@ -578,3 +589,19 @@ class LessonStudentEnrollmentViewSet(viewsets.ModelViewSet):
         )
         serializer = LessonTeacherTransferSerializer(transfers, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="commitment")
+    def commitment(self, request, pk=None):
+        enrollment = self.get_object()
+        serializer = EnrollmentCommitmentSerializer(
+            data=request.data,
+            context={"enrollment": enrollment, "request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        enrollment = serializer.save()
+        return Response(
+            LessonStudentEnrollmentSerializer(
+                enrollment, context={"request": request}
+            ).data,
+            status=status.HTTP_200_OK,
+        )

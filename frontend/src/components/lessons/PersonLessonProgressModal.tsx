@@ -30,6 +30,11 @@ interface PersonLessonProgressModalProps {
     teacherId: number,
     note?: string
   ) => Promise<void>;
+  onRequestCommitmentToggle: (
+    enrollment: LessonStudentEnrollment,
+    person: LessonPersonSummary | null
+  ) => void;
+  isProgressUpdating: boolean;
   onClose: () => void;
 }
 
@@ -56,6 +61,8 @@ export default function PersonLessonProgressModal({
   teacherChoices,
   canTransferTeacher,
   onTransferTeacher,
+  onRequestCommitmentToggle,
+  isProgressUpdating,
   onClose,
 }: PersonLessonProgressModalProps) {
   const [isTransferOpen, setTransferOpen] = useState(false);
@@ -144,6 +151,15 @@ export default function PersonLessonProgressModal({
         progress: progressMap.get(lesson.id) || null,
       }));
   }, [allLessons, personProgress]);
+
+  const canMarkCommitmentSigned = useMemo(() => {
+    if (allLessonsWithProgress.length === 0) {
+      return false;
+    }
+    return allLessonsWithProgress.every(
+      ({ progress }) => progress?.status === "COMPLETED"
+    );
+  }, [allLessonsWithProgress]);
 
   const handleTransferSubmit = async () => {
     if (!enrollment || !transferTeacherId) {
@@ -323,27 +339,50 @@ export default function PersonLessonProgressModal({
                           </p>
                         </div>
                       )}
-                      {progress.commitment_signed && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <span className="font-medium text-green-700">
-                            ✓ Commitment Form Signed
-                          </span>
-                          {progress.commitment_signed_at && (
-                            <span className="text-gray-500 ml-2">
-                              (
-                              {formatDisplayDate(
-                                progress.commitment_signed_at
-                              )}
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
                     </div>
                   )}
               </div>
             ))}
           </div>
+          {enrollment && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">
+                    Commitment Form Signature
+                  </p>
+                  {enrollment.commitment_signed ? (
+                    <p className="text-sm text-green-700">
+                      ✓ Signed
+                      {enrollment.commitment_signed_at
+                        ? ` (${formatDisplayDate(enrollment.commitment_signed_at)})`
+                        : ""}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-600">Not signed</p>
+                  )}
+                </div>
+                <Button
+                  variant="tertiary"
+                  className="min-h-[36px] text-xs px-3 py-1.5"
+                  disabled={
+                    isProgressUpdating ||
+                    (!enrollment.commitment_signed && !canMarkCommitmentSigned)
+                  }
+                  onClick={() => onRequestCommitmentToggle(enrollment, person)}
+                >
+                  {enrollment.commitment_signed
+                    ? "Remove commitment signature"
+                    : "Mark commitment signed"}
+                </Button>
+              </div>
+              {!enrollment.commitment_signed && !canMarkCommitmentSigned && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Available after all lessons are completed.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 

@@ -92,7 +92,8 @@ export default function LessonsPageContainer() {
     string | null
   >(null);
   const [commitmentConfirm, setCommitmentConfirm] = useState<{
-    record: PersonLessonProgress;
+    enrollment: LessonStudentEnrollment;
+    person: LessonPersonSummary | null;
     nextValue: boolean;
   } | null>(null);
   const [noteInputModal, setNoteInputModal] = useState<{
@@ -258,6 +259,16 @@ export default function LessonsPageContainer() {
     }
     return groupProgressByPerson(allProgress, lessons);
   }, [allProgress, lessons, allProgressLoading]);
+
+  const nextLessonIdByStudent = useMemo(() => {
+    const map = new Map<number, number>();
+    groupedProgress.forEach((summary) => {
+      if (summary.person?.id && summary.nextLesson?.id) {
+        map.set(summary.person.id, summary.nextLesson.id);
+      }
+    });
+    return map;
+  }, [groupedProgress]);
 
   const studentTeacherById = useMemo(
     () => buildStudentTeacherMapFromEnrollments(enrollments),
@@ -770,24 +781,30 @@ export default function LessonsPageContainer() {
     }
   };
 
-  const requestCommitmentToggle = (record: PersonLessonProgress) => {
+  const requestCommitmentToggle = (
+    enrollment: LessonStudentEnrollment,
+    person: LessonPersonSummary | null
+  ) => {
     if (isProgressUpdating) return;
     setCommitmentConfirm({
-      record,
-      nextValue: !record.commitment_signed,
+      enrollment,
+      person,
+      nextValue: !enrollment.commitment_signed,
     });
   };
 
   const confirmCommitmentToggle = async () => {
     if (!commitmentConfirm) return;
-    const { record, nextValue } = commitmentConfirm;
+    const { enrollment, nextValue } = commitmentConfirm;
     try {
       setIsProgressUpdating(true);
       setProgressActionError(null);
-      const response = await lessonsApi.updateProgress(record.id, {
+      const response = await lessonsApi.setEnrollmentCommitment(enrollment.id, {
         commitment_signed: nextValue,
       });
-      updateProgressRecord(response.data);
+      setEnrollments((previous) =>
+        previous.map((entry) => (entry.id === response.data.id ? response.data : entry))
+      );
       setProgressError(null);
       fetchSummary();
     } catch (error) {
@@ -1016,6 +1033,10 @@ export default function LessonsPageContainer() {
       studentNumericId != null && !Number.isNaN(studentNumericId)
         ? enrollmentByStudent.get(studentNumericId)?.teacher?.id ?? null
         : null;
+    const suggestedLessonId =
+      studentNumericId != null && !Number.isNaN(studentNumericId)
+        ? nextLessonIdByStudent.get(studentNumericId) ?? selectedLessonId
+        : selectedLessonId;
     setEditingSessionReport(null);
     setSessionFormError(null);
     setSessionFormDefaults({
@@ -1025,11 +1046,11 @@ export default function LessonsPageContainer() {
           ? enrollmentTeacherId.toString()
           : null
         : sessionLoggedInTeacherId,
-      lessonId: selectedLessonId ?? null,
+      lessonId: suggestedLessonId ?? null,
       progressId: defaults?.progressId ?? null,
     });
     setSessionModalOpen(true);
-  }, [sessionLoggedInTeacherId, enrollmentByStudent, selectedLessonId]);
+  }, [sessionLoggedInTeacherId, enrollmentByStudent, selectedLessonId, nextLessonIdByStudent]);
 
   useEffect(() => {
     if (!autoOpenSessionReport) {
@@ -1062,7 +1083,10 @@ export default function LessonsPageContainer() {
     setSessionFormDefaults({});
   };
 
-  const handleSessionFormSubmit = async (values: LessonSessionReportInput) => {
+  const handleSessionFormSubmit = async (
+    values: LessonSessionReportInput,
+    options?: { markCommitmentSigned?: boolean }
+  ) => {
     const isPreLesson = values.session_type === "PRE_LESSON";
 
     try {
@@ -1126,6 +1150,20 @@ export default function LessonsPageContainer() {
         await lessonsApi.updateSessionReport(editingSessionReport.id, payload);
       } else {
         await lessonsApi.createSessionReport(payload);
+      }
+
+      if (
+        !editingSessionReport &&
+        options?.markCommitmentSigned &&
+        payload.student_id != null
+      ) {
+        const enrollment = enrollmentByStudent.get(Number(payload.student_id));
+        if (enrollment?.id) {
+          await lessonsApi.setEnrollmentCommitment(enrollment.id, {
+            commitment_signed: true,
+          });
+          await fetchEnrollments();
+        }
       }
 
       closeSessionModal();
@@ -1285,6 +1323,7 @@ export default function LessonsPageContainer() {
       enrollmentByStudentForAssign={enrollmentByStudent}
       defaultAssignTeacherId={sessionLoggedInTeacherId}
       currentTeacherId={sessionLoggedInTeacherId}
+      nextLessonIdByStudent={nextLessonIdByStudent}
       // Format functions
       formatDateOnly={formatDateOnly}
       formatDateTime={formatDateTime}

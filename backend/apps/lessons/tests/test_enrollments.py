@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -9,7 +10,7 @@ from apps.lessons.models import (
     LessonTeacherTransfer,
     PersonLessonProgress,
 )
-from apps.people.models import ModuleCoordinator, ModuleSetting, Person
+from apps.people.models import Journey, ModuleCoordinator, ModuleSetting, Person
 
 
 class LessonEnrollmentAPITests(TestCase):
@@ -77,6 +78,36 @@ class LessonEnrollmentAPITests(TestCase):
                 is_latest=True,
                 is_active=True,
             )
+        self.session_reports_url = reverse("lessons:lesson-session-report-list")
+
+    def _active_latest_lessons(self):
+        return list(Lesson.objects.filter(is_latest=True, is_active=True).order_by("order"))
+
+    def _mark_all_active_lessons_completed(self, student):
+        for lesson in self._active_latest_lessons():
+            PersonLessonProgress.objects.update_or_create(
+                person=student,
+                lesson=lesson,
+                defaults={
+                    "status": PersonLessonProgress.Status.COMPLETED,
+                    "completed_at": timezone.now(),
+                },
+            )
+
+    def _create_lesson_reports_for_all_active_lessons(self, student):
+        for index, lesson in enumerate(self._active_latest_lessons(), start=1):
+            response = self.client.post(
+                self.session_reports_url,
+                {
+                    "student_id": student.id,
+                    "session_type": "LESSON",
+                    "lesson_id": lesson.id,
+                    "session_date": f"2025-06-{index:02d}",
+                    "session_start": timezone.now().isoformat(),
+                },
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_assign_with_teacher_id_creates_enrollment(self):
         self.client.force_authenticate(user=self.admin)
@@ -172,3 +203,137 @@ class LessonEnrollmentAPITests(TestCase):
             if row.get("person") and row["person"].get("id")
         }
         self.assertEqual(person_ids, {self.student.id})
+
+    def test_commitment_toggle_requires_all_lessons_completed(self):
+        enrollment = LessonStudentEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher_a,
+        )
+        PersonLessonProgress.objects.create(
+            person=self.student,
+            lesson=self.lesson,
+            status=PersonLessonProgress.Status.IN_PROGRESS,
+        )
+        self.client.force_authenticate(user=self.admin)
+        url = reverse(
+            "lessons:lesson-enrollment-commitment",
+            kwargs={"pk": enrollment.pk},
+        )
+        response = self.client.post(
+            url,
+            {"commitment_signed": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details", response.data)
+        self.assertIn("commitment_signed", details)
+
+    def test_commitment_toggle_updates_enrollment_and_journey(self):
+        enrollment = LessonStudentEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher_a,
+        )
+        self._mark_all_active_lessons_completed(self.student)
+        self.client.force_authenticate(user=self.admin)
+        url = reverse(
+            "lessons:lesson-enrollment-commitment",
+            kwargs={"pk": enrollment.pk},
+        )
+
+        sign_response = self.client.post(
+            url,
+            {"commitment_signed": True},
+            format="json",
+        )
+        self.assertEqual(sign_response.status_code, status.HTTP_200_OK)
+        enrollment.refresh_from_db()
+        self.assertTrue(enrollment.commitment_signed)
+        self.assertEqual(enrollment.commitment_signed_by_id, self.admin.id)
+        self.assertTrue(
+            Journey.objects.filter(
+                user=self.student,
+                type="NOTE",
+                title="Commitment Form Signed",
+            ).exists()
+        )
+
+        clear_response = self.client.post(
+            url,
+            {"commitment_signed": False},
+            format="json",
+        )
+        self.assertEqual(clear_response.status_code, status.HTTP_200_OK)
+        enrollment.refresh_from_db()
+        self.assertFalse(enrollment.commitment_signed)
+        self.assertIsNone(enrollment.commitment_signed_at)
+        self.assertFalse(
+            Journey.objects.filter(
+                user=self.student,
+                type="NOTE",
+                title="Commitment Form Signed",
+            ).exists()
+        )
+
+    def test_commitment_clears_when_required_report_deleted(self):
+        enrollment = LessonStudentEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher_a,
+        )
+        self.client.force_authenticate(user=self.admin)
+        self._create_lesson_reports_for_all_active_lessons(self.student)
+
+        commitment_url = reverse(
+            "lessons:lesson-enrollment-commitment",
+            kwargs={"pk": enrollment.pk},
+        )
+        sign_response = self.client.post(
+            commitment_url,
+            {"commitment_signed": True},
+            format="json",
+        )
+        self.assertEqual(sign_response.status_code, status.HTTP_200_OK)
+        enrollment.refresh_from_db()
+        self.assertTrue(enrollment.commitment_signed)
+
+        report = self.student.lesson_reports_as_student.filter(
+            session_type="LESSON",
+            lesson__is_latest=True,
+            lesson__is_active=True,
+        ).first()
+        self.assertIsNotNone(report)
+        delete_url = reverse(
+            "lessons:lesson-session-report-detail",
+            kwargs={"pk": report.id},
+        )
+        delete_response = self.client.delete(delete_url)
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+
+        enrollment.refresh_from_db()
+        self.assertFalse(enrollment.commitment_signed)
+        self.assertFalse(
+            Journey.objects.filter(
+                user=self.student,
+                type="NOTE",
+                title="Commitment Form Signed",
+            ).exists()
+        )
+
+    def test_legacy_zero_reports_allows_manual_completion_commitment(self):
+        enrollment = LessonStudentEnrollment.objects.create(
+            student=self.student,
+            teacher=self.teacher_a,
+        )
+        self._mark_all_active_lessons_completed(self.student)
+        self.client.force_authenticate(user=self.admin)
+        url = reverse(
+            "lessons:lesson-enrollment-commitment",
+            kwargs={"pk": enrollment.pk},
+        )
+        response = self.client.post(
+            url,
+            {"commitment_signed": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        enrollment.refresh_from_db()
+        self.assertTrue(enrollment.commitment_signed)

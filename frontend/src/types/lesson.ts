@@ -51,9 +51,6 @@ export interface PersonLessonProgress {
   completed_by: number | null;
   journey: number | null;
   notes: string;
-  commitment_signed: boolean;
-  commitment_signed_at: string | null;
-  commitment_signed_by: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -139,6 +136,9 @@ export interface LessonStudentEnrollment {
   id: number;
   student: LessonPersonSummary;
   teacher: LessonPersonSummary;
+  commitment_signed: boolean;
+  commitment_signed_at: string | null;
+  commitment_signed_by: number | null;
   is_active: boolean;
   assigned_at: string;
   updated_at: string;

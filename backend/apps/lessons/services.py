@@ -13,6 +13,7 @@ from .models import (
     Lesson,
     LessonJourney,
     LessonStudentEnrollment,
+    LessonSessionReport,
     LessonTeacherTransfer,
     PersonLessonProgress,
 )
@@ -114,36 +115,32 @@ def mark_progress_completed(
 
 
 @transaction.atomic
-def mark_commitment_signed(
-    progress: PersonLessonProgress,
+def set_enrollment_commitment_signed(
+    enrollment: LessonStudentEnrollment,
     *,
     signed_by: Optional[Person] = None,
     signed_at=None,
     note: Optional[str] = None,
 ) -> Journey:
     """
-    Records the commitment form signature and adds a journey entry.
+    Records a one-time commitment signature on enrollment and upserts a NOTE journey.
     """
 
     signed_at = signed_at or timezone.now()
-
-    progress.commitment_signed = True
-    progress.commitment_signed_at = signed_at
-    progress.commitment_signed_by = signed_by
-    if note:
-        progress.notes = note
-    progress.save(
+    enrollment.commitment_signed = True
+    enrollment.commitment_signed_at = signed_at
+    enrollment.commitment_signed_by = signed_by
+    enrollment.save(
         update_fields=[
             "commitment_signed",
             "commitment_signed_at",
             "commitment_signed_by",
-            "notes",
             "updated_at",
         ]
     )
 
-    commitment_journey, _ = Journey.objects.get_or_create(
-        user=progress.person,
+    commitment_journey, created = Journey.objects.get_or_create(
+        user=enrollment.student,
         type="NOTE",
         title="Commitment Form Signed",
         defaults={
@@ -153,7 +150,7 @@ def mark_commitment_signed(
         },
     )
 
-    if not _:
+    if not created:
         commitment_journey.description = (
             note or "Signed the New Converts Course commitment form."
         )
@@ -162,6 +159,31 @@ def mark_commitment_signed(
         commitment_journey.save(update_fields=["description", "date", "verified_by"])
 
     return commitment_journey
+
+
+@transaction.atomic
+def clear_enrollment_commitment_signed(enrollment: LessonStudentEnrollment) -> None:
+    """
+    Clears enrollment commitment signature and removes the related NOTE journey.
+    """
+
+    enrollment.commitment_signed = False
+    enrollment.commitment_signed_at = None
+    enrollment.commitment_signed_by = None
+    enrollment.save(
+        update_fields=[
+            "commitment_signed",
+            "commitment_signed_at",
+            "commitment_signed_by",
+            "updated_at",
+        ]
+    )
+
+    Journey.objects.filter(
+        user=enrollment.student,
+        type="NOTE",
+        title="Commitment Form Signed",
+    ).delete()
 
 
 @transaction.atomic
@@ -326,3 +348,83 @@ def backfill_missing_completed_lessons_for_person(
         created_count += 1
 
     return created_count
+
+
+@transaction.atomic
+def reconcile_student_progress_from_reports(
+    student: Person, *, force_report_rules: bool = False
+) -> None:
+    """
+    Reconcile lesson progress with LESSON-type session report coverage.
+
+    Legacy safeguard:
+    - If the student has zero LESSON-type reports, do not mutate progress statuses
+      unless force_report_rules=True (used by report-deletion paths).
+    """
+    active_latest_lessons = list(
+        Lesson.objects.filter(is_latest=True, is_active=True).only("id")
+    )
+    if not active_latest_lessons:
+        return
+
+    lesson_ids = {lesson.id for lesson in active_latest_lessons}
+    progresses = list(
+        PersonLessonProgress.objects.filter(person=student, lesson_id__in=lesson_ids)
+        .select_related("lesson", "completed_by")
+        .order_by("lesson__order", "id")
+    )
+    if not progresses:
+        return
+
+    report_lesson_ids = set(
+        LessonSessionReport.objects.filter(
+            student=student,
+            session_type=LessonSessionReport.SessionType.LESSON,
+            lesson_id__isnull=False,
+            lesson_id__in=lesson_ids,
+        ).values_list("lesson_id", flat=True)
+    )
+
+    if not report_lesson_ids and not force_report_rules:
+        # Legacy students may remain completed without session report records.
+        return
+
+    for progress in progresses:
+        has_report = progress.lesson_id in report_lesson_ids
+        if has_report:
+            if progress.status != PersonLessonProgress.Status.COMPLETED:
+                completed_by = progress.completed_by
+                completed_at = progress.completed_at or timezone.now()
+                mark_progress_completed(
+                    progress,
+                    completed_by=completed_by,
+                    note=progress.notes,
+                    completed_at=completed_at,
+                )
+            continue
+
+        previous_status = progress.status
+        if previous_status == PersonLessonProgress.Status.COMPLETED:
+            progress.status = PersonLessonProgress.Status.ASSIGNED
+            progress.save(update_fields=["status", "updated_at"])
+            revert_progress_completion(progress, previous_status=previous_status)
+
+    enrollment = (
+        LessonStudentEnrollment.objects.filter(student=student, is_active=True).first()
+    )
+    if not enrollment or not enrollment.commitment_signed:
+        return
+
+    refreshed_progresses = PersonLessonProgress.objects.filter(
+        person=student,
+        lesson_id__in=lesson_ids,
+    )
+    all_completed = (
+        refreshed_progresses.exists()
+        and refreshed_progresses.count() == len(lesson_ids)
+        and not refreshed_progresses.exclude(
+            status=PersonLessonProgress.Status.COMPLETED
+        ).exists()
+    )
+    if not all_completed:
+        clear_enrollment_commitment_signed(enrollment)

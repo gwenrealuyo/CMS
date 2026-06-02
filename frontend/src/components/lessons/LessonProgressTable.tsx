@@ -33,6 +33,22 @@ interface LessonProgressTableProps {
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const DEFAULT_ITEMS_PER_PAGE = 25;
 
+function getProgressBarColor(progressPercentage: number): string {
+  if (progressPercentage >= 100) {
+    return "#15803d"; // green-700
+  }
+  if (progressPercentage >= 75) {
+    return "#22c55e"; // green-500
+  }
+  if (progressPercentage >= 50) {
+    return "#3b82f6"; // blue-500
+  }
+  if (progressPercentage >= 25) {
+    return "#f59e0b"; // amber-500
+  }
+  return "#ef4444"; // red-500
+}
+
 export default function LessonProgressTable({
   groupedProgress,
   studentTeacherById = new Map(),
@@ -243,8 +259,13 @@ export default function LessonProgressTable({
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2.5">
                         <div
-                          className="bg-primary h-2.5 rounded-full transition-all"
-                          style={{ width: `${summary.progressPercentage}%` }}
+                          className="h-2.5 rounded-full transition-all"
+                          style={{
+                            width: `${summary.progressPercentage}%`,
+                            backgroundColor: getProgressBarColor(
+                              summary.progressPercentage
+                            ),
+                          }}
                         />
                       </div>
                     </div>

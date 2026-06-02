@@ -338,6 +338,7 @@ export default function ScalableSelect({
     return createPortal(
       <div
         ref={dropdownRef}
+        data-scalable-select-portal="true"
         className="fixed z-[60] bg-white border border-gray-300 rounded-md shadow-lg"
         style={{
           top: `${dropdownPosition.top}px`,

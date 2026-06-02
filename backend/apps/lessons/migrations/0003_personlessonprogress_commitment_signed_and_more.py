@@ -13,27 +13,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="personlessonprogress",
-            name="commitment_signed",
-            field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
-            model_name="personlessonprogress",
-            name="commitment_signed_at",
-            field=models.DateTimeField(blank=True, null=True),
-        ),
-        migrations.AddField(
-            model_name="personlessonprogress",
-            name="commitment_signed_by",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
-                related_name="lessons_commitments_verified",
-                to=settings.AUTH_USER_MODEL,
-            ),
-        ),
         migrations.AlterField(
             model_name="lessonjourney",
             name="journey_type",

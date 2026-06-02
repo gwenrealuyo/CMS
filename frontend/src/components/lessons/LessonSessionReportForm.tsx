@@ -4,6 +4,7 @@ import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   Lesson,
+  LessonStudentEnrollment,
   LessonSessionReport,
   LessonSessionReportInput,
 } from "@/src/types/lesson";
@@ -28,7 +29,10 @@ import {
 export interface LessonSessionReportFormProps {
   report?: LessonSessionReport | null;
   submitting?: boolean;
-  onSubmit: (values: LessonSessionReportInput) => void;
+  onSubmit: (
+    values: LessonSessionReportInput,
+    options?: { markCommitmentSigned?: boolean }
+  ) => void;
   onCancel: () => void;
   people: Person[];
   lessons: Lesson[];
@@ -38,6 +42,9 @@ export interface LessonSessionReportFormProps {
   defaultStudentId?: number | string | null;
   defaultProgressId?: number | string | null;
   enrollmentTeacherByStudentId?: Map<number, number>;
+  enrollmentByStudentId?: Map<number, LessonStudentEnrollment>;
+  nextLessonIdByStudentId?: Map<number, number>;
+  lastLessonId?: number | null;
   error?: string | null;
 }
 
@@ -71,7 +78,7 @@ function StudentOptionBadges({ person }: { person: Person }) {
     <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
       <span
         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(
-          person.status
+          person.status,
         )}`}
       >
         {formatPersonStatusLabel(person.status)}
@@ -91,7 +98,7 @@ function toLocalDateTimeValue(value?: string | null): string {
   }
   const pad = (input: number) => input.toString().padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate()
+    date.getDate(),
   )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
@@ -108,22 +115,58 @@ export default function LessonSessionReportForm({
   defaultStudentId,
   defaultProgressId,
   enrollmentTeacherByStudentId,
+  enrollmentByStudentId,
+  nextLessonIdByStudentId,
+  lastLessonId,
   error,
 }: LessonSessionReportFormProps) {
   const teacherOptions = useMemo(
     () => people.filter((person) => isLessonTeacherCandidate(person)),
-    [people]
+    [people],
   );
 
   const studentOptions = useMemo(() => {
+    const explicitlyAllowedStudentIds = new Set<number>();
+    if (enrollmentTeacherByStudentId) {
+      enrollmentTeacherByStudentId.forEach((_, studentId) => {
+        explicitlyAllowedStudentIds.add(studentId);
+      });
+    }
+    const reportStudentId =
+      report?.student?.id != null ? Number(report.student.id) : null;
+    if (reportStudentId != null && !Number.isNaN(reportStudentId)) {
+      explicitlyAllowedStudentIds.add(reportStudentId);
+    }
+    const defaultStudentNumericId =
+      defaultStudentId != null ? Number(defaultStudentId) : null;
+    if (
+      defaultStudentNumericId != null &&
+      !Number.isNaN(defaultStudentNumericId)
+    ) {
+      explicitlyAllowedStudentIds.add(defaultStudentNumericId);
+    }
+
     return [...people]
-      .filter(isSelectablePerson)
+      .filter((person) => {
+        if (!isSelectablePerson(person)) {
+          return false;
+        }
+        if (!enrollmentTeacherByStudentId) {
+          return true;
+        }
+        return explicitlyAllowedStudentIds.has(Number(person.id));
+      })
       .sort((first, second) => {
         const nameA = formatPersonName(first);
         const nameB = formatPersonName(second);
         return nameA.localeCompare(nameB);
       });
-  }, [people]);
+  }, [
+    people,
+    enrollmentTeacherByStudentId,
+    report?.student?.id,
+    defaultStudentId,
+  ]);
 
   const loggedInTeacherId = loggedInTeacherIdProp?.toString() ?? "";
 
@@ -132,7 +175,7 @@ export default function LessonSessionReportForm({
       teacherId:
         report?.teacher?.id?.toString() ??
         (defaultStudentId
-          ? defaultTeacherId?.toString() ?? ""
+          ? (defaultTeacherId?.toString() ?? "")
           : loggedInTeacherId),
       studentId:
         report?.student?.id?.toString() ?? defaultStudentId?.toString() ?? "",
@@ -150,7 +193,13 @@ export default function LessonSessionReportForm({
       nextSessionDate: report?.next_session_date ?? "",
       remarks: report?.remarks ?? "",
     }),
-    [report, loggedInTeacherId, defaultTeacherId, defaultStudentId, defaultLessonId]
+    [
+      report,
+      loggedInTeacherId,
+      defaultTeacherId,
+      defaultStudentId,
+      defaultLessonId,
+    ],
   );
 
   const [formState, setFormState] = useState<FormState>(defaultState);
@@ -160,13 +209,14 @@ export default function LessonSessionReportForm({
   >({});
   const [studentQuery, setStudentQuery] = useState("");
   const [isStudentDropdownOpen, setStudentDropdownOpen] = useState(false);
+  const [markCommitmentSigned, setMarkCommitmentSigned] = useState(false);
 
   const isTeacherLocked = Boolean(formState.studentId.trim()) && !report;
 
   useEffect(() => {
     setFormState(defaultState);
     const studentMatch = studentOptions.find(
-      (person) => person.id?.toString() === defaultState.studentId
+      (person) => person.id?.toString() === defaultState.studentId,
     );
     setStudentQuery(studentMatch ? formatPersonName(studentMatch) : "");
   }, [defaultState, studentOptions]);
@@ -182,7 +232,7 @@ export default function LessonSessionReportForm({
       setFormState((previous) =>
         previous.teacherId === nextTeacherId
           ? previous
-          : { ...previous, teacherId: nextTeacherId }
+          : { ...previous, teacherId: nextTeacherId },
       );
       return;
     }
@@ -195,17 +245,26 @@ export default function LessonSessionReportForm({
     const enrollmentTeacherId =
       enrollmentTeacherByStudentId?.get(numericStudentId) ?? null;
     const nextTeacherId = enrollmentTeacherId?.toString() ?? "";
+    const nextLessonId = nextLessonIdByStudentId?.get(numericStudentId) ?? null;
+    const nextSessionTopic =
+      nextLessonId != null ? `${LESSON_TOPIC_PREFIX}${nextLessonId}` : null;
 
     setFormState((previous) =>
-      previous.teacherId === nextTeacherId
+      previous.teacherId === nextTeacherId &&
+      (!nextSessionTopic || previous.sessionTopic === nextSessionTopic)
         ? previous
-        : { ...previous, teacherId: nextTeacherId }
+        : {
+            ...previous,
+            teacherId: nextTeacherId,
+            sessionTopic: nextSessionTopic ?? previous.sessionTopic,
+          },
     );
   }, [
     formState.studentId,
     report,
     loggedInTeacherId,
     enrollmentTeacherByStudentId,
+    nextLessonIdByStudentId,
   ]);
 
   const teacherHelperText = useMemo(() => {
@@ -220,7 +279,7 @@ export default function LessonSessionReportForm({
     }
     return loggedInTeacherId
       ? "Defaults to you. Select a student to use their assigned lessons teacher."
-      : "Select who led this session. Choosing a student locks the teacher to their assigned lessons teacher.";
+      : "Choosing a student selects their assigned lessons teacher.";
   }, [formState.teacherId, isTeacherLocked, loggedInTeacherId, report]);
 
   const clearStudentSelection = () => {
@@ -249,7 +308,7 @@ export default function LessonSessionReportForm({
           label: formatPersonName(person),
         }))
         .filter((option) => option.value),
-    [teacherOptions]
+    [teacherOptions],
   );
 
   const lockedTeacherLabel = useMemo(() => {
@@ -257,17 +316,38 @@ export default function LessonSessionReportForm({
       return NO_TEACHER_ASSIGNED_LABEL;
     }
     const teacherMatch = teacherOptions.find(
-      (person) => person.id?.toString() === formState.teacherId
+      (person) => person.id?.toString() === formState.teacherId,
     );
-    return teacherMatch ? formatPersonName(teacherMatch) : NO_TEACHER_ASSIGNED_LABEL;
+    return teacherMatch
+      ? formatPersonName(teacherMatch)
+      : NO_TEACHER_ASSIGNED_LABEL;
   }, [formState.teacherId, teacherOptions]);
 
   const filteredStudentOptions = useMemo(() => {
+    let filtered = studentOptions;
+    if (!report && formState.teacherId) {
+      filtered = filtered.filter((person) => {
+        if (
+          formState.studentId &&
+          person.id?.toString() === formState.studentId
+        ) {
+          return true;
+        }
+        const numericStudentId = Number(person.id);
+        if (Number.isNaN(numericStudentId)) {
+          return false;
+        }
+        const assignedTeacherId =
+          enrollmentTeacherByStudentId?.get(numericStudentId);
+        return assignedTeacherId?.toString() === formState.teacherId;
+      });
+    }
+
     const query = studentQuery.trim().toLowerCase();
     if (!query) {
-      return studentOptions;
+      return filtered;
     }
-    return studentOptions.filter((person) => {
+    return filtered.filter((person) => {
       const name = formatPersonName(person).toLowerCase();
       const username = person.username?.toLowerCase() ?? "";
       const memberId = person.member_id?.toLowerCase() ?? "";
@@ -277,7 +357,46 @@ export default function LessonSessionReportForm({
         memberId.includes(query)
       );
     });
-  }, [studentOptions, studentQuery]);
+  }, [
+    studentOptions,
+    studentQuery,
+    report,
+    formState.teacherId,
+    formState.studentId,
+    enrollmentTeacherByStudentId,
+  ]);
+
+  const selectedStudentEnrollment = useMemo(() => {
+    const numericStudentId = Number(formState.studentId);
+    if (Number.isNaN(numericStudentId)) {
+      return null;
+    }
+    return enrollmentByStudentId?.get(numericStudentId) ?? null;
+  }, [formState.studentId, enrollmentByStudentId]);
+
+  const selectedTopic = useMemo(
+    () => parseSessionTopicValue(formState.sessionTopic),
+    [formState.sessionTopic]
+  );
+
+  const canMarkCommitmentInForm = useMemo(() => {
+    if (report) {
+      return false;
+    }
+    if (!selectedStudentEnrollment || selectedStudentEnrollment.commitment_signed) {
+      return false;
+    }
+    if (!lastLessonId || selectedTopic.sessionType !== "LESSON") {
+      return false;
+    }
+    return selectedTopic.lessonId === lastLessonId;
+  }, [report, selectedStudentEnrollment, lastLessonId, selectedTopic]);
+
+  useEffect(() => {
+    if (!canMarkCommitmentInForm && markCommitmentSigned) {
+      setMarkCommitmentSigned(false);
+    }
+  }, [canMarkCommitmentInForm, markCommitmentSigned]);
 
   const handleChange = (field: keyof FormState, value: string) => {
     setFormState((previous) => ({ ...previous, [field]: value }));
@@ -404,56 +523,14 @@ export default function LessonSessionReportForm({
     }
 
     setFormError(null);
-    onSubmit(payload);
+    onSubmit(payload, {
+      markCommitmentSigned: canMarkCommitmentInForm && markCommitmentSigned,
+    });
   };
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label
-            htmlFor={isTeacherLocked ? "teacher-display" : "teacher-select"}
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Teacher
-          </label>
-          {isTeacherLocked ? (
-            <input
-              id="teacher-display"
-              type="text"
-              readOnly
-              disabled
-              value={lockedTeacherLabel}
-              className="w-full min-h-[44px] rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 cursor-not-allowed"
-              aria-invalid={!!fieldErrors.teacherId}
-              aria-describedby={
-                fieldErrors.teacherId ? "teacher-error" : undefined
-              }
-            />
-          ) : (
-            <ScalableSelect
-              options={teacherSelectOptions}
-              value={formState.teacherId}
-              onChange={(value) => handleChange("teacherId", value)}
-              placeholder="Select teacher..."
-              searchPlaceholder="Search by name..."
-              emptyMessage="No teachers found"
-            />
-          )}
-          {fieldErrors.teacherId && (
-            <p
-              id="teacher-error"
-              className="text-xs text-red-600 mt-1"
-              role="alert"
-            >
-              {fieldErrors.teacherId}
-            </p>
-          )}
-          {teacherHelperText && (
-            <p className="text-xs text-gray-500">{teacherHelperText}</p>
-          )}
-        </div>
-
         <div className="space-y-2" ref={studentDropdownRef}>
           <label
             htmlFor="student-search"
@@ -559,6 +636,50 @@ export default function LessonSessionReportForm({
             </p>
           )}
         </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor={isTeacherLocked ? "teacher-display" : "teacher-select"}
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Teacher
+          </label>
+          {isTeacherLocked ? (
+            <input
+              id="teacher-display"
+              type="text"
+              readOnly
+              disabled
+              value={lockedTeacherLabel}
+              className="w-full min-h-[44px] rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 cursor-not-allowed"
+              aria-invalid={!!fieldErrors.teacherId}
+              aria-describedby={
+                fieldErrors.teacherId ? "teacher-error" : undefined
+              }
+            />
+          ) : (
+            <ScalableSelect
+              options={teacherSelectOptions}
+              value={formState.teacherId}
+              onChange={(value) => handleChange("teacherId", value)}
+              placeholder="Select teacher..."
+              searchPlaceholder="Search by name..."
+              emptyMessage="No teachers found"
+            />
+          )}
+          {fieldErrors.teacherId && (
+            <p
+              id="teacher-error"
+              className="text-xs text-red-600 mt-1"
+              role="alert"
+            >
+              {fieldErrors.teacherId}
+            </p>
+          )}
+          {teacherHelperText && (
+            <p className="text-xs text-gray-500">{teacherHelperText}</p>
+          )}
+        </div>
       </div>
 
       <div className="space-y-1">
@@ -579,13 +700,13 @@ export default function LessonSessionReportForm({
               : "border-gray-300 focus:border-primary focus:ring-ring"
           }`}
           value={formState.sessionTopic}
-          onChange={(event) =>
-            handleChange("sessionTopic", event.target.value)
-          }
+          onChange={(event) => handleChange("sessionTopic", event.target.value)}
           required
           aria-invalid={!!fieldErrors.sessionTopic}
           aria-describedby={
-            fieldErrors.sessionTopic ? "session-topic-error" : "session-topic-help"
+            fieldErrors.sessionTopic
+              ? "session-topic-error"
+              : "session-topic-help"
           }
         >
           <optgroup label="Before lessons (not counted)">
@@ -620,6 +741,23 @@ export default function LessonSessionReportForm({
           </p>
         )}
       </div>
+
+      {canMarkCommitmentInForm && (
+        <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5">
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={markCommitmentSigned}
+              onChange={(event) => setMarkCommitmentSigned(event.target.checked)}
+              className="rounded border-gray-300 text-primary focus:ring-ring"
+            />
+            Mark commitment form as signed
+          </label>
+          <p className="mt-1 text-xs text-gray-500">
+            Available because this session topic is the student's last lesson.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">

@@ -137,15 +137,6 @@ class PersonLessonProgress(models.Model):
         related_name="lesson_progress",
     )
     notes = models.TextField(blank=True)
-    commitment_signed = models.BooleanField(default=False)
-    commitment_signed_at = models.DateTimeField(null=True, blank=True)
-    commitment_signed_by = models.ForeignKey(
-        Person,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="lessons_commitments_verified",
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -179,6 +170,15 @@ class LessonStudentEnrollment(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="lesson_enrollments_assigned",
+    )
+    commitment_signed = models.BooleanField(default=False)
+    commitment_signed_at = models.DateTimeField(null=True, blank=True)
+    commitment_signed_by = models.ForeignKey(
+        Person,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="lesson_commitments_verified",
     )
     is_active = models.BooleanField(default=True)
     assigned_at = models.DateTimeField(auto_now_add=True)

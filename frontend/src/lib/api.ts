@@ -590,6 +590,14 @@ export const lessonsApi = {
       `/lessons/enrollments/${id}/transfer/`,
       payload
     ),
+  setEnrollmentCommitment: (
+    id: number | string,
+    payload: { commitment_signed: boolean; note?: string }
+  ) =>
+    api.post<LessonStudentEnrollment>(
+      `/lessons/enrollments/${id}/commitment/`,
+      payload
+    ),
   listEnrollmentTransfers: (id: number | string) =>
     api.get<LessonTeacherTransfer[]>(`/lessons/enrollments/${id}/transfers/`),
   complete: (

@@ -78,7 +78,8 @@ interface LessonsPageViewProps {
   commitmentUploading: boolean;
   commitmentUploadError: string | null;
   commitmentConfirm: {
-    record: PersonLessonProgress;
+    enrollment: LessonStudentEnrollment;
+    person: LessonPersonSummary | null;
     nextValue: boolean;
   } | null;
   // Note input modal
@@ -150,6 +151,7 @@ interface LessonsPageViewProps {
   teacherChoices: LessonPersonLike[];
   studentChoices: LessonPersonLike[];
   currentTeacherId: string | null;
+  nextLessonIdByStudent: Map<number, number>;
   // Format functions
   formatDateOnly: (value?: string | null) => string;
   formatDateTime: (value?: string | null) => string;
@@ -166,7 +168,10 @@ interface LessonsPageViewProps {
     record: PersonLessonProgress,
     status: LessonProgressStatus
   ) => void;
-  onRequestCommitmentToggle: (record: PersonLessonProgress) => void;
+  onRequestCommitmentToggle: (
+    enrollment: LessonStudentEnrollment,
+    person: LessonPersonSummary | null
+  ) => void;
   onConfirmCommitmentToggle: () => void;
   onOpenCommitmentModal: () => void;
   onCloseCommitmentModal: () => void;
@@ -176,7 +181,8 @@ interface LessonsPageViewProps {
   onCloseAlertModal: () => void;
   onSetCommitmentConfirm: (
     confirm: {
-      record: PersonLessonProgress;
+      enrollment: LessonStudentEnrollment;
+      person: LessonPersonSummary | null;
       nextValue: boolean;
     } | null
   ) => void;
@@ -210,7 +216,10 @@ interface LessonsPageViewProps {
   onOpenSessionReportModal: () => void;
   onOpenSessionReportForEdit: (report: LessonSessionReport) => void;
   onCloseSessionModal: () => void;
-  onSessionFormSubmit: (values: LessonSessionReportInput) => void;
+  onSessionFormSubmit: (
+    values: LessonSessionReportInput,
+    options?: { markCommitmentSigned?: boolean }
+  ) => void;
   onLogSessionFromProgress: (record: PersonLessonProgress) => void;
   onRequestDeleteSessionReport: (report: LessonSessionReport) => void;
   onConfirmDeleteSessionReport: () => void;
@@ -276,6 +285,7 @@ export default function LessonsPageView({
   teacherChoices,
   studentChoices,
   currentTeacherId,
+  nextLessonIdByStudent,
   formatDateOnly,
   formatDateTime,
   onOpenCreateLesson,
@@ -541,13 +551,26 @@ export default function LessonsPageView({
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
             {commitmentConfirm?.nextValue
-              ? `Mark ${formatPersonName(
-                  commitmentConfirm.record.person
-                )} as having signed the commitment form? This will add a journey to the conversion timeline.`
+              ? (
+                  <>
+                    Mark{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatPersonName(commitmentConfirm.person)}
+                    </span>{" "}
+                    as having signed the commitment form? This will add a journey
+                    to the conversion timeline.
+                  </>
+                )
               : commitmentConfirm
-              ? `Remove the commitment signature for ${formatPersonName(
-                  commitmentConfirm.record.person
-                )}? This will clear the journey entry.`
+              ? (
+                  <>
+                    Remove the commitment signature for{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatPersonName(commitmentConfirm.person)}
+                    </span>
+                    ? This will clear the journey entry.
+                  </>
+                )
               : ""}
           </p>
         </div>
@@ -676,6 +699,13 @@ export default function LessonsPageView({
           defaultStudentId={sessionFormDefaults.studentId ?? undefined}
           defaultProgressId={sessionFormDefaults.progressId ?? undefined}
           enrollmentTeacherByStudentId={enrollmentTeacherByStudentId}
+          enrollmentByStudentId={enrollmentByStudent}
+          nextLessonIdByStudentId={nextLessonIdByStudent}
+          lastLessonId={
+            activeLatestLessons.length > 0
+              ? activeLatestLessons[activeLatestLessons.length - 1].id
+              : null
+          }
           error={sessionFormError}
         />
       </Modal>
@@ -728,6 +758,8 @@ export default function LessonsPageView({
         teacherChoices={teacherChoices}
         canTransferTeacher={canTransferLessonTeacher}
         onTransferTeacher={onTransferTeacher}
+        onRequestCommitmentToggle={onRequestCommitmentToggle}
+        isProgressUpdating={isProgressUpdating}
         onClose={onClosePersonProgressModal}
       />
     </DashboardLayout>

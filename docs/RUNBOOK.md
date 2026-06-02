@@ -106,7 +106,7 @@ Defaults match `docker-compose.yml` and `backend/env.example` (`church_managemen
 |------|---------|
 | Dev sample data (people + clusters + evangelism) | `python manage.py populate_dev_sample_data` |
 | Fresh dev sample data | `python manage.py populate_dev_sample_data --reset` |
-| Fix schema drift only (events, evangelism, people) | `python manage.py sync_dev_schema` |
+| Fix schema drift only (events, evangelism, people, lessons) | `python manage.py sync_dev_schema` |
 | Admin user | `python manage.py create_admin` |
 | Default passwords | `python manage.py set_default_passwords` |
 | Django superuser | `python manage.py createsuperuser` |

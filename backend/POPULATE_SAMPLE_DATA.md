@@ -109,6 +109,7 @@ If migrations show as applied but the database still has an old shape, `populate
 | `people_journey.updated_at does not exist` | Re-applies `people` migration `0007` |
 | `evangelism_prospect.first_name does not exist` or `name` still present | Drops evangelism tables and re-runs `evangelism.0001_initial` |
 | `events_eventtype does not exist` | Drops events + dependent tables (attendance, sunday_school, evangelism) and re-migrates |
+| `lessons_lessonstudentenrollment does not exist` or `lessons_lessonsessionreport.session_type does not exist` | Drops lessons tables and re-runs `lessons.0001_initial` + `0002_default_lessons` (clears progress, enrollments, session reports) |
 
 Auto-repair (recommended):
 
@@ -125,6 +126,7 @@ Or run as part of `populate_dev_sample_data` (which also re-seeds evangelism aft
 | `people` | `0010_modulesetting` | `0007` adds `Journey.updated_at` |
 | `clusters` | `0001_initial` | No seed data in migrations |
 | `evangelism` | `0001_initial` | Single squashed migration; Prospect uses `first_name` / `date_first_invited` (not `name` / `first_contact_date`) |
+| `lessons` | `0002_default_lessons` | Squashed chain (`0001_initial` + `0002`); includes `LessonStudentEnrollment`, `session_type` on session reports |
 | `events` | `0001_initial` | Includes `EventType` table (`events_eventtype`); old DBs may only have `events_event` |
 
 Run `python manage.py migrate` before any populate command.

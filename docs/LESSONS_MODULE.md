@@ -15,6 +15,16 @@
 
 Default data for the “New Converts Course” (7 lessons) is seeded via the `0002_default_lessons` migration. The app migration chain is intentionally minimal (`0001_initial` + `0002_default_lessons`); re-running `0002` after edits requires rolling back to `0001` first.
 
+### Schema drift (local dev)
+
+If migrations show as applied but Session Reports or Enrollments APIs fail with `lessons_lessonstudentenrollment does not exist` or `session_type does not exist`, the database has a pre-squash lessons schema. Run:
+
+```bash
+cd backend && python manage.py sync_dev_schema
+```
+
+This drops all `lessons_*` tables and re-migrates (clears lesson progress, enrollments, and session reports; re-seeds default lessons via `0002`).
+
 ## Progress & Journey Synchronisation
 
 - `apps.lessons.services.mark_progress_completed` generates the `LESSON` journey when a progress record transitions to `COMPLETED`. Rolling a lesson back triggers `revert_progress_completion`.

@@ -1,4 +1,4 @@
-"""Apply migrations and repair known dev schema drift (events, evangelism, people)."""
+"""Apply migrations and repair known dev schema drift (events, evangelism, people, lessons)."""
 
 from django.core.management.base import BaseCommand
 
@@ -8,7 +8,8 @@ from apps.people.sample_data_schema import sync_sample_data_schema
 class Command(BaseCommand):
     help = (
         "Apply migrations and repair squashed-migration schema drift "
-        "(events EventType, evangelism Prospect fields, people Journey.updated_at). "
+        "(events EventType, evangelism Prospect fields, people Journey.updated_at, "
+        "lessons LessonStudentEnrollment / session_type). "
         "Development only."
     )
 

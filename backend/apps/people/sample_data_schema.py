@@ -3,7 +3,7 @@ Schema checks and repairs for local dev sample-data seeding.
 
 Handles drift when squashed migrations were applied against an older database
 shape (e.g. evangelism Prospect.name vs first_name, people_journey.updated_at,
-events missing EventType table).
+events missing EventType table, lessons missing LessonStudentEnrollment).
 """
 
 from django.core.management import call_command
@@ -144,6 +144,50 @@ def reset_events_schema(stdout=None) -> bool:
     return True
 
 
+def lessons_needs_reset() -> bool:
+    """True when squashed lessons migrations were recorded but schema is stale."""
+    from django.db.migrations.recorder import MigrationRecorder
+
+    lessons_tables = tables_with_prefix("lessons_")
+    applied = MigrationRecorder.Migration.objects.filter(
+        app="lessons", name="0001_initial"
+    ).exists()
+
+    if applied and not lessons_tables:
+        return True
+
+    if table_exists("lessons_lessonsessionreport") and not column_exists(
+        "lessons_lessonsessionreport", "session_type"
+    ):
+        return True
+
+    if lessons_tables and not table_exists("lessons_lessonstudentenrollment"):
+        return True
+
+    return False
+
+
+def reset_lessons_schema(stdout=None) -> bool:
+    """Drop lessons tables and re-run 0001_initial + 0002_default_lessons. Returns True if reset."""
+    if not lessons_needs_reset():
+        return False
+
+    if stdout:
+        stdout.write("Resetting lessons schema (stale migration state)...")
+        stdout.write(
+            "  Warning: this clears lesson progress, enrollments, and session reports."
+        )
+
+    fake_migrate_zero("lessons")
+    tables = tables_with_prefix("lessons_")
+    drop_tables(tables)
+    call_command("migrate", "lessons", verbosity=0)
+
+    if stdout:
+        stdout.write(f"  ✓ Dropped {len(tables)} lessons table(s) and re-migrated")
+    return True
+
+
 def reset_evangelism_schema(stdout=None) -> bool:
     """Drop evangelism tables and re-run 0001_initial. Returns True if reset."""
     if not evangelism_needs_reset():
@@ -178,5 +222,8 @@ def sync_sample_data_schema(stdout=None) -> list[str]:
 
     if reset_evangelism_schema(stdout):
         actions.append("evangelism schema reset")
+
+    if reset_lessons_schema(stdout):
+        actions.append("lessons schema reset")
 
     return actions

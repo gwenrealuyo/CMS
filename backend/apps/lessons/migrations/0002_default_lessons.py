@@ -53,7 +53,7 @@ LESSON_DEFINITIONS = [
         ),
         "journey_title": "Completed Lesson 3: Clustering — Apostolic Small Groups",
         "journey_note": (
-            "Joined a church cluster to continue growing in grace " "(Acts 2:46-47)."
+            "Joined a church cluster to continue growing in grace (Acts 2:46-47)."
         ),
     },
     {
@@ -146,7 +146,6 @@ def seed_default_lessons(apps, schema_editor):
                 "is_active": True,
             },
         )
-
         if created:
             LessonJourney.objects.create(
                 lesson=lesson,
@@ -163,7 +162,6 @@ def remove_default_lessons(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("lessons", "0001_initial"),
     ]

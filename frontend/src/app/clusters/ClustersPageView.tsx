@@ -169,6 +169,13 @@ interface ClustersPageViewProps {
   onSelectAllClusters: () => void;
   onBulkDelete: () => void;
   onBulkExport: (format: "excel" | "pdf" | "csv") => void;
+  bulkDeleteConfirmation: {
+    isOpen: boolean;
+    loading: boolean;
+  };
+  selectedClustersCount: number;
+  onConfirmBulkDeleteClusters: () => void;
+  onCloseBulkDeleteConfirmation: () => void;
 }
 
 export default function ClustersPageView({
@@ -280,6 +287,10 @@ export default function ClustersPageView({
   onSelectAllClusters,
   onBulkDelete,
   onBulkExport,
+  bulkDeleteConfirmation,
+  selectedClustersCount,
+  onConfirmBulkDeleteClusters,
+  onCloseBulkDeleteConfirmation,
 }: ClustersPageViewProps) {
   const [clusterListViewMode, setClusterListViewMode] = useState<"cards" | "table">(
     "cards"
@@ -1407,6 +1418,18 @@ export default function ClustersPageView({
           cancelText="Cancel"
           variant="danger"
           loading={clusterDeleteConfirmation.loading}
+        />
+
+        <ConfirmationModal
+          isOpen={bulkDeleteConfirmation.isOpen}
+          onClose={onCloseBulkDeleteConfirmation}
+          onConfirm={onConfirmBulkDeleteClusters}
+          title="Delete Selected Clusters"
+          message={`Are you sure you want to delete ${selectedClustersCount} selected cluster(s)? This will also delete all associated weekly reports. This action cannot be undone.`}
+          confirmText="Delete Clusters"
+          cancelText="Cancel"
+          variant="danger"
+          loading={bulkDeleteConfirmation.loading}
         />
 
         {/* Assign Members Modal */}

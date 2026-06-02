@@ -4,12 +4,14 @@ interface BulkActionsMenuProps {
   onBulkDelete: () => void;
   onBulkExport: (format: "excel" | "pdf" | "csv") => void;
   selectedCount: number;
+  onBulkMarkInactive?: () => void;
 }
 
 export default function BulkActionsMenu({
   onBulkDelete,
   onBulkExport,
   selectedCount,
+  onBulkMarkInactive,
 }: BulkActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,7 @@ export default function BulkActionsMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+        <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
           <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100">
             Export ({selectedCount} selected)
           </div>
@@ -121,6 +123,29 @@ export default function BulkActionsMenu({
           </button>
 
           <div className="border-t border-gray-100 my-1"></div>
+
+          {onBulkMarkInactive && (
+            <button
+              type="button"
+              onClick={() => handleAction(onBulkMarkInactive)}
+              className="flex w-full items-center space-x-3 px-4 py-2 text-left text-gray-700 hover:bg-gray-100"
+            >
+              <svg
+                className="h-4 w-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>Mark as inactive</span>
+            </button>
+          )}
 
           <button
             onClick={() => handleAction(onBulkDelete)}

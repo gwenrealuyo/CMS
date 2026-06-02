@@ -59,6 +59,32 @@ import TallyReport from "@/src/components/evangelism/TallyReport";
 import BibleSharersCoverage from "@/src/components/evangelism/BibleSharersCoverage";
 import EvangelismReportsDashboard from "@/src/components/evangelism/EvangelismReportsDashboard";
 import EvangelismGroupCard from "@/src/components/evangelism/EvangelismGroupCard";
+import EvangelismGroupTable from "@/src/components/evangelism/EvangelismGroupTable";
+import EvangelismGroupFilterDropdown, {
+  EvangelismGroupFilterField,
+} from "@/src/components/evangelism/EvangelismGroupFilterDropdown";
+import EvangelismGroupSortDropdown from "@/src/components/evangelism/EvangelismGroupSortDropdown";
+import ClusterFilterCard from "@/src/components/clusters/ClusterFilterCard";
+import BulkActionsMenu from "@/src/components/people/BulkActionsMenu";
+import { FilterCondition } from "@/src/components/people/FilterBar";
+import EvangelismToolbarSearch, {
+  EVANGELISM_BRANCH_SELECT_CLASS,
+  EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
+} from "@/src/components/evangelism/EvangelismToolbarSearch";
+import {
+  applyEvangelismGroupFilters,
+  sortEvangelismGroups,
+} from "@/src/lib/evangelismGroupListUtils";
+import {
+  formatEvangelismGroupSchedule,
+  getEvangelismGroupCoordinatorName,
+  getEvangelismGroupMemberCount,
+  resolveEvangelismGroupClusterMeta,
+} from "@/src/lib/evangelismGroupDisplay";
+import {
+  Squares2X2Icon,
+  TableCellsIcon,
+} from "@heroicons/react/24/outline";
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -136,6 +162,47 @@ export default function EvangelismPage() {
     null
   );
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
+  const [groupListViewMode, setGroupListViewMode] = useState<"cards" | "table">(
+    "cards"
+  );
+  const [groupActiveFilters, setGroupActiveFilters] = useState<
+    FilterCondition[]
+  >([]);
+  const [groupSortBy, setGroupSortBy] = useState("name");
+  const [groupSortOrder, setGroupSortOrder] = useState<"asc" | "desc">("asc");
+  const [showGroupFilterDropdown, setShowGroupFilterDropdown] = useState(false);
+  const [showGroupFilterCard, setShowGroupFilterCard] = useState(false);
+  const [showGroupSortDropdown, setShowGroupSortDropdown] = useState(false);
+  const [selectedGroupField, setSelectedGroupField] =
+    useState<EvangelismGroupFilterField | null>(null);
+  const [groupFilterDropdownPosition, setGroupFilterDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+  const [groupFilterCardPosition, setGroupFilterCardPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+  const [groupSortDropdownPosition, setGroupSortDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+  const [isGroupSelectionMode, setIsGroupSelectionMode] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    loading: false,
+  });
+  const [markInactiveConfirmation, setMarkInactiveConfirmation] = useState<{
+    isOpen: boolean;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    loading: false,
+  });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -415,19 +482,6 @@ export default function EvangelismPage() {
       fetchReports();
     }
   }, [viewEditGroup?.id, fetchGroup, fetchReports]);
-
-  const handleResetFilters = () => {
-    setSearchValue("");
-    setDebouncedSearchQuery("");
-    setFilter("search", "");
-    setFilter("cluster", "all");
-    if (!canChangeEvangelismBranch && user?.branch != null) {
-      setFilter("branch", user.branch);
-    } else {
-      setFilter("branch", "all");
-    }
-    setFilter("is_active", true);
-  };
 
   const handleCreateGroup = async (values: EvangelismGroupFormValues) => {
     try {
@@ -720,7 +774,7 @@ export default function EvangelismPage() {
   };
 
   const filteredGroups = useMemo(() => {
-    return groups.filter((group) => {
+    let result = groups.filter((group) => {
       if (
         filters.search &&
         !group.name.toLowerCase().includes(filters.search.toLowerCase())
@@ -757,7 +811,308 @@ export default function EvangelismPage() {
       }
       return true;
     });
-  }, [groups, filters, clusters]);
+
+    result = applyEvangelismGroupFilters(
+      result,
+      groupActiveFilters,
+      clusters,
+      branches
+    );
+    return sortEvangelismGroups(
+      result,
+      groupSortBy,
+      groupSortOrder,
+      clusters,
+      branches
+    );
+  }, [
+    groups,
+    filters,
+    clusters,
+    branches,
+    groupActiveFilters,
+    groupSortBy,
+    groupSortOrder,
+  ]);
+
+  const hasGroupListFilters =
+    Boolean(searchValue.trim()) || groupActiveFilters.length > 0;
+
+  const handleToggleGroupSelectionMode = useCallback(() => {
+    setIsGroupSelectionMode((prev) => {
+      if (prev) {
+        setSelectedGroups(new Set());
+      }
+      return !prev;
+    });
+  }, []);
+
+  const handleSelectGroup = useCallback((groupId: string) => {
+    setSelectedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAllGroups = useCallback(() => {
+    if (selectedGroups.size === filteredGroups.length) {
+      setSelectedGroups(new Set());
+    } else {
+      setSelectedGroups(new Set(filteredGroups.map((g) => g.id)));
+    }
+  }, [filteredGroups, selectedGroups.size]);
+
+  const handleGroupAddFilter = useCallback((anchorRect: DOMRect) => {
+    const dropdownWidth = 256;
+    const viewportWidth = window.innerWidth;
+    const rightEdge = anchorRect.left + dropdownWidth;
+    let left = anchorRect.left;
+    if (rightEdge > viewportWidth) {
+      left = viewportWidth - dropdownWidth - 16;
+    }
+    setGroupFilterDropdownPosition({
+      top: anchorRect.bottom + 8,
+      left: Math.max(16, left),
+    });
+    setShowGroupFilterDropdown(true);
+  }, []);
+
+  const handleGroupSelectField = useCallback(
+    (field: EvangelismGroupFilterField) => {
+      setSelectedGroupField(field);
+      setShowGroupFilterDropdown(false);
+
+      const cardWidth = 320;
+      const viewportWidth = window.innerWidth;
+      const rightEdge = groupFilterDropdownPosition.left + cardWidth;
+      let left = groupFilterDropdownPosition.left;
+      if (rightEdge > viewportWidth) {
+        left = viewportWidth - cardWidth - 16;
+      }
+      setGroupFilterCardPosition({
+        top: groupFilterDropdownPosition.top + 8,
+        left: Math.max(16, left),
+      });
+      setShowGroupFilterCard(true);
+    },
+    [groupFilterDropdownPosition]
+  );
+
+  const handleGroupApplyFilter = useCallback((filter: FilterCondition) => {
+    setGroupActiveFilters((prev) => [...prev, filter]);
+    setShowGroupFilterCard(false);
+    setSelectedGroupField(null);
+  }, []);
+
+  const handleGroupSortDropdown = useCallback((anchorRect: DOMRect) => {
+    const dropdownWidth = 256;
+    const viewportWidth = window.innerWidth;
+    const rightEdge = anchorRect.left + dropdownWidth;
+    let left = anchorRect.left;
+    if (rightEdge > viewportWidth) {
+      left = viewportWidth - dropdownWidth - 16;
+    }
+    setGroupSortDropdownPosition({
+      top: anchorRect.bottom + 8,
+      left: Math.max(16, left),
+    });
+    setShowGroupSortDropdown(true);
+  }, []);
+
+  const handleGroupSelectSort = useCallback(
+    (sortBy: string, sortOrder: "asc" | "desc") => {
+      setGroupSortBy(sortBy);
+      setGroupSortOrder(sortOrder);
+      setShowGroupSortDropdown(false);
+    },
+    []
+  );
+
+  const buildGroupExportRows = useCallback(
+    (groupsToExport: EvangelismGroup[]) =>
+      groupsToExport.map((group) => {
+        const { clusterDisplayCode } = resolveEvangelismGroupClusterMeta(
+          group,
+          clusters,
+          branches
+        );
+        return {
+          Name: group.name || "",
+          "Cluster Code": clusterDisplayCode || "",
+          Coordinator: getEvangelismGroupCoordinatorName(group),
+          Members: getEvangelismGroupMemberCount(group),
+          Visitors: group.visitors_count ?? 0,
+          Status: group.is_active ? "Active" : "Inactive",
+          "Bible Sharers": group.is_bible_sharers_group ? "Yes" : "No",
+          Location: group.location || "",
+          Schedule: formatEvangelismGroupSchedule(group),
+          Description: group.description || "",
+        };
+      }),
+    [clusters, branches]
+  );
+
+  const handleBulkDeleteGroups = useCallback(() => {
+    if (selectedGroups.size === 0) return;
+    setBulkDeleteConfirmation({ isOpen: true, loading: false });
+  }, [selectedGroups.size]);
+
+  const confirmBulkDeleteGroups = useCallback(async () => {
+    if (selectedGroups.size === 0) return;
+
+    try {
+      setBulkDeleteConfirmation((prev) => ({ ...prev, loading: true }));
+      await Promise.all(
+        Array.from(selectedGroups).map((groupId) => deleteGroup(groupId))
+      );
+      await fetchGroups();
+      setSelectedGroups(new Set());
+      setIsGroupSelectionMode(false);
+      setBulkDeleteConfirmation({ isOpen: false, loading: false });
+    } catch (error) {
+      console.error("Error deleting groups:", error);
+      alert("Failed to delete some groups. Please try again.");
+      setBulkDeleteConfirmation((prev) => ({ ...prev, loading: false }));
+    }
+  }, [selectedGroups, deleteGroup, fetchGroups]);
+
+  const handleBulkMarkInactive = useCallback(() => {
+    if (selectedGroups.size === 0) return;
+    setMarkInactiveConfirmation({ isOpen: true, loading: false });
+  }, [selectedGroups.size]);
+
+  const confirmBulkMarkInactive = useCallback(async () => {
+    if (selectedGroups.size === 0) return;
+
+    try {
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: true }));
+      await Promise.all(
+        Array.from(selectedGroups).map((groupId) =>
+          updateGroup(groupId, { is_active: false })
+        )
+      );
+      await fetchGroups();
+      setSelectedGroups(new Set());
+      setIsGroupSelectionMode(false);
+      setMarkInactiveConfirmation({ isOpen: false, loading: false });
+    } catch (error) {
+      console.error("Error marking groups inactive:", error);
+      alert("Failed to mark some groups as inactive. Please try again.");
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: false }));
+    }
+  }, [selectedGroups, updateGroup, fetchGroups]);
+
+  const handleBulkExportGroups = useCallback(
+    async (format: "excel" | "pdf" | "csv") => {
+      const groupsToExport = filteredGroups.filter((g) =>
+        selectedGroups.has(g.id)
+      );
+      if (groupsToExport.length === 0) {
+        alert("Please select at least one group to export.");
+        return;
+      }
+
+      const exportData = buildGroupExportRows(groupsToExport);
+
+      if (format === "excel") {
+        const XLSX = await import("xlsx");
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Evangelism Groups");
+        XLSX.writeFile(workbook, "evangelism_groups.xlsx");
+        return;
+      }
+
+      if (format === "csv") {
+        const XLSX = await import("xlsx");
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const csv = XLSX.utils.sheet_to_csv(worksheet);
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "evangelism_groups.csv";
+        link.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+      const doc = new jsPDF();
+      const columns = Object.keys(exportData[0] || {});
+      autoTable(doc, {
+        head: [columns],
+        body: exportData.map((row) => columns.map((col) => String(row[col as keyof typeof row] ?? ""))),
+      });
+      doc.save("evangelism_groups.pdf");
+    },
+    [filteredGroups, selectedGroups, buildGroupExportRows]
+  );
+
+  const renderEvangelismGroupsBranchSelect = () => {
+    const evangelismBranchSelectInteractive = canChangeEvangelismBranch;
+    const branchSelectEl = (
+      <select
+        aria-label="Branch"
+        aria-disabled={!evangelismBranchSelectInteractive}
+        tabIndex={evangelismBranchSelectInteractive ? 0 : -1}
+        value={
+          filters.branch === undefined ? "" : String(filters.branch)
+        }
+        onChange={(e) => {
+          if (!evangelismBranchSelectInteractive) return;
+          setFilter("branch", e.target.value || "all");
+        }}
+        className={
+          evangelismBranchSelectInteractive
+            ? EVANGELISM_BRANCH_SELECT_CLASS
+            : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
+        }
+      >
+        {canChangeEvangelismBranch ? (
+          <>
+            <option value="all">All branches</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={String(branch.id)}>
+                {branch.name}
+              </option>
+            ))}
+          </>
+        ) : user?.branch != null ? (
+          <>
+            {branches
+              .filter((b) => Number(b.id) === Number(user.branch))
+              .map((branch) => (
+                <option key={branch.id} value={String(branch.id)}>
+                  {branch.name}
+                </option>
+              ))}
+            {!branches.some((b) => Number(b.id) === Number(user.branch)) && (
+              <option value={String(user.branch)}>
+                {user.branch_name?.trim() || `Branch #${user.branch}`}
+              </option>
+            )}
+          </>
+        ) : (
+          <option value="all">No branch assigned</option>
+        )}
+      </select>
+    );
+
+    return evangelismBranchSelectInteractive ? (
+      branchSelectEl
+    ) : (
+      <LockedControlTooltip label={EVANGELISM_BRANCH_LOCKED_HINT}>
+        {branchSelectEl}
+      </LockedControlTooltip>
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -876,112 +1231,174 @@ export default function EvangelismPage() {
         {activeTab === "groups" && (
           <div className="space-y-6">
             {/* Filters */}
-            <Card>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Search
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Name, description"
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <EvangelismToolbarSearch
                     value={searchValue}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={handleSearchChange}
+                    placeholder="Search groups…"
+                    ariaLabel="Search groups"
                   />
+                  {renderEvangelismGroupsBranchSelect()}
+                  <div className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-gray-100 p-0.25">
+                    <button
+                      type="button"
+                      onClick={() => setGroupListViewMode("table")}
+                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                        groupListViewMode === "table"
+                          ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                          : "bg-transparent text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      <TableCellsIcon className="h-3.5 w-3.5" />
+                      Table
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGroupListViewMode("cards")}
+                      className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                        groupListViewMode === "cards"
+                          ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                          : "bg-transparent text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      <Squares2X2Icon className="h-3.5 w-3.5" />
+                      Cards
+                    </button>
+                  </div>
                 </div>
-                <div className="w-full lg:w-56">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Branch
-                  </label>
-                  {(() => {
-                    const evangelismBranchSelectInteractive =
-                      canChangeEvangelismBranch;
-                    const branchSelectEl = (
-                      <select
-                        aria-label="Branch"
-                        aria-disabled={!evangelismBranchSelectInteractive}
-                        tabIndex={
-                          evangelismBranchSelectInteractive ? 0 : -1
-                        }
-                        value={
-                          filters.branch === undefined
-                            ? ""
-                            : String(filters.branch)
-                        }
-                        onChange={(e) => {
-                          if (!evangelismBranchSelectInteractive) return;
-                          setFilter("branch", e.target.value || "all");
-                        }}
-                        className={`w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-primary ${
-                          evangelismBranchSelectInteractive
-                            ? ""
-                            : "pointer-events-none cursor-default bg-white text-gray-900"
-                        }`}
-                      >
-                        {canChangeEvangelismBranch ? (
-                          <>
-                            <option value="all">All branches</option>
-                            {branches.map((branch) => (
-                              <option
-                                key={branch.id}
-                                value={String(branch.id)}
-                              >
-                                {branch.name}
-                              </option>
-                            ))}
-                          </>
-                        ) : user?.branch != null ? (
-                          <>
-                            {branches
-                              .filter(
-                                (b) => Number(b.id) === Number(user.branch),
-                              )
-                              .map((branch) => (
-                                <option
-                                  key={branch.id}
-                                  value={String(branch.id)}
-                                >
-                                  {branch.name}
-                                </option>
-                              ))}
-                            {!branches.some(
-                              (b) => Number(b.id) === Number(user.branch),
-                            ) && (
-                              <option value={String(user.branch)}>
-                                {user.branch_name?.trim() ||
-                                  `Branch #${user.branch}`}
-                              </option>
-                            )}
-                          </>
-                        ) : (
-                          <option value="all">No branch assigned</option>
-                        )}
-                      </select>
-                    );
-                    return evangelismBranchSelectInteractive ? (
-                      branchSelectEl
-                    ) : (
-                      <LockedControlTooltip
-                        label={EVANGELISM_BRANCH_LOCKED_HINT}
-                        wrapperClassName="inline-block w-full lg:w-56 shrink-0 align-middle cursor-default"
-                      >
-                        {branchSelectEl}
-                      </LockedControlTooltip>
-                    );
-                  })()}
-                </div>
-                <div className="w-full lg:w-auto">
-                  <Button
-                    variant="tertiary"
-                    onClick={handleResetFilters}
-                    className="w-full lg:w-auto min-h-[44px]"
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleGroupSelectionMode}
+                    className={`inline-flex shrink-0 items-center border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ${
+                      isGroupSelectionMode
+                        ? "rounded-lg border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                        : "rounded-lg border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
-                    Reset
-                  </Button>
+                    <svg
+                      className={`mr-1 h-4 w-4 shrink-0 ${
+                        isGroupSelectionMode ? "text-primary" : "text-gray-500"
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {isGroupSelectionMode ? "Cancel Selection" : "Select"}
+                  </button>
+                  {isGroupSelectionMode && selectedGroups.size > 0 && (
+                    <BulkActionsMenu
+                      onBulkMarkInactive={handleBulkMarkInactive}
+                      onBulkDelete={handleBulkDeleteGroups}
+                      onBulkExport={(format) => void handleBulkExportGroups(format)}
+                      selectedCount={selectedGroups.size}
+                    />
+                  )}
+                  {groupActiveFilters.length > 0 && (
+                    <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+                      {groupActiveFilters.map((filter) => (
+                        <span
+                          key={filter.id}
+                          className="chip-primary inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium"
+                        >
+                          <span className="max-w-[150px] truncate md:max-w-none">
+                            {filter.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGroupActiveFilters((prev) =>
+                                prev.filter((f) => f.id !== filter.id)
+                              )
+                            }
+                            className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
+                            aria-label="Remove filter"
+                          >
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setGroupActiveFilters([])}
+                        className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700 md:min-h-0"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      handleGroupSortDropdown(
+                        (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
+                      )
+                    }
+                    className="inline-flex shrink-0 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                  >
+                    <svg
+                      className="mr-1 h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                      />
+                    </svg>
+                    Sort {groupSortOrder === "asc" ? "↑" : "↓"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      handleGroupAddFilter(
+                        (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
+                      )
+                    }
+                    className="inline-flex shrink-0 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                  >
+                    <svg
+                      className="mr-1 h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    Filter
+                  </button>
                 </div>
               </div>
-            </Card>
+            </div>
 
             {/* Groups List */}
             {groupsLoading ? (
@@ -1003,32 +1420,115 @@ export default function EvangelismPage() {
                 }
               >
                 {filteredGroups.length === 0 ? (
-                  <div className="text-center text-gray-500 py-16 border border-dashed border-gray-200 rounded-lg">
-                    {searchValue
-                      ? "No groups found matching your search."
+                  <div className="rounded-lg border border-dashed border-gray-200 py-16 text-center text-gray-500">
+                    {hasGroupListFilters
+                      ? "No groups found matching your search or filters."
                       : "No groups available yet. Create the first one to get started."}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredGroups.map((group) => (
-                      <EvangelismGroupCard
-                        key={group.id}
-                        group={group}
+                  <>
+                    {isGroupSelectionMode && groupListViewMode === "cards" && (
+                      <div className="mb-4 flex items-center gap-2">
+                        <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={
+                              selectedGroups.size === filteredGroups.length &&
+                              filteredGroups.length > 0
+                            }
+                            onChange={handleSelectAllGroups}
+                            className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-ring"
+                          />
+                          Select All ({selectedGroups.size} selected)
+                        </label>
+                      </div>
+                    )}
+                    {groupListViewMode === "table" ? (
+                      <EvangelismGroupTable
+                        groups={filteredGroups}
                         clusters={clusters}
                         branches={branches}
-                        isSelected={
-                          viewEditGroup?.id === group.id && viewMode === "view"
+                        viewHighlightedGroupId={
+                          viewEditGroup?.id && viewMode === "view"
+                            ? viewEditGroup.id
+                            : undefined
                         }
-                        onClick={() => {
+                        isSelectionMode={isGroupSelectionMode}
+                        selectedGroupIds={selectedGroups}
+                        onSelectGroup={handleSelectGroup}
+                        onSelectAll={handleSelectAllGroups}
+                        onView={(group) => {
                           setViewEditGroup(group);
                           setViewMode("view");
                         }}
+                        onEdit={(group) => {
+                          setViewEditGroup(group);
+                          setViewMode("edit");
+                        }}
+                        onDelete={(group) => {
+                          setDeleteConfirmation({
+                            isOpen: true,
+                            group,
+                            loading: false,
+                          });
+                        }}
                       />
-                    ))}
-                  </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {filteredGroups.map((group) => (
+                          <EvangelismGroupCard
+                            key={group.id}
+                            group={group}
+                            clusters={clusters}
+                            branches={branches}
+                            isViewHighlighted={
+                              viewEditGroup?.id === group.id && viewMode === "view"
+                            }
+                            isSelectionMode={isGroupSelectionMode}
+                            isBulkSelected={selectedGroups.has(group.id)}
+                            onBulkSelect={() => handleSelectGroup(group.id)}
+                            onClick={() => {
+                              if (isGroupSelectionMode) {
+                                handleSelectGroup(group.id);
+                                return;
+                              }
+                              setViewEditGroup(group);
+                              setViewMode("view");
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </Card>
             )}
+            <EvangelismGroupFilterDropdown
+              isOpen={showGroupFilterDropdown}
+              onClose={() => setShowGroupFilterDropdown(false)}
+              onSelectField={handleGroupSelectField}
+              position={groupFilterDropdownPosition}
+            />
+            {selectedGroupField && (
+              <ClusterFilterCard
+                field={selectedGroupField}
+                isOpen={showGroupFilterCard}
+                onClose={() => {
+                  setShowGroupFilterCard(false);
+                  setSelectedGroupField(null);
+                }}
+                onApplyFilter={handleGroupApplyFilter}
+                position={groupFilterCardPosition}
+              />
+            )}
+            <EvangelismGroupSortDropdown
+              isOpen={showGroupSortDropdown}
+              onClose={() => setShowGroupSortDropdown(false)}
+              onSelectSort={handleGroupSelectSort}
+              position={groupSortDropdownPosition}
+              currentSortBy={groupSortBy}
+              currentSortOrder={groupSortOrder}
+            />
           </div>
         )}
 
@@ -1714,6 +2214,34 @@ export default function EvangelismPage() {
           confirmText="Delete"
           cancelText="Cancel"
           loading={deleteConfirmation.loading}
+        />
+
+        <ConfirmationModal
+          isOpen={bulkDeleteConfirmation.isOpen}
+          onClose={() =>
+            setBulkDeleteConfirmation({ isOpen: false, loading: false })
+          }
+          onConfirm={() => void confirmBulkDeleteGroups()}
+          title="Delete Selected Groups"
+          message={`Are you sure you want to delete ${selectedGroups.size} selected group(s)? This action cannot be undone and will permanently remove all selected groups from the system.`}
+          confirmText="Delete Groups"
+          cancelText="Cancel"
+          variant="danger"
+          loading={bulkDeleteConfirmation.loading}
+        />
+
+        <ConfirmationModal
+          isOpen={markInactiveConfirmation.isOpen}
+          onClose={() =>
+            setMarkInactiveConfirmation({ isOpen: false, loading: false })
+          }
+          onConfirm={() => void confirmBulkMarkInactive()}
+          title="Mark Selected Groups as Inactive"
+          message={`Are you sure you want to mark ${selectedGroups.size} selected group(s) as inactive? They will no longer appear in the default active groups list.`}
+          confirmText="Mark as Inactive"
+          cancelText="Cancel"
+          variant="warning"
+          loading={markInactiveConfirmation.loading}
         />
 
         {/* Remove Member Confirmation */}

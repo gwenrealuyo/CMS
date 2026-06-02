@@ -520,34 +520,60 @@ The Evangelism hub lives at `frontend/src/app/evangelism/page.tsx` and provides 
 
 The main page includes tabs for different views:
 
-- **Groups Tab**: Manage evangelism groups
+- **Groups Tab**: Manage evangelism groups (see [Groups tab listing](#groups-tab-listing) below)
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
 - **Tally Tab**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached) with year filter
 - **Reports Tab**: Weekly unified tally (evangelism + cluster weekly reports)
 - **Bible Sharers Tab**: Monitor Bible Sharers coverage across clusters
 
-- **Group Listing**: Table view of all groups with:
-  - Group name, leader, cluster affiliation
-  - Member counts
-  - Active status
-  - Bible Sharers indicator (if marked as Bible Sharers group)
-  - Actions (View, Edit, Delete)
-- **Search & Filters**:
-  - Debounced search by group name or description
-  - Filter by cluster
-  - Filter by active status
-  - Filter by Bible Sharers groups (`is_bible_sharers_group`)
-- **Summary Dashboard**: Cards showing:
-  - Total groups
-  - Total prospects
-  - Total conversions
-  - Monthly people tally snapshot
-- **Each 1 Reach 1 Dashboard**: Cluster-based goal tracking with progress indicators
+#### Groups tab listing
+
+The Groups tab toolbar mirrors the clusters page layout:
+
+- **Left**: debounced search (`EvangelismToolbarSearch`), branch filter (server-side via `?branch=` on group list API), **Table / Cards** view toggle
+- **Right**: **Select** (bulk selection mode), **Bulk Actions** (when rows are selected), active filter chips, **Sort**, **Filter**
+
+**Default list scope:** `useEvangelismGroups` loads only **active** groups (`is_active: true`) unless filters change that. Inactive groups disappear from the default list after bulk mark-inactive or manual deactivation.
+
+**View modes:**
+
+- **Table** (`EvangelismGroupTable`): columns for group name, cluster, branch, coordinator, schedule, member/visitor counts, status, Bible Sharers badge, row actions (View, Edit, Delete). Supports header checkbox select-all in selection mode.
+- **Cards** (`EvangelismGroupCard`): responsive grid; card click opens group detail unless selection mode is on (then toggles selection). Select-all checkbox shown above the grid in selection mode.
+
+**Search & branch filter (server-side):**
+
+- Search debounces and passes `?search=` to the groups API (name or description).
+- Branch select passes `?branch=` so only groups whose assigned cluster belongs to that branch are returned.
+
+**Client-side filter & sort** (`evangelismGroupListUtils.ts`):
+
+- **Filter** opens `EvangelismGroupFilterDropdown` → `ClusterFilterCard` for the chosen field. Supported fields: group name, description, coordinator, cluster code, location, meeting schedule, member count, visitor count, status (active/inactive), Bible Sharers (yes/no). Multiple filters combine with AND logic; chips show active filters with per-chip remove and **Clear All**.
+- **Sort** opens `EvangelismGroupSortDropdown`: group name, member count, visitor count, cluster code, created date (asc/desc).
+
+**Bulk selection & actions:**
+
+- **Select** toggles selection mode; selected count appears on the Bulk Actions button.
+- **Bulk Actions** (`BulkActionsMenu`, evangelism-only extensions):
+  - Export selected to Excel, PDF, or CSV
+  - **Mark as inactive** (optional prop `onBulkMarkInactive`; not shown on People or Clusters pages) — opens `ConfirmationModal` (`variant="warning"`), then `PATCH` each selected group with `{ is_active: false }` via `updateGroup`, refreshes the list, clears selection, exits selection mode
+  - **Delete Selected** — opens `ConfirmationModal` (`variant="danger"`), then deletes each selected group
+- Single-group delete also uses `ConfirmationModal` (not `window.confirm`).
+
+**Gathering type badges (evangelism UI):** Weekly report and tally surfaces use filled tonal chips via `evangelismGatheringTypeStyles.ts` — PHYSICAL (green), ONLINE (blue), HYBRID (purple), MIXED (amber when aggregated weeks differ), UNKNOWN/default (slate). No outlined badge style in the evangelism module.
+
+**Each 1 Reach 1 status chips:** Goal status badges (e.g. IN PROGRESS, COMPLETED) use filled tonal styling via `each1Reach1ProgressStyles.ts`, consistent with other status chips on the dashboard.
 
 ### Components Overview
 
 #### Group Management
 
+- **`EvangelismGroupTable`**: Tabular groups list with bulk checkboxes, branch/cluster chips, status badges, and row action menu
+- **`EvangelismGroupCard`**: Card layout for groups; supports bulk selection and view highlight when detail modal is open
+- **`EvangelismToolbarSearch`**: Icon-prefixed search input shared by the Groups tab toolbar (matches clusters styling)
+- **`EvangelismGroupFilterDropdown`** / **`EvangelismGroupSortDropdown`**: Field picker and sort picker anchored to toolbar buttons
+- **`evangelismGroupDisplay.ts`**: Shared helpers for coordinator name, member count, schedule text, cluster/branch metadata
+- **`evangelismGroupListUtils.ts`**: Client-side `applyEvangelismGroupFilters` and `sortEvangelismGroups`
+- **`evangelismGatheringTypeStyles.ts`**: Filled tonal chip classes for gathering types in evangelism reports/tallies
 - **`EvangelismGroupForm`**: Form for creating/editing groups
   - Leader selection
   - Cluster selection (optional)
@@ -717,6 +743,7 @@ When viewing a group, a modal displays:
 
 - On mount, the page fetches groups, prospects, conversions, summary, and monthly statistics in parallel
 - Successful form submissions refresh relevant data
+- Bulk delete and bulk mark-inactive call `fetchGroups()` after API success so the list matches server filters (inactive groups drop off the default active list)
 - Errors surface via error messages
 - Loading states are managed per data type
 - Debounced search prevents excessive API calls
@@ -872,10 +899,19 @@ python manage.py test apps.evangelism --settings=core.settings_test
 
 ### 4. Bulk Operations
 
+**Implemented (Groups tab):**
+
+- Bulk export (Excel, PDF, CSV) for selected groups
+- Bulk mark as inactive (with confirmation modal)
+- Bulk delete (with confirmation modal)
+
+**Planned:**
+
 - Bulk invite prospects
 - Bulk update pipeline stages
 - Bulk endorse to cluster
 - Bulk create follow-up tasks
+- Bulk mark as active (when viewing inactive groups)
 
 ### 5. Export/Reporting Enhancements
 

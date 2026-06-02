@@ -49,6 +49,21 @@
 
 Record Donation is intentionally not included (finance `?action=add-donation` can be wired later).
 
+### Evangelism page (`/evangelism`)
+
+- Main hub: `src/app/evangelism/page.tsx` with tabs **Groups | Each 1 Reach 1 | Tally | Reports | Bible Sharers**.
+- **Groups tab** (clusters-style toolbar):
+  - Left: search, branch filter (API), Table/Cards toggle
+  - Right: Select, Bulk Actions, filter chips, Sort, Filter
+  - Table: `EvangelismGroupTable`; cards: `EvangelismGroupCard`
+  - Client-side filter/sort via `evangelismGroupListUtils.ts`; server-side search/branch via `useEvangelismGroups`
+  - Bulk actions: export (Excel/PDF/CSV), mark inactive, delete — all destructive/inactive flows use `ConfirmationModal`
+  - Default group list shows active groups only (`is_active: true`)
+- **Each 1 Reach 1:** `Each1Reach1Dashboard` with filled tonal goal status chips
+- **Tally / Reports:** monthly people tally and weekly unified tally; gathering type badges use filled tonal styling in evangelism components
+- Deep link `?action=submit-report` opens weekly report submission flow
+- See [EVANGELISM_MODULE.md](./EVANGELISM_MODULE.md) for API, models, and full component map
+
 ### Lessons page (`/lessons`)
 
 - Container/view split: `LessonsPageContainer` (data, branch filter, API) + `LessonsPageView` (layout).

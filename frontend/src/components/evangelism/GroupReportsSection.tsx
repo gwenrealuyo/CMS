@@ -4,6 +4,7 @@ import { useState } from "react";
 import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
 import { EvangelismWeeklyReport } from "@/src/types/evangelism";
+import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 
 interface GroupReportsSectionProps {
   reports: EvangelismWeeklyReport[];
@@ -27,19 +28,6 @@ export default function GroupReportsSection({
     ? reports
     : reports.slice(0, DEFAULT_LIMIT);
   const hasMoreReports = reports.length > DEFAULT_LIMIT;
-
-  const getGatheringTypeColor = (type?: string) => {
-    switch (type) {
-      case "PHYSICAL":
-        return "bg-green-100 text-green-800";
-      case "ONLINE":
-        return "bg-blue-100 text-blue-800";
-      case "HYBRID":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -98,7 +86,7 @@ export default function GroupReportsSection({
                 accessor: "gathering_type" as keyof EvangelismWeeklyReport,
                 render: (value) => (
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
                       value as string
                     )}`}
                   >

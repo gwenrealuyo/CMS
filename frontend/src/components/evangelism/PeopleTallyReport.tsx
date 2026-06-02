@@ -15,6 +15,10 @@ import { Cluster } from "@/src/types/cluster";
 import { useEvangelismPeopleTally } from "@/src/hooks/useEvangelism";
 import { evangelismApi, clustersApi } from "@/src/lib/api";
 import { EVANGELISM_BRANCH_LOCKED_HINT } from "@/src/lib/evangelismBranchFilter";
+import {
+  EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS,
+  EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
+} from "@/src/components/evangelism/EvangelismToolbarSearch";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 
@@ -328,11 +332,11 @@ export default function PeopleTallyReport({
                       if (!tallyBranchInteractive) return;
                       onBranchChange(Number(e.target.value) || "");
                     }}
-                    className={`h-11 min-h-[44px] w-full rounded-md border border-gray-200 bg-white px-3 py-0 text-sm ${
+                    className={
                       tallyBranchInteractive
-                        ? ""
-                        : "pointer-events-none cursor-default text-gray-900"
-                    }`}
+                        ? `${EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS} h-11 min-h-[44px] py-0`
+                        : `${EVANGELISM_BRANCH_SELECT_LOCKED_CLASS} h-11 min-h-[44px] py-0`
+                    }
                   >
                     {branchSelectionLocked ? (
                       selectedBranch === "" ? (

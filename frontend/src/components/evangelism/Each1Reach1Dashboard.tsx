@@ -7,6 +7,10 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Modal from "@/src/components/ui/Modal";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
+import EvangelismToolbarSearch, {
+  EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS,
+  EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
+} from "@/src/components/evangelism/EvangelismToolbarSearch";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -23,7 +27,10 @@ import {
   canChangeEvangelismBranchFilter,
   EVANGELISM_BRANCH_LOCKED_HINT,
 } from "@/src/lib/evangelismBranchFilter";
-import { getEach1Reach1ProgressBarBgClass } from "@/src/lib/each1Reach1ProgressStyles";
+import {
+  getEach1Reach1GoalStatusChipClass,
+  getEach1Reach1ProgressBarBgClass,
+} from "@/src/lib/each1Reach1ProgressStyles";
 
 interface Each1Reach1DashboardProps {
   year?: number;
@@ -449,10 +456,10 @@ export default function Each1Reach1Dashboard({
                 setFilterBranch(Number(e.target.value) || "");
               }}
               disabled={canChangeBranchFilter && branchesLoading}
-              className={`rounded-md border border-gray-200 px-3 py-2 text-sm ${
-                !canChangeBranchFilter
-                  ? "pointer-events-none cursor-default bg-white text-gray-900"
-                  : ""
+              className={`${
+                each1BranchInteractive
+                  ? `${EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS} min-h-[38px]`
+                  : `${EVANGELISM_BRANCH_SELECT_LOCKED_CLASS} min-h-[38px]`
               } ${
                 canChangeBranchFilter && branchesLoading
                   ? "cursor-wait bg-gray-50 text-gray-500"
@@ -501,13 +508,12 @@ export default function Each1Reach1Dashboard({
             branchSelectEl
           );
         })()}
-        <input
-          type="text"
+        <EvangelismToolbarSearch
           value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-          placeholder="Search group..."
-          aria-label="Search by cluster or evangelism group name"
+          onChange={setSearchInput}
+          placeholder="Search groups…"
+          ariaLabel="Search by cluster or evangelism group name"
+          fullWidth
         />
         <Button
           variant="tertiary"
@@ -615,17 +621,7 @@ export default function Each1Reach1Dashboard({
                         </div>
                       </td>
                       <td className="px-3 py-2 text-sm">
-                        <span
-                          className={
-                            goal.status === "IN_PROGRESS"
-                              ? "chip-in-progress"
-                              : `inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                  goal.status === "COMPLETED"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`
-                          }
-                        >
+                        <span className={getEach1Reach1GoalStatusChipClass(goal.status)}>
                           {goal.status?.replace("_", " ") || "Not Started"}
                         </span>
                       </td>
@@ -676,15 +672,7 @@ export default function Each1Reach1Dashboard({
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <span className="text-gray-600">Status:</span>
                 <span
-                  className={
-                    goal.status === "IN_PROGRESS"
-                      ? "chip-in-progress"
-                      : `inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          goal.status === "COMPLETED"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-700"
-                        }`
-                  }
+                  className={getEach1Reach1GoalStatusChipClass(goal.status)}
                 >
                   {goal.status?.replace("_", " ") || "Not Started"}
                 </span>

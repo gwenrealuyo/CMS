@@ -6,6 +6,7 @@ import Table from "@/src/components/ui/Table";
 import { EvangelismTallyDrilldownMetric, EvangelismTallyRow } from "@/src/types/evangelism";
 import { useEvangelismTally } from "@/src/hooks/useEvangelism";
 import { evangelismApi } from "@/src/lib/api";
+import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 
 interface TallyReportProps {
@@ -27,19 +28,6 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
     metric: Extract<EvangelismTallyDrilldownMetric, "members" | "visitors">;
     label: string;
   } | null>(null);
-
-  const getGatheringTypeColor = (type?: string) => {
-    switch (type) {
-      case "PHYSICAL":
-        return "bg-green-100 text-green-800";
-      case "ONLINE":
-        return "chip-primary";
-      case "HYBRID":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   const openWeeklyDrilldown = (
     row: EvangelismTallyRow,
@@ -154,7 +142,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
                 accessor: "gathering_type" as keyof EvangelismTallyRow,
                 render: (value) => (
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
                       value as string
                     )}`}
                   >

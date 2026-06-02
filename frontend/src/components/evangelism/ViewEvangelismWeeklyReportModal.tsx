@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { EvangelismWeeklyReport } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
+import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import Button from "@/src/components/ui/Button";
 
 interface ViewEvangelismWeeklyReportModalProps {
@@ -74,19 +75,6 @@ export default function ViewEvangelismWeeklyReportModal({
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const getGatheringTypeColor = (type?: string) => {
-    switch (type) {
-      case "PHYSICAL":
-        return "bg-green-100 text-green-800";
-      case "ONLINE":
-        return "chip-primary";
-      case "HYBRID":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
   };
 
   const getStatusColor = (status: string) => {
@@ -273,7 +261,7 @@ export default function ViewEvangelismWeeklyReportModal({
                 <div>
                   <p className="text-sm text-gray-600 mb-2">Gathering Type</p>
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getGatheringTypeColor(
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getEvangelismGatheringTypeChipClass(
                       report.gathering_type,
                     )}`}
                   >

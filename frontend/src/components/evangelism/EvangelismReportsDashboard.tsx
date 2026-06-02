@@ -26,6 +26,7 @@ import EvangelismWeeklyReportForm, {
 import ViewEvangelismWeeklyReportModal from "@/src/components/evangelism/ViewEvangelismWeeklyReportModal";
 import { evangelismApi, PaginatedResponse } from "@/src/lib/api";
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
+import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import Table from "@/src/components/ui/Table";
 import {
@@ -550,19 +551,6 @@ export default function EvangelismReportsDashboard({
     }
   };
 
-  const getGatheringTypeColor = (type?: string) => {
-    switch (type) {
-      case "PHYSICAL":
-        return "bg-green-100 text-green-800";
-      case "ONLINE":
-        return "chip-primary";
-      case "HYBRID":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
 
   const reportWindowStart =
@@ -691,7 +679,7 @@ export default function EvangelismReportsDashboard({
         accessor: "gathering_type" as keyof EvangelismWeeklyReport,
         render: (gval) => (
           <span
-            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getGatheringTypeColor(
+            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getEvangelismGatheringTypeChipClass(
               gval as string,
             )}`}
           >
@@ -814,7 +802,6 @@ export default function EvangelismReportsDashboard({
     visibleReportColumns,
     sortDirection,
     handleSortToggle,
-    getGatheringTypeColor,
     openView,
   ]);
 

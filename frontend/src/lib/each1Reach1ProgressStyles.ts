@@ -2,6 +2,23 @@
  * Visual styles for Each 1 Reach 1 progress (bar fill + headline percentage color).
  * Branching matches Each1Reach1Dashboard progress bars.
  */
+import { GoalStatus } from "@/src/types/evangelism";
+
+export function getEach1Reach1GoalStatusChipClass(
+  status?: GoalStatus | null,
+): string {
+  const base =
+    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold";
+  switch (status) {
+    case "IN_PROGRESS":
+      return `${base} bg-blue-100 text-blue-800`;
+    case "COMPLETED":
+      return `${base} bg-green-100 text-green-800`;
+    default:
+      return `${base} bg-gray-100 text-gray-800`;
+  }
+}
+
 export function getEach1Reach1ProgressBarBgClass(
   percentage: number,
   achieved?: number,

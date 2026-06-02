@@ -60,6 +60,13 @@ export default function ClustersPageContainer() {
     cluster: null,
     loading: false,
   });
+  const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    loading: false,
+  });
   const [assignMembersModal, setAssignMembersModal] = useState<{
     isOpen: boolean;
     cluster: Cluster | null;
@@ -667,22 +674,28 @@ export default function ClustersPageContainer() {
   };
 
   // Bulk delete handler
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedClusters.size === 0) return;
-    
-    const confirmMessage = `Are you sure you want to delete ${selectedClusters.size} cluster(s)? This action cannot be undone.`;
-    if (!window.confirm(confirmMessage)) return;
+    setBulkDeleteConfirmation({ isOpen: true, loading: false });
+  };
+
+  const confirmBulkDeleteClusters = async () => {
+    if (selectedClusters.size === 0) return;
 
     try {
+      setBulkDeleteConfirmation((prev) => ({ ...prev, loading: true }));
       const deletePromises = Array.from(selectedClusters).map((clusterId) =>
         clustersApi.delete(Number(clusterId))
       );
       await Promise.all(deletePromises);
       await fetchClusters();
       setSelectedClusters(new Set());
+      setIsSelectionMode(false);
+      setBulkDeleteConfirmation({ isOpen: false, loading: false });
     } catch (error) {
       console.error("Error deleting clusters:", error);
       alert("Failed to delete some clusters. Please try again.");
+      setBulkDeleteConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -1385,6 +1398,12 @@ export default function ClustersPageContainer() {
       onSelectAllClusters={handleSelectAllClusters}
       onBulkDelete={handleBulkDelete}
       onBulkExport={handleBulkExport}
+      bulkDeleteConfirmation={bulkDeleteConfirmation}
+      selectedClustersCount={selectedClusters.size}
+      onConfirmBulkDeleteClusters={confirmBulkDeleteClusters}
+      onCloseBulkDeleteConfirmation={() =>
+        setBulkDeleteConfirmation({ isOpen: false, loading: false })
+      }
     />
   );
 }

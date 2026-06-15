@@ -32,6 +32,12 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
   {
+    name: "Analytics",
+    href: "/analytics",
+    icon: DocumentChartBarIcon,
+    roles: ["ADMIN", "PASTOR"],
+  },
+  {
     name: "People",
     href: "/people",
     icon: UserGroupIcon,
@@ -122,6 +128,11 @@ export default function Sidebar() {
       // Admin Settings: Only ADMIN
       if (item.name === "Admin Settings") {
         return user.role === "ADMIN";
+      }
+
+      // Analytics: ADMIN and PASTOR only
+      if (item.name === "Analytics") {
+        return user.role === "ADMIN" || user.role === "PASTOR";
       }
 
       // Finance: ADMIN, PASTOR, or Finance Coordinator

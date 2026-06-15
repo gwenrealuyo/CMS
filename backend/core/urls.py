@@ -21,4 +21,5 @@ urlpatterns = [
         "api/notifications/",
         include("apps.notifications.urls", namespace="notifications"),
     ),
+    path("api/reports/", include("apps.reports.urls", namespace="reports")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

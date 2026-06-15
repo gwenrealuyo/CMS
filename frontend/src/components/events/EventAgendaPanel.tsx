@@ -9,7 +9,7 @@ interface EventAgendaPanelProps {
   loading: boolean;
   hasActiveFilters: boolean;
   selectedDate: Date | null;
-  onEdit: (item: EventCardItem) => void;
+  onView: (item: EventCardItem) => void;
   onClearDate?: () => void;
   onCreateEvent?: () => void;
 }
@@ -19,7 +19,7 @@ export default function EventAgendaPanel({
   loading,
   hasActiveFilters,
   selectedDate,
-  onEdit,
+  onView,
   onClearDate,
   onCreateEvent,
 }: EventAgendaPanelProps) {
@@ -124,7 +124,7 @@ export default function EventAgendaPanel({
                       key={item.id}
                       event={item.event}
                       occurrenceStartDate={item.occurrence.start_date}
-                      onClick={() => onEdit(item)}
+                      onClick={() => onView(item)}
                     />
                   ))}
                 </div>

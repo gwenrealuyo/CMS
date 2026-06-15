@@ -96,6 +96,7 @@ This document outlines the mobile responsiveness improvements made across the Ch
 - Full-width filter toolbar (search + type) stacks on mobile; filter chips wrap below
 - Calendar and agenda panel stack vertically on mobile; side-by-side on `lg+`
 - Calendar collapsible on mobile via toggle; agenda remains accessible below
+- Calendar day cells show type-colored dots (one per unique event type) instead of count badges; compact legend below the grid
 - Card-style agenda rows with clear borders; location visible on mobile
 - Compact agenda rows with 44px touch targets; row tap opens edit modal
 - Agenda panel scrolls independently on desktop (`sticky` + max-height)

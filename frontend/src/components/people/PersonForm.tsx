@@ -619,7 +619,7 @@ export default function PersonForm({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        First Name *
+                        First Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -644,7 +644,7 @@ export default function PersonForm({
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Last Name *
+                        Last Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -681,6 +681,9 @@ export default function PersonForm({
                         onChange={handleChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Only if they go by a name other than their first name.
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -872,7 +875,7 @@ export default function PersonForm({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Branch *
+                      Branch <span className="text-red-500">*</span>
                     </label>
                     <select
                       name="branch"
@@ -1194,7 +1197,7 @@ export default function PersonForm({
           >
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Event Title *
+                Event Title <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -1211,7 +1214,7 @@ export default function PersonForm({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date *
+                Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"

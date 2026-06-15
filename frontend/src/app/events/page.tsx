@@ -8,6 +8,7 @@ import React, {
   useEffect,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
@@ -86,6 +87,7 @@ export default function EventsPage() {
     createEvent,
     updateEvent,
     deleteEvent,
+    getEvent,
     listAttendance,
     addAttendance,
     removeAttendance,
@@ -208,6 +210,8 @@ export default function EventsPage() {
     () =>
       baseFilteredItems.map((item) => ({
         start_date: item.occurrence.start_date,
+        type: item.event.type,
+        type_display: item.event.type_display,
       })),
     [baseFilteredItems]
   );
@@ -250,16 +254,24 @@ export default function EventsPage() {
     }
   }, [events, viewEditEvent]);
 
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    (error as { response?: { data?: { message?: string } } })?.response?.data
+      ?.message || fallback;
+
   const handleCreateEvent = async (eventData: Partial<Event>) => {
     try {
       const result = await createEvent(eventData);
       setIsModalOpen(false);
       setViewEditEvent(null);
       setViewOccurrenceDate(null);
+      const title = result?.title || eventData.title;
+      toast.success(
+        title ? `Event "${title}" has been created.` : "Event created successfully."
+      );
       return result;
     } catch (err) {
       console.error(err);
-      alert("Failed to create event. Please try again.");
+      toast.error(getErrorMessage(err, "Failed to create event. Please try again."));
       throw err;
     }
   };
@@ -272,16 +284,22 @@ export default function EventsPage() {
       setViewEditEvent(null);
       setViewOccurrenceDate(null);
       setViewMode("edit");
+      const title = result?.title || eventData.title || viewEditEvent.title;
+      toast.success(
+        title ? `Event "${title}" has been updated.` : "Event updated successfully."
+      );
       return result;
     } catch (err) {
       console.error(err);
-      alert("Failed to update event. Please try again.");
+      toast.error(getErrorMessage(err, "Failed to update event. Please try again."));
       throw err;
     }
   };
 
   const handleDeleteEvent = async () => {
     if (!deleteConfirmation.event) return;
+
+    const eventTitle = deleteConfirmation.event.title;
 
     try {
       setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
@@ -294,9 +312,16 @@ export default function EventsPage() {
       setIsModalOpen(false);
       setViewEditEvent(null);
       setViewOccurrenceDate(null);
+      toast.success(
+        eventTitle
+          ? `Event "${eventTitle}" has been deleted.`
+          : "Event deleted successfully."
+      );
     } catch (error) {
       console.error("Error deleting event:", error);
-      alert("Failed to delete event. Please try again.");
+      toast.error(
+        getErrorMessage(error, "Failed to delete event. Please try again.")
+      );
       setDeleteConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
@@ -309,12 +334,20 @@ export default function EventsPage() {
     });
   };
 
-  const handleEditItem = useCallback((item: EventCardItem) => {
-    setViewEditEvent(item.event);
-    setViewOccurrenceDate(null);
-    setViewMode("edit");
-    setIsModalOpen(true);
-  }, []);
+  const handleViewItem = useCallback(
+    async (item: EventCardItem) => {
+      setViewEditEvent(item.event);
+      setViewOccurrenceDate(item.occurrence.start_date);
+      setViewMode("view");
+      setIsModalOpen(true);
+      try {
+        await getEvent(item.event.id, { include_attendance: true });
+      } catch (error) {
+        console.error("Failed to load event details", error);
+      }
+    },
+    [getEvent]
+  );
 
   const handleDateClick = (date: Date) => {
     if (
@@ -656,7 +689,7 @@ export default function EventsPage() {
           loading={loading}
           hasActiveFilters={hasActiveFilters}
           selectedDate={selectedDate}
-          onEdit={handleEditItem}
+          onView={handleViewItem}
           onClearDate={clearDateFilter}
           onCreateEvent={openCreateModal}
         />
@@ -715,6 +748,7 @@ export default function EventsPage() {
             eventTypeOptions={eventFormTypeOptions}
             onSubmit={viewEditEvent ? handleUpdateEvent : handleCreateEvent}
             initialData={viewEditEvent || undefined}
+            presetDate={viewEditEvent ? null : selectedDate}
             onClose={() => {
               setIsModalOpen(false);
               setViewEditEvent(null);

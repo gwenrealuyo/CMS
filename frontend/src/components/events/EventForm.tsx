@@ -5,13 +5,34 @@ import Button from "../ui/Button";
 interface EventFormProps {
   onSubmit: (event: Partial<Event>) => Promise<Event | void>;
   initialData?: Partial<Event>;
+  presetDate?: Date | null;
   onClose?: () => void;
   eventTypeOptions?: { value: string; label: string }[];
 }
 
-const parseLocalDateTime = (value: string) => {
+/** Parse datetime-local (wall clock) and ISO strings without UTC shifting. */
+const parseLocalDateTime = (value: string): Date | null => {
   if (!value) return null;
-  const parsed = new Date(value);
+  const trimmed = value.trim();
+
+  const localMatch = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/
+  );
+  if (localMatch) {
+    const [, y, m, d, h, min, sec] = localMatch;
+    const parsed = new Date(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(h),
+      Number(min),
+      sec ? Number(sec) : 0,
+      0
+    );
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
@@ -56,6 +77,16 @@ const formatDateForInput = (date: Date) => {
   const minutes = String(date.getMinutes()).padStart(2, "0");
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
+
+const DEFAULT_EVENT_DURATION_HOURS = 2;
+
+function endDateFromStart(startValue: string): string {
+  const start = parseLocalDateTime(startValue);
+  if (!start) return "";
+  const end = new Date(start);
+  end.setTime(end.getTime() + DEFAULT_EVENT_DURATION_HOURS * 60 * 60 * 1000);
+  return formatDateForInput(end);
+}
 
 const getMaxThroughDate = (start: Date) => {
   const endOfYear = new Date(start.getFullYear(), 11, 31);
@@ -116,9 +147,71 @@ const toUtcISOString = (value?: string | null) => {
   return date.toISOString();
 };
 
+type FormDefaults = {
+  title: string;
+  description: string;
+  type: string;
+  location: string;
+  is_recurring: boolean;
+  start_date: string;
+  end_date: string;
+};
+
+function buildSundayTemplateDefaults(): FormDefaults {
+  const startDate = formatDateForInput(getNextSundayAt9AM());
+  const endDate = formatDateForInput(getNextSundayAt11AM());
+
+  return {
+    title: "Sunday Service",
+    description: "",
+    type: "SUNDAY_SERVICE",
+    location: "HQ Muntinlupa",
+    is_recurring: false,
+    start_date: startDate,
+    end_date: endDate,
+  };
+}
+
+function buildDefaultsFromDate(
+  date: Date,
+  eventTypeOptions: { value: string; label: string }[]
+): FormDefaults {
+  const start = new Date(date);
+  start.setHours(9, 0, 0, 0);
+  const startDate = formatDateForInput(start);
+  const endDate = endDateFromStart(startDate);
+
+  if (start.getDay() === 0) {
+    return {
+      title: "Sunday Service",
+      description: "",
+      type: "SUNDAY_SERVICE",
+      location: "HQ Muntinlupa",
+      is_recurring: false,
+      start_date: startDate,
+      end_date: endDate,
+    };
+  }
+
+  const type = eventTypeOptions[0]?.value ?? "SPECIAL_EVENT";
+  const title =
+    eventTypeOptions.find((option) => option.value === type)?.label ?? "";
+
+  return {
+    title,
+    description: "",
+    type,
+    location: "",
+    is_recurring: false,
+    start_date: startDate,
+    end_date: endDate,
+  };
+}
+
 export default function EventForm({
   onSubmit,
   initialData,
+  presetDate,
   onClose,
   eventTypeOptions = [],
 }: EventFormProps) {
@@ -135,19 +228,12 @@ export default function EventForm({
       };
     }
 
-    const startDate = formatDateForInput(getNextSundayAt9AM());
-    const endDate = formatDateForInput(getNextSundayAt11AM());
+    if (presetDate) {
+      return buildDefaultsFromDate(presetDate, eventTypeOptions);
+    }
 
-    return {
-      title: "Sunday Service",
-      description: "",
-      type: "SUNDAY_SERVICE",
-      location: "HQ Muntinlupa",
-      is_recurring: false,
-      start_date: startDate,
-      end_date: endDate,
-    };
-  }, [initialData]);
+    return buildSundayTemplateDefaults();
+  }, [initialData, presetDate, eventTypeOptions]);
   const [formData, setFormData] = useState(defaultFormData);
 
   const initialRecurrence = useMemo<WeeklyRecurrencePattern | null>(
@@ -330,15 +416,9 @@ export default function EventForm({
   };
 
   const formatDateTimeLocal = (dateString: string) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    // Adjust for local timezone
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    const date = parseLocalDateTime(dateString);
+    if (!date) return "";
+    return formatDateForInput(date);
   };
 
   return (
@@ -448,14 +528,19 @@ export default function EventForm({
                     value={formatDateTimeLocal(formData.start_date)}
                     onChange={(e) => {
                       const value = e.target.value;
+                      const nextEnd = endDateFromStart(value);
                       setFormData((prev) => {
-                        const nextState = { ...prev, start_date: value };
-                        if (prev.is_recurring || recurrencePattern) {
+                        const next = {
+                          ...prev,
+                          start_date: value,
+                          end_date: nextEnd || prev.end_date,
+                        };
+                        if (prev.is_recurring) {
                           setRecurrencePattern((current) =>
                             buildWeeklyPattern(value, current)
                           );
                         }
-                        return nextState;
+                        return next;
                       });
                     }}
                     className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"

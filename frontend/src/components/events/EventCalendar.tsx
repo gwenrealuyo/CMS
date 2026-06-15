@@ -1,14 +1,47 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  getEventTypeDotClass,
+  sortEventTypes,
+} from "@/src/lib/events/eventTypeStyles";
+
+export type CalendarEventItem = {
+  start_date: string;
+  type: string;
+  type_display?: string;
+};
+
 interface EventCalendarProps {
-  events: Array<{
-    start_date: string;
-  }>;
+  events: CalendarEventItem[];
   currentMonthDate?: Date | null;
   onDateClick?: (date: Date) => void;
   onMonthChange?: (date: Date) => void;
   selectedDate?: Date | null;
+}
+
+const MAX_VISIBLE_DOTS = 4;
+
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function getUniqueTypesForDate(
+  events: CalendarEventItem[],
+  date: Date
+): string[] {
+  const types = events
+    .filter((event) => {
+      const eventDate = new Date(event.start_date);
+      return isSameLocalDay(eventDate, date);
+    })
+    .map((event) => event.type);
+
+  return sortEventTypes(types);
 }
 
 export default function EventCalendar({
@@ -31,12 +64,10 @@ export default function EventCalendar({
 
   const days = [];
 
-  // Add empty cells for days before the first day of the month
   for (let i = 0; i < startingDayOfWeek; i++) {
     days.push(null);
   }
 
-  // Add all days of the month
   for (let i = 1; i <= daysInMonth; i++) {
     days.push(new Date(year, month, i));
   }
@@ -58,35 +89,34 @@ export default function EventCalendar({
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const getEventCountForDate = (date: Date | null): number => {
-    if (!date) return 0;
-    return events.filter((event) => {
+  const typesInMonth = useMemo(() => {
+    const labels = new Map<string, string>();
+
+    for (const event of events) {
       const eventDate = new Date(event.start_date);
-      return (
-        eventDate.getDate() === date.getDate() &&
-        eventDate.getMonth() === date.getMonth() &&
-        eventDate.getFullYear() === date.getFullYear()
-      );
-    }).length;
-  };
+      if (eventDate.getFullYear() !== year || eventDate.getMonth() !== month) {
+        continue;
+      }
+      if (!labels.has(event.type)) {
+        labels.set(event.type, event.type_display || event.type);
+      }
+    }
+
+    return sortEventTypes(Array.from(labels.keys())).map((type) => ({
+      type,
+      label: labels.get(type) || type,
+    }));
+  }, [events, month, year]);
 
   const isToday = (date: Date | null): boolean => {
     if (!date) return false;
     const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
+    return isSameLocalDay(date, today);
   };
 
   const isSelected = (date: Date | null): boolean => {
     if (!date || !selectedDate) return false;
-    return (
-      date.getDate() === selectedDate.getDate() &&
-      date.getMonth() === selectedDate.getMonth() &&
-      date.getFullYear() === selectedDate.getFullYear()
-    );
+    return isSameLocalDay(date, selectedDate);
   };
 
   const goToPreviousMonth = () => {
@@ -190,13 +220,24 @@ export default function EventCalendar({
         ))}
 
         {days.map((date, index) => {
-          const eventCount = getEventCountForDate(date);
+          const uniqueTypes = date ? getUniqueTypesForDate(events, date) : [];
+          const visibleTypes = uniqueTypes.slice(0, MAX_VISIBLE_DOTS);
+          const overflow = uniqueTypes.length - visibleTypes.length;
           const isCurrentDate = isToday(date);
           const isSelectedDate = isSelected(date);
+
+          const ariaLabel = date
+            ? uniqueTypes.length > 0
+              ? `${monthNames[date.getMonth()]} ${date.getDate()}, ${uniqueTypes.length} event type${uniqueTypes.length !== 1 ? "s" : ""}`
+              : `${monthNames[date.getMonth()]} ${date.getDate()}`
+            : undefined;
 
           return (
             <div
               key={index}
+              role={date ? "button" : undefined}
+              tabIndex={date ? 0 : undefined}
+              aria-label={ariaLabel}
               className={`
                 aspect-square flex flex-col items-center justify-start p-1 md:p-2 rounded-md min-h-[44px] md:min-h-0
                 ${date ? "hover:bg-gray-50 cursor-pointer active:bg-gray-100" : ""}
@@ -205,6 +246,13 @@ export default function EventCalendar({
                 transition-colors
               `}
               onClick={() => date && onDateClick && onDateClick(date)}
+              onKeyDown={(e) => {
+                if (!date || !onDateClick) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onDateClick(date);
+                }
+              }}
             >
               {date && (
                 <>
@@ -215,10 +263,23 @@ export default function EventCalendar({
                   >
                     {date.getDate()}
                   </span>
-                  {eventCount > 0 && (
-                    <span className="inline-flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full bg-primary text-white text-[10px] md:text-xs font-semibold mt-0.5">
-                      {eventCount}
-                    </span>
+                  {uniqueTypes.length > 0 && (
+                    <div
+                      className="flex items-center justify-center gap-0.5 mt-0.5 flex-wrap max-w-full"
+                      aria-hidden="true"
+                    >
+                      {visibleTypes.map((type) => (
+                        <span
+                          key={type}
+                          className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0 ${getEventTypeDotClass(type)}`}
+                        />
+                      ))}
+                      {overflow > 0 && (
+                        <span className="text-[9px] text-gray-500 font-medium leading-none">
+                          +{overflow}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </>
               )}
@@ -226,6 +287,23 @@ export default function EventCalendar({
           );
         })}
       </div>
+
+      {typesInMonth.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-4 border-t border-gray-100">
+          {typesInMonth.map(({ type, label }) => (
+            <div
+              key={type}
+              className="inline-flex items-center gap-1.5 text-xs text-gray-600"
+            >
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${getEventTypeDotClass(type)}`}
+                aria-hidden="true"
+              />
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ from .serializers import (
     ProfileUpdateSerializer,
     PasswordResetRequestSerializer,
     PasswordResetRequestListSerializer,
+    AdminPasswordResetSerializer,
     AccountLockoutSerializer,
     AuditLogSerializer,
 )
@@ -758,3 +759,67 @@ def audit_logs_view(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_reset_user_password_view(request, user_id):
+    """
+    Reset a user's password directly (admin only).
+    """
+    import secrets
+
+    try:
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {"error": "User not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if target_user.role == "VISITOR":
+        return Response(
+            {"error": "Visitor accounts cannot have login passwords."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    serializer = AdminPasswordResetSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    validated = serializer.validated_data
+    new_password = (validated.get("new_password") or "").strip()
+    generate_temp = validated.get("generate_temporary_password", True)
+    temporary_password = None
+
+    if new_password:
+        password = new_password
+    else:
+        password = secrets.token_urlsafe(10)
+        temporary_password = password
+
+    target_user.set_password(password)
+    target_user.must_change_password = True
+    target_user.first_login = True
+    target_user.save(
+        update_fields=["password", "must_change_password", "first_login"]
+    )
+
+    log_audit_event(
+        target_user,
+        "ADMIN_PASSWORD_RESET",
+        request,
+        {
+            "reset_by": request.user.username,
+            "target_user_id": target_user.id,
+            "generated_temporary_password": temporary_password is not None,
+        },
+    )
+
+    response_data = {
+        "message": f"Password reset for user {target_user.username}.",
+        "username": target_user.username,
+    }
+    if temporary_password:
+        response_data["temporary_password"] = temporary_password
+
+    return Response(response_data, status=status.HTTP_200_OK)

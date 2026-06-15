@@ -10,6 +10,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
+import PasswordInput from "@/src/components/ui/PasswordInput";
 
 const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
   "BAPTISM",
@@ -55,6 +56,12 @@ export default function PersonForm({
 }: PersonFormProps) {
   const { user } = useAuth();
   const isMember = user?.role === "MEMBER";
+  const isAdmin = user?.role === "ADMIN";
+  const isCreating = !initialData?.id;
+
+  const [autoGeneratePassword, setAutoGeneratePassword] = useState(true);
+  const [manualPassword, setManualPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Determine initial tab: use timeline only if user has permission and startOnTimelineTab is true
   const canViewTimeline = initialData?.can_view_journey_timeline !== false;
@@ -70,6 +77,9 @@ export default function PersonForm({
     ...initialData,
     country: initialData?.country || "Philippines",
   });
+
+  const showLoginAccess =
+    isAdmin && isCreating && formData.role !== "VISITOR";
 
   const [loading, setLoading] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -500,10 +510,38 @@ export default function PersonForm({
       return;
     }
 
+    if (showLoginAccess && !autoGeneratePassword) {
+      if (!manualPassword) {
+        toast.error("Please enter a temporary password.");
+        return;
+      }
+      if (manualPassword.length < 8) {
+        toast.error("Password must be at least 8 characters long.");
+        return;
+      }
+      if (!/[a-zA-Z]/.test(manualPassword) || !/[0-9]/.test(manualPassword)) {
+        toast.error("Password must contain at least one letter and one number.");
+        return;
+      }
+      if (manualPassword !== confirmPassword) {
+        toast.error("Passwords do not match.");
+        return;
+      }
+    }
+
     // Extract journeys from formData before submitting person
     const journeys = formData.journeys || [];
     const personData = { ...formData };
     delete personData.journeys; // Remove journeys from person data
+
+    if (showLoginAccess) {
+      if (autoGeneratePassword) {
+        personData.generate_temporary_password = true;
+      } else {
+        personData.initial_password = manualPassword;
+        personData.generate_temporary_password = false;
+      }
+    }
 
     // Submit person data first
     let result: Person | void;
@@ -953,6 +991,79 @@ export default function PersonForm({
                 </div>
               </div>
             </div>
+
+            {showLoginAccess && (
+              <div>
+                <div className="p-0">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                    Login access
+                  </h3>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Set a temporary password so this person can log in. They
+                    will be required to change it on first login.
+                  </p>
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="password_mode"
+                          checked={autoGeneratePassword}
+                          onChange={() => setAutoGeneratePassword(true)}
+                          className="text-primary border-gray-300 focus:ring-ring"
+                        />
+                        <span className="text-sm text-gray-700">
+                          Auto-generate temporary password
+                        </span>
+                      </label>
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="password_mode"
+                          checked={!autoGeneratePassword}
+                          onChange={() => setAutoGeneratePassword(false)}
+                          className="text-primary border-gray-300 focus:ring-ring"
+                        />
+                        <span className="text-sm text-gray-700">
+                          Set password manually
+                        </span>
+                      </label>
+                    </div>
+                    {!autoGeneratePassword && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Temporary password
+                          </label>
+                          <PasswordInput
+                            name="initial_password"
+                            value={manualPassword}
+                            onChange={(e) => setManualPassword(e.target.value)}
+                            placeholder="At least 8 characters"
+                            showStrengthIndicator
+                            autoComplete="new-password"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Confirm password
+                          </label>
+                          <PasswordInput
+                            name="confirm_password"
+                            value={confirmPassword}
+                            onChange={(e) =>
+                              setConfirmPassword(e.target.value)
+                            }
+                            placeholder="Re-enter password"
+                            autoComplete="new-password"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="p-0">

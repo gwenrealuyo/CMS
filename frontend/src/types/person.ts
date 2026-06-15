@@ -91,6 +91,11 @@ export interface Person {
   family_names?: string[];
   module_coordinator_assignments?: ModuleCoordinator[];
   can_view_journey_timeline?: boolean;
+  /** One-time value returned when an admin creates a user with auto-generated password */
+  temporary_password?: string;
+  /** Write-only: admin create flow */
+  initial_password?: string;
+  generate_temporary_password?: boolean;
 }
 
 // UI-normalized view of a person for components

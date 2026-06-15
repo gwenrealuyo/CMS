@@ -5,6 +5,8 @@ import Button from "@/src/components/ui/Button";
 import { useEffect, useState, useMemo } from "react";
 import { journeysApi, branchesApi } from "@/src/lib/api";
 import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
+import { useAuth } from "@/src/contexts/AuthContext";
+import AdminResetPasswordModal from "@/src/components/people/AdminResetPasswordModal";
 
 interface PersonProfileProps {
   person: Person;
@@ -41,6 +43,10 @@ export default function PersonProfile({
   hideDeleteButton = false,
   showTopHeader = true,
 }: PersonProfileProps) {
+  const { user } = useAuth();
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const canResetPassword =
+    user?.role === "ADMIN" && person.role !== "VISITOR";
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(
     "overview"
   );
@@ -1064,6 +1070,15 @@ export default function PersonProfile({
                 )}
               </div>
               <div className="flex items-center gap-2">
+                {canResetPassword && (
+                  <Button
+                    onClick={() => setResetPasswordOpen(true)}
+                    variant="secondary"
+                    className="!text-amber-700 h-10 px-4 text-sm font-medium bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    Reset password
+                  </Button>
+                )}
                 <Button
                   onClick={onCancel}
                   variant="secondary"
@@ -1132,6 +1147,15 @@ export default function PersonProfile({
                     />
                   </svg>
                   <span>Edit</span>
+                </Button>
+              )}
+              {canResetPassword && (
+                <Button
+                  onClick={() => setResetPasswordOpen(true)}
+                  variant="secondary"
+                  className="!text-amber-700 py-3 px-4 text-sm font-medium bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 flex items-center justify-center min-h-[44px] w-full"
+                >
+                  Reset password
                 </Button>
               )}
               <Button
@@ -1206,6 +1230,15 @@ export default function PersonProfile({
               )}
               {hideDeleteButton && <div />}
               <div className="flex items-center gap-3">
+                {canResetPassword && (
+                  <Button
+                    onClick={() => setResetPasswordOpen(true)}
+                    variant="secondary"
+                    className="!text-amber-700 px-4 md:py-4 text-sm font-normal bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    Reset password
+                  </Button>
+                )}
                 <Button
                   onClick={onCancel}
                   variant="secondary"
@@ -1277,6 +1310,14 @@ export default function PersonProfile({
           </Button>
         )}
       </div>
+
+      {canResetPassword && (
+        <AdminResetPasswordModal
+          isOpen={resetPasswordOpen}
+          onClose={() => setResetPasswordOpen(false)}
+          person={person}
+        />
+      )}
     </div>
   );
 }

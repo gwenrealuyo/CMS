@@ -71,6 +71,7 @@ class AuditLog(models.Model):
         ("PASSWORD_RESET_REQUEST", "Password Reset Request"),
         ("PASSWORD_RESET_APPROVED", "Password Reset Approved"),
         ("PASSWORD_RESET_REJECTED", "Password Reset Rejected"),
+        ("ADMIN_PASSWORD_RESET", "Admin Password Reset"),
         ("ACCOUNT_LOCKED", "Account Locked"),
         ("ACCOUNT_UNLOCKED", "Account Unlocked"),
         ("TOKEN_REFRESH", "Token Refresh"),

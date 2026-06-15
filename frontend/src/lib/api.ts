@@ -1565,6 +1565,18 @@ export const authApi = {
       notes,
     }),
 
+  adminResetPassword: (
+    userId: number,
+    data:
+      | { generate_temporary_password: true }
+      | { new_password: string }
+  ) =>
+    api.post<{
+      message: string;
+      username: string;
+      temporary_password?: string;
+    }>(`/auth/admin/users/${userId}/reset-password/`, data),
+
   getLockedAccounts: (
     page?: number,
     page_size?: number,

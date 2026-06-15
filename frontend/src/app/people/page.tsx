@@ -26,6 +26,7 @@ import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
 import { clustersApi, peopleApi, journeysApi, User } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
+import UserLoginCredentialsModal from "@/src/components/people/UserLoginCredentialsModal";
 import { Branch } from "@/src/types/branch";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
@@ -113,6 +114,14 @@ export default function PeoplePage() {
     isOpen: false,
     family: null,
     loading: false,
+  });
+  const [loginCredentialsModal, setLoginCredentialsModal] = useState<{
+    isOpen: boolean;
+    person: Person | null;
+    temporaryPassword?: string;
+  }>({
+    isOpen: false,
+    person: null,
   });
 
   useEffect(() => {
@@ -1472,6 +1481,17 @@ export default function PeoplePage() {
             setCreateInitialData(undefined);
             setPersonPanelInitialData(undefined);
             await refreshPeople();
+
+            if (
+              user?.role === "ADMIN" &&
+              created.role !== "VISITOR"
+            ) {
+              setLoginCredentialsModal({
+                isOpen: true,
+                person: created as Person,
+                temporaryPassword: created.temporary_password,
+              });
+            }
           }
           return created;
         }}
@@ -3149,6 +3169,22 @@ export default function PeoplePage() {
             })()}
           />
         </Modal>
+      )}
+
+      {loginCredentialsModal.person && (
+        <UserLoginCredentialsModal
+          isOpen={loginCredentialsModal.isOpen}
+          onClose={() =>
+            setLoginCredentialsModal({ isOpen: false, person: null })
+          }
+          fullName={
+            `${loginCredentialsModal.person.first_name ?? ""} ${loginCredentialsModal.person.last_name ?? ""}`.trim() ||
+            loginCredentialsModal.person.username
+          }
+          username={loginCredentialsModal.person.username}
+          temporaryPassword={loginCredentialsModal.temporaryPassword}
+          variant="created"
+        />
       )}
     </DashboardLayout>
   );

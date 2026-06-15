@@ -41,6 +41,11 @@ urlpatterns = [
         views.unlock_account_view,
         name="unlock_account",
     ),
+    path(
+        "admin/users/<int:user_id>/reset-password/",
+        views.admin_reset_user_password_view,
+        name="admin_reset_user_password",
+    ),
     path("admin/audit-logs/", views.audit_logs_view, name="audit_logs"),
     path(
         "admin/dashboard-stats/",

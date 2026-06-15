@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from apps.people.serializers import ModuleCoordinatorSerializer
 from .models import PasswordResetRequest, AccountLockout, AuditLog
-import re
+from .password_validators import PasswordStrengthValidator
 
 User = get_user_model()
 
@@ -36,29 +36,6 @@ def format_person_name(user):
 
     name = " ".join(pieces).strip()
     return name if name else user.username
-
-
-class PasswordStrengthValidator:
-    """
-    Validates that password has:
-    - Minimum 8 characters
-    - At least one letter (a-z, A-Z)
-    - At least one number (0-9)
-    """
-
-    def __call__(self, value):
-        if len(value) < 8:
-            raise serializers.ValidationError(
-                "Password must be at least 8 characters long."
-            )
-        if not re.search(r"[a-zA-Z]", value):
-            raise serializers.ValidationError(
-                "Password must contain at least one letter."
-            )
-        if not re.search(r"[0-9]", value):
-            raise serializers.ValidationError(
-                "Password must contain at least one number."
-            )
 
 
 class LoginSerializer(serializers.Serializer):
@@ -170,6 +147,32 @@ class PasswordChangeSerializer(serializers.Serializer):
         if new_password != confirm_password:
             raise serializers.ValidationError(
                 {"confirm_password": "Passwords do not match."}
+            )
+
+        return attrs
+
+
+class AdminPasswordResetSerializer(serializers.Serializer):
+    new_password = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
+    generate_temporary_password = serializers.BooleanField(required=False, default=True)
+
+    def validate(self, attrs):
+        new_password = (attrs.get("new_password") or "").strip()
+        generate_temp = attrs.get("generate_temporary_password", True)
+
+        if new_password:
+            PasswordStrengthValidator()(new_password)
+            attrs["new_password"] = new_password
+            attrs["generate_temporary_password"] = False
+        elif not generate_temp:
+            raise serializers.ValidationError(
+                {
+                    "new_password": (
+                        "Provide new_password or enable generate_temporary_password."
+                    )
+                }
             )
 
         return attrs

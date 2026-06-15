@@ -1,7 +1,10 @@
+import secrets
+
 from rest_framework import serializers
 from django.utils import timezone
 from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting
 from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
+from apps.authentication.password_validators import PasswordStrengthValidator
 
 
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
@@ -257,12 +260,20 @@ class PersonSerializer(serializers.ModelSerializer):
         many=True, read_only=True
     )
     can_view_journey_timeline = serializers.SerializerMethodField()
+    initial_password = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
+    generate_temporary_password = serializers.BooleanField(
+        write_only=True, required=False, default=True
+    )
+    temporary_password = serializers.CharField(read_only=True, required=False)
 
     class Meta:
         model = Person
         fields = [
             "id",
             "username",
+            "email",
             "first_name",
             "last_name",
             "middle_name",
@@ -294,8 +305,15 @@ class PersonSerializer(serializers.ModelSerializer):
             "family_names",
             "module_coordinator_assignments",
             "can_view_journey_timeline",
+            "initial_password",
+            "generate_temporary_password",
+            "temporary_password",
         ]
         read_only_fields = ["username"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._temporary_password = None
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -360,6 +378,27 @@ class PersonSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+
+        if not instance and request and request.user.role == "ADMIN":
+            role = attrs.get("role", "MEMBER")
+            if role != "VISITOR":
+                initial_password = (attrs.get("initial_password") or "").strip()
+                generate_temp = attrs.get("generate_temporary_password", True)
+                if initial_password:
+                    PasswordStrengthValidator()(initial_password)
+                elif not generate_temp:
+                    raise serializers.ValidationError(
+                        {
+                            "initial_password": (
+                                "Login-capable roles require a password. "
+                                "Enable auto-generate or provide initial_password."
+                            )
+                        }
+                    )
+        elif not instance:
+            attrs.pop("initial_password", None)
+            attrs.pop("generate_temporary_password", None)
+
         return attrs
 
     def _normalize_first_activity_attended(self, validated_data):
@@ -405,6 +444,10 @@ class PersonSerializer(serializers.ModelSerializer):
             validated_data["branch"] = request.user.branch
 
         note = validated_data.pop("note", "").strip() if "note" in validated_data else ""
+        initial_password = (validated_data.pop("initial_password", None) or "").strip()
+        generate_temporary_password = validated_data.pop(
+            "generate_temporary_password", True
+        )
 
         first_name = validated_data.get("first_name", "")
         last_name = validated_data.get("last_name", "")
@@ -427,6 +470,27 @@ class PersonSerializer(serializers.ModelSerializer):
 
         validated_data["username"] = username
         person = super().create(validated_data)
+
+        if (
+            request
+            and request.user.role == "ADMIN"
+            and person.role != "VISITOR"
+        ):
+            password = None
+            if initial_password:
+                password = initial_password
+            elif generate_temporary_password:
+                password = secrets.token_urlsafe(10)
+                self._temporary_password = password
+
+            if password:
+                person.set_password(password)
+                person.must_change_password = True
+                person.first_login = True
+                person.save(
+                    update_fields=["password", "must_change_password", "first_login"]
+                )
+
         self._trigger_legacy_lessons_backfill(
             person=person,
             previous_has_finished_lessons=False,
@@ -444,6 +508,12 @@ class PersonSerializer(serializers.ModelSerializer):
             )
 
         return person
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if self._temporary_password:
+            data["temporary_password"] = self._temporary_password
+        return data
 
     def update(self, instance, validated_data):
         """Update person and track branch transfers"""

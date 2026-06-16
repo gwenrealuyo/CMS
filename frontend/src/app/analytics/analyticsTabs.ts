@@ -3,6 +3,7 @@ import type { SegmentedControlOption } from "@/src/components/ui/SegmentedContro
 export type AnalyticsTab =
   | "overview"
   | "v2b"
+  | "e1r1"
   | "engagement"
   | "ncc"
   | "cym"
@@ -14,6 +15,7 @@ export type AnalyticsTab =
 export const ANALYTICS_TABS: SegmentedControlOption<AnalyticsTab>[] = [
   { id: "overview", label: "Overview" },
   { id: "v2b", label: "V2B" },
+  { id: "e1r1", label: "E1R1" },
   { id: "engagement", label: "Engagement" },
   { id: "ncc", label: "NCC" },
   { id: "cym", label: "CYM" },
@@ -30,12 +32,17 @@ export const ANALYTICS_TAB_META: Record<
   overview: {
     title: "Executive Overview",
     description:
-      "A cross-module KPI summary will live here, composing one headline number from each dashboard.",
+      "Cross-module headline KPIs from People, V2B, Engagement, NCC, CYM, and Compliance. Click a card to open the full dashboard.",
   },
   v2b: {
     title: "Visitor to Brethren",
     description:
-      "The end-to-end visitor-to-brethren journey with conversion rates and leakage overlay is coming soon.",
+      "Pipeline funnel, monthly conversion trends, and drop-off leakage across the visitor-to-brethren journey.",
+  },
+  e1r1: {
+    title: "Each 1 Reach 1",
+    description:
+      "Monthly people tally — invited, attended, students, baptized, received Holy Ghost, and reached counts by month.",
   },
   engagement: {
     title: "Engagement & Attendance",
@@ -43,7 +50,7 @@ export const ANALYTICS_TAB_META: Record<
       "Sunday Service headcount plus cluster and evangelism weekly report attendance trends.",
   },
   ncc: {
-    title: "New Converts Class",
+    title: "New Converts Course",
     description:
       "Lesson progress, participant status, and unassigned visitors across the NCC journey.",
   },
@@ -55,11 +62,12 @@ export const ANALYTICS_TAB_META: Record<
   compliance: {
     title: "Compliance & Operations",
     description:
-      "Report submission, overdue tasks, and coordinator coverage are coming soon.",
+      "Cluster report submission rates, overdue tasks, at-risk clusters, and coordinator notes.",
   },
   stewardship: {
     title: "Stewardship",
-    description: "Giving and pledge fulfillment trends are coming soon.",
+    description:
+      "Giving totals, monthly trends, donation purpose mix, weekly offerings, and pledge fulfillment.",
   },
   people: {
     title: "People & Demographics",
@@ -69,6 +77,6 @@ export const ANALYTICS_TAB_META: Record<
   builder: {
     title: "Report Builder",
     description:
-      "Build ad-hoc reports by picking a subject, measure, dimension, and filters. Coming soon.",
+      "Pick a report subject, set filters, preview headline metrics, and export CSV.",
   },
 };

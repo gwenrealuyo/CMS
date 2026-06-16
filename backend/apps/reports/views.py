@@ -491,7 +491,7 @@ class EngagementExportCsvView(APIView):
 
 
 class NccSummaryView(APIView):
-    """New Converts Class (lessons) summary, branch-scoped."""
+    """New Converts Course (lessons) summary, branch-scoped."""
 
     permission_classes = [IsReportsViewer]
 
@@ -578,5 +578,133 @@ class CymExportCsvView(APIView):
         response = HttpResponse(csv_text, content_type="text/csv")
         response["Content-Disposition"] = (
             'attachment; filename="cym_summary.csv"'
+        )
+        return response
+
+
+class V2bSummaryView(APIView):
+    """Visitor to Brethren (evangelism pipeline) summary, branch-scoped."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        year, err = _parse_year_param(request)
+        if err:
+            return err
+
+        scope = resolve_branch_scope(request.user, request)
+        single_branch_view = scope["effective_branch_id"] is not None
+        payload = services.build_v2b_summary(
+            branch_id=scope["effective_branch_id"],
+            year=year,
+            single_branch_view=single_branch_view,
+        )
+        return Response(payload)
+
+
+class V2bExportCsvView(APIView):
+    """Export branch-scoped V2B summary as CSV."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        year, err = _parse_year_param(request)
+        if err:
+            return err
+
+        scope = resolve_branch_scope(request.user, request)
+        single_branch_view = scope["effective_branch_id"] is not None
+        payload = services.build_v2b_summary(
+            branch_id=scope["effective_branch_id"],
+            year=year,
+            single_branch_view=single_branch_view,
+        )
+        csv_text = services.build_v2b_summary_csv(payload)
+
+        response = HttpResponse(csv_text, content_type="text/csv")
+        response["Content-Disposition"] = (
+            'attachment; filename="v2b_summary.csv"'
+        )
+        return response
+
+
+class OverviewSummaryView(APIView):
+    """Executive overview — headline KPI from each analytics module."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        try:
+            months = int(request.query_params.get("months", 12))
+        except (TypeError, ValueError):
+            months = 12
+        months = max(1, min(months, 60))
+
+        year, err = _parse_year_param(request)
+        if err:
+            return err
+
+        today = timezone.now().date()
+        compliance_start = today - timedelta(days=28)
+        compliance_end = today
+
+        scope = resolve_branch_scope(request.user, request)
+        single_branch_view = scope["effective_branch_id"] is not None
+
+        payload = services.build_overview_summary(
+            people_qs=_scoped_people(request),
+            cluster_reports_qs=_scoped_cluster_reports(request),
+            evangelism_reports_qs=_scoped_evangelism_reports(request),
+            service_attendance_qs=_scoped_service_attendance(request),
+            lesson_progress_qs=_scoped_lesson_progress(request),
+            clusters=_scoped_clusters(request),
+            branch_id=scope["effective_branch_id"],
+            year=year,
+            months=months,
+            single_branch_view=single_branch_view,
+            compliance_start_date=compliance_start,
+            compliance_end_date=compliance_end,
+        )
+        return Response(payload)
+
+
+class StewardshipSummaryView(APIView):
+    """Stewardship (giving and pledges) summary, branch-scoped."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        year, err = _parse_year_param(request)
+        if err:
+            return err
+
+        scope = resolve_branch_scope(request.user, request)
+        payload = services.build_stewardship_summary(
+            branch_id=scope["effective_branch_id"],
+            year=year,
+        )
+        return Response(payload)
+
+
+class StewardshipExportCsvView(APIView):
+    """Export branch-scoped stewardship summary as CSV."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        year, err = _parse_year_param(request)
+        if err:
+            return err
+
+        scope = resolve_branch_scope(request.user, request)
+        payload = services.build_stewardship_summary(
+            branch_id=scope["effective_branch_id"],
+            year=year,
+        )
+        csv_text = services.build_stewardship_summary_csv(payload)
+
+        response = HttpResponse(csv_text, content_type="text/csv")
+        response["Content-Disposition"] = (
+            'attachment; filename="stewardship_summary.csv"'
         )
         return response

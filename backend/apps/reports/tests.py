@@ -8,7 +8,13 @@ from rest_framework.test import APIClient
 
 from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import Cluster, ClusterComplianceNote, ClusterWeeklyReport
-from apps.evangelism.models import EvangelismGroup, EvangelismWeeklyReport
+from apps.evangelism.models import (
+    Conversion,
+    DropOff,
+    EvangelismGroup,
+    EvangelismWeeklyReport,
+    Prospect,
+)
 from apps.events.models import Event
 from apps.lessons.models import Lesson, PersonLessonProgress
 from apps.people.models import Branch, Family, Person
@@ -17,6 +23,8 @@ from apps.sunday_school.models import (
     SundaySchoolClass,
     SundaySchoolClassMember,
 )
+from apps.finance.models import Donation, Offering, Pledge, PledgeContribution
+from decimal import Decimal
 
 
 class ReportsMetaScopeTests(TestCase):
@@ -463,6 +471,209 @@ class PeopleSummaryTests(TestCase):
                 )
 
 
+class V2bSummaryTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.summary_url = reverse("reports:v2b-summary")
+        self.csv_url = reverse("reports:v2b-export-csv")
+        self.year = timezone.now().year
+
+        self.north = Branch.objects.create(name="North", code="NORTH")
+        self.south = Branch.objects.create(name="South", code="SOUTH")
+
+        self.admin = Person.objects.create_user(
+            username="admin_v2b",
+            password="pw",
+            role="ADMIN",
+            status="ACTIVE",
+        )
+        self.branch_pastor = Person.objects.create_user(
+            username="pastor_v2b",
+            password="pw",
+            role="PASTOR",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.member = Person.objects.create_user(
+            username="member_v2b",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.visitor = Person.objects.create_user(
+            username="visitor_v2b",
+            password="pw",
+            role="VISITOR",
+            status="INVITED",
+            branch=self.north,
+        )
+
+        self.north_inviter = Person.objects.create_user(
+            username="north_inviter",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.south_inviter = Person.objects.create_user(
+            username="south_inviter",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.south,
+        )
+
+        self.north_cluster = Cluster.objects.create(
+            code="N-V2B",
+            name="North Cluster",
+            branch=self.north,
+            coordinator=self.north_inviter,
+        )
+        self.south_cluster = Cluster.objects.create(
+            code="S-V2B",
+            name="South Cluster",
+            branch=self.south,
+            coordinator=self.south_inviter,
+        )
+
+        self.north_group = EvangelismGroup.objects.create(
+            name="North Group",
+            cluster=self.north_cluster,
+            coordinator=self.north_inviter,
+            is_active=True,
+        )
+
+        self.north_invited = Prospect.objects.create(
+            first_name="North",
+            last_name="Invited",
+            invited_by=self.north_inviter,
+            inviter_cluster=self.north_cluster,
+            evangelism_group=self.north_group,
+            pipeline_stage=Prospect.PipelineStage.INVITED,
+            is_dropped_off=False,
+        )
+        self.north_attended = Prospect.objects.create(
+            first_name="North",
+            last_name="Attended",
+            invited_by=self.north_inviter,
+            inviter_cluster=self.north_cluster,
+            evangelism_group=self.north_group,
+            pipeline_stage=Prospect.PipelineStage.ATTENDED,
+            is_dropped_off=False,
+        )
+        self.south_converted = Prospect.objects.create(
+            first_name="South",
+            last_name="Converted",
+            invited_by=self.south_inviter,
+            inviter_cluster=self.south_cluster,
+            pipeline_stage=Prospect.PipelineStage.CONVERTED,
+            is_dropped_off=False,
+        )
+
+        self.dropped_north = Prospect.objects.create(
+            first_name="North",
+            last_name="Dropped",
+            invited_by=self.north_inviter,
+            inviter_cluster=self.north_cluster,
+            evangelism_group=self.north_group,
+            pipeline_stage=Prospect.PipelineStage.INVITED,
+            is_dropped_off=True,
+        )
+        DropOff.objects.create(
+            prospect=self.dropped_north,
+            drop_off_date=timezone.now().date(),
+            drop_off_stage=Prospect.PipelineStage.INVITED,
+            days_inactive=35,
+            reason=DropOff.DropOffReason.NO_CONTACT,
+        )
+
+        self.reached_north = Person.objects.create_user(
+            username="reached_north",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+            water_baptism_date=timezone.now().date().replace(year=self.year, month=3, day=1),
+            spirit_baptism_date=timezone.now().date().replace(year=self.year, month=4, day=1),
+        )
+
+        conv_person = Person.objects.create_user(
+            username="conv_north",
+            password="pw",
+            role="VISITOR",
+            status="ATTENDED",
+            branch=self.north,
+        )
+        Conversion.objects.create(
+            person=conv_person,
+            converted_by=self.north_inviter,
+            cluster=self.north_cluster,
+            conversion_date=timezone.now().date().replace(year=self.year, month=5, day=1),
+            water_baptism_date=timezone.now().date().replace(year=self.year, month=5, day=1),
+            spirit_baptism_date=timezone.now().date().replace(year=self.year, month=5, day=15),
+            is_complete=True,
+        )
+
+    def test_admin_sees_all_branches(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.summary_url, {"year": self.year})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(res.data["summary"]["active_prospects"], 3)
+        self.assertEqual(len(res.data["monthly_trend"]), 12)
+        self.assertGreater(len(res.data["by_cluster"]), 0)
+
+    def test_admin_can_filter_by_branch(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(
+            self.summary_url,
+            {"branch_id": self.north.id, "year": self.year},
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["summary"]["active_prospects"], 2)
+        self.assertEqual(res.data["by_cluster"], [])
+
+    def test_funnel_cumulative_counts(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(
+            self.summary_url,
+            {"branch_id": self.north.id, "year": self.year},
+        )
+        funnel = {row["stage"]: row["count"] for row in res.data["funnel"]}
+        self.assertEqual(funnel["INVITED"], 2)
+        self.assertEqual(funnel["ATTENDED"], 1)
+
+    def test_leakage_populated(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(
+            self.summary_url,
+            {"branch_id": self.north.id, "year": self.year},
+        )
+        self.assertGreaterEqual(res.data["summary"]["drop_offs"], 1)
+        self.assertGreater(len(res.data["leakage"]["by_stage"]), 0)
+
+    def test_branch_pastor_scoped(self):
+        self.client.force_authenticate(user=self.branch_pastor)
+        res = self.client.get(
+            self.summary_url,
+            {"branch_id": self.south.id, "year": self.year},
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["summary"]["active_prospects"], 2)
+
+    def test_export_csv(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.csv_url, {"year": self.year})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("Visitor to Brethren Summary", res.content.decode())
+
+    def test_forbidden_roles(self):
+        for user in (self.member, self.visitor):
+            self.client.force_authenticate(user=user)
+            res = self.client.get(self.summary_url)
+            self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
 class NccSummaryTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -566,7 +777,7 @@ class NccSummaryTests(TestCase):
         self.client.force_authenticate(user=self.admin)
         res = self.client.get(self.csv_url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertIn("New Converts Class Summary", res.content.decode())
+        self.assertIn("New Converts Course Summary", res.content.decode())
 
     def test_forbidden_roles(self):
         for user in (self.member, self.visitor):
@@ -919,3 +1130,309 @@ class EngagementSummaryTests(TestCase):
                     status.HTTP_403_FORBIDDEN,
                     f"{user.username} {url}",
                 )
+
+
+class OverviewSummaryTests(TestCase):
+    EXPECTED_TABS = (
+        "people",
+        "v2b",
+        "engagement",
+        "ncc",
+        "cym",
+        "compliance",
+        "stewardship",
+    )
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("reports:overview-summary")
+
+        self.north = Branch.objects.create(name="North", code="NORTH")
+        self.south = Branch.objects.create(name="South", code="SOUTH")
+
+        self.admin = Person.objects.create_user(
+            username="admin_overview",
+            password="pw",
+            role="ADMIN",
+            status="ACTIVE",
+        )
+        self.branch_pastor = Person.objects.create_user(
+            username="pastor_overview",
+            password="pw",
+            role="PASTOR",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.member = Person.objects.create_user(
+            username="member_overview",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.visitor = Person.objects.create_user(
+            username="visitor_overview",
+            password="pw",
+            role="VISITOR",
+            status="INVITED",
+            branch=self.north,
+        )
+
+        Person.objects.create_user(
+            username="north_member_ov",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        Person.objects.create_user(
+            username="south_member_ov",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.south,
+        )
+
+        Cluster.objects.create(
+            name="North Cluster",
+            code="N1",
+            branch=self.north,
+            coordinator=self.branch_pastor,
+        )
+
+    def _module_tabs(self, data):
+        return [m["tab"] for m in data["modules"]]
+
+    def test_admin_payload_shape(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("year", res.data)
+        self.assertIn("months", res.data)
+        self.assertEqual(len(res.data["modules"]), 7)
+        self.assertEqual(tuple(self._module_tabs(res.data)), self.EXPECTED_TABS)
+
+        people_mod = res.data["modules"][0]
+        self.assertEqual(people_mod["tab"], "people")
+        self.assertEqual(people_mod["headline"]["label"], "Total People")
+        self.assertGreaterEqual(people_mod["headline"]["value"], 2)
+
+    def test_admin_can_filter_by_branch(self):
+        self.client.force_authenticate(user=self.admin)
+        all_res = self.client.get(self.url)
+        north_res = self.client.get(self.url, {"branch_id": self.north.id})
+        south_res = self.client.get(self.url, {"branch_id": self.south.id})
+        self.assertEqual(north_res.status_code, status.HTTP_200_OK)
+        people_all = next(
+            m for m in all_res.data["modules"] if m["tab"] == "people"
+        )["headline"]["value"]
+        people_north = next(
+            m for m in north_res.data["modules"] if m["tab"] == "people"
+        )["headline"]["value"]
+        people_south = next(
+            m for m in south_res.data["modules"] if m["tab"] == "people"
+        )["headline"]["value"]
+        self.assertGreater(people_all, people_north)
+        self.assertGreater(people_north, people_south)
+
+    def test_branch_pastor_scoped_to_own_branch(self):
+        self.client.force_authenticate(user=self.branch_pastor)
+        pastor_res = self.client.get(self.url)
+        self.client.force_authenticate(user=self.admin)
+        north_res = self.client.get(self.url, {"branch_id": self.north.id})
+        self.assertEqual(pastor_res.status_code, status.HTTP_200_OK)
+        pastor_people = next(
+            m for m in pastor_res.data["modules"] if m["tab"] == "people"
+        )["headline"]["value"]
+        north_people = next(
+            m for m in north_res.data["modules"] if m["tab"] == "people"
+        )["headline"]["value"]
+        self.assertEqual(pastor_people, north_people)
+
+    def test_branch_pastor_cannot_override_branch(self):
+        self.client.force_authenticate(user=self.branch_pastor)
+        default_res = self.client.get(self.url)
+        override_res = self.client.get(self.url, {"branch_id": self.south.id})
+        self.assertEqual(override_res.status_code, status.HTTP_200_OK)
+        default_people = next(
+            m for m in default_res.data["modules"] if m["tab"] == "people"
+        )["headline"]["value"]
+        override_people = next(
+            m for m in override_res.data["modules"] if m["tab"] == "people"
+        )["headline"]["value"]
+        self.assertEqual(default_people, override_people)
+
+    def test_respects_year_and_months_params(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.url, {"year": 2020, "months": 6})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["year"], 2020)
+        self.assertEqual(res.data["months"], 6)
+
+    def test_forbidden_roles(self):
+        for user in (self.member, self.visitor):
+            self.client.force_authenticate(user=user)
+            res = self.client.get(self.url)
+            self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class StewardshipSummaryTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.summary_url = reverse("reports:stewardship-summary")
+        self.csv_url = reverse("reports:stewardship-export-csv")
+        self.year = timezone.now().year
+
+        self.north = Branch.objects.create(name="North", code="NORTH")
+        self.south = Branch.objects.create(name="South", code="SOUTH")
+
+        self.admin = Person.objects.create_user(
+            username="admin_steward",
+            password="pw",
+            role="ADMIN",
+            status="ACTIVE",
+        )
+        self.branch_pastor = Person.objects.create_user(
+            username="pastor_steward",
+            password="pw",
+            role="PASTOR",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.member = Person.objects.create_user(
+            username="member_steward",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.visitor = Person.objects.create_user(
+            username="visitor_steward",
+            password="pw",
+            role="VISITOR",
+            status="INVITED",
+            branch=self.north,
+        )
+
+        self.north_donor = Person.objects.create_user(
+            username="north_donor",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.south_donor = Person.objects.create_user(
+            username="south_donor",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.south,
+        )
+
+        donation_date = timezone.now().date().replace(year=self.year, month=3, day=10)
+        Donation.objects.create(
+            donor=self.north_donor,
+            amount=Decimal("100.00"),
+            date=donation_date,
+            purpose="Building Fund",
+            receipt_number="STEW-N-001",
+        )
+        Donation.objects.create(
+            donor=self.south_donor,
+            amount=Decimal("200.00"),
+            date=donation_date,
+            purpose="Missions",
+            receipt_number="STEW-S-001",
+        )
+
+        Offering.objects.create(
+            service_date=donation_date,
+            service_name="Sunday AM",
+            amount=Decimal("500.00"),
+        )
+
+        self.north_pledge = Pledge.objects.create(
+            pledger=self.north_donor,
+            pledge_title="North Building",
+            pledge_amount=Decimal("1000.00"),
+            status=Pledge.Status.ACTIVE,
+        )
+        self.south_pledge = Pledge.objects.create(
+            pledger=self.south_donor,
+            pledge_title="South Missions",
+            pledge_amount=Decimal("2000.00"),
+            status=Pledge.Status.ACTIVE,
+        )
+        PledgeContribution.objects.create(
+            pledge=self.north_pledge,
+            contributor=self.north_donor,
+            amount=Decimal("250.00"),
+            contribution_date=donation_date,
+        )
+        PledgeContribution.objects.create(
+            pledge=self.south_pledge,
+            contributor=self.south_donor,
+            amount=Decimal("400.00"),
+            contribution_date=donation_date,
+        )
+
+    def test_admin_sees_all_branches(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.summary_url, {"year": self.year})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        summary = res.data["summary"]
+        self.assertTrue(summary["includes_offerings"])
+        self.assertEqual(summary["donation_total"], 300.0)
+        self.assertEqual(summary["offering_total"], 500.0)
+        self.assertGreater(summary["total_collected"], 0)
+        self.assertEqual(len(res.data["monthly_trend"]), 12)
+        self.assertGreater(len(res.data["offerings_weekly"]), 0)
+        self.assertGreater(len(res.data["pledges"]), 0)
+        self.assertIn("Building Fund", res.data["donations"]["purpose_breakdown"])
+
+    def test_admin_can_filter_by_branch(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(
+            self.summary_url,
+            {"branch_id": self.north.id, "year": self.year},
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        summary = res.data["summary"]
+        self.assertFalse(summary["includes_offerings"])
+        self.assertEqual(summary["donation_total"], 100.0)
+        self.assertEqual(summary["offering_total"], 0.0)
+        self.assertEqual(res.data["offerings_weekly"], [])
+        pledge_titles = [row["pledge_title"] for row in res.data["pledges"]]
+        self.assertIn("North Building", pledge_titles)
+        self.assertNotIn("South Missions", pledge_titles)
+
+    def test_branch_pastor_scoped(self):
+        self.client.force_authenticate(user=self.branch_pastor)
+        res = self.client.get(
+            self.summary_url,
+            {"branch_id": self.south.id, "year": self.year},
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["summary"]["donation_total"], 100.0)
+
+    def test_monthly_trend_has_twelve_rows(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.summary_url, {"year": self.year})
+        self.assertEqual(len(res.data["monthly_trend"]), 12)
+        march = next(
+            row for row in res.data["monthly_trend"] if row["month"] == 3
+        )
+        self.assertEqual(march["donation_total"], 300.0)
+        self.assertEqual(march["offering_total"], 500.0)
+
+    def test_export_csv(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.csv_url, {"year": self.year})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("Stewardship Summary", res.content.decode())
+
+    def test_forbidden_roles(self):
+        for user in (self.member, self.visitor):
+            self.client.force_authenticate(user=user)
+            res = self.client.get(self.summary_url)
+            self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)

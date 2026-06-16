@@ -78,7 +78,7 @@ import {
 import { Branch } from "@/src/types/branch";
 import { ModuleSetting } from "@/src/types/moduleSettings";
 import { NotificationFeedResponse } from "@/src/types/notifications";
-import { ReportsScopeMeta, PeopleSummary, EngagementSummary, NccSummary, CymSummary } from "@/src/types/reports";
+import { ReportsScopeMeta, PeopleSummary, EngagementSummary, NccSummary, CymSummary, V2bSummary, StewardshipSummary, OverviewSummary } from "@/src/types/reports";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
@@ -1654,6 +1654,11 @@ export const reportsApi = {
   /** Current user's reporting scope (branch selectability + options). */
   getMeta: (params?: { branch_id?: number | string }) =>
     api.get<ReportsScopeMeta>("/reports/meta/", { params }),
+  getOverviewSummary: (params?: {
+    branch_id?: number | string;
+    year?: number;
+    months?: number;
+  }) => api.get<OverviewSummary>("/reports/overview/", { params }),
   getCompliance: (params?: {
     branch_id?: number | string;
     start_date?: string;
@@ -1701,7 +1706,10 @@ export const reportsApi = {
     branch_id?: number | string;
     months?: number;
   }) => api.get<PeopleSummary>("/reports/people/summary/", { params }),
-  exportPeopleCSV: (params?: { branch_id?: number | string }) =>
+  exportPeopleCSV: (params?: {
+    branch_id?: number | string;
+    months?: number;
+  }) =>
     api.get("/reports/people/export/csv/", {
       params,
       responseType: "blob",
@@ -1710,7 +1718,10 @@ export const reportsApi = {
     branch_id?: number | string;
     months?: number;
   }) => api.get<EngagementSummary>("/reports/engagement/summary/", { params }),
-  exportEngagementCSV: (params?: { branch_id?: number | string }) =>
+  exportEngagementCSV: (params?: {
+    branch_id?: number | string;
+    months?: number;
+  }) =>
     api.get("/reports/engagement/export/csv/", {
       params,
       responseType: "blob",
@@ -1733,6 +1744,20 @@ export const reportsApi = {
     month?: number;
   }) =>
     api.get("/reports/cym/export/csv/", {
+      params,
+      responseType: "blob",
+    }),
+  getV2bSummary: (params?: { branch_id?: number | string; year?: number }) =>
+    api.get<V2bSummary>("/reports/v2b/summary/", { params }),
+  exportV2bCSV: (params?: { branch_id?: number | string; year?: number }) =>
+    api.get("/reports/v2b/export/csv/", {
+      params,
+      responseType: "blob",
+    }),
+  getStewardshipSummary: (params?: { branch_id?: number | string; year?: number }) =>
+    api.get<StewardshipSummary>("/reports/stewardship/summary/", { params }),
+  exportStewardshipCSV: (params?: { branch_id?: number | string; year?: number }) =>
+    api.get("/reports/stewardship/export/csv/", {
       params,
       responseType: "blob",
     }),

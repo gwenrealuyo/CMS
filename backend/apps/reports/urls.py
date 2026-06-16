@@ -13,15 +13,21 @@ from .views import (
     EngagementSummaryView,
     NccExportCsvView,
     NccSummaryView,
+    OverviewSummaryView,
     PeopleExportCsvView,
     PeopleSummaryView,
     ReportsMetaView,
+    StewardshipExportCsvView,
+    StewardshipSummaryView,
+    V2bExportCsvView,
+    V2bSummaryView,
 )
 
 app_name = "reports"
 
 urlpatterns = [
     path("meta/", ReportsMetaView.as_view(), name="reports-meta"),
+    path("overview/", OverviewSummaryView.as_view(), name="overview-summary"),
     path("compliance/", ComplianceView.as_view(), name="compliance"),
     path(
         "compliance/overdue/",
@@ -68,4 +74,16 @@ urlpatterns = [
     path("ncc/export/csv/", NccExportCsvView.as_view(), name="ncc-export-csv"),
     path("cym/summary/", CymSummaryView.as_view(), name="cym-summary"),
     path("cym/export/csv/", CymExportCsvView.as_view(), name="cym-export-csv"),
+    path("v2b/summary/", V2bSummaryView.as_view(), name="v2b-summary"),
+    path("v2b/export/csv/", V2bExportCsvView.as_view(), name="v2b-export-csv"),
+    path(
+        "stewardship/summary/",
+        StewardshipSummaryView.as_view(),
+        name="stewardship-summary",
+    ),
+    path(
+        "stewardship/export/csv/",
+        StewardshipExportCsvView.as_view(),
+        name="stewardship-export-csv",
+    ),
 ]

@@ -165,6 +165,7 @@ def calculate_monthly_statistics(
     cluster: Optional[Cluster] = None,
     year: Optional[int] = None,
     month: Optional[int] = None,
+    branch_id: Optional[int] = None,
 ) -> List[Dict]:
     """
     Calculate monthly statistics by stage with proper unique person counting.
@@ -178,6 +179,8 @@ def calculate_monthly_statistics(
     query = MonthlyConversionTracking.objects.filter(year=year, month=month)
     if cluster:
         query = query.filter(cluster=cluster)
+    elif branch_id is not None:
+        query = query.filter(cluster__branch_id=branch_id)
 
     # Get unique persons per stage
     invited_prospects = query.filter(stage=MonthlyConversionTracking.Stage.INVITED).values_list("prospect_id", flat=True).distinct()
@@ -201,45 +204,51 @@ def calculate_monthly_statistics(
     converted_prospects = set()
     for prospect_id in baptized_prospects:
         if prospect_id in received_hg_prospects:
-            # Check if both happened in this year (could be different months)
             baptized_query = MonthlyConversionTracking.objects.filter(
                 prospect_id=prospect_id,
                 year=year,
-                stage=MonthlyConversionTracking.Stage.BAPTIZED
+                stage=MonthlyConversionTracking.Stage.BAPTIZED,
             )
             if cluster:
                 baptized_query = baptized_query.filter(cluster=cluster)
+            elif branch_id is not None:
+                baptized_query = baptized_query.filter(cluster__branch_id=branch_id)
             baptized_in_year = baptized_query.exists()
-            
+
             received_hg_query = MonthlyConversionTracking.objects.filter(
                 prospect_id=prospect_id,
                 year=year,
-                stage=MonthlyConversionTracking.Stage.RECEIVED_HG
+                stage=MonthlyConversionTracking.Stage.RECEIVED_HG,
             )
             if cluster:
                 received_hg_query = received_hg_query.filter(cluster=cluster)
+            elif branch_id is not None:
+                received_hg_query = received_hg_query.filter(cluster__branch_id=branch_id)
             received_hg_in_year = received_hg_query.exists()
-            
+
             if baptized_in_year and received_hg_in_year:
-                # Find the month they first completed both
                 baptized_query = MonthlyConversionTracking.objects.filter(
                     prospect_id=prospect_id,
                     year=year,
-                    stage=MonthlyConversionTracking.Stage.BAPTIZED
+                    stage=MonthlyConversionTracking.Stage.BAPTIZED,
                 )
                 if cluster:
                     baptized_query = baptized_query.filter(cluster=cluster)
+                elif branch_id is not None:
+                    baptized_query = baptized_query.filter(cluster__branch_id=branch_id)
                 baptized_month = baptized_query.order_by("month").first()
-                
+
                 received_hg_query = MonthlyConversionTracking.objects.filter(
                     prospect_id=prospect_id,
                     year=year,
-                    stage=MonthlyConversionTracking.Stage.RECEIVED_HG
+                    stage=MonthlyConversionTracking.Stage.RECEIVED_HG,
                 )
                 if cluster:
                     received_hg_query = received_hg_query.filter(cluster=cluster)
+                elif branch_id is not None:
+                    received_hg_query = received_hg_query.filter(cluster__branch_id=branch_id)
                 received_hg_month = received_hg_query.order_by("month").first()
-                
+
                 if baptized_month and received_hg_month:
                     completion_month = max(baptized_month.month, received_hg_month.month)
                     if completion_month == month:
@@ -259,7 +268,7 @@ def calculate_monthly_statistics(
         "converted_count": converted_count,
     }
 
-    return [result] if cluster else [result]
+    return [result]
 
 
 def check_conversion_completion(
@@ -624,6 +633,212 @@ def generate_each1reach1_report(cluster: Optional[Cluster] = None, year: Optiona
     }
 
 
+def _prospect_branch_q(branch_id: int) -> Q:
+    """Filter prospects tied to a branch via cluster or linked person."""
+    return (
+        Q(inviter_cluster__branch_id=branch_id)
+        | Q(endorsed_cluster__branch_id=branch_id)
+        | Q(person__branch_id=branch_id)
+    )
+
+
+def _drop_off_branch_q(branch_id: int) -> Q:
+    return (
+        Q(prospect__inviter_cluster__branch_id=branch_id)
+        | Q(prospect__endorsed_cluster__branch_id=branch_id)
+        | Q(prospect__person__branch_id=branch_id)
+    )
+
+
+_PIPELINE_FUNNEL_STAGES = [
+    (Prospect.PipelineStage.INVITED, "Invited"),
+    (Prospect.PipelineStage.ATTENDED, "Attended"),
+    (Prospect.PipelineStage.BAPTIZED, "Baptized"),
+    (Prospect.PipelineStage.RECEIVED_HG, "Received Holy Ghost"),
+    (Prospect.PipelineStage.CONVERTED, "Converted"),
+]
+
+_PIPELINE_STAGE_ORDER = {
+    Prospect.PipelineStage.INVITED: 0,
+    Prospect.PipelineStage.ATTENDED: 1,
+    Prospect.PipelineStage.BAPTIZED: 2,
+    Prospect.PipelineStage.RECEIVED_HG: 3,
+    Prospect.PipelineStage.CONVERTED: 4,
+}
+
+
+def build_pipeline_funnel(prospects_qs) -> List[Dict]:
+    """Cumulative funnel counts for active (non-dropped-off) prospects."""
+    active = prospects_qs.filter(is_dropped_off=False)
+    funnel = []
+    previous_count = None
+
+    for stage, label in _PIPELINE_FUNNEL_STAGES:
+        min_order = _PIPELINE_STAGE_ORDER[stage]
+        at_or_beyond = [
+            key
+            for key, order in _PIPELINE_STAGE_ORDER.items()
+            if order >= min_order
+        ]
+        count = active.filter(pipeline_stage__in=at_or_beyond).count()
+        rate_from_previous = None
+        if previous_count is not None and previous_count > 0:
+            rate_from_previous = round((count / previous_count) * 100, 1)
+        funnel.append(
+            {
+                "stage": stage,
+                "label": label,
+                "count": count,
+                "rate_from_previous": rate_from_previous,
+            }
+        )
+        previous_count = count
+
+    return funnel
+
+
+def build_drop_off_leakage(drop_offs_qs) -> Dict:
+    """Aggregate drop-off leakage metrics."""
+    total = drop_offs_qs.count()
+    recovered = drop_offs_qs.filter(recovered=True).count()
+    recovery_rate = round((recovered / total * 100), 2) if total > 0 else 0.0
+
+    by_stage = []
+    for stage, label in Prospect.PipelineStage.choices:
+        count = drop_offs_qs.filter(drop_off_stage=stage).count()
+        if count > 0:
+            by_stage.append({"stage": stage, "label": label, "count": count})
+
+    by_reason = []
+    for reason, label in DropOff.DropOffReason.choices:
+        count = drop_offs_qs.filter(reason=reason).count()
+        if count > 0:
+            by_reason.append({"reason": reason, "label": label, "count": count})
+
+    return {
+        "total_drop_offs": total,
+        "recovered": recovered,
+        "recovery_rate": recovery_rate,
+        "by_stage": by_stage,
+        "by_reason": by_reason,
+    }
+
+
+def calculate_yearly_monthly_trend(
+    *,
+    branch_id: Optional[int] = None,
+    year: Optional[int] = None,
+) -> List[Dict]:
+    """Monthly stage statistics for each month in a calendar year."""
+    if year is None:
+        year = timezone.now().year
+
+    trend = []
+    for month in range(1, 13):
+        trend.append(
+            calculate_monthly_statistics(
+                branch_id=branch_id,
+                year=year,
+                month=month,
+            )[0]
+        )
+    return trend
+
+
+def _count_completed_conversions(*, branch_id: Optional[int], year: int) -> int:
+    conversions = Conversion.objects.filter(
+        is_complete=True,
+        conversion_date__year=year,
+    )
+    if branch_id is not None:
+        conversions = conversions.filter(cluster__branch_id=branch_id)
+    return conversions.count()
+
+
+def _count_total_reached(*, branch_id: Optional[int], year: int) -> int:
+    people = Person.objects.exclude(role="ADMIN").filter(
+        water_baptism_date__isnull=False,
+        spirit_baptism_date__isnull=False,
+        water_baptism_date__year=year,
+        spirit_baptism_date__year=year,
+    )
+    if branch_id is not None:
+        people = people.filter(branch_id=branch_id)
+    return people.values("id").distinct().count()
+
+
+def _build_v2b_by_cluster(*, branch_id: Optional[int], year: int) -> List[Dict]:
+    clusters = Cluster.objects.all()
+    if branch_id is not None:
+        clusters = clusters.filter(branch_id=branch_id)
+
+    rows = []
+    for cluster in clusters.order_by("name"):
+        prospects = get_cluster_visitors(cluster)
+        active_prospects = prospects.count()
+        completed = Conversion.objects.filter(
+            cluster=cluster,
+            is_complete=True,
+            conversion_date__year=year,
+        ).count()
+        drop_offs = DropOff.objects.filter(
+            prospect__in=prospects,
+            drop_off_date__year=year,
+        ).count()
+        if active_prospects == 0 and completed == 0 and drop_offs == 0:
+            continue
+        rows.append(
+            {
+                "cluster_id": cluster.id,
+                "cluster_name": cluster.name or cluster.code or f"Cluster {cluster.id}",
+                "active_prospects": active_prospects,
+                "completed_conversions": completed,
+                "drop_offs": drop_offs,
+            }
+        )
+    return rows
+
+
+def generate_branch_scoped_v2b_summary(
+    *,
+    branch_id: Optional[int] = None,
+    year: Optional[int] = None,
+    single_branch_view: bool = False,
+) -> Dict:
+    """Build Visitor-to-Brethren analytics for optional branch and year scope."""
+    if year is None:
+        year = timezone.now().year
+
+    prospects = Prospect.objects.all()
+    if branch_id is not None:
+        prospects = prospects.filter(_prospect_branch_q(branch_id))
+
+    drop_offs = DropOff.objects.filter(drop_off_date__year=year)
+    if branch_id is not None:
+        drop_offs = drop_offs.filter(_drop_off_branch_q(branch_id))
+
+    leakage = build_drop_off_leakage(drop_offs)
+
+    return {
+        "year": year,
+        "summary": {
+            "active_prospects": prospects.filter(is_dropped_off=False).count(),
+            "completed_conversions": _count_completed_conversions(
+                branch_id=branch_id, year=year
+            ),
+            "total_reached": _count_total_reached(branch_id=branch_id, year=year),
+            "drop_offs": leakage["total_drop_offs"],
+            "recovery_rate": leakage["recovery_rate"],
+        },
+        "funnel": build_pipeline_funnel(prospects),
+        "monthly_trend": calculate_yearly_monthly_trend(branch_id=branch_id, year=year),
+        "leakage": leakage,
+        "by_cluster": []
+        if single_branch_view
+        else _build_v2b_by_cluster(branch_id=branch_id, year=year),
+    }
+
+
 def get_evangelism_dashboard_stats(year: int) -> Dict:
     """
     Aggregate counts for evangelism dashboard stat cards.
@@ -672,30 +887,14 @@ def get_evangelism_dashboard_stats(year: int) -> Dict:
         attended_prospect_person_ids | ev_visitor_ids | cluster_visitor_ids
     )
 
-    total_reached = (
-        Person.objects.exclude(role="ADMIN")
-        .filter(
-            water_baptism_date__isnull=False,
-            spirit_baptism_date__isnull=False,
-            water_baptism_date__year=year,
-            spirit_baptism_date__year=year,
-        )
-        .values("id")
-        .distinct()
-        .count()
-    )
-
-    completed_conversions = Conversion.objects.filter(
-        is_complete=True,
-        conversion_date__year=year,
-    ).count()
+    v2b = generate_branch_scoped_v2b_summary(branch_id=None, year=year)
 
     return {
         "total_groups": total_groups,
         "active_groups": active_groups,
         "total_visitors": total_visitors,
-        "total_reached": total_reached,
-        "completed_conversions": completed_conversions,
+        "total_reached": v2b["summary"]["total_reached"],
+        "completed_conversions": v2b["summary"]["completed_conversions"],
         "year": year,
     }
 

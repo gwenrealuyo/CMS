@@ -71,6 +71,8 @@ interface PeopleTallyReportProps {
   branchSelectionLocked?: boolean;
   branchLockedHint?: string;
   defaultLockedBranch?: number | "";
+  /** Hide branch select when branch is controlled externally (e.g. analytics hub). */
+  hideBranchFilter?: boolean;
 }
 
 type PeopleTallyMetric = Extract<
@@ -89,6 +91,7 @@ export default function PeopleTallyReport({
   branchSelectionLocked = false,
   branchLockedHint,
   defaultLockedBranch = "",
+  hideBranchFilter = false,
 }: PeopleTallyReportProps) {
   const selectedYear = year || new Date().getFullYear();
   const selectedBranch = branch === "" ? "" : Number(branch);
@@ -191,8 +194,12 @@ export default function PeopleTallyReport({
   const effectiveViewMode: "table" | "cards" = isMdUp ? "table" : viewMode;
 
   const hasFilterControls = Boolean(
-    onYearChange || onBranchChange || onTallyScopeChange,
+    onYearChange || (!hideBranchFilter && onBranchChange) || onTallyScopeChange,
   );
+
+  const filterGridClass = hideBranchFilter
+    ? "mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_auto] md:items-center"
+    : "mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center";
 
   const openDrilldown = (
     row: EvangelismPeopleTallyRow,
@@ -314,7 +321,7 @@ export default function PeopleTallyReport({
           Monthly People Tally
         </h3>
         {hasFilterControls && (
-          <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,6.75rem)_minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center">
+          <div className={filterGridClass}>
             {onYearChange && (
               <select
                 value={selectedYear}
@@ -330,7 +337,8 @@ export default function PeopleTallyReport({
                 ))}
               </select>
             )}
-            {onBranchChange &&
+            {!hideBranchFilter &&
+              onBranchChange &&
               (() => {
                 const tallyBranchInteractive = !branchSelectionLocked;
                 const branchSelectEl = (

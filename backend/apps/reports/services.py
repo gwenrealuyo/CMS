@@ -1087,7 +1087,7 @@ def build_ncc_summary_csv(payload: dict) -> str:
     output = io.StringIO()
     writer = csv.writer(output)
 
-    writer.writerow(["New Converts Class Summary"])
+    writer.writerow(["New Converts Course Summary"])
     writer.writerow(["year", payload.get("year", "")])
     writer.writerow(["total_participants", payload.get("total_participants", 0)])
     writer.writerow(["unassigned_visitors", payload.get("unassigned_visitors", 0)])
@@ -1182,3 +1182,329 @@ def build_cym_summary_csv(payload: dict) -> str:
             )
 
     return output.getvalue()
+
+
+def build_v2b_summary(
+    *,
+    branch_id: int | None = None,
+    year: int,
+    single_branch_view: bool = False,
+):
+    """Build V2B (visitor-to-brethren) analytics for optional branch scope."""
+    from apps.evangelism.services import generate_branch_scoped_v2b_summary
+
+    return generate_branch_scoped_v2b_summary(
+        branch_id=branch_id,
+        year=year,
+        single_branch_view=single_branch_view,
+    )
+
+
+def build_v2b_summary_csv(payload: dict) -> str:
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["Visitor to Brethren Summary"])
+    writer.writerow(["year", payload.get("year", "")])
+    summary = payload.get("summary") or {}
+    for key in (
+        "active_prospects",
+        "completed_conversions",
+        "total_reached",
+        "drop_offs",
+        "recovery_rate",
+    ):
+        writer.writerow([key, summary.get(key, "")])
+    writer.writerow([])
+
+    writer.writerow(["Funnel", "Stage", "Count", "Rate from Previous (%)"])
+    for row in payload.get("funnel", []):
+        writer.writerow(
+            [
+                "",
+                row.get("label", ""),
+                row.get("count", 0),
+                row.get("rate_from_previous", ""),
+            ]
+        )
+    writer.writerow([])
+
+    writer.writerow(
+        [
+            "Monthly Trend",
+            "Month",
+            "Invited",
+            "Attended",
+            "Baptized",
+            "Received HG",
+            "Converted",
+        ]
+    )
+    for row in payload.get("monthly_trend", []):
+        writer.writerow(
+            [
+                "",
+                row.get("month", ""),
+                row.get("invited_count", 0),
+                row.get("attended_count", 0),
+                row.get("baptized_count", 0),
+                row.get("received_hg_count", 0),
+                row.get("converted_count", 0),
+            ]
+        )
+    writer.writerow([])
+
+    leakage = payload.get("leakage") or {}
+    writer.writerow(["Leakage by Stage", "Stage", "Count"])
+    for row in leakage.get("by_stage", []):
+        writer.writerow(["", row.get("label", ""), row.get("count", 0)])
+    writer.writerow([])
+    writer.writerow(["Leakage by Reason", "Reason", "Count"])
+    for row in leakage.get("by_reason", []):
+        writer.writerow(["", row.get("label", ""), row.get("count", 0)])
+    writer.writerow([])
+
+    if payload.get("by_cluster"):
+        writer.writerow(
+            [
+                "Clusters",
+                "Name",
+                "Active Prospects",
+                "Completed Conversions",
+                "Drop-offs",
+            ]
+        )
+        for row in payload["by_cluster"]:
+            writer.writerow(
+                [
+                    row.get("cluster_id", ""),
+                    row.get("cluster_name", ""),
+                    row.get("active_prospects", 0),
+                    row.get("completed_conversions", 0),
+                    row.get("drop_offs", 0),
+                ]
+            )
+
+    return output.getvalue()
+
+
+def build_stewardship_summary(
+    *,
+    branch_id: int | None = None,
+    year: int,
+):
+    """Build stewardship (giving and pledges) analytics for optional branch scope."""
+    from apps.finance.services import generate_branch_scoped_stewardship_summary
+
+    return generate_branch_scoped_stewardship_summary(branch_id=branch_id, year=year)
+
+
+def build_stewardship_summary_csv(payload: dict) -> str:
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["Stewardship Summary"])
+    writer.writerow(["year", payload.get("year", "")])
+    summary = payload.get("summary") or {}
+    for key in (
+        "total_collected",
+        "donation_total",
+        "offering_total",
+        "pledge_received_in_year",
+        "total_pledged",
+        "outstanding_balance",
+        "donation_count",
+        "offering_count",
+        "includes_offerings",
+    ):
+        writer.writerow([key, summary.get(key, "")])
+    writer.writerow([])
+
+    writer.writerow(
+        [
+            "Monthly Trend",
+            "Month",
+            "Donations",
+            "Offerings",
+            "Pledge Contributions",
+        ]
+    )
+    for row in payload.get("monthly_trend", []):
+        writer.writerow(
+            [
+                "",
+                row.get("month", ""),
+                row.get("donation_total", 0),
+                row.get("offering_total", 0),
+                row.get("pledge_contribution_total", 0),
+            ]
+        )
+    writer.writerow([])
+
+    donations = payload.get("donations") or {}
+    writer.writerow(["Purpose Breakdown", "Purpose", "Amount"])
+    for purpose, amount in (donations.get("purpose_breakdown") or {}).items():
+        writer.writerow(["", purpose, amount])
+    writer.writerow([])
+
+    writer.writerow(
+        [
+            "Pledges",
+            "Title",
+            "Pledged",
+            "Received",
+            "Balance",
+            "Progress (%)",
+            "Status",
+        ]
+    )
+    for row in payload.get("pledges", []):
+        writer.writerow(
+            [
+                row.get("id", ""),
+                row.get("pledge_title", ""),
+                row.get("pledge_amount", 0),
+                row.get("amount_received", 0),
+                row.get("balance", 0),
+                row.get("progress_percent", 0),
+                row.get("status", ""),
+            ]
+        )
+    writer.writerow([])
+
+    if summary.get("includes_offerings"):
+        writer.writerow(["Weekly Offerings", "Week Start", "Total"])
+        for row in payload.get("offerings_weekly", []):
+            writer.writerow(
+                ["", row.get("week_start", ""), row.get("total_amount", 0)]
+            )
+
+    return output.getvalue()
+
+
+def _overview_module(
+    *,
+    tab: str,
+    title: str,
+    headline_label: str,
+    headline_value,
+    hint: str | None = None,
+):
+    return {
+        "tab": tab,
+        "title": title,
+        "headline": {"label": headline_label, "value": headline_value},
+        "hint": hint,
+    }
+
+
+def build_overview_summary(
+    *,
+    people_qs,
+    cluster_reports_qs,
+    evangelism_reports_qs,
+    service_attendance_qs,
+    lesson_progress_qs,
+    clusters,
+    branch_id: int | None,
+    year: int,
+    months: int,
+    single_branch_view: bool,
+    compliance_start_date: date,
+    compliance_end_date: date,
+):
+    """Compose headline KPIs from each live analytics module."""
+    people = build_people_summary(
+        people_qs,
+        months=months,
+        single_branch_view=single_branch_view,
+    )
+    engagement = build_engagement_summary(
+        cluster_reports_qs,
+        evangelism_reports_qs,
+        service_attendance_qs,
+        months=months,
+        single_branch_view=single_branch_view,
+    )
+    ncc = build_ncc_summary(lesson_progress_qs, people_qs, year=year)
+    cym = build_cym_summary(branch_id=branch_id, year=year, month=None)
+    v2b = build_v2b_summary(
+        branch_id=branch_id,
+        year=year,
+        single_branch_view=single_branch_view,
+    )
+    stewardship = build_stewardship_summary(branch_id=branch_id, year=year)
+    compliance = build_compliance_payload(
+        clusters,
+        compliance_start_date,
+        compliance_end_date,
+    )
+
+    people_summary = people["summary"]
+    engagement_summary = engagement["summary"]
+    compliance_summary = compliance["summary"]
+    v2b_summary = v2b["summary"]
+    ncc_overall = ncc.get("overall") or {}
+    stewardship_summary = stewardship["summary"]
+
+    modules = [
+        _overview_module(
+            tab="people",
+            title="People & Demographics",
+            headline_label="Total People",
+            headline_value=people_summary["total_people"],
+            hint=f"{people_summary['active_members']} active members",
+        ),
+        _overview_module(
+            tab="v2b",
+            title="Visitor to Brethren",
+            headline_label="Completed Conversions",
+            headline_value=v2b_summary.get("completed_conversions", 0),
+            hint=f"{v2b_summary.get('active_prospects', 0)} active prospects",
+        ),
+        _overview_module(
+            tab="engagement",
+            title="Engagement & Attendance",
+            headline_label="Avg Sunday Attendance",
+            headline_value=round(engagement_summary["service_avg_headcount"], 1),
+            hint=f"{engagement_summary['cluster_reports']} cluster reports",
+        ),
+        _overview_module(
+            tab="ncc",
+            title="New Converts Course",
+            headline_label="NCC Participants",
+            headline_value=ncc.get("total_participants", 0),
+            hint=f"{ncc_overall.get('COMPLETED', 0)} completed",
+        ),
+        _overview_module(
+            tab="cym",
+            title="Children Youth Ministry",
+            headline_label="Sunday School Students",
+            headline_value=cym.get("total_students", 0),
+            hint=(
+                f"{cym.get('average_attendance_rate', 0):.1f}% avg attendance"
+                if cym.get("average_attendance_rate") is not None
+                else None
+            ),
+        ),
+        _overview_module(
+            tab="compliance",
+            title="Compliance & Operations",
+            headline_label="Compliance Rate",
+            headline_value=f"{compliance_summary['compliance_rate']:.1f}%",
+            hint=f"{compliance_summary['compliant_clusters']} compliant clusters",
+        ),
+        _overview_module(
+            tab="stewardship",
+            title="Stewardship",
+            headline_label="Total Collected",
+            headline_value=f"₱{stewardship_summary['total_collected']:,.2f}",
+            hint=f"{stewardship_summary['donation_count']} donations",
+        ),
+    ]
+
+    return {
+        "year": year,
+        "months": months,
+        "modules": modules,
+    }

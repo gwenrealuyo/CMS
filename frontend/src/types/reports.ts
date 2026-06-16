@@ -211,3 +211,142 @@ export interface CymSummary {
   by_class: CymClassRow[];
   unenrolled_by_category: CymUnenrolledCategory[];
 }
+
+export type V2bPipelineStage =
+  | "INVITED"
+  | "ATTENDED"
+  | "BAPTIZED"
+  | "RECEIVED_HG"
+  | "CONVERTED";
+
+export interface V2bFunnelStage {
+  stage: V2bPipelineStage;
+  label: string;
+  count: number;
+  rate_from_previous: number | null;
+}
+
+export interface V2bMonthlyTrendPoint {
+  year: number;
+  month: number;
+  invited_count: number;
+  attended_count: number;
+  baptized_count: number;
+  received_hg_count: number;
+  converted_count: number;
+}
+
+export interface V2bLeakageBreakdownItem {
+  stage?: string;
+  reason?: string;
+  label: string;
+  count: number;
+}
+
+export interface V2bLeakageSection {
+  total_drop_offs: number;
+  recovered: number;
+  recovery_rate: number;
+  by_stage: V2bLeakageBreakdownItem[];
+  by_reason: V2bLeakageBreakdownItem[];
+}
+
+export interface V2bClusterRow {
+  cluster_id: number;
+  cluster_name: string;
+  active_prospects: number;
+  completed_conversions: number;
+  drop_offs: number;
+}
+
+export interface V2bSummaryKpis {
+  active_prospects: number;
+  completed_conversions: number;
+  total_reached: number;
+  drop_offs: number;
+  recovery_rate: number;
+}
+
+export interface V2bSummary {
+  year: number;
+  summary: V2bSummaryKpis;
+  funnel: V2bFunnelStage[];
+  monthly_trend: V2bMonthlyTrendPoint[];
+  leakage: V2bLeakageSection;
+  by_cluster: V2bClusterRow[];
+}
+
+export interface StewardshipSummaryKpis {
+  total_collected: number;
+  donation_total: number;
+  offering_total: number;
+  pledge_received_in_year: number;
+  total_pledged: number;
+  outstanding_balance: number;
+  donation_count: number;
+  offering_count: number;
+  includes_offerings: boolean;
+}
+
+export interface StewardshipDonationStats {
+  total_amount: number;
+  donation_count: number;
+  average_donation: number;
+  purpose_breakdown: Record<string, number>;
+}
+
+export interface StewardshipOfferingWeeklyRow {
+  week_start: string | null;
+  total_amount: number;
+}
+
+export interface StewardshipMonthlyTrendPoint {
+  month: number;
+  donation_total: number;
+  offering_total: number;
+  pledge_contribution_total: number;
+}
+
+export interface StewardshipPledgeRow {
+  id: number;
+  pledge_title: string;
+  pledge_amount: number;
+  amount_received: number;
+  balance: number;
+  progress_percent: number;
+  status: string;
+}
+
+export interface StewardshipSummary {
+  year: number;
+  summary: StewardshipSummaryKpis;
+  donations: StewardshipDonationStats;
+  offerings_weekly: StewardshipOfferingWeeklyRow[];
+  monthly_trend: StewardshipMonthlyTrendPoint[];
+  pledges: StewardshipPledgeRow[];
+}
+
+export type OverviewModuleTab =
+  | "people"
+  | "v2b"
+  | "engagement"
+  | "ncc"
+  | "cym"
+  | "compliance"
+  | "stewardship";
+
+export interface OverviewModuleKpi {
+  tab: OverviewModuleTab;
+  title: string;
+  headline: {
+    label: string;
+    value: string | number;
+  };
+  hint: string | null;
+}
+
+export interface OverviewSummary {
+  year: number;
+  months: number;
+  modules: OverviewModuleKpi[];
+}

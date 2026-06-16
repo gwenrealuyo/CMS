@@ -5,11 +5,17 @@ import SegmentedControl from "@/src/components/ui/SegmentedControl";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import AnalyticsBranchSelector from "@/src/components/analytics/AnalyticsBranchSelector";
 import AnalyticsPlaceholder from "@/src/components/analytics/AnalyticsPlaceholder";
+import AnalyticsTabHeader from "@/src/components/analytics/AnalyticsTabHeader";
 import ComplianceDashboard from "@/src/components/analytics/compliance/ComplianceDashboard";
 import PeopleDashboard from "@/src/components/analytics/people/PeopleDashboard";
+import V2bDashboard from "@/src/components/analytics/v2b/V2bDashboard";
+import E1r1Dashboard from "@/src/components/analytics/e1r1/E1r1Dashboard";
 import EngagementDashboard from "@/src/components/analytics/engagement/EngagementDashboard";
 import NccDashboard from "@/src/components/analytics/ncc/NccDashboard";
 import CymDashboard from "@/src/components/analytics/cym/CymDashboard";
+import StewardshipDashboard from "@/src/components/analytics/stewardship/StewardshipDashboard";
+import OverviewDashboard from "@/src/components/analytics/overview/OverviewDashboard";
+import BuilderDashboard from "@/src/components/analytics/builder/BuilderDashboard";
 import type { ReportsScopeMeta } from "@/src/types/reports";
 import {
   ANALYTICS_TABS,
@@ -71,21 +77,36 @@ export default function AnalyticsPageView({
               />
             </div>
 
-            {activeTab === "compliance" ? (
+            <AnalyticsTabHeader
+              title={tabMeta.title}
+              description={tabMeta.description}
+            />
+
+            {activeTab === "overview" ? (
+              <OverviewDashboard
+                selectedBranchId={selectedBranchId}
+                onTabChange={onTabChange}
+              />
+            ) : activeTab === "builder" ? (
+              <BuilderDashboard selectedBranchId={selectedBranchId} />
+            ) : activeTab === "compliance" ? (
               <ComplianceDashboard selectedBranchId={selectedBranchId} />
             ) : activeTab === "people" ? (
               <PeopleDashboard selectedBranchId={selectedBranchId} />
+            ) : activeTab === "v2b" ? (
+              <V2bDashboard selectedBranchId={selectedBranchId} />
+            ) : activeTab === "e1r1" ? (
+              <E1r1Dashboard selectedBranchId={selectedBranchId} meta={meta} />
             ) : activeTab === "engagement" ? (
               <EngagementDashboard selectedBranchId={selectedBranchId} />
             ) : activeTab === "ncc" ? (
               <NccDashboard selectedBranchId={selectedBranchId} />
             ) : activeTab === "cym" ? (
               <CymDashboard selectedBranchId={selectedBranchId} />
+            ) : activeTab === "stewardship" ? (
+              <StewardshipDashboard selectedBranchId={selectedBranchId} />
             ) : (
-              <AnalyticsPlaceholder
-                title={tabMeta.title}
-                description={tabMeta.description}
-              />
+              <AnalyticsPlaceholder />
             )}
           </>
         )}

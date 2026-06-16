@@ -1,7 +1,7 @@
 # Church CMS — User Management Guide
 
 **Audience:** Administrators who create accounts and assign module access  
-**Last updated:** June 2025
+**Last updated:** June 2026
 
 **PDF:** [`User-Management-Guide.pdf`](./User-Management-Guide.pdf) — regenerate with:
 
@@ -18,7 +18,7 @@ python3 docs/scripts/generate_user_management_pdf.py
 - You need an **ADMIN** account. Do not share your login; each admin should have their own account.
 - You must use the main web app (not Django `/admin/`).
 - Have the person's **first name**, **last name**, and **branch** ready before creating them.
-- For login-capable users (Member, Coordinator, Pastor, Admin), you will set or auto-generate a **temporary password**.
+- For login-capable users (Member, Pastor, Admin), you will set or auto-generate a **temporary password**.
 
 ---
 
@@ -58,11 +58,12 @@ In the **Account & Role** section:
 
 | Role | Can log in? | Typical use |
 |------|-------------|-------------|
-| **Member** | Yes | Regular church member |
+| **Member** | Yes | Regular church member; add module assignments for coordinator/teacher access |
 | **Visitor** | No | Guest record only |
-| **Coordinator** | Yes | Base role; often combined with module assignments |
 | **Pastor** | Yes | Branch or HQ pastoral oversight |
 | **Admin** | Yes | Full system access (use sparingly) |
+
+Coordinator capabilities come from **module assignments** (see Part 3 and the Access Levels Guide).
 
 Choose **Status** (e.g. Active). For visitors, use Invited or Attended.
 
@@ -116,7 +117,7 @@ If someone forgets their password:
 
 ## Part 3 — Assign module coordinator access
 
-Module assignments grant **extra** access beyond the base role (e.g. Cluster Coordinator, Lessons Teacher). A person can hold **multiple** assignments across modules.
+Module assignments grant coordinator, teacher, and bible-sharer access within a module (e.g. Cluster Coordinator, Lessons Teacher). A person is usually a **Member** (or Pastor) with one or more assignments. A person can hold **multiple** assignments across modules.
 
 ### Step 1: Open Module Coordinators
 

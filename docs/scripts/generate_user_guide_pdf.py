@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/User-Management-Guide.pdf from docs/USER_MANAGEMENT_GUIDE.md."""
+"""Generate docs/User-Guide.pdf from docs/USER_GUIDE.md."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from pdf_renderer import generate_pdf
 
-MD_PATH = ROOT / "docs" / "USER_MANAGEMENT_GUIDE.md"
-PDF_PATH = ROOT / "docs" / "User-Management-Guide.pdf"
-HEADER = "The Lighthouse - User Management Guide"
+MD_PATH = ROOT / "docs" / "USER_GUIDE.md"
+PDF_PATH = ROOT / "docs" / "User-Guide.pdf"
+HEADER = "The Lighthouse - User Guide"
 
 
 def main() -> int:

@@ -5,7 +5,7 @@
 The Authentication module provides JWT-based authentication and role-based access control (RBAC) for the Church Management System. Key features include:
 
 - **JWT Token Authentication**: Stateless authentication using JSON Web Tokens
-- **Role-Based Access Control**: Granular permissions based on user roles (ADMIN, PASTOR, COORDINATOR, MEMBER, VISITOR)
+- **Role-Based Access Control**: Granular permissions based on user roles (ADMIN, PASTOR, MEMBER, VISITOR) plus `ModuleCoordinator` assignments
 - **Login/Logout**: Secure authentication with "Remember Me" functionality
 - **Token Refresh**: Automatic token refresh before expiration
 - **Protected Routes**: Frontend route protection with role-based access
@@ -35,13 +35,12 @@ The system uses **JWT (JSON Web Tokens)** for stateless authentication:
 
 1. **ADMIN**: Full access to all modules
 2. **PASTOR**: Access to all modules except admin settings
-3. **COORDINATOR**: Access to clusters, events, people, lessons, attendance, ministries, sunday school
-4. **MEMBER**: Read access to most modules, limited write access (own data)
-5. **VISITOR**: Cannot log in (excluded from authentication)
+3. **MEMBER**: Read access to most modules, limited write access (own data). Members with `ModuleCoordinator` assignments gain scoped coordinator capabilities (clusters, events, lessons, attendance, ministries, sunday school, evangelism).
+4. **VISITOR**: Cannot log in (excluded from authentication)
 
 ### Login Eligibility
 
-- **Can Log In**: MEMBER, COORDINATOR, PASTOR, ADMIN
+- **Can Log In**: MEMBER, PASTOR, ADMIN
 - **Cannot Log In**: VISITOR (attempting to log in shows error: "Visitor accounts cannot log in. Please contact an administrator.")
 
 ## Backend Implementation
@@ -164,12 +163,12 @@ The system uses **JWT (JSON Web Tokens)** for stateless authentication:
    - Allows access to ADMIN or PASTOR roles
    - Used for: Finance module
 
-4. **IsCoordinatorOrAbove**
-   - Allows access to COORDINATOR, PASTOR, or ADMIN roles
-   - Used for: Clusters module, People write operations
+4. **HasAnyModuleCoordinatorAssignment**
+   - Allows access to any user holding at least one `ModuleCoordinator` assignment
+   - Combined with `IsAdminOrPastor` to gate People/Family create and update operations
 
 5. **IsMemberOrAbove**
-   - Allows access to MEMBER, COORDINATOR, PASTOR, or ADMIN roles
+   - Allows access to MEMBER, PASTOR, or ADMIN roles
    - Excludes VISITOR
    - Used for: Events, Lessons, Ministries, Sunday School, Attendance, Evangelism, People read operations
 
@@ -177,10 +176,10 @@ The system uses **JWT (JSON Web Tokens)** for stateless authentication:
 
 | Module | Read Permission | Write Permission |
 |--------|----------------|------------------|
-| **People** | IsMemberOrAbove | IsCoordinatorOrAbove |
+| **People** | IsMemberOrAbove | IsAdminOrPastor or HasAnyModuleCoordinatorAssignment (create/update); IsAdminOrPastor (destroy) |
 | **Finance** | IsAdminOrPastor | IsAdminOrPastor |
 | **Events** | IsMemberOrAbove | IsMemberOrAbove |
-| **Clusters** | IsCoordinatorOrAbove | IsCoordinatorOrAbove |
+| **Clusters** | IsMemberOrAbove | HasModuleAccess('CLUSTER') |
 | **Lessons** | IsMemberOrAbove | IsMemberOrAbove |
 | **Ministries** | IsMemberOrAbove | IsMemberOrAbove |
 | **Sunday School** | IsMemberOrAbove | IsMemberOrAbove |
@@ -351,7 +350,7 @@ The API client automatically:
 - **Features**:
   - Role-based menu filtering
   - Hides Finance link for non-ADMIN/non-PASTOR users
-  - Hides Clusters link for non-COORDINATOR users
+  - Clusters link visible to MEMBER and above (cluster write actions still require a CLUSTER coordinator assignment)
   - Completely hides items (no disabled/grayed-out states)
 
 ## User Management
@@ -466,11 +465,10 @@ Errors are extracted from:
 3. **Role-Based Access**:
    - [ ] MEMBER can access People, Events, Lessons, etc.
    - [ ] MEMBER cannot access Finance
-   - [ ] MEMBER cannot access Clusters
-   - [ ] COORDINATOR can access Clusters
+   - [ ] MEMBER (no assignment) has read-only Clusters access
+   - [ ] MEMBER with a CLUSTER coordinator assignment can manage their clusters
    - [ ] ADMIN/PASTOR can access Finance
    - [ ] Sidebar hides Finance for non-ADMIN/non-PASTOR
-   - [ ] Sidebar hides Clusters for non-COORDINATOR
 
 4. **Protected Routes**:
    - [ ] Unauthenticated users redirected to login

@@ -1,4 +1,5 @@
-import { ModuleCoordinator, Person } from "@/src/types/person";
+import { User } from "@/src/lib/api";
+import { ModuleCoordinator } from "@/src/types/person";
 import { ModuleType } from "@/src/types/moduleSettings";
 
 const EVENTS_WRITE_LEVELS: ModuleCoordinator["level"][] = [
@@ -9,7 +10,7 @@ const EVENTS_WRITE_LEVELS: ModuleCoordinator["level"][] = [
 ];
 
 export type CanWriteEventsContext = {
-  user: Person | null;
+  user: User | null;
   moduleEnabled?: Partial<Record<ModuleType, boolean>>;
 };
 

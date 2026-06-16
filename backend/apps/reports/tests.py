@@ -355,7 +355,7 @@ class PeopleSummaryTests(TestCase):
             gender="MALE",
             date_of_birth=today.replace(year=today.year - 30),
             water_baptism_date=today,
-            first_activity_attended="SUNDAY_SERVICE",
+            first_activity_attended_id="SUNDAY_SERVICE",
         )
         self.north_visitor = Person.objects.create_user(
             username="north_visitor",

@@ -5,6 +5,7 @@ from django.utils import timezone
 from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting
 from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
 from apps.authentication.password_validators import PasswordStrengthValidator
+from apps.events.models import EventType
 
 
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
@@ -267,6 +268,12 @@ class PersonSerializer(serializers.ModelSerializer):
         write_only=True, required=False, default=True
     )
     temporary_password = serializers.CharField(read_only=True, required=False)
+    first_activity_attended = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=EventType.objects.all(),
+        allow_null=True,
+        required=False,
+    )
 
     class Meta:
         model = Person
@@ -410,13 +417,10 @@ class PersonSerializer(serializers.ModelSerializer):
             attrs.pop("initial_password", None)
             attrs.pop("generate_temporary_password", None)
 
-        return attrs
+        if attrs.get("first_activity_attended") == "":
+            attrs["first_activity_attended"] = None
 
-    def _normalize_first_activity_attended(self, validated_data):
-        if "first_activity_attended" in validated_data and not validated_data.get(
-            "first_activity_attended"
-        ):
-            validated_data["first_activity_attended"] = ""
+        return attrs
 
     def _trigger_legacy_lessons_backfill(
         self,
@@ -447,7 +451,6 @@ class PersonSerializer(serializers.ModelSerializer):
         )
 
     def create(self, validated_data):
-        self._normalize_first_activity_attended(validated_data)
         request = self.context.get("request")
         is_plain_member = bool(
             request
@@ -534,7 +537,6 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update person and track branch transfers"""
-        self._normalize_first_activity_attended(validated_data)
         previous_has_finished_lessons = instance.has_finished_lessons
         previous_lessons_finished_at = instance.lessons_finished_at
         # Store old branch value before update

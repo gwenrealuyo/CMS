@@ -67,23 +67,12 @@ class Person(AbstractUser):
     spirit_baptism_date = models.DateField(null=True, blank=True)
     has_finished_lessons = models.BooleanField(default=False)
     lessons_finished_at = models.DateField(null=True, blank=True)
-    first_activity_attended = models.CharField(
+    first_activity_attended = models.ForeignKey(
+        "events.EventType",
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        max_length=50,
-        choices=[
-            ("BS/CLUSTER_EVANGELISM", "BS/Cluster Evangelism"),
-            ("CLUSTERING", "Clustering"),
-            ("SUNDAY_SERVICE", "Sunday Service"),
-            ("DOCTRINAL_CLASS", "Doctrinal Class"),
-            ("PRAYER_MEETING", "Prayer Meeting"),
-            ("CYM_CLASS", "CYM Class"),
-            ("MINI_WORSHIP", "Mini Worship"),
-            ("GOLDEN_WARRIORS", "Golden Warriors"),
-            ("CAMPING", "Camping"),
-            ("AWTA", "AWTA"),
-            ("CONFERENCE", "Conference"),
-            ("CONCERT_CRUSADE", "Concert/Crusade"),
-        ],
+        related_name="first_activity_people",
     )
     inviter = models.ForeignKey(
         "self",

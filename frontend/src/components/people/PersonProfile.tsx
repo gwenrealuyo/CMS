@@ -6,6 +6,7 @@ import { useEffect, useState, useMemo } from "react";
 import { journeysApi, branchesApi } from "@/src/lib/api";
 import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import AdminResetPasswordModal from "@/src/components/people/AdminResetPasswordModal";
 
 interface PersonProfileProps {
@@ -44,6 +45,7 @@ export default function PersonProfile({
   showTopHeader = true,
 }: PersonProfileProps) {
   const { user } = useAuth();
+  const { getLabel: getEventTypeLabel } = useEventTypeOptions();
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const canResetPassword =
     user?.role === "ADMIN" && person.role !== "VISITOR";
@@ -169,10 +171,7 @@ export default function PersonProfile({
 
   const prettifyFirstActivity = (rawValue?: string) => {
     if (!rawValue) return "Not specified";
-    return rawValue
-      .replace(/_/g, " ")
-      .toLowerCase()
-      .replace(/\b\w/g, (ch: string) => ch.toUpperCase());
+    return getEventTypeLabel(rawValue) || rawValue;
   };
 
   const formatDisplayDate = (rawValue?: string | null) => {

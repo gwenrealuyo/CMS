@@ -16,5 +16,5 @@ EVENT_TYPE_SEED = [
     ("AWTA", "AWTA", 110, "#dc2626"),
     ("CONFERENCE", "Conference", 120, "#ea580c"),
     ("SUNDAY_SCHOOL", "Sunday School", 130, "#2563eb"),
-    ("OTHER", "Others", 140, "#6b7280"),
+    ("CONCERT_CRUSADE", "Concert/Crusade", 150, "#7c2d12"),
 ]

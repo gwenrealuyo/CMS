@@ -100,7 +100,7 @@ For **date_first_attended**:
 4. For `first_activity_attended`:
    - If changed and `date_first_attended` is set: Update the existing journey description
 5. Use the date directly for the Journey's `date` field (no formatting needed in title)
-6. Format `first_activity_attended` using `get_first_activity_attended_display()` to get the human-readable label
+6. Format `first_activity_attended` using `person.first_activity_attended.label` (FK to `EventType`) to get the human-readable label
 
 ## Testing Considerations
 

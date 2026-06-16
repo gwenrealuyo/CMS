@@ -1,9 +1,10 @@
 import { useState, FormEvent, useEffect, useRef } from "react";
 import { Person, PersonUI } from "@/src/types/person";
-import { peopleApi } from "@/src/lib/api";
+import { peopleApi, eventTypesApi } from "@/src/lib/api";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
+import { EventTypeOption } from "@/src/types/event";
 
 interface AddVisitorModalProps {
   isOpen: boolean;
@@ -29,11 +30,11 @@ export default function AddVisitorModal({
     inviter: "",
     date_first_attended:
       defaultDateFirstAttended || new Date().toISOString().split("T")[0],
-    first_activity_attended:
-      (defaultFirstActivityAttended as any) || ("CLUSTERING" as any),
+    first_activity_attended: defaultFirstActivityAttended || "",
     gender: "" as "MALE" | "FEMALE" | "",
     note: "",
   });
+  const [eventTypes, setEventTypes] = useState<EventTypeOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [people, setPeople] = useState<PersonUI[]>([]);
@@ -41,16 +42,43 @@ export default function AddVisitorModal({
   const [showInviterDropdown, setShowInviterDropdown] = useState(false);
   const inviterDropdownRef = useRef<HTMLDivElement>(null);
 
+  const defaultActivityValue =
+    defaultFirstActivityAttended ||
+    eventTypes.find((type) => type.code === "CLUSTERING")?.code ||
+    eventTypes[0]?.code ||
+    "";
+
   useEffect(() => {
     if (!isOpen) return;
+    const defaultActivity =
+      defaultFirstActivityAttended ||
+      eventTypes.find((type) => type.code === "CLUSTERING")?.code ||
+      eventTypes[0]?.code ||
+      "";
     setFormData((prev) => ({
       ...prev,
       date_first_attended:
         defaultDateFirstAttended || new Date().toISOString().split("T")[0],
-      first_activity_attended:
-        (defaultFirstActivityAttended as any) || "CLUSTERING",
+      first_activity_attended: defaultActivity,
     }));
-  }, [isOpen, defaultDateFirstAttended, defaultFirstActivityAttended]);
+  }, [
+    isOpen,
+    defaultDateFirstAttended,
+    defaultFirstActivityAttended,
+    eventTypes,
+  ]);
+
+  useEffect(() => {
+    const fetchEventTypes = async () => {
+      try {
+        const response = await eventTypesApi.list();
+        setEventTypes(response.data);
+      } catch (error) {
+        console.error("Error fetching event types:", error);
+      }
+    };
+    fetchEventTypes();
+  }, []);
 
   // Fetch people for inviter selection
   useEffect(() => {
@@ -114,8 +142,7 @@ export default function AddVisitorModal({
         inviter: "",
         date_first_attended:
           defaultDateFirstAttended || new Date().toISOString().split("T")[0],
-        first_activity_attended:
-          (defaultFirstActivityAttended as any) || "CLUSTERING",
+        first_activity_attended: defaultActivityValue,
         gender: "",
         note: "",
       });
@@ -138,8 +165,7 @@ export default function AddVisitorModal({
         inviter: "",
         date_first_attended:
           defaultDateFirstAttended || new Date().toISOString().split("T")[0],
-        first_activity_attended:
-          (defaultFirstActivityAttended as any) || "CLUSTERING",
+        first_activity_attended: defaultActivityValue,
         gender: "",
         note: "",
       });
@@ -341,20 +367,11 @@ export default function AddVisitorModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">Select...</option>
-              <option value="BS/CLUSTER_EVANGELISM">
-                BS/Cluster Evangelism
-              </option>
-              <option value="CLUSTERING">Clustering</option>
-              <option value="SUNDAY_SERVICE">Sunday Service</option>
-              <option value="DOCTRINAL_CLASS">Doctrinal Class</option>
-              <option value="PRAYER_MEETING">Prayer Meeting</option>
-              <option value="CYM_CLASS">CYM Class</option>
-              <option value="MINI_WORSHIP">Mini Worship</option>
-              <option value="GOLDEN_WARRIORS">Golden Warriors</option>
-              <option value="CAMPING">Camping</option>
-              <option value="AWTA">AWTA</option>
-              <option value="CONFERENCE">Conference</option>
-              <option value="CONCERT_CRUSADE">Concert/Crusade</option>
+              {eventTypes.map((type) => (
+                <option key={type.code} value={type.code}>
+                  {type.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>

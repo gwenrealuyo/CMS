@@ -6,6 +6,7 @@ Usage: python manage.py populate_sample_data
 from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
 from apps.people.models import Branch, Person, Family, Journey, ModuleCoordinator
+from apps.events.models import EventType
 from datetime import datetime, timedelta
 from decimal import Decimal
 import random
@@ -235,14 +236,9 @@ class Command(BaseCommand):
             "ATTENDED",
         ]  # Visitors can only be INVITED or ATTENDED
         genders = ["MALE", "FEMALE"]
-        activities = [
-            "SUNDAY_SERVICE",
-            "BS/CLUSTER_EVANGELISM",
-            "DOCTRINAL_CLASS",
-            "PRAYER_MEETING",
-            "MINI_WORSHIP",
-            "CONFERENCE",
-        ]
+        activities = list(
+            EventType.objects.order_by("sort_order", "code").values_list("code", flat=True)
+        )
 
         sample_branch_main, _ = Branch.objects.get_or_create(
             code="SAMPLE_MAIN",
@@ -379,7 +375,7 @@ class Command(BaseCommand):
                 date_first_attended=first_attended.date(),
                 water_baptism_date=water_date,
                 spirit_baptism_date=spirit_date,
-                first_activity_attended=random.choice(activities),
+                first_activity_attended_id=random.choice(activities),
                 member_id=(
                     f"MEM-{random.randint(1000, 9999)}" if random.random() > 0.3 else ""
                 ),

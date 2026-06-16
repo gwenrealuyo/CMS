@@ -63,19 +63,7 @@ export interface Person {
   spirit_baptism_date?: string; // ISO date string
   has_finished_lessons?: boolean;
   lessons_finished_at?: string; // ISO date string
-  first_activity_attended?:
-    | "BS/CLUSTER_EVANGELISM"
-    | "CLUSTERING"
-    | "SUNDAY_SERVICE"
-    | "DOCTRINAL_CLASS"
-    | "PRAYER_MEETING"
-    | "CYM_CLASS"
-    | "MINI_WORSHIP"
-    | "GOLDEN_WARRIORS"
-    | "CAMPING"
-    | "AWTA"
-    | "CONFERENCE"
-    | "CONCERT_CRUSADE";
+  first_activity_attended?: string;
   inviter?: string; // ID of another Person
   /** Branch ID; may be absent/null on legacy records created before branch was enforced */
   branch?: number | null;

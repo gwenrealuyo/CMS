@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
+import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 
@@ -55,6 +56,7 @@ export default function PersonForm({
   panelLayout = false,
 }: PersonFormProps) {
   const { user, hasAnyModuleCoordinatorAssignment } = useAuth();
+  const { eventTypes } = useEventTypeOptions();
   const isMember = user?.role === "MEMBER";
   const isAdmin = user?.role === "ADMIN";
   const isCreating = !initialData?.id;
@@ -1195,26 +1197,9 @@ export default function PersonForm({
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     >
                       <option value="">Select activity</option>
-                      {[
-                        "BS/CLUSTER_EVANGELISM",
-                        "CLUSTERING",
-                        "SUNDAY_SERVICE",
-                        "DOCTRINAL_CLASS",
-                        "PRAYER_MEETING",
-                        "CYM_CLASS",
-                        "MINI_WORSHIP",
-                        "GOLDEN_WARRIORS",
-                        "CAMPING",
-                        "AWTA",
-                        "CONFERENCE",
-                        "CONCERT_CRUSADE",
-                      ].map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt
-                            .toLowerCase()
-                            .split("_")
-                            .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-                            .join(" ")}
+                      {eventTypes.map((type) => (
+                        <option key={type.code} value={type.code}>
+                          {type.label}
                         </option>
                       ))}
                     </select>

@@ -59,7 +59,7 @@ def store_person_original_values(sender, instance, **kwargs):
             instance._original_spirit_baptism_date = original.spirit_baptism_date
             instance._original_date_first_invited = original.date_first_invited
             instance._original_date_first_attended = original.date_first_attended
-            instance._original_first_activity_attended = original.first_activity_attended
+            instance._original_first_activity_attended = original.first_activity_attended_id
             instance._original_role = original.role
             instance._original_status = original.status
             instance._original_inviter_id = original.inviter_id
@@ -127,7 +127,7 @@ def manage_baptism_journeys(sender, instance, created, **kwargs):
             instance,
             instance.date_first_attended,
             original_first_attended,
-            instance.first_activity_attended,
+            instance.first_activity_attended_id,
             original_first_activity
         )
         _handle_invited_journey(
@@ -245,7 +245,11 @@ def _handle_first_attended_journey(person, current_date, original_date, current_
     # Build description with activity if available
     description = "First attendance"
     if current_activity:
-        activity_display = person.get_first_activity_attended_display()
+        activity_display = (
+            person.first_activity_attended.label
+            if person.first_activity_attended
+            else current_activity
+        )
         description = f"First attendance: {activity_display}"
     
     # Check if date was set or changed, or if activity changed

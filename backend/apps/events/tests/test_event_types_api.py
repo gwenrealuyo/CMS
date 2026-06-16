@@ -107,6 +107,27 @@ class EventTypeAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_cannot_delete_type_used_as_first_activity(self):
+        event_type = EventType.objects.create(
+            code="FIRST_ACTIVITY_TYPE",
+            label="First Activity Type",
+            color="#444444",
+            sort_order=220,
+        )
+        Person.objects.create_user(
+            username="first_activity_person",
+            password="x",
+            role="MEMBER",
+            status="ACTIVE",
+            first_activity_attended_id=event_type.code,
+        )
+        self.client.force_authenticate(user=self.events_coord)
+        response = self.client.delete(
+            reverse("event_types:event-type-detail", kwargs={"code": event_type.code})
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(EventType.objects.filter(code=event_type.code).exists())
+
     def test_member_cannot_create_type(self):
         self.client.force_authenticate(user=self.member)
         response = self.client.post(

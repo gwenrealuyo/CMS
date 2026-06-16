@@ -18,6 +18,7 @@ import {
   TableCellsIcon,
 } from "@heroicons/react/24/outline";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
+import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 
 interface DataTableProps {
   people: Person[];
@@ -38,6 +39,7 @@ export default function DataTable({
   onBulkDelete,
   onBulkExport,
 }: DataTableProps) {
+  const { getLabel: getEventTypeLabel } = useEventTypeOptions();
   type DisplayPerson = Person & {
     name: string;
     dateFirstAttended?: string;
@@ -315,7 +317,11 @@ export default function DataTable({
               add(key, source.dateFirstAttended);
               break;
             case "first_activity_attended":
-              add(key, source.first_activity_attended);
+              add(
+                key,
+                getEventTypeLabel(source.first_activity_attended) ||
+                  source.first_activity_attended
+              );
               break;
             case "water_baptism_date":
               add(key, source.waterBaptismDate);
@@ -1038,7 +1044,9 @@ export default function DataTable({
                           )}
                           {field === "first_activity_attended" && (
                             <div className="text-sm text-gray-900">
-                              {(person as any).first_activity_attended || "-"}
+                              {getEventTypeLabel(
+                                (person as any).first_activity_attended
+                              ) || "-"}
                             </div>
                           )}
                           {field === "role" && (
@@ -1270,7 +1278,9 @@ export default function DataTable({
                         )}
                         {field === "first_activity_attended" && (
                           <div className="text-sm text-gray-900">
-                            {(person as any).first_activity_attended || "-"}
+                            {getEventTypeLabel(
+                              (person as any).first_activity_attended
+                            ) || "-"}
                           </div>
                         )}
                         {field === "role" && (

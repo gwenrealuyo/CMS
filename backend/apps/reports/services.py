@@ -16,6 +16,7 @@ from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from apps.clusters.models import Cluster, ClusterComplianceNote, ClusterWeeklyReport
+from apps.events.models import EventType
 from apps.evangelism.models import EvangelismWeeklyReport
 from apps.clusters.serializers import (
     ClusterComplianceNoteSerializer,
@@ -360,21 +361,6 @@ def build_compliance_csv(payload):
 
 # --- People & demographics ---
 
-ENTRY_CHANNEL_LABELS = {
-    "BS/CLUSTER_EVANGELISM": "BS/Cluster Evangelism",
-    "CLUSTERING": "Clustering",
-    "SUNDAY_SERVICE": "Sunday Service",
-    "DOCTRINAL_CLASS": "Doctrinal Class",
-    "PRAYER_MEETING": "Prayer Meeting",
-    "CYM_CLASS": "CYM Class",
-    "MINI_WORSHIP": "Mini Worship",
-    "GOLDEN_WARRIORS": "Golden Warriors",
-    "CAMPING": "Camping",
-    "AWTA": "AWTA",
-    "CONFERENCE": "Conference",
-    "CONCERT_CRUSADE": "Concert/Crusade",
-}
-
 ROLE_LABELS = {
     "MEMBER": "Member",
     "VISITOR": "Visitor",
@@ -527,10 +513,11 @@ def build_people_summary(
     )
 
     channel_counter: Counter = Counter()
-    for channel in people_qs.values_list("first_activity_attended", flat=True):
+    for channel in people_qs.values_list("first_activity_attended_id", flat=True):
         key = channel if channel else "UNKNOWN"
         channel_counter[key] += 1
-    channel_labels = {**ENTRY_CHANNEL_LABELS, "UNKNOWN": "Unknown"}
+    channel_labels = dict(EventType.objects.values_list("code", "label"))
+    channel_labels["UNKNOWN"] = "Unknown"
     by_entry_channel = [
         {
             "key": key,

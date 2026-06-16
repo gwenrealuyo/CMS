@@ -1,26 +1,31 @@
 # Consolidated apps.events schema (EventType + seeded rows + Event.event_type FK).
+# Canonical seed lives in apps.events.event_type_seed (OTHER removed — use custom types).
 #
 # Rollback before replacing this file (disposable DB recommended):
-#   migrate evangelism zero → sunday_school zero → attendance zero → events zero
-#   (or migrate zero). Clear stale django_migrations rows if migration files changed.
-#
-# If you ever applied the removed migration `0002_legacy_fix_event_event_type`,
-# delete its row from django_migrations so Django does not expect a missing file:
-#   DELETE FROM django_migrations WHERE app='events' AND name LIKE '0002%%';
+#   migrate people 0010 → attendance zero → sunday_school zero → evangelism zero → events zero
+#   (or migrate zero). Clear stale django_migrations rows if migration files changed:
+#   DELETE FROM django_migrations WHERE app='events' AND name LIKE '0002%';
 
 from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
+
+import apps.events.models
 
 
 def seed_event_types(apps, schema_editor):
     from apps.events.event_type_seed import EVENT_TYPE_SEED
 
     EventType = apps.get_model("events", "EventType")
-    for code, label, sort_order, *_ in EVENT_TYPE_SEED:
+    for code, label, sort_order, color in EVENT_TYPE_SEED:
         EventType.objects.update_or_create(
             code=code,
-            defaults={"label": label, "sort_order": sort_order},
+            defaults={
+                "label": label,
+                "sort_order": sort_order,
+                "color": color,
+                "is_system": True,
+            },
         )
 
 
@@ -44,6 +49,15 @@ class Migration(migrations.Migration):
                 ("code", models.CharField(max_length=50, primary_key=True, serialize=False)),
                 ("label", models.CharField(max_length=100)),
                 ("sort_order", models.PositiveSmallIntegerField(default=0)),
+                (
+                    "color",
+                    models.CharField(
+                        default="#9CA3AF",
+                        max_length=7,
+                        validators=[apps.events.models.hex_color_validator],
+                    ),
+                ),
+                ("is_system", models.BooleanField(default=False)),
             ],
             options={
                 "ordering": ["sort_order", "code"],

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import Modal from "@/src/components/ui/Modal";
 import Button from "@/src/components/ui/Button";
@@ -57,6 +57,21 @@ export default function EventTypesManager({
   const [deleteTarget, setDeleteTarget] = useState<EventTypeOption | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const scrollModalContentToTop = useCallback(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    let parent: HTMLElement | null = el.parentElement;
+    while (parent) {
+      const { overflowY } = getComputedStyle(parent);
+      if (overflowY === "auto" || overflowY === "scroll") {
+        parent.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      parent = parent.parentElement;
+    }
+  }, []);
 
   const sortedTypes = useMemo(
     () =>
@@ -80,6 +95,11 @@ export default function EventTypesManager({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || !showForm || !editingCode) return;
+    requestAnimationFrame(() => scrollModalContentToTop());
+  }, [isOpen, showForm, editingCode, scrollModalContentToTop]);
+
   const openCreateForm = () => {
     setEditingCode(null);
     setForm({ ...emptyForm(), sort_order: nextSortOrder });
@@ -95,6 +115,7 @@ export default function EventTypesManager({
       sort_order: type.sort_order,
     });
     setShowForm(true);
+    requestAnimationFrame(() => scrollModalContentToTop());
   };
 
   const handleLabelChange = (label: string) => {
@@ -175,7 +196,7 @@ export default function EventTypesManager({
         onClose={onClose}
         title="Manage Event Types"
       >
-        <div className="space-y-4">
+        <div ref={contentRef} className="space-y-4">
           <p className="text-sm text-gray-600">
             Customize labels and colors for calendar dots and agenda chips.
             System types cannot be deleted.

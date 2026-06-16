@@ -59,6 +59,16 @@ class EventTypeViewSet(viewsets.ModelViewSet):
                 {"detail": "Cannot delete an event type that is used by existing events."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if instance.first_activity_people.exists():
+            return Response(
+                {
+                    "detail": (
+                        "Cannot delete an event type that is used as a person's "
+                        "first activity attended."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return super().destroy(request, *args, **kwargs)
 
 

@@ -271,7 +271,7 @@ class FirstAttendedJourneySyncTest(TestCase):
             role="MEMBER",
             branch=self.branch,
             date_first_attended=date(2026, 2, 2),
-            first_activity_attended="CLUSTERING",
+            first_activity_attended_id="CLUSTERING",
         )
         self.assertTrue(
             Journey.objects.filter(

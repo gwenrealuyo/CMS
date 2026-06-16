@@ -78,7 +78,7 @@ import {
 import { Branch } from "@/src/types/branch";
 import { ModuleSetting } from "@/src/types/moduleSettings";
 import { NotificationFeedResponse } from "@/src/types/notifications";
-import { ReportsScopeMeta, PeopleSummary, EngagementSummary } from "@/src/types/reports";
+import { ReportsScopeMeta, PeopleSummary, EngagementSummary, NccSummary, CymSummary } from "@/src/types/reports";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
@@ -1712,6 +1712,27 @@ export const reportsApi = {
   }) => api.get<EngagementSummary>("/reports/engagement/summary/", { params }),
   exportEngagementCSV: (params?: { branch_id?: number | string }) =>
     api.get("/reports/engagement/export/csv/", {
+      params,
+      responseType: "blob",
+    }),
+  getNccSummary: (params?: { branch_id?: number | string; year?: number }) =>
+    api.get<NccSummary>("/reports/ncc/summary/", { params }),
+  exportNccCSV: (params?: { branch_id?: number | string; year?: number }) =>
+    api.get("/reports/ncc/export/csv/", {
+      params,
+      responseType: "blob",
+    }),
+  getCymSummary: (params?: {
+    branch_id?: number | string;
+    year?: number;
+    month?: number;
+  }) => api.get<CymSummary>("/reports/cym/summary/", { params }),
+  exportCymCSV: (params?: {
+    branch_id?: number | string;
+    year?: number;
+    month?: number;
+  }) =>
+    api.get("/reports/cym/export/csv/", {
       params,
       responseType: "blob",
     }),

@@ -159,3 +159,55 @@ export interface EngagementSummary {
   service: EngagementServiceSection;
   by_branch: EngagementBranchRow[];
 }
+
+export type NccProgressStatus =
+  | "ASSIGNED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "SKIPPED";
+
+export interface NccLessonBreakdown {
+  lesson_id: number;
+  lesson_title: string;
+  version_label: string;
+  is_latest: boolean;
+  order: number;
+  total: number;
+  completed: number;
+  in_progress: number;
+  assigned: number;
+  skipped: number;
+}
+
+export interface NccSummary {
+  overall: Record<NccProgressStatus, number>;
+  total_participants: number;
+  year: number;
+  lessons: NccLessonBreakdown[];
+  unassigned_visitors: number;
+}
+
+export interface CymClassRow {
+  class_id: number;
+  class_name: string;
+  attendance_rate: number | null;
+  student_count: number;
+}
+
+export interface CymUnenrolledCategory {
+  category_id: number;
+  category_name: string;
+  age_range: string;
+  unenrolled_count: number;
+}
+
+export interface CymSummary {
+  total_classes: number;
+  active_classes: number;
+  inactive_classes: number;
+  total_students: number;
+  total_teachers: number;
+  average_attendance_rate: number | null;
+  by_class: CymClassRow[];
+  unenrolled_by_category: CymUnenrolledCategory[];
+}

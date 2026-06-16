@@ -10,7 +10,13 @@ from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import Cluster, ClusterComplianceNote, ClusterWeeklyReport
 from apps.evangelism.models import EvangelismGroup, EvangelismWeeklyReport
 from apps.events.models import Event
+from apps.lessons.models import Lesson, PersonLessonProgress
 from apps.people.models import Branch, Family, Person
+from apps.sunday_school.models import (
+    SundaySchoolCategory,
+    SundaySchoolClass,
+    SundaySchoolClassMember,
+)
 
 
 class ReportsMetaScopeTests(TestCase):
@@ -455,6 +461,233 @@ class PeopleSummaryTests(TestCase):
                     status.HTTP_403_FORBIDDEN,
                     f"{user.username} {url}",
                 )
+
+
+class NccSummaryTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.summary_url = reverse("reports:ncc-summary")
+        self.csv_url = reverse("reports:ncc-export-csv")
+
+        self.north = Branch.objects.create(name="North", code="NORTH")
+        self.south = Branch.objects.create(name="South", code="SOUTH")
+
+        self.admin = Person.objects.create_user(
+            username="admin_ncc",
+            password="pw",
+            role="ADMIN",
+            status="ACTIVE",
+        )
+        self.branch_pastor = Person.objects.create_user(
+            username="pastor_ncc",
+            password="pw",
+            role="PASTOR",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.member = Person.objects.create_user(
+            username="member_ncc",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.visitor = Person.objects.create_user(
+            username="visitor_ncc",
+            password="pw",
+            role="VISITOR",
+            status="INVITED",
+            branch=self.north,
+        )
+
+        self.lesson = Lesson.objects.create(
+            code="L1",
+            version_label="v1",
+            title="Lesson One",
+            order=1,
+            is_latest=True,
+            is_active=True,
+        )
+
+        self.north_student = Person.objects.create_user(
+            username="north_student_ncc",
+            password="pw",
+            role="VISITOR",
+            status="INVITED",
+            branch=self.north,
+        )
+        self.south_student = Person.objects.create_user(
+            username="south_student_ncc",
+            password="pw",
+            role="VISITOR",
+            status="INVITED",
+            branch=self.south,
+        )
+        self.unassigned_north_visitor = Person.objects.create_user(
+            username="unassigned_north",
+            password="pw",
+            role="VISITOR",
+            status="INVITED",
+            branch=self.north,
+        )
+
+        PersonLessonProgress.objects.create(
+            person=self.north_student,
+            lesson=self.lesson,
+            status=PersonLessonProgress.Status.COMPLETED,
+        )
+        PersonLessonProgress.objects.create(
+            person=self.south_student,
+            lesson=self.lesson,
+            status=PersonLessonProgress.Status.IN_PROGRESS,
+        )
+
+    def test_admin_sees_all_branches(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.summary_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(res.data["total_participants"], 2)
+        self.assertGreaterEqual(res.data["unassigned_visitors"], 1)
+
+    def test_admin_can_filter_by_branch(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.summary_url, {"branch_id": self.north.id})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total_participants"], 1)
+        self.assertGreaterEqual(res.data["unassigned_visitors"], 1)
+
+    def test_branch_pastor_scoped(self):
+        self.client.force_authenticate(user=self.branch_pastor)
+        res = self.client.get(self.summary_url, {"branch_id": self.south.id})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total_participants"], 1)
+
+    def test_export_csv(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.csv_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("New Converts Class Summary", res.content.decode())
+
+    def test_forbidden_roles(self):
+        for user in (self.member, self.visitor):
+            self.client.force_authenticate(user=user)
+            res = self.client.get(self.summary_url)
+            self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class CymSummaryTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.summary_url = reverse("reports:cym-summary")
+        self.csv_url = reverse("reports:cym-export-csv")
+
+        self.north = Branch.objects.create(name="North", code="NORTH")
+        self.south = Branch.objects.create(name="South", code="SOUTH")
+
+        self.admin = Person.objects.create_user(
+            username="admin_cym",
+            password="pw",
+            role="ADMIN",
+            status="ACTIVE",
+        )
+        self.branch_pastor = Person.objects.create_user(
+            username="pastor_cym",
+            password="pw",
+            role="PASTOR",
+            status="ACTIVE",
+            branch=self.north,
+        )
+        self.member = Person.objects.create_user(
+            username="member_cym",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+        )
+
+        self.category = SundaySchoolCategory.objects.create(
+            name="Kids",
+            min_age=5,
+            max_age=12,
+            order=1,
+        )
+        self.north_class = SundaySchoolClass.objects.create(
+            name="North Kids",
+            category=self.category,
+            is_active=True,
+        )
+        self.south_class = SundaySchoolClass.objects.create(
+            name="South Kids",
+            category=self.category,
+            is_active=True,
+        )
+
+        self.north_student = Person.objects.create_user(
+            username="north_cym_student",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.north,
+            date_of_birth=timezone.now().date().replace(year=2015),
+        )
+        self.south_student = Person.objects.create_user(
+            username="south_cym_student",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.south,
+            date_of_birth=timezone.now().date().replace(year=2016),
+        )
+
+        SundaySchoolClassMember.objects.create(
+            sunday_school_class=self.north_class,
+            person=self.north_student,
+            role=SundaySchoolClassMember.Role.STUDENT,
+        )
+        SundaySchoolClassMember.objects.create(
+            sunday_school_class=self.south_class,
+            person=self.south_student,
+            role=SundaySchoolClassMember.Role.STUDENT,
+        )
+
+    def test_admin_sees_all_students(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.summary_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total_students"], 2)
+        self.assertGreaterEqual(len(res.data["by_class"]), 2)
+
+    def test_admin_can_filter_by_branch(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.summary_url, {"branch_id": self.north.id})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total_students"], 1)
+
+    def test_branch_pastor_scoped(self):
+        self.client.force_authenticate(user=self.branch_pastor)
+        res = self.client.get(self.summary_url, {"branch_id": self.south.id})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total_students"], 1)
+
+    def test_month_scoped_request(self):
+        self.client.force_authenticate(user=self.admin)
+        now = timezone.now().date()
+        res = self.client.get(
+            self.summary_url,
+            {"year": now.year, "month": now.month},
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_export_csv(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(self.csv_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("Children Youth Ministry Summary", res.content.decode())
+
+    def test_forbidden_roles(self):
+        self.client.force_authenticate(user=self.member)
+        res = self.client.get(self.summary_url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class EngagementSummaryTests(TestCase):

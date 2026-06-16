@@ -4,7 +4,8 @@ export type AnalyticsTab =
   | "overview"
   | "v2b"
   | "engagement"
-  | "conversion"
+  | "ncc"
+  | "cym"
   | "compliance"
   | "stewardship"
   | "people"
@@ -14,7 +15,8 @@ export const ANALYTICS_TABS: SegmentedControlOption<AnalyticsTab>[] = [
   { id: "overview", label: "Overview" },
   { id: "v2b", label: "V2B" },
   { id: "engagement", label: "Engagement" },
-  { id: "conversion", label: "Conversion" },
+  { id: "ncc", label: "NCC" },
+  { id: "cym", label: "CYM" },
   { id: "compliance", label: "Compliance" },
   { id: "stewardship", label: "Stewardship" },
   { id: "people", label: "People" },
@@ -40,10 +42,15 @@ export const ANALYTICS_TAB_META: Record<
     description:
       "Sunday Service headcount plus cluster and evangelism weekly report attendance trends.",
   },
-  conversion: {
-    title: "Conversion & Formation",
+  ncc: {
+    title: "New Converts Class",
     description:
-      "NCC lesson progress and Sunday School formation metrics are coming soon.",
+      "Lesson progress, participant status, and unassigned visitors across the NCC journey.",
+  },
+  cym: {
+    title: "Children Youth Ministry",
+    description:
+      "Class enrollment, attendance rates, and formation coverage for Sunday School.",
   },
   compliance: {
     title: "Compliance & Operations",

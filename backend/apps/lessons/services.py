@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from django.db import transaction
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from apps.people.models import Journey, Person
@@ -439,3 +440,123 @@ def reconcile_student_progress_from_reports(
     )
     if not all_completed:
         clear_enrollment_commitment_signed(enrollment)
+
+
+def build_lesson_progress_summary(
+    progress_qs,
+    *,
+    year: Optional[int] = None,
+    lesson_id: Optional[int] = None,
+    version_label: Optional[str] = None,
+    include_superseded: bool = False,
+) -> dict:
+    """Aggregate lesson progress for a pre-filtered PersonLessonProgress queryset."""
+    queryset = progress_qs
+
+    if lesson_id:
+        queryset = queryset.filter(lesson_id=lesson_id)
+    if version_label:
+        queryset = queryset.filter(lesson__version_label=version_label)
+    if not include_superseded:
+        queryset = queryset.filter(lesson__is_latest=True)
+
+    record_status_totals = {
+        status: 0 for status, _ in PersonLessonProgress.Status.choices
+    }
+    for entry in queryset.values("status").annotate(total=Count("id")):
+        record_status_totals[entry["status"]] = entry["total"]
+
+    target_year = year if year is not None else timezone.now().year
+
+    if timezone.is_aware(timezone.now()):
+        year_start = timezone.make_aware(
+            datetime(target_year, 1, 1, 0, 0, 0),
+            timezone.get_current_timezone(),
+        )
+        year_end = timezone.make_aware(
+            datetime(target_year, 12, 31, 23, 59, 59, 999999),
+            timezone.get_current_timezone(),
+        )
+    else:
+        year_start = datetime(target_year, 1, 1, 0, 0, 0)
+        year_end = datetime(target_year, 12, 31, 23, 59, 59, 999999)
+
+    active_latest_queryset = queryset.filter(
+        lesson__is_latest=True,
+        lesson__is_active=True,
+    ).select_related("lesson")
+
+    cohort_person_ids = list(
+        active_latest_queryset.filter(assigned_at__lte=year_end)
+        .filter(Q(completed_at__isnull=True) | Q(completed_at__gte=year_start))
+        .values_list("person_id", flat=True)
+        .distinct()
+    )
+
+    cohort_records = active_latest_queryset.filter(person_id__in=cohort_person_ids)
+    records_by_person: dict = {}
+    for progress in cohort_records:
+        records_by_person.setdefault(progress.person_id, []).append(progress)
+
+    lessons_in_scope_count = (
+        active_latest_queryset.values("lesson_id").distinct().count()
+    )
+    person_status_totals = {
+        status: 0 for status, _ in PersonLessonProgress.Status.choices
+    }
+
+    for person_id in cohort_person_ids:
+        person_records = records_by_person.get(person_id, [])
+        completed_count = sum(
+            1
+            for record in person_records
+            if record.status == PersonLessonProgress.Status.COMPLETED
+        )
+
+        if completed_count == 0:
+            person_status_totals[PersonLessonProgress.Status.ASSIGNED] += 1
+        elif lessons_in_scope_count > 0 and completed_count >= lessons_in_scope_count:
+            person_status_totals[PersonLessonProgress.Status.COMPLETED] += 1
+        else:
+            person_status_totals[PersonLessonProgress.Status.IN_PROGRESS] += 1
+
+    lesson_breakdown = (
+        queryset.values(
+            "lesson_id",
+            "lesson__title",
+            "lesson__version_label",
+            "lesson__is_latest",
+            "lesson__order",
+        )
+        .annotate(
+            total=Count("id"),
+            completed=Count("id", filter=Q(status="COMPLETED")),
+            in_progress=Count("id", filter=Q(status="IN_PROGRESS")),
+            assigned=Count("id", filter=Q(status="ASSIGNED")),
+            skipped=Count("id", filter=Q(status="SKIPPED")),
+        )
+        .order_by("lesson__order", "lesson__version_label")
+    )
+
+    return {
+        "overall": person_status_totals,
+        "total_participants": len(cohort_person_ids),
+        "year": target_year,
+        "overall_records": record_status_totals,
+        "total_records": queryset.count(),
+        "lessons": [
+            {
+                "lesson_id": row["lesson_id"],
+                "lesson_title": row["lesson__title"],
+                "version_label": row["lesson__version_label"],
+                "is_latest": row["lesson__is_latest"],
+                "order": row["lesson__order"],
+                "total": row["total"],
+                "completed": row["completed"],
+                "in_progress": row["in_progress"],
+                "assigned": row["assigned"],
+                "skipped": row["skipped"],
+            }
+            for row in lesson_breakdown
+        ],
+    }

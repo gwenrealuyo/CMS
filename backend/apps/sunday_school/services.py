@@ -72,6 +72,7 @@ def calculate_attendance_rate(
     sunday_school_class: SundaySchoolClass,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    branch_id: Optional[int] = None,
 ) -> Optional[float]:
     """
     Calculate average attendance rate for a class.
@@ -88,9 +89,14 @@ def calculate_attendance_rate(
     if not sessions.exists():
         return None
 
-    total_enrolled = sunday_school_class.members.filter(
+    student_qs = sunday_school_class.members.filter(
         is_active=True, role=SundaySchoolClassMember.Role.STUDENT
-    ).count()
+    )
+    if branch_id is not None:
+        student_qs = student_qs.filter(person__branch_id=branch_id)
+
+    student_ids = list(student_qs.values_list("person_id", flat=True))
+    total_enrolled = len(student_ids)
 
     if total_enrolled == 0:
         return None
@@ -106,6 +112,7 @@ def calculate_attendance_rate(
             event=session.event,
             occurrence_date=session.session_date,
             status=AttendanceRecord.AttendanceStatus.PRESENT,
+            person_id__in=student_ids,
         )
         present_count = attendance_records.count()
         total_present += present_count
@@ -121,6 +128,7 @@ def calculate_attendance_rate(
 def get_unenrolled_by_category(
     status_filter: Optional[str] = None,
     role_filter: Optional[str] = None,
+    branch_id: Optional[int] = None,
 ) -> List[Dict]:
     """
     Find unenrolled people by category based on age brackets.
@@ -135,6 +143,8 @@ def get_unenrolled_by_category(
 
     # Get all people with date_of_birth
     people_query = Person.objects.filter(date_of_birth__isnull=False)
+    if branch_id is not None:
+        people_query = people_query.filter(branch_id=branch_id)
     if status_filter:
         people_query = people_query.filter(status=status_filter)
     if role_filter:
@@ -230,6 +240,107 @@ def get_unenrolled_by_category(
     return result
 
 
+def _scoped_active_members(branch_id: Optional[int] = None):
+    members = SundaySchoolClassMember.objects.filter(is_active=True)
+    if branch_id is not None:
+        members = members.filter(person__branch_id=branch_id)
+    return members
+
+
+def generate_branch_scoped_summary_stats(
+    *,
+    branch_id: Optional[int] = None,
+    scoped_year: Optional[int] = None,
+    scoped_month: Optional[int] = None,
+) -> Dict:
+    """Summary statistics scoped by enrolled members' branch when branch_id is set."""
+    members = _scoped_active_members(branch_id)
+    students = members.filter(role=SundaySchoolClassMember.Role.STUDENT)
+    teachers = members.filter(
+        role__in=[
+            SundaySchoolClassMember.Role.TEACHER,
+            SundaySchoolClassMember.Role.ASSISTANT_TEACHER,
+        ]
+    )
+
+    if branch_id is not None:
+        class_ids = members.values_list("sunday_school_class_id", flat=True).distinct()
+        classes = SundaySchoolClass.objects.filter(id__in=class_ids)
+    else:
+        classes = SundaySchoolClass.objects.all()
+
+    active_classes = classes.filter(is_active=True)
+    inactive_classes = classes.filter(is_active=False)
+
+    window_start = window_end = None
+    if scoped_year is not None and scoped_month is not None:
+        last_day = calendar.monthrange(scoped_year, scoped_month)[1]
+        window_start = date(scoped_year, scoped_month, 1)
+        window_end = date(scoped_year, scoped_month, last_day)
+
+    total_attendance_rate = 0.0
+    classes_with_attendance = 0
+    by_class = []
+
+    for class_obj in active_classes:
+        if window_start and window_end:
+            rate = calculate_attendance_rate(
+                class_obj, window_start, window_end, branch_id=branch_id
+            )
+        else:
+            rate = calculate_attendance_rate(class_obj, branch_id=branch_id)
+
+        student_count = students.filter(sunday_school_class=class_obj).count()
+        if student_count == 0:
+            continue
+
+        if rate is not None:
+            total_attendance_rate += rate
+            classes_with_attendance += 1
+
+        by_class.append(
+            {
+                "class_id": class_obj.id,
+                "class_name": class_obj.name,
+                "attendance_rate": rate,
+                "student_count": student_count,
+            }
+        )
+
+    by_class.sort(
+        key=lambda row: (row["attendance_rate"] is None, -(row["attendance_rate"] or 0))
+    )
+
+    avg_attendance_rate = (
+        round(total_attendance_rate / classes_with_attendance, 2)
+        if classes_with_attendance > 0
+        else None
+    )
+
+    unenrolled = get_unenrolled_by_category(branch_id=branch_id)
+    unenrolled_summary = [
+        {
+            "category_id": row["category_id"],
+            "category_name": row["category_name"],
+            "age_range": row["age_range"],
+            "unenrolled_count": row["unenrolled_count"],
+        }
+        for row in unenrolled
+        if row["unenrolled_count"] > 0
+    ]
+
+    return {
+        "total_classes": classes.count(),
+        "active_classes": active_classes.count(),
+        "inactive_classes": inactive_classes.count(),
+        "total_students": students.count(),
+        "total_teachers": teachers.count(),
+        "average_attendance_rate": avg_attendance_rate,
+        "by_class": by_class,
+        "unenrolled_by_category": unenrolled_summary,
+    }
+
+
 def generate_summary_stats(
     scoped_year: Optional[int] = None,
     scoped_month: Optional[int] = None,
@@ -241,54 +352,30 @@ def generate_summary_stats(
     average_attendance_rate uses sessions only in that month (for MoM dashboards).
     Otherwise counts use all-time attendance rate per class as before.
     """
-    classes = SundaySchoolClass.objects.all()
-    active_classes = classes.filter(is_active=True)
-    inactive_classes = classes.filter(is_active=False)
-
-    members = SundaySchoolClassMember.objects.filter(is_active=True)
-    students = members.filter(role=SundaySchoolClassMember.Role.STUDENT)
-    teachers = members.filter(
-        role__in=[
-            SundaySchoolClassMember.Role.TEACHER,
-            SundaySchoolClassMember.Role.ASSISTANT_TEACHER,
-        ]
+    stats = generate_branch_scoped_summary_stats(
+        branch_id=None,
+        scoped_year=scoped_year,
+        scoped_month=scoped_month,
     )
-
-    total_attendance_rate = 0
-    classes_with_attendance = 0
 
     if scoped_year is not None and scoped_month is not None:
-        last_day = calendar.monthrange(scoped_year, scoped_month)[1]
-        window_start = date(scoped_year, scoped_month, 1)
-        window_end = date(scoped_year, scoped_month, last_day)
-        for class_obj in active_classes:
-            rate = calculate_attendance_rate(
-                class_obj, window_start, window_end
-            )
-            if rate is not None:
-                total_attendance_rate += rate
-                classes_with_attendance += 1
+        stats["most_attended_classes"] = []
+        stats["least_attended_classes"] = []
     else:
-        for class_obj in active_classes:
-            rate = calculate_attendance_rate(class_obj)
-            if rate is not None:
-                total_attendance_rate += rate
-                classes_with_attendance += 1
+        class_attendance = [
+            row
+            for row in stats.get("by_class", [])
+            if row.get("attendance_rate") is not None
+        ]
+        class_attendance.sort(key=lambda x: x["attendance_rate"], reverse=True)
+        stats["most_attended_classes"] = class_attendance[:5]
+        stats["least_attended_classes"] = (
+            class_attendance[-5:] if len(class_attendance) > 5 else []
+        )
 
-    avg_attendance_rate = (
-        round(total_attendance_rate / classes_with_attendance, 2)
-        if classes_with_attendance > 0
-        else None
-    )
-
-    return {
-        "total_classes": classes.count(),
-        "active_classes": active_classes.count(),
-        "inactive_classes": inactive_classes.count(),
-        "total_students": students.count(),
-        "total_teachers": teachers.count(),
-        "average_attendance_rate": avg_attendance_rate,
-    }
+    stats.pop("by_class", None)
+    stats.pop("unenrolled_by_category", None)
+    return stats
 
 
 def create_recurring_sessions(

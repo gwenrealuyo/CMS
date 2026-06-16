@@ -8,6 +8,8 @@ import AnalyticsPlaceholder from "@/src/components/analytics/AnalyticsPlaceholde
 import ComplianceDashboard from "@/src/components/analytics/compliance/ComplianceDashboard";
 import PeopleDashboard from "@/src/components/analytics/people/PeopleDashboard";
 import EngagementDashboard from "@/src/components/analytics/engagement/EngagementDashboard";
+import NccDashboard from "@/src/components/analytics/ncc/NccDashboard";
+import CymDashboard from "@/src/components/analytics/cym/CymDashboard";
 import type { ReportsScopeMeta } from "@/src/types/reports";
 import {
   ANALYTICS_TABS,
@@ -75,6 +77,10 @@ export default function AnalyticsPageView({
               <PeopleDashboard selectedBranchId={selectedBranchId} />
             ) : activeTab === "engagement" ? (
               <EngagementDashboard selectedBranchId={selectedBranchId} />
+            ) : activeTab === "ncc" ? (
+              <NccDashboard selectedBranchId={selectedBranchId} />
+            ) : activeTab === "cym" ? (
+              <CymDashboard selectedBranchId={selectedBranchId} />
             ) : (
               <AnalyticsPlaceholder
                 title={tabMeta.title}

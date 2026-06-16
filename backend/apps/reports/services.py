@@ -1068,3 +1068,117 @@ def build_engagement_summary_csv(payload: dict) -> str:
             )
 
     return output.getvalue()
+
+
+def build_ncc_summary(progress_qs, people_qs, *, year: int):
+    """Build NCC (lessons) analytics for pre-scoped querysets."""
+    from apps.lessons.services import build_lesson_progress_summary
+
+    payload = build_lesson_progress_summary(progress_qs, year=year)
+    payload["unassigned_visitors"] = (
+        people_qs.filter(role="VISITOR", lesson_progress__isnull=True)
+        .distinct()
+        .count()
+    )
+    return payload
+
+
+def build_ncc_summary_csv(payload: dict) -> str:
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["New Converts Class Summary"])
+    writer.writerow(["year", payload.get("year", "")])
+    writer.writerow(["total_participants", payload.get("total_participants", 0)])
+    writer.writerow(["unassigned_visitors", payload.get("unassigned_visitors", 0)])
+    writer.writerow([])
+
+    writer.writerow(["Overall Status", "Count"])
+    for status, count in (payload.get("overall") or {}).items():
+        writer.writerow([status, count])
+    writer.writerow([])
+
+    writer.writerow(
+        [
+            "Lessons",
+            "Title",
+            "Completed",
+            "In Progress",
+            "Assigned",
+            "Skipped",
+            "Total",
+        ]
+    )
+    for row in payload.get("lessons", []):
+        writer.writerow(
+            [
+                row.get("lesson_id", ""),
+                row.get("lesson_title", ""),
+                row.get("completed", 0),
+                row.get("in_progress", 0),
+                row.get("assigned", 0),
+                row.get("skipped", 0),
+                row.get("total", 0),
+            ]
+        )
+
+    return output.getvalue()
+
+
+def build_cym_summary(
+    *,
+    branch_id: int | None = None,
+    year: int | None = None,
+    month: int | None = None,
+):
+    """Build CYM (Sunday School) analytics with optional branch and month scope."""
+    from apps.sunday_school.services import generate_branch_scoped_summary_stats
+
+    return generate_branch_scoped_summary_stats(
+        branch_id=branch_id,
+        scoped_year=year,
+        scoped_month=month,
+    )
+
+
+def build_cym_summary_csv(payload: dict) -> str:
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["Children Youth Ministry Summary"])
+    for key in (
+        "total_classes",
+        "active_classes",
+        "inactive_classes",
+        "total_students",
+        "total_teachers",
+        "average_attendance_rate",
+    ):
+        writer.writerow([key, payload.get(key, "")])
+    writer.writerow([])
+
+    writer.writerow(["Classes", "Name", "Students", "Attendance Rate"])
+    for row in payload.get("by_class", []):
+        writer.writerow(
+            [
+                row.get("class_id", ""),
+                row.get("class_name", ""),
+                row.get("student_count", 0),
+                row.get("attendance_rate", ""),
+            ]
+        )
+    writer.writerow([])
+
+    if payload.get("unenrolled_by_category"):
+        writer.writerow(["Unenrolled by Category", "Category", "Age Range", "Count"])
+        for row in payload["unenrolled_by_category"]:
+            writer.writerow(
+                [
+                    "",
+                    row.get("category_name", ""),
+                    row.get("age_range", ""),
+                    row.get("unenrolled_count", 0),
+                ]
+            )
+
+    return output.getvalue()

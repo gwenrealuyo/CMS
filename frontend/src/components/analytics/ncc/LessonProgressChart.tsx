@@ -1,0 +1,80 @@
+"use client";
+
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import Card from "@/src/components/ui/Card";
+import type { NccLessonBreakdown } from "@/src/types/reports";
+
+interface LessonProgressChartProps {
+  lessons: NccLessonBreakdown[];
+  loading?: boolean;
+}
+
+export default function LessonProgressChart({
+  lessons,
+  loading = false,
+}: LessonProgressChartProps) {
+  const chartData = lessons
+    .filter((lesson) => lesson.total > 0)
+    .map((lesson) => ({
+      name: lesson.lesson_title,
+      completed: lesson.completed,
+      in_progress: lesson.in_progress,
+    }));
+
+  return (
+    <Card title="Lesson Progress by Lesson">
+      {loading ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">
+          Loading lesson progress...
+        </div>
+      ) : chartData.length === 0 ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">
+          No lesson progress data for the selected scope.
+        </div>
+      ) : (
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 8, right: 16, bottom: 8, left: -8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11 }}
+                interval={0}
+                angle={-20}
+                textAnchor="end"
+                height={70}
+              />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Legend />
+              <Bar
+                dataKey="completed"
+                name="Completed"
+                fill="#10b981"
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                dataKey="in_progress"
+                name="In Progress"
+                fill="#2563eb"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </Card>
+  );
+}

@@ -10,6 +10,7 @@ from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import Cluster, ClusterComplianceNote, ClusterWeeklyReport
 from apps.clusters.serializers import ClusterComplianceNoteSerializer
 from apps.evangelism.models import EvangelismWeeklyReport
+from apps.lessons.models import PersonLessonProgress
 from apps.people.models import Branch, Person
 
 from . import services
@@ -78,6 +79,55 @@ def _scoped_service_attendance(request):
         request,
         branch_lookup="event__branch_id",
     )
+
+
+def _scoped_lesson_progress(request):
+    return apply_branch_filter(
+        PersonLessonProgress.objects.select_related("person", "lesson"),
+        request.user,
+        request,
+        branch_lookup="person__branch_id",
+    )
+
+
+def _parse_year_param(request, *, use_current_year_default: bool = True):
+    year_param = request.query_params.get("year")
+    if not year_param:
+        if use_current_year_default:
+            return timezone.now().year, None
+        return None, None
+    try:
+        year = int(year_param)
+    except (TypeError, ValueError):
+        return None, Response(
+            {"error": "year must be a valid integer."},
+            status=http_status.HTTP_400_BAD_REQUEST,
+        )
+    if year < 1900 or year > 3000:
+        return None, Response(
+            {"error": "year must be between 1900 and 3000."},
+            status=http_status.HTTP_400_BAD_REQUEST,
+        )
+    return year, None
+
+
+def _parse_month_param(request):
+    month_param = request.query_params.get("month")
+    if not month_param:
+        return None, None
+    try:
+        month = int(month_param)
+    except (TypeError, ValueError):
+        return None, Response(
+            {"error": "month must be a valid integer."},
+            status=http_status.HTTP_400_BAD_REQUEST,
+        )
+    if not 1 <= month <= 12:
+        return None, Response(
+            {"error": "month must be between 1 and 12."},
+            status=http_status.HTTP_400_BAD_REQUEST,
+        )
+    return month, None
 
 
 class ReportsMetaView(APIView):
@@ -436,5 +486,97 @@ class EngagementExportCsvView(APIView):
         response = HttpResponse(csv_text, content_type="text/csv")
         response["Content-Disposition"] = (
             'attachment; filename="engagement_attendance.csv"'
+        )
+        return response
+
+
+class NccSummaryView(APIView):
+    """New Converts Class (lessons) summary, branch-scoped."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        year, err = _parse_year_param(request)
+        if err:
+            return err
+
+        payload = services.build_ncc_summary(
+            _scoped_lesson_progress(request),
+            _scoped_people(request),
+            year=year,
+        )
+        return Response(payload)
+
+
+class NccExportCsvView(APIView):
+    """Export branch-scoped NCC summary as CSV."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        year, err = _parse_year_param(request)
+        if err:
+            return err
+
+        payload = services.build_ncc_summary(
+            _scoped_lesson_progress(request),
+            _scoped_people(request),
+            year=year,
+        )
+        csv_text = services.build_ncc_summary_csv(payload)
+
+        response = HttpResponse(csv_text, content_type="text/csv")
+        response["Content-Disposition"] = (
+            'attachment; filename="ncc_summary.csv"'
+        )
+        return response
+
+
+class CymSummaryView(APIView):
+    """Children Youth Ministry (Sunday School) summary, branch-scoped."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        year, year_err = _parse_year_param(request, use_current_year_default=False)
+        if year_err:
+            return year_err
+        month, month_err = _parse_month_param(request)
+        if month_err:
+            return month_err
+
+        scope = resolve_branch_scope(request.user, request)
+        payload = services.build_cym_summary(
+            branch_id=scope["effective_branch_id"],
+            year=year,
+            month=month,
+        )
+        return Response(payload)
+
+
+class CymExportCsvView(APIView):
+    """Export branch-scoped CYM summary as CSV."""
+
+    permission_classes = [IsReportsViewer]
+
+    def get(self, request):
+        year, year_err = _parse_year_param(request, use_current_year_default=False)
+        if year_err:
+            return year_err
+        month, month_err = _parse_month_param(request)
+        if month_err:
+            return month_err
+
+        scope = resolve_branch_scope(request.user, request)
+        payload = services.build_cym_summary(
+            branch_id=scope["effective_branch_id"],
+            year=year,
+            month=month,
+        )
+        csv_text = services.build_cym_summary_csv(payload)
+
+        response = HttpResponse(csv_text, content_type="text/csv")
+        response["Content-Disposition"] = (
+            'attachment; filename="cym_summary.csv"'
         )
         return response

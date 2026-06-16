@@ -22,17 +22,15 @@ const SidebarContext = createContext<SidebarContextValue | undefined>(
 );
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState<boolean>(false);
-  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
-
-  useEffect(() => {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("sidebarCollapsed");
-      if (saved != null) {
-        setCollapsed(saved === "1");
-      }
-    } catch {}
-  }, []);
+      return saved === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -84,4 +82,3 @@ export function useSidebar() {
   if (!ctx) throw new Error("useSidebar must be used within SidebarProvider");
   return ctx;
 }
-

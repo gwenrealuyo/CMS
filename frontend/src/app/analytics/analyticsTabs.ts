@@ -2,7 +2,7 @@ import type { SegmentedControlOption } from "@/src/components/ui/SegmentedContro
 
 export type AnalyticsTab =
   | "overview"
-  | "funnel"
+  | "v2b"
   | "engagement"
   | "conversion"
   | "compliance"
@@ -12,7 +12,7 @@ export type AnalyticsTab =
 
 export const ANALYTICS_TABS: SegmentedControlOption<AnalyticsTab>[] = [
   { id: "overview", label: "Overview" },
-  { id: "funnel", label: "Funnel" },
+  { id: "v2b", label: "V2B" },
   { id: "engagement", label: "Engagement" },
   { id: "conversion", label: "Conversion" },
   { id: "compliance", label: "Compliance" },
@@ -30,10 +30,10 @@ export const ANALYTICS_TAB_META: Record<
     description:
       "A cross-module KPI summary will live here, composing one headline number from each dashboard.",
   },
-  funnel: {
-    title: "Conversion Funnel",
+  v2b: {
+    title: "Visitor to Brethren",
     description:
-      "The end-to-end invited to serving funnel with conversion rates and leakage overlay is coming soon.",
+      "The end-to-end visitor-to-brethren journey with conversion rates and leakage overlay is coming soon.",
   },
   engagement: {
     title: "Engagement & Attendance",

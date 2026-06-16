@@ -251,6 +251,8 @@ export default function Sidebar() {
         (child: { href: string }) =>
           pathname === getPathFromHref(child.href)
       );
+    const shouldShowChildren =
+      (item.name === "People" && childActive) || isExpanded;
 
     return (
       <div key={item.name} className="mb-1">
@@ -272,7 +274,7 @@ export default function Sidebar() {
               {!isCompact && <span className="font-medium">{item.name}</span>}
             </div>
             {!isCompact &&
-              (isExpanded ? (
+              (shouldShowChildren ? (
                 <ChevronUpIcon className="h-4 w-4" />
               ) : (
                 <ChevronDownIcon className="h-4 w-4" />
@@ -298,7 +300,7 @@ export default function Sidebar() {
           </Link>
         )}
 
-        {hasChildren && isExpanded && !isCompact && (
+        {hasChildren && shouldShowChildren && !isCompact && (
           <div className="ml-6 mt-1 space-y-1">
             {item.children.map((child: any) => {
               const isChildActive = pathname === getPathFromHref(child.href);

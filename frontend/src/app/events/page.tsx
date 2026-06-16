@@ -638,9 +638,11 @@ export default function EventsPage() {
               Manage Types
             </Button>
           )}
-          <Button onClick={openCreateModal} className="w-full sm:w-auto min-h-[44px]">
-            Add Event
-          </Button>
+          {canWriteEventsAccess && (
+            <Button onClick={openCreateModal} className="w-full sm:w-auto min-h-[44px]">
+              Add Event
+            </Button>
+          )}
         </div>
       </div>
 
@@ -721,7 +723,7 @@ export default function EventsPage() {
           selectedDate={selectedDate}
           onView={handleViewItem}
           onClearDate={clearDateFilter}
-          onCreateEvent={openCreateModal}
+          onCreateEvent={canWriteEventsAccess ? openCreateModal : undefined}
         />
       </div>
 
@@ -746,6 +748,7 @@ export default function EventsPage() {
           <EventView
             event={viewEditEvent}
             initialOccurrenceDate={viewOccurrenceDate}
+            showAuditMetadata={canWriteEventsAccess}
             onEdit={() => {
               setViewOccurrenceDate(null);
               setViewMode("edit");

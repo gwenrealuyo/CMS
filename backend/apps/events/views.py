@@ -83,7 +83,7 @@ class EventViewSet(viewsets.ModelViewSet):
         queryset = (
             Event.objects.all()
             .order_by("start_date")
-            .select_related("event_type")
+            .select_related("event_type", "branch", "created_by", "updated_by")
             .prefetch_related(
                 "attendance_records__person__clusters",
                 "attendance_records__person__families",
@@ -120,6 +120,12 @@ class EventViewSet(viewsets.ModelViewSet):
         if end_dt:
             queryset = queryset.filter(start_date__lte=end_dt)
         return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
 
     def get_permissions(self):
         """
@@ -290,7 +296,8 @@ class EventViewSet(viewsets.ModelViewSet):
         excluded.add(target_date.isoformat())
         pattern["excluded_dates"] = sorted(excluded)
         event.recurrence_pattern = pattern
-        event.save(update_fields=["recurrence_pattern"])
+        event.updated_by = request.user
+        event.save(update_fields=["recurrence_pattern", "updated_by", "updated_at"])
 
         serializer = self.get_serializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)

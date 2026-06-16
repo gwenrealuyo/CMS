@@ -13,6 +13,7 @@ import {
 } from "@/src/lib/api";
 import { formatPersonName } from "@/src/lib/name";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
+import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import ClusterWeeklyReportForm from "./ClusterWeeklyReportForm";
 import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
 import Modal from "@/src/components/ui/Modal";
@@ -880,19 +881,6 @@ export default function ClusterReportsDashboard({
   const handleViewReport = (report: ClusterWeeklyReport) => {
     setViewingReport(report);
     setShowViewModal(true);
-  };
-
-  const getGatheringTypeColor = (type: string) => {
-    switch (type) {
-      case "PHYSICAL":
-        return "bg-green-100 text-green-800";
-      case "ONLINE":
-        return "chip-primary";
-      case "HYBRID":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -2085,7 +2073,7 @@ export default function ClusterReportsDashboard({
                               Type
                             </span>
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
                                 report.gathering_type,
                               )}`}
                             >
@@ -2255,7 +2243,7 @@ export default function ClusterReportsDashboard({
                           case "type":
                             cellContent = (
                               <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGatheringTypeColor(
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
                                   report.gathering_type,
                                 )}`}
                               >

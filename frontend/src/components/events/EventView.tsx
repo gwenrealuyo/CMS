@@ -24,6 +24,7 @@ interface AddAttendanceInput {
 interface EventViewProps {
   event: Event;
   initialOccurrenceDate?: string | null;
+  showAuditMetadata?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onCancel?: () => void;
@@ -48,6 +49,7 @@ interface EventViewProps {
 export default function EventView({
   event,
   initialOccurrenceDate,
+  showAuditMetadata = false,
   onEdit,
   onDelete,
   onCancel,
@@ -485,6 +487,35 @@ export default function EventView({
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {showAuditMetadata && (
+                <div className="border-t border-gray-100 pt-3 mt-1 space-y-2">
+                  {(event.created_by_name || event.created_at) && (
+                    <div className="text-xs text-gray-500">
+                      <span className="font-medium text-gray-600">Created: </span>
+                      {event.created_by_name && (
+                        <span>{event.created_by_name}</span>
+                      )}
+                      {event.created_by_name && event.created_at && (
+                        <span> · </span>
+                      )}
+                      {event.created_at && (
+                        <span>{formatDateTime(event.created_at)}</span>
+                      )}
+                    </div>
+                  )}
+                  {event.updated_by_name && event.updated_at && (
+                    <div className="text-xs text-gray-500">
+                      <span className="font-medium text-gray-600">
+                        Last updated:{" "}
+                      </span>
+                      <span>{event.updated_by_name}</span>
+                      <span> · </span>
+                      <span>{formatDateTime(event.updated_at)}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

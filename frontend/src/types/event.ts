@@ -75,5 +75,10 @@ export interface Event {
   }>;
   attendance_count?: number;
   attendance_records?: EventAttendanceRecord[];
+  created_by?: number | null;
+  created_by_name?: string | null;
   created_at: string;
+  updated_by?: number | null;
+  updated_by_name?: string | null;
+  updated_at?: string;
 }

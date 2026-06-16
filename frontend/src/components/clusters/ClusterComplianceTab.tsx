@@ -111,29 +111,29 @@ export default function ClusterComplianceTab() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <Card>
-          <div className="p-3">
-            <div className="text-xs text-gray-600">Total Clusters</div>
-            <div className="text-xl font-bold">{data.summary.total_clusters}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <Card className="!p-3">
+          <div className="text-xs text-gray-600">Total Clusters</div>
+          <div className="text-lg font-semibold leading-tight mt-0.5">
+            {data.summary.total_clusters}
           </div>
         </Card>
-        <Card>
-          <div className="p-3">
-            <div className="text-xs text-gray-600">Compliant</div>
-            <div className="text-xl font-bold text-green-600">{data.summary.compliant_clusters}</div>
+        <Card className="!p-3">
+          <div className="text-xs text-gray-600">Compliant</div>
+          <div className="text-lg font-semibold leading-tight mt-0.5 text-green-600">
+            {data.summary.compliant_clusters}
           </div>
         </Card>
-        <Card>
-          <div className="p-3">
-            <div className="text-xs text-gray-600">Non-Compliant</div>
-            <div className="text-xl font-bold text-red-600">{data.summary.non_compliant_clusters}</div>
+        <Card className="!p-3">
+          <div className="text-xs text-gray-600">Non-Compliant</div>
+          <div className="text-lg font-semibold leading-tight mt-0.5 text-red-600">
+            {data.summary.non_compliant_clusters}
           </div>
         </Card>
-        <Card>
-          <div className="p-3">
-            <div className="text-xs text-gray-600">Overall Compliance Rate</div>
-            <div className="text-xl font-bold">{data.summary.compliance_rate.toFixed(1)}%</div>
+        <Card className="!p-3">
+          <div className="text-xs text-gray-600">Overall Compliance Rate</div>
+          <div className="text-lg font-semibold leading-tight mt-0.5">
+            {data.summary.compliance_rate.toFixed(1)}%
           </div>
         </Card>
       </div>

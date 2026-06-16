@@ -5,6 +5,7 @@ import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import { familiesApi } from "@/src/lib/api";
+import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 
 interface ViewWeeklyReportModalProps {
   report: ClusterWeeklyReport;
@@ -83,19 +84,6 @@ export default function ViewWeeklyReportModal({
     typeof report.offerings === "string"
       ? parseFloat(report.offerings)
       : report.offerings;
-
-  const getGatheringTypeColor = (type: string) => {
-    switch (type) {
-      case "PHYSICAL":
-        return "bg-green-100 text-green-800";
-      case "ONLINE":
-        return "chip-primary";
-      case "HYBRID":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -251,7 +239,7 @@ export default function ViewWeeklyReportModal({
                 <div>
                   <p className="text-sm text-gray-600 mb-2">Gathering Type</p>
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getGatheringTypeColor(
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getEvangelismGatheringTypeChipClass(
                       report.gathering_type
                     )}`}
                   >

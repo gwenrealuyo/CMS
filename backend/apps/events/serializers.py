@@ -65,6 +65,8 @@ class EventSerializer(serializers.ModelSerializer):
     attendance_count = serializers.SerializerMethodField()
     attendance_records = serializers.SerializerMethodField()
     attendee_badges = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    updated_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
@@ -86,13 +88,34 @@ class EventSerializer(serializers.ModelSerializer):
             "attendee_badges",
             "attendance_count",
             "attendance_records",
+            "created_by",
+            "created_by_name",
             "created_at",
+            "updated_by",
+            "updated_by_name",
+            "updated_at",
         ]
         read_only_fields = [
             "attendee_badges",
             "attendance_count",
             "attendance_records",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_by",
+            "updated_by_name",
+            "updated_at",
         ]
+
+    def get_created_by_name(self, obj):
+        if not obj.created_by:
+            return None
+        return obj.created_by.get_full_name() or obj.created_by.username
+
+    def get_updated_by_name(self, obj):
+        if not obj.updated_by:
+            return None
+        return obj.updated_by.get_full_name() or obj.updated_by.username
 
     def _parse_dt(self, value: Optional[str]):
         if not value:

@@ -18,6 +18,9 @@ import EventForm from "@/src/components/events/EventForm";
 import EventView from "@/src/components/events/EventView";
 import EventsFilterToolbar from "@/src/components/events/EventsFilterToolbar";
 import EventAgendaPanel from "@/src/components/events/EventAgendaPanel";
+import EventTypesManager from "@/src/components/events/EventTypesManager";
+import { EventTypeStylesProvider } from "@/src/contexts/EventTypeStylesContext";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { Event } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
 import {
@@ -77,7 +80,9 @@ export default function EventsPage() {
     new Date().getFullYear().toString()
   );
   const [yearFilterInitialized, setYearFilterInitialized] = useState(false);
+  const [isTypesManagerOpen, setIsTypesManagerOpen] = useState(false);
   const currentYear = new Date().getFullYear().toString();
+  const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
 
   const {
     events,
@@ -91,7 +96,20 @@ export default function EventsPage() {
     listAttendance,
     addAttendance,
     removeAttendance,
+    createEventType,
+    updateEventType,
+    deleteEventType,
   } = useEvents();
+
+  const canManageEventTypes = useMemo(() => {
+    if (!user) return false;
+    return (
+      user.role === "ADMIN" ||
+      user.role === "PASTOR" ||
+      isModuleCoordinator("EVENTS") ||
+      isSeniorCoordinator("EVENTS")
+    );
+  }, [user, isModuleCoordinator, isSeniorCoordinator]);
 
   useEffect(() => {
     if (action === "create") {
@@ -606,12 +624,24 @@ export default function EventsPage() {
     !isDefaultDateFilter;
 
   return (
-    <DashboardLayout>
+    <EventTypeStylesProvider types={eventTypes}>
+      <DashboardLayout>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-foreground">Church Events</h1>
-        <Button onClick={openCreateModal} className="w-full sm:w-auto min-h-[44px]">
-          Add Event
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {canManageEventTypes && (
+            <Button
+              variant="tertiary"
+              onClick={() => setIsTypesManagerOpen(true)}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              Manage Types
+            </Button>
+          )}
+          <Button onClick={openCreateModal} className="w-full sm:w-auto min-h-[44px]">
+            Add Event
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -770,6 +800,17 @@ export default function EventsPage() {
         variant="danger"
         loading={deleteConfirmation.loading}
       />
+
+      {canManageEventTypes && (
+        <EventTypesManager
+          isOpen={isTypesManagerOpen}
+          onClose={() => setIsTypesManagerOpen(false)}
+          onCreate={createEventType}
+          onUpdate={updateEventType}
+          onDelete={deleteEventType}
+        />
+      )}
     </DashboardLayout>
+    </EventTypeStylesProvider>
   );
 }

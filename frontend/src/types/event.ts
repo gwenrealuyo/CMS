@@ -25,6 +25,7 @@ export interface EventAttendancePerson {
   suffix?: string;
   role: PersonRole;
   status: PersonStatus;
+  member_id?: string;
   phone?: string;
   full_name: string;
   cluster_codes?: string[];
@@ -45,6 +46,10 @@ export interface EventAttendanceRecord {
 export interface EventTypeOption {
   code: string;
   label: string;
+  color: string;
+  sort_order: number;
+  is_system?: boolean;
+  event_count?: number;
 }
 
 export interface Event {
@@ -56,6 +61,8 @@ export interface Event {
   type: string;
   type_display: string;
   location: string;
+  branch?: number | null;
+  branch_name?: string | null;
   is_recurring: boolean;
   recurrence_pattern?: WeeklyRecurrencePattern | null;
   occurrences?: EventOccurrence[];

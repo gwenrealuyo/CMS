@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Button from "@/src/components/ui/Button";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import { usePeople } from "@/src/hooks/usePeople";
 import {
   AttendanceStatus,
@@ -11,6 +12,7 @@ import {
 } from "@/src/types/event";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
 
 interface AddAttendanceInput {
   person_id: string;
@@ -54,6 +56,8 @@ export default function EventView({
   addAttendance,
   removeAttendance,
 }: EventViewProps) {
+  const { getChipStyle } = useEventTypeStyles();
+
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString("en-US", {
@@ -72,16 +76,6 @@ export default function EventView({
       hour: "numeric",
       minute: "2-digit",
     });
-  };
-
-  const getEventTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      SUNDAY_SERVICE: "chip-primary",
-      BIBLE_STUDY: "chip-purple",
-      PRAYER_MEETING: "chip-green",
-      SPECIAL_EVENT: "chip-orange",
-    };
-    return colors[type] || "chip-gray";
   };
 
   const recurrenceWeekdayLabel = useMemo(() => {
@@ -170,6 +164,11 @@ export default function EventView({
   const [selectedPersonId, setSelectedPersonId] = useState("");
   const [selectedStatus] = useState<AttendanceStatus>("PRESENT");
   const [attendanceSearchTerm, setAttendanceSearchTerm] = useState("");
+  const [removeConfirmation, setRemoveConfirmation] = useState<{
+    isOpen: boolean;
+    record: EventAttendanceRecord | null;
+    loading: boolean;
+  }>({ isOpen: false, record: null, loading: false });
 
   const { peopleUI, loading: peopleLoading } = usePeople();
 
@@ -187,10 +186,11 @@ export default function EventView({
         const clusterCode = person.cluster_codes?.[0];
         const familyName = person.family_names?.[0];
         return {
-          value: person.id,
+          value: String(person.id),
           label: formatPersonName(person),
+          memberId: person.member_id,
           disabled: attendanceRecords.some(
-            (record) => record.person.id === person.id
+            (record) => String(record.person.id) === String(person.id)
           ),
           clusterCode,
           familyName,
@@ -238,12 +238,12 @@ export default function EventView({
     fetchAttendance(selectedOccurrenceDate);
   }, [fetchAttendance, selectedOccurrenceDate]);
 
-  const handleAddAttendance = async () => {
-    if (!selectedOccurrenceDate || !selectedPersonId) return;
+  const addAttendeeById = async (personId: string) => {
+    if (!selectedOccurrenceDate || !personId || actionLoading) return;
     setActionLoading(true);
     try {
       await addAttendance(event.id, {
-        person_id: selectedPersonId,
+        person_id: personId,
         occurrence_date: selectedOccurrenceDate,
         status: selectedStatus,
       });
@@ -260,18 +260,32 @@ export default function EventView({
     }
   };
 
-  const handleRemoveAttendance = async (recordId: number | string) => {
-    if (!selectedOccurrenceDate) return;
-    setActionLoading(true);
+  const handleAddAttendance = () => {
+    void addAttendeeById(selectedPersonId);
+  };
+
+  const openRemoveConfirmation = (record: EventAttendanceRecord) => {
+    setRemoveConfirmation({ isOpen: true, record, loading: false });
+  };
+
+  const closeRemoveConfirmation = () => {
+    setRemoveConfirmation({ isOpen: false, record: null, loading: false });
+  };
+
+  const confirmRemoveAttendance = async () => {
+    const record = removeConfirmation.record;
+    if (!record || !selectedOccurrenceDate) return;
+
+    setRemoveConfirmation((prev) => ({ ...prev, loading: true }));
     try {
-      await removeAttendance(event.id, recordId);
+      await removeAttendance(event.id, record.id);
       await fetchAttendance(selectedOccurrenceDate);
       setActionError(null);
+      closeRemoveConfirmation();
     } catch (error) {
       console.error("Failed to remove attendance", error);
       setActionError("Unable to remove this attendee. Please try again.");
-    } finally {
-      setActionLoading(false);
+      setRemoveConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -336,11 +350,7 @@ export default function EventView({
               {event.title}
             </h3>
             <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className={getEventTypeColor(
-                  event.type
-                )}
-              >
+              <span style={getChipStyle(event.type)}>
                 {event.type_display || event.type}
               </span>
               {event.is_recurring && (
@@ -496,6 +506,43 @@ export default function EventView({
                   )}
                 </p>
               </div>
+              <Button
+                onClick={() => {
+                  if (!selectedOccurrenceDate) return;
+                  const url = `/events/check-in?event=${event.id}&occurrence=${selectedOccurrenceDate}`;
+                  window.open(url, "_blank", "noopener,noreferrer");
+                }}
+                disabled={!selectedOccurrenceDate}
+                className="w-full md:w-auto gap-2 bg-primary text-primary-foreground hover:bg-blue-700 border border-primary/20 shadow-sm"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                  />
+                </svg>
+                Open Check-In
+                <svg
+                  className="h-3.5 w-3.5 opacity-80"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </Button>
             </div>
 
             {actionError && (
@@ -510,6 +557,7 @@ export default function EventView({
                   options={attendeeOptions}
                   value={selectedPersonId}
                   onChange={setSelectedPersonId}
+                  onConfirm={addAttendeeById}
                   placeholder="Select attendee"
                   loading={peopleLoading}
                   emptyMessage="No matching people"
@@ -588,6 +636,11 @@ export default function EventView({
                             <span className="text-sm font-medium text-gray-900">
                               {formatPersonName(record.person)}
                             </span>
+                            {record.person.member_id && (
+                              <span className="chip-sky-sm">
+                                {record.person.member_id}
+                              </span>
+                            )}
                             <span className="inline-flex items-center gap-1">
                               {record.person.cluster_codes &&
                               record.person.cluster_codes.length > 0 ? (
@@ -612,19 +665,33 @@ export default function EventView({
                             </span>
                           </div>
                           <div className="mt-1 text-xs text-gray-500">
-                            {record.person.role}
-                            {record.person.status
-                              ? ` • ${record.person.status.toLowerCase()}`
-                              : ""}{" "}
-                            {record.journey_id ? "• Journey logged" : ""}
+                            {[
+                              record.person.role,
+                              record.person.status ? (
+                                <span
+                                  key="status"
+                                  className="font-semibold text-gray-700"
+                                >
+                                  {record.person.status.toLowerCase()}
+                                </span>
+                              ) : null,
+                              record.journey_id ? "Journey logged" : null,
+                            ]
+                              .filter(Boolean)
+                              .map((part, index) => (
+                                <span key={index}>
+                                  {index > 0 ? " • " : ""}
+                                  {part}
+                                </span>
+                              ))}
                           </div>
                         </div>
                         <div className="flex items-center gap-3 w-full sm:w-auto">
                           <Button
                             variant="tertiary"
                             className="w-full sm:w-auto min-h-[44px] text-xs px-3 py-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-                            onClick={() => handleRemoveAttendance(record.id)}
-                            disabled={actionLoading}
+                            onClick={() => openRemoveConfirmation(record)}
+                            disabled={actionLoading || removeConfirmation.loading}
                           >
                             Remove
                           </Button>
@@ -638,6 +705,33 @@ export default function EventView({
           </div>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={removeConfirmation.isOpen}
+        onClose={closeRemoveConfirmation}
+        onConfirm={confirmRemoveAttendance}
+        title="Remove Attendee"
+        message={
+          removeConfirmation.record ? (
+            <>
+              Remove{" "}
+              <strong>
+                {formatPersonName(removeConfirmation.record.person)}
+              </strong>
+              {selectedOccurrenceDate
+                ? ` from ${formatOccurrenceLabel(selectedOccurrenceDate)}`
+                : " from this occurrence"}
+              . Their attendance record will be deleted.
+            </>
+          ) : (
+            "Remove this attendee from the occurrence? Their attendance record will be deleted."
+          )
+        }
+        confirmText="Remove Attendee"
+        cancelText="Cancel"
+        variant="danger"
+        loading={removeConfirmation.loading}
+      />
 
       {/* Footer */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-6 border-t border-gray-200 bg-gray-50">

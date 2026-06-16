@@ -507,6 +507,26 @@ export const eventsApi = {
     api.delete<{ event: Event }>(`/events/${id}/attendance/${attendanceId}/`),
 };
 
+export const eventTypesApi = {
+  list: () => api.get<EventTypeOption[]>("/event-types/"),
+  create: (data: {
+    code: string;
+    label: string;
+    color: string;
+    sort_order: number;
+  }) => api.post<EventTypeOption>("/event-types/", data),
+  update: (
+    code: string,
+    data: Partial<{
+      label: string;
+      color: string;
+      sort_order: number;
+    }>
+  ) => api.patch<EventTypeOption>(`/event-types/${encodeURIComponent(code)}/`, data),
+  delete: (code: string) =>
+    api.delete(`/event-types/${encodeURIComponent(code)}/`),
+};
+
 export const attendanceApi = {
   getAll: (params?: {
     event?: string;

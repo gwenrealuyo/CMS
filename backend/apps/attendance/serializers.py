@@ -22,6 +22,7 @@ class AttendancePersonSerializer(serializers.ModelSerializer):
             "suffix",
             "role",
             "status",
+            "member_id",
             "full_name",
             "phone",
             "cluster_codes",

@@ -27,6 +27,14 @@ Recurring events store a JSON payload in `Event.recurrence_pattern`:
 
 The recurrence service expands this pattern on demand in `apps.events.services.recurrence.generate_occurrences`, providing `occurrences` and `next_occurrence` fields in the serializer.
 
+## Event Types and Colors
+
+- Event types are stored in `EventType` (`code`, `label`, `color`, `sort_order`, `is_system`).
+- `GET /api/event-types/` and legacy `GET /api/events/types/` return type metadata including hex colors.
+- Coordinators with Events write access can manage types from the Events page (**Manage Types**): add custom types, edit labels/colors/sort order, and delete unused non-system types.
+- Calendar dots, agenda chips, cards, and the event detail view use each type's `color` from the API (not hardcoded frontend maps).
+- Seeded system types (`is_system=true`) cannot be deleted; types referenced by events are protected.
+
 ## Frontend Behavior
 
 - `EventForm` (React) defaults new events to Sunday 9–11 AM Manila time, converts local picks to UTC before posting, and manages weekly recurrence options.
@@ -44,11 +52,25 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 - On the frontend, `EventView` includes an Attendance panel that:
   - shows attendees for the selected occurrence, with the derived badges for quick context;
   - lets coordinators add/remove attendees; status defaults to “Present” and edits sync journeys automatically;
-  - surfaces the total recorded attendees and highlights whether journeys are logged.
+  - surfaces the total recorded attendees and highlights whether journeys are logged;
+  - provides an **Open Check-In** action that opens `/events/check-in?event={id}&occurrence=YYYY-MM-DD` in a new tab for a focused check-in station UI.
+
+### Check-In Page (manual v1)
+
+- Route: `/events/check-in?event={id}&occurrence=YYYY-MM-DD` (requires auth via `ProtectedRoute`).
+- Layout: full-width, centered column without the dashboard sidebar — intended for tablets or a dedicated check-in tab.
+- Stats (branch-aware when `event.branch` is set):
+  - **Total** — eligible members (`isSelectablePerson`) in the event branch, or all eligible members when the event is church-wide;
+  - **Checked In** — unique people with attendance records for the occurrence;
+  - **Remaining** — `Total − Checked In`.
+- **Manual Entry** tab accepts name or LAMP ID; Enter key submits (barcode-scanner friendly for future QR text payloads).
+- **Camera Scan** tab is visible but disabled; QR/camera check-in is planned for a future release.
+- Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
 
 ## Testing
 
 Backend recurrence logic and the exclude-occurrence action are covered by unit tests in `apps/events/tests/test_recurrence.py`.
+Branch fields on event retrieve are covered by `apps/events/tests/test_event_branch_api.py`.
 Attendance and journey flows are exercised by API tests in `apps/attendance/tests/test_attendance_api.py`.
 
 Run them (uses SQLite to avoid Postgres permissions):

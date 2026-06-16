@@ -17,7 +17,7 @@ def seed_event_types(apps, schema_editor):
     from apps.events.event_type_seed import EVENT_TYPE_SEED
 
     EventType = apps.get_model("events", "EventType")
-    for code, label, sort_order in EVENT_TYPE_SEED:
+    for code, label, sort_order, *_ in EVENT_TYPE_SEED:
         EventType.objects.update_or_create(
             code=code,
             defaults={"label": label, "sort_order": sort_order},

@@ -98,7 +98,8 @@ This document outlines the mobile responsiveness improvements made across the Ch
 - Calendar collapsible on mobile via toggle; agenda remains accessible below
 - Calendar day cells show type-colored dots (one per unique event type) instead of count badges; compact legend below the grid
 - Card-style agenda rows with clear borders; location visible on mobile
-- Compact agenda rows with 44px touch targets; row tap opens edit modal
+- Compact agenda rows with 44px touch targets; row tap opens view modal
+- Desktop agenda (`lg+`) uses larger rows when 3 or fewer events are shown; mobile stays compact
 - Agenda panel scrolls independently on desktop (`sticky` + max-height)
 
 #### Auth Pages (Login, Forgot Password, Change Password)

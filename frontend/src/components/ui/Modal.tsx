@@ -40,14 +40,16 @@ export default function Modal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className} !mt-0 p-0 md:p-4`}
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !mt-0 p-0 md:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="bg-white rounded-none md:rounded-lg max-w-3xl w-full h-full md:h-auto md:max-h-[95vh] md:mx-4 overflow-hidden flex flex-col">
+      <div
+        className={`bg-white rounded-none md:rounded-lg max-w-3xl w-full h-full md:h-auto md:max-h-[95vh] md:mx-4 overflow-hidden flex flex-col ${className}`}
+      >
         {!hideHeader && (
           <div
             className={`pt-4 pl-4 pr-2 pb-0 md:pt-2 md:pl-6 md:pr-2 md:pb-0 flex-shrink-0 border-b border-gray-200 ${headerClassName}`}

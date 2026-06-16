@@ -24,16 +24,30 @@ export default function EventAgendaPanel({
   onCreateEvent,
 }: EventAgendaPanelProps) {
   const totalItems = groups.totalCount;
+  const isSparseDesktop = totalItems > 0 && totalItems <= 3;
+  const rowSize = isSparseDesktop ? "comfortable" : "compact";
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto flex flex-col min-h-0">
+    <div
+      className={[
+        "bg-white rounded-xl border border-gray-200 shadow-sm lg:sticky lg:top-6 flex flex-col min-h-0",
+        isSparseDesktop
+          ? "lg:overflow-visible"
+          : "lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto",
+      ].join(" ")}
+    >
       <div className="px-4 md:px-6 py-4 border-b border-gray-100 shrink-0">
         <h2 className="text-base md:text-lg font-semibold text-foreground">
           {groups.title}
         </h2>
       </div>
 
-      <div className="flex-1 px-2 md:px-4 py-2">
+      <div
+        className={[
+          "flex-1 px-2 md:px-4 py-2",
+          isSparseDesktop ? "lg:flex lg:flex-col" : "",
+        ].join(" ")}
+      >
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center gap-2 text-gray-500">
@@ -110,7 +124,14 @@ export default function EventAgendaPanel({
             )}
           </div>
         ) : (
-          <div className="space-y-3 pb-4">
+          <div
+            className={[
+              "space-y-3 pb-4",
+              isSparseDesktop
+                ? "lg:flex lg:flex-col lg:flex-1 lg:justify-center lg:gap-4 lg:space-y-0"
+                : "",
+            ].join(" ")}
+          >
             {groups.sections.map((section) => (
               <div key={section.label}>
                 {groups.mode !== "day" && (
@@ -118,13 +139,20 @@ export default function EventAgendaPanel({
                     {section.label}
                   </h3>
                 )}
-                <div className="flex flex-col gap-2">
+                <div
+                  className={[
+                    "flex flex-col gap-2",
+                    isSparseDesktop ? "lg:gap-4" : "",
+                  ].join(" ")}
+                >
                   {section.items.map((item) => (
                     <EventAgendaRow
                       key={item.id}
                       event={item.event}
                       occurrenceStartDate={item.occurrence.start_date}
+                      occurrenceEndDate={item.occurrence.end_date}
                       onClick={() => onView(item)}
+                      size={rowSize}
                     />
                   ))}
                 </div>

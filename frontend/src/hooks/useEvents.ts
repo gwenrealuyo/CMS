@@ -5,7 +5,7 @@ import {
   AttendanceStatus,
   EventTypeOption,
 } from "@/src/types/event";
-import { eventsApi } from "@/src/lib/api";
+import { eventsApi, eventTypesApi } from "@/src/lib/api";
 
 interface CalendarOccurrence {
   occurrence_id: string;
@@ -77,16 +77,24 @@ export const useEvents = () => {
     [buildCalendarOccurrences]
   );
 
+  const fetchEventTypes = useCallback(async () => {
+    const typesResponse = await eventTypesApi
+      .list()
+      .catch(() => eventsApi.listTypes().catch(() => ({ data: [] as EventTypeOption[] })));
+    setEventTypes(typesResponse.data);
+    return typesResponse.data;
+  }, []);
+
   const fetchEvents = useCallback(
     async (params?: Parameters<typeof eventsApi.getAll>[0]) => {
       try {
         setLoading(true);
-        const [eventsResponse, typesResponse] = await Promise.all([
-          eventsApi.getAll(params),
-          eventsApi.listTypes().catch(() => ({ data: [] as EventTypeOption[] })),
+        const [eventsResponse, types] = await Promise.all([
+          eventsApi.getAll({ ...params, include_attendance: true }),
+          fetchEventTypes(),
         ]);
         applyEvents(eventsResponse.data);
-        setEventTypes(typesResponse.data);
+        setEventTypes(types);
         setError(null);
       } catch (err) {
         console.error("Error fetching events:", err);
@@ -95,8 +103,57 @@ export const useEvents = () => {
         setLoading(false);
       }
     },
-    [applyEvents]
+    [applyEvents, fetchEventTypes]
   );
+
+  const refreshEventTypes = useCallback(async () => {
+    return fetchEventTypes();
+  }, [fetchEventTypes]);
+
+  const createEventType = useCallback(
+    async (data: {
+      code: string;
+      label: string;
+      color: string;
+      sort_order: number;
+    }) => {
+      const response = await eventTypesApi.create(data);
+      setEventTypes((current) =>
+        [...current.filter((type) => type.code !== response.data.code), response.data].sort(
+          (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label)
+        )
+      );
+      return response.data;
+    },
+    []
+  );
+
+  const updateEventType = useCallback(
+    async (
+      code: string,
+      data: Partial<{
+        label: string;
+        color: string;
+        sort_order: number;
+      }>
+    ) => {
+      const response = await eventTypesApi.update(code, data);
+      setEventTypes((current) =>
+        current
+          .map((type) => (type.code === code ? response.data : type))
+          .sort(
+            (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label)
+          )
+      );
+      return response.data;
+    },
+    []
+  );
+
+  const deleteEventType = useCallback(async (code: string) => {
+    await eventTypesApi.delete(code);
+    setEventTypes((current) => current.filter((type) => type.code !== code));
+  }, []);
 
   const findAndReplaceEvent = useCallback(
     (next: Event) => {
@@ -236,5 +293,9 @@ export const useEvents = () => {
     addAttendance,
     removeAttendance,
     refreshEvents: fetchEvents,
+    refreshEventTypes,
+    createEventType,
+    updateEventType,
+    deleteEventType,
   };
 };

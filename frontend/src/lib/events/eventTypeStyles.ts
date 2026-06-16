@@ -1,54 +1,102 @@
-const EVENT_TYPE_CHIP_CLASSES: Record<string, string> = {
-  SUNDAY_SERVICE: "chip-primary",
-  BIBLE_STUDY: "chip-purple",
-  PRAYER_MEETING: "chip-green",
-  SPECIAL_EVENT: "chip-orange",
-};
+import { CSSProperties } from "react";
+import { EventTypeOption } from "@/src/types/event";
 
-const EVENT_TYPE_AGENDA_CHIP_CLASSES: Record<string, string> = {
-  SUNDAY_SERVICE: "chip-primary-sm",
-  BIBLE_STUDY: "chip-purple-sm",
-  PRAYER_MEETING: "chip-green-sm",
-  SPECIAL_EVENT: "chip-orange-sm",
-};
+export const DEFAULT_EVENT_TYPE_COLOR = "#9CA3AF";
 
-const EVENT_TYPE_DOT_CLASSES: Record<string, string> = {
-  SUNDAY_SERVICE: "bg-primary",
-  BIBLE_STUDY: "bg-purple-600",
-  PRAYER_MEETING: "bg-green-600",
-  SPECIAL_EVENT: "bg-orange-600",
-};
+export type EventTypeRegistry = Map<string, EventTypeOption>;
 
-export const EVENT_TYPE_ORDER = [
-  "SUNDAY_SERVICE",
-  "BIBLE_STUDY",
-  "PRAYER_MEETING",
-  "SPECIAL_EVENT",
-] as const;
-
-export function getEventTypeChipClass(type: string): string {
-  return EVENT_TYPE_CHIP_CLASSES[type] || "chip-gray";
+export function normalizeHexColor(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return DEFAULT_EVENT_TYPE_COLOR;
+  const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  if (!/^#[0-9A-Fa-f]{6}$/.test(withHash)) {
+    return DEFAULT_EVENT_TYPE_COLOR;
+  }
+  return withHash.toUpperCase();
 }
 
-export function getEventTypeAgendaChipClass(type: string): string {
-  return EVENT_TYPE_AGENDA_CHIP_CLASSES[type] || "chip-gray-sm";
+export function buildEventTypeRegistry(
+  types: EventTypeOption[]
+): EventTypeRegistry {
+  return new Map(types.map((type) => [type.code, type]));
 }
 
-export function getEventTypeDotClass(type: string): string {
-  return EVENT_TYPE_DOT_CLASSES[type] || "bg-gray-400";
+export function getEventTypeFromRegistry(
+  code: string,
+  registry: EventTypeRegistry
+): EventTypeOption | undefined {
+  return registry.get(code);
 }
 
-export function sortEventTypes(types: string[]): string[] {
-  const orderIndex = (type: string) => {
-    const idx = EVENT_TYPE_ORDER.indexOf(
-      type as (typeof EVENT_TYPE_ORDER)[number]
-    );
-    return idx === -1 ? EVENT_TYPE_ORDER.length : idx;
-  };
+export function getEventTypeColor(
+  code: string,
+  registry: EventTypeRegistry
+): string {
+  return normalizeHexColor(
+    registry.get(code)?.color ?? DEFAULT_EVENT_TYPE_COLOR
+  );
+}
 
-  return Array.from(new Set(types)).sort((a, b) => {
-    const orderDiff = orderIndex(a) - orderIndex(b);
-    if (orderDiff !== 0) return orderDiff;
-    return a.localeCompare(b);
+export function sortEventTypes(
+  codes: string[],
+  registry?: EventTypeRegistry
+): string[] {
+  const uniqueCodes = Array.from(new Set(codes));
+
+  if (!registry || registry.size === 0) {
+    return uniqueCodes.sort((a, b) => a.localeCompare(b));
+  }
+
+  return uniqueCodes.sort((a, b) => {
+    const typeA = registry.get(a);
+    const typeB = registry.get(b);
+    const orderA = typeA?.sort_order ?? Number.MAX_SAFE_INTEGER;
+    const orderB = typeB?.sort_order ?? Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+    const labelA = typeA?.label ?? a;
+    const labelB = typeB?.label ?? b;
+    return labelA.localeCompare(labelB);
   });
+}
+
+const CHIP_BASE_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "9999px",
+  backgroundColor: "transparent",
+  fontWeight: 600,
+  lineHeight: 1,
+};
+
+export function getEventTypeChipStyle(
+  code: string,
+  registry: EventTypeRegistry,
+  size: "sm" | "md" = "md"
+): CSSProperties {
+  const color = getEventTypeColor(code, registry);
+  return {
+    ...CHIP_BASE_STYLE,
+    border: `1px solid ${color}`,
+    color,
+    padding: size === "sm" ? "0.125rem 0.5rem" : "0.25rem 0.75rem",
+    fontSize: size === "sm" ? "0.625rem" : "0.75rem",
+  };
+}
+
+export function getEventTypeDotStyle(
+  code: string,
+  registry: EventTypeRegistry
+): CSSProperties {
+  return {
+    backgroundColor: getEventTypeColor(code, registry),
+  };
+}
+
+export function labelToEventTypeCode(label: string): string {
+  return label
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 50);
 }

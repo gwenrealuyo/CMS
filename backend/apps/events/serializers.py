@@ -9,6 +9,46 @@ from apps.attendance.serializers import AttendanceRecordSerializer
 from .models import Event, EventType
 from .services.recurrence import clean_weekly_pattern, generate_occurrences
 
+import re
+
+EVENT_TYPE_CODE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_/]*$")
+
+
+class EventTypeSerializer(serializers.ModelSerializer):
+    event_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = EventType
+        fields = [
+            "code",
+            "label",
+            "color",
+            "sort_order",
+            "is_system",
+            "event_count",
+        ]
+        read_only_fields = ["is_system", "event_count"]
+
+    def validate_code(self, value):
+        if not EVENT_TYPE_CODE_PATTERN.match(value):
+            raise ValidationError(
+                "Code must start with a letter and contain only uppercase letters, numbers, underscores, or slashes."
+            )
+        if self.instance and value != self.instance.code:
+            raise ValidationError("Event type code cannot be changed.")
+        return value
+
+    def validate_color(self, value):
+        normalized = value.strip().upper()
+        if not re.fullmatch(r"#[0-9A-F]{6}", normalized):
+            raise ValidationError("Color must be a hex value like #RRGGBB.")
+        return normalized
+
+    def validate(self, attrs):
+        if self.instance:
+            attrs.pop("code", None)
+        return super().validate(attrs)
+
 
 class EventSerializer(serializers.ModelSerializer):
     type = serializers.SlugRelatedField(
@@ -17,6 +57,9 @@ class EventSerializer(serializers.ModelSerializer):
         source="event_type",
     )
     type_display = serializers.CharField(source="event_type.label", read_only=True)
+    branch_name = serializers.CharField(
+        source="branch.name", read_only=True, allow_null=True
+    )
     occurrences = serializers.SerializerMethodField()
     next_occurrence = serializers.SerializerMethodField()
     attendance_count = serializers.SerializerMethodField()
@@ -34,6 +77,8 @@ class EventSerializer(serializers.ModelSerializer):
             "type",
             "type_display",
             "location",
+            "branch",
+            "branch_name",
             "is_recurring",
             "recurrence_pattern",
             "occurrences",

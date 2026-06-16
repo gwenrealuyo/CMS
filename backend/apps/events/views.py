@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import django_filters
+from django.db.models import Count
 from django.utils.dateparse import parse_date
 from django.utils import dateparse, timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -19,7 +20,7 @@ from apps.authentication.permissions import (
 )
 from apps.people.models import ModuleCoordinator
 from .models import Event, EventType
-from .serializers import EventSerializer
+from .serializers import EventSerializer, EventTypeSerializer
 from .services.recurrence import clean_weekly_pattern
 
 
@@ -29,6 +30,36 @@ class EventFilter(django_filters.FilterSet):
     class Meta:
         model = Event
         fields = ["start_date"]
+
+
+class EventTypeViewSet(viewsets.ModelViewSet):
+    queryset = EventType.objects.annotate(event_count=Count("events")).order_by(
+        "sort_order", "code"
+    )
+    serializer_class = EventTypeSerializer
+    lookup_field = "code"
+    permission_classes = [IsAuthenticatedAndNotVisitor]
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "write")]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_system:
+            return Response(
+                {"detail": "System event types cannot be deleted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if instance.events.exists():
+            return Response(
+                {"detail": "Cannot delete an event type that is used by existing events."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 class EventViewSet(viewsets.ModelViewSet):
@@ -123,10 +154,11 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="types")
     def types(self, request):
-        rows = EventType.objects.order_by("sort_order", "code").values(
-            "code", "label"
+        queryset = EventType.objects.annotate(event_count=Count("events")).order_by(
+            "sort_order", "code"
         )
-        return Response(list(rows))
+        serializer = EventTypeSerializer(queryset, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="attendance")
     def attendance(self, request, pk=None):

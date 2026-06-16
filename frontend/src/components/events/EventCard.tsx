@@ -1,7 +1,9 @@
+"use client";
+
 import { Event } from "@/src/types/event";
 import Card from "@/src/components/ui/Card";
 import Button from "../ui/Button";
-import { getEventTypeChipClass } from "@/src/lib/events/eventTypeStyles";
+import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
 
 interface EventCardProps {
   event: Event;
@@ -18,6 +20,7 @@ export default function EventCard({
   onEdit,
   onView,
 }: EventCardProps) {
+  const { getChipStyle } = useEventTypeStyles();
   const nextStart =
     occurrenceStartDate || event.next_occurrence?.start_date || event.start_date;
   const nextEnd =
@@ -31,9 +34,7 @@ export default function EventCard({
             <h3 className="text-lg font-semibold text-foreground">
               {event.title}
             </h3>
-            <span
-              className={`mt-2 ${getEventTypeChipClass(event.type)}`}
-            >
+            <span style={getChipStyle(event.type)}>
               {event.type_display || event.type}
             </span>
             {event.is_recurring && (

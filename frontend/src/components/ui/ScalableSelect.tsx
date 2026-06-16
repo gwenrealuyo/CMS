@@ -12,6 +12,7 @@ interface SelectOption {
   disabled?: boolean;
   clusterCode?: string | null;
   familyName?: string | null;
+  memberId?: string | null;
   /** When set, renders a small Cluster vs Group badge (distinct styling). */
   typeLabel?: "cluster" | "group";
 }
@@ -31,6 +32,8 @@ interface ScalableSelectProps {
   virtualizeThreshold?: number; // Start virtualizing when options exceed this number
   /** Block opening/changing without grey disabled styling (use with outer tooltip). */
   interactionBlocked?: boolean;
+  /** Called when user commits a choice (click option, or Enter with one enabled match). */
+  onConfirm?: (value: string) => void;
 }
 
 export default function ScalableSelect({
@@ -47,6 +50,7 @@ export default function ScalableSelect({
   loading = false,
   virtualizeThreshold = 100,
   interactionBlocked = false,
+  onConfirm,
 }: ScalableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,7 +72,8 @@ export default function ScalableSelect({
     return options.filter(
       (option) =>
         option.label.toLowerCase().includes(query) ||
-        option.value.toLowerCase().includes(query)
+        String(option.value).toLowerCase().includes(query) ||
+        (option.memberId?.toLowerCase().includes(query) ?? false)
     );
   }, [options, searchQuery]);
 
@@ -76,7 +81,9 @@ export default function ScalableSelect({
   const shouldVirtualize = filteredOptions.length > virtualizeThreshold;
 
   // Get selected option
-  const selectedOption = options.find((option) => option.value === value);
+  const selectedOption = options.find(
+    (option) => String(option.value) === String(value)
+  );
 
   // Handle click outside
   useEffect(() => {
@@ -139,6 +146,17 @@ export default function ScalableSelect({
     onChange(optionValue);
     setIsOpen(false);
     setSearchQuery("");
+    onConfirm?.(optionValue);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter" || !onConfirm) return;
+
+    const enabledMatches = filteredOptions.filter((option) => !option.disabled);
+    if (enabledMatches.length !== 1) return;
+
+    e.preventDefault();
+    handleOptionClick(enabledMatches[0].value);
   };
 
   // Handle clear selection
@@ -219,7 +237,7 @@ export default function ScalableSelect({
                       ? "text-gray-400 cursor-not-allowed"
                       : "text-gray-900 hover:bg-gray-100"
                   }
-                  ${option.value === value ? "bg-primary/10 text-primary" : ""}
+                  ${String(option.value) === String(value) ? "bg-primary/10 text-primary" : ""}
                 `}
               >
                 <div className="flex items-center justify-between">
@@ -245,7 +263,7 @@ export default function ScalableSelect({
                         {option.familyName}
                       </span>
                     )}
-                    {option.value === value && (
+                    {String(option.value) === String(value) && (
                       <svg
                         className="w-4 h-4 text-primary"
                         fill="currentColor"
@@ -287,7 +305,7 @@ export default function ScalableSelect({
               ? "text-gray-400 cursor-not-allowed"
               : "text-gray-900 hover:bg-gray-100"
           }
-          ${option.value === value ? "bg-primary/10 text-primary" : ""}
+          ${String(option.value) === String(value) ? "bg-primary/10 text-primary" : ""}
         `}
       >
         <div className="flex items-center justify-between gap-2">
@@ -313,7 +331,7 @@ export default function ScalableSelect({
                 {option.familyName}
               </span>
             )}
-            {option.value === value && (
+            {String(option.value) === String(value) && (
             <svg
               className="w-4 h-4 text-primary"
               fill="currentColor"
@@ -356,6 +374,7 @@ export default function ScalableSelect({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder={searchPlaceholder}
                 className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
               />

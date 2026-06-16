@@ -1,11 +1,26 @@
 from django.conf import settings
+from django.core.validators import RegexValidator
 from django.db import models
+
+from .event_type_seed import DEFAULT_EVENT_TYPE_COLOR
+
+
+hex_color_validator = RegexValidator(
+    regex=r"^#[0-9A-Fa-f]{6}$",
+    message="Color must be a hex value like #RRGGBB.",
+)
 
 
 class EventType(models.Model):
     code = models.CharField(max_length=50, primary_key=True)
     label = models.CharField(max_length=100)
     sort_order = models.PositiveSmallIntegerField(default=0)
+    color = models.CharField(
+        max_length=7,
+        default=DEFAULT_EVENT_TYPE_COLOR,
+        validators=[hex_color_validator],
+    )
+    is_system = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["sort_order", "code"]

@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  getEventTypeDotClass,
-  sortEventTypes,
-} from "@/src/lib/events/eventTypeStyles";
+import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
 
 export type CalendarEventItem = {
   start_date: string;
@@ -32,7 +29,8 @@ function isSameLocalDay(a: Date, b: Date): boolean {
 
 function getUniqueTypesForDate(
   events: CalendarEventItem[],
-  date: Date
+  date: Date,
+  sortTypes: (codes: string[]) => string[]
 ): string[] {
   const types = events
     .filter((event) => {
@@ -41,7 +39,7 @@ function getUniqueTypesForDate(
     })
     .map((event) => event.type);
 
-  return sortEventTypes(types);
+  return sortTypes(types);
 }
 
 export default function EventCalendar({
@@ -51,6 +49,7 @@ export default function EventCalendar({
   onMonthChange,
   selectedDate,
 }: EventCalendarProps) {
+  const { getDotStyle, sortTypes } = useEventTypeStyles();
   const [currentDate, setCurrentDate] = useState(new Date());
   const isSyncingRef = useRef(false);
 
@@ -102,11 +101,11 @@ export default function EventCalendar({
       }
     }
 
-    return sortEventTypes(Array.from(labels.keys())).map((type) => ({
+    return sortTypes(Array.from(labels.keys())).map((type) => ({
       type,
       label: labels.get(type) || type,
     }));
-  }, [events, month, year]);
+  }, [events, month, sortTypes, year]);
 
   const isToday = (date: Date | null): boolean => {
     if (!date) return false;
@@ -220,7 +219,9 @@ export default function EventCalendar({
         ))}
 
         {days.map((date, index) => {
-          const uniqueTypes = date ? getUniqueTypesForDate(events, date) : [];
+          const uniqueTypes = date
+            ? getUniqueTypesForDate(events, date, sortTypes)
+            : [];
           const visibleTypes = uniqueTypes.slice(0, MAX_VISIBLE_DOTS);
           const overflow = uniqueTypes.length - visibleTypes.length;
           const isCurrentDate = isToday(date);
@@ -271,7 +272,8 @@ export default function EventCalendar({
                       {visibleTypes.map((type) => (
                         <span
                           key={type}
-                          className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0 ${getEventTypeDotClass(type)}`}
+                          className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0"
+                          style={getDotStyle(type)}
                         />
                       ))}
                       {overflow > 0 && (
@@ -296,7 +298,8 @@ export default function EventCalendar({
               className="inline-flex items-center gap-1.5 text-xs text-gray-600"
             >
               <span
-                className={`w-2 h-2 rounded-full shrink-0 ${getEventTypeDotClass(type)}`}
+                className="w-2 h-2 rounded-full shrink-0"
+                style={getDotStyle(type)}
                 aria-hidden="true"
               />
               <span>{label}</span>

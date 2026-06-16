@@ -1,18 +1,20 @@
 """Canonical event type rows — used by migrations RunPython and seed_event_types command."""
 
+DEFAULT_EVENT_TYPE_COLOR = "#9CA3AF"
+
 EVENT_TYPE_SEED = [
-    ("SUNDAY_SERVICE", "Sunday Service", 10),
-    ("BIBLE_STUDY", "Bible Study", 20),
-    ("PRAYER_MEETING", "Prayer Meeting", 30),
-    ("BS/CLUSTER_EVANGELISM", "BS/Cluster Evangelism", 40),
-    ("CLUSTERING", "Clustering", 50),
-    ("DOCTRINAL_CLASS", "Doctrinal Class", 60),
-    ("CYM_CLASS", "CYM Class", 70),
-    ("MINI_WORSHIP", "Mini Worship", 80),
-    ("GOLDEN_WARRIORS", "Golden Warriors", 90),
-    ("CAMPING", "Camping", 100),
-    ("AWTA", "AWTA", 110),
-    ("CONFERENCE", "Conference", 120),
-    ("SUNDAY_SCHOOL", "Sunday School", 130),
-    ("OTHER", "Others", 140),
+    ("SUNDAY_SERVICE", "Sunday Service", 10, "#1e40af"),
+    ("BIBLE_STUDY", "Bible Study", 20, "#9333ea"),
+    ("PRAYER_MEETING", "Prayer Meeting", 30, "#16a34a"),
+    ("BS/CLUSTER_EVANGELISM", "BS/Cluster Evangelism", 40, "#0891b2"),
+    ("CLUSTERING", "Clustering", 50, "#0d9488"),
+    ("DOCTRINAL_CLASS", "Doctrinal Class", 60, "#ca8a04"),
+    ("CYM_CLASS", "CYM Class", 70, "#db2777"),
+    ("MINI_WORSHIP", "Mini Worship", 80, "#7c3aed"),
+    ("GOLDEN_WARRIORS", "Golden Warriors", 90, "#b45309"),
+    ("CAMPING", "Camping", 100, "#15803d"),
+    ("AWTA", "AWTA", 110, "#dc2626"),
+    ("CONFERENCE", "Conference", 120, "#ea580c"),
+    ("SUNDAY_SCHOOL", "Sunday School", 130, "#2563eb"),
+    ("OTHER", "Others", 140, "#6b7280"),
 ]

@@ -34,7 +34,7 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
-        beacon: {
+        lighthouse: {
           navy: "#1B2A41",
           gold: "#F59E0B",
           ivory: "#F7F4EF",

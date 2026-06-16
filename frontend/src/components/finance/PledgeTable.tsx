@@ -211,7 +211,7 @@ export default function PledgeTable({
                         onClick={() => onManageContributions(pledge)}
                         className="group text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
                       >
-                        <div className="font-medium text-primary group-hover:text-beacon-navy group-hover:underline transition-colors cursor-pointer">
+                        <div className="font-medium text-primary group-hover:text-lighthouse-navy group-hover:underline transition-colors cursor-pointer">
                           {pledge.pledgeTitle}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
@@ -295,7 +295,7 @@ export default function PledgeTable({
                               e.stopPropagation();
                               onEditPledge(pledge);
                             }}
-                            className="text-xs font-semibold text-primary hover:text-beacon-navy transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
+                            className="text-xs font-semibold text-primary hover:text-lighthouse-navy transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
                           >
                             Edit
                           </button>

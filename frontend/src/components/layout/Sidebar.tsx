@@ -351,7 +351,7 @@ export default function Sidebar() {
         <div className="flex shrink-0 items-center justify-between gap-3 p-4 md:p-6">
           {!isCompact && (
             <h1 className="min-w-0 flex-1 text-xl font-bold leading-snug text-primary md:text-2xl">
-              The Beacon
+              The Lighthouse
             </h1>
           )}
           <div className="flex shrink-0 items-center gap-2">

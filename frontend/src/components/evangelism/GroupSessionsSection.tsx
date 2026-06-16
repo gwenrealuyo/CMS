@@ -55,7 +55,7 @@ export default function GroupSessionsSection({
           </Button>
           <Button
             onClick={onAddSession}
-            className="bg-primary hover:bg-beacon-navy w-full sm:w-auto min-h-[44px]"
+            className="bg-primary hover:bg-lighthouse-navy w-full sm:w-auto min-h-[44px]"
           >
             Add Session
           </Button>

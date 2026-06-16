@@ -1,7 +1,7 @@
 /*
- * The Beacon — design tokens
+ * The Lighthouse — design tokens
  * primary = blue (#2563EB-style) for buttons, links, active nav
- * beacon-gold = amber accent (#F59E0B) — tagline, sidebar highlights — use text-beacon-gold / border-beacon-gold
+ * lighthouse-gold = amber accent (#F59E0B) — tagline, sidebar highlights — use text-lighthouse-gold / border-lighthouse-gold
  */
 @tailwind base;
 @tailwind components;
@@ -84,7 +84,7 @@
   }
 
   .btn-accent {
-    @apply bg-beacon-gold text-beacon-navy hover:bg-beacon-gold/90 font-medium;
+    @apply bg-lighthouse-gold text-lighthouse-navy hover:bg-lighthouse-gold/90 font-medium;
   }
 
   .chip-primary {

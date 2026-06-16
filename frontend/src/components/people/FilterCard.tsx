@@ -343,7 +343,7 @@ export default function FilterCard({
               ? selectedBranchIds.length === 0
               : !value.trim() || (isBetween && !value2.trim())
           }
-          className="px-3 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-lg hover:bg-beacon-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-lg hover:bg-lighthouse-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Apply Filter
         </button>

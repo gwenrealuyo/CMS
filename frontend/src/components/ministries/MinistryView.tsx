@@ -147,7 +147,7 @@ export default function MinistryView({
       <div className="p-4 md:p-5 overflow-y-auto flex-1">
         <div className="space-y-4 md:space-y-5">
           {/* Ministry Info Card */}
-          <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-lg p-4 border border-primary/20">
+          <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-lg p-4 border border-primary/20">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
                 <h2 className="text-lg md:text-xl font-bold text-gray-900 truncate">

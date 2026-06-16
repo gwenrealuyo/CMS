@@ -362,7 +362,7 @@ export default function ClusterFilterCard({
           </button>
           <button
             onClick={handleApply}
-            className="px-3 py-2.5 md:py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-beacon-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            className="px-3 py-2.5 md:py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-lighthouse-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 w-full sm:w-auto"
           >
             Apply Filter
           </button>

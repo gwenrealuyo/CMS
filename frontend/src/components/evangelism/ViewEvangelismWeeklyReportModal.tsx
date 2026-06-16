@@ -197,7 +197,7 @@ export default function ViewEvangelismWeeklyReportModal({
 
         <div className="p-5 overflow-y-auto flex-1">
           <div className="space-y-5">
-            <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-lg p-4 border border-primary/20">
+            <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-lg p-4 border border-primary/20">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-xl font-bold text-gray-900">{groupTitle}</h2>
                 <div className="flex flex-col items-end text-sm text-gray-700 shrink-0">
@@ -495,7 +495,7 @@ export default function ViewEvangelismWeeklyReportModal({
                   <Button
                     onClick={onEdit}
                     variant="secondary"
-                    className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                    className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-lighthouse-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
                   >
                     <svg
                       className="w-4 h-4"

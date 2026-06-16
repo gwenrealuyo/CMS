@@ -35,7 +35,7 @@ export default function GroupReportsSection({
         <h3 className="text-lg font-semibold text-gray-900">Reports</h3>
         <Button
           onClick={onAddReport}
-          className="bg-primary hover:bg-beacon-navy w-full sm:w-auto min-h-[44px]"
+          className="bg-primary hover:bg-lighthouse-navy w-full sm:w-auto min-h-[44px]"
         >
           Submit Report
         </Button>

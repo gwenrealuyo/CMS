@@ -2123,7 +2123,7 @@ function AdminSettingsPageContent() {
                       setEditingBranch(null);
                       setShowBranchForm(true);
                     }}
-                    className="bg-primary hover:bg-beacon-navy text-white w-full sm:w-auto min-h-[44px] sm:min-h-0"
+                    className="bg-primary hover:bg-lighthouse-navy text-white w-full sm:w-auto min-h-[44px] sm:min-h-0"
                   >
                     Create Branch
                   </Button>
@@ -2366,7 +2366,7 @@ function AdminSettingsPageContent() {
                   {viewingBranch && (
                     <div className="space-y-4 sm:space-y-6">
                       {/* Profile Header Card */}
-                      <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-xl p-4 sm:p-6 border border-primary/20">
+                      <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-xl p-4 sm:p-6 border border-primary/20">
                         <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
                           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0">
                             {viewingBranch.name[0]}
@@ -2519,7 +2519,7 @@ function AdminSettingsPageContent() {
                               setShowBranchForm(true);
                             }}
                             variant="secondary"
-                            className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                            className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-lighthouse-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
                           >
                             <svg
                               className="w-4 h-4"

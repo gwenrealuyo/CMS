@@ -271,7 +271,7 @@ export default function ClusterView({
             className={`rounded-lg p-4 border ${
               isPanelMode
                 ? "bg-white border-gray-200 shadow-sm"
-                : "bg-gradient-to-r from-beacon-ivory to-muted border-primary/20"
+                : "bg-gradient-to-r from-lighthouse-ivory to-muted border-primary/20"
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">

@@ -2530,7 +2530,7 @@ export default function ClusterReportsDashboard({
               </button>
               <button
                 onClick={() => setShowColumnsModal(false)}
-                className="px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-primary rounded-lg hover:bg-beacon-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                className="px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-primary rounded-lg hover:bg-lighthouse-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
                 Done
               </button>

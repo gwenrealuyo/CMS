@@ -6,11 +6,11 @@ import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: {
-    default: "The Beacon",
-    template: "%s | The Beacon",
+    default: "The Lighthouse",
+    template: "%s | The Lighthouse",
   },
   description:
-    "The Beacon — LAMP Church Care System. A soul kept is a soul won.",
+    "The Lighthouse — LAMP Church Care System. A soul kept is a soul won.",
 };
 
 const inter = Inter({

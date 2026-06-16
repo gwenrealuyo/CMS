@@ -38,7 +38,7 @@ export default function BulkActionsMenu({
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-beacon-navy flex items-center gap-2"
+        className="px-3 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-lighthouse-navy flex items-center gap-2"
       >
         Bulk Actions
         <svg

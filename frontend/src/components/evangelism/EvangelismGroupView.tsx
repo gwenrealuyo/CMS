@@ -328,7 +328,7 @@ export default function EvangelismGroupView({
           <Button
             onClick={onEdit}
             variant="secondary"
-            className="flex min-h-[44px] w-full items-center justify-center space-x-2 border border-primary/30 bg-white px-4 py-3 text-sm font-medium !text-primary hover:border-beacon-gold hover:bg-primary/10"
+            className="flex min-h-[44px] w-full items-center justify-center space-x-2 border border-primary/30 bg-white px-4 py-3 text-sm font-medium !text-primary hover:border-lighthouse-gold hover:bg-primary/10"
           >
             <svg
               className="h-4 w-4"

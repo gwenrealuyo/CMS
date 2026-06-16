@@ -1131,7 +1131,7 @@ export default function PersonProfile({
                 <Button
                   onClick={onEdit}
                   variant="secondary"
-                  className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                  className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-lighthouse-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
                 >
                   <svg
                     className="w-4 h-4"

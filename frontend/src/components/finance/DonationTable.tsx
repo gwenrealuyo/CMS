@@ -209,7 +209,7 @@ export default function DonationTable({
                           onClick={() => onEditDonation(donation)}
                           className="group text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
                         >
-                          <div className="font-medium text-primary group-hover:text-beacon-navy group-hover:underline transition-colors cursor-pointer">
+                          <div className="font-medium text-primary group-hover:text-lighthouse-navy group-hover:underline transition-colors cursor-pointer">
                             {new Date(donation.date).toLocaleDateString()}
                           </div>
                           {donation.receiptNumber && (

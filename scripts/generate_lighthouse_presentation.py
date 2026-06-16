@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate The Beacon client presentation (.pptx)."""
+"""Generate The Lighthouse client presentation (.pptx)."""
 
 from pptx import Presentation
 from pptx.util import Inches, Pt
@@ -7,7 +7,7 @@ from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.dml.color import RGBColor
 
-OUTPUT = "/Users/gwenvrhernandez/GoCodeo/CMS/docs/The_Beacon_Presentation.pptx"
+OUTPUT = "/Users/gwenvrhernandez/GoCodeo/CMS/docs/The_Lighthouse_Presentation.pptx"
 
 # Harbor Light palette
 NAVY = RGBColor(0x1B, 0x2A, 0x41)
@@ -41,7 +41,7 @@ def add_logo_placeholder(slide):
 
 def add_title_slide(prs, notes=None):
     slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = "The Beacon"
+    slide.shapes.title.text = "The Lighthouse"
     subtitle = slide.placeholders[1]
     subtitle.text = (
         "LAMP Church Care System\n"
@@ -109,7 +109,7 @@ def add_vision_slide(prs, notes=None):
     tf = box.text_frame
     tf.word_wrap = True
     lines = [
-        ("As God adds to the church, The Beacon helps us keep what He wins.", 26, NAVY, True),
+        ("As God adds to the church, The Lighthouse helps us keep what He wins.", 26, NAVY, True),
         ("", 8, CHARCOAL, False),
         ("Vision: reach and faithfully care for 10,000 souls.", 22, CHARCOAL, False),
         ("Built to grow with the church—so no one is lost in the crowd.", 18, SLATE, False),
@@ -191,7 +191,7 @@ def main():
 
     add_title_slide(
         prs,
-        notes="Open with The Beacon name, tagline, and pastoral heart. "
+        notes="Open with The Lighthouse name, tagline, and pastoral heart. "
         "Tagline: A soul kept is a soul won.",
     )
 
@@ -214,7 +214,7 @@ def main():
         "Agenda",
         [
             "Why this matters (church care challenges)",
-            "The Beacon overview",
+            "The Lighthouse overview",
             "Usability and daily workflow",
             "Security and on-premises control",
             "Architecture and operations",
@@ -237,7 +237,7 @@ def main():
 
     add_bullets_slide(
         prs,
-        "The Beacon in One Sentence",
+        "The Lighthouse in One Sentence",
         [
             "A ministry care system that helps shepherd every person from first visit to faithful service.",
             "Tagline: A soul kept is a soul won.",

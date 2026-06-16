@@ -44,7 +44,7 @@ export default function ConfirmationModal({
         return {
           icon: "text-primary",
           iconBg: "chip-primary-surface",
-          confirmButton: "bg-primary hover:bg-beacon-navy text-white",
+          confirmButton: "bg-primary hover:bg-lighthouse-navy text-white",
         };
       default:
         return {

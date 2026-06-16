@@ -34,12 +34,12 @@ export default function Home() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6">
       <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-lg shadow-md text-center">
         <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-1 leading-tight break-words">
-          The Beacon
+          The Lighthouse
         </h1>
         <p className="text-sm text-muted-foreground mb-2">
           LAMP Church Care System
         </p>
-        <p className="text-sm font-medium text-beacon-gold mb-6">
+        <p className="text-sm font-medium text-lighthouse-gold mb-6">
           A soul kept is a soul won.
         </p>
         <p className="text-sm sm:text-base text-muted-foreground mb-8">

@@ -226,7 +226,7 @@ export default function FamilyView({
       <div className="p-4 sm:p-5 overflow-y-auto flex-1">
         <div className="space-y-4">
           {/* Family Header Card */}
-          <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-lg p-3 sm:p-4 border border-primary/20">
+          <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-lg p-3 sm:p-4 border border-primary/20">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-gray-900">
                 The {family.name} Family

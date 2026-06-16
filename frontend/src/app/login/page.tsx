@@ -79,12 +79,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-lg shadow-md">
         <div className="mb-6 md:mb-8 text-center">
           <h1 className="text-2xl md:text-3xl font-bold text-primary mb-1">
-            The Beacon
+            The Lighthouse
           </h1>
           <p className="text-sm text-muted-foreground mb-2">
             LAMP Church Care System
           </p>
-          <p className="text-sm font-medium text-beacon-gold">
+          <p className="text-sm font-medium text-lighthouse-gold">
             A soul kept is a soul won.
           </p>
           <p className="text-sm md:text-base text-muted-foreground mt-4">

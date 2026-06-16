@@ -187,7 +187,7 @@ export default function ViewWeeklyReportModal({
         <div className="p-5 overflow-y-auto flex-1">
           <div className="space-y-5">
             {/* Basic Information */}
-            <div className="bg-gradient-to-r from-beacon-ivory to-muted rounded-lg p-4 border border-primary/20">
+            <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-lg p-4 border border-primary/20">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">
                   {report.cluster_code}{" "}
@@ -589,7 +589,7 @@ export default function ViewWeeklyReportModal({
                   <Button
                     onClick={onEdit}
                     variant="secondary"
-                    className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-beacon-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                    className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-lighthouse-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
                   >
                     <svg
                       className="w-4 h-4"

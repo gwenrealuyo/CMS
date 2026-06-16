@@ -23,6 +23,8 @@ import { EventTypeStylesProvider } from "@/src/contexts/EventTypeStylesContext";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { Event } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
+import { useModuleSettings } from "@/src/hooks/useModuleSettings";
+import { canWriteEvents } from "@/src/lib/events/eventPermissions";
 import {
   buildAgendaGroups,
   EventCardItem,
@@ -83,6 +85,7 @@ export default function EventsPage() {
   const [isTypesManagerOpen, setIsTypesManagerOpen] = useState(false);
   const currentYear = new Date().getFullYear().toString();
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  const { moduleEnabled } = useModuleSettings();
 
   const {
     events,
@@ -101,24 +104,21 @@ export default function EventsPage() {
     deleteEventType,
   } = useEvents();
 
-  const canManageEventTypes = useMemo(() => {
-    if (!user) return false;
-    return (
-      user.role === "ADMIN" ||
-      user.role === "PASTOR" ||
-      isModuleCoordinator("EVENTS") ||
-      isSeniorCoordinator("EVENTS")
-    );
-  }, [user, isModuleCoordinator, isSeniorCoordinator]);
+  const canWriteEventsAccess = useMemo(
+    () => canWriteEvents({ user, moduleEnabled }),
+    [user, moduleEnabled]
+  );
+
+  const canManageEventTypes = canWriteEventsAccess;
 
   useEffect(() => {
-    if (action === "create") {
+    if (action === "create" && canWriteEventsAccess) {
       setViewEditEvent(null);
       setViewMode("edit");
       setIsModalOpen(true);
       router.replace(pathname);
     }
-  }, [action, pathname, router]);
+  }, [action, pathname, router, canWriteEventsAccess]);
 
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);

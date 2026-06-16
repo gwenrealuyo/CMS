@@ -7,8 +7,6 @@ function roleBadgeClass(role: string): string {
       return "bg-green-100 text-green-800";
     case "PASTOR":
       return "bg-purple-100 text-purple-800";
-    case "COORDINATOR":
-      return "chip-primary";
     case "MEMBER":
       return "bg-slate-100 text-slate-800";
     case "VISITOR":
@@ -108,8 +106,6 @@ function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
 }
 
 function BroadAccessNote({ user }: { user: User }) {
-  const n = (user.module_coordinator_assignments ?? []).length;
-
   if (user.role === "ADMIN") {
     return (
       <p className="text-sm text-gray-600">
@@ -124,15 +120,6 @@ function BroadAccessNote({ user }: { user: User }) {
       <p className="text-sm text-gray-600">
         Pastoral access follows your church and branch policies. The table below
         lists any module-specific coordinator assignments.
-      </p>
-    );
-  }
-
-  if (user.role === "COORDINATOR" && n === 0) {
-    return (
-      <p className="text-sm text-gray-600">
-        You have the coordinator role. If nothing appears below, your duties may
-        be configured elsewhere—contact an administrator.
       </p>
     );
   }

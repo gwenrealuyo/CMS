@@ -28,7 +28,13 @@ class Command(BaseCommand):
             help="Number of families to create (default: 10)",
         )
         parser.add_argument(
-            "--clear", action="store_true", help="Clear existing data before populating"
+            "--clear",
+            action="store_true",
+            help=(
+                "Clear all non-ADMIN people/families/journeys (including legacy "
+                "COORDINATOR role values), lesson enrollments that block deletion, "
+                "and module assignments before populating"
+            ),
         )
 
     def handle(self, *args, **options):
@@ -40,14 +46,29 @@ class Command(BaseCommand):
             self.stdout.write("Clearing existing data...")
             Journey.objects.all().delete()
             Family.objects.all().delete()
-            # Clear ModuleCoordinator assignments for non-ADMIN users
-            ModuleCoordinator.objects.filter(
-                person__role__in=["MEMBER", "VISITOR", "COORDINATOR", "PASTOR"]
-            ).delete()
-            # Only delete non-ADMIN users
-            Person.objects.filter(
-                role__in=["MEMBER", "VISITOR", "COORDINATOR", "PASTOR"]
-            ).delete()
+            non_admin_people = Person.objects.exclude(role="ADMIN")
+            person_ids = list(non_admin_people.values_list("pk", flat=True))
+            if person_ids:
+                from apps.lessons.models import (
+                    LessonStudentEnrollment,
+                    LessonTeacherTransfer,
+                )
+
+                enrollment_ids = LessonStudentEnrollment.objects.filter(
+                    teacher_id__in=person_ids
+                ).values_list("pk", flat=True)
+                LessonTeacherTransfer.objects.filter(
+                    enrollment_id__in=enrollment_ids
+                ).delete()
+                LessonStudentEnrollment.objects.filter(
+                    teacher_id__in=person_ids
+                ).delete()
+                LessonStudentEnrollment.objects.filter(
+                    student_id__in=person_ids
+                ).delete()
+            ModuleCoordinator.objects.filter(person__in=non_admin_people).delete()
+            deleted, _ = non_admin_people.delete()
+            self.stdout.write(f"  Removed {deleted} non-admin person row(s)")
             self.stdout.write(
                 self.style.WARNING(
                     "Note: Cluster data should be created separately using populate_clusters_data command."
@@ -207,7 +228,7 @@ class Command(BaseCommand):
             "Anderson",
         ]
 
-        roles = ["MEMBER", "VISITOR", "COORDINATOR", "PASTOR"]
+        roles = ["MEMBER", "VISITOR", "PASTOR"]
         statuses = ["ACTIVE", "SEMIACTIVE", "INACTIVE"]
         visitor_statuses = [
             "INVITED",
@@ -319,7 +340,7 @@ class Command(BaseCommand):
             role_choice = random.choice(roles)
             water_date = None
             spirit_date = None
-            if role_choice in ["MEMBER", "COORDINATOR", "PASTOR"]:
+            if role_choice in ["MEMBER", "PASTOR"]:
                 # Ensure both baptism dates exist for core roles
                 water_date = first_attended.date() + timedelta(
                     days=random.randint(30, 180)
@@ -393,8 +414,11 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"✓ Created {len(people)} people"))
 
-        # Create ModuleCoordinator assignments for coordinators
-        coordinators = [p for p in people if p.role == "COORDINATOR"]
+        # Coordinator capability now comes from ModuleCoordinator assignments rather
+        # than a base role: tag ~15% of members as module coordinators.
+        members = [p for p in people if p.role == "MEMBER"]
+        num_coordinators = max(1, len(members) // 7) if members else 0
+        coordinators = random.sample(members, min(num_coordinators, len(members)))
         module_assignments_created = 0
         
         # Assign some coordinators to different modules
@@ -445,7 +469,7 @@ class Command(BaseCommand):
 
             # Select a leader from members
             potential_leaders = [
-                p for p in people if p.role in ["MEMBER", "COORDINATOR"]
+                p for p in people if p.role in ["MEMBER"]
             ]
             leader = (
                 random.choice(potential_leaders) if potential_leaders else people[0]

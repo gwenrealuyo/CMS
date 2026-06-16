@@ -12,7 +12,7 @@
 - Names: `first_name`, `last_name`, `middle_name?`, `suffix?`
 - Demographics: `gender?` (MALE|FEMALE), `date_of_birth?`, `country?`
 - Contact: `phone?`, `address?`, `facebook_name?`
-- Role: `role` (MEMBER|VISITOR|COORDINATOR|PASTOR|ADMIN)
+- Role: `role` (MEMBER|VISITOR|PASTOR|ADMIN) — coordinator capability is granted via `ModuleCoordinator` assignments, not a base role
 - Church-specific: `date_first_attended?`, `member_id?`, `status?` (ACTIVE|SEMIACTIVE|INACTIVE|DECEASED)
 - Relations: `inviter` → Person (nullable), `branch` → Branch (nullable), standard `groups` and `user_permissions` with custom related_names
 - Media: `photo` (ImageField → `profiles/`)

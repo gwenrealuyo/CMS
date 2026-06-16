@@ -83,8 +83,14 @@ class Command(BaseCommand):
             cluster_name = cluster_names[i % len(cluster_names)]
             cluster_code = f"CLU-{str(i + 1).zfill(3)}"
 
-            # Select a random coordinator (prefer COORDINATOR role, fallback to any)
-            coordinators = [p for p in people if p.role == "COORDINATOR"]
+            # Select a random coordinator (prefer existing CLUSTER coordinators, fallback to any)
+            coordinators = [
+                p
+                for p in people
+                if p.module_coordinator_assignments.filter(
+                    module=ModuleCoordinator.ModuleType.CLUSTER
+                ).exists()
+            ]
             if not coordinators:
                 coordinators = [p for p in people if p.role in ["MEMBER", "PASTOR"]]
             if not coordinators:

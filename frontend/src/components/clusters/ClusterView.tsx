@@ -15,7 +15,6 @@ import {
 const ROLE_PRIORITY: Record<string, number> = {
   ADMIN: 5,
   PASTOR: 4,
-  COORDINATOR: 3,
   MEMBER: 2,
   VISITOR: 1,
 };
@@ -65,7 +64,7 @@ export default function ClusterView({
     : null;
 
   // Calculate member and visitor counts
-  // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, COORDINATOR, PASTOR, etc.)
+  // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, PASTOR, etc.)
   // Visitors: role is "VISITOR"
   // ADMIN is excluded from both counts
 
@@ -151,9 +150,7 @@ export default function ClusterView({
       ? "bg-green-100 text-green-800"
       : role === "VISITOR"
         ? "bg-yellow-100 text-yellow-800"
-        : role === "COORDINATOR"
-          ? "bg-purple-100 text-purple-800"
-          : role === "PASTOR"
+        : role === "PASTOR"
             ? "bg-red-100 text-red-800"
             : role === "ADMIN"
               ? "chip-primary"

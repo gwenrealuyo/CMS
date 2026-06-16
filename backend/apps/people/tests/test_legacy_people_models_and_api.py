@@ -920,7 +920,7 @@ class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
             password="testpass123",
             first_name="Coord",
             last_name="Inator",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_a,
         )
 

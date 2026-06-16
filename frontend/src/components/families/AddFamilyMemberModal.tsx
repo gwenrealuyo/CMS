@@ -132,8 +132,6 @@ export default function AddFamilyMemberModal({
         return "chip-primary";
       case "VISITOR":
         return "bg-purple-100 text-purple-800";
-      case "COORDINATOR":
-        return "bg-purple-100 text-purple-800";
       case "PASTOR":
         return "bg-red-100 text-red-800";
       case "ADMIN":

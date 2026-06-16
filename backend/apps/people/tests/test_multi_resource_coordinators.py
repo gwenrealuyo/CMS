@@ -28,7 +28,7 @@ class CoordinatorScopeHelpersTests(TestCase):
         user = Person.objects.create_user(
             username="mc_wide",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         ModuleCoordinator.objects.create(
@@ -56,7 +56,7 @@ class CoordinatorScopeHelpersTests(TestCase):
         user = Person.objects.create_user(
             username="mc_scoped",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         ModuleCoordinator.objects.create(
@@ -86,7 +86,7 @@ class ManagedClusterIdsTests(TestCase):
         self.coord = Person.objects.create_user(
             username="cl_mc",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         self.member = Person.objects.create_user(
@@ -119,7 +119,7 @@ class JourneyTimelineModuleCoordinatorTests(TestCase):
         self.coord = Person.objects.create_user(
             username="jt_mc",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         self.member = Person.objects.create_user(
@@ -154,7 +154,7 @@ class HasModuleAccessMultiAssignmentTests(TestCase):
         user = Person.objects.create_user(
             username="hma_multi",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         ModuleCoordinator.objects.create(
@@ -188,7 +188,7 @@ class JourneyListMultiClusterCoordinatorTests(TestCase):
         self.coord = Person.objects.create_user(
             username="jl_mc",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         self.m1 = Person.objects.create_user(
@@ -250,7 +250,7 @@ class EvangelismCoordinatorScopedListTests(TestCase):
         self.coord = Person.objects.create_user(
             username="eg_scope",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         self.other = Person.objects.create_user(
@@ -312,7 +312,7 @@ class SundaySchoolCoordinatorScopedListTests(TestCase):
         self.coord = Person.objects.create_user(
             username="ss_scope",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         self.cat = SundaySchoolCategory.objects.create(name="Cat", order=1)

@@ -90,7 +90,7 @@ function canViewPeople(ctx: QuickActionsContext): boolean {
   const { user, isSeniorCoordinator } = ctx;
   if (!user) return false;
   return (
-    ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"].includes(user.role) ||
+    ["MEMBER", "PASTOR", "ADMIN"].includes(user.role) ||
     isSeniorCoordinator()
   );
 }
@@ -100,7 +100,7 @@ function canViewEvents(ctx: QuickActionsContext): boolean {
   if (!user) return false;
   if (!isModuleEnabledForQuickAction("EVENTS", ctx)) return false;
   return (
-    ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"].includes(user.role) ||
+    ["MEMBER", "PASTOR", "ADMIN"].includes(user.role) ||
     isModuleCoordinator("EVENTS") ||
     isSeniorCoordinator()
   );
@@ -123,7 +123,6 @@ function canSubmitClusterReport(ctx: QuickActionsContext): boolean {
   if (!user) return false;
   if (!isModuleEnabledForQuickAction("CLUSTER", ctx)) return false;
   return (
-    user.role === "COORDINATOR" ||
     user.role === "PASTOR" ||
     user.role === "ADMIN" ||
     isModuleCoordinator("CLUSTER") ||
@@ -136,7 +135,6 @@ function canSubmitEvangelismReport(ctx: QuickActionsContext): boolean {
   if (!user) return false;
   if (!isModuleEnabledForQuickAction("EVANGELISM", ctx)) return false;
   return (
-    user.role === "COORDINATOR" ||
     user.role === "PASTOR" ||
     user.role === "ADMIN" ||
     isModuleCoordinator("EVANGELISM") ||

@@ -89,22 +89,24 @@ class IsAdminOrPastor(permissions.BasePermission):
         )
 
 
-class IsCoordinatorOrAbove(permissions.BasePermission):
+class HasAnyModuleCoordinatorAssignment(permissions.BasePermission):
     """
-    Allows access to COORDINATOR, PASTOR, or ADMIN roles.
+    Allows access to users who hold at least one ModuleCoordinator assignment,
+    regardless of base role. Used (combined with IsAdminOrPastor) to gate People
+    and Family write access now that the COORDINATOR base role is removed.
     """
 
     def has_permission(self, request, view):
-        return (
+        return bool(
             request.user
             and request.user.is_authenticated
-            and request.user.role in ["COORDINATOR", "PASTOR", "ADMIN"]
+            and request.user.module_coordinator_assignments.exists()
         )
 
 
 class IsMemberOrAbove(permissions.BasePermission):
     """
-    Allows access to MEMBER, COORDINATOR, PASTOR, or ADMIN roles.
+    Allows access to MEMBER, PASTOR, or ADMIN roles.
     Excludes VISITOR.
     """
 
@@ -112,7 +114,7 @@ class IsMemberOrAbove(permissions.BasePermission):
         if not (
             request.user
             and request.user.is_authenticated
-            and request.user.role in ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"]
+            and request.user.role in ["MEMBER", "PASTOR", "ADMIN"]
         ):
             return False
 
@@ -357,10 +359,6 @@ class HasModuleAccess(permissions.BasePermission):
 
         # MEMBER has read-only access to all modules
         if user.role == "MEMBER" and effective_action == "read":
-            return True
-
-        # COORDINATOR role (base role) has read access
-        if user.role == "COORDINATOR" and effective_action == "read":
             return True
 
         return False

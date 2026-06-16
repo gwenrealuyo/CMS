@@ -378,7 +378,6 @@ ENTRY_CHANNEL_LABELS = {
 ROLE_LABELS = {
     "MEMBER": "Member",
     "VISITOR": "Visitor",
-    "COORDINATOR": "Coordinator",
     "PASTOR": "Pastor",
 }
 

@@ -9,7 +9,7 @@ class Command(BaseCommand):
     help = (
         "Apply migrations and repair squashed-migration schema drift "
         "(events EventType, evangelism Prospect fields, people Journey.updated_at, "
-        "lessons LessonStudentEnrollment / session_type). "
+        "lessons LessonStudentEnrollment / session_type, legacy COORDINATOR person roles). "
         "Development only."
     )
 

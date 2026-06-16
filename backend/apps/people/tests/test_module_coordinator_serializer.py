@@ -18,7 +18,7 @@ class ModuleCoordinatorResourceScopeLabelTests(TestCase):
             username="senior_reg",
             email="sr@example.com",
             password="password123",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=branch,
         )
         mc = ModuleCoordinator.objects.create(

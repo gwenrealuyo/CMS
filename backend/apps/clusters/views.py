@@ -25,7 +25,6 @@ from .utils import (
     get_weeks_in_range,
 )
 from apps.authentication.permissions import (
-    IsCoordinatorOrAbove,
     IsAuthenticatedAndNotVisitor,
     IsModuleCoordinator,
     IsSeniorCoordinator,

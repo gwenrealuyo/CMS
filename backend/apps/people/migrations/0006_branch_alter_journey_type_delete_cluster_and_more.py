@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("people", "0005_migrate_coordinators_to_module_assignments"),
+        ("people", "0004_add_module_coordinator"),
     ]
 
     operations = [

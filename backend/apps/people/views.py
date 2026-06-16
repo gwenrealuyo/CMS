@@ -15,7 +15,8 @@ from .serializers import (
 )
 from apps.authentication.permissions import (
     IsMemberOrAbove,
-    IsCoordinatorOrAbove,
+    IsAdminOrPastor,
+    HasAnyModuleCoordinatorAssignment,
     IsAuthenticatedAndNotVisitor,
     IsSeniorCoordinator,
     HasModuleAccess,
@@ -246,15 +247,18 @@ class PersonViewSet(viewsets.ModelViewSet):
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action in ["create", "update", "partial_update"]:
-            # Write: ADMIN, PASTOR, or Senior Coordinator
+            # Write: ADMIN, PASTOR, or anyone with a ModuleCoordinator assignment
             if self.action == "create" and self.request.user.role == "MEMBER":
                 requested_role = (self.request.data or {}).get("role")
                 if requested_role == "VISITOR":
                     return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-            return [IsAuthenticatedAndNotVisitor(), IsCoordinatorOrAbove()]
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment)(),
+            ]
         elif self.action == "destroy":
             # Delete: Only ADMIN, PASTOR
-            return [IsAuthenticatedAndNotVisitor(), IsCoordinatorOrAbove()]
+            return [IsAuthenticatedAndNotVisitor(), IsAdminOrPastor()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
 
@@ -354,11 +358,14 @@ class FamilyViewSet(viewsets.ModelViewSet):
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action in ["create", "update", "partial_update"]:
-            # Write: ADMIN, PASTOR, or Senior Coordinator
-            return [IsAuthenticatedAndNotVisitor(), IsCoordinatorOrAbove()]
+            # Write: ADMIN, PASTOR, or anyone with a ModuleCoordinator assignment
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment)(),
+            ]
         elif self.action == "destroy":
             # Delete: Only ADMIN, PASTOR
-            return [IsAuthenticatedAndNotVisitor(), IsCoordinatorOrAbove()]
+            return [IsAuthenticatedAndNotVisitor(), IsAdminOrPastor()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
 

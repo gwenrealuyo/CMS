@@ -319,8 +319,19 @@ class PersonSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         instance = getattr(self, "instance", None)
 
+        # A "plain member" is a MEMBER with no ModuleCoordinator assignments. Members
+        # who coordinate a module write like coordinators; only plain members are
+        # restricted to creating visitors.
+        is_plain_member = bool(
+            request
+            and request.user
+            and request.user.is_authenticated
+            and request.user.role == "MEMBER"
+            and not request.user.module_coordinator_assignments.exists()
+        )
+
         # Member-created visitors get branch from inviter in create(); inviter must have a branch
-        if request and request.user and request.user.role == "MEMBER":
+        if is_plain_member:
             role = attrs.get("role")
             if role != "VISITOR":
                 raise serializers.ValidationError(
@@ -339,7 +350,7 @@ class PersonSerializer(serializers.ModelSerializer):
         branch_in_attrs = "branch" in attrs
 
         if not instance:
-            if not (request and request.user and request.user.role == "MEMBER"):
+            if not is_plain_member:
                 if not attrs.get("branch"):
                     raise serializers.ValidationError(
                         {"branch": "Branch is required."}
@@ -438,7 +449,13 @@ class PersonSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         self._normalize_first_activity_attended(validated_data)
         request = self.context.get("request")
-        if request and request.user and request.user.role == "MEMBER":
+        is_plain_member = bool(
+            request
+            and request.user
+            and request.user.role == "MEMBER"
+            and not request.user.module_coordinator_assignments.exists()
+        )
+        if is_plain_member:
             validated_data["role"] = "VISITOR"
             validated_data["inviter"] = request.user
             validated_data["branch"] = request.user.branch

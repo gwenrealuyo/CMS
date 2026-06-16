@@ -247,8 +247,6 @@ export default function ClusterForm({
     switch (role) {
       case "PASTOR":
         return "bg-purple-100 text-purple-800";
-      case "COORDINATOR":
-        return "chip-primary";
       case "MEMBER":
         return "bg-green-100 text-green-800";
       case "VISITOR":

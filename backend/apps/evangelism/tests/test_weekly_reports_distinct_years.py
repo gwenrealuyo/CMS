@@ -24,7 +24,7 @@ class EvangelismWeeklyReportDistinctYearsTests(TestCase):
             username="coord_egy",
             email="coord_egy@example.com",
             password="password123",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_a,
             status="ACTIVE",
         )

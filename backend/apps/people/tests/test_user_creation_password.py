@@ -4,7 +4,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.people.models import Branch, Person
+from apps.people.models import Branch, ModuleCoordinator, Person
 
 User = get_user_model()
 
@@ -33,9 +33,16 @@ class PersonCreateWithPasswordTests(TestCase):
             password="coordpass123",
             first_name="Coord",
             last_name="User",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch,
             status="ACTIVE",
+        )
+        ModuleCoordinator.objects.create(
+            person=self.coordinator,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            resource_id=None,
+            resource_type="",
         )
 
     def _create_payload(self, **overrides):

@@ -27,13 +27,13 @@ class NotificationFeedTests(TestCase):
             username="cluster_coord",
             email="cluster_coord@example.com",
             password="password123",
-            role="COORDINATOR",
+            role="MEMBER",
         )
         self.evan_coord = Person.objects.create_user(
             username="evan_coord",
             email="evan_coord@example.com",
             password="password123",
-            role="COORDINATOR",
+            role="MEMBER",
         )
         self.cluster_a = Cluster.objects.create(
             code="NA",

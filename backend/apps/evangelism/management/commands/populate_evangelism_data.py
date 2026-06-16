@@ -111,7 +111,7 @@ class Command(BaseCommand):
             is_bible_sharers = "Bible Sharers" in group_name
 
             # Select a random coordinator
-            coordinators = [p for p in people if p.role in ["COORDINATOR", "MEMBER", "PASTOR"]]
+            coordinators = [p for p in people if p.role in ["MEMBER", "PASTOR"]]
             if not coordinators:
                 coordinators = people
             coordinator = random.choice(coordinators) if coordinators else None

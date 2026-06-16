@@ -23,7 +23,7 @@ export default function MePage() {
 }
 
 function MePageContent() {
-  const { user } = useAuth();
+  const { user, hasAnyModuleCoordinatorAssignment } = useAuth();
   const router = useRouter();
   const { people, updatePerson } = usePeople(true);
   const { families } = useFamilies();
@@ -102,9 +102,9 @@ function MePageContent() {
 
   const isMember = user.role === "MEMBER";
   const canManageAssignments =
-    user.role === "COORDINATOR" ||
     user.role === "PASTOR" ||
-    user.role === "ADMIN";
+    user.role === "ADMIN" ||
+    hasAnyModuleCoordinatorAssignment();
 
   return (
     <DashboardLayout>

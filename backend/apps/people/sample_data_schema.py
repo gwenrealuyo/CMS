@@ -206,6 +206,42 @@ def reset_evangelism_schema(stdout=None) -> bool:
     return True
 
 
+def normalize_legacy_coordinator_roles(stdout=None) -> bool:
+    """
+    Convert legacy Person.role='COORDINATOR' rows to MEMBER.
+
+    The COORDINATOR base role was removed; varchar values can survive in dev DBs
+    that were not reset after the squash. Ensures a default CLUSTER assignment
+    when none exists so coordinator capability is preserved.
+    """
+    from apps.people.models import ModuleCoordinator, Person
+
+    legacy = list(Person.objects.filter(role="COORDINATOR"))
+    if not legacy:
+        return False
+
+    if stdout:
+        stdout.write(
+            f"Normalizing {len(legacy)} legacy COORDINATOR role row(s) to MEMBER..."
+        )
+
+    for person in legacy:
+        if not person.module_coordinator_assignments.exists():
+            ModuleCoordinator.objects.create(
+                person=person,
+                module=ModuleCoordinator.ModuleType.CLUSTER,
+                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                resource_id=None,
+                resource_type="",
+            )
+        person.role = "MEMBER"
+        person.save(update_fields=["role"])
+
+    if stdout:
+        stdout.write("  ✓ legacy COORDINATOR roles normalized")
+    return True
+
+
 def sync_sample_data_schema(stdout=None) -> list[str]:
     """
     Apply pending migrations and repair known schema drift.
@@ -213,6 +249,9 @@ def sync_sample_data_schema(stdout=None) -> list[str]:
     """
     call_command("migrate", verbosity=0)
     actions: list[str] = []
+
+    if normalize_legacy_coordinator_roles(stdout):
+        actions.append("people legacy COORDINATOR roles")
 
     if ensure_people_journey_schema(stdout):
         actions.append("people_journey.updated_at")

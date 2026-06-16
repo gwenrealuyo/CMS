@@ -21,7 +21,7 @@ class ClusterModelTests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="Inator",
-            role="COORDINATOR",
+            role="MEMBER",
         )
         self.member1 = Person.objects.create_user(
             username="member1",
@@ -84,7 +84,7 @@ class ClusterWeeklyReportModelTests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="Inator",
-            role="COORDINATOR",
+            role="MEMBER",
         )
         self.member1 = Person.objects.create_user(
             username="member1",
@@ -240,7 +240,7 @@ class ClusterAPITests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="Inator",
-            role="COORDINATOR",
+            role="MEMBER",
         )
 
     def test_list_clusters(self):
@@ -401,14 +401,14 @@ class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
             username="coord_scope_a",
             email="scope_a@example.com",
             password="password123",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_a,
         )
         self.coord_b = Person.objects.create_user(
             username="coord_scope_b",
             email="scope_b@example.com",
             password="password123",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_b,
         )
         self.cluster_a = Cluster.objects.create(
@@ -501,7 +501,7 @@ class ClusterWeeklyReportAPITests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="Inator",
-            role="COORDINATOR",
+            role="MEMBER",
         )
         self.member = Person.objects.create_user(
             username="member",
@@ -730,7 +730,7 @@ class ClusterWeeklyReportDistinctYearsTests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="DY",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_a,
         )
         self.member = Person.objects.create_user(
@@ -853,7 +853,7 @@ class ClusterWeeklyReportBranchScopeTests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="BranchA",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_a,
         )
         self.coord_b = Person.objects.create_user(
@@ -862,7 +862,7 @@ class ClusterWeeklyReportBranchScopeTests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="BranchB",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_b,
         )
         self.cluster_a = Cluster.objects.create(
@@ -934,7 +934,7 @@ class ClusterWeeklyReportBranchScopeTests(TestCase):
             password="password123",
             first_name="Senior",
             last_name="Coord",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_a,
         )
         ModuleCoordinator.objects.create(
@@ -1050,7 +1050,7 @@ class ClusterBranchMembershipTests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="WrongBranch",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=branch_b,
         )
         cluster = Cluster.objects.create(
@@ -1090,7 +1090,7 @@ class MemberClusterBrowseAPITests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="Browse",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch,
         )
         self.coord_other = Person.objects.create_user(
@@ -1099,7 +1099,7 @@ class MemberClusterBrowseAPITests(TestCase):
             password="password123",
             first_name="Coord",
             last_name="OtherBr",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch_other,
         )
         self.member = Person.objects.create_user(
@@ -1242,7 +1242,7 @@ class ClusterCoordinatorModuleSyncTests(TestCase):
             password="password123",
             first_name="A",
             last_name="Coordinator",
-            role="COORDINATOR",
+            role="MEMBER",
         )
         self.coord_b = Person.objects.create_user(
             username="sync_coord_b",
@@ -1250,7 +1250,7 @@ class ClusterCoordinatorModuleSyncTests(TestCase):
             password="password123",
             first_name="B",
             last_name="Coordinator",
-            role="COORDINATOR",
+            role="MEMBER",
         )
 
     def _scoped_qs(self, cluster_id):

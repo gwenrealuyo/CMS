@@ -64,7 +64,7 @@ const ClusterCard = memo(
     );
 
     // Calculate member and visitor counts
-    // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, COORDINATOR, PASTOR, etc.)
+    // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, PASTOR, etc.)
     // Visitors: role is "VISITOR"
     // ADMIN is excluded from both counts
     

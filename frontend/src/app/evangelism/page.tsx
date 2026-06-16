@@ -443,17 +443,22 @@ export default function EvangelismPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [coordinatorsRes, clustersRes, branchesRes, peopleRes] =
-          await Promise.all([
-            peopleApi.search({ role: "COORDINATOR" }),
-            clustersApi.getAll(),
-            branchesApi.getAll(),
-            peopleApi.getAll(),
-          ]);
-        setCoordinators(coordinatorsRes.data);
+        const [clustersRes, branchesRes, peopleRes] = await Promise.all([
+          clustersApi.getAll(),
+          branchesApi.getAll(),
+          peopleApi.getAll(),
+        ]);
+        const selectablePeople = peopleRes.data.filter(isSelectablePerson);
         setClusters(clustersRes.data);
         setBranches(branchesRes.data);
-        setPeople(peopleRes.data.filter(isSelectablePerson));
+        setPeople(selectablePeople);
+        setCoordinators(
+          selectablePeople.filter((person) =>
+            (person.module_coordinator_assignments ?? []).some(
+              (assignment) => assignment.module === "EVANGELISM",
+            ),
+          ),
+        );
       } catch (err) {
         console.error("Error loading form data:", err);
       }

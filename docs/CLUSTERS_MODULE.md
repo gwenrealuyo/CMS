@@ -251,7 +251,7 @@ The Clusters hub lives at `frontend/src/app/clusters/page.tsx` and provides a co
 Implemented in `frontend/src/app/clusters/ClustersPageView.tsx` (derived from `useAuth()`). Login and `GET /auth/me/` include **`module_coordinator_assignments`** so coordinator vs senior detection works in the browser.
 
 - **Module-wide CLUSTER access** (primary action **Add Cluster** on the **Clusters** tab header): **ADMIN**; or **CLUSTER Senior Coordinator** (`isSeniorCoordinator("CLUSTER")`); or **PASTOR** who does **not** have a CLUSTER assignment **only** at **COORDINATOR** level (non-senior). Pastors who are assigned solely as a non-senior CLUSTER coordinator see **Submit Report** primary like other coordinators.
-- **Everyone else** on `/clusters` (including **COORDINATOR** role with CLUSTER coordinator assignment, and **PASTOR** + non-senior CLUSTER coordinator assignment): primary action **Submit Report** only (no secondary **Add Cluster** on this screen).
+- **Everyone else** on `/clusters` (including members with a CLUSTER coordinator assignment, and **PASTOR** + non-senior CLUSTER coordinator assignment): primary action **Submit Report** only (no secondary **Add Cluster** on this screen).
 - **Empty cluster list** (no active search/filters): matches the header (**Create Cluster** vs **Submit Report**); helper copy for non-module-wide users points toward submitting weekly reports and contacting leadership for net-new clusters.
 
 ### Tabs
@@ -346,7 +346,7 @@ The command creates:
 - **Clusters**:
   - Unique codes in `CLU-001`, `CLU-002` format
   - Names from predefined list (North, South, East, West, Central, etc.)
-  - Random coordinators from existing people (prefers COORDINATOR role)
+  - Random coordinators from existing people (prefers those with a CLUSTER coordinator assignment)
   - 1-3 families per cluster (if families exist)
   - 3-8 individual members per cluster
   - Location, meeting schedule, and description

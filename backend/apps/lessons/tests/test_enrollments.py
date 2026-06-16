@@ -10,7 +10,13 @@ from apps.lessons.models import (
     LessonTeacherTransfer,
     PersonLessonProgress,
 )
-from apps.people.models import Journey, ModuleCoordinator, ModuleSetting, Person
+from apps.people.models import (
+    Branch,
+    Journey,
+    ModuleCoordinator,
+    ModuleSetting,
+    Person,
+)
 
 
 class LessonEnrollmentAPITests(TestCase):
@@ -34,7 +40,7 @@ class LessonEnrollmentAPITests(TestCase):
             password="password",
             first_name="Teacher",
             last_name="A",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         self.teacher_b = Person.objects.create_user(
@@ -42,7 +48,7 @@ class LessonEnrollmentAPITests(TestCase):
             password="password",
             first_name="Teacher",
             last_name="B",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
         )
         self.student = Person.objects.create_user(
@@ -213,6 +219,13 @@ class LessonEnrollmentAPITests(TestCase):
         self.assertEqual(transfer.note, "Handoff")
 
     def test_lessons_teacher_sees_only_assigned_students_in_progress(self):
+        # Teacher progress is branch-scoped; give the teacher and students a shared
+        # branch so the result reflects teacher assignment rather than branch filtering.
+        branch = Branch.objects.create(name="Lessons Branch", code="LB1", is_active=True)
+        for person in (self.teacher_a, self.student, self.other_student):
+            person.branch = branch
+            person.save(update_fields=["branch"])
+
         LessonStudentEnrollment.objects.create(
             student=self.student,
             teacher=self.teacher_a,

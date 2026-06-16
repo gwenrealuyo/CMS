@@ -148,7 +148,6 @@ export default function Sidebar() {
       if (item.name === "Clusters") {
         return (
           user.role === "MEMBER" ||
-          user.role === "COORDINATOR" ||
           user.role === "PASTOR" ||
           user.role === "ADMIN" ||
           isModuleCoordinator("CLUSTER") ||
@@ -160,7 +159,6 @@ export default function Sidebar() {
       if (item.name === "Evangelism") {
         return (
           user.role === "MEMBER" ||
-          user.role === "COORDINATOR" ||
           user.role === "PASTOR" ||
           user.role === "ADMIN" ||
           isModuleCoordinator("EVANGELISM")
@@ -171,7 +169,6 @@ export default function Sidebar() {
       if (item.name === "Sunday School") {
         return (
           user.role === "MEMBER" ||
-          user.role === "COORDINATOR" ||
           user.role === "PASTOR" ||
           user.role === "ADMIN" ||
           isModuleCoordinator("SUNDAY_SCHOOL")
@@ -182,7 +179,6 @@ export default function Sidebar() {
       if (item.name === "Lessons") {
         return (
           user.role === "MEMBER" ||
-          user.role === "COORDINATOR" ||
           user.role === "PASTOR" ||
           user.role === "ADMIN" ||
           isModuleCoordinator("LESSONS")
@@ -193,7 +189,6 @@ export default function Sidebar() {
       if (item.name === "Events") {
         return (
           user.role === "MEMBER" ||
-          user.role === "COORDINATOR" ||
           user.role === "PASTOR" ||
           user.role === "ADMIN" ||
           isModuleCoordinator("EVENTS") ||
@@ -205,7 +200,6 @@ export default function Sidebar() {
       if (item.name === "Ministries") {
         return (
           user.role === "MEMBER" ||
-          user.role === "COORDINATOR" ||
           user.role === "PASTOR" ||
           user.role === "ADMIN" ||
           isModuleCoordinator("MINISTRIES")
@@ -216,7 +210,6 @@ export default function Sidebar() {
       if (item.name === "People") {
         return (
           user.role === "MEMBER" ||
-          user.role === "COORDINATOR" ||
           user.role === "PASTOR" ||
           user.role === "ADMIN" ||
           isSeniorCoordinator()

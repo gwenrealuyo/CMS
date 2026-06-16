@@ -54,7 +54,7 @@ export default function PersonForm({
   peopleOptions = [],
   panelLayout = false,
 }: PersonFormProps) {
-  const { user } = useAuth();
+  const { user, hasAnyModuleCoordinatorAssignment } = useAuth();
   const isMember = user?.role === "MEMBER";
   const isAdmin = user?.role === "ADMIN";
   const isCreating = !initialData?.id;
@@ -69,13 +69,21 @@ export default function PersonForm({
     startOnTimelineTab && canViewTimeline ? "timeline" : "basic";
   const [activeTab, setActiveTab] = useState<"basic" | "timeline">(initialTab);
 
-  const defaultRole = initialData?.role ?? (isMember ? "VISITOR" : "MEMBER");
+  const validEditRoles = ["MEMBER", "VISITOR", "PASTOR", "ADMIN"] as const;
+  const normalizedRole =
+    initialData?.role &&
+    (validEditRoles as readonly string[]).includes(initialData.role)
+      ? initialData.role
+      : initialData?.role
+        ? "MEMBER"
+        : undefined;
+  const defaultRole = normalizedRole ?? (isMember ? "VISITOR" : "MEMBER");
   const [formData, setFormData] = useState<Partial<Person>>({
-    role: defaultRole,
     status: "ACTIVE",
     journeys: [],
-    ...initialData,
     country: initialData?.country || "Philippines",
+    ...initialData,
+    role: defaultRole,
   });
 
   const showLoginAccess =
@@ -89,7 +97,7 @@ export default function PersonForm({
   const canEditBranch =
     user?.role === "ADMIN" ||
     user?.role === "PASTOR" ||
-    user?.role === "COORDINATOR";
+    hasAnyModuleCoordinatorAssignment();
 
   // Fetch branches on mount
   useEffect(() => {
@@ -871,7 +879,6 @@ export default function PersonForm({
                         : [
                             "MEMBER",
                             "VISITOR",
-                            "COORDINATOR",
                             "PASTOR",
                             "ADMIN",
                           ]

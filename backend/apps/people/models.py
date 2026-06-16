@@ -53,7 +53,6 @@ class Person(AbstractUser):
         choices=[
             ("MEMBER", "Member"),
             ("VISITOR", "Visitor"),
-            ("COORDINATOR", "Coordinator"),
             ("PASTOR", "Pastor"),
             ("ADMIN", "Admin"),
         ],

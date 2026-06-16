@@ -3,7 +3,6 @@
 export type PersonRole =
   | "MEMBER"
   | "VISITOR"
-  | "COORDINATOR"
   | "PASTOR"
   | "ADMIN";
 

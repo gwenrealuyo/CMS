@@ -43,7 +43,6 @@ const FILTER_FIELDS: FilterField[] = [
     type: "select",
     options: [
       { value: "PASTOR", label: "Pastor" },
-      { value: "COORDINATOR", label: "Coordinator" },
       { value: "MEMBER", label: "Member" },
       { value: "VISITOR", label: "Visitor" },
     ],

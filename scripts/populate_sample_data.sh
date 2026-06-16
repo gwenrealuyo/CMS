@@ -9,6 +9,9 @@ cd "${ROOT_DIR}/backend"
 if [ -f .venv/bin/activate ]; then
   # shellcheck disable=SC1091
   source .venv/bin/activate
+elif [ -f venv/bin/activate ]; then
+  # shellcheck disable=SC1091
+  source venv/bin/activate
 fi
 
 exec python manage.py populate_dev_sample_data "$@"

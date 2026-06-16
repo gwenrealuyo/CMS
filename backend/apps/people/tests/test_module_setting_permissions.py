@@ -25,7 +25,7 @@ class ModuleSettingPermissionsTests(TestCase):
             username="coord_ms",
             email="c@example.com",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch,
         )
         self.client.force_authenticate(user=user)
@@ -38,7 +38,7 @@ class ModuleSettingPermissionsTests(TestCase):
             username="coord_ms2",
             email="c2@example.com",
             password="x",
-            role="COORDINATOR",
+            role="MEMBER",
             branch=self.branch,
         )
         self.client.force_authenticate(user=user)

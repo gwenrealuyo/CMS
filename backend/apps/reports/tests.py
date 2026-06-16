@@ -56,7 +56,7 @@ class ReportsMetaScopeTests(TestCase):
         self.coordinator = Person.objects.create_user(
             username="coordinator_meta",
             password="password123",
-            role="COORDINATOR",
+            role="MEMBER",
             status="ACTIVE",
             branch=self.north,
         )

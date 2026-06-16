@@ -309,7 +309,7 @@ export default function Dashboard() {
   const canViewPeople = useMemo(() => {
     if (!user) return false;
     return (
-      ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"].includes(user.role) ||
+      ["MEMBER", "PASTOR", "ADMIN"].includes(user.role) ||
       isSeniorCoordinator()
     );
   }, [user, isSeniorCoordinator]);
@@ -326,7 +326,7 @@ export default function Dashboard() {
   const canViewEvents = useMemo(() => {
     if (!user) return false;
     return (
-      ["MEMBER", "COORDINATOR", "PASTOR", "ADMIN"].includes(user.role) ||
+      ["MEMBER", "PASTOR", "ADMIN"].includes(user.role) ||
       isModuleCoordinator("EVENTS") ||
       isSeniorCoordinator()
     );
@@ -335,7 +335,6 @@ export default function Dashboard() {
   const canSubmitClusterReport = useMemo(() => {
     if (!user) return false;
     return (
-      user.role === "COORDINATOR" ||
       user.role === "PASTOR" ||
       user.role === "ADMIN" ||
       isModuleCoordinator("CLUSTER") ||
@@ -679,7 +678,7 @@ export default function Dashboard() {
         return false;
       }
       // Leaders are always included; regular members use attendance status.
-      if (person.role === "COORDINATOR" || person.role === "PASTOR") {
+      if (person.role === "PASTOR") {
         return true;
       }
       return person.status === "ACTIVE";

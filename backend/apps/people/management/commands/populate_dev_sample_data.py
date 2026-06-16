@@ -1,6 +1,8 @@
 """
 Orchestrate dev sample-data seeding with schema sync first.
 
+Sync includes legacy Person.role='COORDINATOR' normalization (converted to MEMBER).
+
 Usage:
     python manage.py populate_dev_sample_data
     python manage.py populate_dev_sample_data --reset

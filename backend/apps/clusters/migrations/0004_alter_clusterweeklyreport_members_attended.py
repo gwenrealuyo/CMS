@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
             name="members_attended",
             field=models.ManyToManyField(
                 blank=True,
-                limit_choices_to={"role__in": ["MEMBER", "COORDINATOR"]},
+                limit_choices_to={"role__in": ["MEMBER"]},
                 related_name="cluster_reports_as_member",
                 to=settings.AUTH_USER_MODEL,
             ),

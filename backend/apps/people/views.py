@@ -257,8 +257,8 @@ class PersonViewSet(viewsets.ModelViewSet):
                 (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment)(),
             ]
         elif self.action == "destroy":
-            # Delete: Only ADMIN, PASTOR
-            return [IsAuthenticatedAndNotVisitor(), IsAdminOrPastor()]
+            # Delete: Only ADMIN
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
 

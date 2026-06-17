@@ -353,6 +353,26 @@ class PersonSerializer(serializers.ModelSerializer):
                     }
                 )
 
+        requested_role = attrs.get("role")
+        if requested_role is not None and request and request.user.is_authenticated:
+            user = request.user
+            if requested_role == "ADMIN" and user.role != "ADMIN":
+                raise serializers.ValidationError(
+                    {"role": "Only admins can assign the Admin role."}
+                )
+            if requested_role == "PASTOR" and user.role not in ("ADMIN", "PASTOR"):
+                raise serializers.ValidationError(
+                    {"role": "You cannot assign the Pastor role."}
+                )
+            if (
+                user.role == "MEMBER"
+                and user.module_coordinator_assignments.exists()
+                and requested_role not in ("MEMBER", "VISITOR")
+            ):
+                raise serializers.ValidationError(
+                    {"role": "Module coordinators can only assign Member or Visitor roles."}
+                )
+
         # App-layer required branch (DB column may still be null for legacy rows)
         branch_in_attrs = "branch" in attrs
 

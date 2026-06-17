@@ -10,6 +10,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
+import { getCreatableRoles } from "@/src/lib/personRolePermissions";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 
@@ -55,9 +56,9 @@ export default function PersonForm({
   peopleOptions = [],
   panelLayout = false,
 }: PersonFormProps) {
-  const { user, hasAnyModuleCoordinatorAssignment } = useAuth();
+  const { user, hasAnyModuleCoordinatorAssignment, isPlainMember } = useAuth();
   const { eventTypes } = useEventTypeOptions();
-  const isMember = user?.role === "MEMBER";
+  const plainMember = isPlainMember();
   const isAdmin = user?.role === "ADMIN";
   const isCreating = !initialData?.id;
 
@@ -79,7 +80,7 @@ export default function PersonForm({
       : initialData?.role
         ? "MEMBER"
         : undefined;
-  const defaultRole = normalizedRole ?? (isMember ? "VISITOR" : "MEMBER");
+  const defaultRole = normalizedRole ?? (plainMember ? "VISITOR" : "MEMBER");
   const [formData, setFormData] = useState<Partial<Person>>({
     status: "ACTIVE",
     journeys: [],
@@ -87,6 +88,30 @@ export default function PersonForm({
     ...initialData,
     role: defaultRole,
   });
+
+  const creatableRoles = useMemo(() => {
+    if (plainMember) {
+      return formData.water_baptism_date ? ["MEMBER"] : ["VISITOR"];
+    }
+    const roles = getCreatableRoles(user, false);
+    if (
+      initialData?.role === "ADMIN" &&
+      !roles.includes("ADMIN") &&
+      !isCreating
+    ) {
+      return [...roles, "ADMIN"];
+    }
+    return roles;
+  }, [
+    plainMember,
+    user,
+    initialData?.role,
+    isCreating,
+    formData.water_baptism_date,
+  ]);
+
+  const roleSelectDisabled =
+    plainMember || (initialData?.role === "ADMIN" && !isAdmin);
 
   const showLoginAccess =
     isAdmin && isCreating && formData.role !== "VISITOR";
@@ -107,13 +132,18 @@ export default function PersonForm({
   }, [getBranches]);
 
   useEffect(() => {
-    if (isMember && !initialData?.id && formData.role !== "VISITOR") {
-      const hasWaterBaptism = Boolean((formData as any).water_baptism_date);
+    if (plainMember && !initialData?.id && formData.role !== "VISITOR") {
+      const hasWaterBaptism = Boolean(formData.water_baptism_date);
       if (!hasWaterBaptism) {
         setFormData((prev) => ({ ...prev, role: "VISITOR" }));
       }
     }
-  }, [formData.role, initialData?.id, isMember, (formData as any).water_baptism_date]);
+  }, [
+    formData.role,
+    formData.water_baptism_date,
+    initialData?.id,
+    plainMember,
+  ]);
   const [tabSwitchConfirmation, setTabSwitchConfirmation] = useState<{
     isOpen: boolean;
     targetTab: "basic" | "timeline" | null;
@@ -526,7 +556,7 @@ export default function PersonForm({
     e.preventDefault();
 
     const skipBranchRequirement =
-      !canEditBranch || (isMember && !initialData?.id);
+      !canEditBranch || (plainMember && !initialData?.id);
 
     if (
       !skipBranchRequirement &&
@@ -882,9 +912,14 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Membership and system roles.
                 </p>
-                {isMember && (
+                {plainMember && (
                   <p className="text-xs text-primary mb-4">
                     Members can only add visitors. The role is fixed to Visitor.
+                  </p>
+                )}
+                {!plainMember && !isAdmin && hasAnyModuleCoordinatorAssignment() && (
+                  <p className="text-xs text-gray-500 mb-4">
+                    Login passwords for new members are set by an administrator.
                   </p>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -896,20 +931,10 @@ export default function PersonForm({
                       name="role"
                       value={formData.role}
                       onChange={handleChange}
-                      disabled={isMember}
+                      disabled={roleSelectDisabled}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     >
-                      {(isMember
-                        ? (formData as any).water_baptism_date
-                          ? ["MEMBER"]
-                          : ["VISITOR"]
-                        : [
-                            "MEMBER",
-                            "VISITOR",
-                            "PASTOR",
-                            "ADMIN",
-                          ]
-                      ).map((role) => (
+                      {creatableRoles.map((role) => (
                         <option key={role} value={role}>
                           {role.charAt(0) + role.slice(1).toLowerCase()}
                         </option>
@@ -965,7 +990,7 @@ export default function PersonForm({
                       }}
                       disabled={!canEditBranch}
                       required={
-                        canEditBranch && !(isMember && !initialData?.id)
+                        canEditBranch && !(plainMember && !initialData?.id)
                       }
                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
                         !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
@@ -1252,7 +1277,7 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Link to the inviter.
                 </p>
-                {isMember && (
+                {plainMember && (
                   <p className="text-xs text-primary mb-4">
                     Inviter defaults to you. Coordinators can edit this later.
                   </p>

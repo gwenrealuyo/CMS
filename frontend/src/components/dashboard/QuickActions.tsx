@@ -9,7 +9,7 @@ import { getAvailableQuickActions } from "@/src/lib/quickActionsConfig";
 
 export default function QuickActions() {
   const router = useRouter();
-  const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  const { user, isModuleCoordinator, isSeniorCoordinator, isPlainMember } = useAuth();
   const { moduleEnabled } = useModuleSettings();
 
   const availableActions = useMemo(
@@ -18,9 +18,10 @@ export default function QuickActions() {
         user,
         isModuleCoordinator,
         isSeniorCoordinator,
+        isPlainMember,
         moduleEnabled,
       }),
-    [user, isModuleCoordinator, isSeniorCoordinator, moduleEnabled],
+    [user, isModuleCoordinator, isSeniorCoordinator, isPlainMember, moduleEnabled],
   );
 
   return (

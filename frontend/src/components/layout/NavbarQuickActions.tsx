@@ -11,7 +11,7 @@ export default function NavbarQuickActions() {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  const { user, isModuleCoordinator, isSeniorCoordinator, isPlainMember } = useAuth();
   const { moduleEnabled } = useModuleSettings();
 
   const actions = useMemo(
@@ -20,9 +20,10 @@ export default function NavbarQuickActions() {
         user,
         isModuleCoordinator,
         isSeniorCoordinator,
+        isPlainMember,
         moduleEnabled,
       }),
-    [user, isModuleCoordinator, isSeniorCoordinator, moduleEnabled],
+    [user, isModuleCoordinator, isSeniorCoordinator, isPlainMember, moduleEnabled],
   );
 
   useEffect(() => {

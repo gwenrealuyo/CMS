@@ -41,7 +41,7 @@ These are set when an administrator creates or edits a person under **Account & 
 | Assign module coordinators | Yes | No | No | — |
 | People — view | All (incl. admins) | All except admins | Self + family | — |
 | People — create/edit | Yes | Yes | Add visitors only | — |
-| People — delete | Yes | Yes | No | — |
+| People — delete | Yes | No | No | — |
 | Families — view | All | All (branch-scoped) | Own families | — |
 | Clusters — view | All | All (branch-scoped) | Own cluster (read-only) | — |
 | Module read access | All modules | All enabled modules | All enabled modules (limited data) | — |

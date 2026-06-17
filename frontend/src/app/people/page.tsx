@@ -275,6 +275,7 @@ export default function PeoplePage() {
   } = useFamilies();
   const { branches } = useBranches();
   const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => {
     if (!user) {
@@ -1376,6 +1377,7 @@ export default function PeoplePage() {
             clusters={clusters}
             families={families}
             showTopHeader={!isPanel}
+            hideDeleteButton={!isAdmin}
             onViewFamily={(f) => {
               setFamilyOverCluster(f);
               setShowFamilyOverCluster(true);
@@ -1646,14 +1648,18 @@ export default function PeoplePage() {
                 }
                 onView={(p) => openPersonInteraction("view", p)}
                 onEdit={(p) => openPersonInteraction("edit", p)}
-                onDelete={(p) => {
-                  setPersonDeleteConfirmation({
-                    isOpen: true,
-                    person: p,
-                    loading: false,
-                  });
-                }}
-                onBulkDelete={handleBulkDelete}
+                onDelete={
+                  isAdmin
+                    ? (p) => {
+                        setPersonDeleteConfirmation({
+                          isOpen: true,
+                          person: p,
+                          loading: false,
+                        });
+                      }
+                    : undefined
+                }
+                onBulkDelete={isAdmin ? handleBulkDelete : undefined}
                 onBulkExport={handleBulkExport}
               />
             </div>
@@ -2414,6 +2420,7 @@ export default function PeoplePage() {
             person={personOverCluster}
             clusters={clusters}
             families={families}
+            hideDeleteButton={!isAdmin}
             onViewFamily={(f) => {
               setFamilyOverCluster(f);
               setShowFamilyOverCluster(true);

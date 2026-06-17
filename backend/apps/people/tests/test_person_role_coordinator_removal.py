@@ -2,8 +2,8 @@
 Tests covering the removal of the COORDINATOR base role.
 
 People/Family write access is now granted to ADMIN, PASTOR, or anyone holding a
-ModuleCoordinator assignment (regardless of base role). Deletes are limited to
-ADMIN/PASTOR, and the COORDINATOR role is no longer a valid choice.
+ModuleCoordinator assignment (regardless of base role). Person deletes are limited
+to ADMIN, and the COORDINATOR role is no longer a valid choice.
 """
 
 from django.test import TestCase
@@ -117,10 +117,112 @@ class PersonRoleCoordinatorRemovalTests(TestCase):
         res = self.client.delete(f"/api/people/people/{self.target.id}/")
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_pastor_can_delete_person(self):
+    def test_pastor_cannot_delete_person(self):
         self.client.force_authenticate(user=self.pastor)
         res = self.client.delete(f"/api/people/people/{self.target.id}/")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_delete_person(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.delete(f"/api/people/people/{self.target.id}/")
         self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_coordinator_can_create_member(self):
+        self.client.force_authenticate(user=self.coordinator)
+        res = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Member",
+                "role": "MEMBER",
+                "branch": self.branch.id,
+                "status": "ACTIVE",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data["role"], "MEMBER")
+
+    def test_coordinator_cannot_create_pastor(self):
+        self.client.force_authenticate(user=self.coordinator)
+        res = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Pastor",
+                "role": "PASTOR",
+                "branch": self.branch.id,
+                "status": "ACTIVE",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("role", self._field_errors(res))
+
+    def test_coordinator_cannot_create_admin(self):
+        self.client.force_authenticate(user=self.coordinator)
+        res = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Admin",
+                "role": "ADMIN",
+                "branch": self.branch.id,
+                "status": "ACTIVE",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("role", self._field_errors(res))
+
+    def test_pastor_can_create_pastor(self):
+        self.client.force_authenticate(user=self.pastor)
+        res = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Pastor",
+                "role": "PASTOR",
+                "branch": self.branch.id,
+                "status": "ACTIVE",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data["role"], "PASTOR")
+
+    def test_pastor_cannot_create_admin(self):
+        self.client.force_authenticate(user=self.pastor)
+        res = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Admin",
+                "role": "ADMIN",
+                "branch": self.branch.id,
+                "status": "ACTIVE",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("role", self._field_errors(res))
+
+    def test_admin_can_create_admin(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Admin",
+                "role": "ADMIN",
+                "branch": self.branch.id,
+                "status": "ACTIVE",
+                "generate_temporary_password": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data["role"], "ADMIN")
 
     def test_api_rejects_coordinator_role_on_create(self):
         self.client.force_authenticate(user=self.admin)

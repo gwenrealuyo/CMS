@@ -73,6 +73,7 @@ export interface QuickActionsContext {
     resourceId?: number,
   ) => boolean;
   isSeniorCoordinator: (module?: ModuleType) => boolean;
+  isPlainMember: () => boolean;
   moduleEnabled: Partial<Record<ModuleType, boolean>>;
 }
 
@@ -162,11 +163,11 @@ function isVisible(action: QuickActionDefinition, ctx: QuickActionsContext): boo
 export function getAvailableQuickActions(
   ctx: QuickActionsContext,
 ): QuickActionDefinition[] {
-  const isMember = ctx.user?.role === "MEMBER";
+  const plainMember = ctx.isPlainMember();
 
   return QUICK_ACTIONS.filter((action) => isVisible(action, ctx)).map(
     (action) => {
-      if (action.key === "people" && isMember) {
+      if (action.key === "people" && plainMember) {
         return {
           ...action,
           label: "Add Visitor",

@@ -15,6 +15,7 @@ interface AuthContextType {
   isModuleCoordinator: (module: ModuleCoordinator["module"], level?: ModuleCoordinator["level"], resourceId?: number) => boolean;
   isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean;
   hasAnyModuleCoordinatorAssignment: () => boolean;
+  isPlainMember: () => boolean;
 }
 
 type ModuleType = ModuleCoordinator["module"];
@@ -190,6 +191,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return Boolean(user?.module_coordinator_assignments?.length);
   }, [user]);
 
+  const isPlainMember = useCallback((): boolean => {
+    return (
+      user?.role === "MEMBER" &&
+      !user?.module_coordinator_assignments?.length
+    );
+  }, [user]);
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
@@ -200,6 +208,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isModuleCoordinator,
     isSeniorCoordinator,
     hasAnyModuleCoordinatorAssignment,
+    isPlainMember,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -626,6 +626,7 @@ class MonthlyStatisticsSerializer(serializers.Serializer):
     cluster_name = serializers.CharField()
     invited_count = serializers.IntegerField()
     attended_count = serializers.IntegerField()
+    taken_ncc_count = serializers.IntegerField()
     baptized_count = serializers.IntegerField()
     received_hg_count = serializers.IntegerField()
     converted_count = serializers.IntegerField()

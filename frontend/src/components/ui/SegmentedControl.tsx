@@ -51,7 +51,7 @@ export default function SegmentedControl<T extends string>({
             } ${
               isActive
                 ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-transparent text-gray-500 hover:text-gray-700 hover:bg-white/50"
+                : "bg-transparent text-foreground/60 hover:text-foreground hover:bg-white/50"
             } ${option.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {option.icon}

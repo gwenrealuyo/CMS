@@ -10,6 +10,11 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { V2bLeakageSection } from "@/src/types/reports";
 
 interface V2bLeakagePanelsProps {
@@ -27,7 +32,7 @@ function LeakageBarChart({
   if (data.length === 0) {
     return (
       <Card title={title}>
-        <div className="py-8 text-center text-sm text-muted-foreground">
+        <div className="py-8 text-center text-base text-muted-foreground">
           No data available.
         </div>
       </Card>
@@ -42,18 +47,26 @@ function LeakageBarChart({
             data={data}
             margin={{ top: 8, right: 16, bottom: 8, left: -8 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={ANALYTICS_CHART_GRID_STROKE}
+            />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11 }}
+              tick={{ fontSize: ANALYTICS_CHART_TICK_SIZE }}
               interval={0}
               angle={-15}
               textAnchor="end"
               height={60}
             />
-            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: ANALYTICS_CHART_TICK_SIZE }} />
             <Tooltip />
-            <Bar dataKey="count" name="Count" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            <Bar
+              dataKey="count"
+              name="Count"
+              fill={analyticsChartColor(4)}
+              radius={[4, 4, 0, 0]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -70,7 +83,7 @@ export default function V2bLeakagePanels({
       <div className="space-y-3">
         <LeakageBetaNote />
         <Card title="Drop-off Leakage">
-          <div className="py-8 text-center text-sm text-muted-foreground">
+          <div className="py-8 text-center text-base text-muted-foreground">
             Loading leakage data...
           </div>
         </Card>

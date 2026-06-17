@@ -11,6 +11,13 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_COLORS,
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_STROKE_WIDTH,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { V2bMonthlyTrendPoint } from "@/src/types/reports";
 
 const MONTH_LABELS = [
@@ -41,6 +48,7 @@ export default function V2bMonthlyTrendChart({
     period: MONTH_LABELS[row.month - 1] ?? `M${row.month}`,
     invited: row.invited_count,
     attended: row.attended_count,
+    taken_ncc: row.taken_ncc_count,
     baptized: row.baptized_count,
     received_hg: row.received_hg_count,
     converted: row.converted_count,
@@ -50,19 +58,23 @@ export default function V2bMonthlyTrendChart({
     (row) =>
       row.invited > 0 ||
       row.attended > 0 ||
+      row.taken_ncc > 0 ||
       row.baptized > 0 ||
       row.received_hg > 0 ||
       row.converted > 0,
   );
 
+  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+  const dot = { r: 3 };
+
   return (
     <Card title="Monthly Pipeline Trend">
       {loading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           Loading monthly trend...
         </div>
       ) : !hasData ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           No monthly tracking data for the selected year.
         </div>
       ) : (
@@ -72,50 +84,61 @@ export default function V2bMonthlyTrendChart({
               data={chartData}
               margin={{ top: 8, right: 16, bottom: 8, left: -8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={ANALYTICS_CHART_GRID_STROKE}
+              />
+              <XAxis dataKey="period" tick={tick} />
+              <YAxis allowDecimals={false} tick={tick} />
               <Tooltip />
               <Legend />
               <Line
                 type="monotone"
                 dataKey="invited"
                 name="Invited"
-                stroke="#64748b"
-                strokeWidth={2}
-                dot={{ r: 2 }}
+                stroke={analyticsChartColor(3)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
               <Line
                 type="monotone"
                 dataKey="attended"
                 name="Attended"
-                stroke="#2563eb"
-                strokeWidth={2}
-                dot={{ r: 2 }}
+                stroke={analyticsChartColor(0)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
+              />
+              <Line
+                type="monotone"
+                dataKey="taken_ncc"
+                name="Taken NCC"
+                stroke={analyticsChartColor(5)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
               <Line
                 type="monotone"
                 dataKey="baptized"
                 name="Baptized"
-                stroke="#8b5cf6"
-                strokeWidth={2}
-                dot={{ r: 2 }}
+                stroke={ANALYTICS_CHART_COLORS[4]}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
               <Line
                 type="monotone"
                 dataKey="received_hg"
                 name="Received HG"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                dot={{ r: 2 }}
+                stroke={analyticsChartColor(1)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
               <Line
                 type="monotone"
                 dataKey="converted"
                 name="Converted"
-                stroke="#10b981"
-                strokeWidth={2}
-                dot={{ r: 2 }}
+                stroke={analyticsChartColor(2)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
             </LineChart>
           </ResponsiveContainer>

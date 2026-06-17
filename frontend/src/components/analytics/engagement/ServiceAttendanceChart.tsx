@@ -10,6 +10,12 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_STROKE_WIDTH,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { EngagementServiceSection } from "@/src/types/reports";
 
 interface ServiceAttendanceChartProps {
@@ -25,15 +31,17 @@ export default function ServiceAttendanceChart({
   const hasTrend = trendData.some((row) => row.headcount > 0);
   const occurrences = service?.occurrences ?? [];
 
+  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+
   return (
     <div className="space-y-6">
       <Card title="Sunday Service Attendance Trend">
         {loading ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">
+          <div className="py-12 text-center text-base text-muted-foreground">
             Loading Sunday Service trends...
           </div>
         ) : !hasTrend ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">
+          <div className="py-12 text-center text-base text-muted-foreground">
             No Sunday Service attendance in the selected period.
           </div>
         ) : (
@@ -43,16 +51,19 @@ export default function ServiceAttendanceChart({
                 data={trendData}
                 margin={{ top: 8, right: 16, bottom: 8, left: -8 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={ANALYTICS_CHART_GRID_STROKE}
+                />
+                <XAxis dataKey="period" tick={tick} />
+                <YAxis allowDecimals={false} tick={tick} />
                 <Tooltip />
                 <Line
                   type="monotone"
                   dataKey="headcount"
                   name="Attendees"
-                  stroke="#2563eb"
-                  strokeWidth={2}
+                  stroke={analyticsChartColor(0)}
+                  strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
                   dot={{ r: 3 }}
                 />
               </LineChart>

@@ -62,6 +62,7 @@ from .services import (
     sync_prospect_invitation_journey_note,
     update_monthly_tracking,
     calculate_monthly_statistics,
+    count_taken_ncc_prospects_for_month,
     check_conversion_completion,
     endorse_visitor_to_cluster,
     get_cluster_visitors,
@@ -992,38 +993,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 date_first_attended__month=month,
             ).count()
 
-            student_lsr = LessonSessionReport.objects.filter(
-                session_date__year=year_int,
-                session_date__month=month,
+            students_count = count_taken_ncc_prospects_for_month(
+                year=year_int,
+                month=month,
+                branch_id=branch_id,
+                cluster_id=cluster_id,
+                evangelism_group_id=eg_id,
+                group_person_ids=group_person_ids,
             )
-            if branch_id is not None:
-                student_lsr = student_lsr.filter(student__branch_id=branch_id)
-            if cluster_id is not None:
-                student_lsr = student_lsr.filter(student__clusters__id=cluster_id)
-            elif eg_id is not None:
-                gp_ids = group_person_ids or frozenset()
-                if gp_ids:
-                    student_lsr = student_lsr.filter(student_id__in=gp_ids)
-                else:
-                    student_lsr = student_lsr.none()
-
-            student_ids = student_lsr.values_list("student_id", flat=True).distinct()
-
-            student_qs = Prospect.objects.filter(
-                person_id__in=student_ids,
-                commitment_form_signed=False,
-            )
-            if branch_id is not None:
-                student_qs = student_qs.filter(person__branch_id=branch_id)
-            if cluster_id is not None:
-                student_qs = student_qs.filter(person__clusters__id=cluster_id)
-            elif eg_id is not None:
-                gp_ids = group_person_ids or frozenset()
-                if gp_ids:
-                    student_qs = student_qs.filter(person_id__in=gp_ids)
-                else:
-                    student_qs = student_qs.none()
-            students_count = student_qs.values_list("person_id", flat=True).distinct().count()
 
             baptized_count = base_qs.filter(
                 water_baptism_date__year=year_int,

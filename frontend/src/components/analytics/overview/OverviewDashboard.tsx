@@ -87,7 +87,7 @@ export default function OverviewDashboard({
             <div>
               <label
                 htmlFor="overview-year"
-                className="mb-1 block text-sm font-medium text-muted-foreground"
+                className="mb-1 block text-base font-medium text-foreground"
               >
                 Year
               </label>
@@ -107,7 +107,7 @@ export default function OverviewDashboard({
             <div>
               <label
                 htmlFor="overview-months"
-                className="mb-1 block text-sm font-medium text-muted-foreground"
+                className="mb-1 block text-base font-medium text-foreground"
               >
                 Trend window (months)
               </label>
@@ -125,7 +125,7 @@ export default function OverviewDashboard({
               </select>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-foreground/70">
             Click a card to open the full dashboard.
           </p>
         </div>

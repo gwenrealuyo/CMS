@@ -11,9 +11,12 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { V2bFunnelStage } from "@/src/types/reports";
-
-const FUNNEL_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#10b981", "#059669"];
 
 interface V2bFunnelChartProps {
   funnel: V2bFunnelStage[];
@@ -24,16 +27,17 @@ export default function V2bFunnelChart({
   funnel,
   loading = false,
 }: V2bFunnelChartProps) {
-  const chartData = funnel.filter((row) => row.count > 0 || funnel.length <= 5);
+  const chartData = funnel.filter((row) => row.count > 0 || funnel.length <= 6);
+  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
 
   return (
     <Card title="Conversion Funnel">
       {loading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           Loading funnel...
         </div>
       ) : chartData.length === 0 ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           No active prospects in the selected scope.
         </div>
       ) : (
@@ -44,13 +48,16 @@ export default function V2bFunnelChart({
               data={chartData}
               margin={{ top: 8, right: 24, bottom: 8, left: 8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={ANALYTICS_CHART_GRID_STROKE}
+              />
+              <XAxis type="number" allowDecimals={false} tick={tick} />
               <YAxis
                 type="category"
                 dataKey="label"
                 width={150}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: ANALYTICS_CHART_TICK_SIZE }}
               />
               <Tooltip
                 formatter={(value: number, _name, props) => {
@@ -64,7 +71,7 @@ export default function V2bFunnelChart({
                 {chartData.map((_, index) => (
                   <Cell
                     key={`funnel-${index}`}
-                    fill={FUNNEL_COLORS[index % FUNNEL_COLORS.length]}
+                    fill={analyticsChartColor(index)}
                   />
                 ))}
               </Bar>

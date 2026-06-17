@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { reportsApi } from "@/src/lib/api";
 import type { V2bSummary } from "@/src/types/reports";
 import Card from "@/src/components/ui/Card";
-import Button from "@/src/components/ui/Button";
+import AnalyticsExportButton from "@/src/components/analytics/AnalyticsExportButton";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import V2bKpiRow from "./V2bKpiRow";
@@ -100,7 +100,7 @@ export default function V2bDashboard({ selectedBranchId }: V2bDashboardProps) {
       <Card>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-base font-medium text-foreground">
               Year
             </label>
             <select
@@ -116,13 +116,10 @@ export default function V2bDashboard({ selectedBranchId }: V2bDashboardProps) {
             </select>
           </div>
           <div className="flex items-end md:col-start-3">
-            <Button
+            <AnalyticsExportButton
               onClick={handleExportCSV}
-              variant="secondary"
-              className="h-[42px]"
-            >
-              Export CSV
-            </Button>
+              reportName="visitor to brethren"
+            />
           </div>
         </div>
       </Card>

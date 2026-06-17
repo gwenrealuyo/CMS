@@ -10,6 +10,11 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { CymClassRow } from "@/src/types/reports";
 
 interface CymClassAttendanceChartProps {
@@ -29,14 +34,16 @@ export default function CymClassAttendanceChart({
       students: row.student_count,
     }));
 
+  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+
   return (
     <Card title="Class Attendance Rates">
       {loading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           Loading class attendance...
         </div>
       ) : chartData.length === 0 ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           No attendance data for the selected scope.
         </div>
       ) : (
@@ -47,18 +54,21 @@ export default function CymClassAttendanceChart({
               data={chartData}
               margin={{ top: 8, right: 24, bottom: 8, left: 8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={ANALYTICS_CHART_GRID_STROKE}
+              />
               <XAxis
                 type="number"
                 domain={[0, 100]}
-                tick={{ fontSize: 12 }}
+                tick={tick}
                 unit="%"
               />
               <YAxis
                 type="category"
                 dataKey="name"
                 width={140}
-                tick={{ fontSize: 11 }}
+                tick={tick}
               />
               <Tooltip
                 formatter={(value: number) => [`${value.toFixed(1)}%`, "Rate"]}
@@ -67,7 +77,7 @@ export default function CymClassAttendanceChart({
               <Bar
                 dataKey="rate"
                 name="Attendance rate"
-                fill="#2563eb"
+                fill={analyticsChartColor(0)}
                 radius={[0, 4, 4, 0]}
               />
             </BarChart>

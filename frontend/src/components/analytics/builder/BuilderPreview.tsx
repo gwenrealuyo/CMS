@@ -1,6 +1,7 @@
 "use client";
 
 import KpiCard from "@/src/components/analytics/KpiCard";
+import AnalyticsExportButton from "@/src/components/analytics/AnalyticsExportButton";
 import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
@@ -34,7 +35,7 @@ export default function BuilderPreview({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-base font-semibold text-foreground">Preview</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-foreground/70">
               {hasRun
                 ? `Headline metrics for ${reportLabel}.`
                 : "Run the report to preview headline metrics."}
@@ -44,14 +45,12 @@ export default function BuilderPreview({
             <Button type="button" onClick={onRun} disabled={loading}>
               {loading ? "Running…" : "Run Report"}
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
+            <AnalyticsExportButton
               onClick={onExport}
-              disabled={exporting || !hasRun}
-            >
-              {exporting ? "Exporting…" : "Export CSV"}
-            </Button>
+              disabled={!hasRun}
+              loading={exporting}
+              reportName={reportLabel}
+            />
           </div>
         </div>
 

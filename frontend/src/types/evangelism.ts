@@ -255,6 +255,7 @@ export interface MonthlyStatistics {
   cluster_name: string;
   invited_count: number;
   attended_count: number;
+  taken_ncc_count: number;
   baptized_count: number;
   received_hg_count: number;
   converted_count: number;

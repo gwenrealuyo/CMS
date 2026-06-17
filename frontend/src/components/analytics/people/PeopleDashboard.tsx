@@ -4,10 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { reportsApi } from "@/src/lib/api";
 import type { PeopleSummary } from "@/src/types/reports";
 import Card from "@/src/components/ui/Card";
-import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import AnalyticsExportButton from "@/src/components/analytics/AnalyticsExportButton";
 import KpiCard from "@/src/components/analytics/KpiCard";
+import { kpiIcon } from "@/src/components/analytics/analyticsKpiIcons";
+import {
+  toneWhenPositiveIsBad,
+  toneWhenZeroIsBad,
+} from "@/src/lib/kpiValueTone";
+import {
+  CheckCircleIcon,
+  HeartIcon,
+  UserGroupIcon,
+  UsersIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/outline";
 import PeopleCompositionCharts from "./PeopleCompositionCharts";
 import PeopleDemographicsCharts from "./PeopleDemographicsCharts";
 import BaptismTrendChart from "./BaptismTrendChart";
@@ -93,26 +105,51 @@ export default function PeopleDashboard({
   return (
     <div className="space-y-6">
       {summary && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Total People" value={summary.total_people} />
-          <KpiCard label="Members" value={summary.total_members} />
-          <KpiCard label="Visitors" value={summary.total_visitors} />
-          <KpiCard label="Active Members" value={summary.active_members} />
-        </div>
-      )}
-
-      {summary && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Semi-active" value={summary.semiactive_members} />
-          <KpiCard label="Inactive" value={summary.inactive_members} />
-          <KpiCard label="Deceased" value={summary.deceased} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+          <KpiCard
+            label="Total People"
+            value={summary.total_people}
+            icon={kpiIcon(UserGroupIcon)}
+          />
+          <KpiCard
+            label="Members"
+            value={summary.total_members}
+            icon={kpiIcon(UsersIcon)}
+          />
+          <KpiCard
+            label="Visitors"
+            value={summary.total_visitors}
+            valueTone={toneWhenZeroIsBad(summary.total_visitors)}
+            icon={kpiIcon(UserGroupIcon)}
+          />
+          <KpiCard
+            label="Active Members"
+            value={summary.active_members}
+            valueTone={toneWhenZeroIsBad(summary.active_members)}
+            icon={kpiIcon(CheckCircleIcon)}
+          />
+          <KpiCard
+            label="Semi-active"
+            value={summary.semiactive_members}
+            icon={kpiIcon(UsersIcon)}
+          />
+          <KpiCard
+            label="Inactive"
+            value={summary.inactive_members}
+            icon={kpiIcon(XCircleIcon)}
+          />
+          <KpiCard
+            label="Deceased"
+            value={summary.deceased}
+            icon={kpiIcon(HeartIcon)}
+          />
         </div>
       )}
 
       <Card>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-base font-medium text-foreground">
               Baptism trend window
             </label>
             <select
@@ -128,13 +165,10 @@ export default function PeopleDashboard({
             </select>
           </div>
           <div className="flex items-end md:col-start-3">
-            <Button
+            <AnalyticsExportButton
               onClick={handleExportCSV}
-              variant="secondary"
-              className="h-[42px]"
-            >
-              Export CSV
-            </Button>
+              reportName="people demographics"
+            />
           </div>
         </div>
       </Card>

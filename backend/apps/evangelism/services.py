@@ -256,6 +256,13 @@ def calculate_monthly_statistics(
 
     converted_count = len(converted_prospects)
 
+    taken_ncc_count = count_taken_ncc_prospects_for_month(
+        year=year,
+        month=month,
+        branch_id=branch_id,
+        cluster_id=cluster.id if cluster else None,
+    )
+
     result = {
         "year": year,
         "month": month,
@@ -263,12 +270,88 @@ def calculate_monthly_statistics(
         "cluster_name": cluster.name if cluster else "All Clusters",
         "invited_count": invited_count,
         "attended_count": attended_count,
+        "taken_ncc_count": taken_ncc_count,
         "baptized_count": baptized_count,
         "received_hg_count": received_hg_count,
         "converted_count": converted_count,
     }
 
     return [result]
+
+
+TAKEN_NCC_STAGE = "TAKEN_NCC"
+
+
+def _prospects_taken_ncc_qs(active_qs):
+    """Active prospects who have taken NCC or progressed past it."""
+    from apps.lessons.models import LessonSessionReport, PersonLessonProgress
+
+    lesson_person_ids = LessonSessionReport.objects.values_list(
+        "student_id", flat=True
+    ).distinct()
+    progress_person_ids = PersonLessonProgress.objects.values_list(
+        "person_id", flat=True
+    ).distinct()
+    activity_person_ids = set(lesson_person_ids) | set(progress_person_ids)
+
+    past_ncc_stages = [
+        Prospect.PipelineStage.BAPTIZED,
+        Prospect.PipelineStage.RECEIVED_HG,
+        Prospect.PipelineStage.CONVERTED,
+    ]
+
+    return active_qs.filter(
+        Q(pipeline_stage__in=past_ncc_stages)
+        | Q(has_finished_lessons=True)
+        | Q(person_id__in=activity_person_ids)
+    ).distinct()
+
+
+def count_taken_ncc_prospects_for_month(
+    *,
+    year: int,
+    month: int,
+    branch_id: Optional[int] = None,
+    cluster_id: Optional[int] = None,
+    evangelism_group_id: Optional[int] = None,
+    group_person_ids: Optional[frozenset] = None,
+) -> int:
+    """Count unique prospects with NCC lesson activity in a month (People Tally NCC rule)."""
+    from apps.lessons.models import LessonSessionReport
+
+    student_lsr = LessonSessionReport.objects.filter(
+        session_date__year=year,
+        session_date__month=month,
+    )
+    if branch_id is not None:
+        student_lsr = student_lsr.filter(student__branch_id=branch_id)
+    if cluster_id is not None:
+        student_lsr = student_lsr.filter(student__clusters__id=cluster_id)
+    elif evangelism_group_id is not None:
+        gp_ids = group_person_ids or frozenset()
+        if gp_ids:
+            student_lsr = student_lsr.filter(student_id__in=gp_ids)
+        else:
+            student_lsr = student_lsr.none()
+
+    student_ids = student_lsr.values_list("student_id", flat=True).distinct()
+
+    student_qs = Prospect.objects.filter(
+        person_id__in=student_ids,
+        commitment_form_signed=False,
+    )
+    if branch_id is not None:
+        student_qs = student_qs.filter(person__branch_id=branch_id)
+    if cluster_id is not None:
+        student_qs = student_qs.filter(person__clusters__id=cluster_id)
+    elif evangelism_group_id is not None:
+        gp_ids = group_person_ids or frozenset()
+        if gp_ids:
+            student_qs = student_qs.filter(person_id__in=gp_ids)
+        else:
+            student_qs = student_qs.none()
+
+    return student_qs.values_list("person_id", flat=True).distinct().count()
 
 
 def check_conversion_completion(
@@ -653,6 +736,7 @@ def _drop_off_branch_q(branch_id: int) -> Q:
 _PIPELINE_FUNNEL_STAGES = [
     (Prospect.PipelineStage.INVITED, "Invited"),
     (Prospect.PipelineStage.ATTENDED, "Attended"),
+    (TAKEN_NCC_STAGE, "Taken NCC"),
     (Prospect.PipelineStage.BAPTIZED, "Baptized"),
     (Prospect.PipelineStage.RECEIVED_HG, "Received Holy Ghost"),
     (Prospect.PipelineStage.CONVERTED, "Converted"),
@@ -661,9 +745,10 @@ _PIPELINE_FUNNEL_STAGES = [
 _PIPELINE_STAGE_ORDER = {
     Prospect.PipelineStage.INVITED: 0,
     Prospect.PipelineStage.ATTENDED: 1,
-    Prospect.PipelineStage.BAPTIZED: 2,
-    Prospect.PipelineStage.RECEIVED_HG: 3,
-    Prospect.PipelineStage.CONVERTED: 4,
+    TAKEN_NCC_STAGE: 2,
+    Prospect.PipelineStage.BAPTIZED: 3,
+    Prospect.PipelineStage.RECEIVED_HG: 4,
+    Prospect.PipelineStage.CONVERTED: 5,
 }
 
 
@@ -674,13 +759,16 @@ def build_pipeline_funnel(prospects_qs) -> List[Dict]:
     previous_count = None
 
     for stage, label in _PIPELINE_FUNNEL_STAGES:
-        min_order = _PIPELINE_STAGE_ORDER[stage]
-        at_or_beyond = [
-            key
-            for key, order in _PIPELINE_STAGE_ORDER.items()
-            if order >= min_order
-        ]
-        count = active.filter(pipeline_stage__in=at_or_beyond).count()
+        if stage == TAKEN_NCC_STAGE:
+            count = _prospects_taken_ncc_qs(active).count()
+        else:
+            min_order = _PIPELINE_STAGE_ORDER[stage]
+            at_or_beyond = [
+                key
+                for key, order in _PIPELINE_STAGE_ORDER.items()
+                if order >= min_order and key != TAKEN_NCC_STAGE
+            ]
+            count = active.filter(pipeline_stage__in=at_or_beyond).count()
         rate_from_previous = None
         if previous_count is not None and previous_count > 0:
             rate_from_previous = round((count / previous_count) * 100, 1)

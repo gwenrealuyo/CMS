@@ -45,7 +45,7 @@ export default function DonationPurposePanel({
                     {formatAmount(amount)}
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                <div className="h-2.5 overflow-hidden rounded-full bg-gray-100">
                   <div
                     className="h-full rounded-full bg-primary"
                     style={{ width: `${percentage}%` }}

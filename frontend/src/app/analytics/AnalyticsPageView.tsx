@@ -16,6 +16,7 @@ import CymDashboard from "@/src/components/analytics/cym/CymDashboard";
 import StewardshipDashboard from "@/src/components/analytics/stewardship/StewardshipDashboard";
 import OverviewDashboard from "@/src/components/analytics/overview/OverviewDashboard";
 import BuilderDashboard from "@/src/components/analytics/builder/BuilderDashboard";
+import { getModuleIcon } from "@/src/components/analytics/analyticsModuleIcons";
 import type { ReportsScopeMeta } from "@/src/types/reports";
 import {
   ANALYTICS_TABS,
@@ -46,13 +47,13 @@ export default function AnalyticsPageView({
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="analytics-hub space-y-6" data-analytics-hub>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground md:text-3xl">
               Analytics
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-base text-foreground/70">
               Church-wide stats and reports.
             </p>
           </div>
@@ -80,6 +81,7 @@ export default function AnalyticsPageView({
             <AnalyticsTabHeader
               title={tabMeta.title}
               description={tabMeta.description}
+              icon={getModuleIcon(activeTab)}
             />
 
             {activeTab === "overview" ? (

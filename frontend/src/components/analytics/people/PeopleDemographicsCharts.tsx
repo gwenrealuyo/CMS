@@ -10,6 +10,11 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { PeopleBreakdownItem } from "@/src/types/reports";
 
 interface PeopleDemographicsChartsProps {
@@ -35,9 +40,11 @@ function DemographicsBarChart({
   data: { name: string; count: number }[];
   emptyMessage: string;
 }) {
+  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+
   if (data.length === 0) {
     return (
-      <div className="py-12 text-center text-sm text-muted-foreground">
+      <div className="py-12 text-center text-base text-muted-foreground">
         {emptyMessage}
       </div>
     );
@@ -50,18 +57,26 @@ function DemographicsBarChart({
           data={data}
           margin={{ top: 8, right: 16, bottom: 8, left: -8 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={ANALYTICS_CHART_GRID_STROKE}
+          />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 11 }}
+            tick={tick}
             interval={0}
             angle={data.length > 4 ? -25 : 0}
             textAnchor={data.length > 4 ? "end" : "middle"}
             height={data.length > 4 ? 70 : 40}
           />
-          <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+          <YAxis allowDecimals={false} tick={tick} />
           <Tooltip />
-          <Bar dataKey="count" name="Count" fill="#10b981" radius={[4, 4, 0, 0]} />
+          <Bar
+            dataKey="count"
+            name="Count"
+            fill={analyticsChartColor(2)}
+            radius={[4, 4, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -81,7 +96,7 @@ export default function PeopleDemographicsCharts({
   if (loading) {
     return (
       <Card title="Demographics">
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           Loading demographics...
         </div>
       </Card>

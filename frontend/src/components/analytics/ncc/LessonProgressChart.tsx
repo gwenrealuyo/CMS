@@ -11,6 +11,11 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { NccLessonBreakdown } from "@/src/types/reports";
 
 interface LessonProgressChartProps {
@@ -30,14 +35,16 @@ export default function LessonProgressChart({
       in_progress: lesson.in_progress,
     }));
 
+  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+
   return (
     <Card title="Lesson Progress by Lesson">
       {loading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           Loading lesson progress...
         </div>
       ) : chartData.length === 0 ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           No lesson progress data for the selected scope.
         </div>
       ) : (
@@ -47,28 +54,31 @@ export default function LessonProgressChart({
               data={chartData}
               margin={{ top: 8, right: 16, bottom: 8, left: -8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={ANALYTICS_CHART_GRID_STROKE}
+              />
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 11 }}
+                tick={tick}
                 interval={0}
                 angle={-20}
                 textAnchor="end"
                 height={70}
               />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+              <YAxis allowDecimals={false} tick={tick} />
               <Tooltip />
               <Legend />
               <Bar
                 dataKey="completed"
                 name="Completed"
-                fill="#10b981"
+                fill={analyticsChartColor(2)}
                 radius={[4, 4, 0, 0]}
               />
               <Bar
                 dataKey="in_progress"
                 name="In Progress"
-                fill="#2563eb"
+                fill={analyticsChartColor(0)}
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>

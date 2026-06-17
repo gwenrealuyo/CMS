@@ -441,4 +441,13 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Analytics hub — improved contrast for secondary text */
+  .analytics-hub {
+    --analytics-muted: 215 20% 35%;
+  }
+
+  .analytics-hub .text-muted-foreground {
+    color: hsl(var(--analytics-muted));
+  }
 }

@@ -42,6 +42,7 @@ export default function E1r1Dashboard({
       branchSelectionLocked={meta?.branch_locked ?? false}
       defaultLockedBranch={meta?.effective_branch_id ?? ""}
       hideBranchFilter
+      emphasizeCountCells
     />
   );
 }

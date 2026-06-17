@@ -215,6 +215,7 @@ export interface CymSummary {
 export type V2bPipelineStage =
   | "INVITED"
   | "ATTENDED"
+  | "TAKEN_NCC"
   | "BAPTIZED"
   | "RECEIVED_HG"
   | "CONVERTED";
@@ -231,6 +232,7 @@ export interface V2bMonthlyTrendPoint {
   month: number;
   invited_count: number;
   attended_count: number;
+  taken_ncc_count: number;
   baptized_count: number;
   received_hg_count: number;
   converted_count: number;

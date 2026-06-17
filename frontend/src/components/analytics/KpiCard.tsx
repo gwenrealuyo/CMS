@@ -2,6 +2,10 @@
 
 import type { ReactNode } from "react";
 import Card from "@/src/components/ui/Card";
+import {
+  kpiValueToneClass,
+  type KpiValueTone,
+} from "@/src/lib/kpiValueTone";
 
 interface KpiCardProps {
   label: string;
@@ -9,6 +13,10 @@ interface KpiCardProps {
   /** Optional supporting text under the value (e.g. trend or context). */
   hint?: ReactNode;
   icon?: ReactNode;
+  /** Left border accent, e.g. border-l-primary */
+  accentClass?: string;
+  /** Semantic color for the headline value (success / danger). */
+  valueTone?: KpiValueTone;
   className?: string;
 }
 
@@ -21,19 +29,27 @@ export default function KpiCard({
   value,
   hint,
   icon,
+  accentClass = "",
+  valueTone = "default",
   className = "",
 }: KpiCardProps) {
   return (
-    <Card className={className}>
+    <Card
+      className={`${accentClass ? `border-l-4 pl-3 ${accentClass}` : ""} ${className}`.trim()}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
+          <p className="text-sm font-medium text-foreground/80">{label}</p>
+          <p
+            className={`mt-1 text-3xl font-bold ${kpiValueToneClass(valueTone)}`}
+          >
+            {value}
+          </p>
           {hint && (
-            <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+            <p className="mt-1 text-sm text-foreground/65">{hint}</p>
           )}
         </div>
-        {icon && <div className="shrink-0 text-gray-400">{icon}</div>}
+        {icon && <div className="shrink-0">{icon}</div>}
       </div>
     </Card>
   );

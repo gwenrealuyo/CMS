@@ -16,7 +16,7 @@ from apps.evangelism.models import (
     Prospect,
 )
 from apps.events.models import Event
-from apps.lessons.models import Lesson, PersonLessonProgress
+from apps.lessons.models import Lesson, LessonSessionReport, PersonLessonProgress
 from apps.people.models import Branch, Family, Person
 from apps.sunday_school.models import (
     SundaySchoolCategory,
@@ -562,6 +562,36 @@ class V2bSummaryTests(TestCase):
             pipeline_stage=Prospect.PipelineStage.ATTENDED,
             is_dropped_off=False,
         )
+        self.north_attended_person = Person.objects.create_user(
+            username="north_attended_person",
+            password="pw",
+            role="VISITOR",
+            status="ATTENDED",
+            branch=self.north,
+        )
+        self.north_attended.person = self.north_attended_person
+        self.north_attended.save(update_fields=["person"])
+
+        self.ncc_lesson = Lesson.objects.create(
+            code="v2b-l1",
+            version_label="v1",
+            title="Lesson One",
+            order=1,
+            is_latest=True,
+            is_active=True,
+        )
+        self.ncc_session_date = timezone.now().date().replace(
+            year=self.year, month=6, day=15
+        )
+        LessonSessionReport.objects.create(
+            teacher=self.north_inviter,
+            student=self.north_attended_person,
+            lesson=self.ncc_lesson,
+            session_date=self.ncc_session_date,
+            session_start=timezone.make_aware(
+                datetime.combine(self.ncc_session_date, datetime.min.time())
+            ),
+        )
         self.south_converted = Prospect.objects.create(
             first_name="South",
             last_name="Converted",
@@ -642,6 +672,22 @@ class V2bSummaryTests(TestCase):
         funnel = {row["stage"]: row["count"] for row in res.data["funnel"]}
         self.assertEqual(funnel["INVITED"], 2)
         self.assertEqual(funnel["ATTENDED"], 1)
+        self.assertEqual(funnel["TAKEN_NCC"], 1)
+
+    def test_monthly_taken_ncc_count(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(
+            self.summary_url,
+            {"branch_id": self.north.id, "year": self.year},
+        )
+        june = next(
+            row for row in res.data["monthly_trend"] if row["month"] == 6
+        )
+        self.assertEqual(june["taken_ncc_count"], 1)
+        january = next(
+            row for row in res.data["monthly_trend"] if row["month"] == 1
+        )
+        self.assertEqual(january["taken_ncc_count"], 0)
 
     def test_leakage_populated(self):
         self.client.force_authenticate(user=self.admin)

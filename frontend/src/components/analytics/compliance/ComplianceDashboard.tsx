@@ -12,10 +12,21 @@ import {
   OverdueClusters,
 } from "@/src/types/cluster";
 import Card from "@/src/components/ui/Card";
-import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import AnalyticsExportButton from "@/src/components/analytics/AnalyticsExportButton";
 import KpiCard from "@/src/components/analytics/KpiCard";
+import { kpiIcon } from "@/src/components/analytics/analyticsKpiIcons";
+import {
+  toneForComplianceRate,
+  toneWhenPositiveIsBad,
+} from "@/src/lib/kpiValueTone";
+import {
+  ChartPieIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  Squares2X2Icon,
+} from "@heroicons/react/24/outline";
 import ComplianceHistoryChart from "./ComplianceHistoryChart";
 import ComplianceRiskPanels from "./ComplianceRiskPanels";
 import ComplianceNotes from "./ComplianceNotes";
@@ -169,18 +180,35 @@ export default function ComplianceDashboard({
     <div className="space-y-6">
       {summary && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Total Clusters" value={summary.total_clusters} />
+          <KpiCard
+            label="Total Clusters"
+            value={summary.total_clusters}
+            icon={kpiIcon(Squares2X2Icon)}
+          />
           <KpiCard
             label="Compliant"
             value={summary.compliant_clusters}
+            valueTone={
+              summary.total_clusters > 0 &&
+              summary.compliant_clusters === summary.total_clusters
+                ? "success"
+                : summary.compliant_clusters === 0
+                  ? "danger"
+                  : "default"
+            }
+            icon={kpiIcon(CheckCircleIcon)}
           />
           <KpiCard
             label="Non-Compliant"
             value={summary.non_compliant_clusters}
+            valueTone={toneWhenPositiveIsBad(summary.non_compliant_clusters)}
+            icon={kpiIcon(ExclamationTriangleIcon)}
           />
           <KpiCard
             label="Overall Rate"
             value={`${summary.compliance_rate.toFixed(1)}%`}
+            valueTone={toneForComplianceRate(summary.compliance_rate)}
+            icon={kpiIcon(ChartPieIcon)}
           />
         </div>
       )}
@@ -188,7 +216,7 @@ export default function ComplianceDashboard({
       <Card>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-base font-medium text-foreground">
               Start Date
             </label>
             <input
@@ -199,7 +227,7 @@ export default function ComplianceDashboard({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-base font-medium text-foreground">
               End Date
             </label>
             <input
@@ -210,7 +238,7 @@ export default function ComplianceDashboard({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-base font-medium text-foreground">
               Status
             </label>
             <select
@@ -227,13 +255,10 @@ export default function ComplianceDashboard({
             </select>
           </div>
           <div className="flex items-end">
-            <Button
+            <AnalyticsExportButton
               onClick={handleExportCSV}
-              variant="secondary"
-              className="h-[42px]"
-            >
-              Export CSV
-            </Button>
+              reportName="compliance"
+            />
           </div>
         </div>
       </Card>

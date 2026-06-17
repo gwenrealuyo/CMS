@@ -73,6 +73,8 @@ interface PeopleTallyReportProps {
   defaultLockedBranch?: number | "";
   /** Hide branch select when branch is controlled externally (e.g. analytics hub). */
   hideBranchFilter?: boolean;
+  /** Slightly bolder count cells (analytics E1R1 tab). */
+  emphasizeCountCells?: boolean;
 }
 
 type PeopleTallyMetric = Extract<
@@ -92,6 +94,7 @@ export default function PeopleTallyReport({
   branchLockedHint,
   defaultLockedBranch = "",
   hideBranchFilter = false,
+  emphasizeCountCells = false,
 }: PeopleTallyReportProps) {
   const selectedYear = year || new Date().getFullYear();
   const selectedBranch = branch === "" ? "" : Number(branch);
@@ -222,13 +225,27 @@ export default function PeopleTallyReport({
       row[`${metric}_count` as keyof EvangelismPeopleTallyRow] ?? 0,
     );
     if (count <= 0) {
-      return <span className="text-sm text-gray-400">{count}</span>;
+      return (
+        <span
+          className={
+            emphasizeCountCells
+              ? "text-sm font-semibold text-gray-400"
+              : "text-sm text-gray-400"
+          }
+        >
+          {count}
+        </span>
+      );
     }
 
     return (
       <button
         type="button"
-        className="text-sm font-medium text-primary hover:text-primary hover:underline"
+        className={
+          emphasizeCountCells
+            ? "text-base font-bold text-primary hover:text-primary hover:underline"
+            : "text-sm font-medium text-primary hover:text-primary hover:underline"
+        }
         onClick={() => openDrilldown(row, metric, label, count)}
       >
         {count}

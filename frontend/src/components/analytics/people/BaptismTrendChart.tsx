@@ -12,6 +12,12 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_STROKE_WIDTH,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { PeopleBaptismTrend } from "@/src/types/reports";
 
 interface BaptismTrendChartProps {
@@ -40,15 +46,17 @@ export default function BaptismTrendChart({
   }, [trend]);
 
   const hasData = chartData.some((row) => row.water > 0 || row.spirit > 0);
+  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+  const dot = { r: 3 };
 
   return (
     <Card title="Baptism Trends">
       {loading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           Loading baptism trends...
         </div>
       ) : !hasData ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           No baptism records in the selected period.
         </div>
       ) : (
@@ -58,26 +66,29 @@ export default function BaptismTrendChart({
               data={chartData}
               margin={{ top: 8, right: 16, bottom: 8, left: -8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={ANALYTICS_CHART_GRID_STROKE}
+              />
+              <XAxis dataKey="period" tick={tick} />
+              <YAxis allowDecimals={false} tick={tick} />
               <Tooltip />
               <Legend />
               <Line
                 type="monotone"
                 dataKey="water"
                 name="Water Baptism"
-                stroke="#2563eb"
-                strokeWidth={2}
-                dot={{ r: 3 }}
+                stroke={analyticsChartColor(0)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
               <Line
                 type="monotone"
                 dataKey="spirit"
                 name="Spirit Baptism"
-                stroke="#10b981"
-                strokeWidth={2}
-                dot={{ r: 3 }}
+                stroke={analyticsChartColor(2)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
             </LineChart>
           </ResponsiveContainer>

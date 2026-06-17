@@ -11,6 +11,12 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import {
+  ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_STROKE_WIDTH,
+  ANALYTICS_CHART_TICK_SIZE,
+  analyticsChartColor,
+} from "@/src/lib/analyticsTheme";
 import type { StewardshipMonthlyTrendPoint } from "@/src/types/reports";
 
 const MONTH_LABELS = [
@@ -51,14 +57,17 @@ export default function StewardshipMonthlyTrendChart({
       row.donations > 0 || row.offerings > 0 || row.pledge_payments > 0,
   );
 
+  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+  const dot = { r: 3 };
+
   return (
     <Card title="Monthly Giving Trend">
       {loading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           Loading monthly trend...
         </div>
       ) : !hasData ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-base text-muted-foreground">
           No giving data for the selected year.
         </div>
       ) : (
@@ -68,9 +77,12 @@ export default function StewardshipMonthlyTrendChart({
               data={chartData}
               margin={{ top: 8, right: 16, bottom: 8, left: -8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={ANALYTICS_CHART_GRID_STROKE}
+              />
+              <XAxis dataKey="period" tick={tick} />
+              <YAxis tick={tick} />
               <Tooltip
                 formatter={(value: number) =>
                   `₱${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
@@ -81,27 +93,27 @@ export default function StewardshipMonthlyTrendChart({
                 type="monotone"
                 dataKey="donations"
                 name="Donations"
-                stroke="#2563eb"
-                strokeWidth={2}
-                dot={{ r: 2 }}
+                stroke={analyticsChartColor(0)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
               {includesOfferings && (
                 <Line
                   type="monotone"
                   dataKey="offerings"
                   name="Offerings"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={{ r: 2 }}
+                  stroke={analyticsChartColor(2)}
+                  strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                  dot={dot}
                 />
               )}
               <Line
                 type="monotone"
                 dataKey="pledge_payments"
                 name="Pledge Payments"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                dot={{ r: 2 }}
+                stroke={analyticsChartColor(1)}
+                strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
+                dot={dot}
               />
             </LineChart>
           </ResponsiveContainer>

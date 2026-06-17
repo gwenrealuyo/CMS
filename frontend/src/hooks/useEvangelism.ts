@@ -23,6 +23,7 @@ import {
   FollowUpTask,
   DropOff,
   Conversion,
+  ConversionWritePayload,
   MonthlyConversionTracking,
   MonthlyStatistics,
   Each1Reach1Goal,
@@ -485,13 +486,16 @@ export const useConversions = (filters?: {
     fetchConversions();
   }, [fetchConversions]);
 
-  const createConversion = async (data: Partial<Conversion>) => {
+  const createConversion = async (data: ConversionWritePayload) => {
     const response = await evangelismApi.createConversion(data);
     setConversions((prev) => [...prev, response.data]);
     return response.data;
   };
 
-  const updateConversion = async (id: number | string, data: Partial<Conversion>) => {
+  const updateConversion = async (
+    id: number | string,
+    data: ConversionWritePayload,
+  ) => {
     const response = await evangelismApi.updateConversion(id, data);
     setConversions((prev) =>
       prev.map((conversion) => (conversion.id === response.data.id ? response.data : conversion))

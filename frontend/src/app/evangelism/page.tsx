@@ -727,7 +727,7 @@ export default function EvangelismPage() {
         notes: values.notes ?? "",
         water_baptism_date: w ? w : null,
         spirit_baptism_date: s ? s : null,
-      } as Partial<Conversion>);
+      });
 
       setSuccessMessage("Conversion updated successfully.");
       setIsConversionModalOpen(false);

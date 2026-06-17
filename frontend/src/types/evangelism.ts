@@ -238,6 +238,22 @@ export interface Conversion {
   updated_at: string;
 }
 
+/** POST/PATCH body for conversions (write-only milestone fields + nullable clears). */
+export type ConversionWritePayload = {
+  person_id?: string;
+  prospect_id?: string | null;
+  evangelism_group_id?: string | null;
+  cluster_id?: string | null;
+  converted_by_id?: string | null;
+  conversion_date?: string | null;
+  date_first_invited?: string | null;
+  date_first_attended?: string | null;
+  lesson_start_date?: string | null;
+  water_baptism_date?: string | null;
+  spirit_baptism_date?: string | null;
+  notes?: string;
+};
+
 export type MonthlyTrackingStage =
   | "INVITED"
   | "ATTENDED"

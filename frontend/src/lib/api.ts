@@ -55,6 +55,7 @@ import {
   FollowUpTask,
   DropOff,
   Conversion,
+  ConversionWritePayload,
   MonthlyConversionTracking,
   MonthlyStatistics,
   Each1Reach1Goal,
@@ -1341,9 +1342,9 @@ export const evangelismApi = {
   }) => api.get<Conversion[]>("/evangelism/conversions/", { params }),
   getConversion: (id: number | string) =>
     api.get<Conversion>(`/evangelism/conversions/${id}/`),
-  createConversion: (data: Partial<Conversion>) =>
+  createConversion: (data: ConversionWritePayload) =>
     api.post<Conversion>("/evangelism/conversions/", data),
-  updateConversion: (id: number | string, data: Partial<Conversion>) =>
+  updateConversion: (id: number | string, data: ConversionWritePayload) =>
     api.patch<Conversion>(`/evangelism/conversions/${id}/`, data),
   deleteConversion: (id: number | string) =>
     api.delete(`/evangelism/conversions/${id}/`),

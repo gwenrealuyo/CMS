@@ -173,6 +173,45 @@ class LessonEnrollmentAPITests(TestCase):
         details = response.data.get("details", response.data)
         self.assertIn("person_ids", details)
 
+    def test_assign_allows_sequential_lessons_for_new_student(self):
+        lessons = self._active_latest_lessons()
+        if len(lessons) < 2:
+            second_lesson = Lesson.objects.create(
+                code="test-lesson-2",
+                version_label="v1",
+                title="Test Lesson 2",
+                order=lessons[0].order + 1 if lessons else 100,
+                is_latest=True,
+                is_active=True,
+            )
+            lessons = [lessons[0] if lessons else self.lesson, second_lesson]
+        lesson_a, lesson_b = lessons[0], lessons[1]
+
+        self.client.force_authenticate(user=self.admin)
+        url = reverse("lessons:lesson-progress-assign")
+        payload = {
+            "person_ids": [self.student.id],
+            "teacher_id": self.teacher_a.id,
+        }
+
+        response_a = self.client.post(
+            url,
+            {"lesson_id": lesson_a.id, **payload},
+            format="json",
+        )
+        self.assertEqual(response_a.status_code, status.HTTP_201_CREATED)
+
+        response_b = self.client.post(
+            url,
+            {"lesson_id": lesson_b.id, **payload},
+            format="json",
+        )
+        self.assertEqual(response_b.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            PersonLessonProgress.objects.filter(person=self.student).count(),
+            2,
+        )
+
     def test_reassign_lessons_does_not_change_teacher(self):
         LessonStudentEnrollment.objects.create(
             student=self.student,

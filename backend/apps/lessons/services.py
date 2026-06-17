@@ -268,13 +268,19 @@ def transfer_lesson_teacher(
     return transfer
 
 
-def person_assignment_eligibility_error(person: Person) -> str | None:
+def person_assignment_eligibility_error(
+    person: Person,
+    *,
+    lesson: Lesson | None = None,
+) -> str | None:
     """
-    Return a human-readable reason when a person cannot receive initial lesson assignment.
-  """
+    Return a human-readable reason when a person cannot receive lesson assignment.
+    """
     if person.has_finished_lessons:
         return "has finished lessons"
-    if PersonLessonProgress.objects.filter(person=person).exists():
+    if lesson is not None and PersonLessonProgress.objects.filter(
+        person=person, lesson=lesson
+    ).exists():
         return "already has lesson progress"
     return None
 

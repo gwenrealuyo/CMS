@@ -521,9 +521,10 @@ class LessonBulkAssignSerializer(serializers.Serializer):
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         persons = attrs.get("persons") or []
+        lesson = attrs.get("lesson")
         ineligible_labels = []
         for person in persons:
-            reason = person_assignment_eligibility_error(person)
+            reason = person_assignment_eligibility_error(person, lesson=lesson)
             if reason:
                 display_name = person.get_full_name() or person.username
                 ineligible_labels.append(f"{display_name} ({reason})")

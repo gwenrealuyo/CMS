@@ -92,10 +92,28 @@ export function extractErrorMessage(
   if (error && typeof error === "object") {
     if ("response" in error && error.response) {
       const response = error.response as {
-        data?: { detail?: string; message?: string };
+        data?: {
+          detail?: string;
+          message?: string;
+          details?: Record<string, unknown>;
+        };
       };
       if (response.data?.detail) {
         return response.data.detail;
+      }
+      if (response.data?.message && response.data.message !== "Invalid request") {
+        return response.data.message;
+      }
+      const details = response.data?.details;
+      if (details && typeof details === "object") {
+        for (const value of Object.values(details)) {
+          if (typeof value === "string" && value.trim()) {
+            return value;
+          }
+          if (Array.isArray(value) && typeof value[0] === "string" && value[0].trim()) {
+            return value[0];
+          }
+        }
       }
       if (response.data?.message) {
         return response.data.message;

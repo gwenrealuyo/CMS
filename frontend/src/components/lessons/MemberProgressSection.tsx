@@ -120,10 +120,10 @@ export default function MemberProgressSection({
         </p>
 
         <div className={TOOLBAR_CARD_CLASS}>
-          {/* Mobile — stacked full-width controls */}
-          <div className="flex flex-col gap-3 md:hidden">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
             <ToolbarSearch
               fullWidth
+              className="md:min-w-0 md:max-w-none md:flex-[2]"
               value={progressSearchQuery}
               onChange={onProgressSearchQueryChange}
               placeholder="Search student..."
@@ -131,29 +131,14 @@ export default function MemberProgressSection({
             />
 
             <ViewModeToggle
-              className="w-full"
+              className="w-full md:w-auto md:shrink-0"
+              compact={isMdUp}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
 
-            <div className="w-full">
-              <AssignLessonsDropdown
-                allLessons={activeLatestLessons}
-                people={people}
-                peopleLoading={peopleLoading}
-                peopleError={peopleError}
-                assigning={assigning}
-                assignError={assignError}
-                onAssignLessons={onAssignLessons}
-                enrollmentByStudent={enrollmentByStudent}
-                assignedStudentIds={assignedStudentIds}
-                defaultTeacherId={defaultTeacherId}
-                teacherChoices={teacherChoices}
-              />
-            </div>
-
             <select
-              className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[9rem] md:flex-1 md:truncate"
               value={progressFilterLessonId || ""}
               onChange={(e) =>
                 onProgressFilterChange(
@@ -169,56 +154,7 @@ export default function MemberProgressSection({
                 </option>
               ))}
             </select>
-            <select
-              value={progressStatusFilter}
-              onChange={(e) =>
-                onProgressStatusFilterChange(
-                  e.target.value as ProgressStatusFilter,
-                )
-              }
-              className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-              aria-label="Filter by status"
-            >
-                <option value="ALL">All status</option>
-                <option value="ASSIGNED">Assigned</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="SKIPPED">Skipped</option>
-            </select>
-          </div>
 
-          {/* Desktop — single full-width row */}
-          <div className="hidden md:flex md:w-full md:items-center md:gap-2">
-            <ToolbarSearch
-              className="min-w-0 max-w-none flex-[2]"
-              value={progressSearchQuery}
-              onChange={onProgressSearchQueryChange}
-              placeholder="Search student..."
-              ariaLabel="Search student"
-            />
-            <ViewModeToggle
-              compact
-              className="shrink-0"
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
-            <select
-              className="min-w-0 max-w-[9rem] flex-1 truncate rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-              value={progressFilterLessonId || ""}
-              onChange={(e) =>
-                onProgressFilterChange(
-                  e.target.value ? Number(e.target.value) : null,
-                )
-              }
-              aria-label="Filter by lesson"
-            >
-              <option value="">All lessons</option>
-              {activeLatestLessons.map((lesson) => (
-                <option key={lesson.id} value={lesson.id}>
-                  {lesson.title}
-                </option>
-              ))}
-            </select>
             <select
               value={progressStatusFilter}
               onChange={(e) =>
@@ -226,7 +162,7 @@ export default function MemberProgressSection({
                   e.target.value as ProgressStatusFilter,
                 )
               }
-              className="min-w-0 max-w-[8rem] flex-1 truncate rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              className="min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm md:min-w-0 md:max-w-[8rem] md:flex-1 md:truncate"
               aria-label="Filter by status"
             >
               <option value="ALL">All status</option>
@@ -235,7 +171,8 @@ export default function MemberProgressSection({
               <option value="COMPLETED">Completed</option>
               <option value="SKIPPED">Skipped</option>
             </select>
-            <div className="shrink-0">
+
+            <div className="w-full md:w-auto md:shrink-0">
               <AssignLessonsDropdown
                 allLessons={activeLatestLessons}
                 people={people}

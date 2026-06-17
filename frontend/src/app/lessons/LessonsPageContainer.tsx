@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 import { branchesApi, lessonsApi } from "@/src/lib/api";
 import { canChangeLessonsBranchFilter as canChangeLessonsBranchFilterForUser } from "@/src/lib/lessonsBranchFilter";
 import {
@@ -1040,6 +1041,18 @@ export default function LessonsPageContainer() {
         await fetchProgress(selectedLessonId);
       }
       fetchSummary();
+
+      const lessonLabel =
+        lessonIds.length === 1 ? "1 lesson" : `${lessonIds.length} lessons`;
+      const assignedNames = personIds
+        .map((personId) => people.find((person) => String(person.id) === personId))
+        .filter((person): person is NonNullable<typeof person> => Boolean(person))
+        .map((person) => formatPersonName(person));
+      if (assignedNames.length === 1) {
+        toast.success(`Assigned ${lessonLabel} to ${assignedNames[0]}.`);
+      } else {
+        toast.success(`Assigned ${lessonLabel} successfully.`);
+      }
     } catch (error) {
       setAssignError(extractErrorMessage(error, "Failed to assign lessons."));
     } finally {

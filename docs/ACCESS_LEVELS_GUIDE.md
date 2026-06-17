@@ -94,7 +94,7 @@ A person can hold **multiple assignments** across different modules. Access is c
 
 | Module | Levels you can assign | Resource-specific scope? |
 |--------|----------------------|--------------------------|
-| **Cluster** | Coordinator, Senior Coordinator | Yes — pick cluster(s) |
+| **Cluster** | Coordinator, Senior Coordinator, **Reporter** | Coordinator/Reporter: pick cluster(s); Senior: module-wide |
 | **Evangelism** | Coordinator, Senior Coordinator, Bible Sharer | Yes — pick evangelism group(s) |
 | **Lessons** | Coordinator, Senior Coordinator, Teacher | Module-wide only |
 | **Sunday School** | Coordinator, Senior Coordinator, Teacher | Yes — pick class(es) |
@@ -154,7 +154,8 @@ When you have module assignments, you may see more people and families than a pl
 
 **Clusters**
 
-- Non-senior cluster coordinators can **browse all cluster cards in their branch** (read-only for clusters they do not manage).
+- **Cluster Reporter** (CLUSTER module only): see **assigned cluster card(s) only**; submit weekly reports for those clusters; cannot edit cluster members or settings; People create limited to **visitors only**.
+- Non-senior **Cluster Coordinators** can **browse all cluster cards in their branch** (read-only for clusters they do not manage).
 - **Weekly reports** (list, analytics, year filters, create/edit/delete) are limited to **managed clusters** (FK coordinator and/or resource-specific Cluster → Coordinator assignment).
 - **Compliance** tab is for senior cluster coordinators only.
 - Members see their own cluster read-only.
@@ -286,6 +287,7 @@ When the system decides what you can see:
 | Pastor | All (branch) | All (branch) | All (branch) | All (branch) | All (branch) |
 | Member | Visitors only | No | No | No | No |
 | Cluster Coordinator | Scoped | Yes (scoped) | No | No | No |
+| Cluster Reporter | Visitors only | Yes (assigned) | No | No | No |
 | Cluster Senior Coord. | Branch-wide | All (branch) | No | No | No |
 | Lessons Teacher | Students | No | No | No | No |
 | Lessons Coordinator | Branch students | No | Yes | No | No |

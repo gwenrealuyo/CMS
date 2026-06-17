@@ -113,7 +113,12 @@ export interface ModuleCoordinator {
     | "EVENTS"
     | "MINISTRIES";
   module_display?: string;
-  level: "COORDINATOR" | "SENIOR_COORDINATOR" | "TEACHER" | "BIBLE_SHARER";
+  level:
+    | "COORDINATOR"
+    | "SENIOR_COORDINATOR"
+    | "TEACHER"
+    | "BIBLE_SHARER"
+    | "REPORTER";
   level_display?: string;
   resource_id?: number | null;
   resource_type?: string;

@@ -150,3 +150,57 @@ class ModuleCoordinatorAssignmentValidationTests(TestCase):
             }
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_reporter_without_resource_rejected(self):
+        serializer = ModuleCoordinatorSerializer(
+            data={
+                "person": self.person_a.id,
+                "module": ModuleCoordinator.ModuleType.CLUSTER,
+                "level": ModuleCoordinator.CoordinatorLevel.REPORTER,
+                "resource_id": None,
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("resource_id", serializer.errors)
+
+    def test_reporter_wrong_branch_rejected(self):
+        serializer = ModuleCoordinatorSerializer(
+            data={
+                "person": self.person_a.id,
+                "module": ModuleCoordinator.ModuleType.CLUSTER,
+                "level": ModuleCoordinator.CoordinatorLevel.REPORTER,
+                "resource_id": self.cluster_b.id,
+                "resource_type": "Cluster",
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("resource_id", serializer.errors)
+
+    def test_reporter_on_non_cluster_module_rejected(self):
+        serializer = ModuleCoordinatorSerializer(
+            data={
+                "person": self.person_a.id,
+                "module": ModuleCoordinator.ModuleType.EVANGELISM,
+                "level": ModuleCoordinator.CoordinatorLevel.REPORTER,
+                "resource_id": 1,
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("level", serializer.errors)
+
+    def test_reporter_valid_assignment(self):
+        cluster_a = Cluster.objects.create(
+            code="CLU-RPT",
+            name="Cluster Reporter",
+            branch=self.branch_a,
+        )
+        serializer = ModuleCoordinatorSerializer(
+            data={
+                "person": self.person_a.id,
+                "module": ModuleCoordinator.ModuleType.CLUSTER,
+                "level": ModuleCoordinator.CoordinatorLevel.REPORTER,
+                "resource_id": cluster_a.id,
+                "resource_type": "Cluster",
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)

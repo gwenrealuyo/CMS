@@ -49,6 +49,7 @@ const ALL_LEVEL_OPTIONS: {
 }[] = [
   { value: "COORDINATOR", label: "Coordinator" },
   { value: "SENIOR_COORDINATOR", label: "Senior Coordinator" },
+  { value: "REPORTER", label: "Reporter" },
   { value: "TEACHER", label: "Teacher" },
   { value: "BIBLE_SHARER", label: "Bible Sharer" },
 ];
@@ -61,13 +62,19 @@ const getAvailableLevels = (
 
   switch (module) {
     case "FINANCE":
-    case "CLUSTER":
     case "EVENTS":
     case "MINISTRIES":
-      // Only Coordinator and Senior Coordinator
       return ALL_LEVEL_OPTIONS.filter(
         (opt) =>
           opt.value === "COORDINATOR" || opt.value === "SENIOR_COORDINATOR"
+      );
+
+    case "CLUSTER":
+      return ALL_LEVEL_OPTIONS.filter(
+        (opt) =>
+          opt.value === "COORDINATOR" ||
+          opt.value === "SENIOR_COORDINATOR" ||
+          opt.value === "REPORTER"
       );
 
     case "EVANGELISM":
@@ -141,12 +148,13 @@ const resourceTypeForModule = (
 const bulkModuleShowsScopeUi = (module: string | "") =>
   Boolean(module && !["FINANCE", "MINISTRIES"].includes(module));
 
-/** CLUSTER / EVANGELISM / SUNDAY_SCHOOL coordinators must pick a resource (not module-wide). */
+/** CLUSTER / EVANGELISM / SUNDAY_SCHOOL coordinators and CLUSTER reporters must pick a resource. */
 const coordinatorRequiresSpecificResource = (
   module: ModuleCoordinator["module"] | "",
   level: ModuleCoordinator["level"] | ""
 ): boolean =>
-  level === "COORDINATOR" && moduleSupportsResourceMultiSelect(module);
+  (level === "COORDINATOR" && moduleSupportsResourceMultiSelect(module)) ||
+  (level === "REPORTER" && module === "CLUSTER");
 
 async function fetchCoordinatorResourcesForModule(
   module: ModuleCoordinator["module"],
@@ -735,6 +743,8 @@ export default function ModuleCoordinatorManager() {
         moduleSupportsResourceMultiSelect(prev.module)
       ) {
         assignmentType = "resource-specific";
+      } else if (level === "REPORTER") {
+        assignmentType = "resource-specific";
       }
       return { ...prev, level, assignmentType, selectedResourceIds };
     });
@@ -780,6 +790,8 @@ export default function ModuleCoordinatorManager() {
         value === "COORDINATOR" &&
         moduleSupportsResourceMultiSelect(updated[index].module)
       ) {
+        updated[index].assignmentType = "resource-specific";
+      } else if (value === "REPORTER") {
         updated[index].assignmentType = "resource-specific";
       }
     }
@@ -1465,6 +1477,12 @@ export default function ModuleCoordinatorManager() {
                     ...formData,
                     level: newLevel,
                   });
+                } else if (newLevel === "REPORTER") {
+                  setAssignmentType("resource-specific");
+                  setFormData({
+                    ...formData,
+                    level: newLevel,
+                  });
                 } else {
                   setFormData({
                     ...formData,
@@ -1494,6 +1512,8 @@ export default function ModuleCoordinatorManager() {
                 ? moduleSupportsResourceMultiSelect(formData.module)
                   ? "Coordinators must be assigned to a specific resource in the assignee's branch"
                   : "Coordinators can be assigned module-wide or to a specific resource"
+                : formData.level === "REPORTER"
+                ? "Reporters submit weekly reports for assigned clusters only; they cannot manage cluster members"
                 : formData.level === "TEACHER" ||
                   formData.level === "BIBLE_SHARER"
                 ? `${

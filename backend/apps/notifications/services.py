@@ -12,7 +12,7 @@ from django.utils import timezone
 from apps.authentication.models import AccountLockout, PasswordResetRequest
 from apps.authentication.permissions import is_module_enabled
 from apps.clusters.models import Cluster, ClusterWeeklyReport
-from apps.clusters.permissions import managed_cluster_ids_for_coordinator
+from apps.clusters.permissions import managed_cluster_ids_for_reports
 from apps.evangelism.models import EvangelismGroup, EvangelismWeeklyReport, FollowUpTask
 from apps.notifications.scoping import (
     clusters_oversight_queryset_for_user,
@@ -138,7 +138,7 @@ def _build_cluster_report_due(user) -> List[NotificationItem]:
     if not is_module_enabled(ModuleCoordinator.ModuleType.CLUSTER):
         return []
 
-    managed_ids = managed_cluster_ids_for_coordinator(user)
+    managed_ids = managed_cluster_ids_for_reports(user)
     if not managed_ids:
         return []
 
@@ -221,7 +221,7 @@ def _build_cluster_report_overdue_oversight(user) -> List[NotificationItem]:
     if not is_oversight:
         return []
 
-    own_managed = set(managed_cluster_ids_for_coordinator(user))
+    own_managed = set(managed_cluster_ids_for_reports(user))
     year, week = current_iso_week()
     oversight_qs = clusters_oversight_queryset_for_user(user)
     submitted_ids = set(

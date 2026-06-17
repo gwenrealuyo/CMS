@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from "next/navigation";
 import { authApi, tokenStorage, User } from "@/src/lib/api";
 import { ModuleCoordinator } from "@/src/types/person";
+import { isReporterOnlyUser } from "@/src/lib/personRolePermissions";
 
 interface AuthContextType {
   user: User | null;
@@ -192,10 +193,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [user]);
 
   const isPlainMember = useCallback((): boolean => {
-    return (
-      user?.role === "MEMBER" &&
-      !user?.module_coordinator_assignments?.length
-    );
+    if (user?.role !== "MEMBER") return false;
+    if (!user?.module_coordinator_assignments?.length) return true;
+    return isReporterOnlyUser(user);
   }, [user]);
 
   const value: AuthContextType = {

@@ -61,6 +61,26 @@ def validate_module_coordinator_assignment(
     """
     errors = {}
 
+    if level == ModuleCoordinator.CoordinatorLevel.REPORTER:
+        if module != ModuleCoordinator.ModuleType.CLUSTER:
+            errors["level"] = "Reporter assignments are only available for the Cluster module."
+        elif resource_id is None:
+            errors["resource_id"] = (
+                "Reporters must be assigned to at least one specific cluster."
+            )
+        elif not person.branch_id:
+            errors["person"] = (
+                "Assignee must have a branch before receiving a resource-specific assignment."
+            )
+        else:
+            resource_branch = resource_branch_id(module, int(resource_id))
+            if resource_branch is None:
+                errors["resource_id"] = "Selected cluster was not found."
+            elif resource_branch != person.branch_id:
+                errors["resource_id"] = (
+                    "Cluster must belong to the assignee's church branch."
+                )
+
     if level == ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR:
         if resource_id is not None:
             errors["resource_id"] = (
@@ -96,3 +116,18 @@ def validate_module_coordinator_assignment(
         "resource_id": resource_id if resource_id else None,
         "resource_type": resource_type or "",
     }
+
+
+def user_is_reporter_only(person: Person) -> bool:
+    """True when every module assignment is CLUSTER Reporter (people-write excluded)."""
+    qs = person.module_coordinator_assignments.all()
+    if not qs.exists():
+        return False
+    return not qs.exclude(level=ModuleCoordinator.CoordinatorLevel.REPORTER).exists()
+
+
+def user_has_people_write_coordinator_assignment(person: Person) -> bool:
+    """Module assignments that grant coordinator-style people create (not Reporter-only)."""
+    if not person.module_coordinator_assignments.exists():
+        return False
+    return not user_is_reporter_only(person)

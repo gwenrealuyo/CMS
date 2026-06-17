@@ -7,6 +7,7 @@ from apps.clusters.branch_membership import prune_person_from_mismatched_branch_
 from apps.authentication.password_validators import PasswordStrengthValidator
 from apps.events.models import EventType
 from apps.people.coordinator_assignment_validation import (
+    user_has_people_write_coordinator_assignment,
     validate_module_coordinator_assignment,
 )
 
@@ -368,7 +369,7 @@ class PersonSerializer(serializers.ModelSerializer):
             and request.user
             and request.user.is_authenticated
             and request.user.role == "MEMBER"
-            and not request.user.module_coordinator_assignments.exists()
+            and not user_has_people_write_coordinator_assignment(request.user)
         )
 
         # Member-created visitors get branch from inviter in create(); inviter must have a branch
@@ -400,7 +401,7 @@ class PersonSerializer(serializers.ModelSerializer):
                 )
             if (
                 user.role == "MEMBER"
-                and user.module_coordinator_assignments.exists()
+                and user_has_people_write_coordinator_assignment(user)
                 and requested_role not in ("MEMBER", "VISITOR")
             ):
                 raise serializers.ValidationError(
@@ -510,7 +511,7 @@ class PersonSerializer(serializers.ModelSerializer):
             request
             and request.user
             and request.user.role == "MEMBER"
-            and not request.user.module_coordinator_assignments.exists()
+            and not user_has_people_write_coordinator_assignment(request.user)
         )
         if is_plain_member:
             validated_data["role"] = "VISITOR"

@@ -15,7 +15,10 @@ import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import toast from "react-hot-toast";
 import { useAuth } from "@/src/contexts/AuthContext";
-import { userCanManageCluster } from "@/src/lib/clusterPermissions";
+import {
+  userCanManageCluster,
+  clustersForReportSubmission,
+} from "@/src/lib/clusterPermissions";
 
 type PanelEntity = "cluster" | "person" | "family";
 type PanelMode = "view" | "edit" | "create";
@@ -153,8 +156,15 @@ export default function ClustersPageContainer() {
       role: user?.role,
       isSeniorCoordinator,
       isModuleCoordinator,
+      moduleCoordinatorAssignments: user?.module_coordinator_assignments,
     }),
-    [user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
+    [
+      user?.id,
+      user?.role,
+      user?.module_coordinator_assignments,
+      isSeniorCoordinator,
+      isModuleCoordinator,
+    ],
   );
 
   const canChangeClusterBranchFilter = useMemo(() => {
@@ -261,34 +271,15 @@ export default function ClustersPageContainer() {
         const lb = (b.name || b.code || "").toLowerCase();
         return la.localeCompare(lb);
       });
-    const manageable = allClusters.filter((c) =>
-      userCanManageCluster(c, clusterAuthCtx),
-    );
-    if (manageable.length > 0) {
-      return sortClusters(manageable)[0];
-    }
-    const assignmentResourceIds = new Set(
-      (user?.module_coordinator_assignments ?? [])
-        .filter(
-          (a) =>
-            a.module === "CLUSTER" &&
-            a.level === "COORDINATOR" &&
-            a.resource_id != null,
-        )
-        .map((a) => Number(a.resource_id)),
-    );
-    const byAssignment = allClusters.filter((c) =>
-      assignmentResourceIds.has(Number(c.id)),
-    );
-    if (byAssignment.length > 0) {
-      return sortClusters(byAssignment)[0];
+    const forReports = clustersForReportSubmission(allClusters, clusterAuthCtx);
+    if (forReports.length > 0) {
+      return sortClusters(forReports)[0];
     }
     return null;
   }, [
     allClusters,
     hasClusterModuleWideAccess,
     clusterAuthCtx,
-    user?.module_coordinator_assignments,
   ]);
 
   useEffect(() => {

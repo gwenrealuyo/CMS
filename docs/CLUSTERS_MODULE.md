@@ -246,11 +246,11 @@ Serializers (`apps.clusters.serializers`) expose:
 
 Backend helpers in `apps.clusters.permissions`:
 
-- `filter_clusters_for_read` — non-senior coordinators **list/retrieve all clusters in their branch** (cards are read-only unless they manage the cluster).
-- `filter_weekly_reports_for_user` — weekly report list/retrieve/analytics/`distinct_years`/`overdue` are limited to **managed clusters** (`Cluster.coordinator` FK and/or `ModuleCoordinator` CLUSTER + COORDINATOR with non-null `resource_id`).
+- `filter_clusters_for_read` — **Reporters**: assigned cluster(s) only. **Coordinators**: branch-wide cluster cards (read-only for non-managed).
+- `managed_cluster_ids_for_reports` — weekly report list/retrieve/analytics/`distinct_years`/`overdue` for coordinators **and reporters**.
 - Object-level mutations still use `ClusterCoordinatorScopedPermission` / `ClusterWeeklyReportScopedPermission`.
 
-**Module coordinator assignments** (People admin): Coordinators on Cluster, Evangelism, or Sunday School must have a resource in the assignee's branch; module-wide rows are **Senior Coordinator** only. After deploy on databases with legacy data, run once:
+**Module coordinator assignments** (People admin): Coordinators on Cluster, Evangelism, or Sunday School must have a resource in the assignee's branch; module-wide rows are **Senior Coordinator** only. **Cluster Reporter** is CLUSTER-only, resource-specific, and grants report submission without cluster management. After deploy on databases with legacy data, run once:
 
 ```bash
 python manage.py normalize_module_wide_coordinators --dry-run

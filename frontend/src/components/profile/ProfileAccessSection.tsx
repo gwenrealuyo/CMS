@@ -42,6 +42,10 @@ function isClusterCoordinatorAssignment(a: ModuleCoordinator): boolean {
   return a.module === "CLUSTER" && a.level === "COORDINATOR";
 }
 
+function isClusterReporterAssignment(a: ModuleCoordinator): boolean {
+  return a.module === "CLUSTER" && a.level === "REPORTER";
+}
+
 type AccessTableRow = {
   key: string;
   moduleLabel: string;
@@ -70,11 +74,36 @@ function buildMergedClusterCoordinatorRow(
   };
 }
 
+function buildMergedClusterReporterRow(
+  clusterReporterRows: ModuleCoordinator[],
+): AccessTableRow | null {
+  if (clusterReporterRows.length === 0) return null;
+  const labels = Array.from(
+    new Set(
+      clusterReporterRows
+        .map((a) => scopeLabelForAssignment(a))
+        .filter((s): s is string => s != null && s !== ""),
+    ),
+  ).sort((x, y) => x.localeCompare(y));
+  const scope = labels.length > 0 ? labels.join(", ") : "—";
+  const first = clusterReporterRows[0];
+  return {
+    key: "merged-cluster-reporter",
+    moduleLabel: first.module_display || first.module,
+    levelLabel: first.level_display || first.level,
+    scope,
+  };
+}
+
 function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
   const merged = buildMergedClusterCoordinatorRow(
     sorted.filter(isClusterCoordinatorAssignment),
   );
+  const mergedReporter = buildMergedClusterReporterRow(
+    sorted.filter(isClusterReporterAssignment),
+  );
   const firstClusterCoordIndex = sorted.findIndex(isClusterCoordinatorAssignment);
+  const firstClusterReporterIndex = sorted.findIndex(isClusterReporterAssignment);
   const rows: AccessTableRow[] = [];
 
   for (let i = 0; i < sorted.length; i++) {
@@ -82,6 +111,12 @@ function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
     if (isClusterCoordinatorAssignment(a)) {
       if (merged && i === firstClusterCoordIndex) {
         rows.push(merged);
+      }
+      continue;
+    }
+    if (isClusterReporterAssignment(a)) {
+      if (mergedReporter && i === firstClusterReporterIndex) {
+        rows.push(mergedReporter);
       }
       continue;
     }

@@ -250,6 +250,58 @@ class PersonRoleCoordinatorRemovalTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("role", self._field_errors(res))
 
+    def test_reporter_only_can_create_visitor_not_member(self):
+        reporter = Person.objects.create_user(
+            username="reporter_only",
+            email="reporter@test.com",
+            password="x",
+            first_name="Rep",
+            last_name="Orter",
+            role="MEMBER",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        cluster = Cluster.objects.create(
+            code="CLU-REP",
+            name="Reporter Cluster",
+            branch=self.branch,
+        )
+        ModuleCoordinator.objects.create(
+            person=reporter,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            resource_id=cluster.id,
+            resource_type="Cluster",
+        )
+        self.client.force_authenticate(user=reporter)
+        visitor_res = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Visitor",
+                "role": "VISITOR",
+                "branch": self.branch.id,
+                "status": "ACTIVE",
+                "generate_temporary_password": True,
+            },
+            format="json",
+        )
+        self.assertEqual(visitor_res.status_code, status.HTTP_201_CREATED)
+        member_res = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Member",
+                "role": "MEMBER",
+                "branch": self.branch.id,
+                "status": "ACTIVE",
+                "generate_temporary_password": True,
+            },
+            format="json",
+        )
+        self.assertEqual(member_res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("role", self._field_errors(member_res))
+
     @staticmethod
     def _field_errors(res):
         """Field errors may be wrapped in a custom error envelope under 'details'."""

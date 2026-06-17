@@ -45,7 +45,11 @@ import { Person, PersonUI, Family } from "@/src/types/person";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
-import { userCanManageCluster } from "@/src/lib/clusterPermissions";
+import {
+  userCanManageCluster,
+  clustersForReportSubmission,
+  isClusterReporterOnly,
+} from "@/src/lib/clusterPermissions";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { useBranches } from "@/src/hooks/useBranches";
 import {
@@ -328,13 +332,23 @@ export default function ClustersPageView({
       role: user?.role,
       isSeniorCoordinator,
       isModuleCoordinator,
+      moduleCoordinatorAssignments: user?.module_coordinator_assignments,
     }),
-    [user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
+    [
+      user?.id,
+      user?.role,
+      user?.module_coordinator_assignments,
+      isSeniorCoordinator,
+      isModuleCoordinator,
+    ],
   );
+
+  const isClusterReporterOnlyUser = isClusterReporterOnly(clusterAuthCtx);
 
   const showGlobalSubmitReport =
     hasClusterModuleWideAccess ||
     isOnlyNonSeniorClusterCoordinator ||
+    isClusterReporterOnlyUser ||
     allClusters.some((c) => userCanManageCluster(c, clusterAuthCtx));
 
   const reportFormClusters = useMemo(() => {
@@ -342,26 +356,7 @@ export default function ClustersPageView({
     if (hasClusterModuleWideAccess) {
       base = allClusters;
     } else {
-      const manageable = allClusters.filter((c) =>
-        userCanManageCluster(c, clusterAuthCtx),
-      );
-      const manageableIds = new Set(manageable.map((c) => Number(c.id)));
-      const assignmentResourceIds = new Set(
-        (user?.module_coordinator_assignments ?? [])
-          .filter(
-            (a) =>
-              a.module === "CLUSTER" &&
-              a.level === "COORDINATOR" &&
-              a.resource_id != null,
-          )
-          .map((a) => Number(a.resource_id)),
-      );
-      const fromAssignments = allClusters.filter(
-        (c) =>
-          assignmentResourceIds.has(Number(c.id)) &&
-          !manageableIds.has(Number(c.id)),
-      );
-      base = [...manageable, ...fromAssignments];
+      base = clustersForReportSubmission(allClusters, clusterAuthCtx);
     }
     if (!hasClusterModuleWideAccess && editingReport?.cluster != null) {
       const cid = editingReport.cluster;
@@ -1431,10 +1426,16 @@ export default function ClustersPageView({
             className={activeTab !== "reports" ? "hidden" : undefined}
             aria-hidden={activeTab !== "reports"}
           >
-            {isOnlyNonSeniorClusterCoordinator && (
+            {isOnlyNonSeniorClusterCoordinator && !isClusterReporterOnlyUser && (
               <p className="mb-4 text-sm text-gray-600">
                 You can browse all clusters in your branch on the Clusters tab.
                 Weekly reports here are limited to clusters you coordinate.
+              </p>
+            )}
+            {isClusterReporterOnlyUser && (
+              <p className="mb-4 text-sm text-gray-600">
+                You can view and submit weekly reports only for your assigned
+                cluster(s).
               </p>
             )}
             <ClusterReportsDashboard

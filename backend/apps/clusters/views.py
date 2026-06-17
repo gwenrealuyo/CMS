@@ -34,10 +34,12 @@ from apps.authentication.permissions import (
 from apps.clusters.permissions import (
     ClusterCoordinatorScopedPermission,
     ClusterMutationAttemptPermission,
+    ClusterReportMutationAttemptPermission,
     ClusterWeeklyReportScopedPermission,
     apply_cluster_branch_scope,
     apply_report_branch_scope,
     clusters_for_overdue,
+    ensure_user_can_submit_cluster_report_or_privileged,
     ensure_user_manages_cluster_or_privileged,
     filter_clusters_for_read,
     filter_weekly_reports_for_user,
@@ -133,18 +135,20 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         Override to set permissions based on action.
         """
         if self.action == 'create':
-            # ADMIN, PASTOR, Senior Coordinator, or Cluster Coordinator can create
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'create')]
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                ClusterReportMutationAttemptPermission(),
+            ]
         elif self.action in ['update', 'partial_update']:
             return [
                 IsAuthenticatedAndNotVisitor(),
-                ClusterMutationAttemptPermission(),
+                ClusterReportMutationAttemptPermission(),
                 ClusterWeeklyReportScopedPermission(),
             ]
         elif self.action == 'destroy':
             return [
                 IsAuthenticatedAndNotVisitor(),
-                ClusterMutationAttemptPermission(),
+                ClusterReportMutationAttemptPermission(),
                 ClusterWeeklyReportScopedPermission(),
             ]
         else:
@@ -153,15 +157,15 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         cluster = serializer.validated_data.get("cluster")
-        ensure_user_manages_cluster_or_privileged(self.request.user, cluster)
+        ensure_user_can_submit_cluster_report_or_privileged(self.request.user, cluster)
         serializer.save()
 
     def perform_update(self, serializer):
         old_cluster = serializer.instance.cluster
         new_cluster = serializer.validated_data.get("cluster", old_cluster)
-        ensure_user_manages_cluster_or_privileged(self.request.user, new_cluster)
+        ensure_user_can_submit_cluster_report_or_privileged(self.request.user, new_cluster)
         if getattr(new_cluster, "pk", None) != getattr(old_cluster, "pk", None):
-            ensure_user_manages_cluster_or_privileged(
+            ensure_user_can_submit_cluster_report_or_privileged(
                 self.request.user, old_cluster
             )
         serializer.save()

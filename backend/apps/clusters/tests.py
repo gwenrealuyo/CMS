@@ -556,6 +556,144 @@ class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class ClusterReporterScopeAPITests(TestCase):
+    """CLUSTER Reporter: assigned cluster cards and reports only; no cluster management."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.branch = Branch.objects.create(name="Reporter Branch", code="BR_RPT")
+        self.reporter = Person.objects.create_user(
+            username="cluster_reporter",
+            email="reporter@example.com",
+            password="password123",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.other_coord = Person.objects.create_user(
+            username="other_coord",
+            email="other@example.com",
+            password="password123",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.cluster_a = Cluster.objects.create(
+            code="CLU-RPT-A",
+            name="Reporter Cluster A",
+            coordinator=self.other_coord,
+            branch=self.branch,
+        )
+        self.cluster_b = Cluster.objects.create(
+            code="CLU-RPT-B",
+            name="Reporter Cluster B",
+            coordinator=self.other_coord,
+            branch=self.branch,
+        )
+        ModuleCoordinator.objects.create(
+            person=self.reporter,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            resource_id=self.cluster_a.id,
+            resource_type="Cluster",
+        )
+
+    def _cluster_list_results(self, response):
+        data = response.data
+        if isinstance(data, list):
+            return data
+        return data.get("results", data)
+
+    def _report_list_results(self, response):
+        data = response.data
+        if isinstance(data, list):
+            return data
+        return data.get("results", data)
+
+    def test_reporter_lists_only_assigned_cluster(self):
+        self.client.force_authenticate(user=self.reporter)
+        response = self.client.get("/api/clusters/clusters/")
+        self.assertEqual(response.status_code, 200)
+        results = self._cluster_list_results(response)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["code"], "CLU-RPT-A")
+
+    def test_reporter_cannot_retrieve_other_cluster(self):
+        self.client.force_authenticate(user=self.reporter)
+        response = self.client.get(f"/api/clusters/clusters/{self.cluster_b.id}/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_reporter_cannot_patch_cluster(self):
+        self.client.force_authenticate(user=self.reporter)
+        response = self.client.patch(
+            f"/api/clusters/clusters/{self.cluster_a.id}/",
+            {"name": "Should Not Apply"},
+            format="json",
+        )
+        self.assertIn(response.status_code, (403, 404))
+
+    def test_reporter_can_create_report_assigned_cluster(self):
+        today = date.today()
+        self.client.force_authenticate(user=self.reporter)
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster_a.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [],
+                "visitors_attended": [],
+                "offerings": "0.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_reporter_cannot_create_report_other_cluster(self):
+        today = date.today()
+        self.client.force_authenticate(user=self.reporter)
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster_b.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [],
+                "visitors_attended": [],
+                "offerings": "0.00",
+            },
+            format="json",
+        )
+        self.assertIn(response.status_code, (403, 404))
+
+    def test_reporter_reports_list_scoped(self):
+        today = date.today()
+        report_a = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_a,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.other_coord,
+        )
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_b,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.other_coord,
+        )
+        self.client.force_authenticate(user=self.reporter)
+        response = self.client.get("/api/clusters/cluster-weekly-reports/")
+        self.assertEqual(response.status_code, 200)
+        results = self._report_list_results(response)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["id"], report_a.id)
+
+
 class ClusterWeeklyReportAPITests(TestCase):
     def setUp(self):
         self.client = APIClient()

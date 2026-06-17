@@ -158,7 +158,7 @@ Module assignments grant coordinator, teacher, and bible-sharer access within a 
 
 | Module | Available levels | Resource-specific? |
 |--------|------------------|--------------------|
-| Cluster | Coordinator, Senior Coordinator | Yes — select cluster(s) in assignee's branch (Coordinator required; Senior = module-wide) |
+| Cluster | Coordinator, Senior Coordinator, **Reporter** | Coordinator/Reporter: select cluster(s) in assignee's branch (Senior = module-wide) |
 | Finance | Coordinator, Senior Coordinator | Module-wide only |
 | Evangelism | Coordinator, Senior Coordinator, Bible Sharer | Yes — evangelism group(s) |
 | Sunday School | Coordinator, Senior Coordinator, Teacher | Yes — class(es) |

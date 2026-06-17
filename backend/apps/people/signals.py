@@ -111,7 +111,12 @@ def manage_baptism_journeys(sender, instance, created, **kwargs):
             "Baptized in Jesus' name",
             "Water baptism"
         )
-        
+        _handle_baptism_role_update(
+            instance,
+            instance.water_baptism_date,
+            original_water_baptism,
+        )
+
         # Handle spirit_baptism_date
         _handle_baptism_date_journey(
             instance,
@@ -191,6 +196,22 @@ def _handle_baptism_date_journey(person, current_date, original_date, journey_ty
                 verified_by=None
             )
             logger.debug(f"Created {journey_type} journey for person {person.id}")
+
+
+def _handle_baptism_role_update(person, current_date, original_date):
+    date_set = original_date is None and current_date is not None
+    date_cleared = original_date is not None and current_date is None
+
+    if date_set and person.role == "VISITOR":
+        person.role = "MEMBER"
+        person.status = "ACTIVE"
+        person.save(update_fields=["role", "status"])
+        return
+
+    if date_cleared and person.role == "MEMBER":
+        person.role = "VISITOR"
+        person.status = "ATTENDED" if person.date_first_attended else "INVITED"
+        person.save(update_fields=["role", "status"])
 
 
 def _handle_first_attended_journey(person, current_date, original_date, current_activity, original_activity):

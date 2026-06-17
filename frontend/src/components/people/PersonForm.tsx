@@ -108,9 +108,12 @@ export default function PersonForm({
 
   useEffect(() => {
     if (isMember && !initialData?.id && formData.role !== "VISITOR") {
-      setFormData((prev) => ({ ...prev, role: "VISITOR" }));
+      const hasWaterBaptism = Boolean((formData as any).water_baptism_date);
+      if (!hasWaterBaptism) {
+        setFormData((prev) => ({ ...prev, role: "VISITOR" }));
+      }
     }
-  }, [formData.role, initialData?.id, isMember]);
+  }, [formData.role, initialData?.id, isMember, (formData as any).water_baptism_date]);
   const [tabSwitchConfirmation, setTabSwitchConfirmation] = useState<{
     isOpen: boolean;
     targetTab: "basic" | "timeline" | null;
@@ -215,6 +218,23 @@ export default function PersonForm({
   );
   const journeyListRef = useRef<HTMLDivElement>(null);
 
+  const applyWaterBaptismRoleRules = (
+    next: Partial<Person>,
+    waterBaptismDate: string,
+  ): Partial<Person> => {
+    if (waterBaptismDate && next.role === "VISITOR") {
+      return { ...next, role: "MEMBER", status: "ACTIVE" };
+    }
+    if (!waterBaptismDate && next.role === "MEMBER") {
+      return {
+        ...next,
+        role: "VISITOR",
+        status: next.date_first_attended ? "ATTENDED" : "INVITED",
+      };
+    }
+    return next;
+  };
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -222,7 +242,7 @@ export default function PersonForm({
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => {
-      const next = { ...prev, [name]: value } as Partial<Person>;
+      let next = { ...prev, [name]: value } as Partial<Person>;
       if (name === "role") {
         if (value === "VISITOR") {
           if (next.status !== "INVITED" && next.status !== "ATTENDED") {
@@ -233,6 +253,9 @@ export default function PersonForm({
             next.status = "ACTIVE";
           }
         }
+      }
+      if (name === "water_baptism_date") {
+        next = applyWaterBaptismRoleRules(next, value);
       }
       return next;
     });
@@ -877,7 +900,9 @@ export default function PersonForm({
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     >
                       {(isMember
-                        ? ["VISITOR"]
+                        ? (formData as any).water_baptism_date
+                          ? ["MEMBER"]
+                          : ["VISITOR"]
                         : [
                             "MEMBER",
                             "VISITOR",

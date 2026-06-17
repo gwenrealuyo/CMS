@@ -19,7 +19,7 @@ const STATUS_OPTIONS: { value: PledgeStatus; label: string }[] = [
 ];
 
 const STATUS_BADGES: Record<PledgeStatus, string> = {
-  ACTIVE: "chip-primary",
+  ACTIVE: "bg-blue-100 text-blue-800",
   FULFILLED: "bg-green-100 text-green-700",
   CANCELLED: "bg-gray-100 text-gray-600",
 };

@@ -23,7 +23,7 @@ type SortColumn =
 type SortDirection = "asc" | "desc";
 
 const STATUS_COLORS: Record<Pledge["status"], string> = {
-  ACTIVE: "chip-primary",
+  ACTIVE: "bg-blue-100 text-blue-800",
   FULFILLED: "bg-green-100 text-green-700",
   CANCELLED: "bg-gray-200 text-gray-600",
 };

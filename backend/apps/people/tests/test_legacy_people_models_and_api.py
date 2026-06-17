@@ -537,6 +537,135 @@ class InvitedJourneySyncTest(TestCase):
         )
 
 
+class BaptismRolePromotionTest(TestCase):
+    """Regression tests for VISITOR → MEMBER promotion on water baptism."""
+
+    def setUp(self):
+        self.branch = Branch.objects.create(
+            name="Baptism role test branch",
+            code="BAP_ROLE_BR",
+            is_active=True,
+        )
+        self.baptism_date = date(2026, 5, 10)
+
+    def _create_visitor(self, username, *, status="ATTENDED", date_first_attended=None):
+        return Person.objects.create_user(
+            username=username,
+            email=f"{username}@test.com",
+            password="testpass123",
+            first_name="Visitor",
+            last_name=username,
+            role="VISITOR",
+            status=status,
+            branch=self.branch,
+            date_first_attended=date_first_attended,
+        )
+
+    def test_water_baptism_promotes_visitor_to_member_with_active_status(self):
+        person = self._create_visitor(
+            "visitor_baptized",
+            date_first_attended=date(2026, 3, 1),
+        )
+        person.water_baptism_date = self.baptism_date
+        person.save(update_fields=["water_baptism_date"])
+
+        person.refresh_from_db()
+        self.assertEqual(person.role, "MEMBER")
+        self.assertEqual(person.status, "ACTIVE")
+        self.assertTrue(
+            Journey.objects.filter(
+                user=person, type="BAPTISM", date=self.baptism_date
+            ).exists()
+        )
+
+    def test_clearing_water_baptism_reverts_member_to_visitor(self):
+        person = self._create_visitor(
+            "visitor_revert_attended",
+            date_first_attended=date(2026, 3, 1),
+        )
+        person.water_baptism_date = self.baptism_date
+        person.save(update_fields=["water_baptism_date"])
+        person.refresh_from_db()
+        self.assertEqual(person.role, "MEMBER")
+
+        person.water_baptism_date = None
+        person.save(update_fields=["water_baptism_date"])
+
+        person.refresh_from_db()
+        self.assertEqual(person.role, "VISITOR")
+        self.assertEqual(person.status, "ATTENDED")
+
+    def test_clearing_water_baptism_reverts_to_invited_without_attendance(self):
+        person = self._create_visitor("visitor_revert_invited", status="INVITED")
+        person.water_baptism_date = self.baptism_date
+        person.save(update_fields=["water_baptism_date"])
+        person.refresh_from_db()
+        self.assertEqual(person.role, "MEMBER")
+
+        person.water_baptism_date = None
+        person.save(update_fields=["water_baptism_date"])
+
+        person.refresh_from_db()
+        self.assertEqual(person.role, "VISITOR")
+        self.assertEqual(person.status, "INVITED")
+
+    def test_spirit_baptism_alone_does_not_promote(self):
+        person = self._create_visitor("visitor_spirit_only")
+        person.spirit_baptism_date = self.baptism_date
+        person.save(update_fields=["spirit_baptism_date"])
+
+        person.refresh_from_db()
+        self.assertEqual(person.role, "VISITOR")
+
+    def test_water_baptism_does_not_change_pastor_or_admin(self):
+        pastor = Person.objects.create_user(
+            username="pastor_baptized",
+            email="pastor_baptized@test.com",
+            password="testpass123",
+            first_name="Pastor",
+            last_name="Baptized",
+            role="PASTOR",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        pastor.water_baptism_date = self.baptism_date
+        pastor.save(update_fields=["water_baptism_date"])
+        pastor.refresh_from_db()
+        self.assertEqual(pastor.role, "PASTOR")
+
+        admin = Person.objects.create_user(
+            username="admin_baptized",
+            email="admin_baptized@test.com",
+            password="testpass123",
+            first_name="Admin",
+            last_name="Baptized",
+            role="ADMIN",
+            branch=self.branch,
+        )
+        admin.water_baptism_date = self.baptism_date
+        admin.save(update_fields=["water_baptism_date"])
+        admin.refresh_from_db()
+        self.assertEqual(admin.role, "ADMIN")
+
+    def test_create_visitor_with_water_baptism_promotes_on_create(self):
+        person = Person.objects.create_user(
+            username="visitor_created_baptized",
+            email="visitor_created_baptized@test.com",
+            password="testpass123",
+            first_name="Visitor",
+            last_name="CreatedBaptized",
+            role="VISITOR",
+            status="ATTENDED",
+            branch=self.branch,
+            date_first_attended=date(2026, 2, 1),
+            water_baptism_date=self.baptism_date,
+        )
+
+        person.refresh_from_db()
+        self.assertEqual(person.role, "MEMBER")
+        self.assertEqual(person.status, "ACTIVE")
+
+
 class FamilyJourneyTest(TestCase):
     """Test family journey creation in serializer hooks"""
 

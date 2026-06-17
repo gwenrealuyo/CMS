@@ -31,7 +31,7 @@ export default function DonationStats({
           label="Total Giving"
           value={formatAmount(stats.totalAmount, currencySymbol)}
           description="Across all logged contributions"
-          badgeClass="chip-primary"
+          badgeClass="bg-blue-100 text-blue-800"
         />
         <SnapshotTile
           label="Average Per Entry"

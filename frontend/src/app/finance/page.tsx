@@ -961,7 +961,7 @@ export default function FinancePage() {
                       label="Total Pledged"
                       value={formatCurrency(pledgeMetrics.totalPledged)}
                       description="Across active commitments"
-                      badgeClass="chip-primary"
+                      badgeClass="bg-blue-100 text-blue-800"
                     />
                     <SnapshotTile
                       label="Received"

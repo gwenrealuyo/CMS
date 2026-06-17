@@ -17,6 +17,7 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import ResourceAssignmentMultiPicker from "@/src/components/admin/ResourceAssignmentMultiPicker";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import { formatPersonName } from "@/src/lib/name";
+import { groupModuleCoordinatorAssignments } from "@/src/lib/moduleCoordinatorDisplay";
 import {
   PencilIcon,
   TrashIcon,
@@ -236,8 +237,9 @@ const getModuleBadgeColor = (module: ModuleCoordinator["module"]): string => {
 // Get badge color classes for levels
 const getLevelBadgeColor = (level: ModuleCoordinator["level"]): string => {
   const colorMap: Record<ModuleCoordinator["level"], string> = {
-    COORDINATOR: "chip-primary",
+    COORDINATOR: "bg-blue-100 text-blue-800 border-blue-200",
     SENIOR_COORDINATOR: "bg-violet-100 text-violet-800 border-violet-200",
+    REPORTER: "bg-gray-100 text-gray-800 border-gray-200",
     TEACHER: "bg-amber-100 text-amber-800 border-amber-200",
     BIBLE_SHARER: "bg-rose-100 text-rose-800 border-rose-200",
   };
@@ -252,13 +254,16 @@ export default function ModuleCoordinatorManager() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] =
     useState<ModuleCoordinator | null>(null);
+  const [editingGroupAssignments, setEditingGroupAssignments] = useState<
+    ModuleCoordinator[]
+  >([]);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
-    assignment: ModuleCoordinator | null;
+    assignments: ModuleCoordinator[];
     loading: boolean;
   }>({
     isOpen: false,
-    assignment: null,
+    assignments: [],
     loading: false,
   });
   const [formData, setFormData] = useState<ModuleCoordinatorFormData>({
@@ -462,6 +467,7 @@ export default function ModuleCoordinatorManager() {
 
   const handleCreate = () => {
     setEditingAssignment(null);
+    setEditingGroupAssignments([]);
     setFormData({
       person: "",
       module: "",
@@ -474,10 +480,15 @@ export default function ModuleCoordinatorManager() {
     setIsModalOpen(true);
   };
 
-  const handleEdit = (assignment: ModuleCoordinator) => {
+  const handleEdit = (group: ModuleCoordinator[]) => {
+    const assignment = group[0];
     setEditingAssignment(assignment);
-    const hasResource =
-      assignment.resource_id !== null && assignment.resource_id !== undefined;
+    setEditingGroupAssignments(group);
+    const resourceIds = group
+      .map((a) => a.resource_id)
+      .filter((id): id is number => id != null)
+      .map(Number);
+    const hasResource = resourceIds.length > 0;
     setAssignmentType(hasResource ? "resource-specific" : "module-wide");
     setFormData({
       person: assignment.person,
@@ -486,31 +497,31 @@ export default function ModuleCoordinatorManager() {
       resource_id: assignment.resource_id || null,
       resource_type: assignment.resource_type || "",
     });
-    setFormResourceSelectedIds(
-      hasResource && assignment.resource_id != null
-        ? [Number(assignment.resource_id)]
-        : []
-    );
+    setFormResourceSelectedIds(resourceIds);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (assignment: ModuleCoordinator) => {
+  const handleDelete = (group: ModuleCoordinator[]) => {
     setDeleteConfirmation({
       isOpen: true,
-      assignment,
+      assignments: group,
       loading: false,
     });
   };
 
   const confirmDelete = async () => {
-    if (!deleteConfirmation.assignment) return;
+    if (deleteConfirmation.assignments.length === 0) return;
 
     setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
     try {
-      await moduleCoordinatorsApi.delete(deleteConfirmation.assignment.id);
+      await Promise.all(
+        deleteConfirmation.assignments.map((a) =>
+          moduleCoordinatorsApi.delete(a.id),
+        ),
+      );
       setDeleteConfirmation({
         isOpen: false,
-        assignment: null,
+        assignments: [],
         loading: false,
       });
       await fetchData();
@@ -555,6 +566,8 @@ export default function ModuleCoordinatorManager() {
           await moduleCoordinatorsApi.create(payloadWide);
         }
         setIsModalOpen(false);
+        setEditingAssignment(null);
+        setEditingGroupAssignments([]);
         await fetchData();
         return;
       }
@@ -604,6 +617,8 @@ export default function ModuleCoordinatorManager() {
           );
         }
         setIsModalOpen(false);
+        setEditingAssignment(null);
+        setEditingGroupAssignments([]);
         await fetchData();
         return;
       }
@@ -614,12 +629,36 @@ export default function ModuleCoordinatorManager() {
           ? Number(editingAssignment.resource_id)
           : null;
 
+      const editGroup =
+        editingGroupAssignments.length > 0
+          ? editingGroupAssignments
+          : [editingAssignment];
+
+      const selectedIdSet = new Set(ids);
+      const toDelete = editGroup.filter(
+        (a) =>
+          a.resource_id != null &&
+          !selectedIdSet.has(Number(a.resource_id)) &&
+          a.id !== editingAssignment.id,
+      );
+      if (toDelete.length > 0) {
+        await Promise.all(
+          toDelete.map((a) => moduleCoordinatorsApi.delete(a.id)),
+        );
+      }
+
       const existingKeys = new Set(
         assignments
-          .filter((a) => a.person === person && a.module === assignmentModule)
-          .map((a) =>
-            a.resource_id != null ? `${a.module}-${a.resource_id}` : ""
+          .filter(
+            (a) =>
+              a.person === person &&
+              a.module === assignmentModule &&
+              a.level === level &&
+              !toDelete.some((d) => d.id === a.id),
           )
+          .map((a) =>
+            a.resource_id != null ? `${a.module}-${a.resource_id}` : "",
+          ),
       );
 
       const filterNew = (candidates: number[]) =>
@@ -671,6 +710,8 @@ export default function ModuleCoordinatorManager() {
       }
 
       setIsModalOpen(false);
+      setEditingAssignment(null);
+      setEditingGroupAssignments([]);
       await fetchData();
     } catch (err: any) {
       const errorMessage =
@@ -1018,6 +1059,14 @@ export default function ModuleCoordinatorManager() {
     return true;
   });
 
+  const groupedRows = useMemo(
+    () =>
+      groupModuleCoordinatorAssignments(filteredAssignments, {
+        resolvePersonLabel: (personId) => getPersonName(personId),
+      }),
+    [filteredAssignments, people],
+  );
+
   const bulkSubmitLabelCount = useMemo(() => {
     if (bulkAdvancedOpen) {
       return bulkAssignments.filter((a) => a.module && a.level).length;
@@ -1172,7 +1221,7 @@ export default function ModuleCoordinatorManager() {
         <div className="flex justify-center items-center py-12">
           <LoadingSpinner />
         </div>
-      ) : filteredAssignments.length === 0 ? (
+      ) : groupedRows.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-8 text-center">
           <p className="text-gray-500">
             No module coordinator assignments found.
@@ -1183,9 +1232,11 @@ export default function ModuleCoordinatorManager() {
           {/* Card View - Mobile Only */}
           {viewMode === "cards" && (
             <div className="md:hidden space-y-3">
-              {filteredAssignments.map((assignment) => (
+              {groupedRows.map((row) => {
+                const assignment = row.representative;
+                return (
                 <div
-                  key={assignment.id}
+                  key={row.key}
                   className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                 >
                   <div className="space-y-3">
@@ -1224,11 +1275,7 @@ export default function ModuleCoordinatorManager() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-500">Resource</span>
                         <p className="text-sm text-gray-900 text-right break-words max-w-[60%]">
-                          {assignment.resource_id
-                            ? `${assignment.resource_type || "Resource"} #${
-                                assignment.resource_id
-                              }`
-                            : "Module-wide"}
+                          {row.resourceLabel}
                         </p>
                       </div>
                       <div className="flex items-center justify-between">
@@ -1236,20 +1283,20 @@ export default function ModuleCoordinatorManager() {
                           Created At
                         </span>
                         <p className="text-sm text-gray-900 text-right">
-                          {formatDate(assignment.created_at)}
+                          {formatDate(row.createdAt)}
                         </p>
                       </div>
                     </div>
                     <div className="pt-2 border-t border-gray-200 flex flex-col gap-2">
                       <button
-                        onClick={() => handleEdit(assignment)}
+                        onClick={() => handleEdit(row.assignments)}
                         className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
                       >
                         <PencilIcon className="w-4 h-4" />
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(assignment)}
+                        onClick={() => handleDelete(row.assignments)}
                         className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
                       >
                         <TrashIcon className="w-4 h-4" />
@@ -1258,7 +1305,8 @@ export default function ModuleCoordinatorManager() {
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
 
@@ -1293,8 +1341,10 @@ export default function ModuleCoordinatorManager() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAssignments.map((assignment) => (
-                    <tr key={assignment.id}>
+                  {groupedRows.map((row) => {
+                    const assignment = row.representative;
+                    return (
+                    <tr key={row.key}>
                       <td className="px-3 py-4 md:px-6 md:py-4">
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-gray-900 break-words">
@@ -1324,26 +1374,22 @@ export default function ModuleCoordinatorManager() {
                         </span>
                       </td>
                       <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
-                        {assignment.resource_id
-                          ? `${assignment.resource_type || "Resource"} #${
-                              assignment.resource_id
-                            }`
-                          : "Module-wide"}
+                        {row.resourceLabel}
                       </td>
                       <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
-                        {formatDate(assignment.created_at)}
+                        {formatDate(row.createdAt)}
                       </td>
                       <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
                         <div className="flex flex-col sm:flex-row gap-2">
                           <button
-                            onClick={() => handleEdit(assignment)}
+                            onClick={() => handleEdit(row.assignments)}
                             className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
                           >
                             <PencilIcon className="w-4 h-4" />
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDelete(assignment)}
+                            onClick={() => handleDelete(row.assignments)}
                             className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
                           >
                             <TrashIcon className="w-4 h-4" />
@@ -1352,7 +1398,8 @@ export default function ModuleCoordinatorManager() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1366,6 +1413,8 @@ export default function ModuleCoordinatorManager() {
         onClose={() => {
           setIsModalOpen(false);
           setError("");
+          setEditingAssignment(null);
+          setEditingGroupAssignments([]);
           setAssignmentType("module-wide");
           setFormResourceSelectedIds([]);
         }}
@@ -1746,6 +1795,8 @@ export default function ModuleCoordinatorManager() {
               onClick={() => {
                 setIsModalOpen(false);
                 setError("");
+                setEditingAssignment(null);
+                setEditingGroupAssignments([]);
                 setAssignmentType("module-wide");
                 setFormResourceSelectedIds([]);
               }}
@@ -1774,23 +1825,25 @@ export default function ModuleCoordinatorManager() {
         onClose={() =>
           setDeleteConfirmation({
             isOpen: false,
-            assignment: null,
+            assignments: [],
             loading: false,
           })
         }
         onConfirm={confirmDelete}
         title="Delete Module Coordinator Assignment"
         message={
-          deleteConfirmation.assignment
-            ? `Are you sure you want to delete the assignment for ${getPersonName(
-                deleteConfirmation.assignment.person
-              )} (${
-                deleteConfirmation.assignment.module_display ||
-                deleteConfirmation.assignment.module
-              } - ${
-                deleteConfirmation.assignment.level_display ||
-                deleteConfirmation.assignment.level
-              })? This action cannot be undone.`
+          deleteConfirmation.assignments.length > 0
+            ? (() => {
+                const first = deleteConfirmation.assignments[0];
+                const resourceCount = deleteConfirmation.assignments.filter(
+                  (a) => a.resource_id != null,
+                ).length;
+                const resourceNote =
+                  resourceCount > 1
+                    ? ` covering ${resourceCount} resources`
+                    : "";
+                return `Are you sure you want to delete the ${first.level_display || first.level} assignment for ${getPersonName(first.person)} (${first.module_display || first.module})${resourceNote}? This action cannot be undone.`;
+              })()
             : "Are you sure you want to delete this assignment?"
         }
         confirmText="Delete"

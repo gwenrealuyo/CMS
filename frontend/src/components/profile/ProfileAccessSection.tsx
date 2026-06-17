@@ -1,4 +1,8 @@
 import { User } from "@/src/lib/api";
+import {
+  formatGroupedResourceScope,
+  scopeLabelForAssignment,
+} from "@/src/lib/moduleCoordinatorDisplay";
 import { ModuleCoordinator } from "@/src/types/person";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 
@@ -18,20 +22,6 @@ function sortAssignments(rows: ModuleCoordinator[]): ModuleCoordinator[] {
     if (la !== 0) return la;
     return (a.id ?? 0) - (b.id ?? 0);
   });
-}
-
-/** Scope cell text: prefer API label (oversight, cluster codes), else resource_id fallback. */
-function scopeLabelForAssignment(a: ModuleCoordinator): string | null {
-  if (
-    a.resource_scope_label != null &&
-    String(a.resource_scope_label).trim() !== ""
-  ) {
-    return String(a.resource_scope_label).trim();
-  }
-  if (a.resource_id == null) return null;
-  const rt =
-    (a.resource_type || "").replace(/_/g, " ").trim() || "Resource";
-  return `${rt} · ID ${a.resource_id}`;
 }
 
 function formatScope(a: ModuleCoordinator): string {
@@ -57,14 +47,7 @@ function buildMergedClusterCoordinatorRow(
   clusterCoordRows: ModuleCoordinator[],
 ): AccessTableRow | null {
   if (clusterCoordRows.length === 0) return null;
-  const labels = Array.from(
-    new Set(
-      clusterCoordRows
-        .map((a) => scopeLabelForAssignment(a))
-        .filter((s): s is string => s != null && s !== ""),
-    ),
-  ).sort((x, y) => x.localeCompare(y));
-  const scope = labels.length > 0 ? labels.join(", ") : "—";
+  const scope = formatGroupedResourceScope(clusterCoordRows);
   const first = clusterCoordRows[0];
   return {
     key: "merged-cluster-coordinator",
@@ -78,14 +61,7 @@ function buildMergedClusterReporterRow(
   clusterReporterRows: ModuleCoordinator[],
 ): AccessTableRow | null {
   if (clusterReporterRows.length === 0) return null;
-  const labels = Array.from(
-    new Set(
-      clusterReporterRows
-        .map((a) => scopeLabelForAssignment(a))
-        .filter((s): s is string => s != null && s !== ""),
-    ),
-  ).sort((x, y) => x.localeCompare(y));
-  const scope = labels.length > 0 ? labels.join(", ") : "—";
+  const scope = formatGroupedResourceScope(clusterReporterRows);
   const first = clusterReporterRows[0];
   return {
     key: "merged-cluster-reporter",

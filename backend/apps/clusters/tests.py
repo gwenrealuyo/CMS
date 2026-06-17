@@ -391,7 +391,7 @@ class ClusterAPITests(TestCase):
 
 
 class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
-    """Non-senior CLUSTER coordinators: clusters in their branch; mutations only on managed clusters."""
+    """Non-senior CLUSTER coordinators: branch-wide cluster cards (read); reports on managed clusters only."""
 
     def setUp(self):
         self.client = APIClient()
@@ -423,6 +423,74 @@ class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
             coordinator=self.coord_b,
             branch=self.branch_b,
         )
+        self.coord_other = Person.objects.create_user(
+            username="coord_scope_other",
+            email="scope_other@example.com",
+            password="password123",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+        self.cluster_a2 = Cluster.objects.create(
+            code="CLU-SCOPE-A2",
+            name="Cluster Scope A2",
+            coordinator=self.coord_other,
+            branch=self.branch_a,
+        )
+
+    def _report_list_results(self, response):
+        data = response.data
+        if isinstance(data, list):
+            return data
+        return data.get("results", data)
+
+    def test_two_clusters_same_branch_coord_lists_both_clusters(self):
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.get("/api/clusters/clusters/")
+        self.assertEqual(response.status_code, 200)
+        results = self._cluster_list_results(response)
+        codes = {r["code"] for r in results}
+        self.assertEqual(codes, {"CLU-SCOPE-A", "CLU-SCOPE-A2"})
+
+    def test_two_clusters_same_branch_coord_reports_only_managed(self):
+        today = date.today()
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_a,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coord_a,
+        )
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_a2,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coord_other,
+        )
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.get("/api/clusters/cluster-weekly-reports/")
+        self.assertEqual(response.status_code, 200)
+        results = self._report_list_results(response)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["cluster"], self.cluster_a.id)
+
+    def test_coord_cannot_retrieve_other_cluster_report_same_branch(self):
+        today = date.today()
+        other_report = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_a2,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coord_other,
+        )
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.get(
+            f"/api/clusters/cluster-weekly-reports/{other_report.id}/"
+        )
+        self.assertEqual(response.status_code, 404)
 
     def _cluster_list_results(self, response):
         data = response.data
@@ -438,16 +506,19 @@ class NonSeniorClusterCoordinatorScopeAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         results = self._cluster_list_results(response)
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["code"], "CLU-SCOPE-A")
+        self.assertEqual(len(results), 2)
+        codes = {r["code"] for r in results}
+        self.assertIn("CLU-SCOPE-A", codes)
+        self.assertNotIn("CLU-SCOPE-B", {r["code"] for r in results})
 
     def test_coord_lists_clusters_in_own_branch(self):
         self.client.force_authenticate(user=self.coord_a)
         response = self.client.get("/api/clusters/clusters/")
         self.assertEqual(response.status_code, 200)
         results = self._cluster_list_results(response)
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["code"], "CLU-SCOPE-A")
+        self.assertEqual(len(results), 2)
+        codes = {r["code"] for r in results}
+        self.assertIn("CLU-SCOPE-A", codes)
 
     def test_coord_cannot_retrieve_cluster_outside_branch(self):
         self.client.force_authenticate(user=self.coord_a)
@@ -803,8 +874,8 @@ class ClusterWeeklyReportDistinctYearsTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data["years"], [2023])
 
-    def test_member_sees_years_outside_list_scope_when_not_faceted(self):
-        """Row visibility differs from distinct_years (plan: organizational metadata)."""
+    def test_member_distinct_years_matches_list_scope(self):
+        """distinct_years uses the same RBAC queryset as list/retrieve."""
         ClusterWeeklyReport.objects.create(
             cluster=self.cluster_a,
             year=2025,
@@ -824,7 +895,7 @@ class ClusterWeeklyReportDistinctYearsTests(TestCase):
         self.client.force_authenticate(user=self.member)
         r_years = self.client.get("/api/clusters/cluster-weekly-reports/distinct_years/")
         self.assertEqual(r_years.status_code, 200)
-        self.assertEqual(set(r_years.data["years"]), {2025, 1999})
+        self.assertEqual(set(r_years.data["years"]), {2025})
 
         r_list = self.client.get("/api/clusters/cluster-weekly-reports/")
         self.assertEqual(r_list.status_code, 200)

@@ -132,8 +132,8 @@ Module assignments grant coordinator, teacher, and bible-sharer access within a 
 2. Select **Person** (ADMIN users are not listed).
 3. Select **Module** and **Level** (see reference table below).
 4. Choose scope:
-   - **Module-wide** — access across the whole module (typical for Senior Coordinators).
-   - **Resource-specific** — limit to selected clusters, evangelism groups, or Sunday School classes.
+   - **Module-wide** — Senior Coordinators only (Cluster, Evangelism, Sunday School). Grants access across the whole module in the assignee's branch.
+   - **Resource-specific** — required for Coordinators on those modules. Resource pickers list only clusters, groups, or classes in the **assignee's church branch**.
 5. Click **Create Assignment**.
 
 **Multiple resources at once — Bulk assign**
@@ -158,7 +158,7 @@ Module assignments grant coordinator, teacher, and bible-sharer access within a 
 
 | Module | Available levels | Resource-specific? |
 |--------|------------------|--------------------|
-| Cluster | Coordinator, Senior Coordinator | Yes — select cluster(s) |
+| Cluster | Coordinator, Senior Coordinator | Yes — select cluster(s) in assignee's branch (Coordinator required; Senior = module-wide) |
 | Finance | Coordinator, Senior Coordinator | Module-wide only |
 | Evangelism | Coordinator, Senior Coordinator, Bible Sharer | Yes — evangelism group(s) |
 | Sunday School | Coordinator, Senior Coordinator, Teacher | Yes — class(es) |

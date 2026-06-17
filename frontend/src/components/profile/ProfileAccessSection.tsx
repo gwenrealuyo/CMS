@@ -1,19 +1,9 @@
 import { User } from "@/src/lib/api";
 import { ModuleCoordinator } from "@/src/types/person";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 
 function roleBadgeClass(role: string): string {
-  switch (role) {
-    case "ADMIN":
-      return "bg-green-100 text-green-800";
-    case "PASTOR":
-      return "bg-purple-100 text-purple-800";
-    case "MEMBER":
-      return "bg-slate-100 text-slate-800";
-    case "VISITOR":
-      return "bg-red-100 text-red-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
+  return getPersonRoleColor(role);
 }
 
 function sortAssignments(rows: ModuleCoordinator[]): ModuleCoordinator[] {

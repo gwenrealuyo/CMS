@@ -141,6 +141,50 @@ const resourceTypeForModule = (
 const bulkModuleShowsScopeUi = (module: string | "") =>
   Boolean(module && !["FINANCE", "MINISTRIES"].includes(module));
 
+/** CLUSTER / EVANGELISM / SUNDAY_SCHOOL coordinators must pick a resource (not module-wide). */
+const coordinatorRequiresSpecificResource = (
+  module: ModuleCoordinator["module"] | "",
+  level: ModuleCoordinator["level"] | ""
+): boolean =>
+  level === "COORDINATOR" && moduleSupportsResourceMultiSelect(module);
+
+async function fetchCoordinatorResourcesForModule(
+  module: ModuleCoordinator["module"],
+  branchId?: number | null
+): Promise<CoordinatorResourceOption[]> {
+  const branchParams =
+    branchId != null && !Number.isNaN(branchId)
+      ? { branch_id: branchId }
+      : undefined;
+
+  switch (module) {
+    case "CLUSTER": {
+      const clusters = await clustersApi.getAll(branchParams);
+      return clusters.data.map(clusterApiRowToResourceOption);
+    }
+    case "EVANGELISM": {
+      const groups = await evangelismApi.listGroups(
+        branchId != null ? { branch: branchId } : undefined
+      );
+      return groups.data.map((g: { id: number; name?: string }) => ({
+        id: g.id,
+        name: g.name || `Evangelism Group #${g.id}`,
+        type: "EvangelismGroup",
+      }));
+    }
+    case "SUNDAY_SCHOOL": {
+      const classes = await sundaySchoolApi.listClasses(branchParams);
+      return classes.data.map((c: { id: number; name?: string }) => ({
+        id: c.id,
+        name: c.name || `Sunday School Class #${c.id}`,
+        type: "SundaySchoolClass",
+      }));
+    }
+    default:
+      return [];
+  }
+}
+
 /** Rows loaded for coordinator resource pickers (create/edit, bulk, advanced). */
 type CoordinatorResourceOption = {
   id: number;
@@ -258,6 +302,40 @@ export default function ModuleCoordinatorManager() {
     number[]
   >([]);
 
+  const assigneeBranchId = useMemo(() => {
+    if (!formData.person) return null;
+    const person = people.find((p) => Number(p.id) === Number(formData.person));
+    const branch = person?.branch;
+    if (branch == null || branch === "") return null;
+    const n = Number(branch);
+    return Number.isNaN(n) ? null : n;
+  }, [formData.person, people]);
+
+  const assigneeBranchLabel = useMemo(() => {
+    if (!assigneeBranchId) return null;
+    const person = people.find((p) => Number(p.id) === Number(formData.person));
+    return person?.branch_name?.trim() || `Branch #${assigneeBranchId}`;
+  }, [assigneeBranchId, formData.person, people]);
+
+  const bulkAssigneeBranchId = useMemo(() => {
+    if (!bulkSimple.person) return null;
+    const person = people.find(
+      (p) => Number(p.id) === Number(bulkSimple.person)
+    );
+    const branch = person?.branch;
+    if (branch == null || branch === "") return null;
+    const n = Number(branch);
+    return Number.isNaN(n) ? null : n;
+  }, [bulkSimple.person, people]);
+
+  const bulkAssigneeBranchLabel = useMemo(() => {
+    if (!bulkAssigneeBranchId) return null;
+    const person = people.find(
+      (p) => Number(p.id) === Number(bulkSimple.person)
+    );
+    return person?.branch_name?.trim() || `Branch #${bulkAssigneeBranchId}`;
+  }, [bulkAssigneeBranchId, bulkSimple.person, people]);
+
   useEffect(() => {
     fetchData();
   }, [filters]);
@@ -273,41 +351,10 @@ export default function ModuleCoordinatorManager() {
 
       setLoadingResources(true);
       try {
-        let resources: CoordinatorResourceOption[] = [];
-
-        switch (formData.module) {
-          case "CLUSTER":
-            const clusters = await clustersApi.getAll();
-            resources = clusters.data.map(clusterApiRowToResourceOption);
-            break;
-
-          case "EVANGELISM":
-            const groups = await evangelismApi.listGroups();
-            resources = groups.data.map((g: any) => ({
-              id: g.id,
-              name: g.name || `Evangelism Group #${g.id}`,
-              type: "EvangelismGroup",
-            }));
-            break;
-
-          case "SUNDAY_SCHOOL":
-            const classes = await sundaySchoolApi.listClasses();
-            resources = classes.data.map((c: any) => ({
-              id: c.id,
-              name: c.name || `Sunday School Class #${c.id}`,
-              type: "SundaySchoolClass",
-            }));
-            break;
-
-          case "LESSONS":
-          case "EVENTS":
-          case "FINANCE":
-          case "MINISTRIES":
-            // These are typically module-wide only
-            resources = [];
-            break;
-        }
-
+        const resources = await fetchCoordinatorResourcesForModule(
+          formData.module as ModuleCoordinator["module"],
+          assigneeBranchId
+        );
         setAvailableResources(resources);
       } catch (err) {
         console.error("Failed to fetch resources:", err);
@@ -318,7 +365,7 @@ export default function ModuleCoordinatorManager() {
     };
 
     fetchResources();
-  }, [formData.module, assignmentType]);
+  }, [formData.module, assignmentType, assigneeBranchId]);
 
   useEffect(() => {
     if (!isBulkModalOpen || bulkAdvancedOpen) {
@@ -341,34 +388,10 @@ export default function ModuleCoordinatorManager() {
     setBulkLoadingResources(true);
     (async () => {
       try {
-        let resources: CoordinatorResourceOption[] = [];
-        switch (bulkModule) {
-          case "CLUSTER": {
-            const clusters = await clustersApi.getAll();
-            resources = clusters.data.map(clusterApiRowToResourceOption);
-            break;
-          }
-          case "EVANGELISM": {
-            const groups = await evangelismApi.listGroups();
-            resources = groups.data.map((g: any) => ({
-              id: g.id,
-              name: g.name || `Evangelism Group #${g.id}`,
-              type: "EvangelismGroup",
-            }));
-            break;
-          }
-          case "SUNDAY_SCHOOL": {
-            const classes = await sundaySchoolApi.listClasses();
-            resources = classes.data.map((c: any) => ({
-              id: c.id,
-              name: c.name || `Sunday School Class #${c.id}`,
-              type: "SundaySchoolClass",
-            }));
-            break;
-          }
-          default:
-            resources = [];
-        }
+        const resources = await fetchCoordinatorResourcesForModule(
+          bulkModule as ModuleCoordinator["module"],
+          bulkAssigneeBranchId
+        );
         if (!cancelled) setBulkAvailableResources(resources);
       } catch (err) {
         console.error("Failed to fetch bulk resources:", err);
@@ -388,6 +411,7 @@ export default function ModuleCoordinatorManager() {
     bulkAdvancedOpen,
     bulkSimple.module,
     bulkSimple.assignmentType,
+    bulkAssigneeBranchId,
   ]);
 
   const fetchData = async () => {
@@ -503,9 +527,10 @@ export default function ModuleCoordinatorManager() {
       const person = Number(formData.person);
 
       const effectiveWide =
-        assignmentType === "module-wide" ||
-        level === "SENIOR_COORDINATOR" ||
-        !bulkModuleShowsScopeUi(assignmentModule);
+        !coordinatorRequiresSpecificResource(assignmentModule, level) &&
+        (assignmentType === "module-wide" ||
+          level === "SENIOR_COORDINATOR" ||
+          !bulkModuleShowsScopeUi(assignmentModule));
 
       const payloadWide = {
         person,
@@ -707,7 +732,7 @@ export default function ModuleCoordinatorManager() {
         assignmentType = "resource-specific";
       } else if (
         level === "COORDINATOR" &&
-        prev.assignmentType === "module-wide"
+        moduleSupportsResourceMultiSelect(prev.module)
       ) {
         assignmentType = "resource-specific";
       }
@@ -753,7 +778,7 @@ export default function ModuleCoordinatorManager() {
         updated[index].assignmentType = "resource-specific";
       } else if (
         value === "COORDINATOR" &&
-        updated[index].assignmentType === "module-wide"
+        moduleSupportsResourceMultiSelect(updated[index].module)
       ) {
         updated[index].assignmentType = "resource-specific";
       }
@@ -799,6 +824,11 @@ export default function ModuleCoordinatorManager() {
         if (!bulkModuleShowsScopeUi(a.module)) {
           assignmentType = "module-wide";
         }
+        if (a.level === "SENIOR_COORDINATOR") {
+          assignmentType = "module-wide";
+        } else if (coordinatorRequiresSpecificResource(a.module, a.level)) {
+          assignmentType = "resource-specific";
+        }
 
         const resourceSpecific = assignmentType === "resource-specific";
         if (
@@ -842,7 +872,10 @@ export default function ModuleCoordinatorManager() {
       assignmentType = "module-wide";
     }
 
-    if (assignmentType === "module-wide" || level === "SENIOR_COORDINATOR") {
+    if (
+      (assignmentType === "module-wide" || level === "SENIOR_COORDINATOR") &&
+      !coordinatorRequiresSpecificResource(module, level)
+    ) {
       return {
         ok: true,
         assignments: [
@@ -1423,12 +1456,11 @@ export default function ModuleCoordinatorManager() {
                     ...formData,
                     level: newLevel,
                   });
-                } else if (newLevel === "COORDINATOR") {
-                  // Default to resource-specific for coordinators, but allow either
-                  // Only change if currently module-wide (to avoid disrupting user choice)
-                  if (assignmentType === "module-wide") {
-                    setAssignmentType("resource-specific");
-                  }
+                } else if (
+                  newLevel === "COORDINATOR" &&
+                  moduleSupportsResourceMultiSelect(formData.module)
+                ) {
+                  setAssignmentType("resource-specific");
                   setFormData({
                     ...formData,
                     level: newLevel,
@@ -1459,7 +1491,9 @@ export default function ModuleCoordinatorManager() {
               {formData.level === "SENIOR_COORDINATOR"
                 ? "Senior Coordinators automatically have module-wide access"
                 : formData.level === "COORDINATOR"
-                ? "Coordinators can be assigned to specific resources or module-wide"
+                ? moduleSupportsResourceMultiSelect(formData.module)
+                  ? "Coordinators must be assigned to a specific resource in the assignee's branch"
+                  : "Coordinators can be assigned module-wide or to a specific resource"
                 : formData.level === "TEACHER" ||
                   formData.level === "BIBLE_SHARER"
                 ? `${
@@ -1486,7 +1520,11 @@ export default function ModuleCoordinatorManager() {
                       onChange={() => handleAssignmentTypeChange("module-wide")}
                       disabled={
                         formData.level === "TEACHER" ||
-                        formData.level === "BIBLE_SHARER"
+                        formData.level === "BIBLE_SHARER" ||
+                        coordinatorRequiresSpecificResource(
+                          formData.module,
+                          formData.level
+                        )
                       }
                       className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     />
@@ -1494,7 +1532,11 @@ export default function ModuleCoordinatorManager() {
                       <span
                         className={`font-medium ${
                           formData.level === "TEACHER" ||
-                          formData.level === "BIBLE_SHARER"
+                          formData.level === "BIBLE_SHARER" ||
+                          coordinatorRequiresSpecificResource(
+                            formData.module,
+                            formData.level
+                          )
                             ? "text-gray-400"
                             : "text-gray-900"
                         }`}
@@ -1548,6 +1590,16 @@ export default function ModuleCoordinatorManager() {
                     must be assigned to a specific resource.
                   </p>
                 )}
+                {coordinatorRequiresSpecificResource(
+                  formData.module,
+                  formData.level
+                ) && (
+                  <p className="mt-2 text-xs text-amber-600">
+                    Coordinators for this module must be assigned to specific
+                    resources. Module-wide access is for Senior Coordinators
+                    only.
+                  </p>
+                )}
               </div>
             )}
 
@@ -1578,6 +1630,16 @@ export default function ModuleCoordinatorManager() {
                   >
                     Select resources <span className="text-red-500">*</span>
                   </p>
+                  {assigneeBranchLabel ? (
+                    <p className="text-xs text-gray-600 mb-3">
+                      Resources are limited to {assigneeBranchLabel}, the
+                      assignee&apos;s church branch.
+                    </p>
+                  ) : formData.person ? (
+                    <p className="text-xs text-amber-600 mb-3">
+                      Assign a branch to this person before choosing resources.
+                    </p>
+                  ) : null}
                   {editingAssignment &&
                     editingAssignment.resource_id != null && (
                       <p className="text-xs text-gray-600 mb-3">
@@ -1823,14 +1885,22 @@ export default function ModuleCoordinatorManager() {
                         }
                         disabled={
                           bulkSimple.level === "TEACHER" ||
-                          bulkSimple.level === "BIBLE_SHARER"
+                          bulkSimple.level === "BIBLE_SHARER" ||
+                          coordinatorRequiresSpecificResource(
+                            bulkSimple.module,
+                            bulkSimple.level
+                          )
                         }
                         className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       <span
                         className={
                           bulkSimple.level === "TEACHER" ||
-                          bulkSimple.level === "BIBLE_SHARER"
+                          bulkSimple.level === "BIBLE_SHARER" ||
+                          coordinatorRequiresSpecificResource(
+                            bulkSimple.module,
+                            bulkSimple.level
+                          )
                             ? "text-gray-400"
                             : "text-gray-900"
                         }
@@ -1880,6 +1950,16 @@ export default function ModuleCoordinatorManager() {
                       must be assigned to specific resources.
                     </p>
                   )}
+                  {coordinatorRequiresSpecificResource(
+                    bulkSimple.module,
+                    bulkSimple.level
+                  ) && (
+                    <p className="text-xs text-amber-600">
+                      Coordinators must pick specific resources in the
+                      assignee&apos;s branch. Module-wide is for Senior
+                      Coordinators only.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1891,6 +1971,16 @@ export default function ModuleCoordinatorManager() {
                   >
                     Select resources <span className="text-red-500">*</span>
                   </p>
+                  {bulkAssigneeBranchLabel ? (
+                    <p className="text-xs text-gray-600 mb-3">
+                      Resources are limited to {bulkAssigneeBranchLabel}, the
+                      assignee&apos;s church branch.
+                    </p>
+                  ) : bulkSimple.person ? (
+                    <p className="text-xs text-amber-600 mb-3">
+                      Assign a branch to this person before choosing resources.
+                    </p>
+                  ) : null}
                   <ResourceAssignmentMultiPicker
                     resources={bulkAvailableResources.map(
                       ({ id, name, trailingLabel }) => ({
@@ -2063,14 +2153,22 @@ export default function ModuleCoordinatorManager() {
                                   }
                                   disabled={
                                     assignment.level === "TEACHER" ||
-                                    assignment.level === "BIBLE_SHARER"
+                                    assignment.level === "BIBLE_SHARER" ||
+                                    coordinatorRequiresSpecificResource(
+                                      assignment.module,
+                                      assignment.level
+                                    )
                                   }
                                   className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                                 <span
                                   className={
                                     assignment.level === "TEACHER" ||
-                                    assignment.level === "BIBLE_SHARER"
+                                    assignment.level === "BIBLE_SHARER" ||
+                                    coordinatorRequiresSpecificResource(
+                                      assignment.module,
+                                      assignment.level
+                                    )
                                       ? "text-gray-400"
                                       : "text-gray-900"
                                   }
@@ -2158,48 +2256,11 @@ export default function ModuleCoordinatorManager() {
                                   if (!assignment.module) return;
                                   setBulkLoadingResources(true);
                                   try {
-                                    let resources: CoordinatorResourceOption[] =
-                                      [];
-
-                                    switch (assignment.module) {
-                                      case "CLUSTER": {
-                                        const clusters =
-                                          await clustersApi.getAll();
-                                        resources =
-                                          clusters.data.map(
-                                            clusterApiRowToResourceOption
-                                          );
-                                        break;
-                                      }
-                                      case "EVANGELISM": {
-                                        const groups =
-                                          await evangelismApi.listGroups();
-                                        resources = groups.data.map(
-                                          (g: any) => ({
-                                            id: g.id,
-                                            name:
-                                              g.name ||
-                                              `Evangelism Group #${g.id}`,
-                                            type: "EvangelismGroup",
-                                          })
-                                        );
-                                        break;
-                                      }
-                                      case "SUNDAY_SCHOOL": {
-                                        const classes =
-                                          await sundaySchoolApi.listClasses();
-                                        resources = classes.data.map(
-                                          (c: any) => ({
-                                            id: c.id,
-                                            name:
-                                              c.name ||
-                                              `Sunday School Class #${c.id}`,
-                                            type: "SundaySchoolClass",
-                                          })
-                                        );
-                                        break;
-                                      }
-                                    }
+                                    const resources =
+                                      await fetchCoordinatorResourcesForModule(
+                                        assignment.module as ModuleCoordinator["module"],
+                                        bulkAssigneeBranchId
+                                      );
                                     setBulkAvailableResources(resources);
                                   } catch (err) {
                                     console.error(

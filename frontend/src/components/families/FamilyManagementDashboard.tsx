@@ -17,6 +17,7 @@ import ClusterFilterCard from "../clusters/ClusterFilterCard";
 import { FilterCondition } from "../people/FilterBar";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { branchesApi } from "@/src/lib/api";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
@@ -552,20 +553,6 @@ export default function FamilyManagementDashboard({
   };
 
   // Get role color
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "PASTOR":
-        return "bg-purple-100 text-purple-800";
-      case "MEMBER":
-        return "bg-green-100 text-green-800";
-      case "VISITOR":
-        return "bg-orange-100 text-orange-800";
-      case "ADMIN":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -1076,7 +1063,7 @@ export default function FamilyManagementDashboard({
                             {member.status.toLowerCase()}
                           </span>
                           <span
-                            className={`px-1 py-0.5 rounded-full text-[9px] font-medium ${getRoleColor(
+                            className={`px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonRoleColor(
                               member.role
                             )}`}
                           >

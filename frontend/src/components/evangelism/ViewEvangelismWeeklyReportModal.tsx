@@ -6,6 +6,7 @@ import { EvangelismWeeklyReport } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 import Button from "@/src/components/ui/Button";
 
 interface ViewEvangelismWeeklyReportModalProps {
@@ -92,21 +93,6 @@ export default function ViewEvangelismWeeklyReportModal({
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "PASTOR":
-        return "bg-purple-100 text-purple-800";
-      case "MEMBER":
-        return "bg-green-100 text-green-800";
-      case "VISITOR":
-        return "bg-orange-100 text-orange-800";
-      case "ADMIN":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   const groupTitle = report.evangelism_group?.name ?? "Evangelism group";
 
   function renderPersonCard(person: Person, variant: "member" | "visitor") {
@@ -138,7 +124,7 @@ export default function ViewEvangelismWeeklyReportModal({
         <div className="flex items-center gap-1 shrink-0">
           {person.role ? (
             <span
-              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getRoleColor(
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPersonRoleColor(
                 person.role,
               )}`}
             >

@@ -17,6 +17,7 @@ import {
   resolvePersonFromEntry,
 } from "@/src/lib/events/checkInUtils";
 import { formatPersonName } from "@/src/lib/name";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 import { Event, EventAttendanceRecord } from "@/src/types/event";
 import { Person } from "@/src/types/person";
 
@@ -582,7 +583,9 @@ export default function EventCheckInView({
                         {formatPersonName(record.person)}
                       </p>
                       {record.person.role && (
-                        <span className="chip-gray-sm shrink-0">
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonRoleColor(record.person.role)}`}
+                        >
                           {record.person.role}
                         </span>
                       )}

@@ -89,6 +89,19 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
+
+        branch_param = self.request.query_params.get(
+            "branch_id"
+        ) or self.request.query_params.get("branch")
+        if branch_param:
+            try:
+                bid = int(branch_param)
+                queryset = queryset.filter(
+                    members__person__branch_id=bid,
+                    members__is_active=True,
+                ).distinct()
+            except (TypeError, ValueError):
+                pass
         
         # ADMIN/PASTOR: All classes
         if user.role in ["ADMIN", "PASTOR"]:

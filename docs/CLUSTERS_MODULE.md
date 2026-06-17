@@ -242,6 +242,21 @@ Serializers (`apps.clusters.serializers`) expose:
   - `submitted_by_details` – read-only full person details for submitter
   - `members_present`, `visitors_present`, `member_attendance_rate` – computed properties (read-only)
 
+### Reports RBAC (non-senior cluster coordinators)
+
+Backend helpers in `apps.clusters.permissions`:
+
+- `filter_clusters_for_read` — non-senior coordinators **list/retrieve all clusters in their branch** (cards are read-only unless they manage the cluster).
+- `filter_weekly_reports_for_user` — weekly report list/retrieve/analytics/`distinct_years`/`overdue` are limited to **managed clusters** (`Cluster.coordinator` FK and/or `ModuleCoordinator` CLUSTER + COORDINATOR with non-null `resource_id`).
+- Object-level mutations still use `ClusterCoordinatorScopedPermission` / `ClusterWeeklyReportScopedPermission`.
+
+**Module coordinator assignments** (People admin): Coordinators on Cluster, Evangelism, or Sunday School must have a resource in the assignee's branch; module-wide rows are **Senior Coordinator** only. After deploy on databases with legacy data, run once:
+
+```bash
+python manage.py normalize_module_wide_coordinators --dry-run
+python manage.py normalize_module_wide_coordinators
+```
+
 ## Frontend Behavior
 
 The Clusters hub lives at `frontend/src/app/clusters/page.tsx` and provides a comprehensive view of clusters and their weekly reports.
@@ -279,6 +294,8 @@ The page uses tabs similar to the Lessons page:
   - **Search Functionality**: Searchable inputs for families and members with dropdown suggestions
   - **Visual Feedback**: Selected families and members are displayed as chips/cards with remove buttons
 - **Reports Tab**:
+  - Non-senior cluster coordinators see **managed clusters only** in filters, analytics, and the report form (API enforces the same scope).
+  - Helper copy: browse all branch clusters on the Clusters tab; weekly reports are limited to coordinated clusters.
   - Table display of weekly reports with:
     - Cluster name/code
     - Year, week number, meeting date

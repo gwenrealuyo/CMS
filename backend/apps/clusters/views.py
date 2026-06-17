@@ -35,7 +35,12 @@ from apps.clusters.permissions import (
     ClusterCoordinatorScopedPermission,
     ClusterMutationAttemptPermission,
     ClusterWeeklyReportScopedPermission,
+    apply_cluster_branch_scope,
+    apply_report_branch_scope,
+    clusters_for_overdue,
     ensure_user_manages_cluster_or_privileged,
+    filter_clusters_for_read,
+    filter_weekly_reports_for_user,
 )
 from apps.people.models import ModuleCoordinator, Person
 
@@ -50,46 +55,12 @@ class ClusterViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
-
-        # Permission-based visibility (before branch scoping)
-        if user.role in ["ADMIN", "PASTOR"]:
-            pass
-        elif user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
-            pass
-        else:
-            coordinator_assignments = user.module_coordinator_assignments.filter(
-                module=ModuleCoordinator.ModuleType.CLUSTER,
-                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            )
-            if coordinator_assignments.exists():
-                pass
-            elif Cluster.objects.filter(coordinator=user).exists():
-                pass
-            elif user.role == "MEMBER":
-                pass
-            else:
-                queryset = queryset.none()
+        queryset = filter_clusters_for_read(user, queryset)
 
         branch_param = self.request.query_params.get(
             "branch_id"
         ) or self.request.query_params.get("branch")
-        can_pick_branch = user.role in [
-            "ADMIN",
-            "PASTOR",
-        ] or user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER)
-        if can_pick_branch:
-            if branch_param:
-                try:
-                    queryset = queryset.filter(branch_id=int(branch_param))
-                except (TypeError, ValueError):
-                    pass
-        else:
-            if user.branch_id:
-                queryset = queryset.filter(branch_id=user.branch_id)
-            else:
-                queryset = queryset.none()
-
-        return queryset
+        return apply_cluster_branch_scope(queryset, user, branch_param)
     
     def get_permissions(self):
         """
@@ -150,47 +121,12 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 pass
 
         # Permission-based visibility (before branch scoping)
-        if user.role in ["ADMIN", "PASTOR"]:
-            pass
-        elif user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
-            pass
-        else:
-            coordinator_assignments = user.module_coordinator_assignments.filter(
-                module=ModuleCoordinator.ModuleType.CLUSTER,
-                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            )
-            if coordinator_assignments.exists():
-                pass
-            elif Cluster.objects.filter(coordinator=user).exists():
-                pass
-            elif user.role == "MEMBER":
-                member_clusters = Cluster.objects.filter(members=user)
-                queryset = queryset.filter(cluster__in=member_clusters)
-            else:
-                queryset = queryset.none()
+        queryset = filter_weekly_reports_for_user(user, queryset)
 
-        # Branch scoping (after permission narrowing)
         branch_param = self.request.query_params.get(
             "branch_id"
         ) or self.request.query_params.get("branch")
-        can_pick_branch = user.role in [
-            "ADMIN",
-            "PASTOR",
-        ] or user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER)
-        if can_pick_branch:
-            if branch_param:
-                try:
-                    bid = int(branch_param)
-                    queryset = queryset.filter(cluster__branch_id=bid)
-                except (TypeError, ValueError):
-                    pass
-        else:
-            if user.branch_id:
-                queryset = queryset.filter(cluster__branch_id=user.branch_id)
-            else:
-                queryset = queryset.none()
-
-        return queryset
+        return apply_report_branch_scope(queryset, user, branch_param)
     
     def get_permissions(self):
         """
@@ -235,21 +171,10 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         """
         Distinct calendar years present in weekly reports (facet filters only).
 
-        Intentionally does not apply get_queryset() row visibility so the Year
-        filter can list organizational metadata; list/retrieve remain RBAC-scoped.
+        Scoped like list/retrieve for non-senior coordinators (managed clusters only).
         Optional query params: branch_id / branch, cluster, gathering_type.
-        Ignores year, month, week_number.
         """
-        queryset = ClusterWeeklyReport.objects.all()
-
-        branch_param = request.query_params.get(
-            "branch_id"
-        ) or request.query_params.get("branch")
-        if branch_param:
-            try:
-                queryset = queryset.filter(cluster__branch_id=int(branch_param))
-            except (TypeError, ValueError):
-                pass
+        queryset = self.get_queryset()
 
         cluster_param = request.query_params.get("cluster")
         if cluster_param:
@@ -399,8 +324,8 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         current_year = today.year
         current_week = today.isocalendar()[1]  # ISO week number
 
-        # Get all active clusters
-        all_clusters = Cluster.objects.all()
+        # Get clusters in scope for this user
+        all_clusters = clusters_for_overdue(request.user)
 
         # Get clusters that have submitted for current week
         submitted_cluster_ids = ClusterWeeklyReport.objects.filter(

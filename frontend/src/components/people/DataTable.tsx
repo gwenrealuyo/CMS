@@ -18,6 +18,7 @@ import {
   TableCellsIcon,
 } from "@heroicons/react/24/outline";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 
 interface DataTableProps {
@@ -159,20 +160,6 @@ export default function DataTable({
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "PASTOR":
-        return "bg-purple-100 text-purple-800";
-      case "MEMBER":
-        return "bg-green-100 text-green-800";
-      case "VISITOR":
-        return "bg-orange-100 text-orange-800";
-      case "ADMIN":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   const handleBulkDelete = () => {
     const selectedPeopleObjects = getSelectedPeopleObjects();
@@ -854,7 +841,7 @@ export default function DataTable({
                     <div className="text-sm flex items-center gap-2">
                       <span className="text-gray-500 font-medium">Role: </span>
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getPersonRoleColor(
                           person.role
                         )}`}
                       >
@@ -1051,7 +1038,7 @@ export default function DataTable({
                           )}
                           {field === "role" && (
                             <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${getPersonRoleColor(
                                 person.role
                               )}`}
                             >
@@ -1285,7 +1272,7 @@ export default function DataTable({
                         )}
                         {field === "role" && (
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getPersonRoleColor(
                               person.role
                             )}`}
                           >

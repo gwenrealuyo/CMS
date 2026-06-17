@@ -17,6 +17,7 @@ import { useBranches } from "@/src/hooks/useBranches";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 
 export interface PendingMember {
   member_id: string;
@@ -289,19 +290,6 @@ export default function MinistryForm({
     return `${person.first_name?.[0] || ""}${
       person.last_name?.[0] || ""
     }`.toUpperCase();
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "PASTOR":
-        return "bg-purple-100 text-purple-800";
-      case "MEMBER":
-        return "bg-green-100 text-green-800";
-      case "VISITOR":
-        return "bg-orange-100 text-orange-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
   };
 
   const addMember = (person: Person) => {
@@ -778,7 +766,7 @@ export default function MinistryForm({
                         </p>
                         <div className="flex items-center space-x-1 mt-0.5">
                           <span
-                            className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                            className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
                               person.role
                             )}`}
                           >

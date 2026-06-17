@@ -63,7 +63,7 @@ Each assignment has:
 | **Person** | Who receives the access (Admin accounts cannot be assigned) |
 | **Module** | Which area of the app (Cluster, Evangelism, Lessons, etc.) |
 | **Level** | What kind of access within that module |
-| **Scope** | Module-wide **or** limited to specific resources (e.g. one cluster) |
+| **Scope** | **Senior Coordinator:** module-wide. **Coordinator** on Cluster, Evangelism, or Sunday School: must pick resource(s) in the assignee's branch |
 
 A person can hold **multiple assignments** across different modules. Access is combined (you see the **union** of everything your assignments allow).
 
@@ -106,8 +106,8 @@ A person can hold **multiple assignments** across different modules. Access is c
 
 | Scope | Meaning |
 |-------|---------|
-| **Module-wide** (`resource` not set) | Access across the entire module within your branch (typical for Senior Coordinators) |
-| **Resource-specific** | Access limited to selected clusters, evangelism groups, or Sunday School classes |
+| **Module-wide** (`resource` not set) | **Senior Coordinators only** for Cluster, Evangelism, and Sunday School — access across the entire module within your branch |
+| **Resource-specific** | **Required** for Coordinators on Cluster, Evangelism, and Sunday School — limit to selected clusters, groups, or classes in the assignee's branch |
 
 **Example:** A **Cluster Coordinator** scoped to "North Cluster" can manage and submit reports only for that cluster. A **Cluster Senior Coordinator** (module-wide) can oversee all clusters in their branch.
 
@@ -154,8 +154,9 @@ When you have module assignments, you may see more people and families than a pl
 
 **Clusters**
 
-- Coordinators submit **weekly reports** for clusters they manage.
-- **Compliance** tab is for senior cluster coordinators.
+- Non-senior cluster coordinators can **browse all cluster cards in their branch** (read-only for clusters they do not manage).
+- **Weekly reports** (list, analytics, year filters, create/edit/delete) are limited to **managed clusters** (FK coordinator and/or resource-specific Cluster → Coordinator assignment).
+- **Compliance** tab is for senior cluster coordinators only.
 - Members see their own cluster read-only.
 
 **Evangelism**

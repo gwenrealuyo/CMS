@@ -8,6 +8,7 @@ import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import AdminResetPasswordModal from "@/src/components/people/AdminResetPasswordModal";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 
 interface PersonProfileProps {
   person: Person;
@@ -468,20 +469,6 @@ export default function PersonProfile({
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "LEADER":
-        return "bg-purple-100 text-purple-800";
-      case "MEMBER":
-        return "chip-primary";
-      case "VISITOR":
-        return "bg-red-100 text-red-800";
-      case "ADMIN":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
   const isPanelMode = !showTopHeader;
 
   return (
@@ -551,7 +538,7 @@ export default function PersonProfile({
                 <p className="text-gray-500 text-sm">@{person.username}</p>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 mt-2">
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${getRoleColor(
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${getPersonRoleColor(
                       person.role
                     )}`}
                   >
@@ -617,7 +604,7 @@ export default function PersonProfile({
                         label="Role"
                         value={person.role}
                         renderAsBadge
-                        badgeClassName={getRoleColor(person.role)}
+                        badgeClassName={getPersonRoleColor(person.role)}
                       />
                       <ProfileFieldRow
                         label="Branch"

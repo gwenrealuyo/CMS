@@ -11,6 +11,7 @@ import {
   getClusterCodeBadgeStyle,
   getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 
 const ROLE_PRIORITY: Record<string, number> = {
   ADMIN: 5,
@@ -145,16 +146,7 @@ export default function ClusterView({
     [sortedDisplayMembers],
   );
 
-  const roleBadgeClass = (role: string) =>
-    role === "MEMBER"
-      ? "bg-green-100 text-green-800"
-      : role === "VISITOR"
-        ? "bg-yellow-100 text-yellow-800"
-        : role === "PASTOR"
-            ? "bg-red-100 text-red-800"
-            : role === "ADMIN"
-              ? "chip-primary"
-              : "bg-gray-100 text-gray-800";
+  const roleBadgeClass = (role: string) => getPersonRoleColor(role);
 
   const peopleGridClass =
     isPanelMode

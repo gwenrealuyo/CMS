@@ -6,6 +6,9 @@ from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSe
 from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
 from apps.authentication.password_validators import PasswordStrengthValidator
 from apps.events.models import EventType
+from apps.people.coordinator_assignment_validation import (
+    validate_module_coordinator_assignment,
+)
 
 
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
@@ -69,6 +72,29 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
             return f"Cluster {c.id}"
         except Cluster.DoesNotExist:
             return None
+
+    def validate(self, attrs):
+        person = attrs.get("person") or getattr(self.instance, "person", None)
+        module = attrs.get("module") or getattr(self.instance, "module", None)
+        level = attrs.get("level") or getattr(self.instance, "level", None)
+        resource_id = attrs.get("resource_id")
+        if resource_id is None and "resource_id" not in attrs and self.instance:
+            resource_id = self.instance.resource_id
+        resource_type = attrs.get("resource_type")
+        if resource_type is None and self.instance:
+            resource_type = self.instance.resource_type
+
+        if person and module and level:
+            normalized = validate_module_coordinator_assignment(
+                person=person,
+                module=module,
+                level=level,
+                resource_id=resource_id,
+                resource_type=resource_type or "",
+            )
+            attrs["resource_id"] = normalized["resource_id"]
+            attrs["resource_type"] = normalized["resource_type"]
+        return attrs
 
 
 class ModuleSettingSerializer(serializers.ModelSerializer):
@@ -176,13 +202,21 @@ class ModuleCoordinatorBulkCreateSerializer(serializers.Serializer):
                     f"Assignment {idx + 1}: Assignment already exists for person {person_id}, module {module}, resource_id {resource_id}."
                 )
 
+            normalized = validate_module_coordinator_assignment(
+                person=person,
+                module=module,
+                level=level,
+                resource_id=resource_id,
+                resource_type=resource_type,
+            )
+
             validated_assignments.append(
                 {
                     "person": person,
                     "module": module,
                     "level": level,
-                    "resource_id": resource_id if resource_id else None,
-                    "resource_type": resource_type,
+                    "resource_id": normalized["resource_id"],
+                    "resource_type": normalized["resource_type"],
                 }
             )
 

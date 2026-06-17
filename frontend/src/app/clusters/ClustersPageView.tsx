@@ -1431,8 +1431,14 @@ export default function ClustersPageView({
             className={activeTab !== "reports" ? "hidden" : undefined}
             aria-hidden={activeTab !== "reports"}
           >
+            {isOnlyNonSeniorClusterCoordinator && (
+              <p className="mb-4 text-sm text-gray-600">
+                You can browse all clusters in your branch on the Clusters tab.
+                Weekly reports here are limited to clusters you coordinate.
+              </p>
+            )}
             <ClusterReportsDashboard
-              clusters={allClusters as any}
+              clusters={reportFormClusters as any}
               clustersForReportForm={reportFormClusters as any}
               externalShowForm={isReportFormOpen}
               externalSelectedCluster={reportSelectedCluster}

@@ -6,6 +6,7 @@ import Button from "@/src/components/ui/Button";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import { familiesApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 
 interface ViewWeeklyReportModalProps {
   report: ClusterWeeklyReport;
@@ -100,20 +101,6 @@ export default function ViewWeeklyReportModal({
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "PASTOR":
-        return "bg-purple-100 text-purple-800";
-      case "MEMBER":
-        return "bg-green-100 text-green-800";
-      case "VISITOR":
-        return "bg-orange-100 text-orange-800";
-      case "ADMIN":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -343,7 +330,7 @@ export default function ViewWeeklyReportModal({
                             <div className="flex items-center gap-1">
                               {(member as any).role && (
                                 <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getRoleColor(
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPersonRoleColor(
                                     (member as any).role
                                   )}`}
                                 >
@@ -451,7 +438,7 @@ export default function ViewWeeklyReportModal({
                             <div className="flex items-center gap-1">
                               {(visitor as any).role && (
                                 <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getRoleColor(
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPersonRoleColor(
                                     (visitor as any).role
                                   )}`}
                                 >

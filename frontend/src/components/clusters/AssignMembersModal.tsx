@@ -4,6 +4,7 @@ import { Person, PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import Button from "@/src/components/ui/Button";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 
 interface AssignMembersModalProps {
   cluster: Cluster;
@@ -125,20 +126,6 @@ export default function AssignMembersModal({
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "MEMBER":
-        return "chip-primary";
-      case "VISITOR":
-        return "bg-purple-100 text-purple-800";
-      case "PASTOR":
-        return "bg-red-100 text-red-800";
-      case "ADMIN":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -231,7 +218,7 @@ export default function AssignMembersModal({
                           {person.status}
                         </span>
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
                             person.role
                           )}`}
                         >
@@ -294,7 +281,7 @@ export default function AssignMembersModal({
                         {member.status}
                       </span>
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
                           member.role
                         )}`}
                       >

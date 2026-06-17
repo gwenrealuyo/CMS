@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Family, Person, PersonUI } from "@/src/types/person";
 import Button from "../ui/Button";
+import { getPersonRoleColor } from "@/src/lib/personRole";
 
 interface FamilyFormProps {
   onSubmit: (family: Partial<Family>) => Promise<void>;
@@ -115,20 +116,6 @@ export default function FamilyForm({
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "PASTOR":
-        return "bg-purple-100 text-purple-800";
-      case "MEMBER":
-        return "bg-green-100 text-green-800";
-      case "VISITOR":
-        return "bg-orange-100 text-orange-800";
-      case "ADMIN":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   const getSelectedMembers = () => {
     return availableMembers.filter((member) =>
@@ -283,7 +270,7 @@ export default function FamilyForm({
                           {member.status.toLowerCase()}
                         </span>
                         <span
-                          className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                          className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
                             member.role
                           )}`}
                         >

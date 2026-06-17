@@ -43,7 +43,7 @@ Branch filtering applies to:
 
 | Assignment Type           | People Access                                                                                  | Families Access                                                                                | Clusters Access          | Notes                                             |
 | ------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------- |
-| **Cluster Coordinator**   | People in assigned cluster(s):<br>- Direct cluster members<br>- Members of families in cluster | Families in assigned cluster(s) + Families of cluster members (even if not directly connected) | Assigned cluster(s) only | Limited to assigned clusters. Filtered by branch. |
+| **Cluster Coordinator**   | People in assigned cluster(s):<br>- Direct cluster members<br>- Members of families in cluster | Families in assigned cluster(s) + Families of cluster members (even if not directly connected) | **Read** all clusters in branch; **edit/delete** and **reports** only on managed clusters | Module-wide assignments are Senior Coordinator+ only. Filtered by branch. |
 | **Sunday School Teacher** | Students in classes where they are teacher/assistant                                           | Families of those students                                                                     | N/A                      | Limited to their classes                          |
 | **Lessons Teacher**       | Students in their lesson sessions                                                              | Families of those students                                                                     | N/A                      | Limited to their students                         |
 | **Bible Sharer**          | Members of assigned evangelism groups                                                          | Families of those members                                                                      | N/A                      | Limited to assigned groups                        |
@@ -87,7 +87,7 @@ When a user has multiple assignments, they see the union of all applicable peopl
 1. **ADMIN Exclusion**: ADMIN users are excluded from all queries (except for other ADMINS)
 2. **Union Logic**: Multiple assignments are combined (union), not intersection
 3. **Resource-Specific Assignments**: Assignments with `resource_id` limit access to that specific resource
-4. **Module-Wide Assignments**: Assignments without `resource_id` may grant broader access depending on module rules
+4. **Module-Wide Assignments**: For Cluster, Evangelism, and Sunday School, module-wide rows (`resource_id` null) are allowed only at **Senior Coordinator** level. Legacy Coordinator rows without a resource should be normalized with `python manage.py normalize_module_wide_coordinators`.
 5. **Member Cluster Access**: Members can view their own cluster but cannot edit or delete
 6. **Cluster Coordinator Family Access**: Cluster coordinators see families of their members even if the family isn't directly connected to the cluster
 7. **Member Sunday School Access**: Members can access Sunday School module but stats/summary cards are hidden

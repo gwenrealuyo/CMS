@@ -993,6 +993,8 @@ export const sundaySchoolApi = {
     category?: number | string;
     is_active?: boolean;
     search?: string;
+    branch_id?: number | string;
+    branch?: number | string;
   }) => api.get<SundaySchoolClass[]>("/sunday-school/classes/", { params }),
   getClass: (id: number | string) =>
     api.get<SundaySchoolClass>(`/sunday-school/classes/${id}/`),

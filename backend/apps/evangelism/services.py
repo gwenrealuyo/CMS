@@ -200,61 +200,37 @@ def calculate_monthly_statistics(
     # For RECEIVED_HG: count events (journey count)
     received_hg_count = query.filter(stage=MonthlyConversionTracking.Stage.RECEIVED_HG).count()
 
-    # For CONVERTED: count unique persons who completed both within same year
-    converted_prospects = set()
-    for prospect_id in baptized_prospects:
-        if prospect_id in received_hg_prospects:
-            baptized_query = MonthlyConversionTracking.objects.filter(
-                prospect_id=prospect_id,
-                year=year,
-                stage=MonthlyConversionTracking.Stage.BAPTIZED,
-            )
+    # For REACHED: count unique persons who completed all milestones in this month
+    reached_person_ids = set()
+    reached_people = annotate_people_reached_date(
+        people_meeting_reached_milestones(
+            Person.objects.filter(
+                prospect_record__is_dropped_off=False,
+            ).distinct()
+        )
+    )
+    if cluster:
+        reached_people = reached_people.filter(
+            Q(prospect_record__inviter_cluster=cluster)
+            | Q(prospect_record__endorsed_cluster=cluster)
+        ).distinct()
+    elif branch_id is not None:
+        reached_people = reached_people.filter(branch_id=branch_id)
+
+    for person in reached_people:
+        if (
+            person.reached_date
+            and person.reached_date.year == year
+            and person.reached_date.month == month
+        ):
+            prospect_qs = person.prospect_record.filter(is_dropped_off=False)
             if cluster:
-                baptized_query = baptized_query.filter(cluster=cluster)
-            elif branch_id is not None:
-                baptized_query = baptized_query.filter(cluster__branch_id=branch_id)
-            baptized_in_year = baptized_query.exists()
-
-            received_hg_query = MonthlyConversionTracking.objects.filter(
-                prospect_id=prospect_id,
-                year=year,
-                stage=MonthlyConversionTracking.Stage.RECEIVED_HG,
-            )
-            if cluster:
-                received_hg_query = received_hg_query.filter(cluster=cluster)
-            elif branch_id is not None:
-                received_hg_query = received_hg_query.filter(cluster__branch_id=branch_id)
-            received_hg_in_year = received_hg_query.exists()
-
-            if baptized_in_year and received_hg_in_year:
-                baptized_query = MonthlyConversionTracking.objects.filter(
-                    prospect_id=prospect_id,
-                    year=year,
-                    stage=MonthlyConversionTracking.Stage.BAPTIZED,
+                prospect_qs = prospect_qs.filter(
+                    Q(inviter_cluster=cluster) | Q(endorsed_cluster=cluster)
                 )
-                if cluster:
-                    baptized_query = baptized_query.filter(cluster=cluster)
-                elif branch_id is not None:
-                    baptized_query = baptized_query.filter(cluster__branch_id=branch_id)
-                baptized_month = baptized_query.order_by("month").first()
+            reached_person_ids.update(prospect_qs.values_list("id", flat=True))
 
-                received_hg_query = MonthlyConversionTracking.objects.filter(
-                    prospect_id=prospect_id,
-                    year=year,
-                    stage=MonthlyConversionTracking.Stage.RECEIVED_HG,
-                )
-                if cluster:
-                    received_hg_query = received_hg_query.filter(cluster=cluster)
-                elif branch_id is not None:
-                    received_hg_query = received_hg_query.filter(cluster__branch_id=branch_id)
-                received_hg_month = received_hg_query.order_by("month").first()
-
-                if baptized_month and received_hg_month:
-                    completion_month = max(baptized_month.month, received_hg_month.month)
-                    if completion_month == month:
-                        converted_prospects.add(prospect_id)
-
-    converted_count = len(converted_prospects)
+    converted_count = len(reached_person_ids)
 
     taken_ncc_count = count_taken_ncc_prospects_for_month(
         year=year,
@@ -277,34 +253,6 @@ def calculate_monthly_statistics(
     }
 
     return [result]
-
-
-TAKEN_NCC_STAGE = "TAKEN_NCC"
-
-
-def _prospects_taken_ncc_qs(active_qs):
-    """Active prospects who have taken NCC or progressed past it."""
-    from apps.lessons.models import LessonSessionReport, PersonLessonProgress
-
-    lesson_person_ids = LessonSessionReport.objects.values_list(
-        "student_id", flat=True
-    ).distinct()
-    progress_person_ids = PersonLessonProgress.objects.values_list(
-        "person_id", flat=True
-    ).distinct()
-    activity_person_ids = set(lesson_person_ids) | set(progress_person_ids)
-
-    past_ncc_stages = [
-        Prospect.PipelineStage.BAPTIZED,
-        Prospect.PipelineStage.RECEIVED_HG,
-        Prospect.PipelineStage.CONVERTED,
-    ]
-
-    return active_qs.filter(
-        Q(pipeline_stage__in=past_ncc_stages)
-        | Q(has_finished_lessons=True)
-        | Q(person_id__in=activity_person_ids)
-    ).distinct()
 
 
 def count_taken_ncc_prospects_for_month(
@@ -415,7 +363,7 @@ def detect_drop_offs(inactivity_days: int = 30) -> List[Prospect]:
         is_dropped_off=False,
         last_activity_date__lt=cutoff_date
     ).exclude(
-        pipeline_stage=Prospect.PipelineStage.CONVERTED
+        pipeline_stage=Prospect.PipelineStage.REACHED
     )
 
     return list(prospects)
@@ -457,6 +405,257 @@ def update_person_baptism_dates(
         Journey.objects.filter(
             user=person, type="SPIRIT", date=conversion.spirit_baptism_date
         ).update(description=notes)
+
+
+_PIPELINE_STAGE_ORDER = {
+    Prospect.PipelineStage.INVITED: 0,
+    Prospect.PipelineStage.ATTENDED: 1,
+    Prospect.PipelineStage.TAKEN_NCC: 2,
+    Prospect.PipelineStage.BAPTIZED: 3,
+    Prospect.PipelineStage.RECEIVED_HG: 4,
+    Prospect.PipelineStage.REACHED: 5,
+}
+
+
+def stages_at_or_beyond(stage: str) -> List[str]:
+    min_order = _PIPELINE_STAGE_ORDER[stage]
+    return [
+        key for key, order in _PIPELINE_STAGE_ORDER.items() if order >= min_order
+    ]
+
+
+def person_has_ncc_session(person: Person) -> bool:
+    from apps.lessons.models import LessonSessionReport
+
+    return LessonSessionReport.objects.filter(student_id=person.pk).exists()
+
+
+def get_earliest_ncc_session_date(person: Person) -> Optional[date]:
+    from apps.lessons.models import LessonSessionReport
+
+    return (
+        LessonSessionReport.objects.filter(student_id=person.pk)
+        .order_by("session_date")
+        .values_list("session_date", flat=True)
+        .first()
+    )
+
+
+def person_meets_all_reached_milestones(person: Person) -> bool:
+    if not person.date_first_invited:
+        return False
+    if not person.date_first_attended:
+        return False
+    if not person_has_ncc_session(person):
+        return False
+    if not person.water_baptism_date:
+        return False
+    if not person.spirit_baptism_date:
+        return False
+    return True
+
+
+def get_latest_milestone_date(person: Person) -> Optional[date]:
+    dates = [
+        person.date_first_invited,
+        person.date_first_attended,
+        get_earliest_ncc_session_date(person),
+        person.water_baptism_date,
+        person.spirit_baptism_date,
+    ]
+    present = [d for d in dates if d is not None]
+    return max(present) if present else None
+
+
+def people_meeting_reached_milestones(qs):
+    from apps.lessons.models import LessonSessionReport
+
+    student_ids = LessonSessionReport.objects.values_list(
+        "student_id", flat=True
+    ).distinct()
+    return qs.filter(
+        date_first_invited__isnull=False,
+        date_first_attended__isnull=False,
+        water_baptism_date__isnull=False,
+        spirit_baptism_date__isnull=False,
+        id__in=student_ids,
+    )
+
+
+def annotate_people_reached_date(qs):
+    from django.db.models import OuterRef, Subquery
+    from django.db.models.functions import Greatest
+    from apps.lessons.models import LessonSessionReport
+
+    earliest_ncc = (
+        LessonSessionReport.objects.filter(student_id=OuterRef("pk"))
+        .order_by("session_date")
+        .values("session_date")[:1]
+    )
+    return qs.annotate(earliest_ncc_date=Subquery(earliest_ncc)).annotate(
+        reached_date=Greatest(
+            "date_first_invited",
+            "date_first_attended",
+            "earliest_ncc_date",
+            "water_baptism_date",
+            "spirit_baptism_date",
+        )
+    )
+
+
+def resolve_pipeline_stage_for_person(
+    person: Person,
+    *,
+    lesson_start_date: Optional[date] = None,
+) -> str:
+    if person_meets_all_reached_milestones(person):
+        return Prospect.PipelineStage.REACHED
+
+    has_ncc_session = person_has_ncc_session(person)
+    has_ncc_tracking = has_ncc_session or bool(lesson_start_date)
+
+    milestones = [
+        (Prospect.PipelineStage.INVITED, bool(person.date_first_invited)),
+        (Prospect.PipelineStage.ATTENDED, bool(person.date_first_attended)),
+        (Prospect.PipelineStage.TAKEN_NCC, has_ncc_tracking),
+        (Prospect.PipelineStage.BAPTIZED, bool(person.water_baptism_date)),
+        (Prospect.PipelineStage.RECEIVED_HG, bool(person.spirit_baptism_date)),
+    ]
+
+    highest = Prospect.PipelineStage.INVITED
+    for stage, satisfied in milestones:
+        if satisfied:
+            highest = stage
+        else:
+            break
+    return highest
+
+
+def advance_prospect_to_taken_ncc(
+    person: Person,
+    *,
+    activity_date: Optional[date] = None,
+) -> None:
+    prospect = (
+        Prospect.objects.filter(person=person, is_dropped_off=False)
+        .order_by("-updated_at")
+        .first()
+    )
+    if not prospect:
+        return
+
+    current_order = _PIPELINE_STAGE_ORDER.get(prospect.pipeline_stage, -1)
+    ncc_order = _PIPELINE_STAGE_ORDER[Prospect.PipelineStage.TAKEN_NCC]
+    if current_order >= ncc_order:
+        return
+
+    prospect.pipeline_stage = Prospect.PipelineStage.TAKEN_NCC
+    if activity_date:
+        prospect.last_activity_date = activity_date
+        prospect.save(update_fields=["pipeline_stage", "last_activity_date"])
+    else:
+        prospect.save(update_fields=["pipeline_stage"])
+
+
+def sync_conversion_pipeline(
+    conversion: Conversion,
+    *,
+    date_first_invited: Optional[date] = None,
+    date_first_attended: Optional[date] = None,
+    lesson_start_date: Optional[date] = None,
+) -> Conversion:
+    person = conversion.person
+    person_updates = []
+
+    if date_first_invited is not None:
+        person.date_first_invited = date_first_invited
+        person_updates.append("date_first_invited")
+    if date_first_attended is not None:
+        person.date_first_attended = date_first_attended
+        person_updates.append("date_first_attended")
+    if person_updates:
+        person.save(update_fields=person_updates)
+
+    if lesson_start_date is not None:
+        conversion.lesson_start_date = lesson_start_date
+
+    update_person_baptism_dates(conversion, conversion.notes or None)
+    person.refresh_from_db()
+
+    prospect = conversion.prospect
+    if prospect is None:
+        prospect = (
+            Prospect.objects.filter(person=person, is_dropped_off=False)
+            .order_by("-updated_at")
+            .first()
+        )
+        if prospect:
+            conversion.prospect = prospect
+
+    new_stage = resolve_pipeline_stage_for_person(
+        person,
+        lesson_start_date=conversion.lesson_start_date,
+    )
+    is_complete = person_meets_all_reached_milestones(person)
+
+    conversion.is_complete = is_complete
+    conversion_updates = ["is_complete"]
+    if lesson_start_date is not None:
+        conversion_updates.append("lesson_start_date")
+    if prospect and conversion.prospect_id != prospect.pk:
+        conversion.prospect = prospect
+        conversion_updates.append("prospect")
+    conversion.save(update_fields=conversion_updates)
+
+    if prospect:
+        if date_first_invited is not None:
+            prospect.date_first_invited = date_first_invited
+        prospect.pipeline_stage = new_stage
+        activity_date = (
+            get_latest_milestone_date(person)
+            or conversion.conversion_date
+            or timezone.now().date()
+        )
+        prospect.last_activity_date = activity_date
+        prospect.save(
+            update_fields=[
+                "date_first_invited",
+                "pipeline_stage",
+                "last_activity_date",
+            ]
+        )
+
+        cluster = (
+            conversion.cluster
+            or prospect.inviter_cluster
+            or prospect.endorsed_cluster
+        )
+        if cluster:
+            stage_dates = {
+                Prospect.PipelineStage.INVITED: person.date_first_invited,
+                Prospect.PipelineStage.ATTENDED: person.date_first_attended,
+                Prospect.PipelineStage.TAKEN_NCC: get_earliest_ncc_session_date(
+                    person
+                )
+                or conversion.lesson_start_date,
+                Prospect.PipelineStage.BAPTIZED: person.water_baptism_date,
+                Prospect.PipelineStage.RECEIVED_HG: person.spirit_baptism_date,
+                Prospect.PipelineStage.REACHED: get_latest_milestone_date(person),
+            }
+            tracking_stage = new_stage
+            tracking_date = stage_dates.get(tracking_stage) or activity_date
+            if tracking_stage in MonthlyConversionTracking.Stage.values:
+                update_monthly_tracking(
+                    prospect,
+                    tracking_stage,
+                    cluster,
+                    tracking_date,
+                )
+
+    if is_complete:
+        update_each1reach1_goal(conversion)
+
+    return conversion
 
 
 def get_default_each1reach1_target(cluster: Cluster) -> int:
@@ -736,20 +935,11 @@ def _drop_off_branch_q(branch_id: int) -> Q:
 _PIPELINE_FUNNEL_STAGES = [
     (Prospect.PipelineStage.INVITED, "Invited"),
     (Prospect.PipelineStage.ATTENDED, "Attended"),
-    (TAKEN_NCC_STAGE, "Taken NCC"),
+    (Prospect.PipelineStage.TAKEN_NCC, "Taken NCC"),
     (Prospect.PipelineStage.BAPTIZED, "Baptized"),
     (Prospect.PipelineStage.RECEIVED_HG, "Received Holy Ghost"),
-    (Prospect.PipelineStage.CONVERTED, "Converted"),
+    (Prospect.PipelineStage.REACHED, "Reached"),
 ]
-
-_PIPELINE_STAGE_ORDER = {
-    Prospect.PipelineStage.INVITED: 0,
-    Prospect.PipelineStage.ATTENDED: 1,
-    TAKEN_NCC_STAGE: 2,
-    Prospect.PipelineStage.BAPTIZED: 3,
-    Prospect.PipelineStage.RECEIVED_HG: 4,
-    Prospect.PipelineStage.CONVERTED: 5,
-}
 
 
 def build_pipeline_funnel(prospects_qs) -> List[Dict]:
@@ -759,16 +949,9 @@ def build_pipeline_funnel(prospects_qs) -> List[Dict]:
     previous_count = None
 
     for stage, label in _PIPELINE_FUNNEL_STAGES:
-        if stage == TAKEN_NCC_STAGE:
-            count = _prospects_taken_ncc_qs(active).count()
-        else:
-            min_order = _PIPELINE_STAGE_ORDER[stage]
-            at_or_beyond = [
-                key
-                for key, order in _PIPELINE_STAGE_ORDER.items()
-                if order >= min_order and key != TAKEN_NCC_STAGE
-            ]
-            count = active.filter(pipeline_stage__in=at_or_beyond).count()
+        count = active.filter(
+            pipeline_stage__in=stages_at_or_beyond(stage)
+        ).count()
         rate_from_previous = None
         if previous_count is not None and previous_count > 0:
             rate_from_previous = round((count / previous_count) * 100, 1)
@@ -844,14 +1027,14 @@ def _count_completed_conversions(*, branch_id: Optional[int], year: int) -> int:
 
 
 def _count_total_reached(*, branch_id: Optional[int], year: int) -> int:
-    people = Person.objects.exclude(role="ADMIN").filter(
-        water_baptism_date__isnull=False,
-        spirit_baptism_date__isnull=False,
-        water_baptism_date__year=year,
-        spirit_baptism_date__year=year,
+    people = people_meeting_reached_milestones(
+        Person.objects.exclude(role="ADMIN")
     )
     if branch_id is not None:
         people = people.filter(branch_id=branch_id)
+    people = annotate_people_reached_date(people).filter(
+        reached_date__year=year,
+    )
     return people.values("id").distinct().count()
 
 
@@ -946,9 +1129,10 @@ def get_evangelism_dashboard_stats(year: int) -> Dict:
             person_id__isnull=False,
             pipeline_stage__in=[
                 Prospect.PipelineStage.ATTENDED,
+                Prospect.PipelineStage.TAKEN_NCC,
                 Prospect.PipelineStage.BAPTIZED,
                 Prospect.PipelineStage.RECEIVED_HG,
-                Prospect.PipelineStage.CONVERTED,
+                Prospect.PipelineStage.REACHED,
             ],
         ).values_list("person_id", flat=True)
     )

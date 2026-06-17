@@ -135,7 +135,7 @@ export default function V2bMonthlyTrendChart({
               <Line
                 type="monotone"
                 dataKey="converted"
-                name="Converted"
+                name="Reached"
                 stroke={analyticsChartColor(2)}
                 strokeWidth={ANALYTICS_CHART_STROKE_WIDTH}
                 dot={dot}

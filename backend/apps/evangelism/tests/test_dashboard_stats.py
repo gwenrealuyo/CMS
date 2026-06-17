@@ -1,11 +1,13 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.clusters.models import Cluster, ClusterWeeklyReport
+from apps.lessons.models import Lesson, LessonSessionReport
 from apps.people.models import Person
 from apps.evangelism.models import (
     EvangelismGroup,
@@ -93,8 +95,27 @@ class EvangelismDashboardStatsTests(TestCase):
             last_name="InYear",
             role="MEMBER",
             status="ACTIVE",
+            date_first_invited=date(year, 1, 1),
+            date_first_attended=date(year, 2, 1),
             water_baptism_date=date(year, 4, 1),
             spirit_baptism_date=date(year, 4, 20),
+        )
+        lesson = Lesson.objects.create(
+            code="dash-l1",
+            version_label="v1",
+            title="Dash Lesson",
+            order=1,
+            is_latest=True,
+            is_active=True,
+        )
+        LessonSessionReport.objects.create(
+            teacher=self.inviter,
+            student=reached_in_year,
+            lesson=lesson,
+            session_date=date(year, 3, 1),
+            session_start=timezone.make_aware(
+                datetime.combine(date(year, 3, 1), datetime.min.time())
+            ),
         )
 
         Person.objects.create_user(

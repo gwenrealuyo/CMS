@@ -87,7 +87,9 @@ export default function ConversionForm({
     spirit_baptism_date: initialData?.spirit_baptism_date
       ? new Date(initialData.spirit_baptism_date).toISOString().split("T")[0]
       : "",
-    lesson_start_date: "",
+    lesson_start_date: initialData?.lesson_start_date
+      ? isoDateInputValue(initialData.lesson_start_date)
+      : "",
     date_first_invited: initialDateFirstInvited(initialData),
     date_first_attended: initialDateFirstAttended(initialData),
     notes: initialData?.notes || "",
@@ -273,6 +275,11 @@ export default function ConversionForm({
           />
         </div>
       </div>
+
+      <p className="text-xs text-gray-500">
+        Reached status requires first invited, first attended, at least one NCC
+        lesson session (not lesson start date alone), and both baptism dates.
+      </p>
 
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700">Notes</label>

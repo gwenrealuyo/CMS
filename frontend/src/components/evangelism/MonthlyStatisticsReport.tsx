@@ -66,6 +66,13 @@ export default function MonthlyStatisticsReport({
                 ),
               },
               {
+                header: "NCC",
+                accessor: "taken_ncc_count" as keyof MonthlyStatistics,
+                render: (value) => (
+                  <span className="text-sm text-gray-700">{value || 0}</span>
+                ),
+              },
+              {
                 header: "Baptized",
                 accessor: "baptized_count" as keyof MonthlyStatistics,
                 render: (value) => (
@@ -80,7 +87,7 @@ export default function MonthlyStatisticsReport({
                 ),
               },
               {
-                header: "Converted",
+                header: "Reached",
                 accessor: "converted_count" as keyof MonthlyStatistics,
                 render: (value) => (
                   <span className="text-sm text-gray-700">{value || 0}</span>

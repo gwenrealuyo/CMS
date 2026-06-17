@@ -4,6 +4,7 @@ Usage: python manage.py populate_evangelism_data
 """
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 from apps.evangelism.models import (
     EvangelismGroup,
     EvangelismSession,
@@ -15,6 +16,8 @@ from apps.evangelism.models import (
     DropOff,
     EvangelismWeeklyReport,
 )
+from apps.evangelism.services import sync_conversion_pipeline
+from apps.lessons.models import Lesson, LessonSessionReport
 from apps.people.models import Person, ModuleCoordinator
 from apps.clusters.models import Cluster
 from datetime import datetime, timedelta, date
@@ -60,6 +63,11 @@ class Command(BaseCommand):
 
         if clear_existing:
             self.stdout.write("Clearing existing evangelism data...")
+            visitor_ids = list(
+                Prospect.objects.exclude(person_id__isnull=True).values_list(
+                    "person_id", flat=True
+                )
+            )
             DropOff.objects.all().delete()
             FollowUpTask.objects.all().delete()
             MonthlyConversionTracking.objects.all().delete()
@@ -69,6 +77,9 @@ class Command(BaseCommand):
             EvangelismSession.objects.all().delete()
             Each1Reach1Goal.objects.all().delete()
             EvangelismGroup.objects.all().delete()
+            if visitor_ids:
+                LessonSessionReport.objects.filter(student_id__in=visitor_ids).delete()
+                Person.objects.filter(id__in=visitor_ids, role="VISITOR").delete()
 
         # Check if we have people and clusters (exclude ADMIN users)
         people = list(Person.objects.exclude(role="ADMIN"))
@@ -214,6 +225,96 @@ class Command(BaseCommand):
             self.style.SUCCESS(f"✓ Created {total_sessions} evangelism sessions")
         )
 
+        sample_lessons = []
+        for lesson_order in range(1, 4):
+            lesson, _ = Lesson.objects.get_or_create(
+                code=f"sample-ncc-{lesson_order}",
+                version_label="v1",
+                defaults={
+                    "title": f"Sample NCC Lesson {lesson_order}",
+                    "order": lesson_order,
+                    "is_latest": True,
+                    "is_active": True,
+                },
+            )
+            sample_lessons.append(lesson)
+
+        pipeline_stages = [
+            Prospect.PipelineStage.INVITED,
+            Prospect.PipelineStage.ATTENDED,
+            Prospect.PipelineStage.TAKEN_NCC,
+            Prospect.PipelineStage.BAPTIZED,
+            Prospect.PipelineStage.RECEIVED_HG,
+            Prospect.PipelineStage.REACHED,
+        ]
+        stage_weights = [0.25, 0.25, 0.2, 0.12, 0.1, 0.08]
+
+        def stage_index(stage):
+            return pipeline_stages.index(stage)
+
+        def apply_person_milestones(person, prospect, target_stage):
+            first_invited = prospect.date_first_invited
+            person.date_first_invited = first_invited
+            person.status = "INVITED"
+            fields = ["date_first_invited", "status"]
+
+            if stage_index(target_stage) >= stage_index(Prospect.PipelineStage.ATTENDED):
+                attended_date = first_invited + timedelta(
+                    days=random.randint(7, 30)
+                )
+                person.date_first_attended = attended_date
+                person.status = "ATTENDED"
+                fields.extend(["date_first_attended", "status"])
+
+            if stage_index(target_stage) >= stage_index(
+                Prospect.PipelineStage.BAPTIZED
+            ):
+                baptized_date = (person.date_first_attended or first_invited) + timedelta(
+                    days=random.randint(14, 60)
+                )
+                person.water_baptism_date = baptized_date
+                fields.append("water_baptism_date")
+
+            if stage_index(target_stage) >= stage_index(
+                Prospect.PipelineStage.RECEIVED_HG
+            ):
+                spirit_date = (person.water_baptism_date or first_invited) + timedelta(
+                    days=random.randint(7, 45)
+                )
+                person.spirit_baptism_date = spirit_date
+                fields.append("spirit_baptism_date")
+
+            person.save(update_fields=fields)
+            prospect.last_activity_date = max(
+                filter(
+                    None,
+                    [
+                        person.date_first_invited,
+                        person.date_first_attended,
+                        person.water_baptism_date,
+                        person.spirit_baptism_date,
+                    ],
+                ),
+                default=first_invited,
+            )
+
+        def ensure_ncc_session(person, prospect, teacher):
+            if LessonSessionReport.objects.filter(student=person).exists():
+                return person.date_first_attended or prospect.date_first_invited
+            session_date = (person.date_first_attended or prospect.date_first_invited) + timedelta(
+                days=random.randint(3, 21)
+            )
+            LessonSessionReport.objects.create(
+                teacher=teacher,
+                student=person,
+                lesson=random.choice(sample_lessons),
+                session_date=session_date,
+                session_start=timezone.make_aware(
+                    datetime.combine(session_date, datetime.min.time())
+                ),
+            )
+            return session_date
+
         # Create Prospects
         prospect_names = [
             "John Smith", "Mary Johnson", "David Brown", "Sarah Williams",
@@ -224,14 +325,6 @@ class Command(BaseCommand):
             "Mark Rodriguez", "Samantha Lewis", "Donald Walker", "Brittany Hall",
             "Steven Young", "Rachel Allen", "Paul King", "Megan Wright",
             "Andrew Lopez", "Kayla Hill",
-        ]
-
-        pipeline_stages = [
-            Prospect.PipelineStage.INVITED,
-            Prospect.PipelineStage.ATTENDED,
-            Prospect.PipelineStage.BAPTIZED,
-            Prospect.PipelineStage.RECEIVED_HG,
-            Prospect.PipelineStage.CONVERTED,
         ]
 
         prospects = []
@@ -265,14 +358,17 @@ class Command(BaseCommand):
             group = random.choice(groups) if groups else None
 
             # Determine pipeline stage (weighted towards earlier stages)
-            stage_weights = [0.3, 0.3, 0.2, 0.15, 0.05]  # More INVITED and ATTENDED
             stage = random.choices(pipeline_stages, weights=stage_weights)[0]
 
-            # Set dates based on stage
             first_invited = today - timedelta(days=random.randint(7, 180))
             last_activity = first_invited + timedelta(days=random.randint(0, 30))
+            at_or_past_ncc = stage_index(stage) >= stage_index(
+                Prospect.PipelineStage.TAKEN_NCC
+            )
+            at_or_past_baptized = stage_index(stage) >= stage_index(
+                Prospect.PipelineStage.BAPTIZED
+            )
 
-            # Create prospect
             prospect = Prospect(
                 first_name=first_name,
                 middle_name=middle_name,
@@ -284,29 +380,15 @@ class Command(BaseCommand):
                 invited_by=inviter,
                 inviter_cluster=inviter_cluster,
                 evangelism_group=group,
-                pipeline_stage=stage,
+                pipeline_stage=Prospect.PipelineStage.INVITED,
                 date_first_invited=first_invited,
                 last_activity_date=last_activity,
-                is_attending_cluster=stage in [
-                    Prospect.PipelineStage.ATTENDED,
-                    Prospect.PipelineStage.BAPTIZED,
-                    Prospect.PipelineStage.RECEIVED_HG,
-                    Prospect.PipelineStage.CONVERTED,
-                ],
-                has_finished_lessons=stage in [
-                    Prospect.PipelineStage.BAPTIZED,
-                    Prospect.PipelineStage.RECEIVED_HG,
-                    Prospect.PipelineStage.CONVERTED,
-                ],
-                commitment_form_signed=stage in [
-                    Prospect.PipelineStage.BAPTIZED,
-                    Prospect.PipelineStage.RECEIVED_HG,
-                    Prospect.PipelineStage.CONVERTED,
-                ],
+                is_attending_cluster=stage != Prospect.PipelineStage.INVITED,
+                has_finished_lessons=at_or_past_baptized,
+                commitment_form_signed=at_or_past_baptized and random.random() > 0.3,
                 notes=f"Prospect notes for {name}",
             )
 
-            # If ATTENDED or later, create a Person record with a unique username
             if stage != Prospect.PipelineStage.INVITED:
                 uname = f"visitor_p{i}_{random.randint(10000, 99999)}"[:150]
                 person = Person.objects.create(
@@ -320,12 +402,20 @@ class Command(BaseCommand):
                     first_login=True,
                 )
                 person.set_unusable_password()
-                person.save()
-                prospect.person = person
                 if inviter:
                     person.inviter = inviter
-                    person.save()
+                person.save()
+                prospect.person = person
+                apply_person_milestones(person, prospect, stage)
 
+                if at_or_past_ncc:
+                    ncc_date = ensure_ncc_session(person, prospect, inviter)
+                    prospect.last_activity_date = max(
+                        prospect.last_activity_date or first_invited,
+                        ncc_date,
+                    )
+
+            prospect.pipeline_stage = stage
             prospect.save()
             prospects.append(prospect)
 
@@ -333,52 +423,45 @@ class Command(BaseCommand):
 
         # Create Conversions
         converted_prospects = [
-            p for p in prospects
-            if p.pipeline_stage in [
-                Prospect.PipelineStage.BAPTIZED,
-                Prospect.PipelineStage.RECEIVED_HG,
-                Prospect.PipelineStage.CONVERTED,
-            ]
+            p
+            for p in prospects
+            if stage_index(p.pipeline_stage)
+            >= stage_index(Prospect.PipelineStage.BAPTIZED)
             and p.person
         ]
 
         conversions = []
-        for prospect in converted_prospects[:min(10, len(converted_prospects))]:
-            conversion_date = prospect.date_first_invited + timedelta(
+        for prospect in converted_prospects[: min(10, len(converted_prospects))]:
+            person = prospect.person
+            conversion_date = (person.date_first_attended or prospect.date_first_invited) + timedelta(
                 days=random.randint(30, 120)
             )
-
-            # Determine if water and spirit baptism happened
-            has_water = prospect.pipeline_stage in [
-                Prospect.PipelineStage.BAPTIZED,
-                Prospect.PipelineStage.RECEIVED_HG,
-                Prospect.PipelineStage.CONVERTED,
-            ]
-            has_spirit = prospect.pipeline_stage in [
-                Prospect.PipelineStage.RECEIVED_HG,
-                Prospect.PipelineStage.CONVERTED,
-            ]
-
-            water_date = conversion_date + timedelta(days=random.randint(0, 14)) if has_water else None
-            spirit_date = (
-                (water_date or conversion_date) + timedelta(days=random.randint(0, 30))
-                if has_spirit
-                else None
+            ncc_session = (
+                LessonSessionReport.objects.filter(student=person)
+                .order_by("session_date")
+                .first()
             )
+            lesson_start_date = ncc_session.session_date if ncc_session else None
 
             conversion = Conversion(
-                person=prospect.person,
+                person=person,
                 prospect=prospect,
                 converted_by=prospect.invited_by,
                 evangelism_group=prospect.evangelism_group,
                 cluster=prospect.inviter_cluster,
                 conversion_date=conversion_date,
-                water_baptism_date=water_date,
-                spirit_baptism_date=spirit_date,
-                is_complete=has_water and has_spirit,
+                lesson_start_date=lesson_start_date,
+                water_baptism_date=person.water_baptism_date,
+                spirit_baptism_date=person.spirit_baptism_date,
                 notes=f"Conversion notes for {prospect.display_name}",
             )
             conversion.save()
+            sync_conversion_pipeline(
+                conversion,
+                date_first_invited=person.date_first_invited,
+                date_first_attended=person.date_first_attended,
+                lesson_start_date=lesson_start_date,
+            )
             conversions.append(conversion)
 
         self.stdout.write(self.style.SUCCESS(f"✓ Created {len(conversions)} conversions"))
@@ -406,15 +489,24 @@ class Command(BaseCommand):
                     stage = MonthlyConversionTracking.Stage.INVITED
                 elif months_since_contact == 1:
                     stage = MonthlyConversionTracking.Stage.ATTENDED
-                elif months_since_contact >= 2:
-                    if prospect.pipeline_stage in [
-                        Prospect.PipelineStage.BAPTIZED,
-                        Prospect.PipelineStage.RECEIVED_HG,
-                        Prospect.PipelineStage.CONVERTED,
-                    ]:
-                        stage = MonthlyConversionTracking.Stage.BAPTIZED
+                elif months_since_contact == 2:
+                    stage = MonthlyConversionTracking.Stage.TAKEN_NCC
+                elif months_since_contact >= 3:
+                    if stage_index(prospect.pipeline_stage) >= stage_index(
+                        Prospect.PipelineStage.BAPTIZED
+                    ):
+                        if stage_index(prospect.pipeline_stage) >= stage_index(
+                            Prospect.PipelineStage.REACHED
+                        ):
+                            stage = MonthlyConversionTracking.Stage.REACHED
+                        elif stage_index(prospect.pipeline_stage) >= stage_index(
+                            Prospect.PipelineStage.RECEIVED_HG
+                        ):
+                            stage = MonthlyConversionTracking.Stage.RECEIVED_HG
+                        else:
+                            stage = MonthlyConversionTracking.Stage.BAPTIZED
                     else:
-                        stage = MonthlyConversionTracking.Stage.ATTENDED
+                        stage = MonthlyConversionTracking.Stage.TAKEN_NCC
                 else:
                     continue
 
@@ -513,7 +605,7 @@ class Command(BaseCommand):
         # Create Drop-offs
         drop_off_prospects = prospects[:min(5, len(prospects))]
         for prospect in drop_off_prospects:
-            if prospect.pipeline_stage == Prospect.PipelineStage.CONVERTED:
+            if prospect.pipeline_stage == Prospect.PipelineStage.REACHED:
                 continue
 
             last_touch = prospect.last_activity_date or prospect.date_first_invited or today
@@ -634,6 +726,9 @@ class Command(BaseCommand):
         self.stdout.write(f"  • Sessions: {EvangelismSession.objects.count()}")
         self.stdout.write(f"  • Prospects: {Prospect.objects.count()}")
         self.stdout.write(f"  • Conversions: {Conversion.objects.count()}")
+        self.stdout.write(
+            f"  • NCC lesson sessions: {LessonSessionReport.objects.count()}"
+        )
         self.stdout.write(f"  • Monthly Tracking: {MonthlyConversionTracking.objects.count()}")
         self.stdout.write(f"  • Each 1 Reach 1 Goals: {Each1Reach1Goal.objects.count()}")
         self.stdout.write(f"  • Follow-up Tasks: {FollowUpTask.objects.count()}")

@@ -563,6 +563,12 @@ class ConversionSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    date_first_invited = serializers.DateField(
+        required=False, allow_null=True, write_only=True
+    )
+    date_first_attended = serializers.DateField(
+        required=False, allow_null=True, write_only=True
+    )
 
     class Meta:
         model = Conversion
@@ -579,6 +585,9 @@ class ConversionSerializer(serializers.ModelSerializer):
             "cluster",
             "cluster_id",
             "conversion_date",
+            "date_first_invited",
+            "date_first_attended",
+            "lesson_start_date",
             "water_baptism_date",
             "spirit_baptism_date",
             "is_complete",
@@ -588,7 +597,7 @@ class ConversionSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("created_at", "updated_at")
+        read_only_fields = ("created_at", "updated_at", "is_complete")
         extra_kwargs = {
             "conversion_date": {"required": False, "allow_null": True}
         }

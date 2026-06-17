@@ -218,7 +218,7 @@ export type V2bPipelineStage =
   | "TAKEN_NCC"
   | "BAPTIZED"
   | "RECEIVED_HG"
-  | "CONVERTED";
+  | "REACHED";
 
 export interface V2bFunnelStage {
   stage: V2bPipelineStage;

@@ -70,6 +70,10 @@ from .services import (
     check_lesson_completion,
     update_person_baptism_dates,
     update_each1reach1_goal,
+    sync_conversion_pipeline,
+    advance_prospect_to_taken_ncc,
+    annotate_people_reached_date,
+    people_meeting_reached_milestones,
     get_default_each1reach1_target,
     calculate_conversion_rate,
     get_group_statistics,
@@ -1011,15 +1015,8 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 spirit_baptism_date__month=month,
             ).count()
             reached_count = (
-                base_qs.filter(
-                    water_baptism_date__isnull=False,
-                    spirit_baptism_date__isnull=False,
-                )
-                .annotate(
-                    reached_date=Greatest(
-                        "water_baptism_date",
-                        "spirit_baptism_date",
-                    )
+                annotate_people_reached_date(
+                    people_meeting_reached_milestones(base_qs)
                 )
                 .filter(
                     reached_date__year=year_int,
@@ -1225,7 +1222,9 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 else:
                     student_qs = student_qs.none()
 
-            student_prospects = student_qs.select_related("person").order_by("person_id", "id")
+            student_prospects = student_qs.select_related("person").order_by(
+                "person_id", "id"
+            )
             unique_prospects = []
             seen_person_ids = set()
             for prospect in student_prospects:
@@ -1233,6 +1232,11 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     continue
                 seen_person_ids.add(prospect.person_id)
                 unique_prospects.append(prospect)
+                advance_prospect_to_taken_ncc(
+                    prospect.person,
+                    activity_date=student_dates.get(prospect.person_id),
+                )
+                prospect.refresh_from_db()
             rows = self._serialize_prospect_rows(
                 unique_prospects, metric, date_map_by_person_id=student_dates
             )
@@ -1256,15 +1260,8 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             )
         else:
             rows = self._serialize_people_rows(
-                base_people.filter(
-                    water_baptism_date__isnull=False,
-                    spirit_baptism_date__isnull=False,
-                )
-                .annotate(
-                    reached_date=Greatest(
-                        "water_baptism_date",
-                        "spirit_baptism_date",
-                    )
+                annotate_people_reached_date(
+                    people_meeting_reached_milestones(base_people)
                 )
                 .filter(
                     reached_date__year=year_int,
@@ -1476,12 +1473,13 @@ class ProspectViewSet(viewsets.ModelViewSet):
             if fields_to_update:
                 person.save(update_fields=fields_to_update)
 
-        # Update monthly tracking if stage changed
         if pipeline_stage and pipeline_stage in [
             Prospect.PipelineStage.INVITED,
             Prospect.PipelineStage.ATTENDED,
+            Prospect.PipelineStage.TAKEN_NCC,
             Prospect.PipelineStage.BAPTIZED,
             Prospect.PipelineStage.RECEIVED_HG,
+            Prospect.PipelineStage.REACHED,
         ]:
             cluster = prospect.inviter_cluster or prospect.endorsed_cluster
             if cluster:
@@ -1763,7 +1761,9 @@ class ConversionViewSet(viewsets.ModelViewSet):
     ordering = ("-conversion_date",)
 
     def perform_create(self, serializer):
-        """Auto-update Person's baptism dates and prospect pipeline stage."""
+        """Auto-update person milestones, prospect pipeline, and conversion completion."""
+        date_first_invited = serializer.validated_data.pop("date_first_invited", None)
+        date_first_attended = serializer.validated_data.pop("date_first_attended", None)
         conversion = serializer.save()
         updates = []
         if not conversion.converted_by_id:
@@ -1773,75 +1773,39 @@ class ConversionViewSet(viewsets.ModelViewSet):
             conversion.conversion_date = (
                 conversion.water_baptism_date
                 or conversion.spirit_baptism_date
+                or conversion.lesson_start_date
                 or timezone.now().date()
             )
             updates.append("conversion_date")
         if updates:
             conversion.save(update_fields=updates)
 
-        # Validate lesson completion if baptized
         if conversion.water_baptism_date or conversion.spirit_baptism_date:
-            if conversion.prospect:
-                if not check_lesson_completion(conversion.prospect):
-                    raise ValidationError(
-                        "Prospect must complete lessons before baptism."
-                    )
-
-        # Update Person's baptism dates
-        update_person_baptism_dates(conversion, conversion.notes or None)
-
-        # Update prospect pipeline stage
-        if conversion.prospect:
-            if conversion.water_baptism_date:
-                conversion.prospect.pipeline_stage = Prospect.PipelineStage.BAPTIZED
-                conversion.prospect.save()
-                # Update monthly tracking
-                cluster = (
-                    conversion.cluster
-                    or conversion.prospect.inviter_cluster
-                    or conversion.prospect.endorsed_cluster
+            if conversion.prospect and not check_lesson_completion(conversion.prospect):
+                raise ValidationError(
+                    "Prospect must complete lessons before baptism."
                 )
-                if cluster:
-                    update_monthly_tracking(
-                        conversion.prospect,
-                        MonthlyConversionTracking.Stage.BAPTIZED,
-                        cluster,
-                        conversion.water_baptism_date,
-                    )
 
-            if conversion.spirit_baptism_date:
-                conversion.prospect.pipeline_stage = Prospect.PipelineStage.RECEIVED_HG
-                conversion.prospect.save()
-                # Update monthly tracking
-                cluster = (
-                    conversion.cluster
-                    or conversion.prospect.inviter_cluster
-                    or conversion.prospect.endorsed_cluster
-                )
-                if cluster:
-                    update_monthly_tracking(
-                        conversion.prospect,
-                        MonthlyConversionTracking.Stage.RECEIVED_HG,
-                        cluster,
-                        conversion.spirit_baptism_date,
-                    )
-
-            # Check if both completed
-            if conversion.is_complete:
-                conversion.prospect.pipeline_stage = Prospect.PipelineStage.CONVERTED
-                conversion.prospect.save()
-
-        # Update Each1Reach1Goal
-        if conversion.is_complete:
-            update_each1reach1_goal(conversion)
+        sync_conversion_pipeline(
+            conversion,
+            date_first_invited=date_first_invited,
+            date_first_attended=date_first_attended,
+            lesson_start_date=conversion.lesson_start_date,
+        )
 
     def perform_update(self, serializer):
-        """Update Person's baptism dates and prospect pipeline stage."""
+        """Update person milestones, prospect pipeline, and conversion completion."""
+        date_first_invited = serializer.validated_data.pop("date_first_invited", None)
+        date_first_attended = serializer.validated_data.pop("date_first_attended", None)
+        lesson_start_date = serializer.validated_data.get("lesson_start_date")
+        serializer.validated_data.pop("is_complete", None)
         conversion = serializer.save()
-        update_person_baptism_dates(conversion, conversion.notes or None)
-
-        if conversion.is_complete:
-            update_each1reach1_goal(conversion)
+        sync_conversion_pipeline(
+            conversion,
+            date_first_invited=date_first_invited,
+            date_first_attended=date_first_attended,
+            lesson_start_date=lesson_start_date,
+        )
 
 
 class MonthlyConversionTrackingViewSet(viewsets.ModelViewSet):

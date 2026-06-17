@@ -150,9 +150,10 @@ class Prospect(models.Model):
     class PipelineStage(models.TextChoices):
         INVITED = "INVITED", "Invited"
         ATTENDED = "ATTENDED", "Attended"
+        TAKEN_NCC = "TAKEN_NCC", "Taken NCC"
         BAPTIZED = "BAPTIZED", "Baptized"
         RECEIVED_HG = "RECEIVED_HG", "Received Holy Ghost"
-        CONVERTED = "CONVERTED", "Converted"
+        REACHED = "REACHED", "Reached"
 
     first_name = models.CharField(max_length=150)
     middle_name = models.CharField(max_length=150, blank=True)
@@ -372,6 +373,7 @@ class Conversion(models.Model):
     conversion_date = models.DateField()
     water_baptism_date = models.DateField(null=True, blank=True)
     spirit_baptism_date = models.DateField(null=True, blank=True)
+    lesson_start_date = models.DateField(null=True, blank=True)
     is_complete = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
     verified_by = models.ForeignKey(
@@ -397,8 +399,10 @@ class MonthlyConversionTracking(models.Model):
     class Stage(models.TextChoices):
         INVITED = "INVITED", "Invited"
         ATTENDED = "ATTENDED", "Attended"
+        TAKEN_NCC = "TAKEN_NCC", "Taken NCC"
         BAPTIZED = "BAPTIZED", "Baptized"
         RECEIVED_HG = "RECEIVED_HG", "Received Holy Ghost"
+        REACHED = "REACHED", "Reached"
 
     cluster = models.ForeignKey(
         "clusters.Cluster",

@@ -126,7 +126,13 @@ export interface EvangelismTallyDrilldownRow {
   metric: EvangelismTallyDrilldownMetric;
 }
 
-export type PipelineStage = "INVITED" | "ATTENDED" | "BAPTIZED" | "RECEIVED_HG" | "CONVERTED";
+export type PipelineStage =
+  | "INVITED"
+  | "ATTENDED"
+  | "TAKEN_NCC"
+  | "BAPTIZED"
+  | "RECEIVED_HG"
+  | "REACHED";
 
 export interface Prospect {
   id: string;
@@ -221,6 +227,7 @@ export interface Conversion {
   cluster?: Cluster;
   cluster_id?: string;
   conversion_date: string;
+  lesson_start_date?: string;
   water_baptism_date?: string;
   spirit_baptism_date?: string;
   is_complete: boolean;
@@ -231,7 +238,13 @@ export interface Conversion {
   updated_at: string;
 }
 
-export type MonthlyTrackingStage = "INVITED" | "ATTENDED" | "BAPTIZED" | "RECEIVED_HG";
+export type MonthlyTrackingStage =
+  | "INVITED"
+  | "ATTENDED"
+  | "TAKEN_NCC"
+  | "BAPTIZED"
+  | "RECEIVED_HG"
+  | "REACHED";
 
 export interface MonthlyConversionTracking {
   id: string;

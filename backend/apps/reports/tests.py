@@ -597,7 +597,7 @@ class V2bSummaryTests(TestCase):
             last_name="Converted",
             invited_by=self.south_inviter,
             inviter_cluster=self.south_cluster,
-            pipeline_stage=Prospect.PipelineStage.CONVERTED,
+            pipeline_stage=Prospect.PipelineStage.REACHED,
             is_dropped_off=False,
         )
 

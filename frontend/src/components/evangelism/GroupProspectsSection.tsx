@@ -33,6 +33,9 @@ export default function GroupProspectsSection({
 
   const formatPipelineStage = (stage: string | undefined): string => {
     if (!stage) return "N/A";
+    if (stage === "TAKEN_NCC") return "NCC";
+    if (stage === "REACHED") return "Reached";
+    if (stage === "RECEIVED_HG") return "Received HG";
     return stage.replace("Received Holy Ghost", "Received HG");
   };
 

@@ -184,12 +184,12 @@ export default function TallyDrilldownModal({
                     )}
                     {formatDate(row.water_baptism_date) && (
                       <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                        Baptism Date: {formatDate(row.water_baptism_date)}
+                        Baptism {formatDate(row.water_baptism_date)}
                       </span>
                     )}
                     {formatDate(row.spirit_baptism_date) && (
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                        Received HG {formatDate(row.spirit_baptism_date)}
+                        Holy Ghost {formatDate(row.spirit_baptism_date)}
                       </span>
                     )}
                     {formatDate(row.reached_date) && (

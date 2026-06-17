@@ -666,50 +666,31 @@ export default function EvangelismPage() {
   };
 
   const handleCreateConversion = async (values: ConversionFormValues) => {
-    const date_first_invited = values.date_first_invited;
-    const date_first_attended = values.date_first_attended;
     try {
       setIsSubmitting(true);
       setFormError(null);
       const prospectMatch = prospects.find(
         (prospect) => prospect.person?.id === values.person_id,
       );
+      const invited = values.date_first_invited?.trim() ?? "";
+      const attended = values.date_first_attended?.trim() ?? "";
+      const lessonStart = values.lesson_start_date?.trim() ?? "";
       const conversionData = {
         person_id: values.person_id,
-        water_baptism_date: values.water_baptism_date,
-        spirit_baptism_date: values.spirit_baptism_date,
+        date_first_invited: invited || null,
+        date_first_attended: attended || null,
+        lesson_start_date: lessonStart || null,
+        water_baptism_date: values.water_baptism_date || null,
+        spirit_baptism_date: values.spirit_baptism_date || null,
         notes: values.notes,
         prospect_id: prospectMatch?.id,
         evangelism_group_id: viewEditGroup?.id
           ? String(viewEditGroup.id)
           : undefined,
       };
-      const createdConversion = await createConversion(conversionData);
-      const invited = date_first_invited?.trim() ?? "";
-      const attended = date_first_attended?.trim() ?? "";
-      const personIdStr = String(values.person_id);
-      const prospectSyncId =
-        createdConversion?.prospect?.id ?? prospectMatch?.id ?? undefined;
+      await createConversion(conversionData);
 
-      let dateSaveWarning: string | null = null;
-      try {
-        await peopleApi.patch(personIdStr, {
-          date_first_invited: invited || null,
-          date_first_attended: attended || null,
-        } as Partial<Person>);
-        if (prospectSyncId != null && String(prospectSyncId) !== "") {
-          await evangelismApi.patchProspect(prospectSyncId, {
-            date_first_invited: invited || null,
-          } as Partial<Prospect>);
-        }
-      } catch {
-        dateSaveWarning =
-          " Conversion was saved, but first invited / first attended could not be updated.";
-      }
-
-      setSuccessMessage(
-        `Conversion recorded successfully.${dateSaveWarning ?? ""}`,
-      );
+      setSuccessMessage("Conversion recorded successfully.");
       setIsConversionModalOpen(false);
       setEditingConversion(null);
       if (viewEditGroup) {
@@ -734,41 +715,21 @@ export default function EvangelismPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
+      const invited = values.date_first_invited?.trim() ?? "";
+      const attended = values.date_first_attended?.trim() ?? "";
+      const lessonStart = values.lesson_start_date?.trim() ?? "";
       const w = values.water_baptism_date?.trim() ?? "";
       const s = values.spirit_baptism_date?.trim() ?? "";
       await updateConversion(editingConversion.id, {
+        date_first_invited: invited || null,
+        date_first_attended: attended || null,
+        lesson_start_date: lessonStart || null,
         notes: values.notes ?? "",
         water_baptism_date: w ? w : null,
         spirit_baptism_date: s ? s : null,
-        is_complete: Boolean(w && s),
       } as Partial<Conversion>);
 
-      const invited = values.date_first_invited?.trim() ?? "";
-      const attended = values.date_first_attended?.trim() ?? "";
-      const personIdStr = personIdFromConversion(editingConversion);
-      const prospectSyncId = editingConversion.prospect?.id;
-
-      let dateSaveWarning: string | null = null;
-      try {
-        if (personIdStr) {
-          await peopleApi.patch(personIdStr, {
-            date_first_invited: invited || null,
-            date_first_attended: attended || null,
-          } as Partial<Person>);
-        }
-        if (prospectSyncId != null && String(prospectSyncId) !== "") {
-          await evangelismApi.patchProspect(prospectSyncId, {
-            date_first_invited: invited || null,
-          } as Partial<Prospect>);
-        }
-      } catch {
-        dateSaveWarning =
-          " Conversion was updated, but first invited / first attended could not be updated.";
-      }
-
-      setSuccessMessage(
-        `Conversion updated successfully.${dateSaveWarning ?? ""}`,
-      );
+      setSuccessMessage("Conversion updated successfully.");
       setIsConversionModalOpen(false);
       setEditingConversion(null);
       if (viewEditGroup) {
@@ -2498,6 +2459,10 @@ function UpdateProgressModalContent({
   const pipelineStages: { value: string; label: string }[] = [
     { value: "INVITED", label: "Invited" },
     { value: "ATTENDED", label: "Attended" },
+    { value: "TAKEN_NCC", label: "NCC" },
+    { value: "BAPTIZED", label: "Baptized" },
+    { value: "RECEIVED_HG", label: "Received HG" },
+    { value: "REACHED", label: "Reached" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {

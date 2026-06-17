@@ -6,6 +6,9 @@ class LessonsConfig(AppConfig):
     name = "apps.lessons"
     verbose_name = "Lessons"
 
+    def ready(self):
+        import apps.lessons.signals  # noqa: F401
+
 
 
 

@@ -7,6 +7,7 @@ import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import Button from "@/src/components/ui/Button";
 
 interface ViewEvangelismWeeklyReportModalProps {
@@ -96,21 +97,12 @@ export default function ViewEvangelismWeeklyReportModal({
   const groupTitle = report.evangelism_group?.name ?? "Evangelism group";
 
   function renderPersonCard(person: Person, variant: "member" | "visitor") {
-    const avatarBg =
-      variant === "member" ?
-        "bg-gradient-to-br from-green-400 to-emerald-500"
-      : "bg-gradient-to-br from-yellow-400 to-orange-500";
     return (
       <div
         key={person.id}
         className="flex items-center space-x-2 p-2 bg-gray-50 border border-gray-200 rounded-md cursor-default transition-colors hover:bg-gray-100"
       >
-        <div
-          className={`w-8 h-8 ${avatarBg} rounded-full flex items-center justify-center text-white text-xs font-semibold`}
-        >
-          {person.first_name?.[0] || ""}
-          {person.last_name?.[0] || ""}
-        </div>
+        <PersonAvatar person={person} size="sm" />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900 truncate text-sm">
             {formatPersonName(person) ||

@@ -8,6 +8,7 @@ import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import AdminResetPasswordModal from "@/src/components/people/AdminResetPasswordModal";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 
 interface PersonProfileProps {
@@ -53,6 +54,7 @@ export default function PersonProfile({
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(
     "overview"
   );
+
   const [journeys, setJourneys] = useState<Journey[]>(
     (person.journeys as Journey[]) || []
   );
@@ -519,10 +521,7 @@ export default function PersonProfile({
           {/* Profile Header Card */}
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
             <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-3">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-                {person.first_name?.[0]}
-                {person.last_name?.[0]}
-              </div>
+              <PersonAvatar person={person} size="lg" />
               <div className="flex-1 w-full sm:w-auto text-center sm:text-left">
                 <h2 className="text-lg font-semibold text-gray-900 break-words">
                   {person.first_name}

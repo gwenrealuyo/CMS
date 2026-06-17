@@ -28,7 +28,7 @@ export const usePeople = (enabled: boolean = true) => {
     }
   }, [enabled]);
 
-  const createPerson = async (personData: Partial<Person>) => {
+  const createPerson = async (personData: Partial<Person> | FormData) => {
     try {
       const response = await peopleApi.create(personData);
       setPeople((prev) => [...prev, response.data]);
@@ -38,7 +38,7 @@ export const usePeople = (enabled: boolean = true) => {
     }
   };
 
-  const updatePerson = async (id: string, personData: Partial<Person>) => {
+  const updatePerson = async (id: string, personData: Partial<Person> | FormData) => {
     try {
       const response = await peopleApi.update(id, personData);
       setPeople((prev) => prev.map((p) => (p.id === id ? response.data : p)));

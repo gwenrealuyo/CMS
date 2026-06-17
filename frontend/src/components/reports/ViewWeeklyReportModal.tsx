@@ -3,6 +3,7 @@ import { PersonUI, Person, Family } from "@/src/types/person";
 import { ClusterWeeklyReport } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import { familiesApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
@@ -313,10 +314,7 @@ export default function ViewWeeklyReportModal({
                             onClick={() => handlePersonClick(member as any)}
                             className="flex items-center space-x-2 p-2 bg-gray-50 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
                           >
-                            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                              {member.first_name?.[0] || ""}
-                              {member.last_name?.[0] || ""}
-                            </div>
+                            <PersonAvatar person={member} size="sm" />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-900 truncate text-sm">
                                 {formatPersonName(member)}
@@ -421,10 +419,7 @@ export default function ViewWeeklyReportModal({
                             onClick={() => handlePersonClick(visitor as any)}
                             className="flex items-center space-x-2 p-2 bg-gray-50 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
                           >
-                            <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                              {visitor.first_name?.[0] || ""}
-                              {visitor.last_name?.[0] || ""}
-                            </div>
+                            <PersonAvatar person={visitor} size="sm" />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-900 truncate text-sm">
                                 {formatPersonName(visitor)}

@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Ministry, MinistryMember, UserSummary } from "@/src/types/ministry";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface MinistryViewProps {
   ministry: Ministry;
@@ -237,10 +238,10 @@ export default function MinistryView({
               {ministry.primary_coordinator ? (
                 <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                      {ministry.primary_coordinator.first_name?.[0] || ""}
-                      {ministry.primary_coordinator.last_name?.[0] || ""}
-                    </div>
+                    <PersonAvatar
+                      person={ministry.primary_coordinator}
+                      size="md"
+                    />
                     <div>
                       <p className="text-sm font-medium text-gray-900">
                         {formatPersonName(ministry.primary_coordinator)}
@@ -273,10 +274,7 @@ export default function MinistryView({
                           onViewPerson && onViewPerson(coordinator)
                         }
                       >
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                          {coordinator.first_name?.[0] || ""}
-                          {coordinator.last_name?.[0] || ""}
-                        </div>
+                        <PersonAvatar person={coordinator} size="sm" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {formatPersonName(coordinator)}
@@ -451,16 +449,13 @@ export default function MinistryView({
                     }
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
-                          membership.is_active
-                            ? "bg-gradient-to-br from-green-400 to-emerald-500"
-                            : "bg-gradient-to-br from-gray-400 to-gray-500"
-                        }`}
-                      >
-                        {membership.member.first_name?.[0] || ""}
-                        {membership.member.last_name?.[0] || ""}
-                      </div>
+                      <PersonAvatar
+                        person={membership.member}
+                        size="md"
+                        className={
+                          membership.is_active ? "" : "opacity-60 grayscale"
+                        }
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
                           {formatPersonName(membership.member)}

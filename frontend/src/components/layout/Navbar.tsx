@@ -13,6 +13,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
 import NavbarQuickActions from "./NavbarQuickActions";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 export default function Navbar() {
   const [showProfile, setShowProfile] = useState(false);
@@ -102,11 +103,15 @@ export default function Navbar() {
               className="flex items-center space-x-2 md:space-x-3 p-2 rounded-lg hover:bg-muted min-h-[44px]"
               aria-label="User menu"
             >
-              {user?.photo ? (
-                <img
-                  src={user.photo}
-                  alt={displayName}
-                  className="h-8 w-8 rounded-full object-cover"
+              {user ? (
+                <PersonAvatar
+                  person={{
+                    id: user.id,
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    photo: user.photo,
+                  }}
+                  size="sm"
                 />
               ) : (
                 <UserCircleIcon className="h-8 w-8 text-muted-foreground" />

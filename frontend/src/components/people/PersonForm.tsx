@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { Person, JourneyType } from "@/src/types/person";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
-import { journeysApi } from "@/src/lib/api";
+import { journeysApi, personDataToFormData } from "@/src/lib/api";
 import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import toast from "react-hot-toast";
@@ -34,7 +34,7 @@ const formatJourneyTypeLabel = (type: JourneyType) =>
     .join(" ");
 
 interface PersonFormProps {
-  onSubmit: (data: Partial<Person>) => Promise<Person | void>;
+  onSubmit: (data: Partial<Person> | FormData) => Promise<Person | void>;
   onClose: () => void;
   onBackToProfile?: () => void;
   onJourneySaved?: (personId: string) => Promise<void> | void;
@@ -117,6 +117,7 @@ export default function PersonForm({
     isAdmin && isCreating && formData.role !== "VISITOR";
 
   const [loading, setLoading] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { branches, getBranches } = useBranches();
 
@@ -300,12 +301,8 @@ export default function PersonForm({
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, photo: reader.result as string }));
-        setHasUnsavedChanges(true);
-      };
-      reader.readAsDataURL(file);
+      setPhotoFile(file);
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -595,7 +592,8 @@ export default function PersonForm({
     // Extract journeys from formData before submitting person
     const journeys = formData.journeys || [];
     const personData = { ...formData };
-    delete personData.journeys; // Remove journeys from person data
+    delete personData.journeys;
+    delete personData.photo;
 
     if (showLoginAccess) {
       if (autoGeneratePassword) {
@@ -606,11 +604,15 @@ export default function PersonForm({
       }
     }
 
+    const submitData = photoFile
+      ? personDataToFormData(personData, photoFile)
+      : personData;
+
     // Submit person data first
     let result: Person | void;
     try {
       setLoading(true);
-      result = await onSubmit(personData);
+      result = await onSubmit(submitData);
 
       // If person was created/updated successfully and we have new journeys, save only new/changed ones
       if (result && typeof result === "object" && "id" in result) {
@@ -653,6 +655,7 @@ export default function PersonForm({
         }
       }
       setHasUnsavedChanges(false);
+      setPhotoFile(null);
     } catch (error: any) {
       console.error("Failed to save person:", error);
       toast.error(

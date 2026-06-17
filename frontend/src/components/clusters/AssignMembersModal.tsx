@@ -5,6 +5,7 @@ import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import Button from "@/src/components/ui/Button";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface AssignMembersModalProps {
   cluster: Cluster;
@@ -46,12 +47,12 @@ export default function AssignMembersModal({
     const searchLower = memberSearch.toLowerCase();
     return selectablePeople.filter((person) => {
       const fullName = formatPersonName(person).toLowerCase();
-      const email = person.email?.toLowerCase() || "";
-      const memberId = person.member_id?.toLowerCase() || "";
+      const username = person.username?.toLowerCase() ?? "";
+      const memberId = person.member_id?.toLowerCase() ?? "";
 
       return (
         fullName.includes(searchLower) ||
-        email.includes(searchLower) ||
+        username.includes(searchLower) ||
         memberId.includes(searchLower)
       );
     });
@@ -103,10 +104,6 @@ export default function AssignMembersModal({
     } finally {
       setLoading(false);
     }
-  };
-
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
 
   const getStatusColor = (status: string) => {
@@ -180,7 +177,7 @@ export default function AssignMembersModal({
                   setShowMemberDropdown(true);
                 }}
                 onFocus={() => setShowMemberDropdown(true)}
-                placeholder="Search by name, email, or member ID..."
+                placeholder="Search by name, username, or LAMP ID..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
               />
 
@@ -198,9 +195,7 @@ export default function AssignMembersModal({
                           : ""
                       }`}
                     >
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                        {getInitials(person.first_name, person.last_name)}
-                      </div>
+                      <PersonAvatar person={person} size="sm" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate">
                           {formatPersonName(person)}
@@ -261,9 +256,7 @@ export default function AssignMembersModal({
                     key={member.id}
                     className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg"
                   >
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                      {getInitials(member.first_name, member.last_name)}
-                    </div>
+                    <PersonAvatar person={member} size="md" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">
                         {formatPersonName(member)}

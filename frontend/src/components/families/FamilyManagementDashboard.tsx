@@ -18,6 +18,7 @@ import { FilterCondition } from "../people/FilterBar";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { branchesApi } from "@/src/lib/api";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
@@ -115,9 +116,7 @@ export default function FamilyManagementDashboard({
       return;
     }
     if (user.branch != null && user.branch !== undefined) {
-      setBranchFilterId((prev) =>
-        prev === "" ? String(user.branch) : prev,
-      );
+      setBranchFilterId((prev) => (prev === "" ? String(user.branch) : prev));
     }
   }, [user]);
 
@@ -165,12 +164,7 @@ export default function FamilyManagementDashboard({
     }
     const opt = branchPickerOptions.find((o) => o.value === branchFilterId);
     return opt?.label ?? `Branch #${branchFilterId}`;
-  }, [
-    branchFilterId,
-    user?.branch,
-    user?.branch_name,
-    branchPickerOptions,
-  ]);
+  }, [branchFilterId, user?.branch, user?.branch_name, branchPickerOptions]);
 
   const familyReadonlyBranchSelectOptions = useMemo(() => {
     if (branchFilterId) {
@@ -199,10 +193,9 @@ export default function FamilyManagementDashboard({
       branchesLoading && canChangeFamilyBranchFilter ? (
         <option value="">Loading…</option>
       ) : (
-        (
-          canChangeFamilyBranchFilter
-            ? familyEditableBranchSelectOptions
-            : familyReadonlyBranchSelectOptions
+        (canChangeFamilyBranchFilter
+          ? familyEditableBranchSelectOptions
+          : familyReadonlyBranchSelectOptions
         ).map((opt) => (
           <option
             key={opt.value === "" ? "__family_branch__" : opt.value}
@@ -267,12 +260,11 @@ export default function FamilyManagementDashboard({
   // Get unassigned members (people not in any family)
   const unassignedMembers = useMemo(() => {
     const assignedMemberIds = new Set(
-      families.flatMap((family) => family.members)
+      families.flatMap((family) => family.members),
     );
     return people.filter(
       (person) =>
-        !assignedMemberIds.has(person.id) &&
-        isSelectablePerson(person)
+        !assignedMemberIds.has(person.id) && isSelectablePerson(person),
     );
   }, [families, people]);
 
@@ -281,13 +273,13 @@ export default function FamilyManagementDashboard({
     if (!unassignedSearch.trim()) return unassignedMembers;
     const q = unassignedSearch.toLowerCase();
     return unassignedMembers.filter((p) =>
-      `${p.first_name ?? ""} ${p.last_name ?? ""}`.toLowerCase().includes(q)
+      `${p.first_name ?? ""} ${p.last_name ?? ""}`.toLowerCase().includes(q),
     );
   }, [unassignedMembers, unassignedSearch]);
 
   const totalUnassignedPages = Math.max(
     1,
-    Math.ceil(filteredUnassignedMembers.length / UNASSIGNED_PAGE_SIZE)
+    Math.ceil(filteredUnassignedMembers.length / UNASSIGNED_PAGE_SIZE),
   );
 
   const visibleUnassignedMembers = useMemo(() => {
@@ -302,7 +294,7 @@ export default function FamilyManagementDashboard({
     // Text search on name
     if (searchQuery) {
       result = result.filter((family) =>
-        family.name.toLowerCase().includes(searchQuery.toLowerCase())
+        family.name.toLowerCase().includes(searchQuery.toLowerCase()),
       );
     }
 
@@ -349,7 +341,7 @@ export default function FamilyManagementDashboard({
             const minNum = parseInt(min);
             const maxNum = parseInt(max);
             result = result.filter(
-              (f) => count(f) >= minNum && count(f) <= maxNum
+              (f) => count(f) >= minNum && count(f) <= maxNum,
             );
           } else {
             const num = parseInt(String(filter.value));
@@ -383,7 +375,7 @@ export default function FamilyManagementDashboard({
             const minNum = parseInt(min);
             const maxNum = parseInt(max);
             result = result.filter(
-              (f) => countVisitors(f) >= minNum && countVisitors(f) <= maxNum
+              (f) => countVisitors(f) >= minNum && countVisitors(f) <= maxNum,
             );
           } else {
             const num = parseInt(String(filter.value));
@@ -458,7 +450,7 @@ export default function FamilyManagementDashboard({
   // Paginate families
   const totalFamilyPages = Math.max(
     1,
-    Math.ceil(sortedFamilies.length / FAMILY_PAGE_SIZE)
+    Math.ceil(sortedFamilies.length / FAMILY_PAGE_SIZE),
   );
 
   const visibleFamilies = useMemo(() => {
@@ -491,7 +483,7 @@ export default function FamilyManagementDashboard({
 
   const handleSortSelect = (
     newSortBy: string,
-    newSortOrder: "asc" | "desc"
+    newSortOrder: "asc" | "desc",
   ) => {
     setSortBy(newSortBy);
     setSortOrder(newSortOrder);
@@ -527,13 +519,6 @@ export default function FamilyManagementDashboard({
       const person = people.find((p) => p.id === memberId);
       return person?.role === "VISITOR";
     }).length;
-  };
-
-  // Get initials for avatar
-  const getInitials = (person: PersonUI) => {
-    return `${person.first_name?.[0] || ""}${
-      person.last_name?.[0] || ""
-    }`.toUpperCase();
   };
 
   // Get status color
@@ -611,7 +596,7 @@ export default function FamilyManagementDashboard({
               <p className="text-2xl font-semibold text-gray-900">
                 {families.reduce(
                   (acc, family) => acc + family.members.length,
-                  0
+                  0,
                 )}
               </p>
             </div>
@@ -726,7 +711,7 @@ export default function FamilyManagementDashboard({
                   <button
                     onClick={() => {
                       const newFilters = familyFilters.filter(
-                        (_, i) => i !== index
+                        (_, i) => i !== index,
                       );
                       setFamilyFilters(newFilters);
                       setFamilyPage(1);
@@ -794,7 +779,7 @@ export default function FamilyManagementDashboard({
                     <button
                       onClick={() => {
                         const newFilters = familyFilters.filter(
-                          (_, i) => i !== index
+                          (_, i) => i !== index,
                         );
                         setFamilyFilters(newFilters);
                         setFamilyPage(1);
@@ -1024,7 +1009,7 @@ export default function FamilyManagementDashboard({
                     <button
                       onClick={() =>
                         setUnassignedPage((p) =>
-                          Math.min(totalUnassignedPages, p + 1)
+                          Math.min(totalUnassignedPages, p + 1),
                         )
                       }
                       disabled={unassignedPage === totalUnassignedPages}
@@ -1044,9 +1029,7 @@ export default function FamilyManagementDashboard({
                     onClick={() => onViewPerson?.(member)}
                   >
                     <div className="flex flex-col items-center space-y-1">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                        {getInitials(member)}
-                      </div>
+                      <PersonAvatar person={member} size="md" />
                       <div className="text-center w-full">
                         <p className="font-medium text-gray-900 text-xs truncate px-1">
                           {member.first_name}
@@ -1057,14 +1040,14 @@ export default function FamilyManagementDashboard({
                         <div className="flex items-center justify-center gap-1 mt-1">
                           <span
                             className={`px-1 py-0.5 rounded-full text-[9px] font-medium ${getStatusColor(
-                              member.status
+                              member.status,
                             )}`}
                           >
                             {member.status.toLowerCase()}
                           </span>
                           <span
                             className={`px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonRoleColor(
-                              member.role
+                              member.role,
                             )}`}
                           >
                             {member.role.toLowerCase()}
@@ -1116,7 +1099,9 @@ export default function FamilyManagementDashboard({
                     .map((id) => getPersonById(id))
                     .filter(Boolean) as PersonUI[];
                   const sinceText = familyMembers[0]?.dateFirstAttended
-                    ? new Date(familyMembers[0].dateFirstAttended).toLocaleDateString()
+                    ? new Date(
+                        familyMembers[0].dateFirstAttended,
+                      ).toLocaleDateString()
                     : "Unknown";
 
                   return (
@@ -1130,14 +1115,17 @@ export default function FamilyManagementDashboard({
                           The {family.name} Family
                         </button>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{familyMembers.length}</td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {familyMembers.length}
+                      </td>
                       <td className="px-4 py-3 text-gray-700">
                         {getFamilyVisitorCount(family)}
                       </td>
                       <td className="px-4 py-3 text-gray-700">{sinceText}</td>
                       <td className="px-4 py-3 text-gray-600">
                         <p className="max-w-xs truncate">
-                          {family.notes || "No notes available for this family."}
+                          {family.notes ||
+                            "No notes available for this family."}
                         </p>
                       </td>
                       <td className="px-4 py-3">
@@ -1179,7 +1167,7 @@ export default function FamilyManagementDashboard({
                           {familyMembers.length} members • Since{" "}
                           {familyMembers[0]?.dateFirstAttended
                             ? new Date(
-                                familyMembers[0].dateFirstAttended
+                                familyMembers[0].dateFirstAttended,
                               ).toLocaleDateString()
                             : "Unknown"}
                         </p>
@@ -1208,9 +1196,7 @@ export default function FamilyManagementDashboard({
                               key={member.id}
                               className="flex items-center space-x-3"
                             >
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                                {getInitials(member)}
-                              </div>
+                              <PersonAvatar person={member} size="sm" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-gray-900 text-sm truncate">
                                   {member.first_name} {member.last_name}

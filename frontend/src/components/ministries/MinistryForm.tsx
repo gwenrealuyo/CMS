@@ -18,6 +18,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 export interface PendingMember {
   member_id: string;
@@ -285,12 +286,6 @@ export default function MinistryForm({
         person.role?.toLowerCase().includes(searchLower)
     );
   }, [availablePeopleForMembers, memberSearch]);
-
-  const getInitials = (person: Person) => {
-    return `${person.first_name?.[0] || ""}${
-      person.last_name?.[0] || ""
-    }`.toUpperCase();
-  };
 
   const addMember = (person: Person) => {
     const memberId = String(person.id);
@@ -757,9 +752,7 @@ export default function MinistryForm({
                       onClick={() => addMember(person)}
                       className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 text-gray-900"
                     >
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                        {getInitials(person)}
-                      </div>
+                      <PersonAvatar person={person} size="sm" />
                       <div className="flex-1">
                         <p className="font-medium text-sm">
                           {formatPersonName(person)}
@@ -792,9 +785,7 @@ export default function MinistryForm({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                          {getInitials(person)}
-                        </div>
+                        <PersonAvatar person={person} size="sm" className="flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {formatPersonName(person)}

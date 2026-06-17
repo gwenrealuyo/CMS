@@ -3,6 +3,7 @@ import { Family, PersonUI } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import Button from "@/src/components/ui/Button";
 
 interface FamilyViewProps {
@@ -127,12 +128,6 @@ export default function FamilyView({
       setSortOrder("asc");
     }
     setShowSortDropdown(false);
-  };
-
-  const getInitials = (person: PersonUI) => {
-    return `${person.first_name?.[0] || ""}${
-      person.last_name?.[0] || ""
-    }`.toUpperCase();
   };
 
   const formatFullName = (person: PersonUI) => formatPersonName(person);
@@ -377,9 +372,7 @@ export default function FamilyView({
                       className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-2.5 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 min-h-[60px] sm:min-h-0"
                       onClick={() => onViewPerson && onViewPerson(member)}
                     >
-                      <div className="w-10 h-10 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                        {getInitials(member)}
-                      </div>
+                      <PersonAvatar person={member} size="sm" />
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm sm:text-sm font-medium text-gray-900 truncate">
                           {formatFullName(member)}

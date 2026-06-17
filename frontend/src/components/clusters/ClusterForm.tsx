@@ -16,6 +16,7 @@ import {
   type MeetingDayKey,
 } from "@/src/lib/clusterMeetingSchedule";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface ClusterFormProps {
   initialData?: Cluster;
@@ -221,12 +222,6 @@ export default function ClusterForm({
 
   const removeMember = (memberId: string) => {
     setMemberIds(memberIds.filter((id) => id !== memberId));
-  };
-
-  const getInitials = (person: Person | PersonUI) => {
-    return `${person.first_name?.[0] || ""}${
-      person.last_name?.[0] || ""
-    }`.toUpperCase();
   };
 
   const getStatusColor = (status: string) => {
@@ -525,9 +520,7 @@ export default function ClusterForm({
                           : "text-gray-900"
                       }`}
                     >
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                        {getInitials(member)}
-                      </div>
+                      <PersonAvatar person={member} size="sm" />
                       <div className="flex-1">
                         <p className="font-medium text-sm">
                           {member.first_name} {member.last_name}
@@ -576,9 +569,7 @@ export default function ClusterForm({
                   key={member.id}
                   className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
                 >
-                  <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                    {getInitials(member)}
-                  </div>
+                  <PersonAvatar person={member} size="xs" />
                   <span className="text-sm font-medium text-gray-900">
                     {member.first_name} {member.last_name}
                   </span>

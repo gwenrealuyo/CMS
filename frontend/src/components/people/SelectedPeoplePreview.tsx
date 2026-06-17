@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Person } from "@/src/types/person";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 
 interface SelectedPeoplePreviewProps {
@@ -34,12 +35,6 @@ export default function SelectedPeoplePreview({
 
   // Early return after all hooks have been called
   if (selectedPeople.length === 0) return null;
-
-  const getInitials = (person: Person) => {
-    return `${person.first_name?.[0] || ""}${
-      person.last_name?.[0] || ""
-    }`.toUpperCase();
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -197,9 +192,7 @@ export default function SelectedPeoplePreview({
             className="bg-white rounded-lg p-2.5 sm:p-2.5 md:p-2.5 border border-primary/20 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
-                {getInitials(person)}
-              </div>
+              <PersonAvatar person={person} size="md" />
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-medium text-gray-900 truncate">
                   {person.first_name} {person.last_name}

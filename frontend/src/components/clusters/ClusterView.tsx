@@ -12,6 +12,7 @@ import {
   getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 const ROLE_PRIORITY: Record<string, number> = {
   ADMIN: 5,
@@ -163,10 +164,7 @@ export default function ClusterView({
           className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
           onClick={() => onViewPerson && onViewPerson(member)}
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-            {member.first_name?.[0] || ""}
-            {member.last_name?.[0] || ""}
-          </div>
+          <PersonAvatar person={member} size="sm" />
           <div className="flex-1 min-w-0">
             <p
               className={`font-medium text-gray-900 break-words ${
@@ -192,10 +190,7 @@ export default function ClusterView({
         className="p-2.5 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50 flex items-center space-x-2"
         onClick={() => onViewPerson && onViewPerson(member)}
       >
-        <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-          {member.first_name?.[0] || ""}
-          {member.last_name?.[0] || ""}
-        </div>
+        <PersonAvatar person={member} size="sm" />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900 truncate text-sm">
             {formatFullName(member)}

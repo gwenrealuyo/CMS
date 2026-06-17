@@ -2,6 +2,7 @@ import { Family, Person } from "@/src/types/person";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import { formatPersonName } from "@/src/lib/name";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface FamilyCardProps {
   family: Family;
@@ -45,11 +46,7 @@ export default function FamilyCard({
               key={member.id}
               className="flex items-center space-x-3 p-2 bg-gray-50 rounded-md"
             >
-              <img
-                src={member.photo || "https://via.placeholder.com/40"}
-                // alt={member.name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
+              <PersonAvatar person={member} size="md" />
               <div>
                 <p className="font-medium text-sm text-gray-900">
                   {formatPersonName(member)}

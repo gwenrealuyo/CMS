@@ -88,6 +88,51 @@ const api = axios.create({
   },
 });
 
+const PERSON_FORM_DATA_SKIP_FIELDS = new Set([
+  "photo",
+  "journeys",
+  "id",
+  "username",
+  "cluster_codes",
+  "family_names",
+  "module_coordinator_assignments",
+  "can_view_journey_timeline",
+  "temporary_password",
+  "branch_name",
+  "branch_code",
+  "full_name",
+  "groups",
+  "user_permissions",
+]);
+
+export function personDataToFormData(
+  data: Partial<Person>,
+  photoFile: File
+): FormData {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(data)) {
+    if (
+      PERSON_FORM_DATA_SKIP_FIELDS.has(key) ||
+      value === undefined ||
+      value === null ||
+      value === ""
+    ) {
+      continue;
+    }
+    if (typeof value === "boolean") {
+      formData.append(key, value ? "true" : "false");
+    } else {
+      formData.append(key, String(value));
+    }
+  }
+  formData.append("photo", photoFile);
+  return formData;
+}
+
+const peopleMultipartConfig = {
+  headers: { "Content-Type": "multipart/form-data" },
+};
+
 // Token storage keys
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
@@ -225,9 +270,18 @@ export const peopleApi = {
     page_size?: number;
   }) => api.get<Person[]>("/people/people/", { params }),
   getById: (id: string) => api.get<Person>(`/people/people/${id}/`),
-  create: (data: Partial<Person>) => api.post<Person>("/people/people/", data),
-  update: (id: string, data: Partial<Person>) =>
-    api.put<Person>(`/people/people/${id}/`, data),
+  create: (data: Partial<Person> | FormData) => {
+    if (data instanceof FormData) {
+      return api.post<Person>("/people/people/", data, peopleMultipartConfig);
+    }
+    return api.post<Person>("/people/people/", data);
+  },
+  update: (id: string, data: Partial<Person> | FormData) => {
+    if (data instanceof FormData) {
+      return api.put<Person>(`/people/people/${id}/`, data, peopleMultipartConfig);
+    }
+    return api.put<Person>(`/people/people/${id}/`, data);
+  },
   patch: (id: string, data: Partial<Person>) =>
     api.patch<Person>(`/people/people/${id}/`, data),
   delete: (id: string) => api.delete(`/people/people/${id}/`),

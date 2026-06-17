@@ -4,6 +4,7 @@ import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import Button from "@/src/components/ui/Button";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface AddFamilyMemberModalProps {
   family: Family | null;
@@ -106,10 +107,6 @@ export default function AddFamilyMemberModal({
     }
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "ACTIVE":
@@ -202,9 +199,7 @@ export default function AddFamilyMemberModal({
                           : ""
                       }`}
                     >
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                        {getInitials(person.first_name, person.last_name)}
-                      </div>
+                      <PersonAvatar person={person} size="sm" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate">
                           {formatFullName(person)}
@@ -265,9 +260,7 @@ export default function AddFamilyMemberModal({
                     key={member.id}
                     className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg"
                   >
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                      {getInitials(member.first_name, member.last_name)}
-                    </div>
+                    <PersonAvatar person={member} size="md" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">
                         {formatFullName(member)}

@@ -196,9 +196,7 @@ export default function GlobalSearch({
   }, [flatResults]);
 
   const inputClassName =
-    variant === "desktop"
-      ? "w-96 max-w-xl pl-10 pr-9 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-      : "w-full pl-10 pr-9 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary";
+    "w-full pl-10 pr-9 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary";
 
   const clearSearch = () => {
     setQuery("");
@@ -208,7 +206,7 @@ export default function GlobalSearch({
   };
 
   const renderSearchInput = () => (
-    <div className="relative">
+    <div className="relative w-full">
       <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
       <input
         ref={inputRef}

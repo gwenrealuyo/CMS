@@ -20,6 +20,7 @@ import {
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface DataTableProps {
   people: Person[];
@@ -792,11 +793,7 @@ export default function DataTable({
                       onChange={() => handleSelectPerson(person.id)}
                       className="rounded border-gray-300 text-primary focus:ring-ring mt-1 flex-shrink-0"
                     />
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                      {`${person.first_name?.[0] || ""}${
-                        person.last_name?.[0] || ""
-                      }`.toUpperCase()}
-                    </div>
+                    <PersonAvatar person={person} size="md" />
                     <div className="flex-1 min-w-0">
                       <button
                         type="button"
@@ -943,11 +940,7 @@ export default function DataTable({
                         <td key={field} className="px-4 py-3 whitespace-nowrap">
                           {field === "first_name" && (
                             <div className="flex items-center">
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-xs mr-2">
-                                {`${person.first_name?.[0] || ""}${
-                                  person.last_name?.[0] || ""
-                                }`.toUpperCase()}
-                              </div>
+                              <PersonAvatar person={person} size="sm" className="mr-2" />
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1179,11 +1172,7 @@ export default function DataTable({
                       <td key={field} className="px-6 py-4 whitespace-nowrap">
                         {field === "first_name" && (
                           <div className="flex items-center">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-3">
-                              {`${person.first_name?.[0] || ""}${
-                                person.last_name?.[0] || ""
-                              }`.toUpperCase()}
-                            </div>
+                            <PersonAvatar person={person} size="md" className="mr-3" />
                             <button
                               type="button"
                               onClick={() => onView && onView(person as Person)}

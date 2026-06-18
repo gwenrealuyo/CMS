@@ -146,17 +146,16 @@ When you have module assignments, you may see more people and families than a pl
 |--------|----------------|--------------------|----------------------------------------|--------------|
 | **Read** module data | Yes | Yes | Yes (scoped) | Yes (limited) |
 | **Create / edit** in module | Yes | Yes | Yes (scoped) | No |
-| **Delete** in module | Yes | Yes (senior level) | No* | No |
+| **Deactivate** (status / `is_active` / cancel) | Yes | Yes | Yes (scoped) | No |
+| **Hard delete** (permanent `DELETE`) | **Admin only** | No | No | No |
 
-\* Coordinators and teachers can create and edit but **delete** typically requires **Senior Coordinator** level (or Admin/Pastor).
-
-### Module-specific notes
+Coordinators and pastors should **mark records inactive** or update status instead of deleting. Historical reports and journeys are edited in place; permanent deletion is reserved for administrators.
 
 **Clusters**
 
 - **Cluster Reporter** (CLUSTER module only): see **assigned cluster card(s) only**; submit weekly reports for those clusters; cannot edit cluster members or settings; People create limited to **visitors only**.
 - Non-senior **Cluster Coordinators** can **browse all cluster cards in their branch** (read-only for clusters they do not manage).
-- **Weekly reports** (list, analytics, year filters, create/edit/delete) are limited to **managed clusters** (FK coordinator and/or resource-specific Cluster → Coordinator assignment).
+- **Weekly reports** (list, analytics, year filters, create/edit) are limited to **managed clusters** (FK coordinator and/or resource-specific Cluster → Coordinator assignment). **Deleting** reports is **admin-only**; coordinators correct via edit.
 - **Compliance** tab is for senior cluster coordinators only.
 - Members see their own cluster read-only.
 

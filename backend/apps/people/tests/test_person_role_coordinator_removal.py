@@ -127,6 +127,17 @@ class PersonRoleCoordinatorRemovalTests(TestCase):
         res = self.client.delete(f"/api/people/people/{self.target.id}/")
         self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
 
+    def test_coordinator_can_patch_person_status_deceased(self):
+        self.client.force_authenticate(user=self.coordinator)
+        res = self.client.patch(
+            f"/api/people/people/{self.target.id}/",
+            {"status": "DECEASED"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.target.refresh_from_db()
+        self.assertEqual(self.target.status, "DECEASED")
+
     def test_coordinator_can_create_member(self):
         self.client.force_authenticate(user=self.coordinator)
         res = self.client.post(

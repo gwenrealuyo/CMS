@@ -273,6 +273,10 @@ class FamilyViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
 
+        include_inactive = self.request.query_params.get("include_inactive", "").lower()
+        if include_inactive not in ("1", "true", "yes"):
+            queryset = queryset.filter(is_active=True)
+
         # Helper function to filter families by branch
         def filter_families_by_branch(qs):
             """Filter families based on members' branches"""
@@ -364,8 +368,8 @@ class FamilyViewSet(viewsets.ModelViewSet):
                 (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment)(),
             ]
         elif self.action == "destroy":
-            # Delete: Only ADMIN, PASTOR
-            return [IsAuthenticatedAndNotVisitor(), IsAdminOrPastor()]
+            # Delete: Only ADMIN
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
 
@@ -375,6 +379,11 @@ class JourneyViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["user", "type"]
+
+    def get_permissions(self):
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
     def get_queryset(self):
         """

@@ -17,6 +17,7 @@ export interface Cluster {
   location: string;
   meeting_schedule: string;
   description: string;
+  is_active?: boolean;
   created_at: string;
 }
 
@@ -30,6 +31,7 @@ export interface ClusterInput {
   location?: string;
   meeting_schedule?: string;
   description?: string;
+  is_active?: boolean;
 }
 
 export interface ClusterWeeklyReport {

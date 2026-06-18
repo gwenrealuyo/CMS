@@ -288,8 +288,12 @@ export const peopleApi = {
 };
 
 export const familiesApi = {
-  getAll: (params?: { search?: string; page?: number; page_size?: number }) =>
-    api.get<Family[]>("/people/families/", { params }),
+  getAll: (params?: {
+    search?: string;
+    page?: number;
+    page_size?: number;
+    include_inactive?: boolean;
+  }) => api.get<Family[]>("/people/families/", { params }),
   getById: (id: string) => api.get<Family>(`/people/families/${id}/`),
   create: (data: Partial<Family>) =>
     api.post<Family>("/people/families/", data),
@@ -389,6 +393,7 @@ export const clustersApi = {
       branch_id?: string | number;
       branch?: string | number;
       search?: string;
+      include_inactive?: boolean;
     }
   ): Promise<AxiosResponse<Cluster[]>> => {
     const response = await api.get<Cluster[] | { results: Cluster[] }>(
@@ -633,6 +638,8 @@ export const lessonsApi = {
     api.post<Lesson>("/lessons/lessons/", data),
   update: (id: number | string, data: Partial<Lesson>) =>
     api.put<Lesson>(`/lessons/lessons/${id}/`, data),
+  patch: (id: number | string, data: Partial<Lesson>) =>
+    api.patch<Lesson>(`/lessons/lessons/${id}/`, data),
   delete: (id: number | string) => api.delete(`/lessons/lessons/${id}/`),
   getProgress: (params?: {
     person?: string | number;

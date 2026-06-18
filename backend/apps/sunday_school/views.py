@@ -16,6 +16,7 @@ from apps.authentication.permissions import (
     IsMemberOrAbove,
     IsAuthenticatedAndNotVisitor,
     HasModuleAccess,
+    IsAdmin,
 )
 from apps.people.models import ModuleCoordinator
 from apps.people.coordinator_scope import coordinator_assigned_resource_ids_when_all_scoped
@@ -59,6 +60,13 @@ class SundaySchoolCategoryViewSet(viewsets.ModelViewSet):
     search_fields = ("name", "description")
     ordering_fields = ("order", "name", "created_at")
     ordering = ("order", "name")
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("SUNDAY_SCHOOL", "write")]
 
 
 class SundaySchoolClassViewSet(viewsets.ModelViewSet):
@@ -148,8 +156,7 @@ class SundaySchoolClassViewSet(viewsets.ModelViewSet):
             # Write operations: ADMIN, PASTOR, Sunday School Coordinator, or Teacher (with restrictions)
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('SUNDAY_SCHOOL', 'write')]
         elif self.action == "destroy":
-            # Delete: ADMIN, PASTOR, Sunday School Coordinator only (Teachers cannot delete)
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('SUNDAY_SCHOOL', 'delete')]
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
     
     def get_object(self):
@@ -355,6 +362,13 @@ class SundaySchoolClassMemberViewSet(viewsets.ModelViewSet):
     ordering_fields = ("enrolled_date", "role")
     ordering = ("sunday_school_class__name", "role", "person__last_name")
 
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("SUNDAY_SCHOOL", "write")]
+
 
 class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
@@ -371,6 +385,13 @@ class SundaySchoolSessionViewSet(viewsets.ModelViewSet):
     search_fields = ("lesson_title", "notes", "sunday_school_class__name")
     ordering_fields = ("session_date", "session_time", "created_at")
     ordering = ("-session_date", "-session_time")
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("SUNDAY_SCHOOL", "write")]
 
     def perform_create(self, serializer):
         """Auto-create Event when session is created."""

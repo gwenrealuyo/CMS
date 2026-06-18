@@ -22,6 +22,7 @@ from apps.authentication.permissions import (
     IsModuleCoordinator,
     HasModuleAccess,
     CanEditAssignedResource,
+    IsAdmin,
 )
 from apps.people.coordinator_scope import coordinator_assigned_resource_ids_when_all_scoped
 
@@ -162,8 +163,7 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
             # Write operations: ADMIN, PASTOR, Evangelism Coordinator, or Bible Sharer (with restrictions)
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('EVANGELISM', 'write')]
         elif self.action == "destroy":
-            # Delete: ADMIN, PASTOR, Evangelism Coordinator only (Bible Sharer cannot delete)
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('EVANGELISM', 'delete')]
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
     
     def get_object(self):
@@ -388,6 +388,13 @@ class EvangelismSessionViewSet(viewsets.ModelViewSet):
     ordering_fields = ("session_date", "session_time", "created_at")
     ordering = ("-session_date", "-session_time")
 
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVANGELISM", "write")]
+
     def perform_create(self, serializer):
         """Auto-create Event when session is created (if requested)."""
         session = serializer.save()
@@ -569,6 +576,13 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     search_fields = ("topic", "notes", "evangelism_group__name")
     ordering_fields = ("year", "week_number", "meeting_date")
     ordering = ("-year", "-week_number")
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVANGELISM", "write")]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -1390,6 +1404,13 @@ class ProspectViewSet(viewsets.ModelViewSet):
     search_fields = ("first_name", "middle_name", "last_name", "contact_info", "notes")
     ordering_fields = ("last_activity_date", "created_at", "first_name", "last_name")
     ordering = ("-last_activity_date", "last_name", "first_name")
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVANGELISM", "write")]
 
     def perform_create(self, serializer):
         """Auto-set inviter_cluster based on inviter's cluster membership."""

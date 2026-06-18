@@ -17,6 +17,7 @@ from apps.authentication.permissions import (
     HasModuleAccess,
     CanEditOwnResource,
     IsSeniorCoordinator,
+    IsAdmin,
 )
 from apps.people.models import ModuleCoordinator
 from .models import Event, EventType
@@ -43,7 +44,9 @@ class EventTypeViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        if self.action in ["create", "update", "partial_update"]:
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "write")]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
@@ -138,8 +141,7 @@ class EventViewSet(viewsets.ModelViewSet):
             # Write operations: ADMIN, PASTOR, Events Coordinator, or Senior Coordinator (with restrictions)
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "write")]
         elif self.action == "destroy":
-            # Delete: ADMIN, PASTOR, Events Coordinator, or Senior Coordinator (with restrictions)
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "delete")]
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
     def get_object(self):

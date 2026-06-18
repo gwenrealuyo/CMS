@@ -26,7 +26,7 @@ interface EventViewProps {
   initialOccurrenceDate?: string | null;
   showAuditMetadata?: boolean;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   onCancel?: () => void;
   onClose: () => void;
   listAttendance: (
@@ -766,6 +766,7 @@ export default function EventView({
 
       {/* Footer */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-6 border-t border-gray-200 bg-gray-50">
+        {onDelete ? (
         <Button
           onClick={onDelete}
           variant="secondary"
@@ -786,6 +787,9 @@ export default function EventView({
           </svg>
           <span className="ml-2 sm:ml-0 md:ml-2">Delete</span>
         </Button>
+        ) : (
+          <div className="hidden sm:block" />
+        )}
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Button
             onClick={onCancel ? onCancel : onClose}

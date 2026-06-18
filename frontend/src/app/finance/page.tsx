@@ -21,6 +21,8 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { financeApi, peopleApi } from "@/src/lib/api";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { Person } from "@/src/types/person";
 import {
@@ -71,6 +73,8 @@ export default function FinancePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
+  const userCanHardDelete = canHardDelete(user);
   const action = searchParams.get("action");
   const [donations, setDonations] = useState<Donation[]>([]);
   const [donationStats, setDonationStats] =
@@ -130,6 +134,13 @@ export default function FinancePage() {
   );
   const [deletePledgeLoading, setDeletePledgeLoading] = useState(false);
   const [deletePledgeError, setDeletePledgeError] = useState<string | null>(
+    null
+  );
+  const [cancelPledgeTarget, setCancelPledgeTarget] = useState<Pledge | null>(
+    null
+  );
+  const [cancelPledgeLoading, setCancelPledgeLoading] = useState(false);
+  const [cancelPledgeError, setCancelPledgeError] = useState<string | null>(
     null
   );
   const [deleteDonationTarget, setDeleteDonationTarget] =
@@ -857,6 +868,39 @@ export default function FinancePage() {
     }
   };
 
+  const requestCancelPledge = (pledge: Pledge) => {
+    setCancelPledgeTarget(pledge);
+    setCancelPledgeError(null);
+  };
+
+  const confirmCancelPledge = async () => {
+    if (!cancelPledgeTarget) {
+      return;
+    }
+    setCancelPledgeLoading(true);
+    setCancelPledgeError(null);
+    try {
+      await financeApi.updatePledge(cancelPledgeTarget.id, {
+        status: "CANCELLED",
+      });
+      setPledges((prev) =>
+        prev.map((p) =>
+          String(p.id) === String(cancelPledgeTarget.id)
+            ? { ...p, status: "CANCELLED" }
+            : p,
+        ),
+      );
+      setIsPledgeModalOpen(false);
+      setEditingPledge(null);
+      setCancelPledgeTarget(null);
+    } catch (err) {
+      console.error(err);
+      setCancelPledgeError("Failed to cancel the pledge.");
+    } finally {
+      setCancelPledgeLoading(false);
+    }
+  };
+
   const requestDeletePledge = (pledge: Pledge) => {
     setDeletePledgeTarget(pledge);
     setDeletePledgeError(null);
@@ -1031,7 +1075,7 @@ export default function FinancePage() {
               setEditingDonation(null);
             }}
             onDelete={
-              editingDonation
+              editingDonation && userCanHardDelete
                 ? () => requestDeleteDonation(editingDonation)
                 : undefined
             }
@@ -1057,7 +1101,7 @@ export default function FinancePage() {
               setEditingOffering(null);
             }}
             onDelete={
-              editingOffering
+              editingOffering && userCanHardDelete
                 ? () => requestDeleteOffering(editingOffering)
                 : undefined
             }
@@ -1080,8 +1124,13 @@ export default function FinancePage() {
               setIsPledgeModalOpen(false);
               setEditingPledge(null);
             }}
+            onCancelPledge={
+              editingPledge && editingPledge.status !== "CANCELLED"
+                ? () => requestCancelPledge(editingPledge)
+                : undefined
+            }
             onDelete={
-              editingPledge
+              editingPledge && userCanHardDelete
                 ? () => requestDeletePledge(editingPledge)
                 : undefined
             }
@@ -1350,6 +1399,7 @@ export default function FinancePage() {
                               >
                                 Edit
                               </button>
+                              {userCanHardDelete && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -1366,6 +1416,7 @@ export default function FinancePage() {
                               >
                                 Remove
                               </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1424,6 +1475,26 @@ export default function FinancePage() {
           cancelText="Cancel"
           variant="danger"
           loading={deleteOfferingLoading}
+        />
+
+        <ConfirmationModal
+          isOpen={Boolean(cancelPledgeTarget)}
+          onClose={() => {
+            if (cancelPledgeLoading) return;
+            setCancelPledgeTarget(null);
+            setCancelPledgeError(null);
+          }}
+          onConfirm={confirmCancelPledge}
+          title="Cancel Pledge"
+          message={
+            cancelPledgeError
+              ? `${cancelPledgeError} Please try again.`
+              : `Cancel the pledge "${cancelPledgeTarget?.pledgeTitle}"? Its status will be set to Cancelled.`
+          }
+          confirmText="Cancel Pledge"
+          cancelText="Keep Active"
+          variant="warning"
+          loading={cancelPledgeLoading}
         />
 
         <ConfirmationModal

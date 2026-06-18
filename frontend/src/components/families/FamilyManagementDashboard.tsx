@@ -41,6 +41,7 @@ interface FamilyManagementDashboardProps {
   onViewFamily: (family: Family) => void;
   onEditFamily: (family: Family) => void;
   onDeleteFamily: (family: Family) => void;
+  onHardDeleteFamily?: (family: Family) => void;
   onViewPerson?: (person: PersonUI) => void;
   onAssignMember?: (personId: string, familyId: string) => void;
   onRemoveMember?: (personId: string, familyId: string) => void;
@@ -53,6 +54,7 @@ export default function FamilyManagementDashboard({
   onViewFamily,
   onEditFamily,
   onDeleteFamily,
+  onHardDeleteFamily,
   onViewPerson,
   onAssignMember,
   onRemoveMember,
@@ -1134,6 +1136,18 @@ export default function FamilyManagementDashboard({
                             onView={() => onViewFamily(family)}
                             onEdit={() => onEditFamily(family)}
                             onDelete={() => onDeleteFamily(family)}
+                            onHardDelete={
+                              onHardDeleteFamily
+                                ? () => onHardDeleteFamily(family)
+                                : undefined
+                            }
+                            labels={{
+                              view: "View Family",
+                              edit: "Edit Family",
+                              delete: "Mark Inactive",
+                              hardDelete: "Delete Family",
+                              title: "Family Actions",
+                            }}
                           />
                         </div>
                       </td>
@@ -1180,6 +1194,18 @@ export default function FamilyManagementDashboard({
                           onView={() => onViewFamily(family)}
                           onEdit={() => onEditFamily(family)}
                           onDelete={() => onDeleteFamily(family)}
+                          onHardDelete={
+                            onHardDeleteFamily
+                              ? () => onHardDeleteFamily(family)
+                              : undefined
+                          }
+                          labels={{
+                            view: "View Family",
+                            edit: "Edit Family",
+                            delete: "Mark Inactive",
+                            hardDelete: "Delete Family",
+                            title: "Family Actions",
+                          }}
                         />
                       </div>
                     </div>

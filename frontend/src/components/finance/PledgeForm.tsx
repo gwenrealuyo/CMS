@@ -5,6 +5,7 @@ import { Pledge, PledgeStatus } from "@/src/types/finance";
 interface PledgeFormProps {
   onSubmit: (payload: Partial<Pledge>) => void;
   onCancel?: () => void;
+  onCancelPledge?: () => void;
   onDelete?: () => void;
   initialData?: Pledge;
   submitting?: boolean;
@@ -27,6 +28,7 @@ const STATUS_BADGES: Record<PledgeStatus, string> = {
 export default function PledgeForm({
   onSubmit,
   onCancel,
+  onCancelPledge,
   onDelete,
   initialData,
   submitting,
@@ -425,17 +427,30 @@ export default function PledgeForm({
         </div>
       </section>
 
-      {onDelete && isEditing && (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="tertiary"
-            onClick={onDelete}
-            disabled={submitting || deleteDisabled}
-            className="text-xs text-red-600 hover:text-red-700 !py-0 !px-0 border-none bg-transparent hover:bg-transparent hover:underline shadow-none"
-          >
-            Delete Pledge
-          </Button>
+      {(onCancelPledge || onDelete) && isEditing && (
+        <div className="flex justify-end gap-3">
+          {onCancelPledge && formData.status !== "CANCELLED" && (
+            <Button
+              type="button"
+              variant="tertiary"
+              onClick={onCancelPledge}
+              disabled={submitting || deleteDisabled}
+              className="text-xs text-amber-700 hover:text-amber-800 !py-0 !px-0 border-none bg-transparent hover:bg-transparent hover:underline shadow-none"
+            >
+              Cancel Pledge
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              type="button"
+              variant="tertiary"
+              onClick={onDelete}
+              disabled={submitting || deleteDisabled}
+              className="text-xs text-red-600 hover:text-red-700 !py-0 !px-0 border-none bg-transparent hover:bg-transparent hover:underline shadow-none"
+            >
+              Delete Pledge
+            </Button>
+          )}
         </div>
       )}
 

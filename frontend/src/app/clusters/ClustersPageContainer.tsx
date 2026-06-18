@@ -15,6 +15,7 @@ import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import toast from "react-hot-toast";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import {
   userCanManageCluster,
   clustersForReportSubmission,
@@ -48,6 +49,7 @@ export default function ClustersPageContainer() {
   const [clusterItemsPerPage, setClusterItemsPerPage] = useState(25);
   const [selectedClusters, setSelectedClusters] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [showInactiveClusters, setShowInactiveClusters] = useState(false);
   
   // Cluster modals
   const [viewCluster, setViewCluster] = useState<Cluster | null>(null);
@@ -70,6 +72,23 @@ export default function ClustersPageContainer() {
     isOpen: false,
     loading: false,
   });
+  const [markInactiveConfirmation, setMarkInactiveConfirmation] = useState<{
+    isOpen: boolean;
+    cluster: Cluster | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    cluster: null,
+    loading: false,
+  });
+  const [bulkMarkInactiveConfirmation, setBulkMarkInactiveConfirmation] =
+    useState<{
+      isOpen: boolean;
+      loading: boolean;
+    }>({
+      isOpen: false,
+      loading: false,
+    });
   const [assignMembersModal, setAssignMembersModal] = useState<{
     isOpen: boolean;
     cluster: Cluster | null;
@@ -297,9 +316,12 @@ export default function ClustersPageContainer() {
   const fetchClusters = useCallback(async () => {
     try {
       setClustersLoading(true);
-      const params: { branch_id?: string } = {};
+      const params: { branch_id?: string; include_inactive?: boolean } = {};
       if (canChangeClusterBranchFilter && selectedBranchId) {
         params.branch_id = selectedBranchId;
+      }
+      if (showInactiveClusters) {
+        params.include_inactive = true;
       }
       const res = await clustersApi.getAll(
         Object.keys(params).length > 0 ? params : undefined,
@@ -311,7 +333,7 @@ export default function ClustersPageContainer() {
     } finally {
       setClustersLoading(false);
     }
-  }, [canChangeClusterBranchFilter, selectedBranchId]);
+  }, [canChangeClusterBranchFilter, selectedBranchId, showInactiveClusters]);
   
   useEffect(() => {
     fetchClusters();
@@ -607,7 +629,7 @@ export default function ClustersPageContainer() {
     }
   };
   
-  const handleDeleteCluster = async () => {
+  const handleHardDeleteCluster = async () => {
     if (clusterDeleteConfirmation.cluster) {
       setClusterDeleteConfirmation((prev) => ({ ...prev, loading: true }));
       try {
@@ -626,6 +648,31 @@ export default function ClustersPageContainer() {
         console.error("Error deleting cluster:", error);
         setClusterDeleteConfirmation((prev) => ({ ...prev, loading: false }));
       }
+    }
+  };
+
+  const handleMarkInactiveCluster = async () => {
+    if (!markInactiveConfirmation.cluster) return;
+    setMarkInactiveConfirmation((prev) => ({ ...prev, loading: true }));
+    try {
+      await clustersApi.patch(markInactiveConfirmation.cluster.id, {
+        is_active: false,
+      });
+      await fetchClusters();
+      setMarkInactiveConfirmation({
+        isOpen: false,
+        cluster: null,
+        loading: false,
+      });
+      setIsClusterModalOpen(false);
+      setViewCluster(null);
+      setPanelOpen(false);
+      setPanelCluster(null);
+      toast.success("Cluster marked as inactive.");
+    } catch (error) {
+      console.error("Error marking cluster inactive:", error);
+      toast.error("Failed to mark cluster as inactive.");
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -664,7 +711,35 @@ export default function ClustersPageContainer() {
     }
   };
 
-  // Bulk delete handler
+  // Bulk mark inactive handler
+  const handleBulkMarkInactive = () => {
+    if (selectedClusters.size === 0) return;
+    setBulkMarkInactiveConfirmation({ isOpen: true, loading: false });
+  };
+
+  const confirmBulkMarkInactiveClusters = async () => {
+    if (selectedClusters.size === 0) return;
+
+    try {
+      setBulkMarkInactiveConfirmation((prev) => ({ ...prev, loading: true }));
+      await Promise.all(
+        Array.from(selectedClusters).map((clusterId) =>
+          clustersApi.patch(Number(clusterId), { is_active: false }),
+        ),
+      );
+      await fetchClusters();
+      setSelectedClusters(new Set());
+      setIsSelectionMode(false);
+      setBulkMarkInactiveConfirmation({ isOpen: false, loading: false });
+      toast.success("Selected clusters marked as inactive.");
+    } catch (error) {
+      console.error("Error marking clusters inactive:", error);
+      alert("Failed to mark some clusters as inactive. Please try again.");
+      setBulkMarkInactiveConfirmation((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  // Bulk delete handler (admin only)
   const handleBulkDelete = () => {
     if (selectedClusters.size === 0) return;
     setBulkDeleteConfirmation({ isOpen: true, loading: false });
@@ -812,7 +887,15 @@ export default function ClustersPageContainer() {
     }
   };
   
-  const confirmClusterDelete = (cluster: Cluster) => {
+  const confirmMarkInactiveCluster = (cluster: Cluster) => {
+    setMarkInactiveConfirmation({
+      isOpen: true,
+      cluster,
+      loading: false,
+    });
+  };
+
+  const confirmHardDeleteCluster = (cluster: Cluster) => {
     setClusterDeleteConfirmation({
       isOpen: true,
       cluster,
@@ -1230,7 +1313,12 @@ export default function ClustersPageContainer() {
       onEditCluster={(cluster) => {
         openClusterInteraction("edit", cluster);
       }}
-      onDeleteCluster={confirmClusterDelete}
+      onMarkInactiveCluster={confirmMarkInactiveCluster}
+      onHardDeleteCluster={
+        canHardDelete(user) ? confirmHardDeleteCluster : undefined
+      }
+      showInactiveClusters={showInactiveClusters}
+      onShowInactiveClustersChange={setShowInactiveClusters}
       onCreateCluster={() => {
         openClusterInteraction("create");
       }}
@@ -1255,7 +1343,7 @@ export default function ClustersPageContainer() {
       onCloseClusterPanel={closeClusterPanel}
       onBackClusterPanel={goBackClusterPanel}
       clusterDeleteConfirmation={clusterDeleteConfirmation}
-      onConfirmDeleteCluster={handleDeleteCluster}
+      onConfirmDeleteCluster={handleHardDeleteCluster}
       onCloseDeleteConfirmation={() => {
         setClusterDeleteConfirmation({
           isOpen: false,
@@ -1387,7 +1475,22 @@ export default function ClustersPageContainer() {
       onToggleSelectionMode={handleToggleSelectionMode}
       onSelectCluster={handleSelectCluster}
       onSelectAllClusters={handleSelectAllClusters}
-      onBulkDelete={handleBulkDelete}
+      markInactiveConfirmation={markInactiveConfirmation}
+      onConfirmMarkInactiveCluster={handleMarkInactiveCluster}
+      onCloseMarkInactiveConfirmation={() => {
+        setMarkInactiveConfirmation({
+          isOpen: false,
+          cluster: null,
+          loading: false,
+        });
+      }}
+      onBulkMarkInactive={handleBulkMarkInactive}
+      bulkMarkInactiveConfirmation={bulkMarkInactiveConfirmation}
+      onConfirmBulkMarkInactiveClusters={confirmBulkMarkInactiveClusters}
+      onCloseBulkMarkInactiveConfirmation={() =>
+        setBulkMarkInactiveConfirmation({ isOpen: false, loading: false })
+      }
+      onBulkDelete={canHardDelete(user) ? handleBulkDelete : undefined}
       onBulkExport={handleBulkExport}
       bulkDeleteConfirmation={bulkDeleteConfirmation}
       selectedClustersCount={selectedClusters.size}

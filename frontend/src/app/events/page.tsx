@@ -21,6 +21,7 @@ import EventAgendaPanel from "@/src/components/events/EventAgendaPanel";
 import EventTypesManager from "@/src/components/events/EventTypesManager";
 import { EventTypeStylesProvider } from "@/src/contexts/EventTypeStylesContext";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import { Event } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
@@ -85,6 +86,7 @@ export default function EventsPage() {
   const [isTypesManagerOpen, setIsTypesManagerOpen] = useState(false);
   const currentYear = new Date().getFullYear().toString();
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  const userCanHardDelete = canHardDelete(user);
   const { moduleEnabled } = useModuleSettings();
 
   const {
@@ -753,13 +755,17 @@ export default function EventsPage() {
               setViewOccurrenceDate(null);
               setViewMode("edit");
             }}
-            onDelete={() => {
-              setDeleteConfirmation({
-                isOpen: true,
-                event: viewEditEvent,
-                loading: false,
-              });
-            }}
+            onDelete={
+              userCanHardDelete
+                ? () => {
+                    setDeleteConfirmation({
+                      isOpen: true,
+                      event: viewEditEvent,
+                      loading: false,
+                    });
+                  }
+                : undefined
+            }
             onCancel={() => {
               setIsModalOpen(false);
               setViewEditEvent(null);
@@ -810,7 +816,7 @@ export default function EventsPage() {
           onClose={() => setIsTypesManagerOpen(false)}
           onCreate={createEventType}
           onUpdate={updateEventType}
-          onDelete={deleteEventType}
+          onDelete={userCanHardDelete ? deleteEventType : undefined}
         />
       )}
     </DashboardLayout>

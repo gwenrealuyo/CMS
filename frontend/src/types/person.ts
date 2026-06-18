@@ -98,6 +98,7 @@ export interface Family {
   members: string[]; // List of Person IDs
   address?: string; // Physical address/location
   notes?: string; // Family notes/description
+  is_active?: boolean;
 }
 
 export interface ModuleCoordinator {

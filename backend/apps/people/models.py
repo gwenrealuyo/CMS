@@ -160,6 +160,7 @@ class Family(models.Model):
     members = models.ManyToManyField(Person, related_name="families")
     address = models.TextField(blank=True)  # Physical address/location
     notes = models.TextField(blank=True)  # Family notes/description
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

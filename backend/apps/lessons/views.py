@@ -16,6 +16,7 @@ from apps.authentication.permissions import (
     IsMemberOrAbove, 
     IsAuthenticatedAndNotVisitor,
     HasModuleAccess,
+    IsAdmin,
 )
 from apps.people.models import ModuleCoordinator
 
@@ -58,9 +59,10 @@ class LessonViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve", "commitment_form"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        else:
-            # Write operations: ADMIN, PASTOR, or Lessons Coordinator
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        # Write operations: ADMIN, PASTOR, or Lessons Coordinator
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
 
     def get_queryset(self):
         queryset = (
@@ -325,9 +327,10 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        else:
-            # Write operations: ADMIN, PASTOR, Lessons Coordinator, or Teacher
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        # Write operations: ADMIN, PASTOR, Lessons Coordinator, or Teacher
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
 
     def perform_create(self, serializer):
         request = self.request

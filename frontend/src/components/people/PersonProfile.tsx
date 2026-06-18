@@ -21,6 +21,8 @@ interface PersonProfileProps {
   onNoClusterClick?: (person: Person) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onSetInactive?: () => void;
+  onSetDeceased?: () => void;
   onCancel: () => void;
   onAddTimeline: () => void;
   onClose: () => void;
@@ -39,6 +41,8 @@ export default function PersonProfile({
   onNoClusterClick,
   onEdit,
   onDelete,
+  onSetInactive,
+  onSetDeceased,
   onCancel,
   onAddTimeline,
   onClose,
@@ -1031,11 +1035,33 @@ export default function PersonProfile({
           isPanelMode ? (
             <div className="flex items-center justify-between gap-2">
               <div>
+                {(onSetInactive || onSetDeceased) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {onSetInactive && person.status !== "INACTIVE" && (
+                      <Button
+                        onClick={onSetInactive}
+                        variant="secondary"
+                        className="!text-amber-700 h-10 px-4 text-sm font-medium bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300"
+                      >
+                        Set Inactive
+                      </Button>
+                    )}
+                    {onSetDeceased && person.status !== "DECEASED" && (
+                      <Button
+                        onClick={onSetDeceased}
+                        variant="secondary"
+                        className="!text-gray-700 h-10 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                      >
+                        Set Deceased
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {!hideDeleteButton && (
                   <Button
                     onClick={onDelete}
                     variant="secondary"
-                    className="!text-red-600 h-10 px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2"
+                    className="!text-red-600 h-10 px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2 mt-2"
                   >
                     <svg
                       className="w-4 h-4"
@@ -1050,7 +1076,7 @@ export default function PersonProfile({
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
                     </svg>
-                    <span>Delete</span>
+                    <span>Delete Permanently</span>
                   </Button>
                 )}
               </div>
@@ -1165,6 +1191,28 @@ export default function PersonProfile({
               </Button>
               {!hideDeleteButton && (
                 <>
+                  {(onSetInactive || onSetDeceased) && (
+                    <>
+                      {onSetInactive && person.status !== "INACTIVE" && (
+                        <Button
+                          onClick={onSetInactive}
+                          variant="secondary"
+                          className="!text-amber-700 py-3 px-4 text-sm font-medium bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 flex items-center justify-center min-h-[44px] w-full"
+                        >
+                          Set Inactive
+                        </Button>
+                      )}
+                      {onSetDeceased && person.status !== "DECEASED" && (
+                        <Button
+                          onClick={onSetDeceased}
+                          variant="secondary"
+                          className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center min-h-[44px] w-full"
+                        >
+                          Set Deceased
+                        </Button>
+                      )}
+                    </>
+                  )}
                   <div className="border-t border-gray-200 my-1"></div>
                   <Button
                     onClick={onDelete}
@@ -1184,7 +1232,7 @@ export default function PersonProfile({
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
                     </svg>
-                    <span>Delete</span>
+                    <span>Delete Permanently</span>
                   </Button>
                 </>
               )}
@@ -1192,7 +1240,26 @@ export default function PersonProfile({
 
             {/* Desktop/Tablet buttons - old style with icons */}
             <div className="hidden md:flex md:items-center md:justify-between md:w-full">
-              {!hideDeleteButton && (
+              <div className="flex flex-wrap items-center gap-2">
+                {onSetInactive && person.status !== "INACTIVE" && (
+                  <Button
+                    onClick={onSetInactive}
+                    variant="secondary"
+                    className="!text-amber-700 px-4 md:py-4 text-sm font-normal bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    Set Inactive
+                  </Button>
+                )}
+                {onSetDeceased && person.status !== "DECEASED" && (
+                  <Button
+                    onClick={onSetDeceased}
+                    variant="secondary"
+                    className="!text-gray-700 px-4 md:py-4 text-sm font-normal bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                  >
+                    Set Deceased
+                  </Button>
+                )}
+                {!hideDeleteButton && (
                 <Button
                   onClick={onDelete}
                   variant="secondary"
@@ -1212,8 +1279,9 @@ export default function PersonProfile({
                     />
                   </svg>
                 </Button>
-              )}
-              {hideDeleteButton && <div />}
+                )}
+              </div>
+              {hideDeleteButton && !onSetInactive && !onSetDeceased && <div />}
               <div className="flex items-center gap-3">
                 {canResetPassword && (
                   <Button

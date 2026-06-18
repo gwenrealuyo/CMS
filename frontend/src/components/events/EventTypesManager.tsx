@@ -26,7 +26,7 @@ type EventTypesManagerProps = {
     code: string,
     data: Partial<{ label: string; color: string; sort_order: number }>
   ) => Promise<EventTypeOption>;
-  onDelete: (code: string) => Promise<void>;
+  onDelete?: (code: string) => Promise<void>;
 };
 
 type FormState = {
@@ -173,7 +173,7 @@ export default function EventTypesManager({
   };
 
   const handleDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !onDelete) return;
     setDeleteLoading(true);
     try {
       await onDelete(deleteTarget.code);
@@ -344,7 +344,9 @@ export default function EventTypesManager({
             <div className="divide-y divide-gray-100">
               {sortedTypes.map((type) => {
                 const canDelete =
-                  !type.is_system && (type.event_count ?? 0) === 0;
+                  Boolean(onDelete) &&
+                  !type.is_system &&
+                  (type.event_count ?? 0) === 0;
                 return (
                   <div
                     key={type.code}

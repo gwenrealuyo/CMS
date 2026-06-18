@@ -27,6 +27,7 @@ import { formatPersonName } from "@/src/lib/name";
 import { formatDisplayDate } from "@/src/lib/date";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import {
   createDefaultSessionFilters,
   extractErrorMessage,
@@ -168,6 +169,12 @@ export default function LessonsPageContainer() {
   const [lessonDeleteError, setLessonDeleteError] = useState<string | null>(
     null
   );
+  const [lessonHardDeleteTarget, setLessonHardDeleteTarget] =
+    useState<Lesson | null>(null);
+  const [lessonHardDeleteLoading, setLessonHardDeleteLoading] = useState(false);
+  const [lessonHardDeleteError, setLessonHardDeleteError] = useState<
+    string | null
+  >(null);
   const [sessionFormDefaults, setSessionFormDefaults] = useState<{
     studentId?: string | number | null;
     teacherId?: string | number | null;
@@ -186,6 +193,7 @@ export default function LessonsPageContainer() {
 
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
   const { user, isSeniorCoordinator } = useAuth();
+  const userCanHardDelete = canHardDelete(user);
 
   const lessonsBranchCanChangeFilter = useMemo(
     () => canChangeLessonsBranchFilterForUser(user, isSeniorCoordinator),
@@ -818,6 +826,11 @@ export default function LessonsPageContainer() {
     setLessonDeleteError(null);
   };
 
+  const requestHardDeleteLesson = (lesson: Lesson) => {
+    setLessonHardDeleteTarget(lesson);
+    setLessonHardDeleteError(null);
+  };
+
   const confirmDeleteLesson = async () => {
     if (!lessonDeleteTarget) {
       return;
@@ -825,7 +838,7 @@ export default function LessonsPageContainer() {
     try {
       setLessonDeleteLoading(true);
       setLessonDeleteError(null);
-      await lessonsApi.delete(lessonDeleteTarget.id);
+      await lessonsApi.patch(lessonDeleteTarget.id, { is_active: false });
       await fetchLessons();
       fetchSummary();
       setLessonFormOpen(false);
@@ -833,10 +846,32 @@ export default function LessonsPageContainer() {
       setLessonDeleteTarget(null);
     } catch (error) {
       setLessonDeleteError(
-        extractErrorMessage(error, "Failed to delete the lesson.")
+        extractErrorMessage(error, "Failed to deactivate the lesson."),
       );
     } finally {
       setLessonDeleteLoading(false);
+    }
+  };
+
+  const confirmHardDeleteLesson = async () => {
+    if (!lessonHardDeleteTarget) {
+      return;
+    }
+    try {
+      setLessonHardDeleteLoading(true);
+      setLessonHardDeleteError(null);
+      await lessonsApi.delete(lessonHardDeleteTarget.id);
+      await fetchLessons();
+      fetchSummary();
+      setLessonFormOpen(false);
+      setEditingLesson(null);
+      setLessonHardDeleteTarget(null);
+    } catch (error) {
+      setLessonHardDeleteError(
+        extractErrorMessage(error, "Failed to delete the lesson."),
+      );
+    } finally {
+      setLessonHardDeleteLoading(false);
     }
   };
 
@@ -1464,6 +1499,10 @@ export default function LessonsPageContainer() {
       lessonDeleteTarget={lessonDeleteTarget}
       lessonDeleteLoading={lessonDeleteLoading}
       lessonDeleteError={lessonDeleteError}
+      lessonHardDeleteTarget={lessonHardDeleteTarget}
+      lessonHardDeleteLoading={lessonHardDeleteLoading}
+      lessonHardDeleteError={lessonHardDeleteError}
+      userCanHardDelete={userCanHardDelete}
       // Branch filter
       lessonsBranchSelectedId={selectedBranchId}
       onLessonsBranchChange={setSelectedBranchId}
@@ -1485,7 +1524,13 @@ export default function LessonsPageContainer() {
       onOpenCreateLesson={openCreateLesson}
       onOpenEditLesson={openEditLesson}
       onRequestDeleteLesson={requestDeleteLesson}
+      onRequestHardDeleteLesson={
+        userCanHardDelete ? requestHardDeleteLesson : undefined
+      }
       onConfirmDeleteLesson={confirmDeleteLesson}
+      onConfirmHardDeleteLesson={
+        userCanHardDelete ? confirmHardDeleteLesson : undefined
+      }
       onCloseLessonForm={closeLessonForm}
       onLessonFormSubmit={handleLessonFormSubmit}
       onMarkCompleted={handleMarkCompleted}
@@ -1526,7 +1571,11 @@ export default function LessonsPageContainer() {
       onConfirmDeleteSessionReport={confirmDeleteSessionReport}
       onSetSessionDeleteTarget={(target) => setSessionDeleteTarget(target)}
       onSetLessonDeleteTarget={(target) => setLessonDeleteTarget(target)}
+      onSetLessonHardDeleteTarget={(target) =>
+        setLessonHardDeleteTarget(target)
+      }
       onSetLessonDeleteError={(error) => setLessonDeleteError(error)}
+      onSetLessonHardDeleteError={(error) => setLessonHardDeleteError(error)}
     />
   );
 }

@@ -4,6 +4,7 @@ from apps.authentication.permissions import (
     IsMemberOrAbove,
     IsAuthenticatedAndNotVisitor,
     HasModuleAccess,
+    IsAdmin,
 )
 from apps.people.models import ModuleCoordinator
 
@@ -80,12 +81,13 @@ class MinistryViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        else:
-            # Write operations: ADMIN, PASTOR, or Ministry Coordinator
-            return [
-                IsAuthenticatedAndNotVisitor(),
-                HasModuleAccess(ModuleCoordinator.ModuleType.MINISTRIES, "write"),
-            ]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        # Write operations: ADMIN, PASTOR, or Ministry Coordinator
+        return [
+            IsAuthenticatedAndNotVisitor(),
+            HasModuleAccess(ModuleCoordinator.ModuleType.MINISTRIES, "write"),
+        ]
 
 
 class MinistryMemberViewSet(viewsets.ModelViewSet):
@@ -127,9 +129,10 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
         if action in ["list", "retrieve"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        else:
-            # Write operations: ADMIN, PASTOR, or Ministry Coordinator
-            return [
-                IsAuthenticatedAndNotVisitor(),
-                HasModuleAccess(ModuleCoordinator.ModuleType.MINISTRIES, "write"),
-            ]
+        if action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        # Write operations: ADMIN, PASTOR, or Ministry Coordinator
+        return [
+            IsAuthenticatedAndNotVisitor(),
+            HasModuleAccess(ModuleCoordinator.ModuleType.MINISTRIES, "write"),
+        ]

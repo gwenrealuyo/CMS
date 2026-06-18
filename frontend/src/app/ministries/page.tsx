@@ -18,6 +18,8 @@ import MinistryView from "@/src/components/ministries/MinistryView";
 import { useMinistries } from "@/src/hooks/useMinistries";
 import { usePeople } from "@/src/hooks/usePeople";
 import { Ministry, MinistryMember } from "@/src/types/ministry";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 
 export default function MinistriesPage() {
   const {
@@ -37,6 +39,8 @@ export default function MinistriesPage() {
     removeMember,
   } = useMinistries();
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
+  const { user } = useAuth();
+  const userCanHardDelete = canHardDelete(user);
   const [searchQuery, setSearchQuery] = useState(filters.search ?? "");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -46,6 +50,15 @@ export default function MinistriesPage() {
   const [editMinistry, setEditMinistry] = useState<Ministry | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    ministry: Ministry | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    ministry: null,
+    loading: false,
+  });
+  const [markInactiveConfirmation, setMarkInactiveConfirmation] = useState<{
     isOpen: boolean;
     ministry: Ministry | null;
     loading: boolean;
@@ -156,12 +169,54 @@ export default function MinistriesPage() {
     setFormError(null);
   };
 
-  const handleDelete = (ministry: Ministry) => {
+  const handleMarkInactive = (ministry: Ministry) => {
+    setMarkInactiveConfirmation({
+      isOpen: true,
+      ministry,
+      loading: false,
+    });
+  };
+
+  const handleHardDelete = (ministry: Ministry) => {
     setDeleteConfirmation({
       isOpen: true,
       ministry,
       loading: false,
     });
+  };
+
+  const closeMarkInactiveConfirmation = () => {
+    setMarkInactiveConfirmation({
+      isOpen: false,
+      ministry: null,
+      loading: false,
+    });
+  };
+
+  const handleMarkInactiveConfirm = async () => {
+    if (!markInactiveConfirmation.ministry) return;
+
+    try {
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: true }));
+      await updateMinistry(markInactiveConfirmation.ministry.id, {
+        is_active: false,
+      });
+      await fetchMinistries();
+      setMarkInactiveConfirmation({
+        isOpen: false,
+        ministry: null,
+        loading: false,
+      });
+      setIsViewOpen(false);
+      setViewMinistry(null);
+      toast.success(
+        `Ministry "${markInactiveConfirmation.ministry.name}" has been marked inactive.`,
+      );
+    } catch (error) {
+      console.error("Error marking ministry inactive:", error);
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: false }));
+      toast.error("Failed to mark ministry as inactive. Please try again.");
+    }
   };
 
   const closeDeleteConfirmation = () => {
@@ -515,7 +570,27 @@ export default function MinistriesPage() {
                             <span>Edit</span>
                           </button>
                           <button
-                            onClick={() => handleDelete(row as Ministry)}
+                            onClick={() => handleMarkInactive(row as Ministry)}
+                            className="flex items-center justify-center space-x-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-md transition-colors min-h-[44px] w-full"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            <span>Mark Inactive</span>
+                          </button>
+                          {userCanHardDelete && (
+                          <button
+                            onClick={() => handleHardDelete(row as Ministry)}
                             className="flex items-center justify-center space-x-2 py-2.5 px-4 text-sm font-medium text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors min-h-[44px] w-full"
                           >
                             <svg
@@ -533,6 +608,7 @@ export default function MinistriesPage() {
                             </svg>
                             <span>Delete</span>
                           </button>
+                          )}
                         </div>
 
                         {/* Desktop buttons - icon-only */}
@@ -582,7 +658,27 @@ export default function MinistriesPage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => handleDelete(row as Ministry)}
+                            onClick={() => handleMarkInactive(row as Ministry)}
+                            className="flex items-center justify-center p-2 text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                            title="Mark Inactive"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                          </button>
+                          {userCanHardDelete && (
+                          <button
+                            onClick={() => handleHardDelete(row as Ministry)}
                             className="flex items-center justify-center p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
                             title="Delete Ministry"
                           >
@@ -600,6 +696,7 @@ export default function MinistriesPage() {
                               />
                             </svg>
                           </button>
+                          )}
                         </div>
                       </div>
                     ),
@@ -631,9 +728,18 @@ export default function MinistriesPage() {
             }}
             onDelete={() => {
               setIsViewOpen(false);
-              handleDelete(viewMinistry);
+              handleMarkInactive(viewMinistry);
               setViewMinistry(null);
             }}
+            onHardDelete={
+              userCanHardDelete
+                ? () => {
+                    setIsViewOpen(false);
+                    handleHardDelete(viewMinistry);
+                    setViewMinistry(null);
+                  }
+                : undefined
+            }
             onCancel={() => {
               setIsViewOpen(false);
               setViewMinistry(null);
@@ -795,10 +901,22 @@ export default function MinistriesPage() {
       </Modal>
 
       <ConfirmationModal
+        isOpen={markInactiveConfirmation.isOpen}
+        onClose={closeMarkInactiveConfirmation}
+        onConfirm={handleMarkInactiveConfirm}
+        title="Mark Ministry Inactive"
+        message={`Mark the "${markInactiveConfirmation.ministry?.name}" ministry as inactive? It will be hidden from the default active list.`}
+        confirmText="Mark Inactive"
+        cancelText="Cancel"
+        variant="warning"
+        loading={markInactiveConfirmation.loading}
+      />
+
+      <ConfirmationModal
         isOpen={deleteConfirmation.isOpen}
         onClose={closeDeleteConfirmation}
         onConfirm={handleDeleteConfirm}
-        title="Delete Ministry"
+        title="Delete Ministry Permanently"
         message={`Are you sure you want to delete the "${deleteConfirmation.ministry?.name}" ministry? This action cannot be undone and will permanently remove this ministry from the system.`}
         confirmText="Delete Ministry"
         cancelText="Cancel"

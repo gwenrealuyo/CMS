@@ -93,6 +93,7 @@ import {
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import {
   canChangeEvangelismBranchFilter,
   EVANGELISM_BRANCH_LOCKED_HINT,
@@ -121,6 +122,7 @@ export default function EvangelismPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isSeniorCoordinator } = useAuth();
+  const userCanHardDelete = canHardDelete(user);
   const canChangeEvangelismBranch = useMemo(
     () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
     [user, isSeniorCoordinator],
@@ -217,6 +219,15 @@ export default function EvangelismPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    group: EvangelismGroup | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    group: null,
+    loading: false,
+  });
+  const [hardDeleteConfirmation, setHardDeleteConfirmation] = useState<{
     isOpen: boolean;
     group: EvangelismGroup | null;
     loading: boolean;
@@ -1256,7 +1267,9 @@ export default function EvangelismPage() {
                   {isGroupSelectionMode && selectedGroups.size > 0 && (
                     <BulkActionsMenu
                       onBulkMarkInactive={handleBulkMarkInactive}
-                      onBulkDelete={handleBulkDeleteGroups}
+                      onBulkDelete={
+                        userCanHardDelete ? handleBulkDeleteGroups : undefined
+                      }
                       onBulkExport={(format) => void handleBulkExportGroups(format)}
                       selectedCount={selectedGroups.size}
                     />
@@ -1404,7 +1417,9 @@ export default function EvangelismPage() {
                   {isGroupSelectionMode && selectedGroups.size > 0 && (
                     <BulkActionsMenu
                       onBulkMarkInactive={handleBulkMarkInactive}
-                      onBulkDelete={handleBulkDeleteGroups}
+                      onBulkDelete={
+                        userCanHardDelete ? handleBulkDeleteGroups : undefined
+                      }
                       onBulkExport={(format) => void handleBulkExportGroups(format)}
                       selectedCount={selectedGroups.size}
                     />
@@ -1576,6 +1591,17 @@ export default function EvangelismPage() {
                             loading: false,
                           });
                         }}
+                        onHardDelete={
+                          userCanHardDelete
+                            ? (group) => {
+                                setHardDeleteConfirmation({
+                                  isOpen: true,
+                                  group,
+                                  loading: false,
+                                });
+                              }
+                            : undefined
+                        }
                       />
                     ) : (
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1802,6 +1828,16 @@ export default function EvangelismPage() {
                     loading: false,
                   })
                 }
+                onHardDelete={
+                  userCanHardDelete
+                    ? () =>
+                        setHardDeleteConfirmation({
+                          isOpen: true,
+                          group: viewEditGroup,
+                          loading: false,
+                        })
+                    : undefined
+                }
                 onClose={() => {
                   setViewEditGroup(null);
                   setViewMode("view");
@@ -1957,7 +1993,7 @@ export default function EvangelismPage() {
           </Modal>
         )}
 
-        {/* Delete Confirmation */}
+        {/* Mark Inactive Confirmation */}
         <ConfirmationModal
           isOpen={deleteConfirmation.isOpen}
           onClose={() =>
@@ -1972,7 +2008,10 @@ export default function EvangelismPage() {
               (async () => {
                 try {
                   setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
-                  await deleteGroup(deleteConfirmation.group!.id);
+                  await updateGroup(deleteConfirmation.group!.id, {
+                    is_active: false,
+                  });
+                  await fetchGroups();
                   setDeleteConfirmation({
                     isOpen: false,
                     group: null,
@@ -1980,7 +2019,7 @@ export default function EvangelismPage() {
                   });
                   setViewEditGroup(null);
                 } catch (error) {
-                  console.error("Error deleting group:", error);
+                  console.error("Error marking group inactive:", error);
                   setDeleteConfirmation((prev) => ({
                     ...prev,
                     loading: false,
@@ -1989,21 +2028,76 @@ export default function EvangelismPage() {
               })();
             }
           }}
-          title="Delete Group"
+          title="Mark Group Inactive"
           message={
             <>
-              Are you sure you want to delete{" "}
+              Mark{" "}
               <strong className="font-semibold text-gray-900">
                 {deleteConfirmation.group?.name ?? ""}
+              </strong>{" "}
+              as inactive? It will be hidden from the default active groups list.
+            </>
+          }
+          confirmText="Mark Inactive"
+          cancelText="Cancel"
+          variant="warning"
+          loading={deleteConfirmation.loading}
+        />
+
+        {userCanHardDelete && (
+        <ConfirmationModal
+          isOpen={hardDeleteConfirmation.isOpen}
+          onClose={() =>
+            setHardDeleteConfirmation({
+              isOpen: false,
+              group: null,
+              loading: false,
+            })
+          }
+          onConfirm={() => {
+            if (hardDeleteConfirmation.group) {
+              (async () => {
+                try {
+                  setHardDeleteConfirmation((prev) => ({
+                    ...prev,
+                    loading: true,
+                  }));
+                  await deleteGroup(hardDeleteConfirmation.group!.id);
+                  await fetchGroups();
+                  setHardDeleteConfirmation({
+                    isOpen: false,
+                    group: null,
+                    loading: false,
+                  });
+                  setViewEditGroup(null);
+                } catch (error) {
+                  console.error("Error deleting group:", error);
+                  setHardDeleteConfirmation((prev) => ({
+                    ...prev,
+                    loading: false,
+                  }));
+                }
+              })();
+            }
+          }}
+          title="Delete Group Permanently"
+          message={
+            <>
+              Are you sure you want to permanently delete{" "}
+              <strong className="font-semibold text-gray-900">
+                {hardDeleteConfirmation.group?.name ?? ""}
               </strong>
               ? This action cannot be undone.
             </>
           }
           confirmText="Delete"
           cancelText="Cancel"
-          loading={deleteConfirmation.loading}
+          variant="danger"
+          loading={hardDeleteConfirmation.loading}
         />
+        )}
 
+        {userCanHardDelete && (
         <ConfirmationModal
           isOpen={bulkDeleteConfirmation.isOpen}
           onClose={() =>
@@ -2017,6 +2111,7 @@ export default function EvangelismPage() {
           variant="danger"
           loading={bulkDeleteConfirmation.loading}
         />
+        )}
 
         <ConfirmationModal
           isOpen={markInactiveConfirmation.isOpen}

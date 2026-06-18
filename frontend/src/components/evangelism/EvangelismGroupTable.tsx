@@ -33,6 +33,7 @@ interface EvangelismGroupTableProps {
   onView: (group: EvangelismGroup) => void;
   onEdit: (group: EvangelismGroup) => void;
   onDelete: (group: EvangelismGroup) => void;
+  onHardDelete?: (group: EvangelismGroup) => void;
 }
 
 const EvangelismGroupTable = memo(
@@ -48,6 +49,7 @@ const EvangelismGroupTable = memo(
     onView,
     onEdit,
     onDelete,
+    onHardDelete,
   }: EvangelismGroupTableProps) => {
     const allSelected =
       groups.length > 0 &&
@@ -201,10 +203,16 @@ const EvangelismGroupTable = memo(
                         onView={() => onView(group)}
                         onEdit={() => onEdit(group)}
                         onDelete={() => onDelete(group)}
+                        onHardDelete={
+                          onHardDelete
+                            ? () => onHardDelete(group)
+                            : undefined
+                        }
                         labels={{
                           view: "View Group",
                           edit: "Edit Group",
-                          delete: "Delete Group",
+                          delete: "Mark Inactive",
+                          hardDelete: "Delete Group",
                           title: "Group Actions",
                         }}
                       />

@@ -100,7 +100,10 @@ interface ClustersPageViewProps {
   onCloseClusterFilterCard: () => void;
   onViewCluster: (cluster: Cluster) => void;
   onEditCluster: (cluster: Cluster) => void;
-  onDeleteCluster: (cluster: Cluster) => void;
+  onMarkInactiveCluster: (cluster: Cluster) => void;
+  onHardDeleteCluster?: (cluster: Cluster) => void;
+  showInactiveClusters: boolean;
+  onShowInactiveClustersChange: (show: boolean) => void;
   onCreateCluster: () => void;
   viewCluster: Cluster | null;
   editCluster: Cluster | null;
@@ -123,6 +126,13 @@ interface ClustersPageViewProps {
   };
   onConfirmDeleteCluster: () => void;
   onCloseDeleteConfirmation: () => void;
+  markInactiveConfirmation: {
+    isOpen: boolean;
+    cluster: Cluster | null;
+    loading: boolean;
+  };
+  onConfirmMarkInactiveCluster: () => void;
+  onCloseMarkInactiveConfirmation: () => void;
   onCreateClusterSubmit: (data: ClusterInput) => Promise<void>;
   onUpdateClusterSubmit: (data: Partial<ClusterInput>) => Promise<void>;
   assignMembersModal: { isOpen: boolean; cluster: Cluster | null };
@@ -180,15 +190,22 @@ interface ClustersPageViewProps {
   onToggleSelectionMode: () => void;
   onSelectCluster: (clusterId: string) => void;
   onSelectAllClusters: () => void;
-  onBulkDelete: () => void;
+  onBulkDelete?: () => void;
+  onBulkMarkInactive: () => void;
   onBulkExport: (format: "excel" | "pdf" | "csv") => void;
   bulkDeleteConfirmation: {
+    isOpen: boolean;
+    loading: boolean;
+  };
+  bulkMarkInactiveConfirmation: {
     isOpen: boolean;
     loading: boolean;
   };
   selectedClustersCount: number;
   onConfirmBulkDeleteClusters: () => void;
   onCloseBulkDeleteConfirmation: () => void;
+  onConfirmBulkMarkInactiveClusters: () => void;
+  onCloseBulkMarkInactiveConfirmation: () => void;
 }
 
 export default function ClustersPageView({
@@ -233,7 +250,10 @@ export default function ClustersPageView({
   onCloseClusterFilterCard,
   onViewCluster,
   onEditCluster,
-  onDeleteCluster,
+  onMarkInactiveCluster,
+  onHardDeleteCluster,
+  showInactiveClusters,
+  onShowInactiveClustersChange,
   onCreateCluster,
   viewCluster,
   editCluster,
@@ -252,6 +272,9 @@ export default function ClustersPageView({
   clusterDeleteConfirmation,
   onConfirmDeleteCluster,
   onCloseDeleteConfirmation,
+  markInactiveConfirmation,
+  onConfirmMarkInactiveCluster,
+  onCloseMarkInactiveConfirmation,
   onCreateClusterSubmit,
   onUpdateClusterSubmit,
   assignMembersModal,
@@ -299,11 +322,15 @@ export default function ClustersPageView({
   onSelectCluster,
   onSelectAllClusters,
   onBulkDelete,
+  onBulkMarkInactive,
   onBulkExport,
   bulkDeleteConfirmation,
+  bulkMarkInactiveConfirmation,
   selectedClustersCount,
   onConfirmBulkDeleteClusters,
   onCloseBulkDeleteConfirmation,
+  onConfirmBulkMarkInactiveClusters,
+  onCloseBulkMarkInactiveConfirmation,
 }: ClustersPageViewProps) {
   const [clusterListViewMode, setClusterListViewMode] = useState<"cards" | "table">(
     "cards"
@@ -500,7 +527,12 @@ export default function ClustersPageView({
             (p) => p.id === currentViewCluster.coordinator?.id?.toString()
           )}
           onEdit={() => onEditCluster(currentViewCluster)}
-          onDelete={() => onDeleteCluster(currentViewCluster)}
+          onDelete={() => onMarkInactiveCluster(currentViewCluster)}
+          onHardDelete={
+            onHardDeleteCluster
+              ? () => onHardDeleteCluster(currentViewCluster)
+              : undefined
+          }
           onCancel={isPanel ? onBackClusterPanel : onCloseClusterModal}
           onClose={isPanel ? onCloseClusterPanel : onCloseClusterModal}
           onAssignMembers={() => onOpenAssignMembers(currentViewCluster)}
@@ -838,10 +870,23 @@ export default function ClustersPageView({
 
                 <div className="flex items-center justify-between gap-3">
                   {renderClusterBranchSelect()}
-                  <ViewModeToggle
-                    viewMode={clusterListViewMode}
-                    onViewModeChange={setClusterListViewMode}
-                  />
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={showInactiveClusters}
+                        onChange={(e) =>
+                          onShowInactiveClustersChange(e.target.checked)
+                        }
+                        className="rounded border-gray-300 text-primary focus:ring-ring"
+                      />
+                      Show inactive
+                    </label>
+                    <ViewModeToggle
+                      viewMode={clusterListViewMode}
+                      onViewModeChange={setClusterListViewMode}
+                    />
+                  </div>
                 </div>
 
                 <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
@@ -875,6 +920,7 @@ export default function ClustersPageView({
                       </button>
                       {isSelectionMode && selectedClusters.size > 0 && (
                         <BulkActionsMenu
+                          onBulkMarkInactive={onBulkMarkInactive}
                           onBulkDelete={onBulkDelete}
                           onBulkExport={onBulkExport}
                           selectedCount={selectedClusters.size}
@@ -993,6 +1039,17 @@ export default function ClustersPageView({
                   {renderClusterBranchSelect()}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={showInactiveClusters}
+                      onChange={(e) =>
+                        onShowInactiveClustersChange(e.target.checked)
+                      }
+                      className="rounded border-gray-300 text-primary focus:ring-ring"
+                    />
+                    Show inactive
+                  </label>
                   <ViewModeToggle
                     compact
                     viewMode={clusterListViewMode}
@@ -1028,6 +1085,7 @@ export default function ClustersPageView({
                       </button>
                       {isSelectionMode && selectedClusters.size > 0 && (
                         <BulkActionsMenu
+                          onBulkMarkInactive={onBulkMarkInactive}
                           onBulkDelete={onBulkDelete}
                           onBulkExport={onBulkExport}
                           selectedCount={selectedClusters.size}
@@ -1342,7 +1400,12 @@ export default function ClustersPageView({
                                   <ActionMenu
                                     onView={() => onViewCluster(c)}
                                     onEdit={() => onEditCluster(c)}
-                                    onDelete={() => onDeleteCluster(c)}
+                                    onDelete={() => onMarkInactiveCluster(c)}
+                                    onHardDelete={
+                                      onHardDeleteCluster
+                                        ? () => onHardDeleteCluster(c)
+                                        : undefined
+                                    }
                                     showEditDelete={userCanManageCluster(
                                       c as Cluster,
                                       clusterAuthCtx,
@@ -1350,7 +1413,8 @@ export default function ClustersPageView({
                                     labels={{
                                       view: "View Cluster",
                                       edit: "Edit Cluster",
-                                      delete: "Delete Cluster",
+                                      delete: "Mark Inactive",
+                                      hardDelete: "Delete Cluster",
                                       title: "Cluster Actions",
                                     }}
                                   />
@@ -1380,7 +1444,12 @@ export default function ClustersPageView({
                         onSelect={() => onSelectCluster(c.id.toString())}
                         onView={() => onViewCluster(c)}
                         onEdit={() => onEditCluster(c)}
-                        onDelete={() => onDeleteCluster(c)}
+                        onDelete={() => onMarkInactiveCluster(c)}
+                        onHardDelete={
+                          onHardDeleteCluster
+                            ? () => onHardDeleteCluster(c)
+                            : undefined
+                        }
                       />
                     ))}
                   </div>
@@ -1504,12 +1573,32 @@ export default function ClustersPageView({
           {renderClusterFlow(false)}
         </Modal>
 
-        {/* Delete Cluster Confirmation */}
+        {/* Mark Inactive Confirmation */}
+        <ConfirmationModal
+          isOpen={markInactiveConfirmation.isOpen}
+          onClose={onCloseMarkInactiveConfirmation}
+          onConfirm={onConfirmMarkInactiveCluster}
+          title="Mark Cluster Inactive"
+          message={
+            markInactiveConfirmation.cluster
+              ? `Mark "${
+                  markInactiveConfirmation.cluster.name ||
+                  markInactiveConfirmation.cluster.code
+                }" as inactive? It will be hidden from the default active list.`
+              : "Mark this cluster as inactive?"
+          }
+          confirmText="Mark Inactive"
+          cancelText="Cancel"
+          variant="warning"
+          loading={markInactiveConfirmation.loading}
+        />
+
+        {/* Delete Cluster Confirmation (admin only) */}
         <ConfirmationModal
           isOpen={clusterDeleteConfirmation.isOpen}
           onClose={onCloseDeleteConfirmation}
           onConfirm={onConfirmDeleteCluster}
-          title="Delete Cluster"
+          title="Delete Cluster Permanently"
           message={
             clusterDeleteConfirmation.cluster
               ? `Are you sure you want to delete "${
@@ -1525,16 +1614,30 @@ export default function ClustersPageView({
         />
 
         <ConfirmationModal
+          isOpen={bulkMarkInactiveConfirmation.isOpen}
+          onClose={onCloseBulkMarkInactiveConfirmation}
+          onConfirm={onConfirmBulkMarkInactiveClusters}
+          title="Mark Selected Clusters as Inactive"
+          message={`Mark ${selectedClustersCount} selected cluster(s) as inactive? They will be hidden from the default active list.`}
+          confirmText="Mark as Inactive"
+          cancelText="Cancel"
+          variant="warning"
+          loading={bulkMarkInactiveConfirmation.loading}
+        />
+
+        {onBulkDelete && (
+        <ConfirmationModal
           isOpen={bulkDeleteConfirmation.isOpen}
           onClose={onCloseBulkDeleteConfirmation}
           onConfirm={onConfirmBulkDeleteClusters}
           title="Delete Selected Clusters"
-          message={`Are you sure you want to delete ${selectedClustersCount} selected cluster(s)? This will also delete all associated weekly reports. This action cannot be undone.`}
+          message={`Are you sure you want to permanently delete ${selectedClustersCount} selected cluster(s)? This will also delete all associated weekly reports. This action cannot be undone.`}
           confirmText="Delete Clusters"
           cancelText="Cancel"
           variant="danger"
           loading={bulkDeleteConfirmation.loading}
         />
+        )}
 
         {/* Assign Members Modal */}
         {assignMembersModal.cluster && (

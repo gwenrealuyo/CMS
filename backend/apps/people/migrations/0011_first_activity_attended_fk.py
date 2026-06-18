@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("people", "0010_modulesetting"),
-        ("events", "0001_initial"),
+        ("events", "0003_eventtype_color_is_system"),
     ]
 
     operations = [

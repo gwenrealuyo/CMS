@@ -47,6 +47,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import { userCanAttemptClusterWeeklyReportMutation } from "@/src/lib/clusterPermissions";
 
 interface ClusterReportsDashboardProps {
@@ -375,6 +376,7 @@ export default function ClusterReportsDashboard({
       isModuleCoordinator,
     ],
   );
+  const userCanHardDeleteReports = canHardDelete(user);
 
   // Handle sorting
   const handleSort = (field: string) => {
@@ -2123,12 +2125,14 @@ export default function ClusterReportsDashboard({
                             >
                               Edit
                             </button>
-                            <button
-                              onClick={() => handleDeleteReport(report)}
-                              className="flex-1 text-red-600 hover:text-red-900 py-2 px-3 rounded border border-red-200 hover:bg-red-50 text-sm font-medium"
-                            >
-                              Delete
-                            </button>
+                            {userCanHardDeleteReports && (
+                              <button
+                                onClick={() => handleDeleteReport(report)}
+                                className="flex-1 text-red-600 hover:text-red-900 py-2 px-3 rounded border border-red-200 hover:bg-red-50 text-sm font-medium"
+                              >
+                                Delete
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -2339,6 +2343,7 @@ export default function ClusterReportsDashboard({
                                   />
                                 </svg>
                               </button>
+                              {userCanHardDeleteReports && (
                               <button
                                 onClick={() => handleDeleteReport(report)}
                                 className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -2359,6 +2364,7 @@ export default function ClusterReportsDashboard({
                                   />
                                 </svg>
                               </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -2436,9 +2442,13 @@ export default function ClusterReportsDashboard({
             setShowViewModal(false);
             handleEditReport(viewingReport);
           }}
-          onDelete={() => {
-            handleDeleteReport(viewingReport);
-          }}
+          onDelete={
+            userCanHardDeleteReports
+              ? () => {
+                  handleDeleteReport(viewingReport);
+                }
+              : undefined
+          }
           onCancel={() => {
             setShowViewModal(false);
             setViewingReport(null);

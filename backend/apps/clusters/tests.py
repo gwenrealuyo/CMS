@@ -6,7 +6,7 @@ from rest_framework.test import APIRequestFactory
 from datetime import date, timedelta
 
 from .models import Cluster, ClusterWeeklyReport
-from apps.people.models import Family, Branch, ModuleCoordinator
+from apps.people.models import Family, Branch, ModuleCoordinator, Journey
 from apps.clusters.serializers import ClusterSerializer
 from apps.people.serializers import PersonSerializer
 
@@ -1507,3 +1507,118 @@ class ClusterCoordinatorModuleSyncTests(TestCase):
         cluster.coordinator = None
         cluster.save(update_fields=["coordinator"])
         self.assertEqual(self._scoped_qs(cluster.id).count(), 0)
+
+
+class ClusterSoftDeleteTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.branch = Branch.objects.create(
+            name="HQ-SD",
+            code="HQSD",
+            is_headquarters=True,
+            is_active=True,
+        )
+        cls.admin = Person.objects.create_user(
+            username="cluster_admin_sd",
+            email="cluster_admin_sd@test.com",
+            password="x",
+            first_name="Admin",
+            last_name="User",
+            role="ADMIN",
+            branch=cls.branch,
+            status="ACTIVE",
+        )
+        cls.coordinator = Person.objects.create_user(
+            username="cluster_coord_sd",
+            email="cluster_coord_sd@test.com",
+            password="x",
+            first_name="Coord",
+            last_name="User",
+            role="MEMBER",
+            branch=cls.branch,
+            status="ACTIVE",
+        )
+        cls.member = Person.objects.create_user(
+            username="cluster_member_sd",
+            email="cluster_member_sd@test.com",
+            password="x",
+            first_name="Member",
+            last_name="User",
+            role="MEMBER",
+            branch=cls.branch,
+            status="ACTIVE",
+        )
+        cls.cluster = Cluster.objects.create(
+            code="CLU-SD-A",
+            name="Active Cluster SD",
+            coordinator=cls.coordinator,
+            branch=cls.branch,
+            is_active=True,
+        )
+        cls.inactive_cluster = Cluster.objects.create(
+            code="CLU-SD-OLD",
+            name="Old Cluster SD",
+            branch=cls.branch,
+            is_active=False,
+        )
+        cls.inactive_cluster.members.add(cls.member)
+        cls.cluster.members.add(cls.coordinator)
+        # Coordinator assignment is synced from cluster.coordinator via signals
+        cls.report = ClusterWeeklyReport.objects.create(
+            cluster=cls.cluster,
+            year=2025,
+            week_number=10,
+            meeting_date=date(2025, 3, 1),
+            gathering_type="PHYSICAL",
+            submitted_by=cls.coordinator,
+        )
+        Journey.objects.create(
+            user=cls.member,
+            title="Added to cluster: CLU-SD-OLD",
+            date=date(2024, 6, 1),
+            type="CLUSTER",
+            description="Added to this cluster.",
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_inactive_clusters_hidden_by_default(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get("/api/clusters/clusters/")
+        self.assertEqual(res.status_code, 200)
+        ids = {c["id"] for c in res.data}
+        self.assertIn(self.cluster.id, ids)
+        self.assertNotIn(self.inactive_cluster.id, ids)
+
+    def test_coordinator_cannot_delete_cluster(self):
+        self.client.force_authenticate(user=self.coordinator)
+        res = self.client.delete(f"/api/clusters/clusters/{self.cluster.id}/")
+        self.assertEqual(res.status_code, 403)
+
+    def test_admin_can_delete_cluster(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.delete(f"/api/clusters/clusters/{self.cluster.id}/")
+        self.assertEqual(res.status_code, 204)
+
+    def test_coordinator_cannot_delete_report(self):
+        self.client.force_authenticate(user=self.coordinator)
+        res = self.client.delete(
+            f"/api/clusters/cluster-weekly-reports/{self.report.id}/"
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_adding_member_to_active_cluster_removes_inactive_membership(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.patch(
+            f"/api/clusters/clusters/{self.cluster.id}/",
+            {"members": [self.coordinator.id, self.member.id]},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(
+            self.inactive_cluster.members.filter(id=self.member.id).exists()
+        )
+        self.assertTrue(
+            Journey.objects.filter(user=self.member, type="CLUSTER").exists()
+        )

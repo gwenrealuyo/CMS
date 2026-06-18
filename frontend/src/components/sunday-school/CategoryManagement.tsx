@@ -14,7 +14,8 @@ interface CategoryManagementProps {
   error: string | null;
   onCreate: (data: Partial<SundaySchoolCategory>) => Promise<void>;
   onUpdate: (id: number | string, data: Partial<SundaySchoolCategory>) => Promise<void>;
-  onDelete: (id: number | string) => Promise<void>;
+  onMarkInactive: (id: number | string) => Promise<void>;
+  onHardDelete?: (id: number | string) => Promise<void>;
 }
 
 export default function CategoryManagement({
@@ -23,7 +24,8 @@ export default function CategoryManagement({
   error,
   onCreate,
   onUpdate,
-  onDelete,
+  onMarkInactive,
+  onHardDelete,
 }: CategoryManagementProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SundaySchoolCategory | null>(null);
@@ -134,6 +136,24 @@ export default function CategoryManagement({
                   >
                     Edit
                   </Button>
+                  {category.is_active && (
+                    <Button
+                      variant="tertiary"
+                      onClick={() => void onMarkInactive(category.id)}
+                      className="text-xs !px-3 !py-1 !text-gray-600"
+                    >
+                      Mark Inactive
+                    </Button>
+                  )}
+                  {onHardDelete && (
+                    <Button
+                      variant="tertiary"
+                      onClick={() => void onHardDelete(category.id)}
+                      className="text-xs !px-3 !py-1 !text-red-600"
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

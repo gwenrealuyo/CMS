@@ -23,6 +23,7 @@ import AttendanceReportComponent from "@/src/components/sunday-school/Attendance
 import SessionView from "@/src/components/sunday-school/SessionView";
 import UnenrolledByCategory from "@/src/components/sunday-school/UnenrolledByCategory";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import {
   useSundaySchoolCategories,
   useSundaySchoolClasses,
@@ -44,6 +45,7 @@ import {
 
 export default function SundaySchoolPage() {
   const { user } = useAuth();
+  const userCanHardDelete = canHardDelete(user);
   const {
     categories,
     loading: categoriesLoading,
@@ -113,6 +115,15 @@ export default function SundaySchoolPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    class: SundaySchoolClass | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    class: null,
+    loading: false,
+  });
+  const [markInactiveConfirmation, setMarkInactiveConfirmation] = useState<{
     isOpen: boolean;
     class: SundaySchoolClass | null;
     loading: boolean;
@@ -236,6 +247,21 @@ export default function SundaySchoolPage() {
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleMarkInactiveClass = async () => {
+    if (!markInactiveConfirmation.class) return;
+    try {
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: true }));
+      await updateClass(markInactiveConfirmation.class!.id, { is_active: false });
+      setMarkInactiveConfirmation({ isOpen: false, class: null, loading: false });
+      setViewEditClass(null);
+      setViewMode("view");
+      await fetchClasses();
+    } catch (error) {
+      console.error("Error marking class inactive:", error);
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -753,7 +779,10 @@ export default function SundaySchoolPage() {
           onUpdate={async (id, data) => {
             await updateCategory(id, data);
           }}
-          onDelete={deleteCategory}
+          onMarkInactive={async (id) => {
+            await updateCategory(id, { is_active: false });
+          }}
+          onHardDelete={userCanHardDelete ? deleteCategory : undefined}
         />
       </Modal>
 
@@ -873,10 +902,12 @@ export default function SundaySchoolPage() {
                 onBulkEnroll={handleBulkEnroll}
                 onRemoveMember={async (memberId) => {
                   try {
-                    await sundaySchoolApi.deleteMember(memberId);
+                    await sundaySchoolApi.updateMember(memberId, {
+                      is_active: false,
+                    });
                     await fetchClass();
                   } catch (err) {
-                    console.error("Failed to remove member:", err);
+                    console.error("Failed to unenroll member:", err);
                   }
                 }}
               />
@@ -901,32 +932,49 @@ export default function SundaySchoolPage() {
 
             {/* Footer */}
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-6 border-t border-gray-200 bg-gray-50">
-              <Button
-                onClick={() => {
-                  setDeleteConfirmation({
-                    isOpen: true,
-                    class: classData,
-                    loading: false,
-                  });
-                }}
-                variant="secondary"
-                className="!text-red-600 min-h-[44px] px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center w-full sm:w-auto"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button
+                  onClick={() => {
+                    setMarkInactiveConfirmation({
+                      isOpen: true,
+                      class: classData,
+                      loading: false,
+                    });
+                  }}
+                  variant="secondary"
+                  className="!text-gray-700 min-h-[44px] px-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center w-full sm:w-auto"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                <span className="ml-2 sm:ml-0 md:ml-2">Delete</span>
-              </Button>
+                  <span>Mark Inactive</span>
+                </Button>
+                {userCanHardDelete && (
+                <Button
+                  onClick={() => {
+                    setDeleteConfirmation({
+                      isOpen: true,
+                      class: classData,
+                      loading: false,
+                    });
+                  }}
+                  variant="secondary"
+                  className="!text-red-600 min-h-[44px] px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center w-full sm:w-auto"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  <span className="ml-2 sm:ml-0 md:ml-2">Delete</span>
+                </Button>
+                )}
+              </div>
               <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 <Button
                   onClick={() => {
@@ -1092,14 +1140,28 @@ export default function SundaySchoolPage() {
         />
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={markInactiveConfirmation.isOpen}
+        onClose={() => {
+          setMarkInactiveConfirmation({ isOpen: false, class: null, loading: false });
+        }}
+        onConfirm={handleMarkInactiveClass}
+        title="Mark Class Inactive"
+        message={`Mark "${markInactiveConfirmation.class?.name}" as inactive? It will be hidden from the default active list.`}
+        confirmText="Mark Inactive"
+        cancelText="Cancel"
+        variant="warning"
+        loading={markInactiveConfirmation.loading}
+      />
+
+      {/* Delete Confirmation Modal (admin only) */}
       <ConfirmationModal
         isOpen={deleteConfirmation.isOpen}
         onClose={() => {
           setDeleteConfirmation({ isOpen: false, class: null, loading: false });
         }}
         onConfirm={handleDeleteClass}
-        title="Delete Class"
+        title="Delete Class Permanently"
         message={`Are you sure you want to delete "${deleteConfirmation.class?.name}"? This action cannot be undone.`}
         confirmText="Delete Class"
         cancelText="Cancel"

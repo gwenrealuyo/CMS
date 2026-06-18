@@ -9,6 +9,8 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
 import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
 import { PersonUI, Family, Person } from "@/src/types/person";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 
 interface FamiliesTabContentProps {
   families: Family[];
@@ -31,6 +33,8 @@ export default function FamiliesTabContent({
   refreshFamilies,
   createTrigger,
 }: FamiliesTabContentProps) {
+  const { user } = useAuth();
+  const userCanHardDelete = canHardDelete(user);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -43,6 +47,15 @@ export default function FamiliesTabContent({
   const [viewFamily, setViewFamily] = useState<Family | null>(null);
   const [familyViewMode, setFamilyViewMode] = useState<"view" | "edit">("view");
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    family: Family | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    family: null,
+    loading: false,
+  });
+  const [markInactiveConfirmation, setMarkInactiveConfirmation] = useState<{
     isOpen: boolean;
     family: Family | null;
     loading: boolean;
@@ -168,6 +181,30 @@ export default function FamiliesTabContent({
     }
   };
 
+  const handleMarkInactiveFamily = async () => {
+    if (!markInactiveConfirmation.family) return;
+
+    try {
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: true }));
+      await updateFamily(markInactiveConfirmation.family!.id, {
+        is_active: false,
+      });
+      await refreshFamilies();
+      setMarkInactiveConfirmation({
+        isOpen: false,
+        family: null,
+        loading: false,
+      });
+      closeFamilyPanel();
+      setIsModalOpen(false);
+      setViewFamily(null);
+    } catch (error) {
+      console.error("Error marking family inactive:", error);
+      alert("Failed to mark family as inactive. Please try again.");
+      setMarkInactiveConfirmation((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
   const handleDeleteFamily = async () => {
     if (!deleteConfirmation.family) return;
 
@@ -184,6 +221,30 @@ export default function FamiliesTabContent({
       alert("Failed to delete family. Please try again.");
       setDeleteConfirmation((prev) => ({ ...prev, loading: false }));
     }
+  };
+
+  const openMarkInactiveConfirmation = (family: Family) => {
+    setMarkInactiveConfirmation({
+      isOpen: true,
+      family,
+      loading: false,
+    });
+  };
+
+  const openHardDeleteConfirmation = (family: Family) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      family,
+      loading: false,
+    });
+  };
+
+  const closeMarkInactiveConfirmation = () => {
+    setMarkInactiveConfirmation({
+      isOpen: false,
+      family: null,
+      loading: false,
+    });
   };
 
   const closeDeleteConfirmation = () => {
@@ -234,13 +295,12 @@ export default function FamiliesTabContent({
                 setPanelMode("edit");
               }
             }}
-            onDelete={() => {
-              setDeleteConfirmation({
-                isOpen: true,
-                family: viewFamily,
-                loading: false,
-              });
-            }}
+            onDelete={() => openMarkInactiveConfirmation(viewFamily)}
+            onHardDelete={
+              userCanHardDelete
+                ? () => openHardDeleteConfirmation(viewFamily)
+                : undefined
+            }
             onCancel={() => {
               if (isPanel) {
                 closeFamilyPanel();
@@ -360,13 +420,10 @@ export default function FamiliesTabContent({
           onCreateFamily={() => openFamilyInteraction("create")}
           onViewFamily={(family) => openFamilyInteraction("view", family)}
           onEditFamily={(family) => openFamilyInteraction("edit", family)}
-          onDeleteFamily={(family) => {
-            setDeleteConfirmation({
-              isOpen: true,
-              family,
-              loading: false,
-            });
-          }}
+          onDeleteFamily={openMarkInactiveConfirmation}
+          onHardDeleteFamily={
+            userCanHardDelete ? openHardDeleteConfirmation : undefined
+          }
         />
         {isDesktop && panelOpen && (
           <PersonDetailPanel
@@ -408,11 +465,23 @@ export default function FamiliesTabContent({
       </Modal>
 
       <ConfirmationModal
+        isOpen={markInactiveConfirmation.isOpen}
+        onClose={closeMarkInactiveConfirmation}
+        onConfirm={handleMarkInactiveFamily}
+        title="Mark Family Inactive"
+        message={`Mark the "${markInactiveConfirmation.family?.name}" family as inactive? It will be hidden from the default active list.`}
+        confirmText="Mark Inactive"
+        cancelText="Cancel"
+        variant="warning"
+        loading={markInactiveConfirmation.loading}
+      />
+
+      <ConfirmationModal
         isOpen={deleteConfirmation.isOpen}
         onClose={closeDeleteConfirmation}
         onConfirm={handleDeleteFamily}
-        title="Delete Family"
-        message={`Are you sure you want to delete the "${deleteConfirmation.family?.name}" family? This action cannot be undone and will remove all family members from this family.`}
+        title="Delete Family Permanently"
+        message={`Are you sure you want to permanently delete the "${deleteConfirmation.family?.name}" family? This action cannot be undone and will remove all family members from this family.`}
         confirmText="Delete Family"
         cancelText="Cancel"
         variant="danger"

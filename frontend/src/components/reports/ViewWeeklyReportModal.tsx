@@ -16,7 +16,7 @@ interface ViewWeeklyReportModalProps {
   canMutateReports?: boolean;
   onClose: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   onCancel: () => void;
 }
 
@@ -595,6 +595,7 @@ export default function ViewWeeklyReportModal({
                     <span>Cancel</span>
                   </Button>
                   <div className="border-t border-gray-200 my-1"></div>
+                  {onDelete && (
                   <Button
                     onClick={onDelete}
                     variant="secondary"
@@ -615,6 +616,7 @@ export default function ViewWeeklyReportModal({
                     </svg>
                     <span>Delete</span>
                   </Button>
+                  )}
                 </>
               ) : (
                 <Button
@@ -643,6 +645,7 @@ export default function ViewWeeklyReportModal({
             {/* Desktop/Tablet buttons - icon-only delete on left, cancel/edit on right */}
             {canMutateReports ? (
               <div className="hidden md:flex md:items-center md:justify-between md:w-full">
+                {onDelete ? (
                 <Button
                   onClick={onDelete}
                   variant="secondary"
@@ -662,6 +665,9 @@ export default function ViewWeeklyReportModal({
                     />
                   </svg>
                 </Button>
+                ) : (
+                  <div />
+                )}
                 <div className="flex items-center gap-3">
                   <Button
                     onClick={onCancel}

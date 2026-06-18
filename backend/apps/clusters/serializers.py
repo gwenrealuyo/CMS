@@ -44,6 +44,7 @@ class ClusterSerializer(serializers.ModelSerializer):
             "location",
             "meeting_schedule",
             "description",
+            "is_active",
             "created_at",
         ]
         read_only_fields = ["created_at"]
@@ -65,6 +66,16 @@ class ClusterSerializer(serializers.ModelSerializer):
         if cluster.name:
             return cluster.name
         return f"Cluster {cluster.id}"
+
+    def _remove_added_members_from_inactive_clusters(self, active_cluster, added_member_ids):
+        """When joining an active cluster, drop inactive cluster memberships (journeys preserved)."""
+        if not active_cluster.is_active or not added_member_ids:
+            return
+        inactive_clusters = Cluster.objects.filter(
+            is_active=False, members__id__in=added_member_ids
+        ).distinct()
+        for inactive in inactive_clusters:
+            inactive.members.remove(*added_member_ids)
 
     def _create_membership_journeys(
         self,
@@ -95,6 +106,11 @@ class ClusterSerializer(serializers.ModelSerializer):
 
         # Find new members (added)
         added_member_ids = new_member_ids - old_member_ids
+
+        if added_member_ids and cluster.is_active:
+            self._remove_added_members_from_inactive_clusters(
+                cluster, list(added_member_ids)
+            )
 
         # Create journeys for new members (do not delete past "Added to cluster" rows when someone leaves)
         if added_member_ids:

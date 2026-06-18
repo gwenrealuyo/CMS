@@ -26,6 +26,7 @@ import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
 import { clustersApi, peopleApi, journeysApi, User } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { canHardDelete } from "@/src/lib/canHardDelete";
 import UserLoginCredentialsModal from "@/src/components/people/UserLoginCredentialsModal";
 import { Branch } from "@/src/types/branch";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
@@ -276,6 +277,7 @@ export default function PeoplePage() {
   const { branches } = useBranches();
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
+  const userCanHardDelete = canHardDelete(user);
 
   useEffect(() => {
     if (!user) {
@@ -434,6 +436,17 @@ export default function PeoplePage() {
   }>({
     isOpen: false,
     person: null,
+    loading: false,
+  });
+  const [personStatusConfirmation, setPersonStatusConfirmation] = useState<{
+    isOpen: boolean;
+    person: Person | null;
+    status: "INACTIVE" | "DECEASED" | null;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    person: null,
+    status: null,
     loading: false,
   });
   const [assignMembersModal, setAssignMembersModal] = useState<{
@@ -973,6 +986,61 @@ export default function PeoplePage() {
     });
   };
 
+  const openPersonStatusConfirmation = (
+    person: Person,
+    status: "INACTIVE" | "DECEASED",
+  ) => {
+    setPersonStatusConfirmation({
+      isOpen: true,
+      person,
+      status,
+      loading: false,
+    });
+  };
+
+  const handleConfirmPersonStatus = async () => {
+    if (!personStatusConfirmation.person || !personStatusConfirmation.status) {
+      return;
+    }
+    setPersonStatusConfirmation((prev) => ({ ...prev, loading: true }));
+    try {
+      await peopleApi.patch(personStatusConfirmation.person.id, {
+        status: personStatusConfirmation.status,
+      });
+      await refreshPeople();
+      setPersonStatusConfirmation({
+        isOpen: false,
+        person: null,
+        status: null,
+        loading: false,
+      });
+      setIsModalOpen(false);
+      setPersonPanelOpen(false);
+      setPersonPanelPerson(null);
+      setViewEditPerson(null);
+    } catch (error) {
+      console.error("Failed to update person status:", error);
+      setPersonStatusConfirmation((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const closePersonStatusConfirmation = () => {
+    setPersonStatusConfirmation({
+      isOpen: false,
+      person: null,
+      status: null,
+      loading: false,
+    });
+  };
+
+  const renderPersonStatusActions = (person: Person) =>
+    isAdmin
+      ? {
+          onSetInactive: () => openPersonStatusConfirmation(person, "INACTIVE"),
+          onSetDeceased: () => openPersonStatusConfirmation(person, "DECEASED"),
+        }
+      : {};
+
   // Memoized search function for better performance
   const searchPeople = useCallback((people: PersonUI[], query: string) => {
     if (!query.trim()) return people;
@@ -1377,7 +1445,8 @@ export default function PeoplePage() {
             clusters={clusters}
             families={families}
             showTopHeader={!isPanel}
-            hideDeleteButton={!isAdmin}
+            hideDeleteButton={!userCanHardDelete}
+            {...renderPersonStatusActions(viewEditPerson)}
             onViewFamily={(f) => {
               setFamilyOverCluster(f);
               setShowFamilyOverCluster(true);
@@ -1659,7 +1728,7 @@ export default function PeoplePage() {
                       }
                     : undefined
                 }
-                onBulkDelete={isAdmin ? handleBulkDelete : undefined}
+                onBulkDelete={userCanHardDelete ? handleBulkDelete : undefined}
                 onBulkExport={handleBulkExport}
               />
             </div>
@@ -2353,6 +2422,26 @@ export default function PeoplePage() {
         loading={personDeleteConfirmation.loading}
       />
 
+      <ConfirmationModal
+        isOpen={personStatusConfirmation.isOpen}
+        onClose={closePersonStatusConfirmation}
+        onConfirm={handleConfirmPersonStatus}
+        title={
+          personStatusConfirmation.status === "DECEASED"
+            ? "Set Person as Deceased"
+            : "Set Person as Inactive"
+        }
+        message={`Set "${personStatusConfirmation.person?.first_name} ${personStatusConfirmation.person?.last_name}" as ${personStatusConfirmation.status === "DECEASED" ? "deceased" : "inactive"}?`}
+        confirmText={
+          personStatusConfirmation.status === "DECEASED"
+            ? "Set Deceased"
+            : "Set Inactive"
+        }
+        cancelText="Cancel"
+        variant="warning"
+        loading={personStatusConfirmation.loading}
+      />
+
       <AssignMembersModal
         cluster={assignMembersModal.cluster!}
         peopleUI={peopleUI}
@@ -2420,7 +2509,8 @@ export default function PeoplePage() {
             person={personOverCluster}
             clusters={clusters}
             families={families}
-            hideDeleteButton={!isAdmin}
+            hideDeleteButton={!userCanHardDelete}
+            {...renderPersonStatusActions(personOverCluster)}
             onViewFamily={(f) => {
               setFamilyOverCluster(f);
               setShowFamilyOverCluster(true);

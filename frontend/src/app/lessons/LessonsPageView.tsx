@@ -160,6 +160,9 @@ interface LessonsPageViewProps {
   lessonDeleteTarget: Lesson | null;
   lessonDeleteLoading: boolean;
   lessonDeleteError: string | null;
+  lessonHardDeleteTarget?: Lesson | null;
+  lessonHardDeleteLoading?: boolean;
+  lessonHardDeleteError?: string | null;
   // People data
   people: Person[];
   teacherChoices: LessonPersonLike[];
@@ -173,7 +176,10 @@ interface LessonsPageViewProps {
   onOpenCreateLesson: () => void;
   onOpenEditLesson: (lesson: Lesson) => void;
   onRequestDeleteLesson: (lesson: Lesson) => void;
+  onRequestHardDeleteLesson?: (lesson: Lesson) => void;
   onConfirmDeleteLesson: () => void;
+  onConfirmHardDeleteLesson?: () => void;
+  userCanHardDelete?: boolean;
   onCloseLessonForm: () => void;
   onLessonFormSubmit: (values: LessonFormValues) => void;
   onMarkCompleted: (record: PersonLessonProgress) => void;
@@ -238,7 +244,9 @@ interface LessonsPageViewProps {
   onConfirmDeleteSessionReport: () => void;
   onSetSessionDeleteTarget: (target: LessonSessionReport | null) => void;
   onSetLessonDeleteTarget: (target: Lesson | null) => void;
+  onSetLessonHardDeleteTarget?: (target: Lesson | null) => void;
   onSetLessonDeleteError: (error: string | null) => void;
+  onSetLessonHardDeleteError?: (error: string | null) => void;
 }
 
 export default function LessonsPageView({
@@ -300,6 +308,10 @@ export default function LessonsPageView({
   lessonDeleteTarget,
   lessonDeleteLoading,
   lessonDeleteError,
+  lessonHardDeleteTarget,
+  lessonHardDeleteLoading,
+  lessonHardDeleteError,
+  userCanHardDelete = false,
   people,
   teacherChoices,
   studentChoices,
@@ -310,7 +322,9 @@ export default function LessonsPageView({
   onOpenCreateLesson,
   onOpenEditLesson,
   onRequestDeleteLesson,
+  onRequestHardDeleteLesson,
   onConfirmDeleteLesson,
+  onConfirmHardDeleteLesson,
   onCloseLessonForm,
   onLessonFormSubmit,
   onMarkCompleted,
@@ -362,7 +376,9 @@ export default function LessonsPageView({
   onConfirmDeleteSessionReport,
   onSetSessionDeleteTarget,
   onSetLessonDeleteTarget,
+  onSetLessonHardDeleteTarget,
   onSetLessonDeleteError,
+  onSetLessonHardDeleteError,
 }: LessonsPageViewProps) {
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
   const canTransferLessonTeacher = Boolean(
@@ -578,7 +594,9 @@ export default function LessonsPageView({
               onExport={onExportSessionReports}
               onOpenSessionModal={onOpenSessionReportModal}
               onEditSession={onOpenSessionReportForEdit}
-              onRequestDelete={onRequestDeleteSessionReport}
+              onRequestDelete={
+                userCanHardDelete ? onRequestDeleteSessionReport : undefined
+              }
               formatDateOnly={formatDateOnly}
               formatDateTime={formatDateTime}
               canLogSession={lessons.length > 0}
@@ -620,6 +638,11 @@ export default function LessonsPageView({
           onDelete={
             editingLesson
               ? () => onRequestDeleteLesson(editingLesson)
+              : undefined
+          }
+          onHardDelete={
+            editingLesson && onRequestHardDeleteLesson
+              ? () => onRequestHardDeleteLesson(editingLesson)
               : undefined
           }
         />
@@ -747,17 +770,39 @@ export default function LessonsPageView({
           onSetLessonDeleteError(null);
         }}
         onConfirm={onConfirmDeleteLesson}
-        title="Delete Lesson"
+        title="Deactivate Lesson"
         message={
           lessonDeleteError
             ? `${lessonDeleteError} Please try again.`
-            : `Are you sure you want to delete the "${lessonDeleteTarget?.title}" lesson? This action cannot be undone and will remove it from the catalog for all users.`
+            : `Deactivate the "${lessonDeleteTarget?.title}" lesson? It will be hidden from the active catalog but historical progress is preserved.`
+        }
+        confirmText="Deactivate Lesson"
+        cancelText="Cancel"
+        variant="warning"
+        loading={lessonDeleteLoading}
+      />
+
+      {onConfirmHardDeleteLesson && (
+      <ConfirmationModal
+        isOpen={Boolean(lessonHardDeleteTarget)}
+        onClose={() => {
+          if (lessonHardDeleteLoading) return;
+          onSetLessonHardDeleteTarget?.(null);
+          onSetLessonHardDeleteError?.(null);
+        }}
+        onConfirm={onConfirmHardDeleteLesson}
+        title="Delete Lesson Permanently"
+        message={
+          lessonHardDeleteError
+            ? `${lessonHardDeleteError} Please try again.`
+            : `Are you sure you want to permanently delete the "${lessonHardDeleteTarget?.title}" lesson? This action cannot be undone.`
         }
         confirmText="Delete Lesson"
         cancelText="Cancel"
         variant="danger"
-        loading={lessonDeleteLoading}
+        loading={lessonHardDeleteLoading}
       />
+      )}
 
       <Modal
         isOpen={isSessionModalOpen}

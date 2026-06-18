@@ -5,12 +5,15 @@ interface ActionMenuProps {
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** Admin-only permanent delete; shown below mark-inactive when provided. */
+  onHardDelete?: () => void;
   /** When false, only the View action is shown (e.g. read-only cluster browse). Default true. */
   showEditDelete?: boolean;
   labels?: {
     view: string;
     edit: string;
     delete: string;
+    hardDelete?: string;
     title: string;
   };
 }
@@ -19,11 +22,13 @@ export default function ActionMenu({
   onView,
   onEdit,
   onDelete,
+  onHardDelete,
   showEditDelete = true,
   labels = {
     view: "View Family",
     edit: "Edit Family",
-    delete: "Delete Family",
+    delete: "Mark Inactive",
+    hardDelete: "Delete Permanently",
     title: "Family Actions",
   },
 }: ActionMenuProps) {
@@ -45,7 +50,11 @@ export default function ActionMenu({
       const buttonRect = buttonRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
-      const dropdownHeight = showEditDelete ? 168 : 56;
+      const dropdownHeight = showEditDelete
+        ? onHardDelete
+          ? 212
+          : 168
+        : 56;
       const dropdownWidth = 192;
 
       const minTop = 8;
@@ -62,7 +71,7 @@ export default function ActionMenu({
     } else if (!isOpen) {
       setCoords(null);
     }
-  }, [isOpen, showEditDelete]);
+  }, [isOpen, showEditDelete, onHardDelete]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -176,11 +185,11 @@ export default function ActionMenu({
 
                 <button
                   onClick={() => handleAction(onDelete)}
-                  className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-3"
+                  className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-3"
                   type="button"
                 >
                   <svg
-                    className="w-4 h-4 text-red-600"
+                    className="w-4 h-4 text-gray-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -189,11 +198,34 @@ export default function ActionMenu({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
                   <span>{labels.delete}</span>
                 </button>
+
+                {onHardDelete && (
+                  <button
+                    onClick={() => handleAction(onHardDelete)}
+                    className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-3"
+                    type="button"
+                  >
+                    <svg
+                      className="w-4 h-4 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    <span>{labels.hardDelete ?? "Delete Permanently"}</span>
+                  </button>
+                )}
               </>
             )}
           </div>,

@@ -13,6 +13,7 @@ from apps.authentication.permissions import (
     IsModuleCoordinator,
     HasModuleAccess,
     IsMemberOrAbove,
+    IsAdmin,
 )
 from apps.people.models import ModuleCoordinator
 
@@ -49,9 +50,10 @@ class DonationViewSet(RecordedByMixin, viewsets.ModelViewSet):
         if self.action in ["list", "retrieve", "stats"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        else:
-            # Write operations: ADMIN, PASTOR, or Finance Coordinator
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        # Write operations: ADMIN, PASTOR, or Finance Coordinator
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
 
     def get_queryset(self):
         queryset = Donation.objects.all().order_by("-date", "-created_at")
@@ -84,9 +86,10 @@ class OfferingViewSet(RecordedByMixin, viewsets.ModelViewSet):
         if self.action in ["list", "retrieve", "weekly_summary"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        else:
-            # Write operations: ADMIN, PASTOR, or Finance Coordinator
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        # Write operations: ADMIN, PASTOR, or Finance Coordinator
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
 
     def get_queryset(self):
         queryset = Offering.objects.all().order_by("-service_date", "-created_at")
@@ -124,9 +127,10 @@ class PledgeViewSet(RecordedByMixin, viewsets.ModelViewSet):
         if self.action in ["list", "retrieve", "summary"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        else:
-            # Write operations: ADMIN, PASTOR, or Finance Coordinator
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        # Write operations: ADMIN, PASTOR, or Finance Coordinator
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
 
     def perform_create(self, serializer):
         pledge = serializer.save(recorded_by=self._current_user_or_none())
@@ -167,9 +171,10 @@ class PledgeContributionViewSet(RecordedByMixin, viewsets.ModelViewSet):
         if self.action in ["list", "retrieve"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        else:
-            # Write operations: ADMIN, PASTOR, or Finance Coordinator
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        # Write operations: ADMIN, PASTOR, or Finance Coordinator
+        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('FINANCE', 'write')]
 
     def get_queryset(self):
         queryset = (

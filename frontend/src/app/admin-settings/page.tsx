@@ -123,6 +123,16 @@ function AdminSettingsPageContent() {
     branch: null,
     loading: false,
   });
+  const [branchDeactivateConfirmation, setBranchDeactivateConfirmation] =
+    useState<{
+      isOpen: boolean;
+      branch: Branch | null;
+      loading: boolean;
+    }>({
+      isOpen: false,
+      branch: null,
+      loading: false,
+    });
   const [branchSearch, setBranchSearch] = useState("");
   const [branchSearchDebounced, setBranchSearchDebounced] = useState("");
   const [branchFilter, setBranchFilter] = useState<{
@@ -2564,6 +2574,34 @@ function AdminSettingsPageContent() {
                             onClick={() => {
                               setShowBranchView(false);
                               setViewingBranch(null);
+                              setBranchDeactivateConfirmation({
+                                isOpen: true,
+                                branch: viewingBranch,
+                                loading: false,
+                              });
+                            }}
+                            variant="secondary"
+                            className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            <span>Deactivate</span>
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setShowBranchView(false);
+                              setViewingBranch(null);
                               setBranchDeleteConfirmation({
                                 isOpen: true,
                                 branch: viewingBranch,
@@ -2586,39 +2624,68 @@ function AdminSettingsPageContent() {
                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                               />
                             </svg>
-                            <span>Delete</span>
+                            <span>Delete Permanently</span>
                           </Button>
                         </div>
 
                         {/* Desktop/Tablet buttons */}
                         <div className="hidden md:flex md:items-center md:justify-between md:w-full">
-                          <Button
-                            onClick={() => {
-                              setShowBranchView(false);
-                              setViewingBranch(null);
-                              setBranchDeleteConfirmation({
-                                isOpen: true,
-                                branch: viewingBranch,
-                                loading: false,
-                              });
-                            }}
-                            variant="secondary"
-                            className="!text-red-600 px-4 md:py-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={() => {
+                                setShowBranchView(false);
+                                setViewingBranch(null);
+                                setBranchDeactivateConfirmation({
+                                  isOpen: true,
+                                  branch: viewingBranch,
+                                  loading: false,
+                                });
+                              }}
+                              variant="secondary"
+                              className="!text-gray-700 px-4 md:py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </Button>
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setShowBranchView(false);
+                                setViewingBranch(null);
+                                setBranchDeleteConfirmation({
+                                  isOpen: true,
+                                  branch: viewingBranch,
+                                  loading: false,
+                                });
+                              }}
+                              variant="secondary"
+                              className="!text-red-600 px-4 md:py-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </Button>
+                          </div>
                           <div className="flex items-center gap-3">
                             <Button
                               onClick={() => {
@@ -2771,6 +2838,53 @@ function AdminSettingsPageContent() {
         loading={approveConfirmation.loading}
       />
 
+      <ConfirmationModal
+        isOpen={branchDeactivateConfirmation.isOpen}
+        onClose={() =>
+          setBranchDeactivateConfirmation({
+            isOpen: false,
+            branch: null,
+            loading: false,
+          })
+        }
+        onConfirm={async () => {
+          if (!branchDeactivateConfirmation.branch) return;
+          setBranchDeactivateConfirmation((prev) => ({ ...prev, loading: true }));
+          try {
+            await branchesApi.patch(branchDeactivateConfirmation.branch.id, {
+              is_active: false,
+            });
+            toast.success("Branch deactivated successfully");
+            setBranchDeactivateConfirmation({
+              isOpen: false,
+              branch: null,
+              loading: false,
+            });
+            await fetchData();
+          } catch (err: any) {
+            toast.error(
+              err.response?.data?.message ||
+                err.message ||
+                "Failed to deactivate branch",
+            );
+            setBranchDeactivateConfirmation((prev) => ({
+              ...prev,
+              loading: false,
+            }));
+          }
+        }}
+        title="Deactivate Branch"
+        message={
+          branchDeactivateConfirmation.branch
+            ? `Deactivate the branch "${branchDeactivateConfirmation.branch.name}"? It will be hidden from active branch lists.`
+            : ""
+        }
+        confirmText="Deactivate"
+        cancelText="Cancel"
+        variant="warning"
+        loading={branchDeactivateConfirmation.loading}
+      />
+
       {/* Delete Branch Confirmation Modal */}
       <ConfirmationModal
         isOpen={branchDeleteConfirmation.isOpen}
@@ -2805,7 +2919,7 @@ function AdminSettingsPageContent() {
             }));
           }
         }}
-        title="Delete Branch"
+        title="Delete Branch Permanently"
         message={
           branchDeleteConfirmation.branch
             ? `Are you sure you want to delete the branch "${branchDeleteConfirmation.branch.name}"? This action cannot be undone.`

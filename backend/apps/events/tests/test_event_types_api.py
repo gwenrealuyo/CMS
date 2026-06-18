@@ -79,7 +79,7 @@ class EventTypeAPITests(TestCase):
         self.assertEqual(event_type.color, "#222222")
 
     def test_cannot_delete_system_type(self):
-        self.client.force_authenticate(user=self.events_coord)
+        self.client.force_authenticate(user=self.admin)
         response = self.client.delete(
             reverse("event_types:event-type-detail", kwargs={"code": "SUNDAY_SERVICE"})
         )
@@ -101,7 +101,7 @@ class EventTypeAPITests(TestCase):
             event_type=event_type,
             location="HQ",
         )
-        self.client.force_authenticate(user=self.events_coord)
+        self.client.force_authenticate(user=self.admin)
         response = self.client.delete(
             reverse("event_types:event-type-detail", kwargs={"code": event_type.code})
         )
@@ -121,7 +121,7 @@ class EventTypeAPITests(TestCase):
             status="ACTIVE",
             first_activity_attended_id=event_type.code,
         )
-        self.client.force_authenticate(user=self.events_coord)
+        self.client.force_authenticate(user=self.admin)
         response = self.client.delete(
             reverse("event_types:event-type-detail", kwargs={"code": event_type.code})
         )

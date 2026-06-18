@@ -73,7 +73,7 @@ interface SessionReportCardProps {
   report: LessonSessionReport;
   formatDateOnly: (value?: string | null) => string;
   onEditSession: (report: LessonSessionReport) => void;
-  onRequestDelete: (report: LessonSessionReport) => void;
+  onRequestDelete?: (report: LessonSessionReport) => void;
   hideStudentHeader?: boolean;
 }
 
@@ -134,6 +134,7 @@ function SessionReportCard({
               <PencilSquareIcon className="h-3.5 w-3.5" />
               Edit
             </Button>
+            {onRequestDelete && (
             <Button
               variant="secondary"
               className="!text-red-600 min-h-[36px] px-3 py-1.5 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
@@ -143,6 +144,7 @@ function SessionReportCard({
               <TrashIcon className="h-3.5 w-3.5" />
               Delete
             </Button>
+            )}
           </div>
         </div>
         <dl className="mt-3 flex flex-col gap-1.5 text-sm text-gray-600 sm:flex-row sm:flex-wrap sm:gap-x-5">
@@ -234,7 +236,7 @@ interface SessionReportsSectionProps {
   onExport: () => void;
   onOpenSessionModal: () => void;
   onEditSession: (report: LessonSessionReport) => void;
-  onRequestDelete: (report: LessonSessionReport) => void;
+  onRequestDelete?: (report: LessonSessionReport) => void;
   formatDateOnly: (value?: string | null) => string;
   formatDateTime: (value?: string | null) => string;
   canLogSession: boolean;
@@ -826,6 +828,7 @@ export default function SessionReportsSection({
                                   >
                                     <PencilSquareIcon className="h-3.5 w-3.5" />
                                   </Button>
+                                  {onRequestDelete && (
                                   <Button
                                     variant="secondary"
                                     className="!text-red-600 min-h-[32px] px-2.5 py-1 text-xs font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 inline-flex items-center gap-1.5"
@@ -835,6 +838,7 @@ export default function SessionReportsSection({
                                   >
                                     <TrashIcon className="h-3.5 w-3.5" />
                                   </Button>
+                                  )}
                                 </div>
                               </td>
                             </tr>

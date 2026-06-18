@@ -30,6 +30,7 @@ from apps.authentication.permissions import (
     IsSeniorCoordinator,
     CanEditOwnResource,
     HasModuleAccess,
+    IsAdmin,
 )
 from apps.clusters.permissions import (
     ClusterCoordinatorScopedPermission,
@@ -59,6 +60,10 @@ class ClusterViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         queryset = filter_clusters_for_read(user, queryset)
 
+        include_inactive = self.request.query_params.get("include_inactive", "").lower()
+        if include_inactive not in ("1", "true", "yes"):
+            queryset = queryset.filter(is_active=True)
+
         branch_param = self.request.query_params.get(
             "branch_id"
         ) or self.request.query_params.get("branch")
@@ -78,11 +83,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
                 ClusterCoordinatorScopedPermission(),
             ]
         elif self.action == 'destroy':
-            return [
-                IsAuthenticatedAndNotVisitor(),
-                ClusterMutationAttemptPermission(),
-                ClusterCoordinatorScopedPermission(),
-            ]
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         else:
             # Read operations
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'read')]
@@ -146,11 +147,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 ClusterWeeklyReportScopedPermission(),
             ]
         elif self.action == 'destroy':
-            return [
-                IsAuthenticatedAndNotVisitor(),
-                ClusterReportMutationAttemptPermission(),
-                ClusterWeeklyReportScopedPermission(),
-            ]
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         else:
             # Read operations
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'read')]

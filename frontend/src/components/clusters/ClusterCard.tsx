@@ -20,6 +20,7 @@ interface ClusterCardProps {
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onHardDelete?: () => void;
   /** When false, cluster actions menu is view-only. Default true. */
   canManageCluster?: boolean;
 }
@@ -34,6 +35,7 @@ const ClusterCard = memo(
     onView,
     onEdit,
     onDelete,
+    onHardDelete,
     canManageCluster = true,
   }: ClusterCardProps) => {
     const { branches } = useBranches();
@@ -290,11 +292,13 @@ const ClusterCard = memo(
               onView={onView}
               onEdit={onEdit}
               onDelete={onDelete}
+              onHardDelete={onHardDelete}
               showEditDelete={canManageCluster}
               labels={{
                 view: "View Cluster",
                 edit: "Edit Cluster",
-                delete: "Delete Cluster",
+                delete: "Mark Inactive",
+                hardDelete: "Delete Cluster",
                 title: "Cluster Actions",
               }}
             />

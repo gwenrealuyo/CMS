@@ -28,6 +28,7 @@ interface ClusterViewProps {
   coordinator?: Person;
   onEdit: () => void;
   onDelete: () => void;
+  onHardDelete?: () => void;
   onCancel: () => void;
   onClose: () => void;
   onAssignMembers: () => void;
@@ -48,6 +49,7 @@ export default function ClusterView({
   coordinator,
   onEdit,
   onDelete,
+  onHardDelete,
   onCancel,
   onClose,
   onAssignMembers,
@@ -605,27 +607,52 @@ export default function ClusterView({
         <div className="flex items-center justify-between gap-2 p-3 border-t border-gray-200 bg-white">
           {canManageCluster ? (
             <>
-              <Button
-                onClick={onDelete}
-                variant="secondary"
-                className="!text-red-600 h-10 px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2"
-                aria-label="Delete cluster"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={onDelete}
+                  variant="secondary"
+                  className="!text-gray-700 h-10 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
+                  aria-label="Mark cluster inactive"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                <span>Delete</span>
-              </Button>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>Mark Inactive</span>
+                </Button>
+                {onHardDelete && (
+                  <Button
+                    onClick={onHardDelete}
+                    variant="secondary"
+                    className="!text-red-600 h-10 px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2"
+                    aria-label="Delete cluster permanently"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    <span>Delete</span>
+                  </Button>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   onClick={onCancel}
@@ -743,26 +770,51 @@ export default function ClusterView({
           {canManageCluster && (
             <div className="sm:order-1">
               <div className="border-t border-gray-200 my-2 sm:hidden"></div>
-              <Button
-                onClick={onDelete}
-                variant="secondary"
-                className="!text-red-600 md:py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center min-h-[44px] md:min-h-0 w-full sm:w-auto"
-                aria-label="Delete cluster"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={onDelete}
+                  variant="secondary"
+                  className="!text-gray-700 md:py-4 px-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                  aria-label="Mark cluster inactive"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </Button>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span className="md:hidden">Mark Inactive</span>
+                </Button>
+                {onHardDelete && (
+                  <Button
+                    onClick={onHardDelete}
+                    variant="secondary"
+                    className="!text-red-600 md:py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                    aria-label="Delete cluster permanently"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>

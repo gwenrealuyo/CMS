@@ -31,6 +31,7 @@ interface LessonFormProps {
   onSubmit: (values: LessonFormValues) => Promise<void> | void;
   onCancel: () => void;
   onDelete?: () => void;
+  onHardDelete?: () => void;
 }
 
 export default function LessonForm({
@@ -40,6 +41,7 @@ export default function LessonForm({
   onSubmit,
   onCancel,
   onDelete,
+  onHardDelete,
 }: LessonFormProps) {
   const [code, setCode] = useState(lesson?.code ?? "");
   const [versionLabel, setVersionLabel] = useState(
@@ -290,17 +292,30 @@ export default function LessonForm({
         )}
       </div>
 
-      {onDelete && isEditing && (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="tertiary"
-            onClick={onDelete}
-            disabled={submitting || deleteDisabled}
-            className="text-xs text-red-600 hover:text-red-700 !py-0 !px-0 border-none bg-transparent hover:bg-transparent hover:underline shadow-none"
-          >
-            Delete Lesson
-          </Button>
+      {(onDelete || onHardDelete) && isEditing && (
+        <div className="flex justify-end gap-3">
+          {onDelete && (
+            <Button
+              type="button"
+              variant="tertiary"
+              onClick={onDelete}
+              disabled={submitting || deleteDisabled}
+              className="text-xs text-gray-600 hover:text-gray-800 !py-0 !px-0 border-none bg-transparent hover:bg-transparent hover:underline shadow-none"
+            >
+              Deactivate Lesson
+            </Button>
+          )}
+          {onHardDelete && (
+            <Button
+              type="button"
+              variant="tertiary"
+              onClick={onHardDelete}
+              disabled={submitting || deleteDisabled}
+              className="text-xs text-red-600 hover:text-red-700 !py-0 !px-0 border-none bg-transparent hover:bg-transparent hover:underline shadow-none"
+            >
+              Delete Lesson
+            </Button>
+          )}
         </div>
       )}
 

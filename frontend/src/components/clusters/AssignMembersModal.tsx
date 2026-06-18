@@ -15,6 +15,18 @@ interface AssignMembersModalProps {
   onAssignMembers: (memberIds: string[]) => void;
 }
 
+const normalizeMemberId = (id: string | number): string => String(id);
+
+const memberIdsMatch = (
+  a: string | number,
+  b: string | number
+): boolean => normalizeMemberId(a) === normalizeMemberId(b);
+
+const includesMemberId = (
+  ids: Array<string | number>,
+  target: string | number
+): boolean => ids.some((id) => memberIdsMatch(id, target));
+
 export default function AssignMembersModal({
   cluster,
   peopleUI,
@@ -22,18 +34,52 @@ export default function AssignMembersModal({
   onClose,
   onAssignMembers,
 }: AssignMembersModalProps) {
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [selectedPersonById, setSelectedPersonById] = useState<
+    Record<string, PersonUI>
+  >({});
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const memberDropdownRef = useRef<HTMLDivElement>(null);
+  const initializedForClusterRef = useRef<number | null>(null);
 
-  // Initialize selected members from cluster
+  const selectedMemberPeople = useMemo(
+    () =>
+      selectedMemberIds
+        .map((id) => {
+          const normalizedId = normalizeMemberId(id);
+          return (
+            peopleUI.find((person) => memberIdsMatch(person.id, normalizedId)) ||
+            selectedPersonById[normalizedId]
+          );
+        })
+        .filter((person): person is PersonUI => !!person),
+    [selectedMemberIds, peopleUI, selectedPersonById]
+  );
+
+  // Initialize selected members once when the modal opens for a cluster.
   useEffect(() => {
-    if (isOpen && cluster) {
-      setSelectedMembers((cluster as any).members || []);
+    if (!isOpen) {
+      initializedForClusterRef.current = null;
+      setSelectedPersonById({});
+      return;
     }
-  }, [isOpen, cluster]);
+    if (!cluster) return;
+    if (initializedForClusterRef.current === cluster.id) return;
+
+    initializedForClusterRef.current = cluster.id;
+    const initialMembers = (cluster.members || []).map(normalizeMemberId);
+    const initialPeople: Record<string, PersonUI> = {};
+    for (const id of initialMembers) {
+      const person = peopleUI.find((p) => memberIdsMatch(p.id, id));
+      if (person) {
+        initialPeople[id] = person;
+      }
+    }
+    setSelectedMemberIds(initialMembers);
+    setSelectedPersonById(initialPeople);
+  }, [isOpen, cluster, peopleUI.length]);
 
   // Filter members based on search
   const selectablePeople = useMemo(
@@ -78,26 +124,33 @@ export default function AssignMembersModal({
     };
   }, [showMemberDropdown]);
 
-  const addMember = (memberId: string) => {
-    if (!selectedMembers.includes(memberId)) {
-      setSelectedMembers([...selectedMembers, memberId]);
+  const addMember = (person: PersonUI) => {
+    const normalizedId = normalizeMemberId(person.id);
+    const alreadyIncluded = includesMemberId(selectedMemberIds, normalizedId);
+    if (!alreadyIncluded) {
+      setSelectedMemberIds((prev) => [...prev, normalizedId]);
+      setSelectedPersonById((prev) => ({ ...prev, [normalizedId]: person }));
     }
     setMemberSearch("");
     setShowMemberDropdown(false);
   };
 
-  const removeMember = (memberId: string) => {
-    setSelectedMembers(selectedMembers.filter((id) => id !== memberId));
-  };
-
-  const getSelectedMembers = () => {
-    return peopleUI.filter((person) => selectedMembers.includes(person.id));
+  const removeMember = (memberId: string | number) => {
+    const normalizedId = normalizeMemberId(memberId);
+    setSelectedMemberIds((prev) =>
+      prev.filter((id) => !memberIdsMatch(id, normalizedId))
+    );
+    setSelectedPersonById((prev) => {
+      const next = { ...prev };
+      delete next[normalizedId];
+      return next;
+    });
   };
 
   const handleSubmit = async () => {
     try {
       setLoading(true);
-      await onAssignMembers(selectedMembers);
+      await onAssignMembers(selectedMemberIds);
       onClose();
     } catch (error) {
       console.error("Error assigning members:", error);
@@ -184,13 +237,18 @@ export default function AssignMembersModal({
               {/* Search Dropdown */}
               {showMemberDropdown && filteredMembers.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredMembers.map((person) => (
+                  {filteredMembers.map((person) => {
+                    const isAlreadySelected = includesMemberId(
+                      selectedMemberIds,
+                      person.id
+                    );
+                    return (
                     <button
                       key={person.id}
-                      onClick={() => addMember(person.id)}
-                      disabled={selectedMembers.includes(person.id)}
+                      onClick={() => addMember(person)}
+                      disabled={isAlreadySelected}
                       className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center space-x-3 ${
-                        selectedMembers.includes(person.id)
+                        isAlreadySelected
                           ? "bg-gray-100 cursor-not-allowed opacity-50"
                           : ""
                       }`}
@@ -221,7 +279,8 @@ export default function AssignMembersModal({
                         </span>
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -230,9 +289,9 @@ export default function AssignMembersModal({
           {/* Selected Members */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Selected Members ({selectedMembers.length})
+              Selected Members ({selectedMemberIds.length})
             </label>
-            {selectedMembers.length === 0 ? (
+            {selectedMemberIds.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <svg
                   className="mx-auto h-12 w-12 text-gray-400"
@@ -251,7 +310,7 @@ export default function AssignMembersModal({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3">
-                {getSelectedMembers().map((member) => (
+                {selectedMemberPeople.map((member) => (
                   <div
                     key={member.id}
                     className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg"
@@ -317,7 +376,7 @@ export default function AssignMembersModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={loading || selectedMembers.length === 0}
+            disabled={loading || selectedMemberIds.length === 0}
             className="w-full sm:flex-1 min-h-[44px] !text-white py-2 px-4 text-sm font-normal bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             {loading ? (

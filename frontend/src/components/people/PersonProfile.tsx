@@ -11,6 +11,60 @@ import AdminResetPasswordModal from "@/src/components/people/AdminResetPasswordM
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 
+function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
+    </svg>
+  );
+}
+
+function DeletePersonButton({
+  onClick,
+  compact = false,
+  fullWidth = false,
+  buttonClassName,
+}: {
+  onClick: () => void;
+  compact?: boolean;
+  fullWidth?: boolean;
+  buttonClassName?: string;
+}) {
+  const sizeClass =
+    buttonClassName ??
+    (fullWidth
+      ? "min-h-[44px] w-full px-4 text-sm font-medium"
+      : compact
+        ? "min-h-[44px] px-4 text-sm font-medium shrink-0"
+        : "h-10 px-4 text-sm font-medium shrink-0");
+
+  return (
+    <Button
+      onClick={onClick}
+      variant="secondary"
+      aria-label="Delete permanently"
+      title="Delete permanently"
+      className={`!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center !min-h-0 ${
+        fullWidth ? "w-full space-x-2" : "shrink-0"
+      } ${sizeClass}`}
+    >
+      <TrashIcon />
+      {fullWidth && <span>Delete</span>}
+    </Button>
+  );
+}
+
 interface PersonProfileProps {
   person: Person;
   clusters?: Cluster[];
@@ -21,7 +75,6 @@ interface PersonProfileProps {
   onNoClusterClick?: (person: Person) => void;
   onEdit: () => void;
   onDelete: () => void;
-  onSetInactive?: () => void;
   onSetDeceased?: () => void;
   onCancel: () => void;
   onAddTimeline: () => void;
@@ -41,7 +94,6 @@ export default function PersonProfile({
   onNoClusterClick,
   onEdit,
   onDelete,
-  onSetInactive,
   onSetDeceased,
   onCancel,
   onAddTimeline,
@@ -55,6 +107,9 @@ export default function PersonProfile({
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const canResetPassword =
     user?.role === "ADMIN" && person.role !== "VISITOR";
+  const isVisitor = person.role === "VISITOR";
+  const showSetDeceased =
+    Boolean(onSetDeceased) && !isVisitor && person.status !== "DECEASED";
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(
     "overview"
   );
@@ -149,11 +204,11 @@ export default function PersonProfile({
     const displayValue = isMissing ? fallback : value;
 
     return (
-      <div className="flex items-start justify-between gap-3 py-2">
+      <div className="flex flex-col gap-0.5 py-2 md:flex-row md:items-start md:justify-between md:gap-3">
         <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
           {label}
         </dt>
-        <dd className="text-right break-words max-w-[65%]">
+        <dd className="text-left md:text-right w-full md:w-auto md:max-w-[65%] break-words">
           {valueNode ? (
             valueNode
           ) : renderAsBadge && !isMissing ? (
@@ -476,6 +531,11 @@ export default function PersonProfile({
   };
 
   const isPanelMode = !showTopHeader;
+  const footerActionBtnClass = isPanelMode
+    ? "h-10 px-4 text-sm font-medium shrink-0"
+    : "px-4 md:py-4 text-sm font-normal shrink-0";
+  const resetPasswordBtnClass =
+    "!text-lighthouse-rust bg-white border border-lighthouse-rust/25 hover:bg-lighthouse-rust/10 hover:border-lighthouse-rust/40";
 
   return (
     <div className="flex flex-col h-full space-y-0">
@@ -520,7 +580,7 @@ export default function PersonProfile({
       )}
 
       {/* Content */}
-      <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+      <div className="p-3 md:p-4 lg:p-6 overflow-y-auto flex-1">
         <div className="space-y-4">
           {/* Profile Header Card */}
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
@@ -590,9 +650,9 @@ export default function PersonProfile({
           {/* Tab Content */}
           <div>
             {activeTab === "overview" && (
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 <div className="space-y-4">
-                  <section className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <section className="bg-white rounded-xl border border-gray-200 p-3 md:p-4 shadow-sm">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2">
                       Quick Facts
                     </h3>
@@ -632,7 +692,7 @@ export default function PersonProfile({
                         }
                         valueNode={
                           personFamilies.length > 0 ? (
-                            <span className="inline-flex flex-wrap items-center justify-end gap-x-0 text-sm text-right">
+                            <span className="inline-flex flex-wrap items-center justify-start md:justify-end gap-x-0 text-sm text-left md:text-right">
                               {personFamilies.map((fam, idx) => (
                                 <span
                                   key={fam.id}
@@ -651,7 +711,7 @@ export default function PersonProfile({
                                     onClick={() =>
                                       onViewFamily && onViewFamily(fam)
                                     }
-                                    className="font-medium text-primary hover:text-primary underline underline-offset-2 text-right break-words"
+                                    className="font-medium text-primary hover:text-primary underline underline-offset-2 text-left md:text-right break-words"
                                   >
                                     {fam.name}
                                   </button>
@@ -663,11 +723,11 @@ export default function PersonProfile({
                               {person.family_names.join(", ")}
                             </span>
                           ) : (
-                            <div className="inline-flex items-center gap-2 text-sm flex-wrap justify-end">
+                            <div className="inline-flex items-center gap-2 text-sm flex-wrap justify-start md:justify-end">
                               <button
                                 type="button"
                                 onClick={handleQuickFactsViewFamily}
-                                className="text-red-600 font-medium hover:underline text-right"
+                                className="text-red-600 font-medium hover:underline text-left md:text-right"
                               >
                                 None
                               </button>
@@ -695,7 +755,7 @@ export default function PersonProfile({
                         }
                         valueNode={
                           personClusters.length > 0 ? (
-                            <span className="inline-flex flex-wrap items-center justify-end gap-x-0 text-sm text-right">
+                            <span className="inline-flex flex-wrap items-center justify-start md:justify-end gap-x-0 text-sm text-left md:text-right">
                               {personClusters.map((cl, idx) => (
                                 <span
                                   key={cl.id}
@@ -714,7 +774,7 @@ export default function PersonProfile({
                                     onClick={() =>
                                       onViewCluster && onViewCluster(cl)
                                     }
-                                    className="font-medium text-primary hover:text-primary underline underline-offset-2 text-right break-words"
+                                    className="font-medium text-primary hover:text-primary underline underline-offset-2 text-left md:text-right break-words"
                                   >
                                     {clusterQuickFactLabel(cl)}
                                   </button>
@@ -722,11 +782,11 @@ export default function PersonProfile({
                               ))}
                             </span>
                           ) : (
-                            <div className="inline-flex items-center gap-2 text-sm flex-wrap justify-end">
+                            <div className="inline-flex items-center gap-2 text-sm flex-wrap justify-start md:justify-end">
                               <button
                                 type="button"
                                 onClick={handleQuickFactsViewCluster}
-                                className="text-red-600 font-medium hover:underline text-right"
+                                className="text-red-600 font-medium hover:underline text-left md:text-right"
                               >
                                 None
                               </button>
@@ -746,7 +806,7 @@ export default function PersonProfile({
                     </dl>
                   </section>
 
-                  <section className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <section className="bg-white rounded-xl border border-gray-200 p-3 md:p-4 shadow-sm">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2">
                       Contact
                     </h3>
@@ -779,7 +839,7 @@ export default function PersonProfile({
                     </dl>
                   </section>
 
-                  <section className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <section className="bg-white rounded-xl border border-gray-200 p-3 md:p-4 shadow-sm">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2">
                       Personal
                     </h3>
@@ -822,11 +882,11 @@ export default function PersonProfile({
                     </dl>
                   </section>
 
-                  <section className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <section className="bg-white rounded-xl border border-gray-200 p-3 md:p-4 shadow-sm">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">
                       Relationships
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <Button
                         type="button"
                         onClick={handleQuickFactsViewFamily}
@@ -1028,93 +1088,44 @@ export default function PersonProfile({
       {/* Footer */}
       <div
         className={`border-t border-gray-200 ${
-          isPanelMode ? "bg-white p-3" : `bg-gray-50 ${activeTab === "timeline" ? "p-3 sm:p-4" : "p-4 sm:p-6"}`
+          isPanelMode ? "bg-white p-3" : `bg-gray-50 ${activeTab === "timeline" ? "p-3 md:p-4" : "p-3 md:p-4 lg:p-6"}`
         }`}
       >
         {activeTab === "overview" ? (
           isPanelMode ? (
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                {(onSetInactive || onSetDeceased) && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {onSetInactive && person.status !== "INACTIVE" && (
-                      <Button
-                        onClick={onSetInactive}
-                        variant="secondary"
-                        className="!text-amber-700 h-10 px-4 text-sm font-medium bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300"
-                      >
-                        Set Inactive
-                      </Button>
-                    )}
-                    {onSetDeceased && person.status !== "DECEASED" && (
-                      <Button
-                        onClick={onSetDeceased}
-                        variant="secondary"
-                        className="!text-gray-700 h-10 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                      >
-                        Set Deceased
-                      </Button>
-                    )}
-                  </div>
-                )}
-                {!hideDeleteButton && (
+            <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
+              <div className="flex flex-nowrap items-center gap-2 shrink-0">
+                {showSetDeceased && (
                   <Button
-                    onClick={onDelete}
+                    onClick={onSetDeceased}
                     variant="secondary"
-                    className="!text-red-600 h-10 px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center space-x-2 mt-2"
+                    className={`!text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 ${footerActionBtnClass}`}
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                    <span>Delete Permanently</span>
+                    Set Deceased
                   </Button>
                 )}
+                {!hideDeleteButton && (
+                  <DeletePersonButton
+                    onClick={onDelete}
+                    buttonClassName={footerActionBtnClass}
+                  />
+                )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
                 {canResetPassword && (
                   <Button
                     onClick={() => setResetPasswordOpen(true)}
                     variant="secondary"
-                    className="!text-amber-700 h-10 px-4 text-sm font-medium bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300"
+                    className={`${resetPasswordBtnClass} ${footerActionBtnClass}`}
                   >
                     Reset password
                   </Button>
                 )}
-                <Button
-                  onClick={onCancel}
-                  variant="secondary"
-                  className="!text-black h-10 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                  <span>Back</span>
-                </Button>
                 {!hideEditButton && (
                   <Button
                     onClick={onEdit}
                     variant="secondary"
-                    className="!text-primary h-10 px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
+                    className={`!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 ${footerActionBtnClass}`}
                   >
                     <svg
                       className="w-4 h-4"
@@ -1164,7 +1175,7 @@ export default function PersonProfile({
                 <Button
                   onClick={() => setResetPasswordOpen(true)}
                   variant="secondary"
-                  className="!text-amber-700 py-3 px-4 text-sm font-medium bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 flex items-center justify-center min-h-[44px] w-full"
+                  className={`${resetPasswordBtnClass} py-3 px-4 text-sm font-medium flex items-center justify-center min-h-[44px] w-full`}
                 >
                   Reset password
                 </Button>
@@ -1189,134 +1200,66 @@ export default function PersonProfile({
                 </svg>
                 <span>Cancel</span>
               </Button>
-              {!hideDeleteButton && (
-                <>
-                  {(onSetInactive || onSetDeceased) && (
-                    <>
-                      {onSetInactive && person.status !== "INACTIVE" && (
-                        <Button
-                          onClick={onSetInactive}
-                          variant="secondary"
-                          className="!text-amber-700 py-3 px-4 text-sm font-medium bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 flex items-center justify-center min-h-[44px] w-full"
-                        >
-                          Set Inactive
-                        </Button>
-                      )}
-                      {onSetDeceased && person.status !== "DECEASED" && (
-                        <Button
-                          onClick={onSetDeceased}
-                          variant="secondary"
-                          className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center min-h-[44px] w-full"
-                        >
-                          Set Deceased
-                        </Button>
-                      )}
-                    </>
-                  )}
-                  <div className="border-t border-gray-200 my-1"></div>
-                  <Button
-                    onClick={onDelete}
-                    variant="secondary"
-                    className="!text-red-600 py-3 px-4 text-sm font-medium bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                    <span>Delete Permanently</span>
-                  </Button>
-                </>
-              )}
-            </div>
-
-            {/* Desktop/Tablet buttons - old style with icons */}
-            <div className="hidden md:flex md:items-center md:justify-between md:w-full">
-              <div className="flex flex-wrap items-center gap-2">
-                {onSetInactive && person.status !== "INACTIVE" && (
-                  <Button
-                    onClick={onSetInactive}
-                    variant="secondary"
-                    className="!text-amber-700 px-4 md:py-4 text-sm font-normal bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300"
-                  >
-                    Set Inactive
-                  </Button>
-                )}
-                {onSetDeceased && person.status !== "DECEASED" && (
+              {showSetDeceased && !hideDeleteButton ? (
+                <div className="flex items-center gap-2 w-full">
                   <Button
                     onClick={onSetDeceased}
                     variant="secondary"
-                    className="!text-gray-700 px-4 md:py-4 text-sm font-normal bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                    className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center min-h-[44px] flex-1"
+                  >
+                    Set Deceased
+                  </Button>
+                  <DeletePersonButton onClick={onDelete} compact />
+                </div>
+              ) : showSetDeceased ? (
+                <Button
+                  onClick={onSetDeceased}
+                  variant="secondary"
+                  className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center min-h-[44px] w-full"
+                >
+                  Set Deceased
+                </Button>
+              ) : (
+                !hideDeleteButton && (
+                  <DeletePersonButton onClick={onDelete} compact fullWidth />
+                )
+              )}
+            </div>
+
+            {/* Desktop/Tablet buttons */}
+            <div className="hidden md:flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
+              <div className="flex flex-nowrap items-center gap-2 shrink-0">
+                {showSetDeceased && (
+                  <Button
+                    onClick={onSetDeceased}
+                    variant="secondary"
+                    className={`!text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 ${footerActionBtnClass}`}
                   >
                     Set Deceased
                   </Button>
                 )}
                 {!hideDeleteButton && (
-                <Button
-                  onClick={onDelete}
-                  variant="secondary"
-                  className="!text-red-600 px-4 md:py-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </Button>
+                  <DeletePersonButton
+                    onClick={onDelete}
+                    buttonClassName={footerActionBtnClass}
+                  />
                 )}
               </div>
-              {hideDeleteButton && !onSetInactive && !onSetDeceased && <div />}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
                 {canResetPassword && (
                   <Button
                     onClick={() => setResetPasswordOpen(true)}
                     variant="secondary"
-                    className="!text-amber-700 px-4 md:py-4 text-sm font-normal bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300"
+                    className={`${resetPasswordBtnClass} ${footerActionBtnClass}`}
                   >
                     Reset password
                   </Button>
                 )}
-                <Button
-                  onClick={onCancel}
-                  variant="secondary"
-                  className="!text-black px-6 md:py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                  <span>Cancel</span>
-                </Button>
                 {!hideEditButton && (
                   <Button
                     onClick={onEdit}
                     variant="secondary"
-                    className="!text-primary px-6 md:py-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
+                    className={`!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 ${footerActionBtnClass}`}
                   >
                     <svg
                       className="w-4 h-4"

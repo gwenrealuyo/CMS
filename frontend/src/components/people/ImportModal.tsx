@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -51,6 +52,15 @@ export default function ImportModal({
     memberIdDuplicates: number[];
   }>({ nameDuplicates: [], memberIdDuplicates: [] });
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleFile = async (file: File) => {
@@ -102,9 +112,16 @@ export default function ImportModal({
 
   const headers = rows[0] ? Object.keys(rows[0]) : [];
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 !-mt-4">
-      <div className="bg-white rounded-lg p-6 w-[90%] max-w-3xl max-h-[80vh] overflow-y-auto">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 !mt-0"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Import People (CSV)</h2>
           <button
@@ -210,6 +227,7 @@ export default function ImportModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

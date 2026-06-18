@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Person } from "@/src/types/person";
 
 interface ExportPreviewModalProps {
@@ -13,6 +17,15 @@ export default function ExportPreviewModal({
   data,
   onExport,
 }: ExportPreviewModalProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const ALL_FIELDS: { key: string; label: string }[] = [
@@ -37,119 +50,129 @@ export default function ExportPreviewModal({
     ALL_FIELDS.map((f) => f.key).filter((k) => k !== "address")
   );
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !-mt-4">
-      <div className="bg-white rounded-lg p-6 w-[90%] max-h-[80vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4 gap-4 -mr-2">
-          <h2 className="text-xl font-semibold">Export Preview</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
-            aria-label="Close modal"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 !mt-0"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+        <div className="overflow-y-auto p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold">Export Preview</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+              aria-label="Close modal"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Field selection */}
-        <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">
-            Select fields
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {ALL_FIELDS.map((f) => (
-              <label key={f.key} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  defaultChecked={defaultSelected.has(f.key)}
-                  data-field={f.key}
-                  className="rounded border-gray-300 text-primary focus:ring-ring"
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
                 />
-                <span>{f.label}</span>
-              </label>
-            ))}
+              </svg>
+            </button>
+          </div>
+
+          {/* Field selection */}
+          <div className="mb-4">
+            <h3 className="mb-2 text-sm font-medium text-gray-700">
+              Select fields
+            </h3>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
+              {ALL_FIELDS.map((f) => (
+                <label key={f.key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    defaultChecked={defaultSelected.has(f.key)}
+                    data-field={f.key}
+                    className="rounded border-gray-300 text-primary focus:ring-ring"
+                  />
+                  <span>{f.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Lightweight preview of first 5 rows, showing selected fields */}
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50" id="export-head"></thead>
+              <tbody
+                className="divide-y divide-gray-200 bg-white"
+                id="export-body"
+              ></tbody>
+            </table>
+          </div>
+
+          {data.length > 5 && (
+            <p className="mt-4 text-sm text-gray-500">
+              Showing preview of first 5 records out of {data.length} total
+              records
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <button
+              onClick={() =>
+                onExport(
+                  "excel",
+                  Array.from(
+                    document.querySelectorAll<HTMLInputElement>(
+                      "input[data-field]:checked"
+                    )
+                  ).map((el) => el.getAttribute("data-field") || "")
+                )
+              }
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-white shadow-sm hover:bg-emerald-700"
+            >
+              Export Excel
+            </button>
+            <button
+              onClick={() =>
+                onExport(
+                  "pdf",
+                  Array.from(
+                    document.querySelectorAll<HTMLInputElement>(
+                      "input[data-field]:checked"
+                    )
+                  ).map((el) => el.getAttribute("data-field") || "")
+                )
+              }
+              className="rounded-lg bg-rose-600 px-4 py-2 text-white shadow-sm hover:bg-rose-700"
+            >
+              Export PDF
+            </button>
+            <button
+              onClick={() =>
+                onExport(
+                  "csv",
+                  Array.from(
+                    document.querySelectorAll<HTMLInputElement>(
+                      "input[data-field]:checked"
+                    )
+                  ).map((el) => el.getAttribute("data-field") || "")
+                )
+              }
+              className="rounded-lg bg-sky-600 px-4 py-2 text-white shadow-sm hover:bg-sky-700"
+            >
+              Export CSV
+            </button>
           </div>
         </div>
-
-        {/* Lightweight preview of first 5 rows, showing selected fields */}
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50" id="export-head"></thead>
-            <tbody
-              className="bg-white divide-y divide-gray-200"
-              id="export-body"
-            ></tbody>
-          </table>
-        </div>
-
-        {data.length > 5 && (
-          <p className="text-sm text-gray-500 mt-4">
-            Showing preview of first 5 records out of {data.length} total
-            records
-          </p>
-        )}
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={() =>
-              onExport(
-                "excel",
-                Array.from(
-                  document.querySelectorAll<HTMLInputElement>(
-                    "input[data-field]:checked"
-                  )
-                ).map((el) => el.getAttribute("data-field") || "")
-              )
-            }
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-sm"
-          >
-            Export Excel
-          </button>
-          <button
-            onClick={() =>
-              onExport(
-                "pdf",
-                Array.from(
-                  document.querySelectorAll<HTMLInputElement>(
-                    "input[data-field]:checked"
-                  )
-                ).map((el) => el.getAttribute("data-field") || "")
-              )
-            }
-            className="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 shadow-sm"
-          >
-            Export PDF
-          </button>
-          <button
-            onClick={() =>
-              onExport(
-                "csv",
-                Array.from(
-                  document.querySelectorAll<HTMLInputElement>(
-                    "input[data-field]:checked"
-                  )
-                ).map((el) => el.getAttribute("data-field") || "")
-              )
-            }
-            className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 shadow-sm"
-          >
-            Export CSV
-          </button>
-        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

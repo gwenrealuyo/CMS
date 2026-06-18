@@ -40,7 +40,7 @@ export default function Modal({
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !mt-0 p-0 md:p-4"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] !mt-0 p-0 md:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -80,7 +80,7 @@ export default function Modal({
         )}
         <div
           className={`flex-1 overflow-y-auto ${
-            hideHeader ? "p-4 md:p-0 pt-0" : "p-4 md:p-6"
+            hideHeader ? "p-0" : "p-4 md:p-6"
           }`}
         >
           {children}

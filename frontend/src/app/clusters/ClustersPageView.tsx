@@ -616,7 +616,7 @@ export default function ClustersPageView({
             onClosePersonOverCluster();
           }
         }}
-        onClose={isPanel ? onCloseClusterPanel : onClosePersonOverCluster}
+        onClose={isPanel ? onBackClusterPanel : onClosePersonOverCluster}
         hideEditButton={true}
         hideDeleteButton={true}
         showTopHeader={!isPanel}
@@ -648,7 +648,7 @@ export default function ClustersPageView({
           }
         }}
         onCancel={isPanel ? onBackClusterPanel : onCloseFamilyOverCluster}
-        onClose={isPanel ? onCloseClusterPanel : onCloseFamilyOverCluster}
+        onClose={isPanel ? onBackClusterPanel : onCloseFamilyOverCluster}
         hideEditButton={true}
         hideDeleteButton={true}
         showTopHeader={!isPanel}
@@ -1475,7 +1475,7 @@ export default function ClustersPageView({
               <PersonDetailPanel
                 isOpen={panelOpen}
                 title={getPanelTitle()}
-                onClose={onCloseClusterPanel}
+                onClose={onBackClusterPanel}
               >
                 {panelEntity === "cluster" && renderClusterFlow(true)}
                 {panelEntity === "person" && renderPersonFlow(true)}
@@ -1641,21 +1641,15 @@ export default function ClustersPageView({
 
         {/* Assign Members Modal */}
         {assignMembersModal.cluster && (
-          <Modal
+          <AssignMembersModal
+            cluster={assignMembersModal.cluster as any}
+            peopleUI={peopleUI}
             isOpen={assignMembersModal.isOpen}
             onClose={onCloseAssignMembers}
-            title="Assign Members to Cluster"
-          >
-            <AssignMembersModal
-              cluster={assignMembersModal.cluster as any}
-              peopleUI={peopleUI}
-              isOpen={assignMembersModal.isOpen}
-              onClose={onCloseAssignMembers}
-              onAssignMembers={async (memberIds: string[]) => {
-                await onAssignMembers(memberIds.map(Number));
-              }}
-            />
-          </Modal>
+            onAssignMembers={async (memberIds: string[]) => {
+              await onAssignMembers(memberIds.map(Number));
+            }}
+          />
         )}
 
         {/* Cluster Over Person Modal */}

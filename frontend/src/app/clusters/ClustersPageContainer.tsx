@@ -1124,6 +1124,11 @@ export default function ClustersPageContainer() {
         if (viewCluster && viewCluster.id === assignMembersModal.cluster.id) {
           setViewCluster(updatedCluster.data);
         }
+
+        // Update panel cluster if it's the same cluster (desktop side panel)
+        if (panelCluster && panelCluster.id === assignMembersModal.cluster.id) {
+          setPanelCluster(updatedCluster.data);
+        }
         
         // Update clusterOverPerson if it's the same cluster
         if (clusterOverPerson && clusterOverPerson.id === assignMembersModal.cluster.id) {

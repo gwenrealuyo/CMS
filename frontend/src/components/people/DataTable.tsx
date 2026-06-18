@@ -1408,9 +1408,17 @@ export default function DataTable({
       />
 
       {/* Columns Configuration Modal */}
-      {showColumnsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center !-mt-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+      {showColumnsModal &&
+        ReactDOM.createPortal(
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 !mt-0"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowColumnsModal(false);
+              }
+            }}
+          >
+            <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
                 Configure Columns
@@ -1463,9 +1471,10 @@ export default function DataTable({
                 Done
               </button>
             </div>
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

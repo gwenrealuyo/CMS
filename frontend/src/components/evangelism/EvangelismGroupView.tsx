@@ -392,13 +392,16 @@ export default function EvangelismGroupView({
           <Button
             onClick={onHardDelete}
             variant="secondary"
-            className="flex min-h-[44px] w-full items-center justify-center space-x-2 border border-red-300 bg-white px-4 py-3 text-sm font-medium !text-red-600 hover:border-red-400 hover:bg-red-50"
+            aria-label="Delete group permanently"
+            title="Delete group permanently"
+            className="flex min-h-[44px] w-full items-center justify-center border border-red-300 bg-white px-4 py-3 text-sm font-medium !text-red-600 hover:border-red-400 hover:bg-red-50"
           >
             <svg
               className="h-4 w-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden
             >
               <path
                 strokeLinecap="round"
@@ -407,7 +410,6 @@ export default function EvangelismGroupView({
                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
               />
             </svg>
-            <span>Delete</span>
           </Button>
           )}
         </div>
@@ -417,14 +419,14 @@ export default function EvangelismGroupView({
             <Button
               onClick={onDelete}
               variant="secondary"
-              className="flex min-h-[44px] items-center justify-center border border-gray-200 bg-white px-4 text-sm font-normal !text-gray-700 hover:border-gray-300 hover:bg-gray-50 md:py-4"
-              aria-label="Mark group inactive"
+              className="flex min-h-[44px] items-center justify-center space-x-2 border border-gray-200 bg-white px-4 text-sm font-normal !text-gray-700 hover:border-gray-300 hover:bg-gray-50 md:py-4 shrink-0"
             >
               <svg
                 className="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden
               >
                 <path
                   strokeLinecap="round"
@@ -433,13 +435,15 @@ export default function EvangelismGroupView({
                   d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
+              <span>Mark Inactive</span>
             </Button>
             {onHardDelete && (
             <Button
               onClick={onHardDelete}
               variant="secondary"
-              className="flex min-h-[44px] items-center justify-center border border-red-200 bg-white px-4 text-sm font-normal !text-red-600 hover:border-red-300 hover:bg-red-50 md:py-4"
               aria-label="Delete group permanently"
+              title="Delete group permanently"
+              className="flex min-h-[44px] items-center justify-center border border-red-200 bg-white px-4 text-sm font-normal !text-red-600 hover:border-red-300 hover:bg-red-50 md:py-4 shrink-0"
             >
               <svg
                 className="h-4 w-4"

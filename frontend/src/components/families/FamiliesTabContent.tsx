@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import FamilyForm from "@/src/components/families/FamilyForm";
 import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
 import FamilyView from "@/src/components/families/FamilyView";
@@ -8,9 +8,22 @@ import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
 import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
+import PersonProfile from "@/src/components/people/PersonProfile";
 import { PersonUI, Family, Person } from "@/src/types/person";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+
+type PanelEntity = "family" | "person";
+
+type PanelSnapshot = {
+  entity: PanelEntity;
+  mode: "view" | "edit" | "create";
+  family: Family | null;
+  person: Person | null;
+  familyViewMode: "view" | "edit";
+  viewFamily: Family | null;
+  editFamily: Family | null;
+};
 
 interface FamiliesTabContentProps {
   families: Family[];
@@ -41,8 +54,13 @@ export default function FamiliesTabContent({
     return window.innerWidth >= 1024;
   });
   const [panelOpen, setPanelOpen] = useState(false);
+  const [panelEntity, setPanelEntity] = useState<PanelEntity>("family");
   const [panelMode, setPanelMode] = useState<"view" | "edit" | "create">("view");
   const [panelFamily, setPanelFamily] = useState<Family | null>(null);
+  const [panelPerson, setPanelPerson] = useState<Person | null>(null);
+  const [panelHistory, setPanelHistory] = useState<PanelSnapshot[]>([]);
+  const [showPersonOverFamily, setShowPersonOverFamily] = useState(false);
+  const [personOverFamily, setPersonOverFamily] = useState<Person | null>(null);
   const [editFamily, setEditFamily] = useState<Family | null>(null);
   const [viewFamily, setViewFamily] = useState<Family | null>(null);
   const [familyViewMode, setFamilyViewMode] = useState<"view" | "edit">("view");
@@ -79,13 +97,94 @@ export default function FamiliesTabContent({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const closeFamilyPanel = () => {
+  const closeFamilyPanel = useCallback(() => {
     setPanelOpen(false);
+    setPanelEntity("family");
     setPanelMode("view");
     setPanelFamily(null);
+    setPanelPerson(null);
+    setPanelHistory([]);
     setViewFamily(null);
     setEditFamily(null);
     setFamilyViewMode("view");
+  }, []);
+
+  const closePersonOverFamily = useCallback(() => {
+    setShowPersonOverFamily(false);
+    setPersonOverFamily(null);
+  }, []);
+
+  const pushCurrentPanelToHistory = useCallback(() => {
+    if (!panelOpen) return;
+    setPanelHistory((prev) => [
+      ...prev,
+      {
+        entity: panelEntity,
+        mode: panelMode,
+        family: panelFamily,
+        person: panelPerson,
+        familyViewMode,
+        viewFamily,
+        editFamily,
+      },
+    ]);
+  }, [
+    panelOpen,
+    panelEntity,
+    panelMode,
+    panelFamily,
+    panelPerson,
+    familyViewMode,
+    viewFamily,
+    editFamily,
+  ]);
+
+  const restorePanelSnapshot = useCallback((snapshot: PanelSnapshot) => {
+    setPanelOpen(true);
+    setPanelEntity(snapshot.entity);
+    setPanelMode(snapshot.mode);
+    setPanelFamily(snapshot.family);
+    setPanelPerson(snapshot.person);
+    setFamilyViewMode(snapshot.familyViewMode);
+    setViewFamily(snapshot.viewFamily);
+    setEditFamily(snapshot.editFamily);
+  }, []);
+
+  const goBackFamilyPanel = useCallback(() => {
+    let previousSnapshot: PanelSnapshot | null = null;
+    setPanelHistory((prev) => {
+      if (prev.length === 0) return prev;
+      previousSnapshot = prev[prev.length - 1];
+      return prev.slice(0, -1);
+    });
+
+    if (previousSnapshot) {
+      restorePanelSnapshot(previousSnapshot);
+      return;
+    }
+
+    closeFamilyPanel();
+  }, [closeFamilyPanel, restorePanelSnapshot]);
+
+  const openPersonFromFamily = useCallback(
+    (person: Person) => {
+      if (isDesktop) {
+        pushCurrentPanelToHistory();
+        setPanelEntity("person");
+        setPanelPerson(person);
+        return;
+      }
+      setPersonOverFamily(person);
+      setShowPersonOverFamily(true);
+    },
+    [isDesktop, pushCurrentPanelToHistory]
+  );
+
+  const getPanelTitle = () => {
+    if (panelEntity === "person") return "Profile";
+    if (panelMode === "create") return "Add New Family";
+    if (panelMode === "edit") return "Edit Family";
+    return "Family";
   };
 
   const openFamilyInteraction = (
@@ -94,6 +193,9 @@ export default function FamiliesTabContent({
   ) => {
     if (isDesktop) {
       setPanelOpen(true);
+      setPanelEntity("family");
+      setPanelPerson(null);
+      setPanelHistory([]);
       setPanelMode(mode);
       setPanelFamily(family || null);
       setIsModalOpen(false);
@@ -325,6 +427,7 @@ export default function FamiliesTabContent({
                 family: viewFamily,
               });
             }}
+            onViewPerson={(person) => openPersonFromFamily(person as Person)}
           />
         );
       }
@@ -405,6 +508,28 @@ export default function FamiliesTabContent({
     );
   };
 
+  const renderPersonFlow = (isPanel: boolean) => {
+    const selectedPerson = isPanel ? panelPerson : personOverFamily;
+    if (!selectedPerson) return null;
+
+    return (
+      <PersonProfile
+        person={selectedPerson}
+        families={families}
+        showTopHeader={!isPanel}
+        hideEditButton
+        hideDeleteButton
+        onEdit={isPanel ? goBackFamilyPanel : closePersonOverFamily}
+        onDelete={isPanel ? goBackFamilyPanel : closePersonOverFamily}
+        onCancel={isPanel ? goBackFamilyPanel : closePersonOverFamily}
+        onAddTimeline={isPanel ? goBackFamilyPanel : closePersonOverFamily}
+        onClose={isPanel ? goBackFamilyPanel : closePersonOverFamily}
+        onNoFamilyClick={() => {}}
+        onNoClusterClick={() => {}}
+      />
+    );
+  };
+
   return (
     <>
       <div
@@ -428,16 +553,11 @@ export default function FamiliesTabContent({
         {isDesktop && panelOpen && (
           <PersonDetailPanel
             isOpen={panelOpen}
-            title={
-              panelMode === "create"
-                ? "Add New Family"
-                : panelMode === "edit"
-                ? "Edit Family"
-                : "Family"
-            }
-            onClose={closeFamilyPanel}
+            title={getPanelTitle()}
+            onClose={goBackFamilyPanel}
           >
-            {renderFamilyFlow(true)}
+            {panelEntity === "family" && renderFamilyFlow(true)}
+            {panelEntity === "person" && renderPersonFlow(true)}
           </PersonDetailPanel>
         )}
       </div>
@@ -463,6 +583,18 @@ export default function FamiliesTabContent({
       >
         {renderFamilyFlow(false)}
       </Modal>
+
+      {!isDesktop && showPersonOverFamily && personOverFamily && (
+        <Modal
+          isOpen={showPersonOverFamily}
+          onClose={closePersonOverFamily}
+          title=""
+          hideHeader
+          className="!mt-0 z-[50]"
+        >
+          {renderPersonFlow(false)}
+        </Modal>
+      )}
 
       <ConfirmationModal
         isOpen={markInactiveConfirmation.isOpen}

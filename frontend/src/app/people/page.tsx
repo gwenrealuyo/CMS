@@ -441,12 +441,10 @@ export default function PeoplePage() {
   const [personStatusConfirmation, setPersonStatusConfirmation] = useState<{
     isOpen: boolean;
     person: Person | null;
-    status: "INACTIVE" | "DECEASED" | null;
     loading: boolean;
   }>({
     isOpen: false,
     person: null,
-    status: null,
     loading: false,
   });
   const [assignMembersModal, setAssignMembersModal] = useState<{
@@ -986,32 +984,27 @@ export default function PeoplePage() {
     });
   };
 
-  const openPersonStatusConfirmation = (
-    person: Person,
-    status: "INACTIVE" | "DECEASED",
-  ) => {
+  const openPersonStatusConfirmation = (person: Person) => {
     setPersonStatusConfirmation({
       isOpen: true,
       person,
-      status,
       loading: false,
     });
   };
 
   const handleConfirmPersonStatus = async () => {
-    if (!personStatusConfirmation.person || !personStatusConfirmation.status) {
+    if (!personStatusConfirmation.person) {
       return;
     }
     setPersonStatusConfirmation((prev) => ({ ...prev, loading: true }));
     try {
       await peopleApi.patch(personStatusConfirmation.person.id, {
-        status: personStatusConfirmation.status,
+        status: "DECEASED",
       });
       await refreshPeople();
       setPersonStatusConfirmation({
         isOpen: false,
         person: null,
-        status: null,
         loading: false,
       });
       setIsModalOpen(false);
@@ -1028,18 +1021,18 @@ export default function PeoplePage() {
     setPersonStatusConfirmation({
       isOpen: false,
       person: null,
-      status: null,
       loading: false,
     });
   };
 
-  const renderPersonStatusActions = (person: Person) =>
-    isAdmin
-      ? {
-          onSetInactive: () => openPersonStatusConfirmation(person, "INACTIVE"),
-          onSetDeceased: () => openPersonStatusConfirmation(person, "DECEASED"),
-        }
-      : {};
+  const renderPersonStatusActions = (person: Person) => {
+    if (!isAdmin || person.role === "VISITOR") {
+      return {};
+    }
+    return {
+      onSetDeceased: () => openPersonStatusConfirmation(person),
+    };
+  };
 
   // Memoized search function for better performance
   const searchPeople = useCallback((people: PersonUI[], query: string) => {
@@ -2426,17 +2419,9 @@ export default function PeoplePage() {
         isOpen={personStatusConfirmation.isOpen}
         onClose={closePersonStatusConfirmation}
         onConfirm={handleConfirmPersonStatus}
-        title={
-          personStatusConfirmation.status === "DECEASED"
-            ? "Set Person as Deceased"
-            : "Set Person as Inactive"
-        }
-        message={`Set "${personStatusConfirmation.person?.first_name} ${personStatusConfirmation.person?.last_name}" as ${personStatusConfirmation.status === "DECEASED" ? "deceased" : "inactive"}?`}
-        confirmText={
-          personStatusConfirmation.status === "DECEASED"
-            ? "Set Deceased"
-            : "Set Inactive"
-        }
+        title="Set Person as Deceased"
+        message={`Set "${personStatusConfirmation.person?.first_name} ${personStatusConfirmation.person?.last_name}" as deceased?`}
+        confirmText="Set Deceased"
         cancelText="Cancel"
         variant="warning"
         loading={personStatusConfirmation.loading}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
 import PasswordInput from "@/src/components/ui/PasswordInput";
+import AppLogo from "@/src/components/brand/AppLogo";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -78,6 +79,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-lg shadow-md">
         <div className="mb-6 md:mb-8 text-center">
+          <div className="flex justify-center mb-4">
+            <AppLogo imageClassName="h-16 w-auto object-contain" />
+          </div>
           <h1 className="text-2xl md:text-3xl font-bold text-primary mb-1">
             The Lighthouse
           </h1>

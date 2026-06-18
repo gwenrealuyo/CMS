@@ -17,7 +17,7 @@ function LayoutShell({ children }: { children: ReactNode }) {
       <Sidebar />
       <div
         className={`${
-          collapsed ? "md:ml-16" : "md:ml-64"
+          collapsed ? "md:ml-16" : "md:ml-[17.5rem]"
         } transition-all`}
       >
         <Navbar />

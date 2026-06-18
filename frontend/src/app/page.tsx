@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Button from "../components/ui/Button";
+import AppLogo from "@/src/components/brand/AppLogo";
 import { useAuth } from "@/src/contexts/AuthContext";
 
 export default function Home() {
@@ -33,6 +34,9 @@ export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6">
       <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-lg shadow-md text-center">
+        <div className="flex justify-center mb-4">
+          <AppLogo imageClassName="h-16 w-auto object-contain" />
+        </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-1 leading-tight break-words">
           The Lighthouse
         </h1>

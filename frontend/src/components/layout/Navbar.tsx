@@ -52,7 +52,7 @@ export default function Navbar() {
   return (
     <nav
       className={`bg-white shadow-sm fixed top-0 right-0 left-0 ${
-        collapsed ? "md:left-16" : "md:left-64"
+        collapsed ? "md:left-16" : "md:left-[17.5rem]"
       } h-16 z-50 md:z-30 transition-all`}
     >
       <div className="h-full px-4 md:px-6 flex items-center justify-between">

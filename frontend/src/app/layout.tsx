@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   },
   description:
     "The Lighthouse — LAMP Church Care System. A soul kept is a soul won.",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 const inter = Inter({

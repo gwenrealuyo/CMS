@@ -8,6 +8,7 @@ import { useSidebar } from "./SidebarContext";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { moduleSettingsApi } from "@/src/lib/api";
 import { ModuleType } from "@/src/types/moduleSettings";
+import AppLogo from "@/src/components/brand/AppLogo";
 import {
   HomeIcon,
   UserGroupIcon,
@@ -338,23 +339,37 @@ export default function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 flex h-screen flex-col ${
-          isCompact ? "w-16" : "w-64"
+          isCompact ? "w-16" : "w-[17.5rem]"
         } bg-white shadow-lg z-[60] transition-transform duration-300 ease-in-out ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="flex shrink-0 items-center justify-between gap-3 p-4 md:p-6">
-          {!isCompact && (
-            <h1 className="min-w-0 flex-1 text-xl font-bold leading-snug text-primary md:text-2xl">
-              The Lighthouse
-            </h1>
+        <div
+          className={`flex shrink-0 gap-2 p-3 md:p-4 ${
+            isCompact ? "flex-col items-center" : "items-center justify-between"
+          }`}
+        >
+          {isCompact ? (
+            <AppLogo
+              href="/dashboard"
+              className="justify-center"
+              imageClassName="h-8 w-8 object-contain"
+            />
+          ) : (
+            <AppLogo
+              href="/dashboard"
+              showWordmark
+              className="flex-1"
+              imageClassName="h-8 w-8 object-contain"
+              wordmarkClassName="text-lg font-bold leading-tight text-primary whitespace-nowrap"
+            />
           )}
           <div className="flex shrink-0 items-center gap-2">
             {/* Mobile close button */}
             <button
               onClick={closeMobile}
               aria-label="Close sidebar"
-              className="p-2 rounded-md hover:bg-gray-100 text-gray-600 md:hidden"
+              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-600 md:hidden"
               title="Close"
             >
               <XMarkIcon className="h-5 w-5" />
@@ -363,7 +378,7 @@ export default function Sidebar() {
             <button
               onClick={toggle}
               aria-label="Toggle sidebar"
-              className="p-2 rounded-md hover:bg-gray-100 text-gray-600 hidden md:block"
+              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-600 hidden md:block"
               title={collapsed ? "Expand" : "Collapse"}
             >
               {collapsed ? (

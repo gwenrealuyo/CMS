@@ -3,6 +3,7 @@ import { Family, PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import Button from "@/src/components/ui/Button";
+import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 
@@ -131,8 +132,12 @@ export default function AddFamilyMemberModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] !mt-0">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+    <ModalOverlay
+      isOpen={isOpen}
+      onClose={onClose}
+      panelClassName="relative w-full max-w-2xl"
+    >
+      <div className="max-h-[90vh] overflow-hidden rounded-lg bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 py-4 pl-4 md:pl-6 pr-2">
           <div>
@@ -368,6 +373,6 @@ export default function AddFamilyMemberModal({
           </Button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

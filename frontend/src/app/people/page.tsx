@@ -1186,7 +1186,7 @@ export default function PeoplePage() {
   //   setIsModalOpen(false);
   // };
 
-  const handleCreatePerson = async (personData: Partial<Person>) => {
+  const handleCreatePerson = async (personData: Partial<Person> | FormData) => {
     try {
       const result = await createPerson(personData);
       if (!isDesktop) {
@@ -2427,13 +2427,15 @@ export default function PeoplePage() {
         loading={personStatusConfirmation.loading}
       />
 
+      {assignMembersModal.cluster && (
       <AssignMembersModal
-        cluster={assignMembersModal.cluster!}
+        cluster={assignMembersModal.cluster}
         peopleUI={peopleUI}
         isOpen={assignMembersModal.isOpen}
         onClose={() => setAssignMembersModal({ isOpen: false, cluster: null })}
         onAssignMembers={handleAssignMembers}
       />
+    )}
 
       {addFamilyMemberModal.family && (
         <AddFamilyMemberModal

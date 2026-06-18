@@ -20,6 +20,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        tablet: "744px",
+      },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },

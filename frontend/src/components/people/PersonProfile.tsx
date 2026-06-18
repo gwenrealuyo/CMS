@@ -9,6 +9,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import AdminResetPasswordModal from "@/src/components/people/AdminResetPasswordModal";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import DetailFieldRow from "@/src/components/ui/DetailFieldRow";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
@@ -182,54 +183,7 @@ export default function PersonProfile({
     }
   };
 
-  const ProfileFieldRow = ({
-    label,
-    value,
-    fallback = "Not specified",
-    renderAsBadge = false,
-    badgeClassName = "",
-    valueNode,
-  }: {
-    label: string;
-    value?: string | number | null;
-    fallback?: string;
-    renderAsBadge?: boolean;
-    badgeClassName?: string;
-    valueNode?: React.ReactNode;
-  }) => {
-    const isMissing =
-      value === null ||
-      value === undefined ||
-      (typeof value === "string" && value.trim() === "");
-    const displayValue = isMissing ? fallback : value;
-
-    return (
-      <div className="flex flex-col gap-0.5 py-2 md:flex-row md:items-start md:justify-between md:gap-3">
-        <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          {label}
-        </dt>
-        <dd className="text-left md:text-right w-full md:w-auto md:max-w-[65%] break-words">
-          {valueNode ? (
-            valueNode
-          ) : renderAsBadge && !isMissing ? (
-            <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badgeClassName}`}
-            >
-              {displayValue}
-            </span>
-          ) : (
-            <span
-              className={`text-sm ${
-                isMissing ? "text-red-600 font-medium" : "text-gray-800"
-              }`}
-            >
-              {displayValue}
-            </span>
-          )}
-        </dd>
-      </div>
-    );
-  };
+  const ProfileFieldRow = DetailFieldRow;
 
   const prettifyFirstActivity = (rawValue?: string) => {
     if (!rawValue) return "Not specified";

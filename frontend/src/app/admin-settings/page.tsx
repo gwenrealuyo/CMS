@@ -7,6 +7,7 @@ import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import Modal from "@/src/components/ui/Modal";
 import Pagination from "@/src/components/ui/Pagination";
 import toast from "react-hot-toast";
@@ -32,6 +33,7 @@ import { Branch } from "@/src/types/branch";
 import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorManager";
 import BranchForm from "@/src/components/admin/BranchForm";
 import ModuleSettingsManager from "@/src/components/admin/ModuleSettingsManager";
+import { TABLET_MIN } from "@/src/lib/breakpoints";
 
 type Tab =
   | "overview"
@@ -171,7 +173,7 @@ function AdminSettingsPageContent() {
   const [overviewViewMode, setOverviewViewMode] = useState<"table" | "cards">(
     () => {
       if (typeof window !== "undefined") {
-        return window.innerWidth < 768 ? "cards" : "table";
+        return window.innerWidth < TABLET_MIN ? "cards" : "table";
       }
       return "table";
     }
@@ -180,7 +182,7 @@ function AdminSettingsPageContent() {
     "table" | "cards"
   >(() => {
     if (typeof window !== "undefined") {
-      return window.innerWidth < 768 ? "cards" : "table";
+      return window.innerWidth < TABLET_MIN ? "cards" : "table";
     }
     return "table";
   });
@@ -188,14 +190,14 @@ function AdminSettingsPageContent() {
     "table" | "cards"
   >(() => {
     if (typeof window !== "undefined") {
-      return window.innerWidth < 768 ? "cards" : "table";
+      return window.innerWidth < TABLET_MIN ? "cards" : "table";
     }
     return "table";
   });
   const [auditLogsViewMode, setAuditLogsViewMode] = useState<"table" | "cards">(
     () => {
       if (typeof window !== "undefined") {
-        return window.innerWidth < 768 ? "cards" : "table";
+        return window.innerWidth < TABLET_MIN ? "cards" : "table";
       }
       return "table";
     }
@@ -2743,9 +2745,15 @@ function AdminSettingsPageContent() {
                 </Modal>
 
                 {/* Branch Form Modal */}
-                {showBranchForm && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 !-mt-4">
-                    <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <ModalOverlay
+                  isOpen={showBranchForm}
+                  onClose={() => {
+                    setShowBranchForm(false);
+                    setEditingBranch(null);
+                  }}
+                  panelClassName="relative w-full max-w-2xl"
+                >
+                    <div className="max-h-[90vh] overflow-y-auto rounded-lg bg-white">
                       <div className="p-6">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-xl font-semibold text-gray-900">
@@ -2807,8 +2815,7 @@ function AdminSettingsPageContent() {
                         />
                       </div>
                     </div>
-                  </div>
-                )}
+                </ModalOverlay>
               </div>
             )}
           </>
@@ -2955,20 +2962,19 @@ function AdminSettingsPageContent() {
       />
 
       {/* Reject Password Reset Confirmation Modal */}
-      {rejectConfirmation.isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div
-            className="fixed inset-0 bg-gray-500 bg-opacity-75"
-            onClick={() =>
-              setRejectConfirmation({
-                isOpen: false,
-                request: null,
-                loading: false,
-                notes: "",
-              })
-            }
-          />
-          <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+      <ModalOverlay
+        isOpen={rejectConfirmation.isOpen}
+        onClose={() =>
+          setRejectConfirmation({
+            isOpen: false,
+            request: null,
+            loading: false,
+            notes: "",
+          })
+        }
+        panelClassName="relative w-full max-w-lg"
+      >
+          <div className="overflow-hidden rounded-lg bg-white shadow-xl">
             <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="sm:flex sm:items-start">
                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
@@ -3032,8 +3038,7 @@ function AdminSettingsPageContent() {
               </Button>
             </div>
           </div>
-        </div>
-      )}
+      </ModalOverlay>
     </DashboardLayout>
   );
 }

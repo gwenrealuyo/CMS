@@ -68,7 +68,7 @@ export default function Navbar() {
 
           {showGlobalSearch && (
             <>
-              <div className="hidden md:flex items-center gap-3 flex-1">
+              <div className="hidden md:flex min-w-0 flex-1 items-center gap-3">
                 <GlobalSearch variant="desktop" />
               </div>
 

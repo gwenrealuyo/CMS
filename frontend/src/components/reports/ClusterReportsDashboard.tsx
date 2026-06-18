@@ -17,6 +17,7 @@ import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheri
 import ClusterWeeklyReportForm from "./ClusterWeeklyReportForm";
 import ViewWeeklyReportModal from "./ViewWeeklyReportModal";
 import Modal from "@/src/components/ui/Modal";
+import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
@@ -2474,9 +2475,12 @@ export default function ClusterReportsDashboard({
       />
 
       {/* Columns Configuration Modal */}
-      {showColumnsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 !mt-0">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col sm:mx-4">
+      <ModalOverlay
+        isOpen={showColumnsModal}
+        onClose={() => setShowColumnsModal(false)}
+        panelClassName="relative w-full max-w-md"
+      >
+          <div className="flex max-h-[90vh] flex-col overflow-hidden rounded-lg bg-white shadow-xl">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
                 Configure Columns
@@ -2534,8 +2538,7 @@ export default function ClusterReportsDashboard({
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </ModalOverlay>
     </div>
   );
 }

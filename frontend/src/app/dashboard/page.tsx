@@ -1040,7 +1040,7 @@ export default function Dashboard() {
           {allowPeopleMetrics ||
           allowLessonWidgets ||
           allowExtendedDashboardMetrics ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 tablet:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {allowPeopleMetrics && (
                 <MetricCard
                   title="Active Members"
@@ -1234,7 +1234,7 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 tablet:grid-cols-2 gap-6">
             {allowEventsWidgets ? (
               <Card>
                 <h3 className="text-lg font-semibold text-foreground mb-4">

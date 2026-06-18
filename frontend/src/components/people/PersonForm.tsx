@@ -673,7 +673,7 @@ export default function PersonForm({
     <>
       <form
         onSubmit={handleSubmit}
-        className={`overflow-y-auto text-sm max-w-3xl ${
+        className={`text-sm max-w-3xl ${
           panelLayout ? "p-4 sm:p-5 space-y-6 mt-0" : "space-y-6 -mt-2 md:-mt-4"
         }`}
       >
@@ -708,7 +708,7 @@ export default function PersonForm({
         {/* BASIC INFO TAB */}
         {activeTab === "basic" && (
           <div
-            className={`space-y-6 overflow-y-auto ${panelLayout ? "pr-0" : "pr-1"}`}
+            className={`space-y-6 ${panelLayout ? "pr-0" : "pr-1"}`}
           >
             <div>
               <div className="p-0">
@@ -720,7 +720,7 @@ export default function PersonForm({
                 </p>
                 <div className="space-y-4">
                   {/* Name Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         First Name <span className="text-red-500">*</span>
@@ -761,7 +761,7 @@ export default function PersonForm({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Suffix
@@ -817,7 +817,7 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   How we can reach them.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Email
@@ -925,7 +925,7 @@ export default function PersonForm({
                     Login passwords for new members are set by an administrator.
                   </p>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Role
@@ -1092,7 +1092,7 @@ export default function PersonForm({
                       </label>
                     </div>
                     {!autoGeneratePassword && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Temporary password
@@ -1135,7 +1135,7 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Important dates for records.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Date of Birth
@@ -1226,7 +1226,7 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Optional social profile and photo.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Facebook Name
@@ -1347,9 +1347,7 @@ export default function PersonForm({
         {/* JOURNEY TIMELINE TAB */}
         {activeTab === "timeline" && (
           <div
-            className={`space-y-4 overflow-y-auto p-0 ${
-              panelLayout ? "pr-0" : "pr-1"
-            }`}
+            className={`space-y-4 p-0 ${panelLayout ? "pr-0" : "pr-1"}`}
           >
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1471,7 +1469,7 @@ export default function PersonForm({
             {/* Search and Filter Controls */}
             {formData.journeys && formData.journeys.length > 0 && (
               <div className="space-y-3 mt-6 pt-6 border-t border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3">
                   {/* Search */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">

@@ -638,7 +638,7 @@ export default function FamilyManagementDashboard({
       {/* Header */}
       <div className={TOOLBAR_CARD_CLASS}>
         {/* Mobile — stacked 3-row toolbar */}
-        <div className="flex flex-col gap-3 md:hidden">
+        <div className="flex flex-col gap-3 tablet:hidden">
           <ToolbarSearch
             fullWidth
             value={searchQuery}
@@ -751,7 +751,7 @@ export default function FamilyManagementDashboard({
         </div>
 
         {/* Desktop — single-row toolbar */}
-        <div className="hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-2">
+        <div className="hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <ToolbarSearch
               value={searchQuery}
@@ -1023,7 +1023,7 @@ export default function FamilyManagementDashboard({
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 tablet:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
                 {visibleUnassignedMembers.slice(0, 16).map((member) => (
                   <div
                     key={member.id}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { formatPersonName } from "@/src/lib/name";
 
 export type SearchableOption = {
@@ -42,8 +43,26 @@ export default function SearchableSelect({
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const updateDropdownPosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  };
 
   const selectedOption = useMemo(() => {
     if (!value) return null;
@@ -67,9 +86,12 @@ export default function SearchableSelect({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (
         containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
       ) {
         setIsOpen(false);
         setSearchQuery("");
@@ -77,8 +99,10 @@ export default function SearchableSelect({
     };
 
     if (isOpen) {
+      updateDropdownPosition();
       document.addEventListener("mousedown", handleClickOutside);
-      // Focus the input when dropdown opens
+      window.addEventListener("scroll", updateDropdownPosition, true);
+      window.addEventListener("resize", updateDropdownPosition);
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
@@ -86,6 +110,8 @@ export default function SearchableSelect({
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+      window.removeEventListener("resize", updateDropdownPosition);
     };
   }, [isOpen]);
 
@@ -144,6 +170,7 @@ export default function SearchableSelect({
       )}
       <div className="relative">
         <div
+          ref={triggerRef}
           className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white ${controlClassName} ${
             disabled
               ? "bg-gray-50 cursor-not-allowed opacity-60"
@@ -192,46 +219,57 @@ export default function SearchableSelect({
           )}
         </div>
 
-        {isOpen && !disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-            {showEmptyOption && (
-              <button
-                type="button"
-                onClick={handleClear}
-                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                  !value ? "bg-primary/10 text-primary" : "text-gray-900"
-                }`}
-              >
-                {emptyOptionLabel}
-              </button>
-            )}
-            {filteredOptions.length === 0 ? (
-              <div className="px-3 py-2 text-gray-500 text-sm">
-                {emptyMessage}
-              </div>
-            ) : (
-              filteredOptions.map((option) => {
-                const optionId = option.id;
-                if (optionId === undefined) return null;
-                const isSelected = String(optionId) === value;
-                return (
-                  <button
-                    key={optionId}
-                    type="button"
-                    onClick={() => handleSelect(optionId)}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                      isSelected
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-gray-900"
-                    }`}
-                  >
-                    {formatPersonName(option)}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        )}
+        {isOpen &&
+          !disabled &&
+          createPortal(
+            <div
+              ref={dropdownRef}
+              className="fixed z-[80] bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+              style={{
+                top: `${dropdownPosition.top}px`,
+                left: `${dropdownPosition.left}px`,
+                width: `${dropdownPosition.width}px`,
+              }}
+            >
+              {showEmptyOption && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                    !value ? "bg-primary/10 text-primary" : "text-gray-900"
+                  }`}
+                >
+                  {emptyOptionLabel}
+                </button>
+              )}
+              {filteredOptions.length === 0 ? (
+                <div className="px-3 py-2 text-gray-500 text-sm">
+                  {emptyMessage}
+                </div>
+              ) : (
+                filteredOptions.map((option) => {
+                  const optionId = option.id;
+                  if (optionId === undefined) return null;
+                  const isSelected = String(optionId) === value;
+                  return (
+                    <button
+                      key={optionId}
+                      type="button"
+                      onClick={() => handleSelect(optionId)}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                        isSelected
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      {formatPersonName(option)}
+                    </button>
+                  );
+                })
+              )}
+            </div>,
+            document.body,
+          )}
       </div>
     </div>
   );

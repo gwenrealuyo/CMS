@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { DESKTOP_MIN, MD_MIN } from "@/src/lib/breakpoints";
 
 type SidebarContextValue = {
   collapsed: boolean;
@@ -25,7 +26,16 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("sidebarCollapsed");
-      return saved === "1";
+      if (saved !== null) {
+        return saved === "1";
+      }
+      if (typeof window !== "undefined") {
+        const width = window.innerWidth;
+        if (width >= MD_MIN && width < DESKTOP_MIN) {
+          return true;
+        }
+      }
+      return false;
     } catch {
       return false;
     }

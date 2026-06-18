@@ -3,12 +3,14 @@ import { Cluster } from "@/src/types/cluster";
 import { Person, PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { personMatchesClusterBranch } from "@/src/lib/clusterMembership";
 import Button from "@/src/components/ui/Button";
+import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface AssignMembersModalProps {
-  cluster: Cluster;
+  cluster: Cluster | null;
   peopleUI: PersonUI[];
   isOpen: boolean;
   onClose: () => void;
@@ -34,6 +36,7 @@ export default function AssignMembersModal({
   onClose,
   onAssignMembers,
 }: AssignMembersModalProps) {
+  const clusterBranch = cluster?.branch ?? null;
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [selectedPersonById, setSelectedPersonById] = useState<
     Record<string, PersonUI>
@@ -83,8 +86,13 @@ export default function AssignMembersModal({
 
   // Filter members based on search
   const selectablePeople = useMemo(
-    () => peopleUI.filter(isSelectablePerson),
-    [peopleUI]
+    () =>
+      peopleUI.filter(
+        (person) =>
+          isSelectablePerson(person) &&
+          personMatchesClusterBranch(person, clusterBranch)
+      ),
+    [peopleUI, clusterBranch]
   );
 
   const filteredMembers = useMemo(() => {
@@ -177,11 +185,15 @@ export default function AssignMembersModal({
   };
 
 
-  if (!isOpen) return null;
+  if (!isOpen || !cluster) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !mt-0">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+    <ModalOverlay
+      isOpen={isOpen}
+      onClose={onClose}
+      panelClassName="relative w-full max-w-2xl"
+    >
+      <div className="max-h-[90vh] overflow-hidden rounded-lg bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 py-4 pl-4 md:pl-6 pr-2">
           <div>
@@ -423,6 +435,6 @@ export default function AssignMembersModal({
           </Button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

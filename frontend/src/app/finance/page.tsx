@@ -1325,7 +1325,7 @@ export default function FinancePage() {
                   No contributions recorded for this pledge yet.
                 </p>
               ) : (
-                <div className="max-h-72 overflow-y-auto">
+                <div className="max-h-72 overflow-x-auto overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-500">
                       <tr>

@@ -1,5 +1,8 @@
+"use client";
+
 import React, { ReactNode } from "react";
-import Button from "../ui/Button";
+import Button from "./Button";
+import ModalOverlay from "./ModalOverlay";
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -24,8 +27,6 @@ export default function ConfirmationModal({
   variant = "danger",
   loading = false,
 }: ConfirmationModalProps) {
-  if (!isOpen) return null;
-
   const getVariantStyles = () => {
     switch (variant) {
       case "danger":
@@ -113,35 +114,32 @@ export default function ConfirmationModal({
   const styles = getVariantStyles();
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      {/* Background overlay */}
-      <div
-        className="fixed inset-0 bg-gray-500 bg-opacity-75"
-        onClick={onClose}
-      />
-
-      {/* Modal panel */}
-      <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 overflow-hidden">
+    <ModalOverlay
+      isOpen={isOpen}
+      onClose={onClose}
+      panelClassName="relative w-full max-w-lg"
+    >
+      <div className="overflow-hidden rounded-xl bg-white shadow-xl">
         <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
           <div className="sm:flex sm:items-start">
             <div
-              className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${styles.iconBg} sm:mx-0 sm:h-10 sm:w-10`}
+              className={`mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${styles.iconBg} sm:mx-0 sm:h-10 sm:w-10`}
             >
               <div className={styles.icon}>{getIcon()}</div>
             </div>
             <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
+              <h3 className="text-lg font-medium leading-6 text-gray-900">
                 {title}
               </h3>
               <div className="mt-2 text-sm text-gray-500">{message}</div>
             </div>
           </div>
         </div>
-        <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
           <Button
             onClick={onConfirm}
             disabled={loading}
-            className={`w-full sm:w-auto sm:ml-3 min-h-[44px] ${styles.confirmButton}`}
+            className={`w-full min-h-[44px] sm:ml-3 sm:w-auto ${styles.confirmButton}`}
           >
             {loading ? "Processing..." : confirmText}
           </Button>
@@ -149,12 +147,12 @@ export default function ConfirmationModal({
             variant="tertiary"
             onClick={onClose}
             disabled={loading}
-            className="w-full sm:w-auto mt-3 sm:mt-0 min-h-[44px]"
+            className="mt-3 w-full min-h-[44px] sm:mt-0 sm:w-auto"
           >
             {cancelText}
           </Button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

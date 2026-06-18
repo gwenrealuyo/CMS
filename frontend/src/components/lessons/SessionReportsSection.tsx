@@ -4,7 +4,7 @@ import Button from "@/src/components/ui/Button";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
   effectiveListViewMode,
-  useIsMdUp,
+  useIsTabletUp,
 } from "@/src/lib/listViewMode";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
@@ -295,8 +295,8 @@ export default function SessionReportsSection({
     DEFAULT_SESSION_ITEMS_PER_PAGE,
   );
   const [viewMode, setViewMode] = useState<SessionReportsViewMode>("cards");
-  const isMdUp = useIsMdUp();
-  const effectiveViewMode = effectiveListViewMode(viewMode, isMdUp);
+  const isTabletUp = useIsTabletUp();
+  const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
   const [sortField, setSortField] =
     useState<SessionReportsSortField>("actualDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -554,7 +554,7 @@ export default function SessionReportsSection({
 
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 tablet:grid-cols-3 xl:grid-cols-5">
               <SearchableSelect
                 value={sessionFilterDraft.lessonId}
                 onChange={(value) => onFilterChange("lessonId", value)}

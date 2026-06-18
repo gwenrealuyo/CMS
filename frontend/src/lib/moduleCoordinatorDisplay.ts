@@ -60,7 +60,7 @@ export function groupModuleCoordinatorAssignments(
   }
 
   const rows: GroupedAssignmentRow[] = [];
-  for (const [key, group] of byKey) {
+  for (const [key, group] of Array.from(byKey.entries())) {
     const sorted = [...group].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
     const first = sorted[0];
     const createdAt = sorted

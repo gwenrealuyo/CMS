@@ -3,6 +3,7 @@ import { PersonUI, Person, Family } from "@/src/types/person";
 import { ClusterWeeklyReport } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
+import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import PersonProfile from "@/src/components/people/PersonProfile";
 import { familiesApi } from "@/src/lib/api";
@@ -122,8 +123,14 @@ export default function ViewWeeklyReportModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !mt-0 p-0 sm:p-4">
-      <div className="bg-white rounded-none sm:rounded-lg shadow-xl w-full max-w-4xl h-full sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col">
+    <>
+    <ModalOverlay
+      isOpen={isOpen}
+      onClose={onClose}
+      className="p-0 sm:p-4"
+      panelClassName="relative flex h-full w-full max-w-4xl flex-col sm:h-auto"
+    >
+      <div className="flex h-full max-h-[95vh] flex-col overflow-hidden rounded-none bg-white shadow-xl sm:rounded-lg sm:h-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 py-3 pl-3 sm:pl-6 pr-2">
           <div>
@@ -738,11 +745,18 @@ export default function ViewWeeklyReportModal({
           </div>
         </div>
       </div>
+    </ModalOverlay>
 
       {/* Person Profile Modal */}
       {showPersonModal && selectedPerson && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50] !mt-0 p-0 sm:p-4">
-          <div className="bg-white rounded-none sm:rounded-lg shadow-xl w-full max-w-3xl h-full sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col">
+        <ModalOverlay
+          isOpen={showPersonModal}
+          onClose={handlePersonModalCancel}
+          zIndex={80}
+          className="p-0 sm:p-4"
+          panelClassName="relative flex h-full w-full max-w-3xl flex-col sm:h-auto"
+        >
+          <div className="flex h-full max-h-[95vh] flex-col overflow-hidden rounded-none bg-white shadow-xl sm:rounded-lg sm:h-auto">
             <PersonProfile
               person={selectedPerson as Person}
               families={families}
@@ -755,8 +769,8 @@ export default function ViewWeeklyReportModal({
               hideDeleteButton={true}
             />
           </div>
-        </div>
+        </ModalOverlay>
       )}
-    </div>
+    </>
   );
 }

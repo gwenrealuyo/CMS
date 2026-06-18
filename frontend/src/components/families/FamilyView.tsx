@@ -248,7 +248,7 @@ export default function FamilyView({
       )}
 
       {/* Content */}
-      <div className="p-4 sm:p-5 overflow-y-auto flex-1">
+      <div className="p-3 md:p-4 lg:p-6 overflow-y-auto flex-1">
         <div className="space-y-4">
           {/* Family Header Card */}
           <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-lg p-3 sm:p-4 border border-primary/20">

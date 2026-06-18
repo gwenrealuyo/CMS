@@ -29,7 +29,7 @@ import {
 import {
   effectiveListViewMode,
   getInitialListViewMode,
-  useIsMdUp,
+  useIsTabletUp,
 } from "@/src/lib/listViewMode";
 import {
   TOOLBAR_ACTIONS_ROW_CLASS,
@@ -77,8 +77,8 @@ export default function Each1Reach1Dashboard({
   const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
     getInitialListViewMode("cards"),
   );
-  const isMdUp = useIsMdUp();
-  const effectiveViewMode = effectiveListViewMode(viewMode, isMdUp);
+  const isTabletUp = useIsTabletUp();
+  const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
   const [editingGoalId, setEditingGoalId] = useState<number | string | null>(
     null,
   );

@@ -20,6 +20,7 @@ import {
   effectiveListViewMode,
   getInitialListViewMode,
   useIsMdUp,
+  useIsTabletUp,
 } from "@/src/lib/listViewMode";
 import {
   TOOLBAR_CARD_CLASS,
@@ -109,8 +110,9 @@ export default function MemberProgressSection({
   const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
     getInitialListViewMode("table"),
   );
+  const isTabletUp = useIsTabletUp();
   const isMdUp = useIsMdUp();
-  const effectiveViewMode = effectiveListViewMode(viewMode, isMdUp);
+  const effectiveViewMode = effectiveListViewMode(viewMode, isTabletUp);
 
   return (
     <Card title="Student Progress">

@@ -74,7 +74,7 @@ import {
 } from "@/src/lib/toolbarStyles";
 import {
   effectiveListViewMode,
-  useIsMdUp,
+  useIsTabletUp,
 } from "@/src/lib/listViewMode";
 import {
   EVANGELISM_BRANCH_SELECT_CLASS,
@@ -172,10 +172,10 @@ export default function EvangelismPage() {
   const [groupListViewMode, setGroupListViewMode] = useState<"cards" | "table">(
     "cards"
   );
-  const isMdUp = useIsMdUp();
+  const isTabletUp = useIsTabletUp();
   const effectiveGroupListViewMode = effectiveListViewMode(
     groupListViewMode,
-    isMdUp,
+    isTabletUp,
   );
   const [groupActiveFilters, setGroupActiveFilters] = useState<
     FilterCondition[]
@@ -1220,7 +1220,7 @@ export default function EvangelismPage() {
             {/* Filters */}
             <div className={TOOLBAR_CARD_CLASS}>
               {/* Mobile — stacked 3-row toolbar */}
-              <div className="flex flex-col gap-3 md:hidden">
+              <div className="flex flex-col gap-3 tablet:hidden">
                 <ToolbarSearch
                   fullWidth
                   value={searchValue}
@@ -1372,7 +1372,7 @@ export default function EvangelismPage() {
               </div>
 
               {/* Desktop — single-row toolbar */}
-              <div className="hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-2">
+              <div className="hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <ToolbarSearch
                     value={searchValue}

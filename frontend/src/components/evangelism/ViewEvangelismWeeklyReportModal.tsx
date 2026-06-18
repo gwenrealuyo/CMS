@@ -138,7 +138,7 @@ export default function ViewEvangelismWeeklyReportModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] !mt-0 p-0 sm:p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] !mt-0 p-0 sm:p-4">
       <div className="bg-white rounded-none sm:rounded-lg shadow-xl w-full max-w-4xl h-full sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between border-b border-gray-200 py-3 pl-3 sm:pl-6 pr-2 shrink-0">
           <div>

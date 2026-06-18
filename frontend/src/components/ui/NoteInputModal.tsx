@@ -1,5 +1,8 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import Button from "./Button";
+import ModalOverlay from "./ModalOverlay";
 
 interface NoteInputModalProps {
   isOpen: boolean;
@@ -32,7 +35,6 @@ export default function NoteInputModal({
   useEffect(() => {
     if (isOpen) {
       setNote(initialValue);
-      // Focus textarea when modal opens
       setTimeout(() => {
         textareaRef.current?.focus();
       }, 100);
@@ -47,44 +49,37 @@ export default function NoteInputModal({
     if (e.key === "Escape") {
       onClose();
     }
-    // Allow Ctrl/Cmd+Enter to submit
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       handleConfirm();
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="note-modal-title"
-      aria-describedby={message ? "note-modal-description" : undefined}
+    <ModalOverlay
+      isOpen={isOpen}
+      onClose={onClose}
+      panelClassName="relative w-full max-w-lg"
     >
-      {/* Background overlay */}
       <div
-        className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal panel */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+        className="rounded-lg bg-white shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="note-modal-title"
+        aria-describedby={message ? "note-modal-description" : undefined}
+      >
         <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
           <div className="sm:flex sm:items-start">
-            <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+            <div className="mt-3 w-full text-center sm:mt-0 sm:text-left">
               <h3
                 id="note-modal-title"
-                className="text-lg leading-6 font-medium text-gray-900 mb-2"
+                className="mb-2 text-lg font-medium leading-6 text-gray-900"
               >
                 {title}
               </h3>
               {message && (
                 <p
                   id="note-modal-description"
-                  className="text-sm text-gray-500 mb-4"
+                  className="mb-4 text-sm text-gray-500"
                 >
                   {message}
                 </p>
@@ -103,11 +98,11 @@ export default function NoteInputModal({
             </div>
           </div>
         </div>
-        <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
           <Button
             onClick={handleConfirm}
             disabled={loading}
-            className="w-full sm:w-auto sm:ml-3"
+            className="w-full sm:ml-3 sm:w-auto"
           >
             {loading ? "Processing..." : confirmText}
           </Button>
@@ -115,12 +110,12 @@ export default function NoteInputModal({
             variant="tertiary"
             onClick={onClose}
             disabled={loading}
-            className="w-full sm:w-auto mt-3 sm:mt-0"
+            className="mt-3 w-full sm:mt-0 sm:w-auto"
           >
             {cancelText}
           </Button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

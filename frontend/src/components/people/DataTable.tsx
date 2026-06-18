@@ -98,6 +98,7 @@ export default function DataTable({
     { key: "role", label: "Role", default: true },
     { key: "status", label: "Status", default: true },
     { key: "branch", label: "Branch", default: false },
+    { key: "cluster_codes", label: "Cluster Code", default: false },
     { key: "dateOfBirth", label: "Date of Birth", default: false },
     { key: "dateFirstAttended", label: "First Attended", default: true },
     { key: "waterBaptismDate", label: "Water Baptism", default: false },
@@ -654,12 +655,20 @@ export default function DataTable({
     const aValue = a[sortField];
     const bValue = b[sortField];
 
-    if (aValue == null && bValue == null) return 0;
-    if (aValue == null) return sortDirection === "asc" ? 1 : -1;
-    if (bValue == null) return sortDirection === "asc" ? -1 : 1;
+    const normalize = (v: unknown) =>
+      sortField === "cluster_codes"
+        ? ((v as string[] | undefined)?.filter(Boolean).join(", ") ?? "")
+        : (v as string | number | undefined);
 
-    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+    const aNorm = normalize(aValue);
+    const bNorm = normalize(bValue);
+
+    if (aNorm == null && bNorm == null) return 0;
+    if (aNorm == null || aNorm === "") return sortDirection === "asc" ? 1 : -1;
+    if (bNorm == null || bNorm === "") return sortDirection === "asc" ? -1 : 1;
+
+    if (aNorm < bNorm) return sortDirection === "asc" ? -1 : 1;
+    if (aNorm > bNorm) return sortDirection === "asc" ? 1 : -1;
     return 0;
   });
 
@@ -678,9 +687,9 @@ export default function DataTable({
       {/* Table Header with Actions */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-0 md:gap-4">
+          <div className="flex flex-col tablet:flex-row tablet:items-center tablet:justify-between gap-0 tablet:gap-4">
             {/* Selected People */}
-            <div className="flex items-center justify-end md:justify-start space-x-4 mb-2 md:mb-0">
+            <div className="flex items-center justify-end tablet:justify-start space-x-4 mb-2 tablet:mb-0">
               {selectedPeople.size > 0 && (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">
@@ -696,7 +705,7 @@ export default function DataTable({
             </div>
             <div className="flex items-center space-x-2 flex-wrap gap-2">
               {/* Mobile View Toggle - Only visible on mobile */}
-              <div className="md:hidden flex items-center border border-gray-300 rounded-lg overflow-hidden">
+              <div className="tablet:hidden flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setMobileViewMode("cards")}
                   className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
@@ -775,7 +784,7 @@ export default function DataTable({
 
         {/* Mobile Card View */}
         {mobileViewMode === "cards" && (
-          <div className="md:hidden space-y-4 p-4">
+          <div className="tablet:hidden space-y-4 p-4">
             {paginatedPeople.map((person) => (
               <div
                 key={person.id}
@@ -881,7 +890,7 @@ export default function DataTable({
 
         {/* Mobile Table View */}
         {mobileViewMode === "table" && (
-          <div className="md:hidden overflow-x-auto p-4">
+          <div className="tablet:hidden overflow-x-auto p-4">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -1059,6 +1068,12 @@ export default function DataTable({
                                   : "-")}
                             </div>
                           )}
+                          {field === "cluster_codes" && (
+                            <div className="text-sm text-gray-900">
+                              {person.cluster_codes?.filter(Boolean).join(", ") ||
+                                "-"}
+                            </div>
+                          )}
                           {field === "dateFirstAttended" && (
                             <div className="text-sm text-gray-900">
                               {person.dateFirstAttended
@@ -1113,7 +1128,7 @@ export default function DataTable({
         )}
 
         {/* Desktop Table */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden tablet:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -1281,6 +1296,12 @@ export default function DataTable({
                           <div className="text-sm text-gray-900">
                             {person.branch_name ||
                               (person.branch ? `Branch ${person.branch}` : "-")}
+                          </div>
+                        )}
+                        {field === "cluster_codes" && (
+                          <div className="text-sm text-gray-900">
+                            {person.cluster_codes?.filter(Boolean).join(", ") ||
+                              "-"}
                           </div>
                         )}
                         {field === "dateFirstAttended" && (

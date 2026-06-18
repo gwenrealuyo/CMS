@@ -175,8 +175,8 @@ async function fetchCoordinatorResourcesForModule(
       const groups = await evangelismApi.listGroups(
         branchId != null ? { branch: branchId } : undefined
       );
-      return groups.data.map((g: { id: number; name?: string }) => ({
-        id: g.id,
+      return groups.data.map((g) => ({
+        id: Number(g.id),
         name: g.name || `Evangelism Group #${g.id}`,
         type: "EvangelismGroup",
       }));
@@ -319,7 +319,7 @@ export default function ModuleCoordinatorManager() {
     if (!formData.person) return null;
     const person = people.find((p) => Number(p.id) === Number(formData.person));
     const branch = person?.branch;
-    if (branch == null || branch === "") return null;
+    if (branch == null) return null;
     const n = Number(branch);
     return Number.isNaN(n) ? null : n;
   }, [formData.person, people]);
@@ -336,7 +336,7 @@ export default function ModuleCoordinatorManager() {
       (p) => Number(p.id) === Number(bulkSimple.person)
     );
     const branch = person?.branch;
-    if (branch == null || branch === "") return null;
+    if (branch == null) return null;
     const n = Number(branch);
     return Number.isNaN(n) ? null : n;
   }, [bulkSimple.person, people]);

@@ -522,7 +522,7 @@ export default function EventView({
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                   Attendance
@@ -660,7 +660,7 @@ export default function EventView({
                     {filteredAttendanceRecords.map((record) => (
                       <li
                         key={record.id}
-                        className="flex flex-col gap-3 rounded-lg border border-gray-200 px-3 py-3 md:flex-row md:items-center md:justify-between"
+                        className="flex flex-col gap-3 rounded-lg border border-gray-200 px-3 py-3 tablet:flex-row tablet:items-center tablet:justify-between"
                       >
                         <div>
                           <div className="flex flex-wrap items-center gap-2">

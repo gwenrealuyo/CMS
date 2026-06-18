@@ -246,7 +246,7 @@ export default function FilterBar({
       </div>
 
       {/* Filter Section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col tablet:flex-row tablet:items-center tablet:justify-between gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
           <span className="text-sm font-medium text-gray-700 flex-shrink-0">
             Filters:

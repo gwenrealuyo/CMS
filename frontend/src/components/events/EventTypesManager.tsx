@@ -334,7 +334,7 @@ export default function EventTypesManager({
           )}
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <div className="hidden md:grid md:grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               <span>Color</span>
               <span>Label</span>
               <span>Code</span>
@@ -350,7 +350,7 @@ export default function EventTypesManager({
                 return (
                   <div
                     key={type.code}
-                    className="px-4 py-3 grid grid-cols-1 sm:grid-cols-[auto_1fr_auto_auto_auto] gap-3 sm:items-center"
+                    className="px-4 py-3 grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr_auto_auto_auto] md:items-center"
                   >
                     <span
                       className="w-4 h-4 rounded-full shrink-0"
@@ -358,15 +358,15 @@ export default function EventTypesManager({
                     />
                     <div>
                       <div className="font-medium text-gray-900">{type.label}</div>
-                      <div className="sm:hidden text-xs text-gray-500 mt-1">
+                      <div className="md:hidden text-xs text-gray-500 mt-1">
                         {type.code} · order {type.sort_order}
                         {type.is_system ? " · system" : ""}
                       </div>
                     </div>
-                    <span className="hidden sm:block text-xs text-gray-500 font-mono">
+                    <span className="hidden md:block text-xs text-gray-500 font-mono">
                       {type.code}
                     </span>
-                    <span className="hidden sm:block text-xs text-gray-500">
+                    <span className="hidden md:block text-xs text-gray-500">
                       {type.sort_order}
                     </span>
                     <div className="flex gap-2 sm:justify-end">

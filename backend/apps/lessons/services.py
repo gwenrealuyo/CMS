@@ -48,6 +48,56 @@ def _get_or_create_journey_config(lesson: Lesson) -> LessonJourney:
     return journey_config
 
 
+def sync_person_lessons_finished_from_progress(person: Person) -> None:
+    """
+    Mirror module lesson completion onto Person.has_finished_lessons /
+    lessons_finished_at when the person has PersonLessonProgress rows.
+  """
+    lesson_ids = list(
+        Lesson.objects.filter(is_latest=True, is_active=True).values_list("id", flat=True)
+    )
+    if not lesson_ids:
+        return
+
+    progresses = PersonLessonProgress.objects.filter(
+        person=person,
+        lesson_id__in=lesson_ids,
+    )
+    if not progresses.exists():
+        return
+
+    lesson_count = len(lesson_ids)
+    all_completed = (
+        progresses.count() == lesson_count
+        and not progresses.exclude(
+            status=PersonLessonProgress.Status.COMPLETED
+        ).exists()
+    )
+
+    if all_completed:
+        completed_dates = [
+            progress.completed_at.date()
+            for progress in progresses
+            if progress.completed_at is not None
+        ]
+        lessons_finished_at = max(completed_dates) if completed_dates else None
+        if (
+            person.has_finished_lessons
+            and person.lessons_finished_at == lessons_finished_at
+        ):
+            return
+        person.has_finished_lessons = True
+        person.lessons_finished_at = lessons_finished_at
+        person.save(update_fields=["has_finished_lessons", "lessons_finished_at"])
+        return
+
+    if not person.has_finished_lessons and person.lessons_finished_at is None:
+        return
+    person.has_finished_lessons = False
+    person.lessons_finished_at = None
+    person.save(update_fields=["has_finished_lessons", "lessons_finished_at"])
+
+
 @transaction.atomic
 def mark_progress_completed(
     progress: PersonLessonProgress,
@@ -111,6 +161,8 @@ def mark_progress_completed(
         progress.save(update_fields=["journey", "updated_at"])
 
     progress.refresh_from_db(fields=None)
+
+    sync_person_lessons_finished_from_progress(progress.person)
 
     return LessonCompletionResult(progress=progress, journey=progress.journey)
 
@@ -211,6 +263,8 @@ def revert_progress_completion(
 
     if journey:
         journey.delete()
+
+    sync_person_lessons_finished_from_progress(progress.person)
 
 
 @transaction.atomic

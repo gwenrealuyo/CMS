@@ -32,6 +32,14 @@ This drops all `lessons_*` tables and re-migrates (clears lesson progress, enrol
 - **LESSON session reports** call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` does not exist it is created, then completion is applied via `mark_progress_completed`. **PRE_LESSON** reports do not complete catalog progress.
 - **Deleting a session report** (API or Django admin) calls `reconcile_student_progress_from_reports(student, force_report_rules=True)`, which realigns progress with remaining LESSON-type reports. Students with zero LESSON reports keep legacy completion via `has_finished_lessons` / `lessons_finished_at` when applicable.
 
+### Person profile sync
+
+- When a person has `PersonLessonProgress` rows for active latest lessons, completing or reverting lessons via `mark_progress_completed` / `revert_progress_completion` updates `people.Person.has_finished_lessons` and `lessons_finished_at`.
+- **All complete:** `has_finished_lessons=True` and `lessons_finished_at` is the latest `completed_at` date across those progress rows.
+- **Not all complete:** both fields are cleared (same direction as commitment-form eligibility).
+- Persons with no module progress rows are left unchanged (pure legacy manual flags).
+- Legacy manual entry (profile → progress backfill) still works; see below.
+
 ## Legacy Completion Backfill
 
 - Some members may have completed lessons before the app was used. This is handled through people fields:

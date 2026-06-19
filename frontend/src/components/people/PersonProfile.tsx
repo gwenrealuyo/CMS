@@ -829,7 +829,9 @@ export default function PersonProfile({
                         label="Lessons finished"
                         value={
                           (person as any).has_finished_lessons
-                            ? "Yes"
+                            ? formatDisplayDate(
+                                (person as any).lessons_finished_at
+                              ) || "Yes"
                             : "Not yet"
                         }
                       />

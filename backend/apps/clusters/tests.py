@@ -162,6 +162,21 @@ class ClusterWeeklyReportModelTests(TestCase):
         report.visitors_attended.add(self.visitor)
         self.assertEqual(report.visitors_present, 1)
 
+    def test_visitors_attended_adds_visitor_to_cluster_members(self):
+        today = date.today()
+        self.assertNotIn(self.visitor, self.cluster.members.all())
+        report = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coordinator,
+        )
+        report.visitors_attended.add(self.visitor)
+        self.cluster.refresh_from_db()
+        self.assertIn(self.visitor, self.cluster.members.all())
+
     def test_member_attendance_rate(self):
         today = date.today()
         report = ClusterWeeklyReport.objects.create(
@@ -767,6 +782,66 @@ class ClusterWeeklyReportAPITests(TestCase):
             response.data["submitted_by_details"]["username"],
             self.user.username,
         )
+
+    def test_create_report_adds_visitors_to_cluster_members(self):
+        today = date.today()
+        visitor = Person.objects.create_user(
+            username="reportvisitor",
+            email="reportvisitor@example.com",
+            password="password123",
+            first_name="Report",
+            last_name="Visitor",
+            role="VISITOR",
+        )
+        self.assertNotIn(visitor, self.cluster.members.all())
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [self.member.id],
+                "visitors_attended": [visitor.id],
+                "offerings": "1000.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.cluster.refresh_from_db()
+        self.assertIn(visitor, self.cluster.members.all())
+
+    def test_update_report_syncs_existing_visitors_to_cluster_members(self):
+        today = date.today()
+        visitor = Person.objects.create_user(
+            username="existingreportvisitor",
+            email="existingreportvisitor@example.com",
+            password="password123",
+            first_name="Existing",
+            last_name="Visitor",
+            role="VISITOR",
+        )
+        report = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coordinator,
+        )
+        report.visitors_attended.add(visitor)
+        self.cluster.members.remove(visitor)
+        self.assertNotIn(visitor, self.cluster.members.all())
+
+        response = self.client.patch(
+            f"/api/clusters/cluster-weekly-reports/{report.id}/",
+            {"offerings": "500.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.cluster.refresh_from_db()
+        self.assertIn(visitor, self.cluster.members.all())
 
     def test_create_report_allows_coordinator_in_members_attended(self):
         today = date.today()

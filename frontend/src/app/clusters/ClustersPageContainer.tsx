@@ -157,7 +157,7 @@ export default function ClustersPageContainer() {
     loading: false,
   });
   
-  const { people, peopleUI } = usePeople();
+  const { people, peopleUI, refreshPeople } = usePeople();
   const { families } = useFamilies();
   const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
 
@@ -1247,9 +1247,22 @@ export default function ClustersPageContainer() {
   };
   
   // Report handlers
+  const syncClusterDetailsAfterReport = async (clusterId?: number) => {
+    if (!clusterId) return;
+    await Promise.all([fetchClusters(), refreshPeople()]);
+    try {
+      const updated = await clustersApi.getById(clusterId);
+      setViewCluster((prev) => (prev?.id === clusterId ? updated.data : prev));
+      setPanelCluster((prev) => (prev?.id === clusterId ? updated.data : prev));
+    } catch (error) {
+      console.error("Failed to refresh cluster after report save", error);
+    }
+  };
+
   const handleCreateReport = async (data: ClusterWeeklyReportInput) => {
     try {
       await createReport(data);
+      await syncClusterDetailsAfterReport(data.cluster);
       setReportFormOpen(false);
       setReportSelectedCluster(null);
       refetchReports();
@@ -1262,6 +1275,7 @@ export default function ClustersPageContainer() {
   const handleUpdateReport = async (id: number, data: Partial<ClusterWeeklyReportInput>) => {
     try {
       await updateReport(id, data);
+      await syncClusterDetailsAfterReport(data.cluster);
       setEditingReport(null);
       setReportFormOpen(false);
       refetchReports();

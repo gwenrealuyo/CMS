@@ -125,7 +125,7 @@ export default function AddVisitorModal({
       const visitorData = {
         ...formData,
         role: "VISITOR" as const,
-        status: "ACTIVE" as const,
+        status: "ATTENDED" as const,
         gender: formData.gender || undefined,
         note: formData.note?.trim() || undefined,
       };

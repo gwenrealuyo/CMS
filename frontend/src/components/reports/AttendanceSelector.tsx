@@ -3,6 +3,13 @@ import { Person, PersonUI } from "@/src/types/person";
 import { X } from "lucide-react";
 import { Cluster } from "@/src/types/cluster";
 
+const normalizePersonId = (id: string | number): string => String(id);
+
+const personIdsMatch = (
+  a: string | number,
+  b: string | number
+): boolean => normalizePersonId(a) === normalizePersonId(b);
+
 interface AttendanceSelectorProps {
   label: string;
   selectedIds: string[];
@@ -39,21 +46,21 @@ export default function AttendanceSelector({
 
   // Get cluster member IDs if cluster is selected
   const clusterMemberIds =
-    selectedCluster?.members?.map((id) => id.toString()) || [];
-  const allowedIdSet = new Set(allowedIds);
+    selectedCluster?.members?.map((id) => normalizePersonId(id)) || [];
+  const allowedIdSet = new Set(allowedIds.map(normalizePersonId));
 
   // Filter people by role and cluster membership (for MEMBER role)
   const hasMemberSource = Boolean(selectedCluster) || allowedIds.length > 0;
 
   const peopleByRole = availablePeople.filter((person) => {
     if (filterRole === "MEMBER" && allowedIds.length > 0) {
-      return person.role !== "VISITOR" && allowedIdSet.has(person.id);
+      return person.role !== "VISITOR" && allowedIdSet.has(normalizePersonId(person.id));
     }
     if (filterRole === "MEMBER") {
       // For members: must be in selected cluster's members list, exclude VISITOR role
       if (!selectedCluster) return false; // No cluster selected = no members shown
       if (person.role === "VISITOR") return false; // Exclude visitors
-      return clusterMemberIds.includes(person.id); // Must be in cluster members list
+      return clusterMemberIds.includes(normalizePersonId(person.id)); // Must be in cluster members list
     } else if (filterRole === "VISITOR") {
       // For visitors: only show VISITOR role, no cluster filtering
       return person.role === "VISITOR";
@@ -69,19 +76,21 @@ export default function AttendanceSelector({
 
   if (filterRole === "VISITOR" && previouslyAttendedIds.length > 0) {
     previouslyAttendedPeople = peopleByRole.filter((person) =>
-      previouslyAttendedIds.includes(person.id)
+      previouslyAttendedIds.some((id) => personIdsMatch(id, person.id))
     );
     otherPeople = peopleByRole.filter(
-      (person) => !previouslyAttendedIds.includes(person.id)
+      (person) =>
+        !previouslyAttendedIds.some((id) => personIdsMatch(id, person.id))
     );
   } else if (filterRole === "MEMBER" && previouslyAttendedIds.length > 0) {
     // For members: use previouslyAttendedIds (members from all previous reports)
     // peopleByRole is already filtered by cluster membership
     previouslyAttendedPeople = peopleByRole.filter((person) =>
-      previouslyAttendedIds.includes(person.id)
+      previouslyAttendedIds.some((id) => personIdsMatch(id, person.id))
     );
     otherPeople = peopleByRole.filter(
-      (person) => !previouslyAttendedIds.includes(person.id)
+      (person) =>
+        !previouslyAttendedIds.some((id) => personIdsMatch(id, person.id))
     );
   } else {
     // Fallback: if no previous attendance data, show all peopleByRole in "other" section
@@ -95,11 +104,16 @@ export default function AttendanceSelector({
   const selectedClusterMemberIdSet = new Set(clusterMemberIds);
   const clusterVisitors =
     filterRole === "VISITOR" && selectedCluster
-      ? peopleByRole.filter((person) => selectedClusterMemberIdSet.has(person.id))
+      ? peopleByRole.filter((person) =>
+          selectedClusterMemberIdSet.has(normalizePersonId(person.id))
+        )
       : [];
   const otherVisitors =
     filterRole === "VISITOR" && selectedCluster
-      ? peopleByRole.filter((person) => !selectedClusterMemberIdSet.has(person.id))
+      ? peopleByRole.filter(
+          (person) =>
+            !selectedClusterMemberIdSet.has(normalizePersonId(person.id))
+        )
       : peopleByRole;
 
   // Filter by search term (already filtered by role and cluster membership in peopleByRole)
@@ -108,10 +122,13 @@ export default function AttendanceSelector({
     return person.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  // Get selected people objects
+  // Get selected people objects (normalize IDs so number/string mismatches don't break UI)
   const selectedPeople = availablePeople.filter((p) =>
-    selectedIds.includes(p.id)
+    selectedIds.some((id) => personIdsMatch(id, p.id))
   );
+
+  const isPersonSelected = (personId: string | number) =>
+    selectedIds.some((id) => personIdsMatch(id, personId));
 
   // Get active members/visitors (for visitors, also include ATTENDED status)
   const activePeople = peopleByRole.filter((person) =>
@@ -120,20 +137,25 @@ export default function AttendanceSelector({
       : person.status === "ACTIVE" || person.status === "ATTENDED"
   );
 
-  const togglePerson = (personId: string) => {
-    if (selectedIds.includes(personId)) {
-      onSelectionChange(selectedIds.filter((id) => id !== personId));
+  const togglePerson = (personId: string | number) => {
+    const normalizedId = normalizePersonId(personId);
+    if (isPersonSelected(normalizedId)) {
+      onSelectionChange(
+        selectedIds.filter((id) => !personIdsMatch(id, normalizedId))
+      );
     } else {
-      onSelectionChange([...selectedIds, personId]);
+      onSelectionChange([...selectedIds, normalizedId]);
     }
   };
 
-  const removePerson = (personId: string) => {
-    onSelectionChange(selectedIds.filter((id) => id !== personId));
+  const removePerson = (personId: string | number) => {
+    onSelectionChange(
+      selectedIds.filter((id) => !personIdsMatch(id, personId))
+    );
   };
 
   const selectAll = () => {
-    const allIds = peopleByRole.map((p) => p.id);
+    const allIds = peopleByRole.map((p) => normalizePersonId(p.id));
     // Replace selection instead of adding to it
     onSelectionChange(allIds);
     setLastClickedButton("selectAll");
@@ -145,7 +167,7 @@ export default function AttendanceSelector({
   };
 
   const selectAllActive = () => {
-    const activeIds = activePeople.map((p) => p.id);
+    const activeIds = activePeople.map((p) => normalizePersonId(p.id));
     // Replace selection instead of adding to it
     onSelectionChange(activeIds);
     setLastClickedButton("selectAllActive");
@@ -153,7 +175,7 @@ export default function AttendanceSelector({
 
   const selectClusterVisitors = () => {
     if (filterRole !== "VISITOR") return;
-    const clusterVisitorIds = clusterVisitors.map((p) => p.id);
+    const clusterVisitorIds = clusterVisitors.map((p) => normalizePersonId(p.id));
     onSelectionChange(clusterVisitorIds);
     setLastClickedButton("selectClusterVisitors");
   };
@@ -164,11 +186,11 @@ export default function AttendanceSelector({
       // For members: use most recent report's members if available, otherwise use all previously attended
       idsToSelect =
         mostRecentAttendedIds.length > 0
-          ? mostRecentAttendedIds
-          : previouslyAttendedPeople.map((p) => p.id);
+          ? mostRecentAttendedIds.map(normalizePersonId)
+          : previouslyAttendedPeople.map((p) => normalizePersonId(p.id));
     } else {
       // For visitors: use all previously attended
-      idsToSelect = previouslyAttendedPeople.map((p) => p.id);
+      idsToSelect = previouslyAttendedPeople.map((p) => normalizePersonId(p.id));
     }
     // Replace selection instead of adding to it
     onSelectionChange(idsToSelect);
@@ -207,7 +229,7 @@ export default function AttendanceSelector({
         const active = peopleByRole.filter(
           (person) => person.status === "ACTIVE"
         );
-        const activeIds = active.map((p) => p.id);
+        const activeIds = active.map((p) => normalizePersonId(p.id));
         if (activeIds.length > 0) {
           onSelectionChange(activeIds);
           setLastClickedButton("selectAllActive");
@@ -216,10 +238,11 @@ export default function AttendanceSelector({
       } else {
         // For visitors: only select visitors from the most recent report
         // Use mostRecentAttendedIds if available, otherwise fall back to previouslyAttendedIds
-        const idsToSelect =
+        const idsToSelect = (
           mostRecentAttendedIds.length > 0
             ? mostRecentAttendedIds
-            : previouslyAttendedIds;
+            : previouslyAttendedIds
+        ).map(normalizePersonId);
 
         if (idsToSelect.length > 0) {
           onSelectionChange(idsToSelect);
@@ -263,11 +286,11 @@ export default function AttendanceSelector({
       // peopleByRole is already filtered by role and cluster membership
 
       // Check if selection matches "Select All"
-      const allIds = peopleByRole.map((p) => p.id);
+      const allIds = peopleByRole.map((p) => normalizePersonId(p.id));
       const allIdsSet = new Set(allIds);
       if (
         selectedIds.length === allIds.length &&
-        selectedIds.every((id) => allIdsSet.has(id))
+        selectedIds.every((id) => allIdsSet.has(normalizePersonId(id)))
       ) {
         setLastClickedButton("selectAll");
         return;
@@ -279,11 +302,11 @@ export default function AttendanceSelector({
           ? person.status === "ACTIVE"
           : person.status === "ACTIVE" || person.status === "ATTENDED"
       );
-      const activeIds = activePeople.map((p) => p.id);
+      const activeIds = activePeople.map((p) => normalizePersonId(p.id));
       const activeIdsSet = new Set(activeIds);
       if (
         selectedIds.length === activeIds.length &&
-        selectedIds.every((id) => activeIdsSet.has(id))
+        selectedIds.every((id) => activeIdsSet.has(normalizePersonId(id)))
       ) {
         setLastClickedButton("selectAllActive");
         return;
@@ -293,10 +316,12 @@ export default function AttendanceSelector({
       if (filterRole === "MEMBER") {
         // First check if it matches most recent attended members
         if (mostRecentAttendedIds.length > 0) {
-          const mostRecentSet = new Set(mostRecentAttendedIds);
+          const mostRecentSet = new Set(
+            mostRecentAttendedIds.map(normalizePersonId)
+          );
           if (
             selectedIds.length === mostRecentAttendedIds.length &&
-            selectedIds.every((id) => mostRecentSet.has(id))
+            selectedIds.every((id) => mostRecentSet.has(normalizePersonId(id)))
           ) {
             setLastClickedButton("selectAllClusterMembers");
             return;
@@ -305,24 +330,28 @@ export default function AttendanceSelector({
         // If not, check if it matches all previously attended members
         if (previouslyAttendedPeople.length > 0) {
           const previouslyAttendedIdsSet = new Set(
-            previouslyAttendedPeople.map((p) => p.id)
+            previouslyAttendedPeople.map((p) => normalizePersonId(p.id))
           );
           if (
             selectedIds.length === previouslyAttendedPeople.length &&
-            selectedIds.every((id) => previouslyAttendedIdsSet.has(id))
+            selectedIds.every((id) =>
+              previouslyAttendedIdsSet.has(normalizePersonId(id))
+            )
           ) {
             setLastClickedButton("selectAllClusterMembers");
             return;
           }
         }
       } else if (filterRole === "VISITOR") {
-        const clusterVisitorIds = clusterVisitors.map((p) => p.id);
+        const clusterVisitorIds = clusterVisitors.map((p) =>
+          normalizePersonId(p.id)
+        );
         const clusterVisitorSet = new Set(clusterVisitorIds);
         if (
           selectedCluster &&
           clusterVisitorIds.length > 0 &&
           selectedIds.length === clusterVisitorIds.length &&
-          selectedIds.every((id) => clusterVisitorSet.has(id))
+          selectedIds.every((id) => clusterVisitorSet.has(normalizePersonId(id)))
         ) {
           setLastClickedButton("selectClusterVisitors");
           return;
@@ -330,11 +359,13 @@ export default function AttendanceSelector({
 
         if (previouslyAttendedPeople.length > 0) {
           const previouslyAttendedIdsSet = new Set(
-            previouslyAttendedPeople.map((p) => p.id)
+            previouslyAttendedPeople.map((p) => normalizePersonId(p.id))
           );
           if (
             selectedIds.length === previouslyAttendedPeople.length &&
-            selectedIds.every((id) => previouslyAttendedIdsSet.has(id))
+            selectedIds.every((id) =>
+              previouslyAttendedIdsSet.has(normalizePersonId(id))
+            )
           ) {
             setLastClickedButton("selectAllClusterMembers");
             return;
@@ -357,6 +388,18 @@ export default function AttendanceSelector({
     clusterVisitors.map((p) => p.id).join(","),
     peopleByRole.length,
   ]);
+
+  // Drop selected IDs that aren't in the loaded people list (stale report IDs, etc.)
+  useEffect(() => {
+    if (availablePeople.length === 0 || selectedIds.length === 0) return;
+    const validIds = new Set(
+      availablePeople.map((p) => normalizePersonId(p.id))
+    );
+    const pruned = selectedIds.filter((id) => validIds.has(normalizePersonId(id)));
+    if (pruned.length !== selectedIds.length) {
+      onSelectionChange(pruned);
+    }
+  }, [availablePeople, selectedIds.join(",")]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -387,7 +430,7 @@ export default function AttendanceSelector({
         <label className="block text-sm font-medium text-gray-700">
           {label}
           <span className="text-gray-500 font-normal ml-2">
-            ({selectedIds.length} selected)
+            ({selectedPeople.length} selected)
           </span>
         </label>
         <div className="flex items-center gap-2">
@@ -538,7 +581,7 @@ export default function AttendanceSelector({
                 </div>
               ) : filteredPeople.length > 0 ? (
                 filteredPeople.map((person) => {
-                  const isSelected = selectedIds.includes(person.id);
+                  const personSelected = isPersonSelected(person.id);
                   return (
                     <button
                       key={person.id}
@@ -548,7 +591,7 @@ export default function AttendanceSelector({
                         setSearchTerm("");
                       }}
                       className={`w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors ${
-                        isSelected ? "bg-primary/10" : ""
+                        personSelected ? "bg-primary/10" : ""
                       }`}
                     >
                       <div className="font-medium text-gray-900">
@@ -606,23 +649,21 @@ export default function AttendanceSelector({
             hasMemberSource &&
             previouslyAttendedPeople.length > 0 && (
             <>
-              <div className="p-2 border-b sticky top-0 bg-purple-50 border-purple-200">
+              <div className="p-2 border-b sticky top-0 z-10 bg-purple-50 border-purple-200 shadow-sm">
                 <div className="text-xs font-semibold text-purple-900">
                   {`Previously Attended Members (${previouslyAttendedPeople.length})`}
                 </div>
               </div>
-              {previouslyAttendedPeople.map((person) => {
-                const isSelected = selectedIds.includes(person.id);
-                return (
+              {previouslyAttendedPeople.map((person) => (
                   <label
                     key={person.id}
                     className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                      isSelected ? "bg-primary/10" : ""
+                      isPersonSelected(person.id) ? "bg-primary/10" : ""
                     }`}
                   >
                     <input
                       type="checkbox"
-                      checked={isSelected}
+                      checked={isPersonSelected(person.id)}
                       onChange={() => togglePerson(person.id)}
                       className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                     />
@@ -639,8 +680,7 @@ export default function AttendanceSelector({
                       </div>
                     </div>
                   </label>
-                );
-              })}
+                ))}
             </>
           )}
 
@@ -649,7 +689,7 @@ export default function AttendanceSelector({
             <>
               {(previouslyAttendedPeople.length > 0 ||
                 otherPeople.length > 0) && (
-                <div className="p-2 bg-gray-50 border-b border-gray-200 sticky top-0">
+                <div className="p-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
                   <div className="text-xs font-semibold text-gray-700">
                     {previouslyAttendedPeople.length > 0
                       ? `Other Members (${otherPeople.length})`
@@ -657,18 +697,16 @@ export default function AttendanceSelector({
                   </div>
                 </div>
               )}
-              {otherPeople.map((person) => {
-                const isSelected = selectedIds.includes(person.id);
-                return (
+              {otherPeople.map((person) => (
                   <label
                     key={person.id}
                     className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                      isSelected ? "bg-primary/10" : ""
+                      isPersonSelected(person.id) ? "bg-primary/10" : ""
                     }`}
                   >
                     <input
                       type="checkbox"
-                      checked={isSelected}
+                      checked={isPersonSelected(person.id)}
                       onChange={() => togglePerson(person.id)}
                       className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                     />
@@ -685,31 +723,28 @@ export default function AttendanceSelector({
                       </div>
                     </div>
                   </label>
-                );
-              })}
+                ))}
             </>
           )}
 
           {/* Visitors in selected cluster */}
           {filterRole === "VISITOR" && selectedCluster && clusterVisitors.length > 0 && (
             <>
-              <div className="p-2 border-b sticky top-0 bg-primary/10 border-primary/20">
-                <div className="text-xs font-semibold text-primary">
+              <div className="p-2 border-b sticky top-0 z-10 bg-blue-50 border-blue-200 shadow-sm">
+                <div className="text-xs font-semibold text-blue-900">
                   {`Visitors in this cluster (${clusterVisitors.length})`}
                 </div>
               </div>
-              {clusterVisitors.map((person) => {
-                const isSelected = selectedIds.includes(person.id);
-                return (
+              {clusterVisitors.map((person) => (
                   <label
                     key={person.id}
                     className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                      isSelected ? "bg-primary/10" : ""
+                      isPersonSelected(person.id) ? "bg-primary/10" : ""
                     }`}
                   >
                     <input
                       type="checkbox"
-                      checked={isSelected}
+                      checked={isPersonSelected(person.id)}
                       onChange={() => togglePerson(person.id)}
                       className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                     />
@@ -735,8 +770,7 @@ export default function AttendanceSelector({
                       </div>
                     </div>
                   </label>
-                );
-              })}
+                ))}
             </>
           )}
 
@@ -745,25 +779,23 @@ export default function AttendanceSelector({
             ((selectedCluster && otherVisitors.length > 0) ||
               (!selectedCluster && otherVisitors.length > 0)) && (
               <>
-                <div className="p-2 bg-gray-50 border-b border-gray-200 sticky top-0">
+                <div className="p-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
                   <div className="text-xs font-semibold text-gray-700">
                     {selectedCluster
                       ? `Other visitors (${otherVisitors.length})`
                       : `Visitors (${otherVisitors.length})`}
                   </div>
                 </div>
-                {otherVisitors.map((person) => {
-                  const isSelected = selectedIds.includes(person.id);
-                  return (
+                {otherVisitors.map((person) => (
                     <label
                       key={person.id}
                       className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                        isSelected ? "bg-primary/10" : ""
+                        isPersonSelected(person.id) ? "bg-primary/10" : ""
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={isSelected}
+                        checked={isPersonSelected(person.id)}
                         onChange={() => togglePerson(person.id)}
                         className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
                       />
@@ -789,8 +821,7 @@ export default function AttendanceSelector({
                         </div>
                       </div>
                     </label>
-                  );
-                })}
+                  ))}
               </>
             )}
 

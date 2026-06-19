@@ -11,6 +11,7 @@ from django.utils import timezone
 import csv
 import io
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
+from .report_membership import sync_report_visitors_to_cluster_members
 from .serializers import (
     ClusterSerializer,
     ClusterWeeklyReportSerializer,
@@ -160,7 +161,12 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         cluster = serializer.validated_data.get("cluster")
         ensure_user_can_submit_cluster_report_or_privileged(self.request.user, cluster)
-        serializer.save(submitted_by=self._submitter())
+        report = serializer.save(submitted_by=self._submitter())
+        sync_report_visitors_to_cluster_members(
+            report,
+            report.visitors_attended.values_list("id", flat=True),
+            verified_by=self._submitter(),
+        )
 
     def perform_update(self, serializer):
         old_cluster = serializer.instance.cluster
@@ -175,7 +181,12 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             submitter = self._submitter()
             if submitter is not None:
                 save_kwargs["submitted_by"] = submitter
-        serializer.save(**save_kwargs)
+        report = serializer.save(**save_kwargs)
+        sync_report_visitors_to_cluster_members(
+            report,
+            report.visitors_attended.values_list("id", flat=True),
+            verified_by=self._submitter(),
+        )
 
     @action(detail=False, methods=["get"])
     def distinct_years(self, request):

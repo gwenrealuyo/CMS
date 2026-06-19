@@ -6,6 +6,7 @@ import logging
 from apps.people.models import Journey
 from .models import Cluster, ClusterWeeklyReport
 from .coordinator_assignments import sync_cluster_coordinator_module_assignment
+from .report_membership import sync_report_visitors_to_cluster_members
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,24 @@ def _get_cluster_display_name(cluster):
     if cluster.name:
         return cluster.name
     return f"Cluster {cluster.id}"
+
+
+@receiver(m2m_changed, sender=ClusterWeeklyReport.visitors_attended.through)
+def sync_visitors_attended_to_cluster_members(sender, instance, action, pk_set, **kwargs):
+    """Add visitors who attend a cluster meeting to that cluster's members."""
+    if action != "post_add" or not pk_set:
+        return
+    try:
+        sync_report_visitors_to_cluster_members(
+            instance, pk_set, verified_by=instance.submitted_by
+        )
+    except Exception as e:
+        logger.error(
+            "Error syncing report %s visitors to cluster members: %s",
+            instance.id,
+            e,
+            exc_info=True,
+        )
 
 
 @receiver(m2m_changed, sender=ClusterWeeklyReport.members_attended.through)

@@ -7,9 +7,82 @@ import {
 } from "@/src/types/cluster";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { peopleApi, clusterReportsApi } from "@/src/lib/api";
+import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
 import AttendanceSelector from "./AttendanceSelector";
 import AddVisitorModal from "./AddVisitorModal";
+
+type ReportAttendeeDetail = {
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  suffix?: string;
+  username?: string;
+  role?: string;
+  status?: string;
+};
+
+function formatPersonNameFromFields(person: {
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  suffix?: string;
+}): string {
+  const middleInitial = person.middle_name
+    ? ` ${person.middle_name.trim().charAt(0)}.`
+    : "";
+  const suffixPart =
+    person.suffix && person.suffix.trim().length > 0
+      ? ` ${person.suffix.trim()}`
+      : "";
+  return `${person.first_name ?? ""}${middleInitial} ${
+    person.last_name ?? ""
+  }${suffixPart}`.trim();
+}
+
+function reportAttendeeToPersonUI(
+  detail: ReportAttendeeDetail,
+  defaultRole: "MEMBER" | "VISITOR"
+): PersonUI {
+  return {
+    id: String(detail.id),
+    name: formatPersonNameFromFields(detail),
+    first_name: detail.first_name ?? "",
+    last_name: detail.last_name ?? "",
+    username: detail.username ?? "",
+    role: (detail.role ?? defaultRole) as PersonUI["role"],
+    status: detail.status as PersonUI["status"],
+  };
+}
+
+function mergeReportAttendeesIntoPeople(
+  people: PersonUI[],
+  initialData?: Partial<ClusterWeeklyReport>
+): PersonUI[] {
+  if (!initialData?.id) return people;
+
+  const existingIds = new Set(people.map((p) => String(p.id)));
+  const merged = [...people];
+
+  const appendDetails = (
+    details: ReportAttendeeDetail[] | undefined,
+    defaultRole: "MEMBER" | "VISITOR"
+  ) => {
+    for (const detail of details || []) {
+      const id = String(detail.id);
+      if (!existingIds.has(id) && isSelectablePerson(detail)) {
+        merged.push(reportAttendeeToPersonUI(detail, defaultRole));
+        existingIds.add(id);
+      }
+    }
+  };
+
+  appendDetails(initialData.visitors_attended_details, "VISITOR");
+  appendDetails(initialData.members_attended_details, "MEMBER");
+
+  return merged;
+}
 
 interface ClusterWeeklyReportFormProps {
   isOpen: boolean;
@@ -28,6 +101,8 @@ export default function ClusterWeeklyReportForm({
   cluster,
   clusters,
 }: ClusterWeeklyReportFormProps) {
+  const { user } = useAuth();
+
   // Normalize IDs to numbers for consistency
   const normalizeIds = (ids: any[]): number[] => {
     if (!ids || !Array.isArray(ids)) return [];
@@ -92,14 +167,7 @@ export default function ClusterWeeklyReportForm({
         const peopleUI: PersonUI[] = response.data
           .filter(isSelectablePerson)
           .map((p) => {
-          const middleInitial = p.middle_name
-            ? ` ${p.middle_name.trim().charAt(0)}.`
-            : "";
-          const suffixPart =
-            p.suffix && p.suffix.trim().length > 0 ? ` ${p.suffix.trim()}` : "";
-          const name = `${p.first_name ?? ""}${middleInitial} ${
-            p.last_name ?? ""
-          }${suffixPart}`.trim();
+          const name = formatPersonNameFromFields(p);
             return {
               ...p,
               name,
@@ -111,13 +179,17 @@ export default function ClusterWeeklyReportForm({
           ...p,
           id: p.id?.toString() || "",
         }));
-        setPeople(normalizedPeopleUI);
+        const mergedPeopleUI = mergeReportAttendeesIntoPeople(
+          normalizedPeopleUI,
+          initialData
+        );
+        setPeople(mergedPeopleUI);
 
         // Filter out invalid IDs from formData (visitors/members that were deleted)
         setFormData((prev) => {
           // Convert PersonUI.id (string) to numbers for comparison
           const validPeopleIds = new Set(
-            normalizedPeopleUI
+            mergedPeopleUI
               .map((p) => {
                 const numId =
                   typeof p.id === "string" ? parseInt(p.id, 10) : p.id;
@@ -399,8 +471,13 @@ export default function ClusterWeeklyReportForm({
   }, [showClusterDropdown]);
 
   const handleCreateVisitor = async (visitorData: Partial<Person>) => {
+    const branchId = selectedCluster?.branch ?? user?.branch ?? undefined;
+    const payload: Partial<Person> = {
+      ...visitorData,
+      ...(branchId != null ? { branch: branchId } : {}),
+    };
     try {
-      const response = await peopleApi.create(visitorData);
+      const response = await peopleApi.create(payload);
       const middleInitial = response.data.middle_name
         ? ` ${response.data.middle_name.trim().charAt(0)}.`
         : "";
@@ -414,6 +491,7 @@ export default function ClusterWeeklyReportForm({
 
       const newVisitor: PersonUI = {
         ...response.data,
+        id: String(response.data.id),
         name,
         dateFirstAttended: response.data.date_first_attended,
       };
@@ -699,6 +777,8 @@ export default function ClusterWeeklyReportForm({
         isOpen={showAddVisitorModal}
         onClose={() => setShowAddVisitorModal(false)}
         onAdd={handleCreateVisitor}
+        defaultDateFirstAttended={formData.meeting_date}
+        defaultFirstActivityAttended="CLUSTERING"
       />
 
       {/* Activities and Content */}

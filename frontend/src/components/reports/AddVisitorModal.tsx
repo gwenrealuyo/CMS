@@ -1,7 +1,9 @@
 import { useState, FormEvent, useEffect, useRef } from "react";
+import toast from "react-hot-toast";
 import { Person, PersonUI } from "@/src/types/person";
 import { peopleApi, eventTypesApi } from "@/src/lib/api";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import { EventTypeOption } from "@/src/types/event";
@@ -130,7 +132,8 @@ export default function AddVisitorModal({
         note: formData.note?.trim() || undefined,
       };
 
-      await onAdd(visitorData);
+      const created = await onAdd(visitorData);
+      toast.success(`${formatPersonName(created)} added as visitor.`);
 
       // Reset form and close modal - user can reopen to add another visitor
       setFormData({

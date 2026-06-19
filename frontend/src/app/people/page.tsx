@@ -269,8 +269,15 @@ export default function PeoplePage() {
     refreshFamilies,
   } = useFamilies();
   const { branches } = useBranches();
-  const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
+  const { user, isSeniorCoordinator, isModuleCoordinator, isPlainMember } =
+    useAuth();
+  const plainMember = isPlainMember();
+  const addPeopleButtonLabel = plainMember ? "Add Visitor" : "Add Person";
+  const createPeopleTitle = plainMember ? "Create Visitor" : "Create Person";
   const isAdmin = user?.role === "ADMIN";
+  const openAddPeopleFlow = useCallback(() => {
+    openCreatePersonModal(plainMember ? { role: "VISITOR" } : undefined);
+  }, [openCreatePersonModal, plainMember]);
   const userCanHardDelete = canHardDelete(user);
   const canChangeBranchFilter = useMemo(
     () => canChangePeopleBranchFilter(user, isSeniorCoordinator),
@@ -1444,7 +1451,7 @@ export default function PeoplePage() {
 
   const personPanelTitle =
     personPanelMode === "create"
-      ? "Create Person"
+      ? createPeopleTitle
       : personPanelMode === "edit"
         ? "Edit Profile"
         : personPanelPerson
@@ -1623,16 +1630,14 @@ export default function PeoplePage() {
 
   return (
     <DashboardLayout>
-      {/* Page header with Add Person */}
+      {/* Page header with add people action */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">People</h1>
         <Button
-          onClick={() => {
-            openCreatePersonModal();
-          }}
+          onClick={openAddPeopleFlow}
           className="w-full sm:w-auto"
         >
-          Add Person
+          {addPeopleButtonLabel}
         </Button>
       </div>
       {SHOW_TABS && (
@@ -1689,7 +1694,7 @@ export default function PeoplePage() {
             <Button
               onClick={() => {
                 if (activeTab === "people") {
-                  openCreatePersonModal();
+                  openAddPeopleFlow();
                   return;
                 }
                 setModalType(activeTab === "families" ? "family" : "cluster");
@@ -1698,7 +1703,9 @@ export default function PeoplePage() {
             >
               Add{" "}
               {activeTab === "people"
-                ? "Person"
+                ? plainMember
+                  ? "Visitor"
+                  : "Person"
                 : activeTab === "families"
                   ? "Family"
                   : "Cluster"}
@@ -2271,7 +2278,7 @@ export default function PeoplePage() {
         title={
           modalType === "person"
             ? viewEditPerson === null
-              ? "Create Person"
+              ? createPeopleTitle
               : viewMode === "view"
                 ? ""
                 : "Edit Profile"

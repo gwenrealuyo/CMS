@@ -10,17 +10,19 @@ const sizeClasses: Record<PersonAvatarSize, string> = {
   lg: "w-14 h-14 text-lg",
 };
 
+export type PersonAvatarPerson = Partial<
+  Pick<Person, "first_name" | "last_name" | "photo">
+> & {
+  id?: string | number;
+};
+
 interface PersonAvatarProps {
-  person: Pick<Person, "first_name" | "last_name" | "photo"> & {
-    id?: string | number;
-  };
+  person: PersonAvatarPerson;
   size?: PersonAvatarSize;
   className?: string;
 }
 
-export function getPersonInitials(
-  person: Pick<Person, "first_name" | "last_name">
-) {
+export function getPersonInitials(person: Pick<Person, "first_name" | "last_name"> | PersonAvatarPerson) {
   return `${person.first_name?.[0] || ""}${person.last_name?.[0] || ""}`.toUpperCase();
 }
 

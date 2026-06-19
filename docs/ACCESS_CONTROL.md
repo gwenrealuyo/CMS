@@ -30,7 +30,7 @@ Branch filtering applies to:
 | ----------- | ----------------------------------- | ----------------- | ----------------------- | -------------------------------------------------------------------------- |
 | **ADMIN**   | All people (including other ADMINS) | All families      | All clusters            | Full access, can edit/delete. No branch filtering.                         |
 | **PASTOR**  | All people (excluding ADMINS)       | All families      | All clusters            | Full access, can edit/delete. Filtered by branch unless from headquarters. |
-| **MEMBER**  | Self + family members only          | Own families only | Own cluster (read-only) | Limited access, no edit/delete on clusters. Filtered by branch.            |
+| **MEMBER**  | Self + family members only          | Own families only | Own cluster (read-only) | Limited access, no edit/delete on clusters. **Weekly cluster reports are not visible** unless assigned as Cluster Reporter or Coordinator (see module assignments below). Filtered by branch.            |
 | **VISITOR** | Cannot log in                       | Cannot log in     | Cannot log in           | No access                                                                  |
 
 ## Senior Coordinators (Any Module)

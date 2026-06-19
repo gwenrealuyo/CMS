@@ -62,6 +62,7 @@ import {
 interface ClustersPageViewProps {
   activeTab: ClusterContentTab;
   onTabChange: (tab: ClusterContentTab) => void;
+  canAccessClusterReports: boolean;
   // Clusters tab props
   allClusters: Cluster[];
   clusters: Cluster[];
@@ -214,6 +215,7 @@ interface ClustersPageViewProps {
 export default function ClustersPageView({
   activeTab,
   onTabChange,
+  canAccessClusterReports,
   allClusters,
   clusters,
   clustersLoading,
@@ -418,6 +420,12 @@ export default function ClustersPageView({
       onTabChange("clusters");
     }
   }, [canAccessCompliance, activeTab, onTabChange]);
+
+  useEffect(() => {
+    if (!canAccessClusterReports && activeTab === "reports") {
+      onTabChange("clusters");
+    }
+  }, [canAccessClusterReports, activeTab, onTabChange]);
 
   // Calculate stats
   const totalMembers = allClusters.reduce(
@@ -705,6 +713,7 @@ export default function ClustersPageView({
           activeTab={activeTab}
           onTabChange={onTabChange}
           showComplianceTab={canAccessCompliance}
+          showReportsTab={canAccessClusterReports}
         />
 
         {activeTab === "clusters" && (
@@ -1530,7 +1539,8 @@ export default function ClustersPageView({
         )}
 
 
-        {(activeTab === "reports" || isReportFormOpen) && (
+        {canAccessClusterReports &&
+          (activeTab === "reports" || isReportFormOpen) && (
           <div
             className={activeTab !== "reports" ? "hidden" : undefined}
             aria-hidden={activeTab !== "reports"}

@@ -6,19 +6,21 @@ interface ClusterContentTabsProps {
   activeTab: ClusterContentTab;
   onTabChange: (tab: ClusterContentTab) => void;
   showComplianceTab?: boolean;
+  showReportsTab?: boolean;
 }
 
 export default function ClusterContentTabs({
   activeTab,
   onTabChange,
   showComplianceTab = true,
+  showReportsTab = true,
 }: ClusterContentTabsProps) {
   const tabs: Array<{
     id: ClusterContentTab;
     label: string;
   }> = [
     { id: "clusters", label: "Clusters" },
-    { id: "reports", label: "Reports" },
+    ...(showReportsTab ? [{ id: "reports" as const, label: "Reports" }] : []),
     ...(showComplianceTab ? [{ id: "compliance" as const, label: "Compliance" }] : []),
   ];
 

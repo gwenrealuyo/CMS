@@ -19,6 +19,7 @@ type ReportAttendeeDetail = {
   middle_name?: string;
   suffix?: string;
   username?: string;
+  email?: string;
   role?: string;
   status?: string;
 };
@@ -51,8 +52,9 @@ function reportAttendeeToPersonUI(
     first_name: detail.first_name ?? "",
     last_name: detail.last_name ?? "",
     username: detail.username ?? "",
+    email: detail.email ?? "",
     role: (detail.role ?? defaultRole) as PersonUI["role"],
-    status: detail.status as PersonUI["status"],
+    status: (detail.status ?? "ACTIVE") as PersonUI["status"],
   };
 }
 

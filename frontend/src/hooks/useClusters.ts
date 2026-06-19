@@ -73,18 +73,26 @@ export function useClusters() {
   };
 }
 
-export function useClusterReports(params?: {
-  cluster?: string;
-  year?: number;
-  week_number?: number;
-  gathering_type?: string;
-  submitted_by?: string;
-  month?: number;
-  page?: number;
-  page_size?: number;
-}) {
+export function useClusterReports(
+  params?: {
+    cluster?: string;
+    year?: number;
+    week_number?: number;
+    gathering_type?: string;
+    submitted_by?: string;
+    month?: number;
+    page?: number;
+    page_size?: number;
+    enabled?: boolean;
+  },
+) {
+  const enabled = params?.enabled !== false;
+  const apiParams = params
+    ? (({ enabled: _enabled, ...rest }) => rest)(params)
+    : undefined;
+
   const [reports, setReports] = useState<ClusterWeeklyReport[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(0);
   const [next, setNext] = useState<string | null>(null);
@@ -94,7 +102,7 @@ export function useClusterReports(params?: {
     try {
       setLoading(true);
       setError(null);
-      const response = await clusterReportsApi.getAll(params);
+      const response = await clusterReportsApi.getAll(apiParams);
       setReports(response.data.results);
       setCount(response.data.count);
       setNext(response.data.next || null);
@@ -107,8 +115,17 @@ export function useClusterReports(params?: {
   };
 
   useEffect(() => {
+    if (!enabled) {
+      setReports([]);
+      setCount(0);
+      setNext(null);
+      setPrevious(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     fetchReports();
-  }, [JSON.stringify(params)]);
+  }, [JSON.stringify(apiParams), enabled]);
 
   const createReport = async (data: ClusterWeeklyReportInput) => {
     try {

@@ -19,6 +19,7 @@ import { canHardDelete } from "@/src/lib/canHardDelete";
 import {
   userCanManageCluster,
   clustersForReportSubmission,
+  canAccessClusterReports,
 } from "@/src/lib/clusterPermissions";
 
 type PanelEntity = "cluster" | "person" | "family";
@@ -132,18 +133,7 @@ export default function ClustersPageContainer() {
   const [panelPerson, setPanelPerson] = useState<Person | null>(null);
   const [panelFamily, setPanelFamily] = useState<Family | null>(null);
   const [panelHistory, setPanelHistory] = useState<PanelSnapshot[]>([]);
-  
-  // Reports state
-  const {
-    reports,
-    loading: reportsLoading,
-    error: reportsError,
-    createReport,
-    updateReport,
-    deleteReport,
-    refetch: refetchReports,
-  } = useClusterReports();
-  
+
   const [isReportFormOpen, setReportFormOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<ClusterWeeklyReport | null>(null);
   const [reportSelectedCluster, setReportSelectedCluster] = useState<Cluster | null>(null);
@@ -185,6 +175,21 @@ export default function ClustersPageContainer() {
       isModuleCoordinator,
     ],
   );
+
+  const canAccessClusterReportsUser = useMemo(
+    () => canAccessClusterReports(clusterAuthCtx, allClusters),
+    [clusterAuthCtx, allClusters],
+  );
+
+  const {
+    reports,
+    loading: reportsLoading,
+    error: reportsError,
+    createReport,
+    updateReport,
+    deleteReport,
+    refetch: refetchReports,
+  } = useClusterReports({ enabled: canAccessClusterReportsUser });
 
   const canChangeClusterBranchFilter = useMemo(() => {
     if (!user) return false;
@@ -1042,11 +1047,23 @@ export default function ClustersPageContainer() {
     const clusterId = searchParams.get("cluster");
     const reportId = searchParams.get("report");
 
+    if (tab === "reports" && !canAccessClusterReportsUser) {
+      setActiveTab("clusters");
+      if (clusterId || reportId) {
+        router.replace(pathname);
+      }
+      return;
+    }
+
     if (tab === "reports") {
       setActiveTab("reports");
     }
 
     if (!clusterId && !reportId) {
+      return;
+    }
+
+    if (!canAccessClusterReportsUser) {
       return;
     }
 
@@ -1091,7 +1108,7 @@ export default function ClustersPageContainer() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, allClusters, pathname, router]);
+  }, [searchParams, allClusters, pathname, router, canAccessClusterReportsUser]);
 
   const openPersonInPanel = useCallback(
     (person: Person) => {
@@ -1314,6 +1331,7 @@ export default function ClustersPageContainer() {
     <ClustersPageView
       activeTab={activeTab}
       onTabChange={setActiveTab}
+      canAccessClusterReports={canAccessClusterReportsUser}
       // Clusters tab
       allClusters={allClusters}
       clusters={clusters}

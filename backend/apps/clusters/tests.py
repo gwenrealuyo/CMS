@@ -1094,7 +1094,7 @@ class ClusterWeeklyReportDistinctYearsTests(TestCase):
         self.assertEqual(r.data["years"], [2023])
 
     def test_member_distinct_years_matches_list_scope(self):
-        """distinct_years uses the same RBAC queryset as list/retrieve."""
+        """Plain members cannot access report list or distinct_years endpoints."""
         ClusterWeeklyReport.objects.create(
             cluster=self.cluster_a,
             year=2025,
@@ -1103,23 +1103,12 @@ class ClusterWeeklyReportDistinctYearsTests(TestCase):
             gathering_type="PHYSICAL",
             submitted_by=self.coord,
         )
-        ClusterWeeklyReport.objects.create(
-            cluster=self.cluster_b,
-            year=1999,
-            week_number=5,
-            meeting_date=date(1999, 2, 1),
-            gathering_type="ONLINE",
-            submitted_by=self.coord,
-        )
         self.client.force_authenticate(user=self.member)
         r_years = self.client.get("/api/clusters/cluster-weekly-reports/distinct_years/")
-        self.assertEqual(r_years.status_code, 200)
-        self.assertEqual(set(r_years.data["years"]), {2025})
+        self.assertEqual(r_years.status_code, 403)
 
         r_list = self.client.get("/api/clusters/cluster-weekly-reports/")
-        self.assertEqual(r_list.status_code, 200)
-        list_years = {row["year"] for row in r_list.data["results"]}
-        self.assertEqual(list_years, {2025})
+        self.assertEqual(r_list.status_code, 403)
 
 
 class ClusterWeeklyReportBranchScopeTests(TestCase):
@@ -1631,7 +1620,7 @@ class ClusterBranchMembershipTests(TestCase):
 
 
 class MemberClusterBrowseAPITests(TestCase):
-    """MEMBER can read/browse clusters in their branch; weekly reports stay membership-scoped."""
+    """MEMBER can browse clusters in their branch; weekly reports require coordinator/reporter access."""
 
     def setUp(self):
         self.client = APIClient()
@@ -1692,7 +1681,41 @@ class MemberClusterBrowseAPITests(TestCase):
         codes = {row["code"] for row in response.data}
         self.assertEqual(codes, {"CLU-IN", "CLU-OUT"})
 
-    def test_member_weekly_reports_only_for_member_clusters(self):
+    def test_member_cannot_list_weekly_reports(self):
+        today = date.today()
+        week = today.isocalendar()[1]
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_in,
+            year=today.year,
+            week_number=week,
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coordinator,
+        )
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get("/api/clusters/cluster-weekly-reports/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_member_weekly_reports_rejected_with_branch_query_param(self):
+        today = date.today()
+        week = today.isocalendar()[1]
+        ClusterWeeklyReport.objects.create(
+            cluster=self.cluster_in,
+            year=today.year,
+            week_number=week,
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coordinator,
+        )
+        other_branch = Branch.objects.create(name="Other Br", code="BR_OTHRWR")
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get(
+            "/api/clusters/cluster-weekly-reports/",
+            {"branch_id": other_branch.id},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_coordinator_can_list_weekly_reports_for_managed_cluster(self):
         today = date.today()
         week = today.isocalendar()[1]
         ClusterWeeklyReport.objects.create(
@@ -1711,34 +1734,12 @@ class MemberClusterBrowseAPITests(TestCase):
             gathering_type="PHYSICAL",
             submitted_by=self.coordinator,
         )
-        self.client.force_authenticate(user=self.member)
+        self.client.force_authenticate(user=self.coordinator)
         response = self.client.get("/api/clusters/cluster-weekly-reports/")
         self.assertEqual(response.status_code, 200)
         results = response.data["results"]
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["cluster"], self.cluster_in.id)
-
-    def test_member_weekly_reports_ignore_branch_query_param(self):
-        today = date.today()
-        week = today.isocalendar()[1]
-        ClusterWeeklyReport.objects.create(
-            cluster=self.cluster_in,
-            year=today.year,
-            week_number=week,
-            meeting_date=today,
-            gathering_type="PHYSICAL",
-            submitted_by=self.coordinator,
-        )
-        other_branch = Branch.objects.create(name="Other Br", code="BR_OTHRWR")
-        self.client.force_authenticate(user=self.member)
-        response = self.client.get(
-            "/api/clusters/cluster-weekly-reports/",
-            {"branch_id": other_branch.id},
-        )
-        self.assertEqual(response.status_code, 200)
-        results = response.data["results"]
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["cluster"], self.cluster_in.id)
+        cluster_ids = {row["cluster"] for row in results}
+        self.assertEqual(cluster_ids, {self.cluster_in.id, self.cluster_out.id})
 
     def test_member_cannot_create_cluster(self):
         self.client.force_authenticate(user=self.member)

@@ -93,6 +93,24 @@ def is_non_senior_cluster_coordinator(user) -> bool:
     return Cluster.objects.filter(coordinator=user).exists()
 
 
+def can_access_cluster_reports(user) -> bool:
+    """Who may list/read cluster weekly reports (reporter, coordinator, senior+, pastor, admin)."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
+        return True
+    if is_non_senior_cluster_coordinator(user):
+        return True
+    if user.module_coordinator_assignments.filter(
+        module=ModuleCoordinator.ModuleType.CLUSTER,
+        level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+    ).exists():
+        return True
+    return False
+
+
 def _cluster_read_allowed(user) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False
@@ -172,9 +190,6 @@ def filter_weekly_reports_for_user(user, queryset):
         if not managed_ids:
             return queryset.none()
         return queryset.filter(cluster_id__in=managed_ids)
-    if getattr(user, "role", None) == "MEMBER":
-        member_clusters = Cluster.objects.filter(members=user)
-        return queryset.filter(cluster__in=member_clusters)
     return queryset.none()
 
 
@@ -321,6 +336,13 @@ class ClusterReportMutationAttemptPermission(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return allows_cluster_report_mutation_attempt(request.user)
+
+
+class ClusterReportReadPermission(permissions.BasePermission):
+    """Class-level gate for weekly report read/list and analytics actions."""
+
+    def has_permission(self, request, view):
+        return can_access_cluster_reports(request.user)
 
 
 class ClusterCoordinatorScopedPermission(permissions.BasePermission):

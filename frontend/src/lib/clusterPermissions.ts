@@ -118,3 +118,30 @@ export function clustersForReportSubmission(
       userCanManageCluster(c, auth) || reporterIds.has(Number(c.id)),
   );
 }
+
+/**
+ * Who may view the cluster weekly reports tab and list/read report APIs.
+ * Mirrors backend `can_access_cluster_reports`.
+ */
+export function canAccessClusterReports(
+  auth: ManageClusterAuth & { moduleCoordinatorAssignments?: ModuleCoordinator[] },
+  allClusters: Cluster[] = [],
+): boolean {
+  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  if (!userId) return false;
+  if (role === "ADMIN" || role === "PASTOR") return true;
+  if (isSeniorCoordinator("CLUSTER")) return true;
+  if (isModuleCoordinator("CLUSTER", "COORDINATOR")) return true;
+  const assignments = auth.moduleCoordinatorAssignments ?? [];
+  if (
+    assignments.some(
+      (a) => a.module === "CLUSTER" && a.level === "REPORTER",
+    )
+  ) {
+    return true;
+  }
+  return allClusters.some((c) => {
+    const cid = c.coordinator?.id ?? c.coordinator_id ?? undefined;
+    return cid != null && Number(cid) === Number(userId);
+  });
+}

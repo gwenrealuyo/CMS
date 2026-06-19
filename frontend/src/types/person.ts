@@ -50,7 +50,7 @@ export interface Person {
   nickname?: string;
   full_name?: string; // Computed full name from backend (includes nickname, middle initial, suffix)
   phone?: string;
-  photo?: string; // URL to profile image
+  photo?: string | null; // URL to profile image; send null to clear
   gender?: Gender;
   facebook_name?: string;
   role: PersonRole;

@@ -38,6 +38,7 @@ from apps.clusters.permissions import (
     ClusterCoordinatorScopedPermission,
     ClusterMutationAttemptPermission,
     ClusterReportMutationAttemptPermission,
+    ClusterReportReadPermission,
     ClusterWeeklyReportScopedPermission,
     apply_cluster_branch_scope,
     apply_report_branch_scope,
@@ -152,7 +153,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         else:
             # Read operations
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'read')]
+            return [IsAuthenticatedAndNotVisitor(), ClusterReportReadPermission()]
 
     def _submitter(self):
         user = self.request.user

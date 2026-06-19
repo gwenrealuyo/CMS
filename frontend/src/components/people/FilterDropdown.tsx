@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import { Branch } from "@/src/types/branch";
 
 export interface FilterField {
@@ -12,7 +12,6 @@ interface FilterDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectField: (field: FilterField) => void;
-  position: { top: number; left: number };
   branches?: Branch[];
 }
 
@@ -80,7 +79,6 @@ export default function FilterDropdown({
   isOpen,
   onClose,
   onSelectField,
-  position,
   branches = [],
 }: FilterDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -103,21 +101,35 @@ export default function FilterDropdown({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(target as Node)
       ) {
+        const clickedButton = target.closest("button");
+        if (clickedButton) {
+          const buttonText = clickedButton.textContent?.trim() || "";
+          if (buttonText === "Filter" || buttonText.startsWith("Filter")) {
+            const svgPath = clickedButton.querySelector('path[d*="M12 6v6"]');
+            if (svgPath) {
+              return;
+            }
+          }
+        }
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+      const timeoutId = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
 
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -125,11 +137,7 @@ export default function FilterDropdown({
   return (
     <div
       ref={dropdownRef}
-      className="fixed z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
-      style={{
-        top: position.top,
-        left: position.left,
-      }}
+      className="absolute right-0 top-full mt-2 z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
     >
       <div className="px-3 py-2 border-b border-gray-100">
         <h3 className="text-sm font-medium text-gray-900">Filter by Field</h3>

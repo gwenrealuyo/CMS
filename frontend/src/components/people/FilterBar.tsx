@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import { Branch } from "@/src/types/branch";
+import FilterDropdown, { FilterField } from "./FilterDropdown";
+import FilterCard, { FilterCardField } from "./FilterCard";
 
 /**
  * - `string`: typical scalar filter value
@@ -59,18 +61,46 @@ function branchIdToDisplayName(id: string, branches: Branch[]): string {
   return id || "Unknown branch";
 }
 
-function branchGroupChipLabel(
+function branchGroupChipParts(
   op: (typeof BRANCH_OPERATOR_ORDER)[number],
   names: string[],
-): string {
+): { prefix: string; value: string } {
   const n = names.length;
-  if (n === 0) return "Branch";
+  const value = names.join(", ");
+  if (n === 0) return { prefix: "Branch", value: "" };
   if (op === "is") {
-    return n === 1 ? `Branch is ${names[0]}` : `Branches are ${names.join(", ")}`;
+    return {
+      prefix: n === 1 ? "Branch is" : "Branches are",
+      value,
+    };
   }
-  return n === 1
-    ? `Branch is not ${names[0]}`
-    : `Branches are not ${names.join(", ")}`;
+  return {
+    prefix: n === 1 ? "Branch is not" : "Branches are not",
+    value,
+  };
+}
+
+function FilterChipText({
+  prefix,
+  operator,
+  value,
+}: {
+  prefix: string;
+  operator?: string;
+  value: string;
+}) {
+  return (
+    <>
+      {prefix}
+      {operator ? ` ${operator}` : null}
+      {value ? (
+        <>
+          {" "}
+          <span className="font-semibold">{value}</span>
+        </>
+      ) : null}
+    </>
+  );
 }
 
 interface FilterBarProps {
@@ -81,7 +111,7 @@ interface FilterBarProps {
   /** Removes every branch filter whose id is listed (used by grouped branch chips). */
   onRemoveFilterIds?: (filterIds: string[]) => void;
   onClearAllFilters: () => void;
-  onAddFilter: (anchorRect: DOMRect) => void;
+  onApplyFilter: (filter: FilterCondition) => void;
   isSearching?: boolean;
   branches?: Branch[];
 }
@@ -93,10 +123,16 @@ export default function FilterBar({
   onRemoveFilter,
   onRemoveFilterIds,
   onClearAllFilters,
-  onAddFilter,
+  onApplyFilter,
   isSearching = false,
   branches = [],
 }: FilterBarProps) {
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showFilterCard, setShowFilterCard] = useState(false);
+  const [selectedField, setSelectedField] = useState<FilterCardField | null>(
+    null,
+  );
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
   const getFilterChipColor = (field: string) => {
     switch (field) {
       case "status":
@@ -153,9 +189,14 @@ export default function FilterBar({
     const ids = flattenBranchFilterIds(group);
     const names = ids.map((id) => branchIdToDisplayName(id, branches));
     const filterRowIds = group.map((f) => f.id);
-    const label = branchGroupChipLabel(op, names);
-    return { op, ids: filterRowIds, label };
-  }).filter(Boolean) as { op: string; ids: string[]; label: string }[];
+    const { prefix, value } = branchGroupChipParts(op, names);
+    return { op, ids: filterRowIds, prefix, value };
+  }).filter(Boolean) as {
+    op: string;
+    ids: string[];
+    prefix: string;
+    value: string;
+  }[];
 
   const orphanBranchFilters = branchFilters.filter(
     (f) =>
@@ -266,7 +307,11 @@ export default function FilterBar({
                   )}`}
                 >
                   <span className="mr-1 break-words">
-                    {`${filter.label} ${getOperatorLabel(filter.operator)} ${formatFilterValue(filter)}`}
+                    <FilterChipText
+                      prefix={filter.label}
+                      operator={getOperatorLabel(filter.operator)}
+                      value={formatFilterValue(filter)}
+                    />
                   </span>
                   <button
                     type="button"
@@ -297,7 +342,9 @@ export default function FilterBar({
                     "branch",
                   )}`}
                 >
-                  <span className="mr-1 break-words">{group.label}</span>
+                  <span className="mr-1 break-words">
+                    <FilterChipText prefix={group.prefix} value={group.value} />
+                  </span>
                   <button
                     type="button"
                     onClick={() => removeBranchGroup(group.ids)}
@@ -328,8 +375,11 @@ export default function FilterBar({
                   )}`}
                 >
                   <span className="mr-1 break-words">
-                    Branch {getOperatorLabel(filter.operator)}{" "}
-                    {formatFilterValue(filter)}
+                    <FilterChipText
+                      prefix="Branch"
+                      operator={getOperatorLabel(filter.operator)}
+                      value={formatFilterValue(filter)}
+                    />
                   </span>
                   <button
                     type="button"
@@ -367,29 +417,60 @@ export default function FilterBar({
             </button>
           )}
 
-          <button
-            onClick={(e) =>
-              onAddFilter(
-                (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
-              )
-            }
-            className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0"
-          >
-            <svg
-              className="w-4 h-4 mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="relative">
+            <button
+              ref={filterButtonRef}
+              type="button"
+              onClick={() => {
+                setShowFilterCard(false);
+                setSelectedField(null);
+                setShowFilterDropdown((open) => !open);
+              }}
+              className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              <svg
+                className="w-4 h-4 mr-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              Filter
+            </button>
+
+            <FilterDropdown
+              isOpen={showFilterDropdown}
+              onClose={() => setShowFilterDropdown(false)}
+              onSelectField={(field: FilterField) => {
+                setShowFilterDropdown(false);
+                setSelectedField(field);
+                setShowFilterCard(true);
+              }}
+              branches={branches}
+            />
+
+            {selectedField && (
+              <FilterCard
+                field={selectedField}
+                isOpen={showFilterCard}
+                onClose={() => {
+                  setShowFilterCard(false);
+                  setSelectedField(null);
+                }}
+                onApplyFilter={(filter) => {
+                  onApplyFilter(filter);
+                  setShowFilterCard(false);
+                  setSelectedField(null);
+                }}
               />
-            </svg>
-            Filter
-          </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

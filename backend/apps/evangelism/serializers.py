@@ -316,6 +316,7 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
 class EvangelismTallySerializer(serializers.Serializer):
     cluster_id = serializers.IntegerField(allow_null=True, required=False)
     cluster_name = serializers.CharField(allow_blank=True, required=False)
+    cluster_code = serializers.CharField(allow_blank=True, required=False)
     year = serializers.IntegerField()
     week_number = serializers.IntegerField()
     meeting_date = serializers.DateField(required=False, allow_null=True)

@@ -13,7 +13,6 @@ interface FilterCardProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyFilter: (filter: FilterCondition) => void;
-  position: { top: number; left: number };
 }
 
 const OPERATORS = {
@@ -67,8 +66,8 @@ export default function FilterCard({
   isOpen,
   onClose,
   onApplyFilter,
-  position,
 }: FilterCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const [operator, setOperator] = useState("contains");
   const [value, setValue] = useState("");
   const [value2, setValue2] = useState("");
@@ -108,6 +107,36 @@ export default function FilterCard({
     setValue2("");
     setSelectedBranchIds([]);
   }, [operator, isBranchField, isOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (cardRef.current && !cardRef.current.contains(target as Node)) {
+        const clickedButton = target.closest("button");
+        if (clickedButton) {
+          const buttonText = clickedButton.textContent?.trim() || "";
+          if (buttonText === "Filter" || buttonText.startsWith("Filter")) {
+            const svgPath = clickedButton.querySelector('path[d*="M12 6v6"]');
+            if (svgPath) {
+              return;
+            }
+          }
+        }
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      const timeoutId = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [isOpen, onClose]);
 
   const toggleBranchId = (id: string) => {
     setSelectedBranchIds((prev) =>
@@ -243,11 +272,8 @@ export default function FilterCard({
 
   return (
     <div
-      className="fixed z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
-      style={{
-        top: position.top,
-        left: position.left,
-      }}
+      ref={cardRef}
+      className="absolute right-0 top-full mt-2 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-gray-900">

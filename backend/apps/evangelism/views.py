@@ -915,6 +915,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 tallies[key] = {
                     "cluster_id": cluster_obj.id if cluster_obj else None,
                     "cluster_name": cluster_obj.name if cluster_obj else "Unassigned",
+                    "cluster_code": cluster_obj.code if cluster_obj else "Unassigned",
                     "year": int(year_val),
                     "week_number": int(week_val),
                     "meeting_dates": [],
@@ -962,6 +963,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 {
                     "cluster_id": entry["cluster_id"],
                     "cluster_name": entry["cluster_name"],
+                    "cluster_code": entry["cluster_code"],
                     "year": entry["year"],
                     "week_number": entry["week_number"],
                     "meeting_date": meeting_date,

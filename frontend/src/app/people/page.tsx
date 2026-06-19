@@ -14,8 +14,6 @@ import FilterBar, {
   FilterCondition,
   flattenBranchFilterIds,
 } from "@/src/components/people/FilterBar";
-import FilterDropdown from "@/src/components/people/FilterDropdown";
-import FilterCard from "@/src/components/people/FilterCard";
 import Pagination from "@/src/components/ui/Pagination";
 import DataTable from "@/src/components/people/DataTable";
 import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
@@ -246,17 +244,6 @@ export default function PeoplePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterCondition[]>([]);
   const peopleBranchFilterUserIdRef = useRef<number | undefined>(undefined);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [showFilterCard, setShowFilterCard] = useState(false);
-  const [selectedField, setSelectedField] = useState<any>(null);
-  const [filterDropdownPosition, setFilterDropdownPosition] = useState({
-    top: 0,
-    left: 0,
-  });
-  const [filterCardPosition, setFilterCardPosition] = useState({
-    top: 0,
-    left: 0,
-  });
 
   const {
     people,
@@ -1338,49 +1325,8 @@ export default function PeoplePage() {
     console.log(`Exporting ${people.length} people to ${format}`);
   };
 
-  // Filter handlers
-  const handleAddFilter = (anchorRect?: DOMRect) => {
-    if (anchorRect) {
-      const dropdownWidth = 256; // w-64 in FilterDropdown
-      const viewportWidth = window.innerWidth + window.scrollX;
-      const desiredLeft = Math.round(anchorRect.left + window.scrollX);
-      const clampedLeft = Math.max(
-        8,
-        Math.min(desiredLeft, viewportWidth - dropdownWidth - 8),
-      );
-      setFilterDropdownPosition({
-        top: Math.round(anchorRect.bottom + window.scrollY + 8),
-        left: clampedLeft,
-      });
-    } else {
-      setFilterDropdownPosition({ top: 200, left: 100 });
-    }
-    setShowFilterDropdown(true);
-  };
-
-  const handleSelectField = (field: any) => {
-    setSelectedField(field);
-    setShowFilterDropdown(false);
-
-    // Position filter card
-    const cardWidth = 320; // w-80 in FilterCard
-    const viewportWidth = window.innerWidth + window.scrollX;
-    const desiredLeft = filterDropdownPosition.left;
-    const clampedLeft = Math.max(
-      8,
-      Math.min(desiredLeft, viewportWidth - cardWidth - 8),
-    );
-    setFilterCardPosition({
-      top: filterDropdownPosition.top + 8,
-      left: clampedLeft,
-    });
-    setShowFilterCard(true);
-  };
-
   const handleApplyFilter = (filter: FilterCondition) => {
     setActiveFilters([...activeFilters, filter]);
-    setShowFilterCard(false);
-    setSelectedField(null);
   };
 
   const handleRemoveFilter = (filterId: string) => {
@@ -1677,7 +1623,7 @@ export default function PeoplePage() {
                 onRemoveFilter={handleRemoveFilter}
                 onRemoveFilterIds={handleRemoveFilterIds}
                 onClearAllFilters={handleClearAllFilters}
-                onAddFilter={handleAddFilter}
+                onApplyFilter={handleApplyFilter}
                 isSearching={isSearching}
                 branches={branches}
               />
@@ -2763,29 +2709,6 @@ export default function PeoplePage() {
             availableMembers={peopleUI}
           />
         </Modal>
-      )}
-
-      {/* Filter Dropdown */}
-      <FilterDropdown
-        isOpen={showFilterDropdown}
-        onClose={() => setShowFilterDropdown(false)}
-        onSelectField={handleSelectField}
-        position={filterDropdownPosition}
-        branches={branches}
-      />
-
-      {/* Filter Card */}
-      {selectedField && (
-        <FilterCard
-          field={selectedField}
-          isOpen={showFilterCard}
-          onClose={() => {
-            setShowFilterCard(false);
-            setSelectedField(null);
-          }}
-          onApplyFilter={handleApplyFilter}
-          position={filterCardPosition}
-        />
       )}
 
       {/* Cluster Filter Dropdown */}

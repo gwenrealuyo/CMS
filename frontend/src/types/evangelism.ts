@@ -68,6 +68,7 @@ export interface EvangelismWeeklyReport {
 export interface EvangelismTallyRow {
   cluster_id?: number;
   cluster_name?: string;
+  cluster_code?: string;
   year: number;
   week_number: number;
   meeting_date?: string;
@@ -169,7 +170,13 @@ export interface Prospect {
   updated_at: string;
 }
 
-export type TaskType = "PHONE_CALL" | "TEXT_MESSAGE" | "VISIT" | "EMAIL" | "PRAYER" | "OTHER";
+export type TaskType =
+  | "PHONE_CALL"
+  | "TEXT_MESSAGE"
+  | "VISIT"
+  | "EMAIL"
+  | "PRAYER"
+  | "OTHER";
 export type TaskStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
@@ -194,7 +201,12 @@ export interface FollowUpTask {
   updated_at: string;
 }
 
-export type DropOffReason = "NO_CONTACT" | "NO_SHOW" | "LOST_INTEREST" | "MOVED" | "OTHER";
+export type DropOffReason =
+  | "NO_CONTACT"
+  | "NO_SHOW"
+  | "LOST_INTEREST"
+  | "MOVED"
+  | "OTHER";
 
 export interface DropOff {
   id: string;
@@ -367,4 +379,3 @@ export interface BibleSharersCoverage {
     total_bible_sharers_groups: number;
   };
 }
-

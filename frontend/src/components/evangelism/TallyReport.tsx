@@ -4,15 +4,15 @@ import { useCallback, useMemo, useState } from "react";
 import Card from "@/src/components/ui/Card";
 import Table from "@/src/components/ui/Table";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
-import { EvangelismTallyDrilldownMetric, EvangelismTallyRow } from "@/src/types/evangelism";
+import {
+  EvangelismTallyDrilldownMetric,
+  EvangelismTallyRow,
+} from "@/src/types/evangelism";
 import { useEvangelismTally } from "@/src/hooks/useEvangelism";
 import { evangelismApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
-import {
-  getInitialListViewMode,
-  useIsMdUp,
-} from "@/src/lib/listViewMode";
+import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
 
 interface TallyReportProps {
   year?: number;
@@ -29,7 +29,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
     year: number;
     weekNumber: number;
     clusterId: number | string | null;
-    clusterName: string;
+    clusterCode: string;
     metric: Extract<EvangelismTallyDrilldownMetric, "members" | "visitors">;
     label: string;
   } | null>(null);
@@ -43,7 +43,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
     row: EvangelismTallyRow,
     metric: Extract<EvangelismTallyDrilldownMetric, "members" | "visitors">,
     label: string,
-    value: number
+    value: number,
   ) => {
     if (!value) {
       return;
@@ -52,7 +52,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
       year: row.year,
       weekNumber: row.week_number,
       clusterId: row.cluster_id ?? null,
-      clusterName: row.cluster_name || "Unassigned",
+      clusterCode: row.cluster_code || "Unassigned",
       metric,
       label,
     });
@@ -61,10 +61,10 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
   const renderWeeklyClickableCell = (
     row: EvangelismTallyRow,
     metric: Extract<EvangelismTallyDrilldownMetric, "members" | "visitors">,
-    label: string
+    label: string,
   ) => {
     const count = Number(
-      metric === "members" ? row.members_count || 0 : row.visitors_count || 0
+      metric === "members" ? row.members_count || 0 : row.visitors_count || 0,
     );
     if (count <= 0) {
       return <span className="text-sm text-gray-400">{count}</span>;
@@ -84,7 +84,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
     if (!drilldown) {
       return "Weekly Tally Records";
     }
-    return `${drilldown.label} - ${drilldown.clusterName} (${drilldown.year} W${drilldown.weekNumber})`;
+    return `${drilldown.label} - ${drilldown.clusterCode} (${drilldown.year} W${drilldown.weekNumber})`;
   }, [drilldown]);
 
   const fetchDrilldownPage = useCallback(
@@ -102,13 +102,13 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
       });
       return response.data;
     },
-    [drilldown]
+    [drilldown],
   );
 
   return (
     <Card>
-      <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="-mx-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 pl-4">
           Weekly Tally
         </h3>
         {loading ? (
@@ -122,7 +122,10 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
         ) : (
           <>
             <div className="mb-3 flex flex-col gap-2 md:hidden">
-              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              <ViewModeToggle
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
               {viewMode === "table" && (
                 <span className="text-xs text-gray-500">
                   Table scrolls horizontally.
@@ -131,83 +134,88 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
             </div>
             <Table
               mobileCardView={effectiveViewMode === "cards"}
-            columns={[
-              {
-                header: "Cluster",
-                accessor: "cluster_name" as keyof EvangelismTallyRow,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">{value || "N/A"}</span>
-                ),
-              },
-              {
-                header: "Week",
-                accessor: "week_number" as keyof EvangelismTallyRow,
-                render: (value, row) => (
-                  <span className="text-sm text-gray-700">
-                    {row.year} W{value}
-                  </span>
-                ),
-              },
-              {
-                header: "Meeting Date",
-                accessor: "meeting_date" as keyof EvangelismTallyRow,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">
-                    {value ? new Date(value as string).toLocaleDateString() : "N/A"}
-                  </span>
-                ),
-              },
-              {
-                header: "Gathering",
-                accessor: "gathering_type" as keyof EvangelismTallyRow,
-                render: (value) => (
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
-                      value as string
-                    )}`}
-                  >
-                    {(value as string) || "N/A"}
-                  </span>
-                ),
-              },
-              {
-                header: "Members",
-                accessor: "members_count" as keyof EvangelismTallyRow,
-                render: (_value, row) =>
-                  renderWeeklyClickableCell(row, "members", "Members"),
-              },
-              {
-                header: "Visitors",
-                accessor: "visitors_count" as keyof EvangelismTallyRow,
-                render: (_value, row) =>
-                  renderWeeklyClickableCell(row, "visitors", "Visitors"),
-              },
-              {
-                header: "New Visitors",
-                accessor: "new_prospects" as keyof EvangelismTallyRow,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">{value || 0}</span>
-                ),
-              },
-              {
-                header: "Conversions",
-                accessor: "conversions_this_week" as keyof EvangelismTallyRow,
-                render: (value) => (
-                  <span className="text-sm text-gray-700">{value || 0}</span>
-                ),
-              },
-              {
-                header: "Reports",
-                accessor: "evangelism_reports_count" as keyof EvangelismTallyRow,
-                render: (_value, row) => (
-                  <span className="text-sm text-gray-700">
-                    {row.evangelism_reports_count + row.cluster_reports_count}
-                  </span>
-                ),
-              },
-            ]}
-            data={rows}
-          />
+              columns={[
+                {
+                  header: "Cluster",
+                  accessor: "cluster_code" as keyof EvangelismTallyRow,
+                  render: (value) => (
+                    <span className="text-sm text-gray-700">
+                      {value || "N/A"}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Week",
+                  accessor: "week_number" as keyof EvangelismTallyRow,
+                  render: (value, row) => (
+                    <span className="text-sm text-gray-700">
+                      {row.year} W{value}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Meeting Date",
+                  accessor: "meeting_date" as keyof EvangelismTallyRow,
+                  render: (value) => (
+                    <span className="text-sm text-gray-700">
+                      {value
+                        ? new Date(value as string).toLocaleDateString()
+                        : "N/A"}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Gathering",
+                  accessor: "gathering_type" as keyof EvangelismTallyRow,
+                  render: (value) => (
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
+                        value as string,
+                      )}`}
+                    >
+                      {(value as string) || "N/A"}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Members",
+                  accessor: "members_count" as keyof EvangelismTallyRow,
+                  render: (_value, row) =>
+                    renderWeeklyClickableCell(row, "members", "Members"),
+                },
+                {
+                  header: "Visitors",
+                  accessor: "visitors_count" as keyof EvangelismTallyRow,
+                  render: (_value, row) =>
+                    renderWeeklyClickableCell(row, "visitors", "Visitors"),
+                },
+                {
+                  header: "New Visitors",
+                  accessor: "new_prospects" as keyof EvangelismTallyRow,
+                  render: (value) => (
+                    <span className="text-sm text-gray-700">{value || 0}</span>
+                  ),
+                },
+                {
+                  header: "Conversions",
+                  accessor: "conversions_this_week" as keyof EvangelismTallyRow,
+                  render: (value) => (
+                    <span className="text-sm text-gray-700">{value || 0}</span>
+                  ),
+                },
+                {
+                  header: "Reports",
+                  accessor:
+                    "evangelism_reports_count" as keyof EvangelismTallyRow,
+                  render: (_value, row) => (
+                    <span className="text-sm text-gray-700">
+                      {row.evangelism_reports_count + row.cluster_reports_count}
+                    </span>
+                  ),
+                },
+              ]}
+              data={rows}
+            />
           </>
         )}
       </div>

@@ -30,13 +30,15 @@ The Clusters module manages church clusters (small groups) and their weekly meet
 
 ### Family-Member Relationship
 
-**Important**: When a family is added to a cluster, all members of that family are automatically added to the cluster's members list. This ensures consistency between family assignments and member assignments.
+**Important**: When a cluster is saved with families assigned, all eligible members of those families are added to the cluster's individual members list.
 
-- **Automatic Member Addition (Backend)**: When you assign families to a cluster via the API or form submission, the backend automatically adds all family members to the cluster's members.
-- **Real-Time UI Updates (Frontend)**: In the cluster form, when you add a family, all family members immediately appear in the members field before submitting. This provides instant visual feedback.
-- **Family Removal**: When a family is removed from the cluster form, all its members are also automatically removed from the members list in real-time.
-- **Manual Override**: Users can manually remove individual members from the cluster's members list if they don't want certain family members to be part of the cluster.
-- **Union Behavior**: If you also specify individual members when creating/updating a cluster, the system combines (unions) the family members with the individually specified members, avoiding duplicates.
+- **Automatic Member Addition (Backend)**: On create/update, `merge_cluster_member_ids()` unions submitted members with family members who are not already in another cluster.
+- **Other-cluster priority**: If a person is already in a different cluster, family assignment does not move them; they stay in their current cluster.
+- **Real-Time UI Updates (Frontend)**: Adding a family in the form still adds members to the members field for immediate feedback; the backend re-merges eligible family members on save.
+- **Family Removal**: Removing a family in the form removes its members from the members list in the UI; save persists the updated families/members payload.
+- **Empty members + families**: Saving with families selected but no individual members still adds all eligible family members (see `docs/cluster-family-member-relationship-rules.md`).
+
+See also: [`docs/cluster-family-member-relationship-rules.md`](cluster-family-member-relationship-rules.md) for full rules and conflict scenarios.
 
 ### ClusterWeeklyReport Model
 

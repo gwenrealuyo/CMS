@@ -1203,6 +1203,269 @@ class ClusterBranchMembershipTests(TestCase):
         cluster.refresh_from_db()
         self.assertNotIn(member, cluster.members.all())
 
+    def test_cluster_update_assigns_branch_to_branchless_members(self):
+        branch_a = Branch.objects.create(name="TA_legacy", code="TA_LEG")
+        admin = Person.objects.create_user(
+            username="adm_legacy",
+            email="adm_legacy@test.com",
+            password="password123",
+            first_name="Admin",
+            last_name="Legacy",
+            role="ADMIN",
+        )
+        coordinator = Person.objects.create_user(
+            username="coord_legacy",
+            email="coord_legacy@test.com",
+            password="password123",
+            first_name="Coord",
+            last_name="Legacy",
+            role="MEMBER",
+            branch=branch_a,
+        )
+        branchless = Person.objects.create_user(
+            username="legacy_mem",
+            email="legacy_mem@test.com",
+            password="password123",
+            first_name="Legacy",
+            last_name="Member",
+            role="MEMBER",
+            branch=None,
+        )
+        cluster = Cluster.objects.create(
+            code="LEG1",
+            name="Legacy Branch Cluster",
+            coordinator=coordinator,
+            branch=branch_a,
+        )
+
+        factory = APIRequestFactory()
+        request = factory.put("/")
+        request.user = admin
+
+        serializer = ClusterSerializer(
+            cluster,
+            data={
+                "code": cluster.code,
+                "name": cluster.name,
+                "coordinator_id": coordinator.id,
+                "families": [],
+                "members": [branchless.id],
+                "branch": branch_a.id,
+                "location": "",
+                "meeting_schedule": "",
+                "description": "",
+            },
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        branchless.refresh_from_db()
+        cluster.refresh_from_db()
+        self.assertEqual(branchless.branch_id, branch_a.id)
+        self.assertIn(branchless, cluster.members.all())
+
+    def test_cluster_update_syncs_mismatched_branch_for_added_members(self):
+        branch_a = Branch.objects.create(name="TA_mis", code="TA_MIS")
+        branch_b = Branch.objects.create(name="TB_mis", code="TB_MIS")
+        admin = Person.objects.create_user(
+            username="adm_mis",
+            email="adm_mis@test.com",
+            password="password123",
+            first_name="Admin",
+            last_name="Mis",
+            role="ADMIN",
+        )
+        coordinator = Person.objects.create_user(
+            username="coord_mis",
+            email="coord_mis@test.com",
+            password="password123",
+            first_name="Coord",
+            last_name="Mis",
+            role="MEMBER",
+            branch=branch_a,
+        )
+        wrong_branch_member = Person.objects.create_user(
+            username="mis_mem",
+            email="mis_mem@test.com",
+            password="password123",
+            first_name="Mis",
+            last_name="Branch",
+            role="MEMBER",
+            branch=branch_b,
+        )
+        cluster = Cluster.objects.create(
+            code="MIS1",
+            name="Mismatch Branch Cluster",
+            coordinator=coordinator,
+            branch=branch_a,
+        )
+
+        factory = APIRequestFactory()
+        request = factory.put("/")
+        request.user = admin
+
+        serializer = ClusterSerializer(
+            cluster,
+            data={
+                "code": cluster.code,
+                "name": cluster.name,
+                "coordinator_id": coordinator.id,
+                "families": [],
+                "members": [wrong_branch_member.id],
+                "branch": branch_a.id,
+                "location": "",
+                "meeting_schedule": "",
+                "description": "",
+            },
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        wrong_branch_member.refresh_from_db()
+        cluster.refresh_from_db()
+        self.assertEqual(wrong_branch_member.branch_id, branch_a.id)
+        self.assertIn(wrong_branch_member, cluster.members.all())
+
+    def test_update_cluster_adds_family_members_on_save_when_members_empty(
+        self,
+    ):
+        branch = Branch.objects.create(name="TA_fam", code="TA_FAM")
+        admin = Person.objects.create_user(
+            username="adm_fam",
+            email="adm_fam@test.com",
+            password="password123",
+            first_name="Admin",
+            last_name="Fam",
+            role="ADMIN",
+        )
+        member_a = Person.objects.create_user(
+            username="fam_a",
+            email="fam_a@test.com",
+            password="password123",
+            first_name="Fam",
+            last_name="A",
+            role="MEMBER",
+            branch=branch,
+        )
+        member_b = Person.objects.create_user(
+            username="fam_b",
+            email="fam_b@test.com",
+            password="password123",
+            first_name="Fam",
+            last_name="B",
+            role="MEMBER",
+            branch=branch,
+        )
+        family = Family.objects.create(name="Save Family")
+        family.members.add(member_a, member_b)
+        cluster = Cluster.objects.create(
+            code="FAM1",
+            name="Family Save Cluster",
+            branch=branch,
+        )
+        cluster.families.add(family)
+
+        factory = APIRequestFactory()
+        request = factory.put("/")
+        request.user = admin
+
+        serializer = ClusterSerializer(
+            cluster,
+            data={
+                "code": cluster.code,
+                "name": cluster.name,
+                "coordinator_id": None,
+                "families": [family.id],
+                "members": [],
+                "branch": branch.id,
+                "location": "",
+                "meeting_schedule": "",
+                "description": "",
+            },
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        cluster.refresh_from_db()
+        member_ids = set(cluster.members.values_list("id", flat=True))
+        self.assertEqual(member_ids, {member_a.id, member_b.id})
+
+    def test_update_cluster_skips_family_member_already_in_other_cluster(self):
+        branch = Branch.objects.create(name="TA_pri", code="TA_PRI")
+        admin = Person.objects.create_user(
+            username="adm_pri",
+            email="adm_pri@test.com",
+            password="password123",
+            first_name="Admin",
+            last_name="Pri",
+            role="ADMIN",
+        )
+        local_member = Person.objects.create_user(
+            username="local_mem",
+            email="local_mem@test.com",
+            password="password123",
+            first_name="Local",
+            last_name="Member",
+            role="MEMBER",
+            branch=branch,
+        )
+        other_member = Person.objects.create_user(
+            username="other_mem",
+            email="other_mem@test.com",
+            password="password123",
+            first_name="Other",
+            last_name="Cluster",
+            role="MEMBER",
+            branch=branch,
+        )
+        other_cluster = Cluster.objects.create(
+            code="OTH1",
+            name="Other Cluster",
+            branch=branch,
+        )
+        other_cluster.members.add(other_member)
+
+        family = Family.objects.create(name="Priority Family")
+        family.members.add(local_member, other_member)
+        cluster = Cluster.objects.create(
+            code="PRI1",
+            name="Priority Cluster",
+            branch=branch,
+        )
+        cluster.families.add(family)
+
+        factory = APIRequestFactory()
+        request = factory.put("/")
+        request.user = admin
+
+        serializer = ClusterSerializer(
+            cluster,
+            data={
+                "code": cluster.code,
+                "name": cluster.name,
+                "coordinator_id": None,
+                "families": [family.id],
+                "members": [],
+                "branch": branch.id,
+                "location": "",
+                "meeting_schedule": "",
+                "description": "",
+            },
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        cluster.refresh_from_db()
+        member_ids = set(cluster.members.values_list("id", flat=True))
+        self.assertIn(local_member.id, member_ids)
+        self.assertNotIn(other_member.id, member_ids)
+        other_cluster.refresh_from_db()
+        self.assertIn(other_member, other_cluster.members.all())
+
     def test_cluster_branch_change_removes_members_not_matching_new_branch(self):
         branch_a = Branch.objects.create(name="TA_mt2", code="TA_MT2")
         branch_b = Branch.objects.create(name="TB_mt2", code="TB_MT2")

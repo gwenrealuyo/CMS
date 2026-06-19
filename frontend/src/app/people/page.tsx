@@ -854,10 +854,21 @@ export default function PeoplePage() {
             }
           ).members || [];
         // Include existing families so backend validators that require it won't fail
-        await clustersApi.update(assignMembersModal.cluster.id, {
+        const updated = await clustersApi.update(assignMembersModal.cluster.id, {
           members: memberIds,
           families: (assignMembersModal.cluster as any).families || [],
         } as any);
+        const returnedIdSet = new Set(
+          (updated.data.members ?? []).map((id: number) => String(id))
+        );
+        const notAssigned = memberIds.filter(
+          (id) => !returnedIdSet.has(String(id))
+        );
+        if (notAssigned.length > 0) {
+          alert(
+            "Some members could not be assigned because they belong to a different branch than this cluster."
+          );
+        }
         await fetchClusters();
         await refreshOpenPersonProfilesAfterClusterMemberChange(
           prevMembers,

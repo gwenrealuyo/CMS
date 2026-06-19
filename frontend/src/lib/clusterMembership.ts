@@ -5,8 +5,8 @@ type PersonBranchLike = {
 
 /**
  * Whether a person can be assigned to a branch-scoped cluster.
- * Mirrors backend `prune_members_not_matching_cluster_branch`: legacy persons
- * without a branch are not excluded from branch clusters.
+ * Legacy persons without a branch may appear; the backend assigns the cluster
+ * branch when they are added.
  */
 export function personMatchesClusterBranch(
   person: PersonBranchLike,

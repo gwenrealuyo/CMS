@@ -96,10 +96,14 @@ export default function AssignMembersModal({
   );
 
   const filteredMembers = useMemo(() => {
-    if (!memberSearch.trim()) return selectablePeople;
+    if (!memberSearch.trim()) return [];
 
     const searchLower = memberSearch.toLowerCase();
     return selectablePeople.filter((person) => {
+      if (includesMemberId(selectedMemberIds, person.id)) {
+        return false;
+      }
+
       const fullName = formatPersonName(person).toLowerCase();
       const username = person.username?.toLowerCase() ?? "";
       const memberId = person.member_id?.toLowerCase() ?? "";
@@ -110,7 +114,7 @@ export default function AssignMembersModal({
         memberId.includes(searchLower)
       );
     });
-  }, [memberSearch, selectablePeople]);
+  }, [memberSearch, selectablePeople, selectedMemberIds]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -135,10 +139,12 @@ export default function AssignMembersModal({
   const addMember = (person: PersonUI) => {
     const normalizedId = normalizeMemberId(person.id);
     const alreadyIncluded = includesMemberId(selectedMemberIds, normalizedId);
-    if (!alreadyIncluded) {
-      setSelectedMemberIds((prev) => [...prev, normalizedId]);
-      setSelectedPersonById((prev) => ({ ...prev, [normalizedId]: person }));
+    const branchOk = personMatchesClusterBranch(person, clusterBranch);
+    if (!branchOk || alreadyIncluded) {
+      return;
     }
+    setSelectedMemberIds((prev) => [...prev, normalizedId]);
+    setSelectedPersonById((prev) => ({ ...prev, [normalizedId]: person }));
     setMemberSearch("");
     setShowMemberDropdown(false);
   };
@@ -201,7 +207,9 @@ export default function AssignMembersModal({
               Assign Members to {cluster.name}
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              Select members to assign to this cluster
+              {clusterBranch != null
+                ? "Search shows members in this cluster's branch only."
+                : "Select members to assign to this cluster"}
             </p>
           </div>
           <button
@@ -246,24 +254,19 @@ export default function AssignMembersModal({
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
               />
 
-              {/* Search Dropdown */}
+              {showMemberDropdown && memberSearch.trim() && filteredMembers.length === 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg px-3 py-2 text-sm text-gray-500">
+                  No matching members in this cluster&apos;s branch.
+                </div>
+              )}
+
               {showMemberDropdown && filteredMembers.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                  {filteredMembers.map((person) => {
-                    const isAlreadySelected = includesMemberId(
-                      selectedMemberIds,
-                      person.id
-                    );
-                    return (
+                  {filteredMembers.map((person) => (
                     <button
                       key={person.id}
                       onClick={() => addMember(person)}
-                      disabled={isAlreadySelected}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center space-x-3 ${
-                        isAlreadySelected
-                          ? "bg-gray-100 cursor-not-allowed opacity-50"
-                          : ""
-                      }`}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center space-x-3"
                     >
                       <PersonAvatar person={person} size="sm" />
                       <div className="flex-1 min-w-0">
@@ -271,7 +274,15 @@ export default function AssignMembersModal({
                           {formatPersonName(person)}
                         </p>
                         <p className="text-xs text-gray-600 truncate">
-                          {person.email}
+                          {[
+                            person.branch_code ||
+                              (person.branch == null
+                                ? "No branch"
+                                : `Branch ${person.branch}`),
+                            person.email,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -291,8 +302,7 @@ export default function AssignMembersModal({
                         </span>
                       </div>
                     </button>
-                    );
-                  })}
+                  ))}
                 </div>
               )}
             </div>

@@ -7,7 +7,9 @@ from apps.people.models import Person, Family, Journey
 from apps.clusters.branch_membership import (
     clear_coordinator_if_invalid,
     ensure_coordinator_in_members,
+    merge_cluster_member_ids,
     prune_members_not_matching_cluster_branch,
+    sync_member_branches_to_cluster,
 )
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
@@ -172,28 +174,11 @@ class ClusterSerializer(serializers.ModelSerializer):
                 )
                 # Don't raise - allow cluster update to succeed even if journey creation fails
 
-    def _add_family_members_to_cluster(self, instance, families):
-        """
-        Automatically add all members from assigned families to the cluster.
-        This ensures that when a family is added to a cluster, all family members
-        are also added. Users can manually remove individual members if needed.
-        """
-        # Get all members from the assigned families
-        family_member_ids = set()
+    def _collect_family_member_ids(self, families) -> set[int]:
+        family_member_ids: set[int] = set()
         for family in families:
-            # Get all members of this family
-            family_members = family.members.all()
-            family_member_ids.update(member.id for member in family_members)
-
-        # Get existing cluster members
-        existing_member_ids = set(instance.members.values_list("id", flat=True))
-
-        # Add new family members to existing members (union)
-        all_member_ids = existing_member_ids | family_member_ids
-
-        # Update the cluster's members
-        if family_member_ids:  # Only update if there are family members to add
-            instance.members.set(all_member_ids)
+            family_member_ids.update(family.members.values_list("id", flat=True))
+        return family_member_ids
 
     def create(self, validated_data):
         families = validated_data.pop("families", [])
@@ -212,18 +197,15 @@ class ClusterSerializer(serializers.ModelSerializer):
         # Track old memberships (empty for create)
         old_member_ids = set()
 
-        # Automatically add all family members to the cluster
-        if families:
-            self._add_family_members_to_cluster(instance, families)
-
-        # Then add any individually specified members (union with family members)
-        if members:
-            existing_member_ids = set(instance.members.values_list("id", flat=True))
-            new_member_ids = set(member.id for member in members)
-            all_member_ids = existing_member_ids | new_member_ids
-            instance.members.set(all_member_ids)
+        family_member_ids = self._collect_family_member_ids(families)
+        user_member_ids = {member.id for member in members}
+        all_member_ids = merge_cluster_member_ids(
+            instance, user_member_ids, family_member_ids
+        )
+        instance.members.set(all_member_ids)
 
         instance.refresh_from_db()
+        sync_member_branches_to_cluster(instance, all_member_ids)
         prune_members_not_matching_cluster_branch(instance)
         clear_coordinator_if_invalid(instance)
         instance.refresh_from_db()
@@ -267,33 +249,33 @@ class ClusterSerializer(serializers.ModelSerializer):
         # Update families if provided
         if families is not None:
             instance.families.set(families)
-            # Automatically add all family members from the newly assigned families
-            if families:
-                self._add_family_members_to_cluster(instance, families)
 
-        # Get all family members from currently assigned families (after update)
         current_families = list(instance.families.all())
-        family_member_ids = set()
-        if current_families:
-            for family in current_families:
-                family_members = family.members.all()
-                family_member_ids.update(member.id for member in family_members)
+        family_member_ids = self._collect_family_member_ids(current_families)
 
         # Update members if provided
+        all_member_ids: set[int] = set()
         if members is not None:
-            # Union: combine user-specified members with family members
-            user_member_ids = set(member.id for member in members)
-            all_member_ids = user_member_ids | family_member_ids
+            user_member_ids = {member.id for member in members}
+            all_member_ids = merge_cluster_member_ids(
+                instance, user_member_ids, family_member_ids
+            )
             instance.members.set(all_member_ids)
         else:
-            # If members not provided, ensure family members are still included
+            # If members not provided, ensure eligible family members are included
             if family_member_ids:
                 existing_member_ids = set(instance.members.values_list("id", flat=True))
-                all_member_ids = existing_member_ids | family_member_ids
+                all_member_ids = merge_cluster_member_ids(
+                    instance, existing_member_ids, family_member_ids
+                )
                 instance.members.set(all_member_ids)
+            else:
+                all_member_ids = set(instance.members.values_list("id", flat=True))
 
         # Refresh to get final member list
         instance.refresh_from_db()
+        if members is not None:
+            sync_member_branches_to_cluster(instance, all_member_ids)
         prune_members_not_matching_cluster_branch(instance)
         clear_coordinator_if_invalid(instance)
         instance.refresh_from_db()

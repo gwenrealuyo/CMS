@@ -197,11 +197,13 @@ export default function ClustersPageContainer() {
     { value: string; label: string }[]
   >([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchFilterReady, setBranchFilterReady] = useState(false);
   const clusterBranchUserIdRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!user) {
       setSelectedBranchId("");
+      setBranchFilterReady(false);
       clusterBranchUserIdRef.current = undefined;
       return;
     }
@@ -212,13 +214,12 @@ export default function ClustersPageContainer() {
           ? String(user.branch)
           : "",
       );
-      return;
-    }
-    if (user.branch != null && user.branch !== undefined) {
+    } else if (user.branch != null && user.branch !== undefined) {
       setSelectedBranchId((prev) =>
         prev === "" ? String(user.branch) : prev,
       );
     }
+    setBranchFilterReady(true);
   }, [user]);
 
   useEffect(() => {
@@ -314,6 +315,8 @@ export default function ClustersPageContainer() {
   
   // Fetch clusters
   const fetchClusters = useCallback(async () => {
+    if (!branchFilterReady) return;
+
     try {
       setClustersLoading(true);
       const params: { branch_id?: string; include_inactive?: boolean } = {};
@@ -333,7 +336,12 @@ export default function ClustersPageContainer() {
     } finally {
       setClustersLoading(false);
     }
-  }, [canChangeClusterBranchFilter, selectedBranchId, showInactiveClusters]);
+  }, [
+    branchFilterReady,
+    canChangeClusterBranchFilter,
+    selectedBranchId,
+    showInactiveClusters,
+  ]);
   
   useEffect(() => {
     fetchClusters();
@@ -590,45 +598,44 @@ export default function ClustersPageContainer() {
   
   const handleUpdateCluster = async (data: Partial<ClusterInput>) => {
     const targetCluster = editCluster || panelCluster;
-    if (targetCluster) {
-      try {
-        const updatedCluster = await clustersApi.update(targetCluster.id, data);
-        
-        // Optimistically update the cluster in the list instead of refetching all
-        setAllClusters((prev) =>
-          prev.map((c) => (c.id === targetCluster.id ? updatedCluster.data : c))
-        );
-        
-        if (viewCluster) {
-          setViewCluster(updatedCluster.data);
-          setEditCluster(null);
-          setClusterViewMode("view");
-          setPanelCluster(updatedCluster.data);
-          setPanelMode("view");
-        } else {
-          setIsClusterModalOpen(false);
-          setEditCluster(null);
-          setViewCluster(null);
-          setClusterViewMode("view");
-        }
+    if (!targetCluster) return;
 
-        if (panelCluster && panelCluster.id === targetCluster.id) {
-          setPanelCluster(updatedCluster.data);
-        }
-        toast.success("Cluster updated successfully.");
-      } catch (error) {
-        console.error("Error updating cluster:", error);
-        toast.error(
-          (error as { response?: { data?: { message?: string } } })?.response?.data
-            ?.message || "Failed to update cluster."
-        );
-        // On error, refetch to ensure consistency
-        await fetchClusters();
-        throw error;
+    try {
+      const updatedCluster = await clustersApi.update(targetCluster.id, data);
+      const updated = updatedCluster.data;
+
+      setAllClusters((prev) =>
+        prev.map((c) => (c.id === targetCluster.id ? updated : c))
+      );
+
+      setEditCluster(null);
+      setClusterViewMode("view");
+
+      if (isDesktop && panelOpen && panelEntity === "cluster") {
+        setPanelCluster(updated);
+        setPanelMode("view");
+        setPanelHistory((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+      } else {
+        setViewCluster(updated);
+        setIsClusterModalOpen(true);
       }
+
+      if (clusterOverPerson?.id === updated.id) {
+        setClusterOverPerson(updated);
+      }
+
+      toast.success("Cluster updated successfully.");
+    } catch (error) {
+      console.error("Error updating cluster:", error);
+      toast.error(
+        (error as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Failed to update cluster."
+      );
+      await fetchClusters();
+      throw error;
     }
   };
-  
+
   const handleHardDeleteCluster = async () => {
     if (clusterDeleteConfirmation.cluster) {
       setClusterDeleteConfirmation((prev) => ({ ...prev, loading: true }));
@@ -952,6 +959,21 @@ export default function ClustersPageContainer() {
     closeClusterPanel();
   }, [closeClusterPanel, restorePanelSnapshot]);
 
+  const handleCancelClusterEdit = useCallback(() => {
+    if (isDesktop) {
+      goBackClusterPanel();
+      return;
+    }
+    if (viewCluster || editCluster) {
+      setEditCluster(null);
+      setClusterViewMode("view");
+      return;
+    }
+    setIsClusterModalOpen(false);
+    setViewCluster(null);
+    setClusterViewMode("view");
+  }, [isDesktop, goBackClusterPanel, viewCluster, editCluster]);
+
   const openClusterInteraction = useCallback(
     (mode: PanelMode, cluster?: Cluster | null) => {
       if (isDesktop) {
@@ -972,7 +994,7 @@ export default function ClustersPageContainer() {
         setClusterViewMode("view");
       } else if (mode === "edit" && cluster) {
         setEditCluster(cluster);
-        setViewCluster(null);
+        setViewCluster(cluster);
         setClusterViewMode("edit");
       } else {
         setEditCluster(null);
@@ -1114,6 +1136,18 @@ export default function ClustersPageContainer() {
           members: memberIds,
           families: assignMembersModal.cluster.families || [],
         } as Partial<ClusterInput>);
+
+        const returnedIdSet = new Set(
+          (updatedCluster.data.members ?? []).map((id) => String(id))
+        );
+        const notAssigned = memberIds.filter(
+          (id) => !returnedIdSet.has(String(id))
+        );
+        if (notAssigned.length > 0) {
+          alert(
+            "Some members could not be assigned because they belong to a different branch than this cluster."
+          );
+        }
         
         // Optimistically update the cluster in the list instead of refetching all
         setAllClusters((prev) =>
@@ -1338,6 +1372,7 @@ export default function ClustersPageContainer() {
         setClusterViewMode("view");
         closeClusterPanel();
       }}
+      onCancelClusterEdit={handleCancelClusterEdit}
       isDesktop={isDesktop}
       panelOpen={panelOpen}
       panelEntity={panelEntity}
@@ -1410,7 +1445,11 @@ export default function ClustersPageContainer() {
             if (viewCluster && viewCluster.id === editClusterOverlay.id) {
               setViewCluster(updated.data);
             }
-            
+
+            if (panelCluster?.id === editClusterOverlay.id) {
+              setPanelCluster(updated.data);
+            }
+
             setShowEditClusterOverlay(false);
             setEditClusterOverlay(null);
             toast.success("Cluster updated successfully.");

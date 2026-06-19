@@ -110,6 +110,7 @@ interface ClustersPageViewProps {
   clusterViewMode: "view" | "edit";
   isClusterModalOpen: boolean;
   onCloseClusterModal: () => void;
+  onCancelClusterEdit: () => void;
   isDesktop: boolean;
   panelOpen: boolean;
   panelEntity: "cluster" | "person" | "family";
@@ -260,6 +261,7 @@ export default function ClustersPageView({
   clusterViewMode,
   isClusterModalOpen,
   onCloseClusterModal,
+  onCancelClusterEdit,
   isDesktop,
   panelOpen,
   panelEntity,
@@ -565,7 +567,7 @@ export default function ClustersPageView({
             await onCreateClusterSubmit(data);
           }
         }}
-        onCancel={isPanel ? onBackClusterPanel : onCloseClusterModal}
+        onCancel={isPanel ? onBackClusterPanel : onCancelClusterEdit}
         error={null}
         submitting={false}
       />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Cluster } from "@/src/types/cluster";
 import { Person, PersonUI } from "@/src/types/person";
 // import { Branch } from "@/src/types/branch";
@@ -84,6 +84,7 @@ export default function ClusterForm({
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [familySearch, setFamilySearch] = useState("");
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
+  const initializedForClusterRef = useRef<number | null>(null);
 
   const { people, loading: peopleLoading } = usePeople();
   const { families, loading: familiesLoading } = useFamilies();
@@ -95,6 +96,36 @@ export default function ClusterForm({
     isSeniorCoordinator("CLUSTER");
 
   useEffect(() => {
+    const clusterId = initialData?.id ?? null;
+
+    if (clusterId == null) {
+      if (initializedForClusterRef.current === null) {
+        return;
+      }
+      initializedForClusterRef.current = null;
+      const next = getInitialFormData();
+      setCode(next.code);
+      setName(next.name);
+      setCoordinatorId(next.coordinatorId);
+      setFamilyIds(next.familyIds);
+      setMemberIds(next.memberIds);
+      setLocation(next.location);
+      setMeetingDay(next.meetingDay);
+      setMeetingTime(next.meetingTime);
+      setDescription(next.description);
+      setBranchId(next.branchId);
+      setMemberSearch("");
+      setShowMemberDropdown(false);
+      setFamilySearch("");
+      setShowFamilyDropdown(false);
+      return;
+    }
+
+    if (initializedForClusterRef.current === clusterId) {
+      return;
+    }
+
+    initializedForClusterRef.current = clusterId;
     const next = getInitialFormData();
     setCode(next.code);
     setName(next.name);
@@ -110,7 +141,7 @@ export default function ClusterForm({
     setShowMemberDropdown(false);
     setFamilySearch("");
     setShowFamilyDropdown(false);
-  }, [getInitialFormData]);
+  }, [initialData?.id, getInitialFormData]);
 
   // Clear coordinator if they're removed from members
   useEffect(() => {
@@ -374,6 +405,12 @@ export default function ClusterForm({
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Add Families ({familyIds.length} selected)
         </label>
+        {familyIds.length > 0 && (
+          <p className="text-xs text-gray-500 mb-2">
+            Saving adds all family members to this cluster. People already in
+            another cluster are left in that cluster.
+          </p>
+        )}
 
         {/* Family Search Input */}
         <div className="relative">
@@ -482,6 +519,12 @@ export default function ClusterForm({
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Add Members ({memberIds.length} selected)
         </label>
+        {branchId && (
+          <p className="text-xs text-gray-500 mb-2">
+            Members without a branch can be added; they will inherit this
+            cluster&apos;s branch on save.
+          </p>
+        )}
 
         {/* Member Search Input */}
         <div className="relative">

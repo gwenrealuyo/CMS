@@ -8,15 +8,16 @@ This document outlines the business rules and technical implementation for manag
 
 ### 1. Automatic Family Member Addition
 
-- **Primary Rule**: When a family is added to a cluster, all family members are automatically added to the cluster's members list
-- **Automatic Behavior**: This happens automatically in the backend when families are assigned via the API or cluster form
-- **Consistency**: Family membership in a cluster ensures all family members are included in the cluster
+- **Primary Rule**: When a cluster is saved with families assigned, all members of those families are added to the cluster's individual members list.
+- **Automatic Behavior**: This runs on the backend during cluster create/update (including when the members field is empty in the form).
+- **Existing cluster priority**: If a family member already belongs to a **different** cluster, that membership is kept and they are **not** moved or duplicated into this cluster.
+- **Consistency**: Family assignment on a cluster always attempts to include every eligible family member as an individual cluster member.
 
-### 2. Manual Member Removal
+### 2. Manual Member Removal (UI only until save)
 
-- **User Control**: Users can manually remove individual members from the cluster's members list if they don't want certain family members to be part of the cluster
-- **Flexibility**: This allows for cases where not all family members should participate in the cluster
-- **No Automatic Re-addition**: If a member is manually removed, they won't be automatically re-added when the family is updated (unless the family assignment is changed)
+- **Form behavior**: Users can temporarily remove individuals from the members list in the cluster form before saving.
+- **On save**: Eligible family members (those not in another cluster) are merged back in from assigned families. Saving with families selected is the source of truth for family-driven membership.
+- **Exception**: Members already in another cluster are never pulled in by family assignment (see Rule 1).
 
 ### 3. Coordinator Safety
 
@@ -28,59 +29,34 @@ This document outlines the business rules and technical implementation for manag
 
 ### Adding Families to Clusters
 
-#### Rule 1: Automatic Member Addition
+#### Rule 1: Automatic Member Addition on Save
 
 ```
-WHEN: A family is added to a cluster
-THEN: All family members are automatically added to the cluster's members list
-```
-
-**Implementation Logic:**
-
-**Frontend (Real-Time UI):**
-The `ClusterForm` component in `frontend/src/components/clusters/ClusterForm.tsx` provides immediate visual feedback:
-
-```typescript
-const addFamily = (family) => {
-  setFamilyIds([...familyIds, familyIdStr]);
-  
-  // Automatically add all family members to the members list
-  const selectedFamily = families.find(f => f.id.toString() === familyIdStr);
-  if (selectedFamily && selectedFamily.members) {
-    const familyMemberIds = selectedFamily.members.map(id => id.toString());
-    // Add family members that aren't already in the list
-    setMemberIds([...memberIds, ...familyMemberIds.filter(id => !memberIds.includes(id))]);
-  }
-};
+WHEN: A cluster is saved with one or more families assigned
+THEN: Each member of those families is added to the cluster's members list
+UNLESS: That person is already a member of a different cluster (that membership takes priority)
 ```
 
 **Backend (On Submit):**
-The `ClusterSerializer` in `apps.clusters.serializers` automatically handles this on form submission:
+`ClusterSerializer` merges the submitted members with eligible family members via `merge_cluster_member_ids()` in `apps/clusters/branch_membership.py`:
 
 ```python
-def _add_family_members_to_cluster(self, instance, families):
-    # Get all members from the assigned families
-    family_member_ids = set()
-    for family in families:
-        family_members = family.members.all()
-        family_member_ids.update(member.id for member in family_members)
-    
-    # Get existing cluster members
-    existing_member_ids = set(instance.members.values_list('id', flat=True))
-    
-    # Union: Add new family members to existing members
-    all_member_ids = existing_member_ids | family_member_ids
-    
-    # Update the cluster's members
-    instance.members.set(all_member_ids)
+def family_members_eligible_for_cluster(cluster, family_member_ids):
+    # Exclude anyone already in a different cluster
+    blocked = Person.objects.filter(id__in=ids, clusters__isnull=False)
+        .exclude(clusters__id=cluster.id)
+    return family_member_ids - blocked
+
+def merge_cluster_member_ids(cluster, user_member_ids, family_member_ids):
+    return user_member_ids | family_members_eligible_for_cluster(cluster, family_member_ids)
 ```
 
 **Example Scenario:**
 
 - Family A has members: John, Jane, Bob
-- Family A is added to Cluster Y in the form
-- **Frontend**: John, Jane, and Bob immediately appear in the members field (before submitting)
-- **Backend**: On form submission, John, Jane, and Bob are automatically added to Cluster Y's members list in the database
+- John is already in Cluster X
+- Family A is assigned to Cluster Y and the form is saved (even with an empty members list)
+- **Result**: Jane and Bob are added to Cluster Y; John stays in Cluster X only
 
 ### Removing Families from Clusters
 
@@ -139,17 +115,16 @@ AND: Family assignments are not affected
 NOTE: This works in addition to family-based member addition
 ```
 
-#### Rule 6: Manual Member Removal
+#### Rule 6: Manual Member Removal in the Form
 
 ```
-WHEN: An individual member is removed from a cluster's members list
-THEN: The member is removed from the cluster
-AND: Family assignments remain unchanged
-NOTE: This allows users to exclude specific family members from a cluster
-UNLESS: The member was the coordinator (coordinator cleanup may be needed)
+WHEN: An individual member is removed from the members list in the cluster form
+THEN: They are removed from the UI until the form is saved
+ON SAVE: Eligible family members from assigned families are merged back in
+UNLESS: They are already in another cluster (that cluster keeps them)
 ```
 
-**Use Case**: If a family is added to a cluster but one family member shouldn't participate, the user can manually remove that member from the cluster's members list while keeping the family assigned.
+**Use Case**: The members field may show `0 selected` while families are selected; saving still adds all eligible family members on the backend.
 
 ### Coordinator Management
 
@@ -326,7 +301,7 @@ interface Person {
 
 1. **Search Before Adding**: Use search functionality to find families/members
 2. **Check Member Counts**: Verify family participation levels
-3. **Understand Overrides**: Know that individual assignments take precedence
+3. **Understand Overrides**: Existing membership in another cluster takes priority over family assignment
 4. **Coordinator Safety**: Be aware that coordinator roles can be auto-unset
 
 ## Error Handling

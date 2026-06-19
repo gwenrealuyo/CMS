@@ -1,0 +1,18 @@
+---
+description: Cluster family-to-member assignment rules on save
+globs:
+  - backend/apps/clusters/**
+  - frontend/src/components/clusters/**
+  - docs/cluster-family-member-relationship-rules.md
+  - docs/CLUSTERS_MODULE.md
+---
+
+# Cluster families → members on save
+
+When a cluster is **saved** with families assigned:
+
+1. **Add** every member of those families to the cluster's individual `members` list.
+2. **Skip** anyone who is already a member of a **different** cluster — that membership takes priority; do not move or duplicate them.
+3. Merge logic lives in `merge_cluster_member_ids()` / `family_members_eligible_for_cluster()` in `backend/apps/clusters/branch_membership.py`, called from `ClusterSerializer` create/update.
+
+Full spec: `docs/cluster-family-member-relationship-rules.md`.

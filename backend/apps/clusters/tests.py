@@ -761,6 +761,12 @@ class ClusterWeeklyReportAPITests(TestCase):
         self.assertEqual(ClusterWeeklyReport.objects.count(), 1)
         report = ClusterWeeklyReport.objects.first()
         self.assertEqual(report.members_present, 1)
+        self.assertEqual(report.submitted_by_id, self.user.id)
+        self.assertEqual(response.data["submitted_by"], self.user.id)
+        self.assertEqual(
+            response.data["submitted_by_details"]["username"],
+            self.user.username,
+        )
 
     def test_create_report_allows_coordinator_in_members_attended(self):
         today = date.today()

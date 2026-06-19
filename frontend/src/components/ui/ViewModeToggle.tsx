@@ -6,6 +6,8 @@ interface ViewModeToggleProps {
   className?: string;
   /** Always compact inline control (desktop toolbar rows). */
   compact?: boolean;
+  /** Keep full-width segmented control (stacked toolbars). */
+  fullWidth?: boolean;
 }
 
 export default function ViewModeToggle({
@@ -13,11 +15,14 @@ export default function ViewModeToggle({
   onViewModeChange,
   className = "",
   compact = false,
+  fullWidth = false,
 }: ViewModeToggleProps) {
   const segmentClass = (active: boolean) => {
     const base = compact
       ? "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition"
-      : "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-3 py-2 text-xs font-medium transition md:flex-none md:py-1.5 min-h-[44px] md:min-h-0";
+      : fullWidth
+        ? "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-3 py-2 text-xs font-medium transition min-h-[44px]"
+        : "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-3 py-2 text-xs font-medium transition md:flex-none md:py-1.5 min-h-[44px] md:min-h-0";
 
     return `${base} ${
       active
@@ -28,7 +33,9 @@ export default function ViewModeToggle({
 
   const containerClass = compact
     ? `inline-flex shrink-0 rounded-lg border border-gray-200 bg-gray-100 p-0.25 ${className}`
-    : `flex w-full rounded-lg border border-gray-200 bg-gray-100 p-0.25 md:inline-flex md:w-auto md:shrink-0 ${className}`;
+    : fullWidth
+      ? `flex w-full rounded-lg border border-gray-200 bg-gray-100 p-0.25 ${className}`
+      : `flex w-full rounded-lg border border-gray-200 bg-gray-100 p-0.25 md:inline-flex md:w-auto md:shrink-0 ${className}`;
 
   return (
     <div className={containerClass}>

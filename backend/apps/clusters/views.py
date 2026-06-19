@@ -32,6 +32,7 @@ from apps.authentication.permissions import (
     HasModuleAccess,
     IsAdmin,
 )
+from apps.people.models import Person
 from apps.clusters.permissions import (
     ClusterCoordinatorScopedPermission,
     ClusterMutationAttemptPermission,
@@ -152,10 +153,14 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             # Read operations
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'read')]
 
+    def _submitter(self):
+        user = self.request.user
+        return user if isinstance(user, Person) else None
+
     def perform_create(self, serializer):
         cluster = serializer.validated_data.get("cluster")
         ensure_user_can_submit_cluster_report_or_privileged(self.request.user, cluster)
-        serializer.save()
+        serializer.save(submitted_by=self._submitter())
 
     def perform_update(self, serializer):
         old_cluster = serializer.instance.cluster
@@ -165,7 +170,12 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             ensure_user_can_submit_cluster_report_or_privileged(
                 self.request.user, old_cluster
             )
-        serializer.save()
+        save_kwargs = {}
+        if serializer.instance.submitted_by_id is None:
+            submitter = self._submitter()
+            if submitter is not None:
+                save_kwargs["submitted_by"] = submitter
+        serializer.save(**save_kwargs)
 
     @action(detail=False, methods=["get"])
     def distinct_years(self, request):

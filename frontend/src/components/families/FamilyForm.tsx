@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { Family, Person, PersonUI } from "@/src/types/person";
 import Button from "../ui/Button";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import { formatPersonName } from "@/src/lib/name";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface FamilyFormProps {
@@ -50,13 +51,12 @@ export default function FamilyForm({
 
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return availableMembers;
+    const searchLower = memberSearch.toLowerCase();
     return availableMembers.filter(
       (member) =>
-        `${member.first_name} ${member.last_name}`
-          .toLowerCase()
-          .includes(memberSearch.toLowerCase()) ||
-        member.role.toLowerCase().includes(memberSearch.toLowerCase()) ||
-        member.status.toLowerCase().includes(memberSearch.toLowerCase())
+        formatPersonName(member).toLowerCase().includes(searchLower) ||
+        member.role.toLowerCase().includes(searchLower) ||
+        member.status.toLowerCase().includes(searchLower)
     );
   }, [availableMembers, memberSearch]);
 
@@ -160,7 +160,7 @@ export default function FamilyForm({
             <option value="">Select a family leader (optional)</option>
             {getSelectedMembers().map((member) => (
               <option key={member.id} value={member.id}>
-                {member.first_name} {member.last_name}
+                {formatPersonName(member)}
               </option>
             ))}
           </select>
@@ -252,7 +252,7 @@ export default function FamilyForm({
                     <PersonAvatar person={member} size="sm" />
                     <div className="flex-1">
                       <p className="font-medium text-sm">
-                        {member.first_name} {member.last_name}
+                        {formatPersonName(member)}
                       </p>
                       <div className="flex items-center space-x-1 mt-0.5">
                         <span
@@ -295,7 +295,7 @@ export default function FamilyForm({
                 >
                   <PersonAvatar person={member} size="xs" />
                   <span className="text-sm font-medium text-gray-900">
-                    {member.first_name} {member.last_name}
+                    {formatPersonName(member)}
                   </span>
                   <button
                     type="button"

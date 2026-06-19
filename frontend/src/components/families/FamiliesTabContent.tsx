@@ -542,6 +542,8 @@ export default function FamiliesTabContent({
         <FamilyManagementDashboard
           families={families}
           people={peopleUI}
+          isDesktop={isDesktop}
+          panelOpen={panelOpen}
           onCreateFamily={() => openFamilyInteraction("create")}
           onViewFamily={(family) => openFamilyInteraction("view", family)}
           onEditFamily={(family) => openFamilyInteraction("edit", family)}

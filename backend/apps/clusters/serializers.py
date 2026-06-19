@@ -350,6 +350,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = [
+            "submitted_by",
             "submitted_at",
             "updated_at",
             "members_present",

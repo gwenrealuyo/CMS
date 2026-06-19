@@ -5,11 +5,13 @@ import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
   TOOLBAR_ACTION_BUTTON_CLASS,
-  TOOLBAR_ACTIONS_ROW_CLASS,
   TOOLBAR_BRANCH_SELECT_CLASS,
+  TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS,
   TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
+  TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
+  TOOLBAR_STACKED_CONTROLS_CLASS,
 } from "@/src/lib/toolbarStyles";
 import ActionMenu from "./ActionMenu";
 import FamilyFilterDropdown from "./FamilyFilterDropdown";
@@ -37,6 +39,8 @@ const SORT_OPTIONS: SortOption[] = [
 interface FamilyManagementDashboardProps {
   families: Family[];
   people: PersonUI[];
+  isDesktop?: boolean;
+  panelOpen?: boolean;
   onCreateFamily: () => void;
   onViewFamily: (family: Family) => void;
   onEditFamily: (family: Family) => void;
@@ -50,6 +54,8 @@ interface FamilyManagementDashboardProps {
 export default function FamilyManagementDashboard({
   families,
   people,
+  isDesktop = false,
+  panelOpen = false,
   onCreateFamily,
   onViewFamily,
   onEditFamily,
@@ -190,7 +196,7 @@ export default function FamilyManagementDashboard({
     canChangeFamilyBranchFilter,
   ]);
 
-  const renderFamilyBranchSelect = () => {
+  const renderFamilyBranchSelect = (fullWidth = false) => {
     const options =
       branchesLoading && canChangeFamilyBranchFilter ? (
         <option value="">Loading…</option>
@@ -221,7 +227,9 @@ export default function FamilyManagementDashboard({
         }}
         className={
           familyBranchSelectInteractive
-            ? TOOLBAR_BRANCH_SELECT_CLASS
+            ? fullWidth
+              ? TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS
+              : TOOLBAR_BRANCH_SELECT_CLASS
             : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
         }
       >
@@ -541,10 +549,18 @@ export default function FamilyManagementDashboard({
 
   // Get role color
 
+  const useStackedToolbar = isDesktop && panelOpen;
+
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div
+        className={
+          panelOpen
+            ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
+            : "grid grid-cols-1 md:grid-cols-3 gap-4"
+        }
+      >
         <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -637,8 +653,14 @@ export default function FamilyManagementDashboard({
 
       {/* Header */}
       <div className={TOOLBAR_CARD_CLASS}>
-        {/* Mobile — stacked 3-row toolbar */}
-        <div className="flex flex-col gap-3 tablet:hidden">
+        {/* Stacked 3-row toolbar (mobile, or desktop with detail panel open) */}
+        <div
+          className={
+            useStackedToolbar
+              ? "flex flex-col gap-3"
+              : "flex flex-col gap-3 tablet:hidden"
+          }
+        >
           <ToolbarSearch
             fullWidth
             value={searchQuery}
@@ -650,22 +672,23 @@ export default function FamilyManagementDashboard({
             ariaLabel="Search families"
           />
 
-          <div className="flex items-center justify-between gap-3">
-            {renderFamilyBranchSelect()}
+          <div className={TOOLBAR_STACKED_CONTROLS_CLASS}>
+            {renderFamilyBranchSelect(true)}
             <ViewModeToggle
+              fullWidth
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
           </div>
 
-          <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
+          <div className="grid grid-cols-2 gap-2">
             <button
               ref={sortButtonRef}
               onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className={TOOLBAR_ACTION_BUTTON_CLASS}
+              className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
             >
               <svg
-                className="w-4 h-4 mr-1"
+                className="w-4 h-4 mr-1 shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -677,16 +700,18 @@ export default function FamilyManagementDashboard({
                   d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
                 />
               </svg>
-              Sort {sortOrder === "asc" ? "↑" : "↓"}
+              <span className="truncate">
+                Sort {sortOrder === "asc" ? "↑" : "↓"}
+              </span>
             </button>
 
             <button
               ref={familyFilterButtonRef}
               onClick={handleFamilyFilterClick}
-              className={TOOLBAR_ACTION_BUTTON_CLASS}
+              className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
             >
               <svg
-                className="w-4 h-4 mr-1"
+                className="w-4 h-4 mr-1 shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -751,7 +776,13 @@ export default function FamilyManagementDashboard({
         </div>
 
         {/* Desktop — single-row toolbar */}
-        <div className="hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2">
+        <div
+          className={
+            useStackedToolbar
+              ? "hidden"
+              : "hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2"
+          }
+        >
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <ToolbarSearch
               value={searchQuery}
@@ -762,7 +793,9 @@ export default function FamilyManagementDashboard({
               placeholder="Search families…"
               ariaLabel="Search families"
             />
-            {renderFamilyBranchSelect()}
+            <div className="min-w-0 flex-1 max-w-xs">
+              {renderFamilyBranchSelect()}
+            </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <ViewModeToggle
@@ -1158,7 +1191,13 @@ export default function FamilyManagementDashboard({
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            className={
+              panelOpen
+                ? "grid grid-cols-1 gap-4"
+                : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            }
+          >
             {visibleFamilies.map((family) => {
               const familyMembers = family.members
                 .map((id) => getPersonById(id))

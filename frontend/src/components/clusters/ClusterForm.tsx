@@ -16,6 +16,7 @@ import {
   type MeetingDayKey,
 } from "@/src/lib/clusterMeetingSchedule";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import { formatPersonName } from "@/src/lib/name";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 interface ClusterFormProps {
@@ -227,18 +228,17 @@ export default function ClusterForm({
 
   const memberOptions = people.map((p) => ({
     value: p.id,
-    label: `${p.first_name} ${p.last_name}`,
+    label: formatPersonName(p),
   }));
 
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return people;
+    const searchLower = memberSearch.toLowerCase();
     return people.filter(
       (member) =>
-        `${member.first_name} ${member.last_name}`
-          .toLowerCase()
-          .includes(memberSearch.toLowerCase()) ||
-        member.role.toLowerCase().includes(memberSearch.toLowerCase()) ||
-        member.status.toLowerCase().includes(memberSearch.toLowerCase()),
+        formatPersonName(member).toLowerCase().includes(searchLower) ||
+        member.role.toLowerCase().includes(searchLower) ||
+        member.status.toLowerCase().includes(searchLower),
     );
   }, [people, memberSearch]);
 
@@ -566,7 +566,7 @@ export default function ClusterForm({
                       <PersonAvatar person={member} size="sm" />
                       <div className="flex-1">
                         <p className="font-medium text-sm">
-                          {member.first_name} {member.last_name}
+                          {formatPersonName(member)}
                         </p>
                         <div className="flex items-center space-x-1 mt-0.5">
                           <span
@@ -614,7 +614,7 @@ export default function ClusterForm({
                 >
                   <PersonAvatar person={member} size="xs" />
                   <span className="text-sm font-medium text-gray-900">
-                    {member.first_name} {member.last_name}
+                    {formatPersonName(member)}
                   </span>
                   <button
                     type="button"

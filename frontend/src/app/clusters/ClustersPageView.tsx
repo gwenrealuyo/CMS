@@ -26,12 +26,14 @@ import Button from "@/src/components/ui/Button";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
-  TOOLBAR_ACTION_BUTTON_CLASS,
-  TOOLBAR_ACTIONS_ROW_CLASS,
   TOOLBAR_BRANCH_SELECT_CLASS,
+  TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS,
   TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
+  TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
+  TOOLBAR_STACKED_ACTIONS_ROW_CLASS,
+  TOOLBAR_STACKED_CONTROLS_CLASS,
 } from "@/src/lib/toolbarStyles";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
@@ -428,6 +430,8 @@ export default function ClustersPageView({
       !allClusters.some((c) => c.members?.includes(Number(p.id)))
   ).length;
 
+  const useStackedToolbar = isDesktop && panelOpen;
+
   const clusterBranchSelectInteractive =
     clusterBranchCanChangeFilter && !clusterBranchesLoading;
 
@@ -443,7 +447,7 @@ export default function ClustersPageView({
     clusterBranchCanChangeFilter,
   ]);
 
-  const renderClusterBranchSelect = () => {
+  const renderClusterBranchSelect = (fullWidth = false) => {
     const options =
       clusterBranchesLoading && clusterBranchCanChangeFilter ? (
         <option value="">Loading…</option>
@@ -474,7 +478,9 @@ export default function ClustersPageView({
         }}
         className={
           clusterBranchSelectInteractive
-            ? TOOLBAR_BRANCH_SELECT_CLASS
+            ? fullWidth
+              ? TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS
+              : TOOLBAR_BRANCH_SELECT_CLASS
             : TOOLBAR_BRANCH_SELECT_LOCKED_CLASS
         }
       >
@@ -711,7 +717,13 @@ export default function ClustersPageView({
           >
             <div className="space-y-6 min-w-0">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              className={
+                panelOpen
+                  ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
+                  : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+              }
+            >
               <div
                 className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 card-shadow"
                 role="region"
@@ -860,8 +872,14 @@ export default function ClustersPageView({
 
             {/* Search + branch + actions (Families-style toolbar) */}
             <div className={TOOLBAR_CARD_CLASS}>
-              {/* Mobile — stacked 3-row toolbar */}
-              <div className="flex flex-col gap-3 md:hidden">
+              {/* Stacked 3-row toolbar (mobile, or desktop with detail panel open) */}
+              <div
+                className={
+                  useStackedToolbar
+                    ? "flex flex-col gap-3"
+                    : "flex flex-col gap-3 tablet:hidden"
+                }
+              >
                 <ToolbarSearch
                   fullWidth
                   value={clusterSearchQuery}
@@ -870,65 +888,58 @@ export default function ClustersPageView({
                   ariaLabel="Search clusters"
                 />
 
-                <div className="flex items-center justify-between gap-3">
-                  {renderClusterBranchSelect()}
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={showInactiveClusters}
-                        onChange={(e) =>
-                          onShowInactiveClustersChange(e.target.checked)
-                        }
-                        className="rounded border-gray-300 text-primary focus:ring-ring"
-                      />
-                      Show inactive
-                    </label>
-                    <ViewModeToggle
-                      viewMode={clusterListViewMode}
-                      onViewModeChange={setClusterListViewMode}
+                <div className={TOOLBAR_STACKED_CONTROLS_CLASS}>
+                  {renderClusterBranchSelect(true)}
+
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={showInactiveClusters}
+                      onChange={(e) =>
+                        onShowInactiveClustersChange(e.target.checked)
+                      }
+                      className="rounded border-gray-300 text-primary focus:ring-ring"
                     />
-                  </div>
+                    Show inactive
+                  </label>
+
+                  <ViewModeToggle
+                    fullWidth
+                    viewMode={clusterListViewMode}
+                    onViewModeChange={setClusterListViewMode}
+                  />
                 </div>
 
-                <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
+                <div className={TOOLBAR_STACKED_ACTIONS_ROW_CLASS}>
                   {hasClusterModuleWideAccess && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={onToggleSelectionMode}
-                        className={`inline-flex min-h-[44px] shrink-0 items-center rounded-lg border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ${
-                          isSelectionMode
-                            ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    <button
+                      type="button"
+                      onClick={onToggleSelectionMode}
+                      className={`${TOOLBAR_STACKED_ACTION_BUTTON_CLASS} ${
+                        isSelectionMode
+                          ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                          : ""
+                      }`}
+                    >
+                      <svg
+                        className={`mr-1 h-4 w-4 shrink-0 ${
+                          isSelectionMode ? "text-primary" : "text-gray-500"
                         }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <svg
-                          className={`mr-1 h-4 w-4 shrink-0 ${
-                            isSelectionMode ? "text-primary" : "text-gray-500"
-                          }`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        {isSelectionMode ? "Cancel Selection" : "Select"}
-                      </button>
-                      {isSelectionMode && selectedClusters.size > 0 && (
-                        <BulkActionsMenu
-                          onBulkMarkInactive={onBulkMarkInactive}
-                          onBulkDelete={onBulkDelete}
-                          onBulkExport={onBulkExport}
-                          selectedCount={selectedClusters.size}
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
-                      )}
-                    </>
+                      </svg>
+                      <span className="truncate">
+                        {isSelectionMode ? "Cancel" : "Select"}
+                      </span>
+                    </button>
                   )}
 
                   <button
@@ -940,10 +951,10 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className={TOOLBAR_ACTION_BUTTON_CLASS}
+                    className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
                   >
                     <svg
-                      className="w-4 h-4 mr-1"
+                      className="w-4 h-4 mr-1 shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -955,7 +966,9 @@ export default function ClustersPageView({
                         d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
                       />
                     </svg>
-                    Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
+                    <span className="truncate">
+                      Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
+                    </span>
                   </button>
 
                   <button
@@ -967,10 +980,10 @@ export default function ClustersPageView({
                         ).getBoundingClientRect()
                       )
                     }
-                    className={TOOLBAR_ACTION_BUTTON_CLASS}
+                    className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
                   >
                     <svg
-                      className="w-4 h-4 mr-1"
+                      className="w-4 h-4 mr-1 shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -985,6 +998,17 @@ export default function ClustersPageView({
                     Filter
                   </button>
                 </div>
+
+                {hasClusterModuleWideAccess &&
+                  isSelectionMode &&
+                  selectedClusters.size > 0 && (
+                    <BulkActionsMenu
+                      onBulkMarkInactive={onBulkMarkInactive}
+                      onBulkDelete={onBulkDelete}
+                      onBulkExport={onBulkExport}
+                      selectedCount={selectedClusters.size}
+                    />
+                  )}
 
                 {clusterActiveFilters.length > 0 && (
                   <div className="flex w-full flex-wrap items-center gap-2">
@@ -1030,7 +1054,13 @@ export default function ClustersPageView({
               </div>
 
               {/* Desktop — single-row toolbar */}
-              <div className="hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-2">
+              <div
+                className={
+                  useStackedToolbar
+                    ? "hidden"
+                    : "hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2"
+                }
+              >
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <ToolbarSearch
                     value={clusterSearchQuery}
@@ -1038,7 +1068,9 @@ export default function ClustersPageView({
                     placeholder="Search clusters…"
                     ariaLabel="Search clusters"
                   />
-                  {renderClusterBranchSelect()}
+                  <div className="min-w-0 flex-1 max-w-xs">
+                    {renderClusterBranchSelect()}
+                  </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
@@ -1429,7 +1461,13 @@ export default function ClustersPageView({
                     </table>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div
+                    className={
+                      panelOpen
+                        ? "grid grid-cols-1 gap-4"
+                        : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                    }
+                  >
                     {clusterPaginatedData.map((c) => (
                       <ClusterCard
                         key={c.id}

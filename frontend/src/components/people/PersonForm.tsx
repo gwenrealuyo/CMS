@@ -325,20 +325,22 @@ export default function PersonForm({
             description: newJourney.description,
             verified_by: newJourney.verified_by || undefined,
           });
-          await onJourneySaved?.(existingUserId);
-          // optimistic append so it shows instantly
-          const createdId = (created?.data as any)?.id || crypto.randomUUID();
-          setFormData((prev) => ({
-            ...prev,
-            journeys: [
-              ...(prev.journeys || []),
-              {
-                id: createdId,
-                user: existingUserId,
-                ...newJourney,
-              } as any,
-            ],
-          }));
+          await finishJourneyMutation(existingUserId);
+          if (!(isEditingFromProfile && onBackToProfile)) {
+            // optimistic append so it shows instantly
+            const createdId = (created?.data as any)?.id || crypto.randomUUID();
+            setFormData((prev) => ({
+              ...prev,
+              journeys: [
+                ...(prev.journeys || []),
+                {
+                  id: createdId,
+                  user: existingUserId,
+                  ...newJourney,
+                } as any,
+              ],
+            }));
+          }
           toast.success("Journey event added successfully.");
         } catch (e: any) {
           console.error("Failed to create journey immediately:", e);
@@ -415,20 +417,22 @@ export default function PersonForm({
             description: newJourney.description,
             verified_by: newJourney.verified_by || undefined,
           });
-          await onJourneySaved?.(existingUserId);
+          await finishJourneyMutation(existingUserId);
 
-          // Update the journey in the form data
-          setFormData((prev) => {
-            const updatedJourneys = [...(prev.journeys || [])];
-            updatedJourneys[editingJourneyIndex] = {
-              ...updatedJourneys[editingJourneyIndex],
-              ...newJourney,
-            } as any;
-            return {
-              ...prev,
-              journeys: updatedJourneys,
-            };
-          });
+          if (!(isEditingFromProfile && onBackToProfile)) {
+            // Update the journey in the form data
+            setFormData((prev) => {
+              const updatedJourneys = [...(prev.journeys || [])];
+              updatedJourneys[editingJourneyIndex] = {
+                ...updatedJourneys[editingJourneyIndex],
+                ...newJourney,
+              } as any;
+              return {
+                ...prev,
+                journeys: updatedJourneys,
+              };
+            });
+          }
 
           toast.success("Journey event updated successfully.");
           handleCancelEdit();
@@ -472,7 +476,14 @@ export default function PersonForm({
     });
   };
 
-  // Filter and sort journeys for virtualization
+  const finishJourneyMutation = async (personId: string) => {
+    await onJourneySaved?.(personId);
+    if (isEditingFromProfile && onBackToProfile) {
+      onBackToProfile();
+    }
+  };
+
+  // Delete journey confirmation state
   const filteredAndSortedJourneys = useMemo(() => {
     let filtered = formData.journeys || [];
 
@@ -536,12 +547,14 @@ export default function PersonForm({
       setJourneyDeleteConfirm((p) => ({ ...p, loading: true }));
       if (toDelete?.id && existingUserId) {
         await journeysApi.delete(toDelete.id);
-        await onJourneySaved?.(existingUserId);
+        await finishJourneyMutation(existingUserId);
       }
-      setFormData((prev) => ({
-        ...prev,
-        journeys: (prev.journeys || []).filter((_, i) => i !== idx),
-      }));
+      if (!(isEditingFromProfile && onBackToProfile)) {
+        setFormData((prev) => ({
+          ...prev,
+          journeys: (prev.journeys || []).filter((_, i) => i !== idx),
+        }));
+      }
       closeJourneyDelete();
     } catch (e) {
       console.error("Failed to delete journey:", e);

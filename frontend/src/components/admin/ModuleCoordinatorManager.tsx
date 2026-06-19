@@ -1580,7 +1580,11 @@ export default function ModuleCoordinatorManager() {
                   Assignment Scope
                 </label>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <label className="flex items-center cursor-pointer">
+                  <label
+                    className={`flex items-center ${
+                      formData.level ? "cursor-pointer" : "cursor-not-allowed"
+                    }`}
+                  >
                     <input
                       type="radio"
                       name="assignmentType"
@@ -1588,6 +1592,7 @@ export default function ModuleCoordinatorManager() {
                       checked={assignmentType === "module-wide"}
                       onChange={() => handleAssignmentTypeChange("module-wide")}
                       disabled={
+                        !formData.level ||
                         formData.level === "TEACHER" ||
                         formData.level === "BIBLE_SHARER" ||
                         coordinatorRequiresSpecificResource(
@@ -1600,6 +1605,7 @@ export default function ModuleCoordinatorManager() {
                     <div>
                       <span
                         className={`font-medium ${
+                          !formData.level ||
                           formData.level === "TEACHER" ||
                           formData.level === "BIBLE_SHARER" ||
                           coordinatorRequiresSpecificResource(
@@ -1617,7 +1623,11 @@ export default function ModuleCoordinatorManager() {
                       </p>
                     </div>
                   </label>
-                  <label className="flex items-center cursor-pointer">
+                  <label
+                    className={`flex items-center ${
+                      formData.level ? "cursor-pointer" : "cursor-not-allowed"
+                    }`}
+                  >
                     <input
                       type="radio"
                       name="assignmentType"
@@ -1626,12 +1636,16 @@ export default function ModuleCoordinatorManager() {
                       onChange={() =>
                         handleAssignmentTypeChange("resource-specific")
                       }
-                      disabled={formData.level === "SENIOR_COORDINATOR"}
+                      disabled={
+                        !formData.level ||
+                        formData.level === "SENIOR_COORDINATOR"
+                      }
                       className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <div>
                       <span
                         className={`font-medium ${
+                          !formData.level ||
                           formData.level === "SENIOR_COORDINATOR"
                             ? "text-gray-400"
                             : "text-gray-900"
@@ -1645,6 +1659,11 @@ export default function ModuleCoordinatorManager() {
                     </div>
                   </label>
                 </div>
+                {!formData.level && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Select a level to choose assignment scope.
+                  </p>
+                )}
                 {formData.level === "SENIOR_COORDINATOR" && (
                   <p className="mt-2 text-xs text-amber-600">
                     Senior Coordinators automatically have module-wide access.
@@ -1948,7 +1967,13 @@ export default function ModuleCoordinatorManager() {
                     Assignment scope
                   </span>
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <label className="flex items-center cursor-pointer">
+                    <label
+                      className={`flex items-center ${
+                        bulkSimple.level
+                          ? "cursor-pointer"
+                          : "cursor-not-allowed"
+                      }`}
+                    >
                       <input
                         type="radio"
                         name="bulk-simple-scope"
@@ -1957,6 +1982,7 @@ export default function ModuleCoordinatorManager() {
                           handleBulkSimpleAssignmentTypeChange("module-wide")
                         }
                         disabled={
+                          !bulkSimple.level ||
                           bulkSimple.level === "TEACHER" ||
                           bulkSimple.level === "BIBLE_SHARER" ||
                           coordinatorRequiresSpecificResource(
@@ -1968,6 +1994,7 @@ export default function ModuleCoordinatorManager() {
                       />
                       <span
                         className={
+                          !bulkSimple.level ||
                           bulkSimple.level === "TEACHER" ||
                           bulkSimple.level === "BIBLE_SHARER" ||
                           coordinatorRequiresSpecificResource(
@@ -1981,7 +2008,13 @@ export default function ModuleCoordinatorManager() {
                         Module-wide
                       </span>
                     </label>
-                    <label className="flex items-center cursor-pointer">
+                    <label
+                      className={`flex items-center ${
+                        bulkSimple.level
+                          ? "cursor-pointer"
+                          : "cursor-not-allowed"
+                      }`}
+                    >
                       <input
                         type="radio"
                         name="bulk-simple-scope"
@@ -1994,12 +2027,14 @@ export default function ModuleCoordinatorManager() {
                           )
                         }
                         disabled={
+                          !bulkSimple.level ||
                           bulkSimple.level === "SENIOR_COORDINATOR"
                         }
                         className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       <span
                         className={
+                          !bulkSimple.level ||
                           bulkSimple.level === "SENIOR_COORDINATOR"
                             ? "text-gray-400"
                             : "text-gray-900"
@@ -2009,6 +2044,11 @@ export default function ModuleCoordinatorManager() {
                       </span>
                     </label>
                   </div>
+                  {!bulkSimple.level && (
+                    <p className="text-xs text-gray-500">
+                      Select a level to choose assignment scope.
+                    </p>
+                  )}
                   {bulkSimple.level === "SENIOR_COORDINATOR" && (
                     <p className="text-xs text-amber-600">
                       Senior coordinators have module-wide access.
@@ -2209,7 +2249,13 @@ export default function ModuleCoordinatorManager() {
                               Assignment scope
                             </label>
                             <div className="flex flex-col sm:flex-row gap-4">
-                              <label className="flex items-center cursor-pointer">
+                              <label
+                                className={`flex items-center ${
+                                  assignment.level
+                                    ? "cursor-pointer"
+                                    : "cursor-not-allowed"
+                                }`}
+                              >
                                 <input
                                   type="radio"
                                   name={`assignmentType-${index}`}
@@ -2225,6 +2271,7 @@ export default function ModuleCoordinatorManager() {
                                     )
                                   }
                                   disabled={
+                                    !assignment.level ||
                                     assignment.level === "TEACHER" ||
                                     assignment.level === "BIBLE_SHARER" ||
                                     coordinatorRequiresSpecificResource(
@@ -2236,6 +2283,7 @@ export default function ModuleCoordinatorManager() {
                                 />
                                 <span
                                   className={
+                                    !assignment.level ||
                                     assignment.level === "TEACHER" ||
                                     assignment.level === "BIBLE_SHARER" ||
                                     coordinatorRequiresSpecificResource(
@@ -2249,7 +2297,13 @@ export default function ModuleCoordinatorManager() {
                                   Module-wide
                                 </span>
                               </label>
-                              <label className="flex items-center cursor-pointer">
+                              <label
+                                className={`flex items-center ${
+                                  assignment.level
+                                    ? "cursor-pointer"
+                                    : "cursor-not-allowed"
+                                }`}
+                              >
                                 <input
                                   type="radio"
                                   name={`assignmentType-${index}`}
@@ -2266,12 +2320,14 @@ export default function ModuleCoordinatorManager() {
                                     )
                                   }
                                   disabled={
+                                    !assignment.level ||
                                     assignment.level === "SENIOR_COORDINATOR"
                                   }
                                   className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                                 <span
                                   className={
+                                    !assignment.level ||
                                     assignment.level === "SENIOR_COORDINATOR"
                                       ? "text-gray-400"
                                       : "text-gray-900"
@@ -2281,6 +2337,11 @@ export default function ModuleCoordinatorManager() {
                                 </span>
                               </label>
                             </div>
+                            {!assignment.level && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                Select a level to choose assignment scope.
+                              </p>
+                            )}
                           </div>
                         )}
 

@@ -530,155 +530,161 @@ export default function LessonSessionReportForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2" ref={studentDropdownRef}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-start">
+        <div className="flex flex-col">
           <label
             htmlFor="student-search"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="mb-1 block min-h-5 text-sm font-medium text-gray-700"
           >
             Student{" "}
             <span className="text-red-500" aria-label="required">
               *
             </span>
           </label>
-          <div className="relative">
-            <input
-              id="student-search"
-              type="text"
-              value={studentQuery}
-              onChange={(event) => {
-                setStudentQuery(event.target.value);
-                setStudentDropdownOpen(true);
-              }}
-              onFocus={() => setStudentDropdownOpen(true)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setStudentDropdownOpen(false);
-                }
-              }}
-              placeholder="Search student by name, username, or member ID..."
-              className={`w-full min-h-[44px] rounded-md border py-2 text-sm focus:outline-none focus:ring-1 ${
-                formState.studentId ? "pl-3 pr-16" : "px-3"
-              } ${
-                fieldErrors.studentId
-                  ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:border-primary focus:ring-ring"
-              }`}
-              required
-              aria-invalid={!!fieldErrors.studentId}
-              aria-describedby={
-                fieldErrors.studentId ? "student-error" : undefined
+          <div className="relative h-11 shrink-0" ref={studentDropdownRef}>
+          <input
+            id="student-search"
+            type="text"
+            value={studentQuery}
+            onChange={(event) => {
+              setStudentQuery(event.target.value);
+              setStudentDropdownOpen(true);
+            }}
+            onFocus={() => setStudentDropdownOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setStudentDropdownOpen(false);
               }
-              aria-label="Search for student"
-              aria-expanded={isStudentDropdownOpen}
-              aria-haspopup="listbox"
-              aria-controls="student-options"
-            />
-            {formState.studentId && (
-              <button
-                type="button"
-                onClick={clearStudentSelection}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                aria-label="Clear student"
-              >
-                Clear
-              </button>
-            )}
-            {isStudentDropdownOpen && (
-              <div
-                id="student-options"
-                role="listbox"
-                className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto"
-                aria-label="Student options"
-              >
-                {filteredStudentOptions.length === 0 ? (
-                  <div
-                    className="px-3 py-2 text-sm text-gray-500"
-                    role="option"
-                  >
-                    No students match your search.
-                  </div>
-                ) : (
-                  filteredStudentOptions.map((person) => (
-                    <button
-                      key={person.id}
-                      type="button"
-                      role="option"
-                      aria-selected={
-                        formState.studentId === person.id?.toString()
-                      }
-                      onClick={() => {
-                        handleChange("studentId", person.id.toString());
-                        setStudentQuery(formatPersonName(person));
-                        setStudentDropdownOpen(false);
-                      }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-primary/10 focus:bg-primary/10 focus:outline-none"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-800">
-                          {formatPersonName(person)}
-                        </span>
-                        <StudentOptionBadges person={person} />
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-          {fieldErrors.studentId && (
-            <p
-              id="student-error"
-              className="text-xs text-red-600 mt-1"
-              role="alert"
+            }}
+            placeholder="Search student by name, username, or member ID..."
+            className={`h-11 w-full rounded-md border py-2 text-sm focus:outline-none focus:ring-1 ${
+              formState.studentId ? "pl-3 pr-16" : "px-3"
+            } ${
+              fieldErrors.studentId
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-primary focus:ring-ring"
+            }`}
+            required
+            aria-invalid={!!fieldErrors.studentId}
+            aria-describedby={
+              fieldErrors.studentId ? "student-error" : undefined
+            }
+            aria-label="Search for student"
+            aria-expanded={isStudentDropdownOpen}
+            aria-haspopup="listbox"
+            aria-controls="student-options"
+          />
+          {formState.studentId && (
+            <button
+              type="button"
+              onClick={clearStudentSelection}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              aria-label="Clear student"
             >
-              {fieldErrors.studentId}
-            </p>
+              Clear
+            </button>
+          )}
+          {isStudentDropdownOpen && (
+            <div
+              id="student-options"
+              role="listbox"
+              className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto"
+              aria-label="Student options"
+            >
+              {filteredStudentOptions.length === 0 ? (
+                <div
+                  className="px-3 py-2 text-sm text-gray-500"
+                  role="option"
+                >
+                  No students match your search.
+                </div>
+              ) : (
+                filteredStudentOptions.map((person) => (
+                  <button
+                    key={person.id}
+                    type="button"
+                    role="option"
+                    aria-selected={
+                      formState.studentId === person.id?.toString()
+                    }
+                    onClick={() => {
+                      handleChange("studentId", person.id.toString());
+                      setStudentQuery(formatPersonName(person));
+                      setStudentDropdownOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-primary/10 focus:bg-primary/10 focus:outline-none"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-800">
+                        {formatPersonName(person)}
+                      </span>
+                      <StudentOptionBadges person={person} />
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           )}
         </div>
+          <div className="mt-1 min-h-10">
+            {fieldErrors.studentId && (
+              <p
+                id="student-error"
+                className="text-xs text-red-600"
+                role="alert"
+              >
+                {fieldErrors.studentId}
+              </p>
+            )}
+          </div>
+        </div>
 
-        <div className="space-y-2">
+        <div className="flex flex-col">
           <label
             htmlFor={isTeacherLocked ? "teacher-display" : "teacher-select"}
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="mb-1 block min-h-5 text-sm font-medium text-gray-700"
           >
             Teacher
           </label>
-          {isTeacherLocked ? (
-            <input
-              id="teacher-display"
-              type="text"
-              readOnly
-              disabled
-              value={lockedTeacherLabel}
-              className="w-full min-h-[44px] rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 cursor-not-allowed"
-              aria-invalid={!!fieldErrors.teacherId}
-              aria-describedby={
-                fieldErrors.teacherId ? "teacher-error" : undefined
-              }
-            />
-          ) : (
-            <ScalableSelect
-              options={teacherSelectOptions}
-              value={formState.teacherId}
-              onChange={(value) => handleChange("teacherId", value)}
-              placeholder="Select teacher..."
-              searchPlaceholder="Search by name..."
-              emptyMessage="No teachers found"
-            />
-          )}
-          {fieldErrors.teacherId && (
-            <p
-              id="teacher-error"
-              className="text-xs text-red-600 mt-1"
-              role="alert"
-            >
-              {fieldErrors.teacherId}
-            </p>
-          )}
-          {teacherHelperText && (
-            <p className="text-xs text-gray-500">{teacherHelperText}</p>
-          )}
+          <div className="h-11 shrink-0">
+            {isTeacherLocked ? (
+              <input
+                id="teacher-display"
+                type="text"
+                readOnly
+                disabled
+                value={lockedTeacherLabel}
+                className="h-11 w-full cursor-not-allowed rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                aria-invalid={!!fieldErrors.teacherId}
+                aria-describedby={
+                  fieldErrors.teacherId ? "teacher-error" : undefined
+                }
+              />
+            ) : (
+              <ScalableSelect
+                options={teacherSelectOptions}
+                value={formState.teacherId}
+                onChange={(value) => handleChange("teacherId", value)}
+                placeholder="Select teacher..."
+                searchPlaceholder="Search by name..."
+                emptyMessage="No teachers found"
+              />
+            )}
+          </div>
+          <div className="mt-1 min-h-10">
+            {fieldErrors.teacherId && (
+              <p
+                id="teacher-error"
+                className="text-xs text-red-600"
+                role="alert"
+              >
+                {fieldErrors.teacherId}
+              </p>
+            )}
+            {!fieldErrors.teacherId && teacherHelperText && (
+              <p className="text-xs text-gray-500">{teacherHelperText}</p>
+            )}
+          </div>
         </div>
       </div>
 

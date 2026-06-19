@@ -1027,7 +1027,7 @@ class PersonBranchRequiredApiTest(TestCase):
 
 
 class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
-    """Cluster coordinators see cluster members whose branch differs from theirs."""
+    """Cluster coordinators do not see cluster members from other branches in Directory."""
 
     def setUp(self):
         from apps.clusters.models import Cluster
@@ -1053,6 +1053,16 @@ class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
             branch=self.branch_a,
         )
 
+        self.same_branch_member = Person.objects.create_user(
+            username="same_branch_member",
+            email="same_branch_member@test.com",
+            password="testpass123",
+            first_name="Same",
+            last_name="Branch",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+
         self.cross_member = Person.objects.create_user(
             username="cross_member",
             email="cross_member@test.com",
@@ -1068,25 +1078,125 @@ class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
             name="Visibility Test Cluster",
             coordinator=self.coord,
         )
-        self.cluster.members.add(self.cross_member)
+        self.cluster.members.add(self.same_branch_member, self.cross_member)
 
         self.client = APIClient()
 
-    def test_coord_sees_cross_branch_cluster_member(self):
+    def _people_usernames(self, response):
+        data = response.data
+        if isinstance(data, dict) and "results" in data:
+            return [p["username"] for p in data["results"]]
+        if isinstance(data, list):
+            return [p["username"] for p in data]
+        return []
+
+    def test_coord_does_not_see_cross_branch_cluster_member(self):
         self.client.force_authenticate(user=self.coord)
         response = self.client.get("/api/people/people/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        data = response.data
-        if isinstance(data, dict) and "results" in data:
-            usernames = [p["username"] for p in data["results"]]
-        elif isinstance(data, list):
-            usernames = [p["username"] for p in data]
-        else:
-            usernames = []
+        usernames = self._people_usernames(response)
 
-        self.assertIn(
+        self.assertNotIn(
             "cross_member",
             usernames,
-            "Cross-branch cluster member should appear for cluster coordinator",
+            "Cross-branch cluster member must not appear in directory",
         )
+        self.assertIn(
+            "same_branch_member",
+            usernames,
+            "Same-branch cluster member should still appear for cluster coordinator",
+        )
+
+    def test_coord_cannot_retrieve_cross_branch_cluster_member(self):
+        self.client.force_authenticate(user=self.coord)
+        response = self.client.get(f"/api/people/people/{self.cross_member.pk}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class PersonDirectoryBranchIsolationTest(TestCase):
+    """Directory retrieve and member list respect branch boundaries."""
+
+    def setUp(self):
+        self.branch_a = Branch.objects.create(
+            name="Branch A",
+            code="ISO_A",
+            is_active=True,
+        )
+        self.branch_b = Branch.objects.create(
+            name="Branch B",
+            code="ISO_B",
+            is_active=True,
+        )
+
+        self.regular_pastor = Person.objects.create_user(
+            username="iso_pastor",
+            email="iso_pastor@test.com",
+            password="testpass123",
+            first_name="Iso",
+            last_name="Pastor",
+            role="PASTOR",
+            branch=self.branch_a,
+        )
+
+        self.other_branch_member = Person.objects.create_user(
+            username="other_branch_member",
+            email="other_branch_member@test.com",
+            password="testpass123",
+            first_name="Other",
+            last_name="Branch",
+            role="MEMBER",
+            branch=self.branch_b,
+        )
+
+        self.member = Person.objects.create_user(
+            username="iso_member",
+            email="iso_member@test.com",
+            password="testpass123",
+            first_name="Iso",
+            last_name="Member",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+
+        self.family_mate = Person.objects.create_user(
+            username="family_mate",
+            email="family_mate@test.com",
+            password="testpass123",
+            first_name="Family",
+            last_name="Mate",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+
+        family = Family.objects.create(name="Iso Family")
+        family.members.add(self.member, self.family_mate)
+
+        self.client = APIClient()
+
+    def _people_usernames(self, response):
+        data = response.data
+        if isinstance(data, dict) and "results" in data:
+            return [p["username"] for p in data["results"]]
+        if isinstance(data, list):
+            return [p["username"] for p in data]
+        return []
+
+    def test_retrieve_other_branch_person_returns_404(self):
+        self.client.force_authenticate(user=self.regular_pastor)
+        response = self.client.get(
+            f"/api/people/people/{self.other_branch_member.pk}/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_member_sees_only_self_and_family_in_branch(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get("/api/people/people/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        usernames = self._people_usernames(response)
+
+        self.assertIn("iso_member", usernames)
+        self.assertIn("family_mate", usernames)
+        self.assertNotIn("other_branch_member", usernames)
+        self.assertNotIn("iso_pastor", usernames)

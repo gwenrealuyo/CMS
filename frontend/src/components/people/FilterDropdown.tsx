@@ -13,6 +13,7 @@ interface FilterDropdownProps {
   onClose: () => void;
   onSelectField: (field: FilterField) => void;
   branches?: Branch[];
+  canChangeBranchFilter?: boolean;
 }
 
 const FILTER_FIELDS: FilterField[] = [
@@ -80,6 +81,7 @@ export default function FilterDropdown({
   onClose,
   onSelectField,
   branches = [],
+  canChangeBranchFilter = true,
 }: FilterDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -144,7 +146,11 @@ export default function FilterDropdown({
       </div>
 
       <div className="max-h-64 overflow-y-auto">
-        {filterFieldsWithBranches.map((field) => (
+        {filterFieldsWithBranches
+          .filter(
+            (field) => canChangeBranchFilter || field.key !== "branch",
+          )
+          .map((field) => (
           <button
             key={field.key}
             onClick={() => {

@@ -7,8 +7,10 @@ import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import { authApi } from "@/src/lib/api";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import ProfileAccessSection from "@/src/components/profile/ProfileAccessSection";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 
 export default function ProfilePage() {
   return (
@@ -38,6 +40,9 @@ function ProfilePageContent() {
   const [passwordError, setPasswordError] = useState("");
   const [profileSuccess, setProfileSuccess] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [showPhotoRemoveConfirmation, setShowPhotoRemoveConfirmation] =
+    useState(false);
 
   useEffect(() => {
     if (user) {
@@ -48,6 +53,7 @@ function ProfilePageContent() {
         email: user.email || "",
         photo: null,
       });
+      setPhotoRemoved(false);
     }
   }, [user]);
 
@@ -58,7 +64,6 @@ function ProfilePageContent() {
     setProfileLoading(true);
 
     try {
-      // If photo is included, use FormData, otherwise use JSON
       if (profileData.photo) {
         const formData = new FormData();
         if (profileData.first_name) formData.append("first_name", profileData.first_name);
@@ -68,16 +73,20 @@ function ProfilePageContent() {
         formData.append("photo", profileData.photo);
         await authApi.updateProfile(formData);
       } else {
-        const data: any = {};
+        const data: Record<string, string | null> = {};
         if (profileData.first_name) data.first_name = profileData.first_name;
         if (profileData.last_name) data.last_name = profileData.last_name;
         if (profileData.middle_name) data.middle_name = profileData.middle_name;
         if (profileData.email) data.email = profileData.email;
+        if (photoRemoved) {
+          data.photo = null;
+        }
         await authApi.updateProfile(data);
       }
       setProfileSuccess("Profile updated successfully!");
       await refreshUser();
-      setProfileData({ ...profileData, photo: null }); // Clear photo after upload
+      setProfileData({ ...profileData, photo: null });
+      setPhotoRemoved(false);
     } catch (error: any) {
       setProfileError(
         error.response?.data?.message ||
@@ -259,6 +268,26 @@ function ProfilePageContent() {
               >
                 Photo
               </label>
+              {user.photo && !photoRemoved && (
+                <div className="flex items-center gap-3 mb-3">
+                  <PersonAvatar
+                    person={{
+                      id: user.id,
+                      first_name: user.first_name,
+                      last_name: user.last_name,
+                      photo: user.photo,
+                    }}
+                    size="md"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setShowPhotoRemoveConfirmation(true)}
+                  >
+                    Remove photo
+                  </Button>
+                </div>
+              )}
               <input
                 id="photo"
                 type="file"
@@ -267,6 +296,7 @@ function ProfilePageContent() {
                   const file = e.target.files?.[0];
                   if (file) {
                     setProfileData({ ...profileData, photo: file });
+                    setPhotoRemoved(false);
                   }
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -388,6 +418,20 @@ function ProfilePageContent() {
           </form>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showPhotoRemoveConfirmation}
+        onClose={() => setShowPhotoRemoveConfirmation(false)}
+        onConfirm={() => {
+          setPhotoRemoved(true);
+          setShowPhotoRemoveConfirmation(false);
+        }}
+        title="Remove Photo"
+        message="Remove your profile photo? Initials will be shown instead until you upload a new one. Click Update Profile to apply this change."
+        confirmText="Remove Photo"
+        cancelText="Cancel"
+        variant="warning"
+      />
     </DashboardLayout>
   );
 }

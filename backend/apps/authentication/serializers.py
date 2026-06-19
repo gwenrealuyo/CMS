@@ -1,7 +1,10 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
-from apps.people.serializers import ModuleCoordinatorSerializer
+from apps.people.serializers import (
+    ModuleCoordinatorSerializer,
+    delete_person_photo_if_cleared,
+)
 from .models import PasswordResetRequest, AccountLockout, AuditLog
 from .password_validators import PasswordStrengthValidator
 
@@ -189,6 +192,10 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "email": {"required": False},
             "photo": {"required": False},
         }
+
+    def update(self, instance, validated_data):
+        delete_person_photo_if_cleared(instance, validated_data)
+        return super().update(instance, validated_data)
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

@@ -114,6 +114,9 @@ interface FilterBarProps {
   onApplyFilter: (filter: FilterCondition) => void;
   isSearching?: boolean;
   branches?: Branch[];
+  canChangeBranchFilter?: boolean;
+  /** Filter chip ids that cannot be removed (e.g. locked default branch). */
+  lockedFilterIds?: string[];
 }
 
 export default function FilterBar({
@@ -126,6 +129,8 @@ export default function FilterBar({
   onApplyFilter,
   isSearching = false,
   branches = [],
+  canChangeBranchFilter = true,
+  lockedFilterIds = [],
 }: FilterBarProps) {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showFilterCard, setShowFilterCard] = useState(false);
@@ -204,12 +209,16 @@ export default function FilterBar({
   );
 
   const removeBranchGroup = (ids: string[]) => {
+    const removable = ids.filter((id) => !lockedFilterIds.includes(id));
+    if (removable.length === 0) return;
     if (onRemoveFilterIds) {
-      onRemoveFilterIds(ids);
+      onRemoveFilterIds(removable);
     } else {
-      ids.forEach((id) => onRemoveFilter(id));
+      removable.forEach((id) => onRemoveFilter(id));
     }
   };
+
+  const isFilterLocked = (filterId: string) => lockedFilterIds.includes(filterId);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6 mb-6">
@@ -313,26 +322,28 @@ export default function FilterBar({
                       value={formatFilterValue(filter)}
                     />
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveFilter(filter.id)}
-                    className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
-                    aria-label="Remove filter"
-                  >
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {!isFilterLocked(filter.id) && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveFilter(filter.id)}
+                      className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
+                      aria-label="Remove filter"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ))}
               {branchChipGroups.map((group) => (
@@ -345,26 +356,28 @@ export default function FilterBar({
                   <span className="mr-1 break-words">
                     <FilterChipText prefix={group.prefix} value={group.value} />
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => removeBranchGroup(group.ids)}
-                    className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
-                    aria-label="Remove branch filters"
-                  >
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {group.ids.some((id) => !isFilterLocked(id)) && (
+                    <button
+                      type="button"
+                      onClick={() => removeBranchGroup(group.ids)}
+                      className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
+                      aria-label="Remove branch filters"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ))}
               {orphanBranchFilters.map((filter) => (
@@ -381,26 +394,28 @@ export default function FilterBar({
                       value={formatFilterValue(filter)}
                     />
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveFilter(filter.id)}
-                    className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
-                    aria-label="Remove filter"
-                  >
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {!isFilterLocked(filter.id) && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveFilter(filter.id)}
+                      className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
+                      aria-label="Remove filter"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -453,6 +468,7 @@ export default function FilterBar({
                 setShowFilterCard(true);
               }}
               branches={branches}
+              canChangeBranchFilter={canChangeBranchFilter}
             />
 
             {selectedField && (

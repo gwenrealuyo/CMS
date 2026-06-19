@@ -25,7 +25,11 @@ import { useBranches } from "@/src/hooks/useBranches";
 import { clustersApi, peopleApi, journeysApi, User } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+import {
+  canChangePeopleBranchFilter,
+} from "@/src/lib/peopleBranchFilter";
 import UserLoginCredentialsModal from "@/src/components/people/UserLoginCredentialsModal";
+import PeopleDirectoryEmptyState from "@/src/components/people/PeopleDirectoryEmptyState";
 import { Branch } from "@/src/types/branch";
 import AssignMembersModal from "@/src/components/clusters/AssignMembersModal";
 import FamilyManagementDashboard from "@/src/components/families/FamilyManagementDashboard";
@@ -200,7 +204,9 @@ export default function PeoplePage() {
           openPersonInteraction("view", response.data);
         }
       } catch {
-        // Person may be inaccessible; still clear the query param.
+        setDirectoryAccessNotice(
+          "That person is not available in your directory view.",
+        );
       } finally {
         if (!cancelled) {
           router.replace(pathname);
@@ -252,6 +258,7 @@ export default function PeoplePage() {
     deletePerson,
     updatePerson,
     refreshPeople,
+    loading: peopleLoading,
   } = usePeople();
 
   const {
@@ -262,9 +269,40 @@ export default function PeoplePage() {
     refreshFamilies,
   } = useFamilies();
   const { branches } = useBranches();
-  const { user } = useAuth();
+  const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
   const isAdmin = user?.role === "ADMIN";
   const userCanHardDelete = canHardDelete(user);
+  const canChangeBranchFilter = useMemo(
+    () => canChangePeopleBranchFilter(user, isSeniorCoordinator),
+    [user, isSeniorCoordinator],
+  );
+  const visibleBranches = useMemo(() => {
+    if (canChangeBranchFilter) {
+      return branches.filter((b) => b.is_active);
+    }
+    if (user?.branch == null || user.branch === undefined) {
+      return [];
+    }
+    return branches.filter((b) => Number(b.id) === Number(user.branch));
+  }, [canChangeBranchFilter, branches, user?.branch]);
+  const userBranchName = useMemo(() => {
+    if (user?.branch_name?.trim()) return user.branch_name.trim();
+    const match = branches.find(
+      (b) => user?.branch != null && Number(b.id) === Number(user.branch),
+    );
+    return match?.name ?? null;
+  }, [user?.branch, user?.branch_name, branches]);
+  const isClusterCoordinator = useMemo(
+    () => isModuleCoordinator("CLUSTER"),
+    [isModuleCoordinator],
+  );
+  const lockedBranchFilterIds = useMemo(
+    () => (canChangeBranchFilter ? [] : [DEFAULT_PEOPLE_BRANCH_FILTER_ID]),
+    [canChangeBranchFilter],
+  );
+  const [directoryAccessNotice, setDirectoryAccessNotice] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (!user) {
@@ -274,13 +312,22 @@ export default function PeoplePage() {
     }
     if (peopleBranchFilterUserIdRef.current !== user.id) {
       peopleBranchFilterUserIdRef.current = user.id;
-      const f = buildDefaultBranchFilter(user, []);
-      setActiveFilters(f ? [f] : []);
+      if (!canChangePeopleBranchFilter(user, isSeniorCoordinator)) {
+        const f = buildDefaultBranchFilter(user, []);
+        setActiveFilters(f ? [f] : []);
+      } else {
+        setActiveFilters([]);
+      }
     }
-  }, [user]);
+  }, [user, isSeniorCoordinator]);
 
   useEffect(() => {
-    if (user == null || user.branch == null || user.branch === undefined) {
+    if (
+      user == null ||
+      user.branch == null ||
+      user.branch === undefined ||
+      canChangeBranchFilter
+    ) {
       return;
     }
     setActiveFilters((prev) => {
@@ -303,7 +350,7 @@ export default function PeoplePage() {
       next[idx] = updated;
       return next;
     });
-  }, [user, branches]);
+  }, [user, branches, canChangeBranchFilter]);
 
   // Clusters
   const [allClusters, setAllClusters] = useState<Cluster[]>([]);
@@ -1170,8 +1217,26 @@ export default function PeoplePage() {
         person.username !== "admin" && (person.first_name || person.last_name),
     );
 
+    if (
+      !canChangeBranchFilter &&
+      user?.branch != null &&
+      user.branch !== undefined
+    ) {
+      const userBranchId = String(user.branch);
+      filtered = filtered.filter(
+        (person) => String(person.branch ?? "") === userBranchId,
+      );
+    }
+
     return filtered;
-  }, [peopleUI, debouncedSearchQuery, activeFilters, searchPeople]);
+  }, [
+    peopleUI,
+    debouncedSearchQuery,
+    activeFilters,
+    searchPeople,
+    canChangeBranchFilter,
+    user?.branch,
+  ]);
 
   // const handleCreatePerson = (personData: Partial<Person>) => {
   //   const newPerson = {
@@ -1341,16 +1406,41 @@ export default function PeoplePage() {
   };
 
   const handleRemoveFilter = (filterId: string) => {
+    if (lockedBranchFilterIds.includes(filterId)) {
+      return;
+    }
     setActiveFilters(activeFilters.filter((f) => f.id !== filterId));
   };
 
-  const handleRemoveFilterIds = useCallback((filterIds: string[]) => {
-    setActiveFilters((prev) => prev.filter((f) => !filterIds.includes(f.id)));
-  }, []);
+  const handleRemoveFilterIds = useCallback(
+    (filterIds: string[]) => {
+      const removable = filterIds.filter(
+        (id) => !lockedBranchFilterIds.includes(id),
+      );
+      if (removable.length === 0) return;
+      setActiveFilters((prev) =>
+        prev.filter((f) => !removable.includes(f.id)),
+      );
+    },
+    [lockedBranchFilterIds],
+  );
 
   const handleClearAllFilters = () => {
+    if (!canChangeBranchFilter && user) {
+      const f = buildDefaultBranchFilter(user, branches);
+      setActiveFilters(f ? [f] : []);
+      return;
+    }
     setActiveFilters([]);
   };
+
+  const hasActiveSearchOrFilters = useMemo(() => {
+    if (debouncedSearchQuery.trim()) return true;
+    const nonDefaultFilters = activeFilters.filter(
+      (f) => f.id !== DEFAULT_PEOPLE_BRANCH_FILTER_ID,
+    );
+    return nonDefaultFilters.length > 0;
+  }, [debouncedSearchQuery, activeFilters]);
 
   const personPanelTitle =
     personPanelMode === "create"
@@ -1636,8 +1726,57 @@ export default function PeoplePage() {
                 onClearAllFilters={handleClearAllFilters}
                 onApplyFilter={handleApplyFilter}
                 isSearching={isSearching}
-                branches={branches}
+                branches={visibleBranches}
+                canChangeBranchFilter={canChangeBranchFilter}
+                lockedFilterIds={lockedBranchFilterIds}
               />
+
+              {!canChangeBranchFilter &&
+                user?.branch != null &&
+                user.branch !== undefined && (
+                  <div
+                    className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+                    role="status"
+                  >
+                    <p>
+                      Showing people in{" "}
+                      <span className="font-semibold">
+                        {userBranchName ?? "your branch"}
+                      </span>{" "}
+                      only. People in other branches are not listed in the
+                      directory.
+                    </p>
+                    {isClusterCoordinator && (
+                      <p className="mt-1 text-blue-800">
+                        To manage cluster members, use{" "}
+                        <a
+                          href="/clusters"
+                          className="font-medium underline hover:text-blue-950"
+                        >
+                          Clusters
+                        </a>
+                        .
+                      </p>
+                    )}
+                  </div>
+                )}
+
+              {directoryAccessNotice && (
+                <div
+                  className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start justify-between gap-3"
+                  role="alert"
+                >
+                  <p>{directoryAccessNotice}</p>
+                  <button
+                    type="button"
+                    onClick={() => setDirectoryAccessNotice(null)}
+                    className="text-amber-700 hover:text-amber-900 shrink-0"
+                    aria-label="Dismiss notice"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
 
               {(searchQuery || activeFilters.length > 0) && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-gray-600">
@@ -1658,29 +1797,43 @@ export default function PeoplePage() {
                 </div>
               )}
 
-              <DataTable
-                people={filteredPeopleUI as unknown as Person[]}
-                highlightedPersonId={
-                  personPanelOpen
-                    ? personPanelPerson?.id || viewEditPerson?.id || null
-                    : null
-                }
-                onView={(p) => openPersonInteraction("view", p)}
-                onEdit={(p) => openPersonInteraction("edit", p)}
-                onDelete={
-                  isAdmin
-                    ? (p) => {
-                        setPersonDeleteConfirmation({
-                          isOpen: true,
-                          person: p,
-                          loading: false,
-                        });
-                      }
-                    : undefined
-                }
-                onBulkDelete={userCanHardDelete ? handleBulkDelete : undefined}
-                onBulkExport={handleBulkExport}
-              />
+              {peopleLoading ? (
+                <div className="text-center py-8 text-sm text-gray-500">
+                  Loading people…
+                </div>
+              ) : filteredPeopleUI.length === 0 ? (
+                <PeopleDirectoryEmptyState
+                  canChangeBranchFilter={canChangeBranchFilter}
+                  branchName={userBranchName}
+                  hasActiveSearchOrFilters={hasActiveSearchOrFilters}
+                  userRole={user?.role}
+                  isClusterCoordinator={isClusterCoordinator}
+                />
+              ) : (
+                <DataTable
+                  people={filteredPeopleUI as unknown as Person[]}
+                  highlightedPersonId={
+                    personPanelOpen
+                      ? personPanelPerson?.id || viewEditPerson?.id || null
+                      : null
+                  }
+                  onView={(p) => openPersonInteraction("view", p)}
+                  onEdit={(p) => openPersonInteraction("edit", p)}
+                  onDelete={
+                    isAdmin
+                      ? (p) => {
+                          setPersonDeleteConfirmation({
+                            isOpen: true,
+                            person: p,
+                            loading: false,
+                          });
+                        }
+                      : undefined
+                  }
+                  onBulkDelete={userCanHardDelete ? handleBulkDelete : undefined}
+                  onBulkExport={handleBulkExport}
+                />
+              )}
             </div>
             {personPanelOpen && (
               <PersonDetailPanel

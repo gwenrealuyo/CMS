@@ -71,7 +71,6 @@ class PersonViewSet(viewsets.ModelViewSet):
 
         # Collect people from all module assignments
         people_querysets = []
-        cluster_priority_member_ids = []
 
         # 1. Cluster Coordinator: People in assigned cluster(s)
         coordinator_assignments = user.module_coordinator_assignments.filter(
@@ -107,7 +106,6 @@ class PersonViewSet(viewsets.ModelViewSet):
             all_member_ids = list(
                 set(list(cluster_member_ids) + list(family_member_ids))
             )
-            cluster_priority_member_ids = all_member_ids
             if all_member_ids:
                 people_querysets.append(queryset.filter(id__in=all_member_ids))
 
@@ -200,15 +198,7 @@ class PersonViewSet(viewsets.ModelViewSet):
             combined_queryset = people_querysets[0]
             for qs in people_querysets[1:]:
                 combined_queryset = combined_queryset | qs
-            # Apply branch filtering to combined queryset
-            if user.can_see_all_branches():
-                return combined_queryset.distinct()
-            if user.branch:
-                return combined_queryset.filter(
-                    Q(branch=user.branch)
-                    | Q(pk__in=cluster_priority_member_ids)
-                ).distinct()
-            return combined_queryset.none()
+            return apply_branch_filter(combined_queryset).distinct()
 
         # MEMBER: Only themselves and family members
         if user.role == "MEMBER":
@@ -233,10 +223,10 @@ class PersonViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = self._scoped_people_queryset()
         if getattr(self, "action", None) == "retrieve":
-            own = Person.objects.filter(pk=self.request.user.pk).prefetch_related(
-                "clusters", "families"
+            user_pk = self.request.user.pk
+            return super().get_queryset().filter(
+                Q(pk__in=qs.values_list("pk", flat=True)) | Q(pk=user_pk)
             )
-            return (qs | own).distinct()
         return qs
 
     def get_permissions(self):
@@ -341,7 +331,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
             combined_families = (
                 directly_connected_families | families_of_members
             ).distinct()
-            return combined_families
+            return filter_families_by_branch(combined_families)
 
         # MEMBER: Only families they're members of
         if user.role == "MEMBER":

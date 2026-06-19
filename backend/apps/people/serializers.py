@@ -12,6 +12,15 @@ from apps.people.coordinator_assignment_validation import (
 )
 
 
+def delete_person_photo_if_cleared(instance, validated_data):
+    if (
+        "photo" in validated_data
+        and validated_data["photo"] is None
+        and instance.photo
+    ):
+        instance.photo.delete(save=False)
+
+
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
     module_display = serializers.CharField(source="get_module_display", read_only=True)
     level_display = serializers.CharField(source="get_level_display", read_only=True)
@@ -596,6 +605,8 @@ class PersonSerializer(serializers.ModelSerializer):
         previous_lessons_finished_at = instance.lessons_finished_at
         # Store old branch value before update
         old_branch = instance.branch
+
+        delete_person_photo_if_cleared(instance, validated_data)
 
         # Perform the update
         updated_instance = super().update(instance, validated_data)

@@ -3,6 +3,7 @@ import { Person, JourneyType } from "@/src/types/person";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
 import { journeysApi, personDataToFormData } from "@/src/lib/api";
+import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import toast from "react-hot-toast";
@@ -118,6 +119,10 @@ export default function PersonForm({
 
   const [loading, setLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [showPhotoRemoveConfirmation, setShowPhotoRemoveConfirmation] =
+    useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { branches, getBranches } = useBranches();
 
@@ -298,12 +303,68 @@ export default function PersonForm({
       ? ["INVITED", "ATTENDED"]
       : ["ACTIVE", "SEMIACTIVE", "INACTIVE", "DECEASED"];
 
+  useEffect(() => {
+    setPhotoFile(null);
+    setPhotoRemoved(false);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+  }, [initialData?.id]);
+
+  const photoPreviewUrl = useMemo(() => {
+    if (photoFile) {
+      return URL.createObjectURL(photoFile);
+    }
+    return null;
+  }, [photoFile]);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(photoPreviewUrl);
+      }
+    };
+  }, [photoPreviewUrl]);
+
+  const photoPreviewPerson = useMemo(
+    () => ({
+      id: initialData?.id,
+      first_name: formData.first_name,
+      last_name: formData.last_name,
+      photo: photoRemoved
+        ? undefined
+        : photoPreviewUrl || initialData?.photo,
+    }),
+    [
+      initialData?.id,
+      initialData?.photo,
+      formData.first_name,
+      formData.last_name,
+      photoPreviewUrl,
+      photoRemoved,
+    ],
+  );
+
+  const showPhotoPreview =
+    Boolean(photoPreviewUrl) ||
+    Boolean(initialData?.photo && !photoRemoved);
+
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setPhotoFile(file);
+      setPhotoRemoved(false);
       setHasUnsavedChanges(true);
     }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoRemoved(true);
+    setPhotoFile(null);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+    setHasUnsavedChanges(true);
   };
 
   const handleAddJourney = () => {
@@ -617,9 +678,11 @@ export default function PersonForm({
       }
     }
 
-    const submitData = photoFile
+    const submitData: Partial<Person> | FormData = photoFile
       ? personDataToFormData(personData, photoFile)
-      : personData;
+      : photoRemoved && initialData?.id
+        ? { ...personData, photo: null }
+        : personData;
 
     // Submit person data first
     let result: Person | void;
@@ -669,6 +732,7 @@ export default function PersonForm({
       }
       setHasUnsavedChanges(false);
       setPhotoFile(null);
+      setPhotoRemoved(false);
     } catch (error: any) {
       console.error("Failed to save person:", error);
       toast.error(
@@ -1274,7 +1338,25 @@ export default function PersonForm({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Photo
                     </label>
+                    {showPhotoPreview && (
+                      <div className="flex items-center gap-3 mb-3">
+                        <PersonAvatar person={photoPreviewPerson} size="md" />
+                        {initialData?.id &&
+                          initialData?.photo &&
+                          !photoRemoved &&
+                          !photoFile && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={() => setShowPhotoRemoveConfirmation(true)}
+                            >
+                              Remove photo
+                            </Button>
+                          )}
+                      </div>
+                    )}
                     <input
+                      ref={photoInputRef}
                       type="file"
                       accept="image/*"
                       onChange={handlePhotoChange}
@@ -1745,6 +1827,20 @@ export default function PersonForm({
         message="You have unsaved changes in Basic Info. Are you sure you want to switch tabs? Your changes will be lost if you don't save first."
         confirmText="Switch Anyway"
         cancelText="Stay Here"
+        variant="warning"
+      />
+
+      <ConfirmationModal
+        isOpen={showPhotoRemoveConfirmation}
+        onClose={() => setShowPhotoRemoveConfirmation(false)}
+        onConfirm={() => {
+          handleRemovePhoto();
+          setShowPhotoRemoveConfirmation(false);
+        }}
+        title="Remove Photo"
+        message="Remove this profile photo? Initials will be shown instead until a new photo is uploaded. Save the person to apply this change."
+        confirmText="Remove Photo"
+        cancelText="Cancel"
         variant="warning"
       />
     </>

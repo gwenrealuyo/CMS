@@ -16,7 +16,9 @@ import {
 import Card from "@/src/components/ui/Card";
 import {
   ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_HEIGHT_COMPACT_CLASS,
   ANALYTICS_CHART_TICK_SIZE,
+  ANALYTICS_LEGEND_PROPS,
   analyticsChartColor,
 } from "@/src/lib/analyticsTheme";
 import type { PeopleBreakdownItem } from "@/src/types/reports";
@@ -57,7 +59,7 @@ export default function PeopleCompositionCharts({
             No role data available.
           </div>
         ) : (
-          <div className="h-72 w-full">
+          <div className={`${ANALYTICS_CHART_HEIGHT_COMPACT_CLASS} w-full`}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -79,7 +81,7 @@ export default function PeopleCompositionCharts({
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend />
+                <Legend {...ANALYTICS_LEGEND_PROPS} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -96,7 +98,7 @@ export default function PeopleCompositionCharts({
             No status data available.
           </div>
         ) : (
-          <div className="h-72 w-full">
+          <div className={`${ANALYTICS_CHART_HEIGHT_COMPACT_CLASS} w-full`}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={statusData}

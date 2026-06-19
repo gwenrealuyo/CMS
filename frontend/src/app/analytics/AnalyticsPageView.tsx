@@ -1,9 +1,9 @@
 "use client";
 
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
-import SegmentedControl from "@/src/components/ui/SegmentedControl";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import AnalyticsBranchSelector from "@/src/components/analytics/AnalyticsBranchSelector";
+import AnalyticsTabNav from "@/src/components/analytics/AnalyticsTabNav";
 import AnalyticsPlaceholder from "@/src/components/analytics/AnalyticsPlaceholder";
 import AnalyticsTabHeader from "@/src/components/analytics/AnalyticsTabHeader";
 import ComplianceDashboard from "@/src/components/analytics/compliance/ComplianceDashboard";
@@ -19,7 +19,6 @@ import BuilderDashboard from "@/src/components/analytics/builder/BuilderDashboar
 import { getModuleIcon } from "@/src/components/analytics/analyticsModuleIcons";
 import type { ReportsScopeMeta } from "@/src/types/reports";
 import {
-  ANALYTICS_TABS,
   ANALYTICS_TAB_META,
   type AnalyticsTab,
 } from "./analyticsTabs";
@@ -62,6 +61,7 @@ export default function AnalyticsPageView({
               meta={meta}
               value={selectedBranchId}
               onChange={onBranchChange}
+              className="w-full sm:w-auto"
             />
           )}
         </div>
@@ -70,13 +70,7 @@ export default function AnalyticsPageView({
           <ErrorMessage message={metaError} />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <SegmentedControl
-                value={activeTab}
-                onChange={onTabChange}
-                options={ANALYTICS_TABS}
-              />
-            </div>
+            <AnalyticsTabNav value={activeTab} onChange={onTabChange} />
 
             <AnalyticsTabHeader
               title={tabMeta.title}

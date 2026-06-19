@@ -31,3 +31,11 @@ export const ANALYTICS_MODULE_ACCENTS: Record<AnalyticsTab, string> = {
 export function analyticsChartColor(index: number): string {
   return ANALYTICS_CHART_COLORS[index % ANALYTICS_CHART_COLORS.length];
 }
+
+export const ANALYTICS_CHART_HEIGHT_CLASS = "h-64 sm:h-72 md:h-80";
+export const ANALYTICS_CHART_HEIGHT_COMPACT_CLASS = "h-56 sm:h-64 md:h-72";
+
+export const ANALYTICS_LEGEND_PROPS = {
+  wrapperStyle: { fontSize: 11, paddingTop: 4 },
+  iconSize: 10,
+} as const;

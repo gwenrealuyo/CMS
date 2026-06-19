@@ -41,7 +41,7 @@ export default function AnalyticsBranchSelector({
 
   if (!meta) {
     return (
-      <div className={`w-52 ${className}`.trim()}>
+      <div className={`w-full sm:w-52 shrink-0 ${className}`.trim()}>
         <ScalableSelect
           options={[]}
           value=""
@@ -60,7 +60,7 @@ export default function AnalyticsBranchSelector({
     return (
       <LockedControlTooltip
         label={REPORTS_BRANCH_LOCKED_HINT}
-        wrapperClassName={`inline-block w-52 shrink-0 align-middle cursor-default ${className}`.trim()}
+        wrapperClassName={`inline-block w-full sm:w-52 shrink-0 align-middle cursor-default ${className}`.trim()}
       >
         <ScalableSelect
           options={branchOptions}
@@ -80,7 +80,7 @@ export default function AnalyticsBranchSelector({
   ];
 
   return (
-    <div className={`w-52 ${className}`.trim()}>
+    <div className={`w-full sm:w-52 shrink-0 ${className}`.trim()}>
       <ScalableSelect
         options={editableOptions}
         value={value}

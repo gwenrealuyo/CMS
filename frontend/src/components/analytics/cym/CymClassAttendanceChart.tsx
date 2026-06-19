@@ -10,8 +10,10 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import { useIsMdUp } from "@/src/lib/listViewMode";
 import {
   ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_HEIGHT_CLASS,
   ANALYTICS_CHART_TICK_SIZE,
   analyticsChartColor,
 } from "@/src/lib/analyticsTheme";
@@ -26,6 +28,7 @@ export default function CymClassAttendanceChart({
   rows,
   loading = false,
 }: CymClassAttendanceChartProps) {
+  const isMdUp = useIsMdUp();
   const chartData = rows
     .filter((row) => row.attendance_rate != null)
     .map((row) => ({
@@ -34,7 +37,8 @@ export default function CymClassAttendanceChart({
       students: row.student_count,
     }));
 
-  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+  const tick = { fontSize: isMdUp ? ANALYTICS_CHART_TICK_SIZE : 11 };
+  const yAxisWidth = isMdUp ? 140 : 96;
 
   return (
     <Card title="Class Attendance Rates">
@@ -47,12 +51,17 @@ export default function CymClassAttendanceChart({
           No attendance data for the selected scope.
         </div>
       ) : (
-        <div className="h-80 w-full">
+        <div className={`${ANALYTICS_CHART_HEIGHT_CLASS} w-full`}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               layout="vertical"
               data={chartData}
-              margin={{ top: 8, right: 24, bottom: 8, left: 8 }}
+              margin={{
+                top: 8,
+                right: 16,
+                bottom: 8,
+                left: isMdUp ? 8 : 4,
+              }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -67,7 +76,7 @@ export default function CymClassAttendanceChart({
               <YAxis
                 type="category"
                 dataKey="name"
-                width={140}
+                width={yAxisWidth}
                 tick={tick}
               />
               <Tooltip

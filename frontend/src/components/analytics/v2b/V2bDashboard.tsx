@@ -115,7 +115,7 @@ export default function V2bDashboard({ selectedBranchId }: V2bDashboardProps) {
               ))}
             </select>
           </div>
-          <div className="flex items-end md:col-start-3">
+          <div className="flex w-full items-end md:col-start-3">
             <AnalyticsExportButton
               onClick={handleExportCSV}
               reportName="visitor to brethren"

@@ -12,6 +12,7 @@ import {
 import Card from "@/src/components/ui/Card";
 import {
   ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_HEIGHT_COMPACT_CLASS,
   ANALYTICS_CHART_STROKE_WIDTH,
   ANALYTICS_CHART_TICK_SIZE,
   analyticsChartColor,
@@ -45,7 +46,7 @@ export default function ServiceAttendanceChart({
             No Sunday Service attendance in the selected period.
           </div>
         ) : (
-          <div className="h-72 w-full">
+          <div className={`${ANALYTICS_CHART_HEIGHT_COMPACT_CLASS} w-full`}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={trendData}

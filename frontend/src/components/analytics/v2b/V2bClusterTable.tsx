@@ -14,6 +14,9 @@ export default function V2bClusterTable({ rows }: V2bClusterTableProps) {
 
   return (
     <Card title="Cluster Comparison">
+      <p className="mb-2 text-sm text-foreground/60 md:hidden">
+        Swipe sideways to see all columns.
+      </p>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">

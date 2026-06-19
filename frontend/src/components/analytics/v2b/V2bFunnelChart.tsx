@@ -11,8 +11,10 @@ import {
   YAxis,
 } from "recharts";
 import Card from "@/src/components/ui/Card";
+import { useIsMdUp } from "@/src/lib/listViewMode";
 import {
   ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_HEIGHT_CLASS,
   ANALYTICS_CHART_TICK_SIZE,
   analyticsChartColor,
 } from "@/src/lib/analyticsTheme";
@@ -27,8 +29,11 @@ export default function V2bFunnelChart({
   funnel,
   loading = false,
 }: V2bFunnelChartProps) {
+  const isMdUp = useIsMdUp();
   const chartData = funnel.filter((row) => row.count > 0 || funnel.length <= 6);
-  const tick = { fontSize: ANALYTICS_CHART_TICK_SIZE };
+  const tickSize = isMdUp ? ANALYTICS_CHART_TICK_SIZE : 11;
+  const tick = { fontSize: tickSize };
+  const yAxisWidth = isMdUp ? 150 : 96;
 
   return (
     <Card title="Conversion Funnel">
@@ -41,12 +46,17 @@ export default function V2bFunnelChart({
           No active prospects in the selected scope.
         </div>
       ) : (
-        <div className="h-80 w-full">
+        <div className={`${ANALYTICS_CHART_HEIGHT_CLASS} w-full`}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               layout="vertical"
               data={chartData}
-              margin={{ top: 8, right: 24, bottom: 8, left: 8 }}
+              margin={{
+                top: 8,
+                right: 16,
+                bottom: 8,
+                left: isMdUp ? 8 : 4,
+              }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -56,8 +66,8 @@ export default function V2bFunnelChart({
               <YAxis
                 type="category"
                 dataKey="label"
-                width={150}
-                tick={{ fontSize: ANALYTICS_CHART_TICK_SIZE }}
+                width={yAxisWidth}
+                tick={{ fontSize: tickSize }}
               />
               <Tooltip
                 formatter={(value: number, _name, props) => {

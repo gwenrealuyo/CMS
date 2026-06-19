@@ -30,7 +30,7 @@ export default function AnalyticsExportButton({
       onClick={onClick}
       disabled={disabled || loading}
       aria-label={ariaLabel}
-      className={`h-[42px] gap-2 ${className}`.trim()}
+      className={`h-[42px] w-full gap-2 sm:w-auto ${className}`.trim()}
     >
       <ArrowDownTrayIcon className="h-5 w-5 shrink-0" aria-hidden />
       {loading ? "Downloading…" : "Download report"}

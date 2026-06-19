@@ -148,7 +148,7 @@ export default function CymDashboard({ selectedBranchId }: CymDashboardProps) {
               ))}
             </select>
           </div>
-          <div className="flex items-end md:col-start-4">
+          <div className="flex w-full items-end md:col-start-4">
             <AnalyticsExportButton
               onClick={handleExportCSV}
               reportName="children youth ministry"

@@ -13,7 +13,9 @@ import {
 import Card from "@/src/components/ui/Card";
 import {
   ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_HEIGHT_CLASS,
   ANALYTICS_CHART_TICK_SIZE,
+  ANALYTICS_LEGEND_PROPS,
   analyticsChartColor,
 } from "@/src/lib/analyticsTheme";
 import type { NccLessonBreakdown } from "@/src/types/reports";
@@ -48,7 +50,7 @@ export default function LessonProgressChart({
           No lesson progress data for the selected scope.
         </div>
       ) : (
-        <div className="h-80 w-full">
+        <div className={`${ANALYTICS_CHART_HEIGHT_CLASS} w-full`}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
@@ -68,7 +70,7 @@ export default function LessonProgressChart({
               />
               <YAxis allowDecimals={false} tick={tick} />
               <Tooltip />
-              <Legend />
+              <Legend {...ANALYTICS_LEGEND_PROPS} />
               <Bar
                 dataKey="completed"
                 name="Completed"

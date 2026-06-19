@@ -164,7 +164,7 @@ export default function PeopleDashboard({
               ))}
             </select>
           </div>
-          <div className="flex items-end md:col-start-3">
+          <div className="flex w-full items-end md:col-start-3">
             <AnalyticsExportButton
               onClick={handleExportCSV}
               reportName="people demographics"

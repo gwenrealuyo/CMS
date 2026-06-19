@@ -14,8 +14,10 @@ import Card from "@/src/components/ui/Card";
 import {
   ANALYTICS_CHART_COLORS,
   ANALYTICS_CHART_GRID_STROKE,
+  ANALYTICS_CHART_HEIGHT_CLASS,
   ANALYTICS_CHART_STROKE_WIDTH,
   ANALYTICS_CHART_TICK_SIZE,
+  ANALYTICS_LEGEND_PROPS,
   analyticsChartColor,
 } from "@/src/lib/analyticsTheme";
 import type { V2bMonthlyTrendPoint } from "@/src/types/reports";
@@ -78,7 +80,7 @@ export default function V2bMonthlyTrendChart({
           No monthly tracking data for the selected year.
         </div>
       ) : (
-        <div className="h-80 w-full">
+        <div className={`${ANALYTICS_CHART_HEIGHT_CLASS} w-full`}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
@@ -91,7 +93,7 @@ export default function V2bMonthlyTrendChart({
               <XAxis dataKey="period" tick={tick} />
               <YAxis allowDecimals={false} tick={tick} />
               <Tooltip />
-              <Legend />
+              <Legend {...ANALYTICS_LEGEND_PROPS} />
               <Line
                 type="monotone"
                 dataKey="invited"

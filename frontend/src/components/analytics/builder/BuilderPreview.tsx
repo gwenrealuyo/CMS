@@ -41,8 +41,13 @@ export default function BuilderPreview({
                 : "Run the report to preview headline metrics."}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={onRun} disabled={loading}>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+            <Button
+              type="button"
+              onClick={onRun}
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
               {loading ? "Running…" : "Run Report"}
             </Button>
             <AnalyticsExportButton

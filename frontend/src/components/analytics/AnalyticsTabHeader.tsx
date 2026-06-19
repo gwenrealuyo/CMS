@@ -16,9 +16,9 @@ export default function AnalyticsTabHeader({
 }: AnalyticsTabHeaderProps) {
   return (
     <div>
-      <div className="flex items-center gap-2">
-        {icon}
-        <h2 className="text-xl font-semibold text-foreground md:text-2xl">
+      <div className="flex flex-wrap items-start gap-2">
+        {icon && <div className="shrink-0">{icon}</div>}
+        <h2 className="min-w-0 text-xl font-semibold text-foreground md:text-2xl">
           {title}
         </h2>
       </div>

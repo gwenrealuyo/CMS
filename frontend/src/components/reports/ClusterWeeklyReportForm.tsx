@@ -6,6 +6,10 @@ import {
   GatheringType,
 } from "@/src/types/cluster";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import {
+  getIsoWeekParts,
+  getIsoWeekPartsFromDateString,
+} from "@/src/lib/isoWeek";
 import { peopleApi, clusterReportsApi } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
@@ -116,10 +120,11 @@ export default function ClusterWeeklyReportForm({
       .filter((id) => id !== 0);
   };
 
+  const todayIsoParts = getIsoWeekParts(new Date());
   const [formData, setFormData] = useState<Partial<ClusterWeeklyReport>>({
     cluster: cluster?.id || 0,
-    year: new Date().getFullYear(),
-    week_number: getWeekNumber(new Date()),
+    year: todayIsoParts.year,
+    week_number: todayIsoParts.week,
     meeting_date: new Date().toISOString().split("T")[0],
     members_present: 0,
     visitors_present: 0,
@@ -264,15 +269,6 @@ export default function ClusterWeeklyReportForm({
       : selectedCluster.name
     : "";
 
-  // Helper function to get week number
-  function getWeekNumber(date: Date): number {
-    const start = new Date(date.getFullYear(), 0, 1);
-    const days = Math.floor(
-      (date.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)
-    );
-    return Math.ceil((days + start.getDay() + 1) / 7);
-  }
-
   useEffect(() => {
     if (cluster) {
       setFormData((prev) => ({ ...prev, cluster: cluster.id }));
@@ -306,7 +302,7 @@ export default function ClusterWeeklyReportForm({
           const currentWeek = Number(
             initialData?.week_number ??
               formData.week_number ??
-              getWeekNumber(new Date())
+              getIsoWeekParts(new Date()).week
           );
           const currentReportId = initialData?.id?.toString();
 
@@ -437,6 +433,21 @@ export default function ClusterWeeklyReportForm({
 
   const handleChange = (field: keyof ClusterWeeklyReport, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleMeetingDateChange = (value: string) => {
+    setFormData((prev) => {
+      const next: Partial<ClusterWeeklyReport> = {
+        ...prev,
+        meeting_date: value,
+      };
+      const parts = getIsoWeekPartsFromDateString(value);
+      if (parts) {
+        next.year = parts.year;
+        next.week_number = parts.week;
+      }
+      return next;
+    });
   };
 
   const handleClusterSelect = (clusterId: number | string) => {
@@ -665,7 +676,7 @@ export default function ClusterWeeklyReportForm({
           <input
             type="date"
             value={formData.meeting_date || ""}
-            onChange={(e) => handleChange("meeting_date", e.target.value)}
+            onChange={(e) => handleMeetingDateChange(e.target.value)}
             className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             required
           />

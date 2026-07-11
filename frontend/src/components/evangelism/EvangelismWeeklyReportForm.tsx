@@ -12,6 +12,10 @@ import {
 import { Person, PersonUI } from "@/src/types/person";
 import { peopleApi } from "@/src/lib/api";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import {
+  getIsoWeekParts,
+  getIsoWeekPartsFromDateString,
+} from "@/src/lib/isoWeek";
 
 /** Label for invites without a linked Person. */
 function prospectInviteDisplayName(prospect: Prospect): string {
@@ -51,14 +55,6 @@ interface EvangelismWeeklyReportFormProps {
   error?: string | null;
 }
 
-const getWeekNumber = (date: Date): number => {
-  const start = new Date(date.getFullYear(), 0, 1);
-  const days = Math.floor(
-    (date.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)
-  );
-  return Math.ceil((days + start.getDay() + 1) / 7);
-};
-
 /** Display list for members attended; includes coordinator alongside enrolled members. */
 function personToMemberOption(person: Person): PersonUI {
   const middleInitial = person.middle_name
@@ -92,11 +88,12 @@ export default function EvangelismWeeklyReportForm({
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [showAddVisitorModal, setShowAddVisitorModal] = useState(false);
 
+  const todayIsoParts = getIsoWeekParts(new Date());
   const defaultDate = new Date().toISOString().split("T")[0];
   const [formData, setFormData] = useState<EvangelismWeeklyReportFormValues>({
     evangelism_group_id: String(group.id),
-    year: new Date().getFullYear(),
-    week_number: getWeekNumber(new Date()),
+    year: todayIsoParts.year,
+    week_number: todayIsoParts.week,
     meeting_date: defaultDate,
     members_attended: [],
     visitors_attended: [],
@@ -324,12 +321,18 @@ export default function EvangelismWeeklyReportForm({
           <input
             type="date"
             value={formData.meeting_date}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                meeting_date: e.target.value,
-              }))
-            }
+            onChange={(e) => {
+              const value = e.target.value;
+              setFormData((prev) => {
+                const next = { ...prev, meeting_date: value };
+                const parts = getIsoWeekPartsFromDateString(value);
+                if (parts) {
+                  next.year = parts.year;
+                  next.week_number = parts.week;
+                }
+                return next;
+              });
+            }}
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
           />
         </div>

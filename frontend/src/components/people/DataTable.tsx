@@ -657,7 +657,7 @@ export default function DataTable({
   };
 
   const sortedPeople = [...displayPeople].sort((a, b) => {
-    const normalize = (person: Person) => {
+    const normalize = (person: DisplayPerson) => {
       if (sortField === "cluster_codes") {
         return person.cluster_codes?.filter(Boolean).join(", ") ?? "";
       }

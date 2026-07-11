@@ -209,6 +209,7 @@ Restart Waitress and the static file server.
 | **500** + password errors | `DB_PASSWORD` ≠ Postgres | `ALTER USER` in Docker; match `.env` |
 | `manage.py check` OK but site broken | Wrong process on 8000 or wrong folder | Stop other `runserver`; one Waitress from correct `backend` |
 | Admin: missing `admin/css/base.css` | No `collectstatic` with `DEBUG=False` | `python manage.py collectstatic --noinput` |
+| Profile photo URL returns **404** | Media not served under Waitress | Restart Waitress after pull; photos live in `backend/media/profiles/` and are served at `/media/...` via Django (see `core/urls.py`) |
 | `gunicorn` / `fcntl` error | Gunicorn on Windows | Use Waitress or Linux |
 | Pillow install fails | Python too new | Use Python 3.11 or 3.12 |
 | `waitress-serve` not found | PATH / venv | `python -m waitress ...` |

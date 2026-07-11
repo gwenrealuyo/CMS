@@ -1,7 +1,8 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -23,4 +24,18 @@ urlpatterns = [
         include("apps.notifications.urls", namespace="notifications"),
     ),
     path("api/reports/", include("apps.reports.urls", namespace="reports")),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+# Serve user uploads (profile photos, etc.).
+# django.conf.urls.static.static() only works when DEBUG=True; Waitress
+# production on Windows uses DEBUG=False, so add an explicit media route.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    urlpatterns += [
+        re_path(
+            r"^media/(?P<path>.*)$",
+            serve,
+            {"document_root": settings.MEDIA_ROOT},
+        ),
+    ]

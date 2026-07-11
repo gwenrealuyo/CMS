@@ -338,6 +338,7 @@ class EvangelismPeopleTallySerializer(serializers.Serializer):
     baptized_count = serializers.IntegerField()
     received_hg_count = serializers.IntegerField()
     reached_count = serializers.IntegerField()
+    unique_hc_count = serializers.IntegerField()
 
 
 class EvangelismTallyDrilldownSerializer(serializers.Serializer):

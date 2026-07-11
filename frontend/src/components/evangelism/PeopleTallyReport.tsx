@@ -79,7 +79,13 @@ interface PeopleTallyReportProps {
 
 type PeopleTallyMetric = Extract<
   EvangelismTallyDrilldownMetric,
-  "invited" | "attended" | "students" | "baptized" | "received_hg" | "reached"
+  | "invited"
+  | "attended"
+  | "students"
+  | "baptized"
+  | "received_hg"
+  | "reached"
+  | "unique_hc"
 >;
 
 export default function PeopleTallyReport({
@@ -519,6 +525,12 @@ export default function PeopleTallyReport({
                   render: (_value, row) =>
                     renderDrilldownCell(row, "reached", "Reached"),
                 },
+                {
+                  header: "UNIQUE HC",
+                  accessor: "unique_hc_count" as keyof EvangelismPeopleTallyRow,
+                  render: (_value, row) =>
+                    renderDrilldownCell(row, "unique_hc", "Unique HC"),
+                },
               ]}
               data={rows}
             />
@@ -532,6 +544,12 @@ export default function PeopleTallyReport({
           drilldown
             ? `${selectedYear}-${drilldown.month}-${drilldown.metric}-${tallyScope || "all"}`
             : null
+        }
+        highlightMonth={
+          drilldown?.metric === "unique_hc" ? drilldown.month : null
+        }
+        highlightYear={
+          drilldown?.metric === "unique_hc" ? selectedYear : null
         }
         onClose={() => setDrilldown(null)}
         fetchPage={fetchDrilldownPage}

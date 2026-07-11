@@ -63,7 +63,7 @@ from .services import (
     sync_prospect_invitation_journey_note,
     update_monthly_tracking,
     calculate_monthly_statistics,
-    count_taken_ncc_prospects_for_month,
+    person_ids_with_ncc_sessions_for_month,
     check_conversion_completion,
     endorse_visitor_to_cluster,
     get_cluster_visitors,
@@ -1000,20 +1000,23 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
         rows = []
         for month in range(1, 13):
-            invited_count = base_qs.filter(
-                role="VISITOR",
-                status="INVITED",
-                date_joined__year=year_int,
-                date_joined__month=month,
-            ).count()
-            attended_count = base_qs.filter(
-                role="VISITOR",
-                status="ATTENDED",
-                date_first_attended__year=year_int,
-                date_first_attended__month=month,
-            ).count()
-
-            students_count = count_taken_ncc_prospects_for_month(
+            invited_ids = set(
+                base_qs.filter(
+                    role="VISITOR",
+                    status="INVITED",
+                    date_joined__year=year_int,
+                    date_joined__month=month,
+                ).values_list("id", flat=True)
+            )
+            attended_ids = set(
+                base_qs.filter(
+                    role="VISITOR",
+                    status="ATTENDED",
+                    date_first_attended__year=year_int,
+                    date_first_attended__month=month,
+                ).values_list("id", flat=True)
+            )
+            students_ids = person_ids_with_ncc_sessions_for_month(
                 year=year_int,
                 month=month,
                 branch_id=branch_id,
@@ -1021,16 +1024,19 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 evangelism_group_id=eg_id,
                 group_person_ids=group_person_ids,
             )
-
-            baptized_count = base_qs.filter(
-                water_baptism_date__year=year_int,
-                water_baptism_date__month=month,
-            ).count()
-            received_hg_count = base_qs.filter(
-                spirit_baptism_date__year=year_int,
-                spirit_baptism_date__month=month,
-            ).count()
-            reached_count = (
+            baptized_ids = set(
+                base_qs.filter(
+                    water_baptism_date__year=year_int,
+                    water_baptism_date__month=month,
+                ).values_list("id", flat=True)
+            )
+            received_hg_ids = set(
+                base_qs.filter(
+                    spirit_baptism_date__year=year_int,
+                    spirit_baptism_date__month=month,
+                ).values_list("id", flat=True)
+            )
+            reached_ids = set(
                 annotate_people_reached_date(
                     people_meeting_reached_milestones(base_qs)
                 )
@@ -1038,18 +1044,27 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                     reached_date__year=year_int,
                     reached_date__month=month,
                 )
-                .count()
+                .values_list("id", flat=True)
+            )
+            unique_hc_ids = (
+                invited_ids
+                | attended_ids
+                | students_ids
+                | baptized_ids
+                | received_hg_ids
+                | reached_ids
             )
             rows.append(
                 {
                     "month": month,
                     "year": year_int,
-                    "invited_count": invited_count,
-                    "attended_count": attended_count,
-                    "students_count": students_count,
-                    "baptized_count": baptized_count,
-                    "received_hg_count": received_hg_count,
-                    "reached_count": reached_count,
+                    "invited_count": len(invited_ids),
+                    "attended_count": len(attended_ids),
+                    "students_count": len(students_ids),
+                    "baptized_count": len(baptized_ids),
+                    "received_hg_count": len(received_hg_ids),
+                    "reached_count": len(reached_ids),
+                    "unique_hc_count": len(unique_hc_ids),
                 }
             )
 
@@ -1095,34 +1110,10 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             .dates("spirit_baptism_date", "year")
         )
 
-        eligible_q = Prospect.objects.filter(commitment_form_signed=False, person__isnull=False)
-        if branch_id is not None:
-            eligible_q = eligible_q.filter(person__branch_id=branch_id)
-        if cluster_id is not None:
-            eligible_q = eligible_q.filter(person__clusters__id=cluster_id)
-        elif eg_id is not None:
-            gp_ids = group_person_ids or frozenset()
-            eligible_q = (
-                eligible_q.filter(person_id__in=gp_ids) if gp_ids else eligible_q.none()
-            )
-
-        eligible_person_ids = eligible_q.values_list("person_id", flat=True)
-
         lesson_qs = LessonSessionReport.objects.filter(
-            student_id__in=eligible_person_ids,
             session_date__isnull=False,
+            student_id__in=people_qs.values_list("id", flat=True),
         )
-        if branch_id is not None:
-            lesson_qs = lesson_qs.filter(student__branch_id=branch_id)
-        if cluster_id is not None:
-            lesson_qs = lesson_qs.filter(student__clusters__id=cluster_id)
-        elif eg_id is not None:
-            gp_ids = group_person_ids or frozenset()
-            lesson_qs = (
-                lesson_qs.filter(student_id__in=gp_ids)
-                if gp_ids
-                else lesson_qs.none()
-            )
         years.update(lesson_qs.dates("session_date", "year"))
 
         sorted_years = sorted([y.year for y in years], reverse=True)
@@ -1148,10 +1139,16 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             "baptized",
             "received_hg",
             "reached",
+            "unique_hc",
         }
         if metric not in valid_metrics:
             return Response(
-                {"detail": "metric must be one of invited, attended, students, baptized, received_hg, reached."},
+                {
+                    "detail": (
+                        "metric must be one of invited, attended, students, "
+                        "baptized, received_hg, reached, unique_hc."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1219,42 +1216,22 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
             student_dates = {
                 entry["student_id"]: entry["event_date"]
-                for entry in lesson_base.values("student_id")
-                .annotate(event_date=Min("session_date"))
-            }
-            student_ids = lesson_base.values_list("student_id", flat=True).distinct()
-            student_qs = Prospect.objects.filter(
-                person_id__in=student_ids,
-                commitment_form_signed=False,
-            )
-            if branch_id is not None:
-                student_qs = student_qs.filter(person__branch_id=branch_id)
-            if cluster_id is not None:
-                student_qs = student_qs.filter(person__clusters__id=cluster_id)
-            elif eg_id is not None:
-                gp_ids = group_person_ids or frozenset()
-                if gp_ids:
-                    student_qs = student_qs.filter(person_id__in=gp_ids)
-                else:
-                    student_qs = student_qs.none()
-
-            student_prospects = student_qs.select_related("person").order_by(
-                "person_id", "id"
-            )
-            unique_prospects = []
-            seen_person_ids = set()
-            for prospect in student_prospects:
-                if not prospect.person_id or prospect.person_id in seen_person_ids:
-                    continue
-                seen_person_ids.add(prospect.person_id)
-                unique_prospects.append(prospect)
-                advance_prospect_to_taken_ncc(
-                    prospect.person,
-                    activity_date=student_dates.get(prospect.person_id),
+                for entry in lesson_base.values("student_id").annotate(
+                    event_date=Min("session_date")
                 )
-                prospect.refresh_from_db()
-            rows = self._serialize_prospect_rows(
-                unique_prospects, metric, date_map_by_person_id=student_dates
+            }
+            student_ids = list(student_dates.keys())
+            for person in base_people.filter(id__in=student_ids):
+                advance_prospect_to_taken_ncc(
+                    person,
+                    activity_date=student_dates.get(person.id),
+                )
+            rows = self._serialize_people_rows(
+                base_people.filter(id__in=student_ids).order_by(
+                    "first_name", "last_name", "username"
+                ),
+                metric,
+                date_map=student_dates,
             )
         elif metric == "baptized":
             rows = self._serialize_people_rows(
@@ -1274,7 +1251,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 metric,
                 date_attr="spirit_baptism_date",
             )
-        else:
+        elif metric == "reached":
             rows = self._serialize_people_rows(
                 annotate_people_reached_date(
                     people_meeting_reached_milestones(base_people)
@@ -1287,6 +1264,80 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 metric,
                 date_attr="reached_date",
             )
+        else:
+            # unique_hc: union of all stage memberships for the month
+            invited_ids = set(
+                base_people.filter(
+                    role="VISITOR",
+                    status="INVITED",
+                    date_joined__year=year_int,
+                    date_joined__month=month_int,
+                ).values_list("id", flat=True)
+            )
+            attended_ids = set(
+                base_people.filter(
+                    role="VISITOR",
+                    status="ATTENDED",
+                    date_first_attended__year=year_int,
+                    date_first_attended__month=month_int,
+                ).values_list("id", flat=True)
+            )
+            students_ids = person_ids_with_ncc_sessions_for_month(
+                year=year_int,
+                month=month_int,
+                branch_id=branch_id,
+                cluster_id=cluster_id,
+                evangelism_group_id=eg_id,
+                group_person_ids=group_person_ids,
+            )
+            baptized_ids = set(
+                base_people.filter(
+                    water_baptism_date__year=year_int,
+                    water_baptism_date__month=month_int,
+                ).values_list("id", flat=True)
+            )
+            received_hg_ids = set(
+                base_people.filter(
+                    spirit_baptism_date__year=year_int,
+                    spirit_baptism_date__month=month_int,
+                ).values_list("id", flat=True)
+            )
+            reached_ids = set(
+                annotate_people_reached_date(
+                    people_meeting_reached_milestones(base_people)
+                )
+                .filter(
+                    reached_date__year=year_int,
+                    reached_date__month=month_int,
+                )
+                .values_list("id", flat=True)
+            )
+            unique_ids = (
+                invited_ids
+                | attended_ids
+                | students_ids
+                | baptized_ids
+                | received_hg_ids
+                | reached_ids
+            )
+            rows = self._serialize_people_rows(
+                base_people.filter(id__in=unique_ids).order_by(
+                    "first_name", "last_name", "username"
+                ),
+                metric,
+            )
+            reached_by_id = {
+                person.id: person.reached_date
+                for person in annotate_people_reached_date(
+                    people_meeting_reached_milestones(
+                        base_people.filter(id__in=unique_ids)
+                    )
+                )
+            }
+            for row in rows:
+                row["reached_date"] = self._to_date(
+                    reached_by_id.get(row["id"])
+                )
 
         return self._paginated_drilldown_response(rows)
 

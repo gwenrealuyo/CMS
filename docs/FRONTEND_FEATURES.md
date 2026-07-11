@@ -62,7 +62,7 @@ Record Donation is intentionally not included (finance `?action=add-donation` ca
   - Default group list shows active groups only (`is_active: true`)
 - **Each 1 Reach 1:** `Each1Reach1Dashboard` uses the same toolbar pattern as Groups (search, branch, Table/Cards, year/status filters, Create Goal); defaults to cards; Table coerced to cards below `md`
 - **Add Visitor (`ProspectForm`)** and **weekly report modals** stack Cancel/Submit full-width on mobile (`flex-col-reverse sm:flex-row`, 44px touch targets)
-- **Tally / Reports:** monthly people tally and weekly unified tally; gathering type badges use filled tonal styling in evangelism components
+- **Tally / Reports:** monthly people tally (`PeopleTallyReport`: Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC) and weekly unified tally; Unique HC drilldown highlights in-month milestone chips; gathering type badges use filled tonal styling in evangelism components. Same tally surface on Analytics **E1R1**.
 - Deep link `?action=submit-report` opens weekly report submission flow
 - See [EVANGELISM_MODULE.md](./EVANGELISM_MODULE.md) for API, models, and full component map
 

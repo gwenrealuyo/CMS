@@ -255,7 +255,7 @@ def calculate_monthly_statistics(
     return [result]
 
 
-def count_taken_ncc_prospects_for_month(
+def person_ids_with_ncc_sessions_for_month(
     *,
     year: int,
     month: int,
@@ -263,8 +263,8 @@ def count_taken_ncc_prospects_for_month(
     cluster_id: Optional[int] = None,
     evangelism_group_id: Optional[int] = None,
     group_person_ids: Optional[frozenset] = None,
-) -> int:
-    """Count unique prospects with NCC lesson activity in a month (People Tally NCC rule)."""
+) -> set:
+    """Distinct people with NCC lesson activity in a month (People Tally NCC rule)."""
     from apps.lessons.models import LessonSessionReport
 
     student_lsr = LessonSessionReport.objects.filter(
@@ -282,24 +282,29 @@ def count_taken_ncc_prospects_for_month(
         else:
             student_lsr = student_lsr.none()
 
-    student_ids = student_lsr.values_list("student_id", flat=True).distinct()
+    return set(student_lsr.values_list("student_id", flat=True).distinct())
 
-    student_qs = Prospect.objects.filter(
-        person_id__in=student_ids,
-        commitment_form_signed=False,
+
+def count_taken_ncc_prospects_for_month(
+    *,
+    year: int,
+    month: int,
+    branch_id: Optional[int] = None,
+    cluster_id: Optional[int] = None,
+    evangelism_group_id: Optional[int] = None,
+    group_person_ids: Optional[frozenset] = None,
+) -> int:
+    """Count unique people with NCC lesson activity in a month (People Tally NCC rule)."""
+    return len(
+        person_ids_with_ncc_sessions_for_month(
+            year=year,
+            month=month,
+            branch_id=branch_id,
+            cluster_id=cluster_id,
+            evangelism_group_id=evangelism_group_id,
+            group_person_ids=group_person_ids,
+        )
     )
-    if branch_id is not None:
-        student_qs = student_qs.filter(person__branch_id=branch_id)
-    if cluster_id is not None:
-        student_qs = student_qs.filter(person__clusters__id=cluster_id)
-    elif evangelism_group_id is not None:
-        gp_ids = group_person_ids or frozenset()
-        if gp_ids:
-            student_qs = student_qs.filter(person_id__in=gp_ids)
-        else:
-            student_qs = student_qs.none()
-
-    return student_qs.values_list("person_id", flat=True).distinct().count()
 
 
 def check_conversion_completion(

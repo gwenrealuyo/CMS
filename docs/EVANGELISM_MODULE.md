@@ -16,7 +16,7 @@ Key features include:
 - **Conversion Recording**: Record water baptism and Holy Ghost reception with dates; update Person and Journey timelines
 - **Each 1 Reach 1 Goals**: Cluster-based goal tracking with automatic progress updates
 - **Monthly Conversion Tracking**: Track unique persons per month at each stage (INVITED, ATTENDED, BAPTIZED, RECEIVED_HG, CONVERTED)
-- **Reporting**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached) and weekly unified tallies
+- **Reporting**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC) and weekly unified tallies
 
 ## Data Model & Storage
 
@@ -306,16 +306,19 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?branch={branch_id}` – limit people to that branch
     - Query params: `?cluster={cluster_id}` – cluster scope (formal `Cluster` membership on `Person`)
     - Query params: `?evangelism_group={group_id}` – evangelism-group scope (union of people in `EvangelismGroup.members` and prospects with a linked `Person` for that group); **do not send `cluster` and `evangelism_group` together**
-    - Counts by month:
+    - Counts by month (each stage is independent — a person who hits multiple stages in the same month appears in **each** matching column):
       - **INVITED**: Person created in month with `role=VISITOR` and `status=INVITED`
       - **ATTENDED**: Person with `role=VISITOR`, `status=ATTENDED`, and `date_first_attended` in month
-      - **NCC**: Unique people with Lesson Session Report in month and `commitment_form_signed=false`
+      - **NCC** (`students_count`): Distinct people with a `LessonSessionReport.session_date` in that month (same branch/cluster/group scoping). Conversion status / `commitment_form_signed` does **not** exclude them
       - **BAPTIZED**: `water_baptism_date` in month
       - **RECEIVED_HG**: `spirit_baptism_date` in month
-      - **REACHED**: Person has both `water_baptism_date` and `spirit_baptism_date`; counted in the month/year of the later date
+      - **REACHED**: Person meets all reached milestones (first invited, first attended, at least one NCC session, water baptism, Holy Ghost); counted in the month of `reached_date` (latest of those milestone dates)
+      - **UNIQUE HC** (`unique_hc_count`): Distinct people who appear in **any** of the columns above for that month (union of person IDs). Someone who progressed through several stages still counts as **1**
     - Related actions (same query params for `branch`, `cluster`, `evangelism_group` as `/people_tally/`):
       - `GET /people_tally_years/` – years present in tally-related data for the current scope
       - `GET /people_tally_detail/` – paginated drill-down for a month + metric
+        - Required: `month`, `metric` ∈ `invited` | `attended` | `students` | `baptized` | `received_hg` | `reached` | `unique_hc`
+        - Returns people for that column (Unique HC returns the deduped union). Milestone date chips are included for display; the Unique HC UI highlights chips whose dates fall in the selected month
 
 - `/api/evangelism/prospects/` – ProspectViewSet CRUD
   - `GET` – List all prospects
@@ -522,7 +525,7 @@ The main page includes tabs for different views:
 
 - **Groups Tab**: Manage evangelism groups (see [Groups tab listing](#groups-tab-listing) below)
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
-- **Tally Tab**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached) with year filter
+- **Tally Tab**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC) with year filter; click a count to open the drill-down modal
 - **Reports Tab**: Weekly unified tally (evangelism + cluster weekly reports)
 - **Bible Sharers Tab**: Monitor Bible Sharers coverage across clusters
 
@@ -713,8 +716,10 @@ The Groups tab toolbar mirrors the clusters page layout:
   - Drop-offs by stage, reason, time period
   - Recovery statistics
   - Recommendations
-- **`PeopleTallyReport`**: Monthly people tally
-  - Columns: Month, Invited, Attended, NCC, Baptized, Received HG, Reached
+- **`PeopleTallyReport`**: Monthly people tally (also used on Analytics **E1R1**)
+  - Columns: Month, Invited, Attended, NCC, Baptized, Received HG, Reached, **UNIQUE HC**
+  - Multi-column counting: one person can appear in every stage column they achieved that month; Unique HC counts them once
+  - Clicking a non-zero count opens `TallyDrilldownModal`; for Unique HC, milestone chips (Invited, Attended, Lessons Finished, Baptism, Holy Ghost, Reached) whose dates fall in the report month are emphasized
   - Filters: year (dynamic options), branch, and a searchable combined **cluster or evangelism group** selector (shows **Cluster** vs **Group** badges); group list respects the selected branch server-side where applicable
 - **`TallyReport`**: Weekly unified tally
   - Combines evangelism weekly reports with cluster weekly reports

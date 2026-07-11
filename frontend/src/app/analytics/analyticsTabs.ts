@@ -42,7 +42,7 @@ export const ANALYTICS_TAB_META: Record<
   e1r1: {
     title: "Each 1 Reach 1",
     description:
-      "Monthly people tally — invited, attended, students, baptized, received Holy Ghost, and reached counts by month.",
+      "Monthly people tally — invited, attended, students, baptized, received Holy Ghost, reached, and unique headcount by month.",
   },
   engagement: {
     title: "Engagement & Attendance",

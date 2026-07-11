@@ -16,6 +16,9 @@ interface TallyDrilldownModalProps {
   fetchPage: (
     page: number,
   ) => Promise<PaginatedResponse<EvangelismTallyDrilldownRow>>;
+  /** When set (Unique HC), emphasize milestone chips whose date falls in this month. */
+  highlightMonth?: number | null;
+  highlightYear?: number | null;
 }
 
 export default function TallyDrilldownModal({
@@ -24,6 +27,8 @@ export default function TallyDrilldownModal({
   requestKey,
   onClose,
   fetchPage,
+  highlightMonth = null,
+  highlightYear = null,
 }: TallyDrilldownModalProps) {
   const [rows, setRows] = useState<EvangelismTallyDrilldownRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,6 +53,8 @@ export default function TallyDrilldownModal({
         return "Received HG";
       case "reached":
         return "Reached";
+      case "unique_hc":
+        return "Unique HC";
       case "members":
       case "visitors":
         return "Meeting";
@@ -58,6 +65,25 @@ export default function TallyDrilldownModal({
 
   const formatDate = (value?: string | null) =>
     value ? new Date(value).toLocaleDateString() : null;
+
+  const isInHighlightMonth = (value?: string | null) => {
+    if (highlightMonth == null || highlightYear == null || !value) {
+      return false;
+    }
+    const datePart = value.slice(0, 10);
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart);
+    if (!match) {
+      return false;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    return year === highlightYear && month === highlightMonth;
+  };
+
+  const chipClassName = (base: string, value?: string | null) =>
+    isInHighlightMonth(value)
+      ? `${base} ring-2 ring-offset-1 ring-gray-700 font-semibold`
+      : base;
 
   const shouldShowEventDateChip = (
     metric: EvangelismTallyDrilldownRow["metric"],
@@ -168,38 +194,73 @@ export default function TallyDrilldownModal({
                       </span>
                     )}
                     {formatDate(row.date_first_invited) && (
-                      <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                      <span
+                        className={chipClassName(
+                          "rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700",
+                          row.date_first_invited,
+                        )}
+                      >
                         Invited {formatDate(row.date_first_invited)}
                       </span>
                     )}
                     {formatDate(row.date_first_attended) && (
-                      <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">
+                      <span
+                        className={chipClassName(
+                          "rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700",
+                          row.date_first_attended,
+                        )}
+                      >
                         Attended {formatDate(row.date_first_attended)}
                       </span>
                     )}
                     {formatDate(row.lessons_finished_at) && (
-                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                      <span
+                        className={chipClassName(
+                          "rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700",
+                          row.lessons_finished_at,
+                        )}
+                      >
                         Lessons Finished {formatDate(row.lessons_finished_at)}
                       </span>
                     )}
                     {formatDate(row.water_baptism_date) && (
-                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                      <span
+                        className={chipClassName(
+                          "rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
+                          row.water_baptism_date,
+                        )}
+                      >
                         Baptism {formatDate(row.water_baptism_date)}
                       </span>
                     )}
                     {formatDate(row.spirit_baptism_date) && (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                      <span
+                        className={chipClassName(
+                          "rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
+                          row.spirit_baptism_date,
+                        )}
+                      >
                         Holy Ghost {formatDate(row.spirit_baptism_date)}
                       </span>
                     )}
                     {formatDate(row.reached_date) && (
-                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+                      <span
+                        className={chipClassName(
+                          "rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700",
+                          row.reached_date,
+                        )}
+                      >
                         Reached {formatDate(row.reached_date)}
                       </span>
                     )}
                     {formatDate(row.event_date) &&
                       shouldShowEventDateChip(row.metric) && (
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                        <span
+                          className={chipClassName(
+                            "rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
+                            row.event_date,
+                          )}
+                        >
                           {getEventDateLabel(row.metric)}{" "}
                           {formatDate(row.event_date)}
                         </span>

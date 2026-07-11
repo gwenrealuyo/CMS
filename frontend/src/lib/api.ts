@@ -1293,7 +1293,7 @@ export const evangelismApi = {
     cluster?: number | string;
     evangelism_group?: number | string;
     month: number;
-    metric: "invited" | "attended" | "students" | "baptized" | "received_hg" | "reached";
+    metric: "invited" | "attended" | "students" | "baptized" | "received_hg" | "reached" | "unique_hc";
     page?: number;
     page_size?: number;
   }) =>

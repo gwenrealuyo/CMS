@@ -90,6 +90,7 @@ export interface EvangelismPeopleTallyRow {
   baptized_count: number;
   received_hg_count: number;
   reached_count: number;
+  unique_hc_count: number;
 }
 
 export type EvangelismTallyDrilldownMetric =
@@ -99,6 +100,7 @@ export type EvangelismTallyDrilldownMetric =
   | "baptized"
   | "received_hg"
   | "reached"
+  | "unique_hc"
   | "members"
   | "visitors";
 

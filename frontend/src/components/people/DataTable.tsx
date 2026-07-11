@@ -652,16 +652,18 @@ export default function DataTable({
   };
 
   const sortedPeople = [...displayPeople].sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
+    const normalize = (person: Person) => {
+      if (sortField === "cluster_codes") {
+        return person.cluster_codes?.filter(Boolean).join(", ") ?? "";
+      }
+      if (sortField === "branch") {
+        return person.branch_code?.trim() || "";
+      }
+      return person[sortField] as string | number | undefined;
+    };
 
-    const normalize = (v: unknown) =>
-      sortField === "cluster_codes"
-        ? ((v as string[] | undefined)?.filter(Boolean).join(", ") ?? "")
-        : (v as string | number | undefined);
-
-    const aNorm = normalize(aValue);
-    const bNorm = normalize(bValue);
+    const aNorm = normalize(a);
+    const bNorm = normalize(b);
 
     if (aNorm == null && bNorm == null) return 0;
     if (aNorm == null || aNorm === "") return sortDirection === "asc" ? 1 : -1;
@@ -1062,10 +1064,7 @@ export default function DataTable({
                           )}
                           {field === "branch" && (
                             <div className="text-sm text-gray-900">
-                              {person.branch_name ||
-                                (person.branch
-                                  ? `Branch ${person.branch}`
-                                  : "-")}
+                              {person.branch_code?.trim() || "-"}
                             </div>
                           )}
                           {field === "cluster_codes" && (
@@ -1294,8 +1293,7 @@ export default function DataTable({
                         )}
                         {field === "branch" && (
                           <div className="text-sm text-gray-900">
-                            {person.branch_name ||
-                              (person.branch ? `Branch ${person.branch}` : "-")}
+                            {person.branch_code?.trim() || "-"}
                           </div>
                         )}
                         {field === "cluster_codes" && (

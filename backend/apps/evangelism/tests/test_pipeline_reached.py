@@ -248,3 +248,123 @@ class PeopleTallyReachedTests(TestCase):
         self.assertEqual(april["reached_count"], 1)
         march = next(row for row in response.data if row["month"] == 3)
         self.assertEqual(march["reached_count"], 0)
+
+
+class PeopleTallyUniqueHcTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = Person.objects.create_user(
+            username="admin_unique_hc",
+            password="pw",
+            role="ADMIN",
+            status="ACTIVE",
+        )
+        self.client.force_authenticate(user=self.admin)
+        self.branch = Branch.objects.create(name="Unique HC Branch", code="UHC")
+        self.teacher = Person.objects.create_user(
+            username="uhc_teacher",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.cluster = Cluster.objects.create(
+            code="UHC",
+            name="Unique HC Cluster",
+            branch=self.branch,
+            coordinator=self.teacher,
+        )
+        self.year = 2026
+        self.month = 5
+
+    def test_same_month_ncc_baptism_hg_counts_each_column_and_unique_hc_once(self):
+        person = Person.objects.create_user(
+            username="multi_stage_may",
+            password="pw",
+            first_name="Multi",
+            last_name="Stage",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+            date_first_invited=timezone.now().date().replace(
+                year=self.year, month=1, day=1
+            ),
+            date_first_attended=timezone.now().date().replace(
+                year=self.year, month=2, day=1
+            ),
+            water_baptism_date=timezone.now().date().replace(
+                year=self.year, month=self.month, day=10
+            ),
+            spirit_baptism_date=timezone.now().date().replace(
+                year=self.year, month=self.month, day=15
+            ),
+            lessons_finished_at=timezone.now().date().replace(
+                year=self.year, month=self.month, day=5
+            ),
+        )
+        Prospect.objects.create(
+            first_name="Multi",
+            last_name="Stage",
+            person=person,
+            invited_by=self.teacher,
+            inviter_cluster=self.cluster,
+            commitment_form_signed=True,
+        )
+        lesson = Lesson.objects.create(
+            code="uhc-l1",
+            version_label="v1",
+            title="Unique HC Lesson",
+            order=1,
+            is_latest=True,
+            is_active=True,
+        )
+        LessonSessionReport.objects.create(
+            teacher=self.teacher,
+            student=person,
+            lesson=lesson,
+            session_date=timezone.now().date().replace(
+                year=self.year, month=self.month, day=5
+            ),
+            session_start=timezone.make_aware(
+                datetime(self.year, self.month, 5, 10, 0)
+            ),
+        )
+
+        response = self.client.get(
+            "/api/evangelism/weekly-reports/people_tally/",
+            {"year": self.year},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        may = next(row for row in response.data if row["month"] == self.month)
+        self.assertEqual(may["students_count"], 1)
+        self.assertEqual(may["baptized_count"], 1)
+        self.assertEqual(may["received_hg_count"], 1)
+        self.assertEqual(may["reached_count"], 1)
+        self.assertEqual(may["unique_hc_count"], 1)
+
+        detail = self.client.get(
+            "/api/evangelism/weekly-reports/people_tally_detail/",
+            {
+                "year": self.year,
+                "month": self.month,
+                "metric": "unique_hc",
+            },
+        )
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data["count"], 1)
+        self.assertEqual(len(detail.data["results"]), 1)
+        self.assertEqual(detail.data["results"][0]["person_id"], person.id)
+        self.assertEqual(detail.data["results"][0]["metric"], "unique_hc")
+
+        students_detail = self.client.get(
+            "/api/evangelism/weekly-reports/people_tally_detail/",
+            {
+                "year": self.year,
+                "month": self.month,
+                "metric": "students",
+            },
+        )
+        self.assertEqual(students_detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(students_detail.data["count"], 1)
+        self.assertEqual(students_detail.data["results"][0]["person_id"], person.id)
+

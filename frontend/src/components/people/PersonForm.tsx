@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { Person, JourneyType } from "@/src/types/person";
+import { Person, JourneyType, Family } from "@/src/types/person";
+import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
 import { journeysApi, personDataToFormData } from "@/src/lib/api";
@@ -43,8 +44,18 @@ interface PersonFormProps {
   isEditingFromProfile?: boolean;
   startOnTimelineTab?: boolean;
   peopleOptions?: Person[];
+  familyOptions?: Family[];
+  clusterOptions?: Cluster[];
   panelLayout?: boolean;
 }
+
+const normalizeIdList = (ids?: (string | number)[] | null): string[] =>
+  (ids || []).map((id) => String(id));
+
+const clusterOptionLabel = (c: Cluster) =>
+  (c.code && c.code.trim()) ||
+  (c.name && c.name.trim()) ||
+  `Cluster ${c.id}`;
 
 export default function PersonForm({
   onSubmit,
@@ -55,6 +66,8 @@ export default function PersonForm({
   isEditingFromProfile = false,
   startOnTimelineTab = false,
   peopleOptions = [],
+  familyOptions = [],
+  clusterOptions = [],
   panelLayout = false,
 }: PersonFormProps) {
   const { user, hasAnyModuleCoordinatorAssignment, isPlainMember } = useAuth();
@@ -82,13 +95,44 @@ export default function PersonForm({
         ? "MEMBER"
         : undefined;
   const defaultRole = normalizedRole ?? (plainMember ? "VISITOR" : "MEMBER");
+  const initialPersonId = initialData?.id ? String(initialData.id) : undefined;
+  const initialFamilyIds = useMemo(() => {
+    if (initialData?.family_ids) {
+      return normalizeIdList(initialData.family_ids as (string | number)[]);
+    }
+    if (!initialPersonId) return [];
+    return familyOptions
+      .filter((f) =>
+        (f.members || []).some((m) => String(m) === initialPersonId),
+      )
+      .map((f) => String(f.id));
+  }, [initialData?.family_ids, initialPersonId, familyOptions]);
+  const initialClusterIds = useMemo(() => {
+    if (initialData?.cluster_ids) {
+      return normalizeIdList(initialData.cluster_ids as (string | number)[]);
+    }
+    if (!initialPersonId) return [];
+    return clusterOptions
+      .filter((c) =>
+        (c.members || []).some((m) => String(m) === initialPersonId),
+      )
+      .map((c) => String(c.id));
+  }, [initialData?.cluster_ids, initialPersonId, clusterOptions]);
+
   const [formData, setFormData] = useState<Partial<Person>>({
     status: "ACTIVE",
     journeys: [],
     country: initialData?.country || "Philippines",
     ...initialData,
     role: defaultRole,
+    family_ids: initialFamilyIds,
+    cluster_ids: initialClusterIds,
   });
+
+  const [familySearch, setFamilySearch] = useState("");
+  const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
+  const [clusterSearch, setClusterSearch] = useState("");
+  const [showClusterDropdown, setShowClusterDropdown] = useState(false);
 
   const creatableRoles = useMemo(() => {
     if (plainMember) {
@@ -136,6 +180,25 @@ export default function PersonForm({
   useEffect(() => {
     getBranches();
   }, [getBranches]);
+
+  // Prefill membership when options load after mount (edit without API IDs yet)
+  useEffect(() => {
+    if (initialData?.family_ids) return;
+    if (!initialPersonId || initialFamilyIds.length === 0) return;
+    setFormData((prev) => {
+      if ((prev.family_ids || []).length > 0) return prev;
+      return { ...prev, family_ids: initialFamilyIds };
+    });
+  }, [initialData?.family_ids, initialPersonId, initialFamilyIds]);
+
+  useEffect(() => {
+    if (initialData?.cluster_ids) return;
+    if (!initialPersonId || initialClusterIds.length === 0) return;
+    setFormData((prev) => {
+      if ((prev.cluster_ids || []).length > 0) return prev;
+      return { ...prev, cluster_ids: initialClusterIds };
+    });
+  }, [initialData?.cluster_ids, initialPersonId, initialClusterIds]);
 
   useEffect(() => {
     if (plainMember && !initialData?.id && formData.role !== "VISITOR") {
@@ -668,6 +731,8 @@ export default function PersonForm({
     const personData = { ...formData };
     delete personData.journeys;
     delete personData.photo;
+    personData.family_ids = normalizeIdList(formData.family_ids);
+    personData.cluster_ids = normalizeIdList(formData.cluster_ids);
 
     if (showLoginAccess) {
       if (autoGeneratePassword) {
@@ -1373,39 +1438,305 @@ export default function PersonForm({
                   Relationships
                 </h3>
                 <p className="text-xs text-gray-500 mb-4">
-                  Link to the inviter.
+                  Link inviter, family, and cluster membership.
                 </p>
                 {plainMember && (
                   <p className="text-xs text-primary mb-4">
                     Inviter defaults to you. Coordinators can edit this later.
                   </p>
                 )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Inviter
-                  </label>
-                  <SearchableSelect
-                    value={formData.inviter ? String(formData.inviter) : ""}
-                    onChange={(value) => {
-                      setFormData(
-                        (prev) => ({ ...prev, inviter: value }) as any,
-                      );
-                      setHasUnsavedChanges(true);
-                    }}
-                    options={peopleOptions
-                      .filter(
-                        (p) => p.role !== "ADMIN" && p.username !== "admin",
-                      )
-                      .map((p) => ({
-                        ...p,
-                        id: p.id,
-                        username: p.username || p.email || String(p.id),
-                      }))}
-                    placeholder="Type a name to search..."
-                    emptyMessage="No inviter found"
-                    showEmptyOption={true}
-                    emptyOptionLabel="No inviter"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Inviter
+                    </label>
+                    <SearchableSelect
+                      value={formData.inviter ? String(formData.inviter) : ""}
+                      onChange={(value) => {
+                        setFormData(
+                          (prev) => ({ ...prev, inviter: value }) as any,
+                        );
+                        setHasUnsavedChanges(true);
+                      }}
+                      options={peopleOptions
+                        .filter(
+                          (p) => p.role !== "ADMIN" && p.username !== "admin",
+                        )
+                        .map((p) => ({
+                          ...p,
+                          id: p.id,
+                          username: p.username || p.email || String(p.id),
+                        }))}
+                      placeholder="Type a name to search..."
+                      emptyMessage="No inviter found"
+                      showEmptyOption={true}
+                      emptyOptionLabel="No inviter"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Families ({(formData.family_ids || []).length} selected)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={familySearch}
+                        onChange={(e) => {
+                          setFamilySearch(e.target.value);
+                          setShowFamilyDropdown(true);
+                        }}
+                        onFocus={() => setShowFamilyDropdown(true)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        placeholder="Search families by name..."
+                      />
+                      {showFamilyDropdown && familySearch && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {familyOptions
+                            .filter((f) =>
+                              f.name
+                                .toLowerCase()
+                                .includes(familySearch.toLowerCase()),
+                            )
+                            .map((family) => {
+                              const id = String(family.id);
+                              const selected = (
+                                formData.family_ids || []
+                              ).includes(id);
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  disabled={selected}
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      family_ids: [
+                                        ...(prev.family_ids || []),
+                                        id,
+                                      ],
+                                    }));
+                                    setFamilySearch("");
+                                    setShowFamilyDropdown(false);
+                                    setHasUnsavedChanges(true);
+                                  }}
+                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                    selected
+                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      : "text-gray-900"
+                                  }`}
+                                >
+                                  {family.name}
+                                  {selected && (
+                                    <span className="text-xs text-gray-400 ml-2">
+                                      Added
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          {familyOptions.filter((f) =>
+                            f.name
+                              .toLowerCase()
+                              .includes(familySearch.toLowerCase()),
+                          ).length === 0 && (
+                            <div className="px-3 py-2 text-gray-500 text-sm">
+                              No families found matching &ldquo;{familySearch}
+                              &rdquo;
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {(formData.family_ids || []).length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(formData.family_ids || []).map((id) => {
+                          const family = familyOptions.find(
+                            (f) => String(f.id) === id,
+                          );
+                          return (
+                            <div
+                              key={id}
+                              className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
+                            >
+                              <span className="text-sm font-medium text-gray-900">
+                                {family?.name || `Family ${id}`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    family_ids: (prev.family_ids || []).filter(
+                                      (fid) => fid !== id,
+                                    ),
+                                  }));
+                                  setHasUnsavedChanges(true);
+                                }}
+                                className="text-gray-400 hover:text-red-500 ml-1"
+                                aria-label={`Remove ${family?.name || id}`}
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {showFamilyDropdown && (
+                      <div
+                        className="fixed inset-0 z-0"
+                        onClick={() => setShowFamilyDropdown(false)}
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Clusters ({(formData.cluster_ids || []).length} selected)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={clusterSearch}
+                        onChange={(e) => {
+                          setClusterSearch(e.target.value);
+                          setShowClusterDropdown(true);
+                        }}
+                        onFocus={() => setShowClusterDropdown(true)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        placeholder="Search clusters by code or name..."
+                      />
+                      {showClusterDropdown && clusterSearch && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {clusterOptions
+                            .filter((c) => {
+                              const q = clusterSearch.toLowerCase();
+                              return (
+                                (c.code || "").toLowerCase().includes(q) ||
+                                (c.name || "").toLowerCase().includes(q)
+                              );
+                            })
+                            .map((cluster) => {
+                              const id = String(cluster.id);
+                              const selected = (
+                                formData.cluster_ids || []
+                              ).includes(id);
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  disabled={selected}
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      cluster_ids: [
+                                        ...(prev.cluster_ids || []),
+                                        id,
+                                      ],
+                                    }));
+                                    setClusterSearch("");
+                                    setShowClusterDropdown(false);
+                                    setHasUnsavedChanges(true);
+                                  }}
+                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                    selected
+                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      : "text-gray-900"
+                                  }`}
+                                >
+                                  {clusterOptionLabel(cluster)}
+                                  {selected && (
+                                    <span className="text-xs text-gray-400 ml-2">
+                                      Added
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          {clusterOptions.filter((c) => {
+                            const q = clusterSearch.toLowerCase();
+                            return (
+                              (c.code || "").toLowerCase().includes(q) ||
+                              (c.name || "").toLowerCase().includes(q)
+                            );
+                          }).length === 0 && (
+                            <div className="px-3 py-2 text-gray-500 text-sm">
+                              No clusters found matching &ldquo;{clusterSearch}
+                              &rdquo;
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {(formData.cluster_ids || []).length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(formData.cluster_ids || []).map((id) => {
+                          const cluster = clusterOptions.find(
+                            (c) => String(c.id) === id,
+                          );
+                          return (
+                            <div
+                              key={id}
+                              className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
+                            >
+                              <span className="text-sm font-medium text-gray-900">
+                                {cluster
+                                  ? clusterOptionLabel(cluster)
+                                  : `Cluster ${id}`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    cluster_ids: (
+                                      prev.cluster_ids || []
+                                    ).filter((cid) => cid !== id),
+                                  }));
+                                  setHasUnsavedChanges(true);
+                                }}
+                                className="text-gray-400 hover:text-red-500 ml-1"
+                                aria-label={`Remove cluster ${id}`}
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {showClusterDropdown && (
+                      <div
+                        className="fixed inset-0 z-0"
+                        onClick={() => setShowClusterDropdown(false)}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

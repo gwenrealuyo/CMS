@@ -543,6 +543,27 @@ export default function PeoplePage() {
     }
   };
 
+  // Ensure clusters are available for person create/edit membership fields
+  useEffect(() => {
+    const personFormVisible =
+      (isModalOpen && modalType === "person") ||
+      (personPanelOpen &&
+        (personPanelMode === "create" ||
+          personPanelMode === "edit" ||
+          (personPanelMode === "view" && viewMode === "edit")));
+    if (personFormVisible && clusters.length === 0 && !clustersLoading) {
+      void fetchClusters();
+    }
+  }, [
+    isModalOpen,
+    modalType,
+    personPanelOpen,
+    personPanelMode,
+    viewMode,
+    clusters.length,
+    clustersLoading,
+  ]);
+
   /** Refetch open person profiles when cluster membership changes so journey timelines stay in sync. */
   const refreshOpenPersonProfilesAfterClusterMemberChange = async (
     previousMemberIds: Array<string | number> | undefined,
@@ -1556,6 +1577,8 @@ export default function PeoplePage() {
           startOnTimelineTab={startOnTimelineTab}
           panelLayout={isPanel}
           peopleOptions={people}
+          familyOptions={families}
+          clusterOptions={clusters}
           onJourneySaved={refreshPersonJourneyData}
           onSubmit={async (data) => {
             const result = await updatePerson(viewEditPerson.id, data);
@@ -1564,7 +1587,11 @@ export default function PeoplePage() {
             setPersonPanelPerson(result);
             setPersonPanelMode("view");
             setStartOnTimelineTab(false);
-            await refreshPeople();
+            await Promise.all([
+              refreshPeople(),
+              refreshFamilies(),
+              fetchClusters(),
+            ]);
             return result;
           }}
           onClose={() => {
@@ -1598,7 +1625,11 @@ export default function PeoplePage() {
             setPersonPanelOpen(true);
             setCreateInitialData(undefined);
             setPersonPanelInitialData(undefined);
-            await refreshPeople();
+            await Promise.all([
+              refreshPeople(),
+              refreshFamilies(),
+              fetchClusters(),
+            ]);
 
             if (
               user?.role === "ADMIN" &&
@@ -1624,6 +1655,8 @@ export default function PeoplePage() {
         initialData={isPanel ? personPanelInitialData : createInitialData}
         panelLayout={isPanel}
         peopleOptions={people}
+        familyOptions={families}
+        clusterOptions={clusters}
       />
     );
   };

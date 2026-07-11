@@ -119,6 +119,12 @@ export function personDataToFormData(
     ) {
       continue;
     }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        formData.append(key, String(item));
+      }
+      continue;
+    }
     if (typeof value === "boolean") {
       formData.append(key, value ? "true" : "false");
     } else {

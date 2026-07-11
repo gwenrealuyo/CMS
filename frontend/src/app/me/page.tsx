@@ -26,7 +26,7 @@ function MePageContent() {
   const { user, hasAnyModuleCoordinatorAssignment } = useAuth();
   const router = useRouter();
   const { people, updatePerson } = usePeople(true);
-  const { families } = useFamilies();
+  const { families, refreshFamilies } = useFamilies();
 
   const [person, setPerson] = useState<Person | null>(null);
   const [clusters, setClusters] = useState<Cluster[]>([]);
@@ -178,6 +178,8 @@ function MePageContent() {
               startOnTimelineTab={startOnTimelineTab}
               panelLayout={false}
               peopleOptions={people}
+              familyOptions={families}
+              clusterOptions={clusters}
               onJourneySaved={(personId) => refreshPersonJourneys(personId)}
               onClose={() => {
                 setViewMode("view");
@@ -192,6 +194,11 @@ function MePageContent() {
                 setViewMode("view");
                 setStartOnTimelineTab(false);
                 await refreshPersonJourneys(String(person.id));
+                const [clustersRes] = await Promise.all([
+                  clustersApi.getAll(),
+                  refreshFamilies(),
+                ]);
+                setClusters(clustersRes.data as unknown as Cluster[]);
                 return result;
               }}
             />

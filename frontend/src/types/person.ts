@@ -76,6 +76,9 @@ export interface Person {
   user_permissions?: string[]; // Permission IDs
   cluster_codes?: string[];
   family_names?: string[];
+  /** Writable membership IDs (create/update); also returned on read for form prefill */
+  family_ids?: string[];
+  cluster_ids?: string[];
   module_coordinator_assignments?: ModuleCoordinator[];
   can_view_journey_timeline?: boolean;
   /** One-time value returned when an admin creates a user with auto-generated password */

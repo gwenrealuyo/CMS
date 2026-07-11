@@ -4,6 +4,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting
 from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
+from apps.clusters.models import Cluster
 from apps.authentication.password_validators import PasswordStrengthValidator
 from apps.events.models import EventType
 from apps.people.coordinator_assignment_validation import (
@@ -301,6 +302,18 @@ class PersonSerializer(serializers.ModelSerializer):
     cluster_codes = serializers.SerializerMethodField()
     branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
+    family_ids = serializers.PrimaryKeyRelatedField(
+        source="families",
+        many=True,
+        queryset=Family.objects.all(),
+        required=False,
+    )
+    cluster_ids = serializers.PrimaryKeyRelatedField(
+        source="clusters",
+        many=True,
+        queryset=Cluster.objects.all(),
+        required=False,
+    )
     module_coordinator_assignments = ModuleCoordinatorSerializer(
         many=True, read_only=True
     )
@@ -354,6 +367,8 @@ class PersonSerializer(serializers.ModelSerializer):
             "journeys",
             "cluster_codes",
             "family_names",
+            "family_ids",
+            "cluster_ids",
             "module_coordinator_assignments",
             "can_view_journey_timeline",
             "initial_password",
@@ -365,6 +380,24 @@ class PersonSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._temporary_password = None
+
+    def _apply_memberships(self, person, families=None, clusters=None):
+        # Apply from the forward M2M side so family/cluster member signals
+        # receive Family/Cluster as instance (not Person).
+        if families is not None:
+            desired_ids = {f.pk for f in families}
+            for family in list(person.families.all()):
+                if family.pk not in desired_ids:
+                    family.members.remove(person)
+            for family in families:
+                family.members.add(person)
+        if clusters is not None:
+            desired_ids = {c.pk for c in clusters}
+            for cluster in list(person.clusters.all()):
+                if cluster.pk not in desired_ids:
+                    cluster.members.remove(person)
+            for cluster in clusters:
+                cluster.members.add(person)
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -532,6 +565,12 @@ class PersonSerializer(serializers.ModelSerializer):
         generate_temporary_password = validated_data.pop(
             "generate_temporary_password", True
         )
+        families = (
+            validated_data.pop("families") if "families" in validated_data else None
+        )
+        clusters = (
+            validated_data.pop("clusters") if "clusters" in validated_data else None
+        )
 
         first_name = validated_data.get("first_name", "")
         last_name = validated_data.get("last_name", "")
@@ -554,6 +593,7 @@ class PersonSerializer(serializers.ModelSerializer):
 
         validated_data["username"] = username
         person = super().create(validated_data)
+        self._apply_memberships(person, families=families, clusters=clusters)
 
         if (
             request
@@ -606,10 +646,20 @@ class PersonSerializer(serializers.ModelSerializer):
         # Store old branch value before update
         old_branch = instance.branch
 
+        families = (
+            validated_data.pop("families") if "families" in validated_data else None
+        )
+        clusters = (
+            validated_data.pop("clusters") if "clusters" in validated_data else None
+        )
+
         delete_person_photo_if_cleared(instance, validated_data)
 
         # Perform the update
         updated_instance = super().update(instance, validated_data)
+        self._apply_memberships(
+            updated_instance, families=families, clusters=clusters
+        )
         self._trigger_legacy_lessons_backfill(
             person=updated_instance,
             previous_has_finished_lessons=previous_has_finished_lessons,

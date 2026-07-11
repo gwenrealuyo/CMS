@@ -10,6 +10,8 @@ export type PersonStatus =
   | "ACTIVE"
   | "SEMIACTIVE"
   | "INACTIVE"
+  | "DORMANT"
+  | "FALLAWAY"
   | "DECEASED"
   | "INVITED"
   | "ATTENDED";

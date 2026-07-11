@@ -9,7 +9,7 @@
 
 ## Welcome
 
-**The Lighthouse** (LAMP Church Care System) helps your church shepherd people from first visit through discipleship. You can manage people and families, track small groups (clusters), run evangelism and formation programs, schedule events, and more — all in one place.
+**The Lighthouse** (LAMP Church Management System) helps your church shepherd people from first visit through discipleship. You can manage people and families, track small groups (clusters), run evangelism and formation programs, schedule events, and more — all in one place.
 
 What you see in the app depends on your **role** and any **module assignments** your administrator has given you. If a menu item is missing, you may not have access to that area.
 
@@ -61,7 +61,7 @@ The dashboard shows key numbers for your church — active members, visitors, ba
 
 Use **People** in the sidebar to browse the church directory.
 
-- **Search and filter** by name, branch, role, or status.
+- **Search and filter** by name, branch, role, or status (Active, Semi-active, Inactive, Dormant, Fall Away, Deceased).
 - **Open a profile** to see contact details, role, branch, family links, and the **Journey** timeline (baptism, cluster attendance, lessons, events, notes, and more).
 - **Table / Cards** toggle changes how the list is displayed.
 

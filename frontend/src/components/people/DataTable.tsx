@@ -8,6 +8,7 @@ import ExportPreviewModal from "./ExportPreviewModal";
 import ImportModal from "./ImportModal";
 import BulkActionsMenu from "./BulkActionsMenu";
 import SelectedPeoplePreview from "./SelectedPeoplePreview";
+import { formatPersonStatusLabel } from "@/src/lib/personStatus";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
@@ -155,6 +156,10 @@ export default function DataTable({
         return "bg-green-100 text-green-800";
       case "INACTIVE":
         return "bg-red-100 text-red-800";
+      case "DORMANT":
+        return "bg-orange-100 text-orange-800";
+      case "FALLAWAY":
+        return "bg-violet-100 text-violet-800";
       case "DECEASED":
         return "bg-gray-100 text-gray-800";
       default:
@@ -1288,7 +1293,7 @@ export default function DataTable({
                               person.status
                             )}`}
                           >
-                            {person.status.toLowerCase()}
+                            {formatPersonStatusLabel(person.status)}
                           </span>
                         )}
                         {field === "branch" && (

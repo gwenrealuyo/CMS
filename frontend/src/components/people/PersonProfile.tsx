@@ -11,6 +11,7 @@ import AdminResetPasswordModal from "@/src/components/people/AdminResetPasswordM
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import DetailFieldRow from "@/src/components/ui/DetailFieldRow";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import { formatPersonStatusLabel } from "@/src/lib/personStatus";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -76,7 +77,6 @@ interface PersonProfileProps {
   onNoClusterClick?: (person: Person) => void;
   onEdit: () => void;
   onDelete: () => void;
-  onSetDeceased?: () => void;
   onCancel: () => void;
   onAddTimeline: () => void;
   onClose: () => void;
@@ -95,7 +95,6 @@ export default function PersonProfile({
   onNoClusterClick,
   onEdit,
   onDelete,
-  onSetDeceased,
   onCancel,
   onAddTimeline,
   onClose,
@@ -108,9 +107,6 @@ export default function PersonProfile({
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const canResetPassword =
     user?.role === "ADMIN" && person.role !== "VISITOR";
-  const isVisitor = person.role === "VISITOR";
-  const showSetDeceased =
-    Boolean(onSetDeceased) && !isVisitor && person.status !== "DECEASED";
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(
     "overview"
   );
@@ -477,6 +473,12 @@ export default function PersonProfile({
         return "bg-yellow-100 text-yellow-800";
       case "INACTIVE":
         return "bg-gray-100 text-gray-800";
+      case "DORMANT":
+        return "bg-orange-100 text-orange-800";
+      case "FALLAWAY":
+        return "bg-violet-100 text-violet-800";
+      case "DECEASED":
+        return "bg-gray-100 text-gray-800";
       case "VISITOR":
         return "bg-red-100 text-red-800";
       default:
@@ -613,7 +615,7 @@ export default function PersonProfile({
                     <dl className="divide-y divide-gray-100">
                       <ProfileFieldRow
                         label="Status"
-                        value={person.status}
+                        value={formatPersonStatusLabel(person.status)}
                         renderAsBadge
                         badgeClassName={getStatusColor(person.status)}
                       />
@@ -1051,15 +1053,6 @@ export default function PersonProfile({
           isPanelMode ? (
             <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
               <div className="flex flex-nowrap items-center gap-2 shrink-0">
-                {showSetDeceased && (
-                  <Button
-                    onClick={onSetDeceased}
-                    variant="secondary"
-                    className={`!text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 ${footerActionBtnClass}`}
-                  >
-                    Set Deceased
-                  </Button>
-                )}
                 {!hideDeleteButton && (
                   <DeletePersonButton
                     onClick={onDelete}
@@ -1156,44 +1149,14 @@ export default function PersonProfile({
                 </svg>
                 <span>Cancel</span>
               </Button>
-              {showSetDeceased && !hideDeleteButton ? (
-                <div className="flex items-center gap-2 w-full">
-                  <Button
-                    onClick={onSetDeceased}
-                    variant="secondary"
-                    className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center min-h-[44px] flex-1"
-                  >
-                    Set Deceased
-                  </Button>
-                  <DeletePersonButton onClick={onDelete} compact />
-                </div>
-              ) : showSetDeceased ? (
-                <Button
-                  onClick={onSetDeceased}
-                  variant="secondary"
-                  className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center min-h-[44px] w-full"
-                >
-                  Set Deceased
-                </Button>
-              ) : (
-                !hideDeleteButton && (
-                  <DeletePersonButton onClick={onDelete} compact fullWidth />
-                )
+              {!hideDeleteButton && (
+                <DeletePersonButton onClick={onDelete} compact fullWidth />
               )}
             </div>
 
             {/* Desktop/Tablet buttons */}
             <div className="hidden md:flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
               <div className="flex flex-nowrap items-center gap-2 shrink-0">
-                {showSetDeceased && (
-                  <Button
-                    onClick={onSetDeceased}
-                    variant="secondary"
-                    className={`!text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 ${footerActionBtnClass}`}
-                  >
-                    Set Deceased
-                  </Button>
-                )}
                 {!hideDeleteButton && (
                   <DeletePersonButton
                     onClick={onDelete}

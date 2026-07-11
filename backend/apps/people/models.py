@@ -97,6 +97,8 @@ class Person(AbstractUser):
             ("ACTIVE", "Active"),
             ("SEMIACTIVE", "Semiactive"),
             ("INACTIVE", "Inactive"),
+            ("DORMANT", "Dormant"),
+            ("FALLAWAY", "Fall Away"),
             ("DECEASED", "Deceased"),
             # For VISITOR role specialized states; UI can restrict selection conditionally
             ("INVITED", "Invited"),

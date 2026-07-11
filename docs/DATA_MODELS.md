@@ -13,7 +13,7 @@
 - Demographics: `gender?` (MALE|FEMALE), `date_of_birth?`, `country?`
 - Contact: `phone?`, `address?`, `facebook_name?`
 - Role: `role` (MEMBER|VISITOR|PASTOR|ADMIN) — coordinator capability is granted via `ModuleCoordinator` assignments, not a base role
-- Church-specific: `date_first_attended?`, `member_id?`, `status?` (ACTIVE|SEMIACTIVE|INACTIVE|DECEASED)
+- Church-specific: `date_first_attended?`, `member_id?`, `status?` (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|INVITED|ATTENDED)
 - Relations: `inviter` → Person (nullable), `branch` → Branch (nullable), standard `groups` and `user_permissions` with custom related_names
 - Media: `photo` (ImageField → `profiles/`)
 - Methods: `can_see_all_branches()` - Returns True for ADMIN users or PASTOR users from headquarters branch
@@ -28,6 +28,12 @@ Notes
   - **INACTIVE**: 0 attendances for ALL types
   - Status updates occur in real-time when attendance records are created/updated for Sunday Service or Doctrinal Class events, or when cluster attendance changes.
   - When status changes, a Journey entry of type `NOTE` is automatically created with title "Status Update: {OLD_STATUS} → {NEW_STATUS}".
+  - Auto-calc never overwrites manual pastoral statuses: **DORMANT**, **FALLAWAY**, or **DECEASED**.
+- **Manual pastoral statuses** (set via Edit person form status field; not produced by attendance auto-calc):
+  - **DORMANT**: Member who remains on the church roll but has been away from regular fellowship and activities for an extended period. Distinct from Inactive (short-term 4-week attendance drop). Return to fellowship is still expected or hoped for.
+  - **FALLAWAY** (Fall Away): Member who has left fellowship or abandoned regular participation with no current expectation of return. Distinct from Dormant (membership retained, return still hoped for) and from Inactive (temporary attendance drop).
+  - **DECEASED**: Member marked deceased. Set only via the Edit person form status dropdown (no profile shortcut button).
+- Visitor statuses: **INVITED**, **ATTENDED** (UI restricts selection by role).
 
 ### Family
 
@@ -54,7 +60,7 @@ Notes
   - `CLUSTER` type journeys are automatically created when:
     - People attend cluster meetings (via ClusterWeeklyReport) - title: "Attended Cluster Meeting - {Cluster Code}"
     - People are added to or transferred between clusters - title: "Joined Cluster - {Cluster Code}" or "Transferred to Cluster - {Cluster Code}"
-  - `NOTE` type journeys are automatically created when a Person's status changes (ACTIVE/SEMIACTIVE/INACTIVE) - title: "Status Update: {OLD_STATUS} → {NEW_STATUS}". Only created when status changes from one value to another (not for first assignment), and only one journey entry per day (updates existing if multiple changes occur).
+  - `NOTE` type journeys are automatically created when a Person's status changes (ACTIVE/SEMIACTIVE/INACTIVE) - title: "Status Update: {OLD_STATUS} → {NEW_STATUS}". Only created when status changes from one value to another (not for first assignment), and only one journey entry per day (updates existing if multiple changes occur). Manual statuses (DORMANT, FALLAWAY, DECEASED) are not overwritten by attendance auto-updates.
 
 ## Data Models (apps.ministries.models)
 

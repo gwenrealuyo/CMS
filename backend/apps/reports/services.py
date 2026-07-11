@@ -371,6 +371,8 @@ STATUS_LABELS = {
     "ACTIVE": "Active",
     "SEMIACTIVE": "Semiactive",
     "INACTIVE": "Inactive",
+    "DORMANT": "Dormant",
+    "FALLAWAY": "Fall Away",
     "DECEASED": "Deceased",
     "INVITED": "Invited",
     "ATTENDED": "Attended",
@@ -453,6 +455,8 @@ def build_people_summary(
     active_members = people_qs.filter(role="MEMBER", status="ACTIVE").count()
     semiactive_members = people_qs.filter(role="MEMBER", status="SEMIACTIVE").count()
     inactive_members = people_qs.filter(role="MEMBER", status="INACTIVE").count()
+    dormant_members = people_qs.filter(role="MEMBER", status="DORMANT").count()
+    fallaway_members = people_qs.filter(role="MEMBER", status="FALLAWAY").count()
     deceased = people_qs.filter(status="DECEASED").count()
 
     with_family = (
@@ -476,6 +480,8 @@ def build_people_summary(
         "active_members": active_members,
         "semiactive_members": semiactive_members,
         "inactive_members": inactive_members,
+        "dormant_members": dormant_members,
+        "fallaway_members": fallaway_members,
         "deceased": deceased,
         "with_family": with_family,
         "without_family": without_family,

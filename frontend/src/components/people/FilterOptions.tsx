@@ -75,6 +75,8 @@ export default function FilterOptions({
             <option value="ACTIVE">Active</option>
             <option value="SEMIACTIVE">Semi-active</option>
             <option value="INACTIVE">Inactive</option>
+            <option value="DORMANT">Dormant</option>
+            <option value="FALLAWAY">Fall Away</option>
             <option value="DECEASED">Deceased</option>
           </select>
         </div>

@@ -192,6 +192,10 @@ export default function FamilyView({
         return "bg-yellow-100 text-yellow-800";
       case "INACTIVE":
         return "bg-gray-100 text-gray-800";
+      case "DORMANT":
+        return "bg-orange-100 text-orange-800";
+      case "FALLAWAY":
+        return "bg-violet-100 text-violet-800";
       case "DECEASED":
         return "bg-red-100 text-red-800";
       case "INVITED":

@@ -364,7 +364,7 @@ export default function PersonForm({
   const statusOptions =
     formData.role === "VISITOR"
       ? ["INVITED", "ATTENDED"]
-      : ["ACTIVE", "SEMIACTIVE", "INACTIVE", "DECEASED"];
+      : ["ACTIVE", "SEMIACTIVE", "INACTIVE", "DORMANT", "FALLAWAY", "DECEASED"];
 
   useEffect(() => {
     setPhotoFile(null);
@@ -1098,7 +1098,11 @@ export default function PersonForm({
                     >
                       {statusOptions.map((status) => (
                         <option key={status} value={status}>
-                          {status.charAt(0) + status.slice(1).toLowerCase()}
+                          {status === "FALLAWAY"
+                            ? "Fall Away"
+                            : status === "SEMIACTIVE"
+                              ? "Semi-active"
+                              : status.charAt(0) + status.slice(1).toLowerCase()}
                         </option>
                       ))}
                     </select>

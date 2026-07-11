@@ -442,3 +442,35 @@ class PersonStatusUpdateTest(TestCase):
         self.assertEqual(journeys.count(), 1)
         self.assertEqual(journeys.first().title, "Status Update: SEMIACTIVE → INACTIVE")
 
+
+class ManualStatusProtectionTest(TestCase):
+    """Manual pastoral statuses must not be overwritten by attendance auto-calc."""
+
+    def setUp(self):
+        self.reference_date = timezone.now().date()
+
+    def _create_person(self, status: str) -> Person:
+        return Person.objects.create_user(
+            username=f"manual_{status.lower()}",
+            email=f"{status.lower()}@example.com",
+            password="testpass123",
+            first_name="Manual",
+            last_name=status.title(),
+            role="MEMBER",
+            status=status,
+        )
+
+    def test_status_choices_include_dormant_and_fallaway(self):
+        choice_values = {value for value, _ in Person._meta.get_field("status").choices}
+        self.assertIn("DORMANT", choice_values)
+        self.assertIn("FALLAWAY", choice_values)
+
+    def test_update_skips_deceased_dormant_fallaway(self):
+        for status in ("DECEASED", "DORMANT", "FALLAWAY"):
+            with self.subTest(status=status):
+                person = self._create_person(status)
+                updated = update_person_status(person, force=True)
+                person.refresh_from_db()
+                self.assertFalse(updated)
+                self.assertEqual(person.status, status)
+

@@ -55,6 +55,8 @@ const FILTER_FIELDS: FilterField[] = [
       { value: "ACTIVE", label: "Active" },
       { value: "SEMIACTIVE", label: "Semi-active" },
       { value: "INACTIVE", label: "Inactive" },
+      { value: "DORMANT", label: "Dormant" },
+      { value: "FALLAWAY", label: "Fall Away" },
       { value: "DECEASED", label: "Deceased" },
     ],
   },

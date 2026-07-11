@@ -41,7 +41,7 @@ export default function Home() {
           The Lighthouse
         </h1>
         <p className="text-sm text-muted-foreground mb-2">
-          LAMP Church Care System
+          LAMP Church Management System
         </p>
         <p className="text-sm font-medium text-lighthouse-gold mb-6">
           A soul kept is a soul won.

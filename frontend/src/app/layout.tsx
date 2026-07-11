@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     template: "%s | The Lighthouse",
   },
   description:
-    "The Lighthouse — LAMP Church Care System. A soul kept is a soul won.",
+    "The Lighthouse — LAMP Church Management System. A soul kept is a soul won.",
   icons: {
     icon: "/logo.svg",
     shortcut: "/logo.svg",

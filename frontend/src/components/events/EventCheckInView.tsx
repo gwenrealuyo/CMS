@@ -284,7 +284,7 @@ export default function EventCheckInView({
             <p className="text-xs font-semibold uppercase tracking-widest text-lighthouse-gold">
               The Lighthouse
             </p>
-            <p className="text-[11px] text-white/70">LAMP Church Care System</p>
+            <p className="text-[11px] text-white/70">LAMP Church Management System</p>
           </div>
           <Link
             href="/events"

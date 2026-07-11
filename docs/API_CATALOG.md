@@ -71,8 +71,8 @@ Note: When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER
 - Update Status: `POST /api/people/people/{id}/update_status/`
   - Access: ADMIN, PASTOR, or Senior Coordinator
   - Manually trigger status update for a person based on attendance patterns
-  - Returns: `{"status": "ACTIVE|SEMIACTIVE|INACTIVE", "updated": true|false}`
-  - Note: Status is automatically updated in real-time when attendance records change. This endpoint allows manual triggering.
+  - Returns: `{"status": "ACTIVE|SEMIACTIVE|INACTIVE", "updated": true|false}` (or `updated: false` when status is a manual pastoral value: DORMANT, FALLAWAY, DECEASED)
+  - Note: Status is automatically updated in real-time when attendance records change. This endpoint allows manual triggering. Manual pastoral statuses are never overwritten.
 
 ### Family
 

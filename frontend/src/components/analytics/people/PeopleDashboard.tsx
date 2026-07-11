@@ -139,6 +139,16 @@ export default function PeopleDashboard({
             icon={kpiIcon(XCircleIcon)}
           />
           <KpiCard
+            label="Dormant"
+            value={summary.dormant_members}
+            icon={kpiIcon(UsersIcon)}
+          />
+          <KpiCard
+            label="Fall Away"
+            value={summary.fallaway_members}
+            icon={kpiIcon(XCircleIcon)}
+          />
+          <KpiCard
             label="Deceased"
             value={summary.deceased}
             icon={kpiIcon(HeartIcon)}

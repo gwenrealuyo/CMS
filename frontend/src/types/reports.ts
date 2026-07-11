@@ -38,6 +38,8 @@ export interface PeopleSummaryKpis {
   active_members: number;
   semiactive_members: number;
   inactive_members: number;
+  dormant_members: number;
+  fallaway_members: number;
   deceased: number;
   with_family: number;
   without_family: number;

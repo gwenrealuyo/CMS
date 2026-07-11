@@ -14,6 +14,7 @@ interface ConfirmationModalProps {
   cancelText?: string;
   variant?: "danger" | "warning" | "info";
   loading?: boolean;
+  zIndex?: 70 | 80;
 }
 
 export default function ConfirmationModal({
@@ -26,6 +27,7 @@ export default function ConfirmationModal({
   cancelText = "Cancel",
   variant = "danger",
   loading = false,
+  zIndex = 70,
 }: ConfirmationModalProps) {
   const getVariantStyles = () => {
     switch (variant) {
@@ -117,6 +119,7 @@ export default function ConfirmationModal({
     <ModalOverlay
       isOpen={isOpen}
       onClose={onClose}
+      zIndex={zIndex}
       panelClassName="relative w-full max-w-lg"
     >
       <div className="overflow-hidden rounded-xl bg-white shadow-xl">

@@ -3,6 +3,7 @@ import { Family, PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import Button from "@/src/components/ui/Button";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
@@ -26,11 +27,24 @@ export default function AddFamilyMemberModal({
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [removeMemberConfirmation, setRemoveMemberConfirmation] = useState<{
+    isOpen: boolean;
+    memberId: string | null;
+    memberName: string | null;
+  }>({ isOpen: false, memberId: null, memberName: null });
   const memberDropdownRef = useRef<HTMLDivElement>(null);
 
   // Initialize selected members from family
   useEffect(() => {
-    if (isOpen && family) {
+    if (!isOpen) {
+      setRemoveMemberConfirmation({
+        isOpen: false,
+        memberId: null,
+        memberName: null,
+      });
+      return;
+    }
+    if (family) {
       setSelectedMembers(family.members || []);
     }
   }, [isOpen, family]);
@@ -88,8 +102,27 @@ export default function AddFamilyMemberModal({
     setShowMemberDropdown(false);
   };
 
-  const removeMember = (memberId: string) => {
-    setSelectedMembers(selectedMembers.filter((id) => id !== memberId));
+  const closeRemoveMemberConfirmation = () => {
+    setRemoveMemberConfirmation({
+      isOpen: false,
+      memberId: null,
+      memberName: null,
+    });
+  };
+
+  const requestRemoveMember = (member: PersonUI) => {
+    setRemoveMemberConfirmation({
+      isOpen: true,
+      memberId: member.id,
+      memberName: formatFullName(member),
+    });
+  };
+
+  const confirmRemoveMember = () => {
+    const memberId = removeMemberConfirmation.memberId;
+    if (!memberId) return;
+    setSelectedMembers((prev) => prev.filter((id) => id !== memberId));
+    closeRemoveMemberConfirmation();
   };
 
   const getSelectedMembers = () => {
@@ -129,9 +162,8 @@ export default function AddFamilyMemberModal({
   // Don't render if no family data
   if (!isOpen || !family) return null;
 
-  if (!isOpen) return null;
-
   return (
+    <>
     <ModalOverlay
       isOpen={isOpen}
       onClose={onClose}
@@ -291,8 +323,10 @@ export default function AddFamilyMemberModal({
                       </span>
                     </div>
                     <button
-                      onClick={() => removeMember(member.id)}
+                      type="button"
+                      onClick={() => requestRemoveMember(member)}
                       className="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50 transition-colors"
+                      aria-label={`Remove ${formatFullName(member)}`}
                     >
                       <svg
                         className="w-4 h-4"
@@ -374,5 +408,26 @@ export default function AddFamilyMemberModal({
         </div>
       </div>
     </ModalOverlay>
+
+    <ConfirmationModal
+      isOpen={removeMemberConfirmation.isOpen}
+      onClose={closeRemoveMemberConfirmation}
+      onConfirm={confirmRemoveMember}
+      title="Remove Member"
+      message={
+        <>
+          Are you sure you want to remove{" "}
+          <strong className="font-semibold text-gray-900">
+            &quot;{removeMemberConfirmation.memberName ?? ""}&quot;
+          </strong>{" "}
+          from this family? They will be removed when you save.
+        </>
+      }
+      confirmText="Remove"
+      cancelText="Cancel"
+      variant="warning"
+      zIndex={80}
+    />
+    </>
   );
 }

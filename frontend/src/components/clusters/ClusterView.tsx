@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Cluster } from "@/src/types/cluster";
 import { Person, Family } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
@@ -13,6 +13,12 @@ import {
 } from "@/src/lib/branchChipColor";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+
+type SortField =
+  | "first_name"
+  | "last_name"
+  | "date_first_attended"
+  | "water_baptism_date";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -57,13 +63,6 @@ function DeleteClusterButton({
   );
 }
 
-const ROLE_PRIORITY: Record<string, number> = {
-  ADMIN: 5,
-  PASTOR: 4,
-  MEMBER: 2,
-  VISITOR: 1,
-};
-
 interface ClusterViewProps {
   cluster: Cluster;
   clusterMembers: Person[];
@@ -104,6 +103,32 @@ export default function ClusterView({
   canManageCluster = true,
 }: ClusterViewProps) {
   const { branches } = useBranches();
+  const [sortBy, setSortBy] = useState<SortField>("last_name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const sortButtonRef = useRef<HTMLButtonElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        sortButtonRef.current &&
+        sortDropdownRef.current &&
+        !sortButtonRef.current.contains(event.target as Node) &&
+        !sortDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowSortDropdown(false);
+      }
+    };
+
+    if (showSortDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSortDropdown]);
 
   // Find the branch for this cluster
   const clusterBranch = cluster.branch
@@ -151,6 +176,12 @@ export default function ClusterView({
   const isPanelMode = !showTopHeader;
 
   const sortedDisplayMembers = useMemo(() => {
+    const getAttendanceDate = (person: Person) => {
+      const uiDate = (person as Person & { dateFirstAttended?: string })
+        .dateFirstAttended;
+      return uiDate || person.date_first_attended || "";
+    };
+
     const combined = [...clusterMembers];
     if (
       coordinator &&
@@ -160,24 +191,58 @@ export default function ClusterView({
     }
 
     return combined.sort((a, b) => {
-      const roleDelta =
-        (ROLE_PRIORITY[b.role] || 0) - (ROLE_PRIORITY[a.role] || 0);
-      if (roleDelta !== 0) return roleDelta;
+      let aValue: string | number;
+      let bValue: string | number;
 
-      const lastNameDelta = (b.last_name || "").localeCompare(
-        a.last_name || "",
-        undefined,
-        {
-          sensitivity: "base",
-        },
-      );
-      if (lastNameDelta !== 0) return lastNameDelta;
+      switch (sortBy) {
+        case "first_name":
+          aValue = (a.first_name || "").toLowerCase();
+          bValue = (b.first_name || "").toLowerCase();
+          break;
+        case "last_name":
+          aValue = (a.last_name || "").toLowerCase();
+          bValue = (b.last_name || "").toLowerCase();
+          break;
+        case "date_first_attended": {
+          const aDate = getAttendanceDate(a);
+          const bDate = getAttendanceDate(b);
+          aValue = aDate ? new Date(aDate).getTime() : 0;
+          bValue = bDate ? new Date(bDate).getTime() : 0;
+          break;
+        }
+        case "water_baptism_date":
+          aValue = a.water_baptism_date
+            ? new Date(a.water_baptism_date).getTime()
+            : 0;
+          bValue = b.water_baptism_date
+            ? new Date(b.water_baptism_date).getTime()
+            : 0;
+          break;
+        default:
+          aValue = (a.last_name || "").toLowerCase();
+          bValue = (b.last_name || "").toLowerCase();
+      }
 
-      return (b.first_name || "").localeCompare(a.first_name || "", undefined, {
-        sensitivity: "base",
-      });
+      if (sortBy === "last_name" && aValue === bValue) {
+        aValue = (a.first_name || "").toLowerCase();
+        bValue = (b.first_name || "").toLowerCase();
+      }
+
+      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+      return 0;
     });
-  }, [clusterMembers, coordinator]);
+  }, [clusterMembers, coordinator, sortBy, sortOrder]);
+
+  const handleSortSelect = (field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+    setShowSortDropdown(false);
+  };
 
   const sortedCoreMembers = useMemo(
     () =>
@@ -487,11 +552,132 @@ export default function ClusterView({
                     isPanelMode ? "flex-row" : "flex-col sm:flex-row"
                   } gap-2 w-full sm:w-auto`}
                 >
+                  <div className="relative">
+                    <button
+                      ref={sortButtonRef}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSortDropdown(!showSortDropdown);
+                      }}
+                      className="inline-flex items-center justify-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                    >
+                      <svg
+                        className="w-4 h-4 mr-1.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                        />
+                      </svg>
+                      Sort
+                    </button>
+
+                    {showSortDropdown && (
+                      <div
+                        ref={sortDropdownRef}
+                        className="fixed w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 max-w-[calc(100vw-2rem)]"
+                        style={{
+                          top: sortButtonRef.current
+                            ? `${
+                                sortButtonRef.current.getBoundingClientRect()
+                                  .bottom + 4
+                              }px`
+                            : "0",
+                          right: sortButtonRef.current
+                            ? Math.max(
+                                16,
+                                window.innerWidth -
+                                  sortButtonRef.current.getBoundingClientRect()
+                                    .right,
+                              )
+                            : "16",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="py-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSortSelect("last_name")}
+                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                              sortBy === "last_name"
+                                ? "bg-primary/10 text-primary"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            Last Name
+                            {sortBy === "last_name" && (
+                              <span className="ml-2">
+                                {sortOrder === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSortSelect("first_name")}
+                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                              sortBy === "first_name"
+                                ? "bg-primary/10 text-primary"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            First Name
+                            {sortBy === "first_name" && (
+                              <span className="ml-2">
+                                {sortOrder === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSortSelect("date_first_attended")
+                            }
+                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                              sortBy === "date_first_attended"
+                                ? "bg-primary/10 text-primary"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            Date First Attended
+                            {sortBy === "date_first_attended" && (
+                              <span className="ml-2">
+                                {sortOrder === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSortSelect("water_baptism_date")
+                            }
+                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                              sortBy === "water_baptism_date"
+                                ? "bg-primary/10 text-primary"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            Water Baptism Date
+                            {sortBy === "water_baptism_date" && (
+                              <span className="ml-2">
+                                {sortOrder === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   {canManageCluster && (
                     <Button
                       onClick={onAssignMembers}
                       variant="secondary"
-                      className="!text-green-600 py-2.5 md:py-2 px-4 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                      className="!text-white !py-2.5 md:!py-2 !px-3 text-sm leading-4 !font-medium bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 flex items-center justify-center space-x-2 !min-h-[44px] md:!min-h-0 !rounded-lg w-full sm:w-auto"
                     >
                       <svg
                         className="w-4 h-4"
@@ -513,7 +699,7 @@ export default function ClusterView({
                     <Button
                       onClick={onSubmitReport}
                       variant="secondary"
-                      className="!text-primary py-2.5 md:py-2 px-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                      className="!text-primary !py-2.5 md:!py-2 !px-3 text-sm leading-4 !font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 !min-h-[44px] md:!min-h-0 !rounded-lg w-full sm:w-auto"
                     >
                       <svg
                         className="w-4 h-4"
@@ -621,7 +807,7 @@ export default function ClusterView({
                     <Button
                       onClick={onAssignMembers}
                       variant="secondary"
-                      className="!text-green-600 py-2 px-4 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2 mx-auto"
+                      className="!text-white py-2 px-4 text-sm font-normal bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 flex items-center justify-center space-x-2 mx-auto"
                     >
                       <svg
                         className="w-4 h-4"

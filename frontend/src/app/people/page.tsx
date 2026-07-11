@@ -449,10 +449,8 @@ export default function PeoplePage() {
     person: Person | null;
   }>({ isOpen: false, person: null });
 
-  // Scalability controls for Assign-to-Family modal
+  // Search for Assign-to-Family modal
   const [familySelectSearch, setFamilySelectSearch] = useState("");
-  const [familySelectPage, setFamilySelectPage] = useState(1);
-  const FAMILY_SELECT_PAGE_SIZE = 20;
 
   const [selectClusterModal, setSelectClusterModal] = useState<{
     isOpen: boolean;
@@ -462,10 +460,8 @@ export default function PeoplePage() {
   // Overlay for creating a new family without closing other modals
   const [showCreateFamilyOverlay, setShowCreateFamilyOverlay] = useState(false);
 
-  // Scalability controls for Assign-to-Cluster modal
+  // Search for Assign-to-Cluster modal
   const [clusterSelectSearch, setClusterSelectSearch] = useState("");
-  const [clusterSelectPage, setClusterSelectPage] = useState(1);
-  const CLUSTER_SELECT_PAGE_SIZE = 20;
   const [showCreateClusterOverlay, setShowCreateClusterOverlay] =
     useState(false);
   const [clusterCreateContextPerson, setClusterCreateContextPerson] =
@@ -2970,16 +2966,13 @@ export default function PeoplePage() {
               </button>
             </div>
 
-            {/* Search and pagination */}
+            {/* Search */}
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 placeholder="Search families..."
                 value={familySelectSearch}
-                onChange={(e) => {
-                  setFamilySelectSearch(e.target.value);
-                  setFamilySelectPage(1);
-                }}
+                onChange={(e) => setFamilySelectSearch(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
               />
               <span className="text-xs text-gray-500 whitespace-nowrap">
@@ -2996,148 +2989,90 @@ export default function PeoplePage() {
               )
                 .slice()
                 .sort((a, b) => a.name.localeCompare(b.name));
-              const totalPages = Math.max(
-                1,
-                Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE),
-              );
-              const start = (familySelectPage - 1) * FAMILY_SELECT_PAGE_SIZE;
-              const pageItems = filtered.slice(
-                start,
-                start + FAMILY_SELECT_PAGE_SIZE,
-              );
 
               return (
-                <>
-                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
-                    {pageItems.map((f) => (
-                      <button
-                        key={f.id}
-                        onClick={async () => {
-                          const target = f;
-                          const updatedMembers = Array.from(
-                            new Set([
-                              ...target.members,
-                              selectFamilyModal.person!.id,
-                            ]),
-                          );
-                          await updateFamily(target.id, {
-                            name: target.name,
-                            leader: target.leader || undefined,
-                            members: updatedMembers,
-                            address: target.address,
-                            notes: target.notes,
-                          });
-                          await refreshFamilies();
-                          await refreshPeople();
-                          let latestPerson: Person | null = null;
-                          let updatedJourneys: Journey[] = [];
-                          try {
-                            const [personResponse, journeysResponse] =
-                              await Promise.all([
-                                peopleApi.getById(
-                                  String(selectFamilyModal.person!.id),
-                                ),
-                                journeysApi.getByUser(
-                                  String(selectFamilyModal.person!.id),
-                                ),
-                              ]);
-                            latestPerson = personResponse.data;
-                            updatedJourneys = journeysResponse.data;
-                          } catch (error) {
-                            console.error(
-                              "Failed to refresh person details after family update:",
-                              error,
-                            );
-                          }
-
-                          if (latestPerson) {
-                            const nextPerson: Person = {
-                              ...latestPerson,
-                              journeys: updatedJourneys.length
-                                ? updatedJourneys
-                                : latestPerson.journeys,
-                            };
-
-                            setViewEditPerson((current) =>
-                              current && current.id === nextPerson.id
-                                ? nextPerson
-                                : current,
-                            );
-                            setPersonPanelPerson((current) =>
-                              current && current.id === nextPerson.id
-                                ? nextPerson
-                                : current,
-                            );
-                            setPersonOverCluster((current) =>
-                              current && current.id === nextPerson.id
-                                ? nextPerson
-                                : current,
-                            );
-                          }
-                          setSelectFamilyModal({ isOpen: false, person: null });
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
-                      >
-                        {f.name}{" "}
-                        <span className="text-gray-500">
-                          ({f.members.length})
-                        </span>
-                      </button>
-                    ))}
-                    {pageItems.length === 0 && (
-                      <div className="px-3 py-6 text-sm text-gray-500 text-center">
-                        No families found
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <span>
-                      Page {familySelectPage} of{" "}
-                      {Math.max(
-                        1,
-                        Math.ceil(filtered.length / FAMILY_SELECT_PAGE_SIZE),
-                      )}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() =>
-                          setFamilySelectPage((p) => Math.max(1, p - 1))
-                        }
-                        disabled={familySelectPage === 1}
-                        className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
-                      >
-                        ‹ Prev
-                      </button>
-                      <button
-                        onClick={() =>
-                          setFamilySelectPage((p) =>
-                            Math.min(
-                              Math.max(
-                                1,
-                                Math.ceil(
-                                  filtered.length / FAMILY_SELECT_PAGE_SIZE,
-                                ),
+                <div className="max-h-[min(60vh,32rem)] overflow-y-auto border border-gray-200 rounded-md">
+                  {filtered.map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={async () => {
+                        const target = f;
+                        const updatedMembers = Array.from(
+                          new Set([
+                            ...target.members,
+                            selectFamilyModal.person!.id,
+                          ]),
+                        );
+                        await updateFamily(target.id, {
+                          name: target.name,
+                          leader: target.leader || undefined,
+                          members: updatedMembers,
+                          address: target.address,
+                          notes: target.notes,
+                        });
+                        await refreshFamilies();
+                        await refreshPeople();
+                        let latestPerson: Person | null = null;
+                        let updatedJourneys: Journey[] = [];
+                        try {
+                          const [personResponse, journeysResponse] =
+                            await Promise.all([
+                              peopleApi.getById(
+                                String(selectFamilyModal.person!.id),
                               ),
-                              p + 1,
-                            ),
-                          )
+                              journeysApi.getByUser(
+                                String(selectFamilyModal.person!.id),
+                              ),
+                            ]);
+                          latestPerson = personResponse.data;
+                          updatedJourneys = journeysResponse.data;
+                        } catch (error) {
+                          console.error(
+                            "Failed to refresh person details after family update:",
+                            error,
+                          );
                         }
-                        disabled={
-                          familySelectPage ===
-                          Math.max(
-                            1,
-                            Math.ceil(
-                              filtered.length / FAMILY_SELECT_PAGE_SIZE,
-                            ),
-                          )
+
+                        if (latestPerson) {
+                          const nextPerson: Person = {
+                            ...latestPerson,
+                            journeys: updatedJourneys.length
+                              ? updatedJourneys
+                              : latestPerson.journeys,
+                          };
+
+                          setViewEditPerson((current) =>
+                            current && current.id === nextPerson.id
+                              ? nextPerson
+                              : current,
+                          );
+                          setPersonPanelPerson((current) =>
+                            current && current.id === nextPerson.id
+                              ? nextPerson
+                              : current,
+                          );
+                          setPersonOverCluster((current) =>
+                            current && current.id === nextPerson.id
+                              ? nextPerson
+                              : current,
+                          );
                         }
-                        className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
-                      >
-                        Next ›
-                      </button>
+                        setSelectFamilyModal({ isOpen: false, person: null });
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
+                    >
+                      {f.name}{" "}
+                      <span className="text-gray-500">
+                        ({f.members.length})
+                      </span>
+                    </button>
+                  ))}
+                  {filtered.length === 0 && (
+                    <div className="px-3 py-6 text-sm text-gray-500 text-center">
+                      No families found
                     </div>
-                  </div>
-                </>
+                  )}
+                </div>
               );
             })()}
           </div>
@@ -3168,16 +3103,13 @@ export default function PeoplePage() {
               </button>
             </div>
 
-            {/* Search and pagination */}
+            {/* Search */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <input
                 type="text"
                 placeholder="Search clusters..."
                 value={clusterSelectSearch}
-                onChange={(e) => {
-                  setClusterSelectSearch(e.target.value);
-                  setClusterSelectPage(1);
-                }}
+                onChange={(e) => setClusterSelectSearch(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -3206,125 +3138,66 @@ export default function PeoplePage() {
                         ((c as any).code || "").toLowerCase().includes(term),
                     )
                   : clusters;
-                const totalPages = Math.max(
-                  1,
-                  Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE),
-                );
-                const start =
-                  (clusterSelectPage - 1) * CLUSTER_SELECT_PAGE_SIZE;
-                const pageItems = filtered.slice(
-                  start,
-                  start + CLUSTER_SELECT_PAGE_SIZE,
-                );
 
                 return (
-                  <>
-                    <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
-                      {pageItems.map((c) => (
-                        <button
-                          type="button"
-                          key={c.id}
-                          onClick={async () => {
-                            const target = c as any;
-                            const members = Array.isArray(target.members)
-                              ? target.members
-                              : [];
-                            const updatedMembers = Array.from(
-                              new Set([
-                                ...members,
-                                selectClusterModal.person!.id,
-                              ]),
-                            );
-                            await clustersApi.update(c.id, {
-                              name: c.name,
-                              code: (c as any).code,
-                              coordinator: (c as any).coordinator,
-                              families: (c as any).families || [],
-                              members: updatedMembers,
-                              location: (c as any).location,
-                              meeting_schedule: (c as any).meeting_schedule,
-                              description: c.description,
-                            } as any);
-                            await fetchClusters();
-                            await refreshOpenPersonProfilesAfterClusterMemberChange(
-                              members,
-                              updatedMembers,
-                            );
-                            setSelectClusterModal({
-                              isOpen: false,
-                              person: null,
-                            });
-                          }}
-                          className="w-full text-left px-3 py-2 min-h-[44px] text-sm hover:bg-gray-50 border-b last:border-b-0"
-                        >
-                          {(() => {
-                            const code = (c as any).code as string | undefined;
-                            const name = c.name || "Cluster";
-                            return code ? (
-                              <>
-                                <span className="font-semibold">{code}</span>
-                                {` - ${name}`}
-                              </>
-                            ) : (
-                              name
-                            );
-                          })()}
-                        </button>
-                      ))}
-                      {pageItems.length === 0 && (
-                        <div className="px-3 py-6 text-sm text-gray-500 text-center">
-                          No clusters found
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-sm text-gray-600">
-                      <span className="flex items-center">
-                        Page {clusterSelectPage} of{" "}
-                        {Math.max(
-                          1,
-                          Math.ceil(filtered.length / CLUSTER_SELECT_PAGE_SIZE),
-                        )}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() =>
-                            setClusterSelectPage((p) => Math.max(1, p - 1))
-                          }
-                          disabled={clusterSelectPage === 1}
-                          className="px-3 py-2 min-h-[44px] border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50 flex-1 sm:flex-initial"
-                        >
-                          ‹ Prev
-                        </button>
-                        <button
-                          onClick={() =>
-                            setClusterSelectPage((p) =>
-                              Math.min(
-                                Math.max(
-                                  1,
-                                  Math.ceil(
-                                    filtered.length / CLUSTER_SELECT_PAGE_SIZE,
-                                  ),
-                                ),
-                                p + 1,
-                              ),
-                            )
-                          }
-                          disabled={
-                            clusterSelectPage ===
-                            Math.max(
-                              1,
-                              Math.ceil(
-                                filtered.length / CLUSTER_SELECT_PAGE_SIZE,
-                              ),
-                            )
-                          }
-                          className="px-3 py-2 min-h-[44px] border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50 flex-1 sm:flex-initial"
-                        >
-                          Next ›
-                        </button>
+                  <div className="max-h-[min(60vh,32rem)] overflow-y-auto border border-gray-200 rounded-md">
+                    {filtered.map((c) => (
+                      <button
+                        type="button"
+                        key={c.id}
+                        onClick={async () => {
+                          const target = c as any;
+                          const members = Array.isArray(target.members)
+                            ? target.members
+                            : [];
+                          const updatedMembers = Array.from(
+                            new Set([
+                              ...members,
+                              selectClusterModal.person!.id,
+                            ]),
+                          );
+                          await clustersApi.update(c.id, {
+                            name: c.name,
+                            code: (c as any).code,
+                            coordinator: (c as any).coordinator,
+                            families: (c as any).families || [],
+                            members: updatedMembers,
+                            location: (c as any).location,
+                            meeting_schedule: (c as any).meeting_schedule,
+                            description: c.description,
+                          } as any);
+                          await fetchClusters();
+                          await refreshOpenPersonProfilesAfterClusterMemberChange(
+                            members,
+                            updatedMembers,
+                          );
+                          setSelectClusterModal({
+                            isOpen: false,
+                            person: null,
+                          });
+                        }}
+                        className="w-full text-left px-3 py-2 min-h-[44px] text-sm hover:bg-gray-50 border-b last:border-b-0"
+                      >
+                        {(() => {
+                          const code = (c as any).code as string | undefined;
+                          const name = c.name || "Cluster";
+                          return code ? (
+                            <>
+                              <span className="font-semibold">{code}</span>
+                              {` - ${name}`}
+                            </>
+                          ) : (
+                            name
+                          );
+                        })()}
+                      </button>
+                    ))}
+                    {filtered.length === 0 && (
+                      <div className="px-3 py-6 text-sm text-gray-500 text-center">
+                        No clusters found
                       </div>
-                    </div>
-                  </>
+                    )}
+                  </div>
                 );
               })()}
           </div>

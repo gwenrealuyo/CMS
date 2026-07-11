@@ -5,6 +5,7 @@ import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { personMatchesClusterBranch } from "@/src/lib/clusterMembership";
 import Button from "@/src/components/ui/Button";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
@@ -44,6 +45,11 @@ export default function AssignMembersModal({
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [removeMemberConfirmation, setRemoveMemberConfirmation] = useState<{
+    isOpen: boolean;
+    memberId: string | null;
+    memberName: string | null;
+  }>({ isOpen: false, memberId: null, memberName: null });
   const memberDropdownRef = useRef<HTMLDivElement>(null);
   const initializedForClusterRef = useRef<number | null>(null);
 
@@ -66,6 +72,11 @@ export default function AssignMembersModal({
     if (!isOpen) {
       initializedForClusterRef.current = null;
       setSelectedPersonById({});
+      setRemoveMemberConfirmation({
+        isOpen: false,
+        memberId: null,
+        memberName: null,
+      });
       return;
     }
     if (!cluster) return;
@@ -149,16 +160,34 @@ export default function AssignMembersModal({
     setShowMemberDropdown(false);
   };
 
-  const removeMember = (memberId: string | number) => {
-    const normalizedId = normalizeMemberId(memberId);
+  const closeRemoveMemberConfirmation = () => {
+    setRemoveMemberConfirmation({
+      isOpen: false,
+      memberId: null,
+      memberName: null,
+    });
+  };
+
+  const requestRemoveMember = (member: PersonUI) => {
+    setRemoveMemberConfirmation({
+      isOpen: true,
+      memberId: normalizeMemberId(member.id),
+      memberName: formatPersonName(member),
+    });
+  };
+
+  const confirmRemoveMember = () => {
+    const memberId = removeMemberConfirmation.memberId;
+    if (!memberId) return;
     setSelectedMemberIds((prev) =>
-      prev.filter((id) => !memberIdsMatch(id, normalizedId))
+      prev.filter((id) => !memberIdsMatch(id, memberId))
     );
     setSelectedPersonById((prev) => {
       const next = { ...prev };
-      delete next[normalizedId];
+      delete next[memberId];
       return next;
     });
+    closeRemoveMemberConfirmation();
   };
 
   const handleSubmit = async () => {
@@ -194,6 +223,7 @@ export default function AssignMembersModal({
   if (!isOpen || !cluster) return null;
 
   return (
+    <>
     <ModalOverlay
       isOpen={isOpen}
       onClose={onClose}
@@ -363,8 +393,10 @@ export default function AssignMembersModal({
                       </span>
                     </div>
                     <button
-                      onClick={() => removeMember(member.id)}
+                      type="button"
+                      onClick={() => requestRemoveMember(member)}
                       className="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50 transition-colors"
+                      aria-label={`Remove ${formatPersonName(member)}`}
                     >
                       <svg
                         className="w-4 h-4"
@@ -422,7 +454,7 @@ export default function AssignMembersModal({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <span>Assigning...</span>
+                <span>Saving...</span>
               </>
             ) : (
               <>
@@ -436,15 +468,36 @@ export default function AssignMembersModal({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    d="M5 13l4 4L19 7"
                   />
                 </svg>
-                <span>Assign Members</span>
+                <span>Save Changes</span>
               </>
             )}
           </Button>
         </div>
       </div>
     </ModalOverlay>
+
+    <ConfirmationModal
+      isOpen={removeMemberConfirmation.isOpen}
+      onClose={closeRemoveMemberConfirmation}
+      onConfirm={confirmRemoveMember}
+      title="Remove Member"
+      message={
+        <>
+          Are you sure you want to remove{" "}
+          <strong className="font-semibold text-gray-900">
+            &quot;{removeMemberConfirmation.memberName ?? ""}&quot;
+          </strong>{" "}
+          from this cluster? They will be removed when you save.
+        </>
+      }
+      confirmText="Remove"
+      cancelText="Cancel"
+      variant="warning"
+      zIndex={80}
+    />
+    </>
   );
 }

@@ -6,6 +6,11 @@ import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import Button from "@/src/components/ui/Button";
 import { useBranches } from "@/src/hooks/useBranches";
+import {
+  CLUSTER_BRANCH_CHIP_CLASSNAME,
+  getBranchOutlineBadgeStyle,
+  getBranchDisplayCode,
+} from "@/src/lib/branchChipColor";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -189,11 +194,14 @@ export default function FamilyView({
         return "bg-gray-100 text-gray-800";
       case "DECEASED":
         return "bg-red-100 text-red-800";
+      case "INVITED":
+        return "bg-yellow-100 text-yellow-800";
+      case "ATTENDED":
+        return "bg-green-100 text-green-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
-
 
   // All family members are displayed together - no separation in the model
 
@@ -205,28 +213,19 @@ export default function FamilyView({
   const leader = getLeader();
   const isPanelMode = !showTopHeader;
 
-  // Prefer Family.branch; fall back to unique member branch names
-  const getFamilyBranches = () => {
-    if (family.branch != null && family.branch !== undefined) {
-      const named = branches.find((b) => b.id === family.branch);
-      if (named?.name) return [named.name];
-    }
-    const memberBranches = familyMembers
-      .map((member) => member.branch_name)
-      .filter((branch): branch is string => Boolean(branch));
-    return Array.from(new Set(memberBranches));
-  };
-
-  const familyBranches = getFamilyBranches();
+  const familyBranch =
+    family.branch != null
+      ? branches.find((b) => b.id === family.branch) ?? null
+      : null;
 
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
       {showTopHeader && (
-        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-3 md:p-4 border-b border-gray-200">
           <div className="flex-1 min-w-0">
-            <h2 className="text-sm sm:text-base font-medium text-gray-900">Family Details</h2>
-            <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5 truncate">
+            <h2 className="text-sm font-medium text-gray-900">Family Details</h2>
+            <p className="text-xs md:text-[11px] text-gray-600 mt-0.5 truncate">
               The {family.name} Family
             </p>
           </div>
@@ -253,248 +252,411 @@ export default function FamilyView({
       )}
 
       {/* Content */}
-      <div className="p-3 md:p-4 lg:p-6 overflow-y-auto flex-1">
-        <div className="space-y-4">
-          {/* Family Header Card */}
-          <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-lg p-3 sm:p-4 border border-primary/20">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-gray-900">
-                The {family.name} Family
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-                {familyMembers.length} members • Since{" "}
-                {familyMembers[0]?.dateFirstAttended
-                  ? new Date(
-                      familyMembers[0].dateFirstAttended
-                    ).toLocaleDateString()
-                  : "Unknown"}
-                {family.address && (
-                  <>
-                    {" • "}
-                    <span className="text-gray-700">{family.address}</span>
-                  </>
-                )}
-                {familyBranches.length > 0 && (
-                  <>
-                    {" • "}
-                    <span className="text-gray-700">
-                      Branch: {familyBranches.join(", ")}
-                    </span>
-                  </>
-                )}
-              </p>
-              {leader && (
-                <p className="text-[10px] sm:text-[11px] text-gray-500 mt-1">
-                  Family Leader: {formatFullName(leader)}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Family Members */}
-          {(familyMembers.length > 0 || onAddMember) && (
-            <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                <h3 className="text-sm font-semibold text-gray-900">
-                  Members ({familyMembers.length})
-                </h3>
-                <div className="relative">
-                  <button
-                    ref={sortButtonRef}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowSortDropdown(!showSortDropdown);
-                    }}
-                    className="inline-flex items-center px-3 py-2 sm:py-1.5 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] sm:min-h-0 w-full sm:w-auto"
+      <div
+        className={`${
+          isPanelMode ? "p-3 sm:p-4" : "p-4 md:p-5"
+        } overflow-y-auto flex-1`}
+      >
+        <div
+          className={`${isPanelMode ? "space-y-3 sm:space-y-4" : "space-y-4 md:space-y-5"}`}
+        >
+          {/* Family Info Card */}
+          <div
+            className={`rounded-lg p-4 border ${
+              isPanelMode
+                ? "bg-white border-gray-200 shadow-sm"
+                : "bg-gradient-to-r from-lighthouse-ivory to-muted border-primary/20"
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+                <h2
+                  className={`${
+                    isPanelMode
+                      ? "text-xl break-words"
+                      : "text-lg md:text-xl truncate"
+                  } font-bold text-gray-900`}
+                >
+                  The {family.name} Family
+                </h2>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3 text-gray-700 flex-wrap">
+                <div className="flex items-center gap-1">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
                   >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  <span className="text-sm font-normal">
+                    {familyMembers.length} members
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div
+              className={`${isPanelMode ? "space-y-2" : "flex flex-col gap-2 md:flex-row md:items-center md:justify-between"} text-sm text-gray-700`}
+            >
+              <div className="flex items-center gap-4 flex-wrap">
+                {family.address && (
+                  <div className="flex items-center gap-1">
                     <svg
-                      className="w-4 h-4 mr-1.5"
+                      className="w-4 h-4"
                       fill="none"
-                      stroke="currentColor"
                       viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                        d="M12 11a3 3 0 100-6 3 3 0 000 6z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19.5 10.5c0 7.5-7.5 11.25-7.5 11.25S4.5 18 4.5 10.5a7.5 7.5 0 1115 0z"
                       />
                     </svg>
-                    Sort
-                  </button>
-
-                  {/* Sort Dropdown */}
-                  {showSortDropdown && (
-                    <div
-                      ref={dropdownRef}
-                      className="fixed w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 max-w-[calc(100vw-2rem)]"
-                      style={{
-                        top: sortButtonRef.current
-                          ? `${
-                              sortButtonRef.current.getBoundingClientRect()
-                                .bottom + 4
-                            }px`
-                          : "0",
-                        right: sortButtonRef.current
-                          ? Math.max(
-                              16,
-                              window.innerWidth -
-                                sortButtonRef.current.getBoundingClientRect()
-                                  .right
-                            )
-                          : "16",
-                      }}
-                      onClick={(e) => e.stopPropagation()}
+                    <span>{family.address}</span>
+                  </div>
+                )}
+                {familyBranch && (
+                  <span
+                    className={CLUSTER_BRANCH_CHIP_CLASSNAME}
+                    style={getBranchOutlineBadgeStyle(
+                      familyBranch.id,
+                      familyBranch.is_headquarters,
+                    )}
+                  >
+                    <svg
+                      className="w-3 h-3 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
                     >
-                      <div className="py-1">
-                        <button
-                          onClick={() => handleSortSelect("last_name")}
-                          className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
-                            sortBy === "last_name"
-                              ? "bg-primary/10 text-primary"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          Last Name
-                          {sortBy === "last_name" && (
-                            <span className="ml-2">
-                              {sortOrder === "asc" ? "↑" : "↓"}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleSortSelect("first_name")}
-                          className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
-                            sortBy === "first_name"
-                              ? "bg-primary/10 text-primary"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          First Name
-                          {sortBy === "first_name" && (
-                            <span className="ml-2">
-                              {sortOrder === "asc" ? "↑" : "↓"}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleSortSelect("date_first_attended")
-                          }
-                          className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
-                            sortBy === "date_first_attended"
-                              ? "bg-primary/10 text-primary"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          Date First Attended
-                          {sortBy === "date_first_attended" && (
-                            <span className="ml-2">
-                              {sortOrder === "asc" ? "↑" : "↓"}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleSortSelect("water_baptism_date")}
-                          className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
-                            sortBy === "water_baptism_date"
-                              ? "bg-primary/10 text-primary"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          Water Baptism Date
-                          {sortBy === "water_baptism_date" && (
-                            <span className="ml-2">
-                              {sortOrder === "asc" ? "↑" : "↓"}
-                            </span>
-                          )}
-                        </button>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      />
+                    </svg>
+                    {getBranchDisplayCode(familyBranch)}
+                  </span>
+                )}
+              </div>
+              {leader && (
+                <div className="flex items-center gap-1">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                  <span className="font-normal break-words">
+                    {formatFullName(leader)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Notes (like cluster Description) */}
+          {family.notes && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Notes</h3>
+              <p className="text-gray-600 break-words">{family.notes}</p>
+            </div>
+          )}
+
+          {/* Family Members */}
+          {(familyMembers.length > 0 || onAddMember) && (
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <h3 className="text-base md:text-lg font-semibold text-gray-900">
+                  Members ({familyMembers.length})
+                </h3>
+                <div
+                  className={`flex ${
+                    isPanelMode ? "flex-row" : "flex-col sm:flex-row"
+                  } gap-2 w-full sm:w-auto`}
+                >
+                  <div className="relative">
+                    <button
+                      ref={sortButtonRef}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSortDropdown(!showSortDropdown);
+                      }}
+                      className="inline-flex items-center justify-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                    >
+                      <svg
+                        className="w-4 h-4 mr-1.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                        />
+                      </svg>
+                      Sort
+                    </button>
+
+                    {showSortDropdown && (
+                      <div
+                        ref={dropdownRef}
+                        className="fixed w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 max-w-[calc(100vw-2rem)]"
+                        style={{
+                          top: sortButtonRef.current
+                            ? `${
+                                sortButtonRef.current.getBoundingClientRect()
+                                  .bottom + 4
+                              }px`
+                            : "0",
+                          right: sortButtonRef.current
+                            ? Math.max(
+                                16,
+                                window.innerWidth -
+                                  sortButtonRef.current.getBoundingClientRect()
+                                    .right,
+                              )
+                            : "16",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="py-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSortSelect("last_name")}
+                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                              sortBy === "last_name"
+                                ? "bg-primary/10 text-primary"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            Last Name
+                            {sortBy === "last_name" && (
+                              <span className="ml-2">
+                                {sortOrder === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSortSelect("first_name")}
+                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                              sortBy === "first_name"
+                                ? "bg-primary/10 text-primary"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            First Name
+                            {sortBy === "first_name" && (
+                              <span className="ml-2">
+                                {sortOrder === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSortSelect("date_first_attended")
+                            }
+                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                              sortBy === "date_first_attended"
+                                ? "bg-primary/10 text-primary"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            Date First Attended
+                            {sortBy === "date_first_attended" && (
+                              <span className="ml-2">
+                                {sortOrder === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSortSelect("water_baptism_date")
+                            }
+                            className={`block w-full text-left px-4 py-3 sm:py-2 text-sm min-h-[44px] sm:min-h-0 ${
+                              sortBy === "water_baptism_date"
+                                ? "bg-primary/10 text-primary"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            Water Baptism Date
+                            {sortBy === "water_baptism_date" && (
+                              <span className="ml-2">
+                                {sortOrder === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
+                  </div>
+                  {onAddMember && (
+                    <Button
+                      onClick={onAddMember}
+                      variant="secondary"
+                      className="!text-white !py-2.5 md:!py-2 !px-3 text-sm leading-4 !font-medium bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 flex items-center justify-center space-x-2 !min-h-[44px] md:!min-h-0 !rounded-lg w-full sm:w-auto"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      <span>Add Members</span>
+                    </Button>
                   )}
                 </div>
               </div>
               {familyMembers.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-2 sm:gap-3">
-                  {sortedMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-2.5 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 min-h-[60px] sm:min-h-0"
-                      onClick={() => onViewPerson && onViewPerson(member)}
-                    >
-                      <PersonAvatar person={member} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm sm:text-sm font-medium text-gray-900 truncate">
-                          {formatFullName(member)}
-                        </h4>
-                        <div className="flex items-center gap-1 sm:space-x-1.5 mt-0.5 flex-wrap">
-                          <span
-                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                              member.status
-                            )}`}
+                <div
+                  className={
+                    isPanelMode
+                      ? "grid gap-2 grid-cols-1 sm:grid-cols-2"
+                      : "grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  }
+                >
+                  {sortedMembers.map((member) => {
+                    const memberName = formatFullName(member);
+                    const isLongWrappedName = memberName.length > 20;
+                    const cluster = clusters?.find((c) =>
+                      (c as { members?: Array<string | number> }).members?.some(
+                        (id) => String(id) === String(member.id),
+                      ),
+                    );
+                    return (
+                      <div
+                        key={member.id}
+                        className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
+                        onClick={() => onViewPerson && onViewPerson(member)}
+                      >
+                        <PersonAvatar person={member} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`font-medium text-gray-900 break-words ${
+                              isLongWrappedName
+                                ? "text-xs leading-5"
+                                : "text-sm leading-5"
+                            }`}
                           >
-                            {member.status.toLowerCase()}
-                          </span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPersonRoleColor(
-                              member.role
-                            )}`}
-                          >
-                            {member.role.toLowerCase()}
-                          </span>
-                          {/* Cluster badge */}
-                          {(() => {
-                            if (!clusters || clusters.length === 0) {
-                              return (
-                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
+                            {memberName}
+                          </p>
+                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                            <span
+                              className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getStatusColor(
+                                member.status,
+                              )}`}
+                            >
+                              {member.status}
+                            </span>
+                            <span
+                              className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonRoleColor(
+                                member.role,
+                              )}`}
+                            >
+                              {member.role}
+                            </span>
+                            {member.id === family.leader && (
+                              <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium chip-yellow-sm">
+                                Leader
+                              </span>
+                            )}
+                            {clusters &&
+                              (cluster ? (
+                                <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary">
+                                  {cluster.code || cluster.name || "Cluster"}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium bg-red-100 text-red-800">
                                   No cluster
                                 </span>
-                              );
-                            }
-                            const c = clusters.find((c) =>
-                              (c as any).members?.includes(member.id)
-                            );
-                            return (
-                              <span
-                                className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                                  c
-                                    ? "chip-primary"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {c
-                                  ? c.code
-                                    ? c.code
-                                    : c.name ?? "Cluster"
-                                  : "No cluster"}
-                              </span>
-                            );
-                          })()}
-                          {member.id === family.leader && (
-                            <span className="chip-yellow-sm text-[10px]">
-                              Leader
-                            </span>
-                          )}
+                              ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="text-center py-4 text-gray-500 text-sm">
-                  No family members yet
+                <div className="text-center py-8">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    No family members yet
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    This family doesn&rsquo;t have any members assigned yet.
+                  </p>
+                  {onAddMember && (
+                    <div className="mt-4">
+                      <Button
+                        onClick={onAddMember}
+                        variant="secondary"
+                        className="!text-white py-2 px-4 text-sm font-normal bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 flex items-center justify-center space-x-2 mx-auto"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                        <span>Add Members</span>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Family Notes */}
-          {family.notes && (
-            <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                Notes
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-700 break-words">{family.notes}</p>
             </div>
           )}
         </div>
@@ -533,28 +695,6 @@ export default function FamilyView({
             )}
           </div>
           <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
-            {onAddMember && (
-              <Button
-                onClick={onAddMember}
-                variant="secondary"
-                className="!text-green-600 h-10 px-4 text-sm font-medium bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2 shrink-0"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-                <span>Add</span>
-              </Button>
-            )}
             {!hideEditButton && (
               <Button
                 onClick={onEdit}
@@ -580,13 +720,12 @@ export default function FamilyView({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
-          {/* Mobile: Primary actions on top */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 p-4 md:p-6 border-t border-gray-200 bg-gray-50">
           <div className="flex flex-col-reverse md:flex-row gap-2 md:gap-3 w-full md:w-auto md:order-2">
             <Button
               onClick={onCancel}
               variant="secondary"
-              className="!text-black md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto md:hidden"
+              className="!text-black md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto md:hidden"
             >
               <svg
                 className="w-4 h-4"
@@ -603,33 +742,11 @@ export default function FamilyView({
               </svg>
               <span>Cancel</span>
             </Button>
-            {onAddMember && (
-              <Button
-                onClick={onAddMember}
-                variant="secondary"
-                className="!text-green-600 md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-                <span>Add Member</span>
-              </Button>
-            )}
             {!hideEditButton && (
               <Button
                 onClick={onEdit}
                 variant="secondary"
-                className="!text-primary md:py-4 px-4 sm:px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
+                className="!text-primary md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
               >
                 <svg
                   className="w-4 h-4"
@@ -648,7 +765,6 @@ export default function FamilyView({
               </Button>
             )}
           </div>
-          {/* Mobile: Delete at bottom with divider; desktop: icon-only in one row */}
           {!hideDeleteButton && (
             <div className="md:order-1">
               <div className="border-t border-gray-200 my-2 md:hidden"></div>

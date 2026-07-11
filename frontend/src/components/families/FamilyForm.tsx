@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Family, Person, PersonUI } from "@/src/types/person";
+import { Family, PersonUI } from "@/src/types/person";
 import Button from "../ui/Button";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { formatPersonName } from "@/src/lib/name";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import { useBranches } from "@/src/hooks/useBranches";
+import { useAuth } from "@/src/contexts/AuthContext";
 
 interface FamilyFormProps {
   onSubmit: (family: Partial<Family>) => Promise<void>;
@@ -24,6 +26,13 @@ export default function FamilyForm({
   showDeleteButton = true,
   compactLayout = false,
 }: FamilyFormProps) {
+  const { branches } = useBranches();
+  const { user, isSeniorCoordinator } = useAuth();
+  const canEditBranch =
+    user?.role === "ADMIN" ||
+    user?.role === "PASTOR" ||
+    isSeniorCoordinator("CLUSTER");
+
   const getInitialFormData = useCallback(
     () => ({
       name: initialData?.name || "",
@@ -31,6 +40,10 @@ export default function FamilyForm({
       address: initialData?.address || "",
       notes: initialData?.notes || "",
       leader: initialData?.leader || "",
+      branch:
+        initialData?.branch != null && initialData.branch !== undefined
+          ? String(initialData.branch)
+          : "",
     }),
     [initialData]
   );
@@ -69,7 +82,10 @@ export default function FamilyForm({
 
     try {
       setLoading(true);
-      await onSubmit(formData);
+      await onSubmit({
+        ...formData,
+        branch: formData.branch ? Number(formData.branch) : null,
+      });
     } catch (error) {
       console.error("Error submitting family:", error);
       alert("Failed to save family. Please try again.");
@@ -140,6 +156,41 @@ export default function FamilyForm({
             placeholder="Enter family name (e.g., Johnson)"
             required
           />
+        </div>
+
+        <div>
+          <label
+            className={`block text-sm font-medium text-gray-700 ${
+              compactLayout ? "mb-2" : "mb-2"
+            }`}
+          >
+            Branch
+          </label>
+          <select
+            value={formData.branch}
+            onChange={(e) =>
+              setFormData({ ...formData, branch: e.target.value })
+            }
+            disabled={!canEditBranch}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+              !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
+            }`}
+          >
+            <option value="">No branch</option>
+            {branches
+              .filter((b) => b.is_active)
+              .map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                  {branch.is_headquarters ? " (HQ)" : ""}
+                </option>
+              ))}
+          </select>
+          {!canEditBranch && (
+            <p className="text-xs text-gray-500 mt-1">
+              Only ADMIN, PASTOR, or CLUSTER Senior Coordinator can edit branch
+            </p>
+          )}
         </div>
 
         <div>

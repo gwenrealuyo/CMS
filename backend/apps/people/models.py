@@ -158,6 +158,13 @@ class Family(models.Model):
         Person, on_delete=models.SET_NULL, null=True, related_name="led_families"
     )
     members = models.ManyToManyField(Person, related_name="families")
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="families",
+    )
     address = models.TextField(blank=True)  # Physical address/location
     notes = models.TextField(blank=True)  # Family notes/description
     is_active = models.BooleanField(default=True)

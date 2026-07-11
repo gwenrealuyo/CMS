@@ -99,6 +99,7 @@ export interface Family {
   name: string;
   leader?: string; // Person ID
   members: string[]; // List of Person IDs
+  branch?: number | null;
   address?: string; // Physical address/location
   notes?: string; // Family notes/description
   is_active?: boolean;

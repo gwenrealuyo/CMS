@@ -311,6 +311,9 @@ export default function FamilyManagementDashboard({
     if (branchFilterId) {
       const bid = Number(branchFilterId);
       result = result.filter((family) => {
+        if (family.branch != null && family.branch !== undefined) {
+          return family.branch === bid;
+        }
         const ids = new Set<string>(family.members);
         if (family.leader) ids.add(family.leader);
         return Array.from(ids).some((id) => {

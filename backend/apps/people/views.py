@@ -269,13 +269,13 @@ class FamilyViewSet(viewsets.ModelViewSet):
 
         # Helper function to filter families by branch
         def filter_families_by_branch(qs):
-            """Filter families based on members' branches"""
+            """Filter families by Family.branch or members' branches."""
             if user.can_see_all_branches():
                 return qs
             if user.branch:
-                # Filter families where most members belong to user's branch
-                # Get families where at least one member is from user's branch
-                return qs.filter(members__branch=user.branch).distinct()
+                return qs.filter(
+                    Q(branch=user.branch) | Q(members__branch=user.branch)
+                ).distinct()
             return qs.none()
 
         # ADMIN: All families
@@ -336,9 +336,10 @@ class FamilyViewSet(viewsets.ModelViewSet):
         # MEMBER: Only families they're members of
         if user.role == "MEMBER":
             member_families = queryset.filter(members=user).distinct()
-            # Apply branch filtering
             if user.branch:
-                return member_families.filter(members__branch=user.branch).distinct()
+                return member_families.filter(
+                    Q(branch=user.branch) | Q(members__branch=user.branch)
+                ).distinct()
             return member_families
 
         # Default: empty queryset for safety

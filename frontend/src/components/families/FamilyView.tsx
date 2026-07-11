@@ -5,6 +5,7 @@ import { formatPersonName } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import Button from "@/src/components/ui/Button";
+import { useBranches } from "@/src/hooks/useBranches";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -86,6 +87,7 @@ export default function FamilyView({
   hideDeleteButton = false,
   showTopHeader = true,
 }: FamilyViewProps) {
+  const { branches } = useBranches();
   const [sortBy, setSortBy] = useState<SortField>("last_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -203,13 +205,16 @@ export default function FamilyView({
   const leader = getLeader();
   const isPanelMode = !showTopHeader;
 
-  // Get unique branch names from family members
+  // Prefer Family.branch; fall back to unique member branch names
   const getFamilyBranches = () => {
-    const branches = familyMembers
+    if (family.branch != null && family.branch !== undefined) {
+      const named = branches.find((b) => b.id === family.branch);
+      if (named?.name) return [named.name];
+    }
+    const memberBranches = familyMembers
       .map((member) => member.branch_name)
       .filter((branch): branch is string => Boolean(branch));
-    const uniqueBranches = Array.from(new Set(branches));
-    return uniqueBranches;
+    return Array.from(new Set(memberBranches));
   };
 
   const familyBranches = getFamilyBranches();

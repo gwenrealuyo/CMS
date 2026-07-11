@@ -761,7 +761,17 @@ class FamilySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "name", "leader", "members", "address", "notes", "is_active", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "leader",
+            "members",
+            "branch",
+            "address",
+            "notes",
+            "is_active",
+            "created_at",
+        ]
         read_only_fields = ["created_at"]
 
     def _get_person_label(self, person: Person) -> str:

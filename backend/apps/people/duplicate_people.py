@@ -11,6 +11,15 @@ from apps.people.models import Person
 
 
 def _person_summary(person: Person) -> Dict[str, Any]:
+    # Prefetch via prefetch_related("clusters") on the queryset when available.
+    cluster_codes = [
+        code
+        for code in (
+            getattr(c, "code", None)
+            for c in person.clusters.all()
+        )
+        if code
+    ]
     return {
         "id": person.id,
         "first_name": person.first_name,
@@ -25,6 +34,7 @@ def _person_summary(person: Person) -> Dict[str, Any]:
         "branch_id": person.branch_id,
         "branch_name": person.branch.name if person.branch_id else None,
         "branch_code": person.branch.code if person.branch_id else None,
+        "cluster_codes": cluster_codes,
     }
 
 
@@ -50,7 +60,7 @@ def find_possible_people_duplicate_groups(
     if match not in ("name", "member_id", "both"):
         match = "both"
 
-    base = Person.objects.all().select_related("branch")
+    base = Person.objects.all().select_related("branch").prefetch_related("clusters")
     if branch_id is not None:
         base = base.filter(branch_id=branch_id)
 
@@ -73,7 +83,9 @@ def find_possible_people_duplicate_groups(
         )
         for row in name_keys:
             people = list(
-                name_qs.filter(fn=row["fn"], ln=row["ln"]).order_by("id")
+                name_qs.filter(fn=row["fn"], ln=row["ln"])
+                .prefetch_related("clusters")
+                .order_by("id")
             )
             same_branch = _group_same_branch(people)
             if same_branch_only and not same_branch:
@@ -98,7 +110,11 @@ def find_possible_people_duplicate_groups(
             .order_by("-count", "mid")
         )
         for row in mid_keys:
-            people = list(mid_qs.filter(mid=row["mid"]).order_by("id"))
+            people = list(
+                mid_qs.filter(mid=row["mid"])
+                .prefetch_related("clusters")
+                .order_by("id")
+            )
             same_branch = _group_same_branch(people)
             if same_branch_only and not same_branch:
                 continue

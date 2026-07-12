@@ -303,6 +303,7 @@ export const peopleApi = {
           branch_id?: number | null;
           branch_name?: string | null;
           branch_code?: string | null;
+          cluster_codes?: string[];
         }>;
       }>;
       count: number;

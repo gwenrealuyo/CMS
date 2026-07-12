@@ -26,6 +26,7 @@ type DuplicatePerson = {
   branch_id?: number | null;
   branch_name?: string | null;
   branch_code?: string | null;
+  cluster_codes?: string[];
 };
 
 type DuplicateGroup = {
@@ -223,6 +224,7 @@ function PeopleDuplicatesPageContent() {
                         <th className="px-4 py-2 font-medium">Name</th>
                         <th className="px-4 py-2 font-medium">LAMP ID</th>
                         <th className="px-4 py-2 font-medium">Branch</th>
+                        <th className="px-4 py-2 font-medium">Cluster Code</th>
                         <th className="px-4 py-2 font-medium">Role</th>
                         <th className="px-4 py-2 font-medium">Status</th>
                         <th className="px-4 py-2 font-medium">Username</th>
@@ -245,6 +247,10 @@ function PeopleDuplicatesPageContent() {
                           <td className="px-4 py-2 text-gray-700">
                             {person.branch_code ||
                               person.branch_name ||
+                              "—"}
+                          </td>
+                          <td className="px-4 py-2 text-gray-700">
+                            {person.cluster_codes?.filter(Boolean).join(", ") ||
                               "—"}
                           </td>
                           <td className="px-4 py-2 text-gray-700">

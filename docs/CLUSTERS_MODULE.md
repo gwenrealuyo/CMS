@@ -49,6 +49,7 @@ See also: [`docs/cluster-family-member-relationship-rules.md`](cluster-family-me
   - `meeting_date` (DateField) – actual date the cluster meeting was held
   - `members_attended` (ManyToMany to `people.Person`, filtered to role="MEMBER") – members who attended
   - `visitors_attended` (ManyToMany to `people.Person`, filtered to role="VISITOR") – visitors who attended
+  - `prospects_invited` (ManyToMany to `evangelism.Prospect`, blank) – invited visitors recorded on this report who have **not** attended yet (no Person required)
   - `gathering_type` (CharField, choices: PHYSICAL, ONLINE, HYBRID) – how the meeting was conducted
   - `activities_held` (TextField, blank) – activities/events during the meeting
   - `prayer_requests` (TextField, blank) – prayer requests shared
@@ -61,10 +62,30 @@ See also: [`docs/cluster-family-member-relationship-rules.md`](cluster-family-me
   - `updated_at` (DateTimeField, auto_now) – when the report was last updated
 - **Computed Properties**:
   - `members_present`: Returns count of `members_attended`
-  - `visitors_present`: Returns count of `visitors_attended`
+  - `visitors_present`: Returns count of `visitors_attended` (attendance only — does **not** include prospects invited)
+  - `prospects_invited_count`: Returns count of `prospects_invited`
   - `member_attendance_rate`: Returns percentage of cluster members who attended (0-100)
 - Default ordering: by `-year`, then `-week_number`
 - Unique constraint: `unique_together = ["cluster", "year", "week_number"]` – prevents duplicate reports for the same cluster/week
+
+#### Prospects on weekly reports
+
+Cluster reporters and coordinators can record **named invited prospects** on a weekly report without creating People records:
+
+- Write fields (nested on create/update):
+  - `prospects_invited` – existing Prospect IDs to link to this report’s invite list
+  - `new_prospects` – write-only list of objects (`first_name`, `last_name`, required `invited_by_id`, optional contact/facebook/notes/`date_first_invited`, etc.); creates INVITED Prospects with `inviter_cluster` forced to the report’s cluster; appends them to `prospects_invited`
+  - `prospects_attended` – write-only Prospect IDs to mark attended on submit (creates/links Person, adds to `visitors_attended`, syncs cluster membership). Scoped to prospects attributed to this cluster (inviter or endorsed), INVITED / linked visitor, not dropped off
+- Validation:
+  - Soft **dedupe** rejects `new_prospects` that match existing INVITED prospects for the cluster (same name; contact/facebook when provided)
+  - A prospect cannot appear on both the invite list and `prospects_attended` in the same submit
+- Edit semantics: changing `prospects_invited` only updates the M2M link for that week; **Prospect rows are never deleted** when unlinked from a report
+- Invited prospects are **not** added to `cluster.members` until they attend (via `visitors_attended` / `prospects_attended`)
+- Nested create/promote runs under **cluster report write permissions** (including CLUSTER Reporter) — reporters do **not** need EVANGELISM write access
+
+##### Future: walk-in visitors
+
+v1 requires `invited_by` on every new prospect. Walk-ins (no real inviter) are **not** implemented yet. Later options may include nullable `invited_by`, an invite source (`MEMBER` / `WALK_IN`), or free-text “how they came.” Do **not** fake an inviter (e.g. coordinator) — that corrupts inviter / Each1Reach1 analytics.
 
 ### Automatic Journey Creation
 
@@ -136,6 +157,7 @@ All ForeignKey and ManyToMany relationships use string references to avoid circu
 ### Migrations
 
 - `apps.clusters.migrations.0001_initial` – Creates Cluster and ClusterWeeklyReport tables with all relationships
+- `apps.clusters.migrations.0006_clusterweeklyreport_prospects_invited` – Adds `prospects_invited` M2M to evangelism.Prospect
 - There is no seed data in migrations; use the management command for sample data.
 
 ## Compliance Monitoring
@@ -241,8 +263,11 @@ Serializers (`apps.clusters.serializers`) expose:
   - `cluster_code` – read-only cluster code
   - `members_attended_details` – read-only full person details for members (includes `role` and `status` fields)
   - `visitors_attended_details` – read-only full person details for visitors (includes `role` and `status` fields)
+  - `prospects_invited` / `prospects_invited_details` – invited prospects linked to this report (read details include name, stage, inviter)
+  - `new_prospects` – write-only nested creates (see Prospects on weekly reports)
+  - `prospects_attended` – write-only promote-to-attended Prospect IDs
   - `submitted_by_details` – read-only full person details for submitter
-  - `members_present`, `visitors_present`, `member_attendance_rate` – computed properties (read-only)
+  - `members_present`, `visitors_present`, `prospects_invited_count`, `member_attendance_rate` – computed properties (read-only)
 
 ### Reports RBAC (non-senior cluster coordinators)
 
@@ -251,6 +276,7 @@ Backend helpers in `apps.clusters.permissions`:
 - `filter_clusters_for_read` — **Reporters**: assigned cluster(s) only. **Coordinators**: branch-wide cluster cards (read-only for non-managed).
 - `managed_cluster_ids_for_reports` — weekly report list/retrieve/analytics/`distinct_years`/`overdue` for coordinators **and reporters**.
 - Object-level mutations still use `ClusterCoordinatorScopedPermission` / `ClusterWeeklyReportScopedPermission`.
+- **Cluster Reporter** can submit weekly reports and nested `new_prospects` / `prospects_attended` for assigned clusters, but **cannot** create Prospects via `/api/evangelism/prospects/` unless they also have EVANGELISM write.
 
 **Module coordinator assignments** (People admin): Coordinators on Cluster, Evangelism, or Sunday School must have a resource in the assignee's branch; module-wide rows are **Senior Coordinator** only. **Cluster Reporter** is CLUSTER-only, resource-specific, and grants report submission without cluster management. After deploy on databases with legacy data, run once:
 
@@ -315,6 +341,11 @@ The page uses tabs similar to the Lessons page:
   - **Week-Based Filtering**: Previous reports are filtered to only include reports from earlier weeks/years than the current report being edited
   - **Current Report Exclusion**: When editing, the current report is excluded from the "previous reports" list
   - **Form Data Sync**: `formData` is automatically synced with `initialData` when editing to ensure correct week/year values
+  - **Section order**: Members Attended → Visitors Attended (+ Add New Visitor) → **Prospects Invited** (+ Add Prospect) with helper copy that invites are not yet attended / not in People until attend
+  - **Visitors Attended search** includes cluster-scoped INVITED prospects (no Person yet) as `prospect:{id}`; selecting them promotes via `prospects_attended` on submit (server-side)
+  - **Dual-list blocking**: the same prospect cannot be on Prospects Invited and Visitors Attended together
+  - Submit builds payload in `frontend/src/lib/clusterWeeklyReportSubmit.ts` (no client `markAttended` — reporters lack EVANGELISM write)
+- **`ViewWeeklyReportModal`**: Shows Prospects Invited separately from Visitors Attended (names, inviter, stage); attendance totals stay members + visitors only; prospects invited count is separate
 - **`AttendanceSelector`**: Component for selecting members/visitors who attended
   - **Bulk Selection Options**:
     - "Select All": Selects all available members/visitors
@@ -398,7 +429,7 @@ All cluster models are registered in Django admin (`apps.clusters.admin`):
   - List display: cluster, year, week_number, meeting_date, gathering_type, submitted_by, submitted_at
   - Filterable by year, week_number, gathering_type, submitted_at
   - Searchable by cluster name and code
-  - Filter horizontal for members_attended and visitors_attended
+  - Filter horizontal for members_attended, visitors_attended, and prospects_invited
   - Fieldsets: Report Information, Attendance, Meeting Details, Summary, Submission
 
 ## Testing

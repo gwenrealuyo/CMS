@@ -54,7 +54,7 @@ class ClusterWeeklyReportAdmin(admin.ModelAdmin):
     )
     list_filter = ("year", "week_number", "gathering_type", "submitted_at")
     search_fields = ("cluster__name", "cluster__code")
-    filter_horizontal = ("members_attended", "visitors_attended")
+    filter_horizontal = ("members_attended", "visitors_attended", "prospects_invited")
     fieldsets = (
         (
             "Report Information",
@@ -74,6 +74,7 @@ class ClusterWeeklyReportAdmin(admin.ModelAdmin):
                 "fields": (
                     "members_attended",
                     "visitors_attended",
+                    "prospects_invited",
                 )
             },
         ),

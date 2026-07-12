@@ -120,6 +120,173 @@ def create_person_from_prospect(
     return person
 
 
+def find_duplicate_invited_prospects(
+    cluster: Cluster,
+    first_name: str,
+    last_name: str,
+    *,
+    contact_info: str = "",
+    facebook_name: str = "",
+    exclude_prospect_id: Optional[int] = None,
+) -> List[Prospect]:
+    """
+    Soft-match INVITED (non-dropped) prospects for a cluster by name,
+    and by contact/facebook when those values are provided.
+    """
+    fn = (first_name or "").strip()
+    ln = (last_name or "").strip()
+    if not fn or not ln or not cluster:
+        return []
+
+    qs = Prospect.objects.filter(
+        is_dropped_off=False,
+        pipeline_stage=Prospect.PipelineStage.INVITED,
+    ).filter(Q(inviter_cluster=cluster) | Q(endorsed_cluster=cluster))
+    qs = qs.filter(first_name__iexact=fn, last_name__iexact=ln)
+
+    contact = (contact_info or "").strip()
+    facebook = (facebook_name or "").strip()
+    if contact or facebook:
+        extra = Q()
+        if contact:
+            extra |= Q(contact_info__iexact=contact)
+        if facebook:
+            extra |= Q(facebook_name__iexact=facebook)
+        # Prefer matches that also share contact/facebook when provided,
+        # but still treat same name as a duplicate for invite create.
+        name_matches = list(qs)
+        contact_matches = list(qs.filter(extra))
+        matches = contact_matches if contact_matches else name_matches
+    else:
+        matches = list(qs)
+
+    if exclude_prospect_id is not None:
+        matches = [p for p in matches if p.pk != exclude_prospect_id]
+    return matches
+
+
+def create_invited_prospect_for_cluster(
+    cluster: Cluster,
+    *,
+    first_name: str,
+    last_name: str,
+    invited_by: Person,
+    middle_name: str = "",
+    suffix: str = "",
+    gender: str = "",
+    contact_info: str = "",
+    facebook_name: str = "",
+    notes: str = "",
+    date_first_invited: Optional[date] = None,
+    evangelism_group=None,
+) -> Prospect:
+    """
+    Create an INVITED Prospect attributed to a cluster (e.g. from a weekly report).
+    Forces inviter_cluster to the given cluster. Does not create a Person.
+    """
+    if not cluster:
+        raise ValueError("cluster is required")
+    if not invited_by:
+        raise ValueError("invited_by is required")
+
+    invite_date = date_first_invited or timezone.now().date()
+    prospect = Prospect.objects.create(
+        first_name=(first_name or "").strip(),
+        last_name=(last_name or "").strip(),
+        middle_name=(middle_name or "").strip(),
+        suffix=(suffix or "").strip(),
+        gender=gender or "",
+        contact_info=(contact_info or "").strip(),
+        facebook_name=(facebook_name or "").strip(),
+        notes=(notes or "").strip(),
+        invited_by=invited_by,
+        inviter_cluster=cluster,
+        evangelism_group=evangelism_group,
+        pipeline_stage=Prospect.PipelineStage.INVITED,
+        date_first_invited=invite_date,
+        last_activity_date=invite_date,
+    )
+    try:
+        update_monthly_tracking(
+            prospect,
+            MonthlyConversionTracking.Stage.INVITED,
+            cluster,
+            invite_date,
+        )
+    except ValueError:
+        pass
+    return prospect
+
+
+def mark_prospect_attended(
+    prospect: Prospect,
+    *,
+    activity_date: Optional[date] = None,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+) -> Prospect:
+    """
+    Mark a prospect as ATTENDED: create/link Person, update stage and monthly tracking.
+    Shared by ProspectViewSet.mark_attended and cluster weekly report promotion.
+    """
+    if activity_date is None:
+        activity_date = timezone.now().date()
+
+    if not prospect.person:
+        fn = (first_name or "").strip() or prospect.first_name
+        ln = (last_name or "").strip() or prospect.last_name
+        if not fn or not ln:
+            raise ValueError("first_name and last_name are required to create Person")
+        create_person_from_prospect(
+            prospect,
+            fn,
+            ln,
+            date_first_attended=activity_date,
+        )
+    else:
+        person = prospect.person
+        if person.role == "VISITOR":
+            updates = []
+            if person.status != "ATTENDED":
+                person.status = "ATTENDED"
+                updates.append("status")
+            if not person.date_first_attended:
+                person.date_first_attended = activity_date
+                updates.append("date_first_attended")
+            if prospect.facebook_name and not person.facebook_name:
+                person.facebook_name = prospect.facebook_name
+                updates.append("facebook_name")
+            if updates:
+                person.save(update_fields=updates)
+        sync_prospect_invitation_journey_note(person, prospect)
+
+    prospect.pipeline_stage = Prospect.PipelineStage.ATTENDED
+    prospect.last_activity_date = activity_date
+    prospect.save(
+        update_fields=["pipeline_stage", "last_activity_date", "updated_at"]
+    )
+
+    cluster = prospect.inviter_cluster or prospect.endorsed_cluster
+    if cluster:
+        update_monthly_tracking(
+            prospect,
+            MonthlyConversionTracking.Stage.ATTENDED,
+            cluster,
+            prospect.last_activity_date,
+        )
+    return prospect
+
+
+def prospect_belongs_to_cluster(prospect: Prospect, cluster: Cluster) -> bool:
+    """True if prospect is attributed to the cluster via inviter or endorsed cluster."""
+    if not prospect or not cluster:
+        return False
+    return (
+        prospect.inviter_cluster_id == cluster.pk
+        or prospect.endorsed_cluster_id == cluster.pk
+    )
+
+
 def update_monthly_tracking(
     prospect: Prospect,
     stage: str,

@@ -67,6 +67,12 @@ class ClusterWeeklyReport(models.Model):
         related_name="cluster_reports_as_visitor",
         limit_choices_to={"role": "VISITOR"},
     )
+    prospects_invited = models.ManyToManyField(
+        "evangelism.Prospect",
+        blank=True,
+        related_name="cluster_reports_invited_to",
+        help_text="Invited visitors recorded on this report (not yet attended)",
+    )
 
     # Gathering Information
     gathering_type = models.CharField(
@@ -115,6 +121,11 @@ class ClusterWeeklyReport(models.Model):
     def visitors_present(self):
         """Count visitors attended excluding ADMIN users"""
         return self.visitors_attended.exclude(role="ADMIN").count()
+
+    @property
+    def prospects_invited_count(self):
+        """Count invited prospects recorded on this report (not attendance)."""
+        return self.prospects_invited.count()
 
     @property
     def member_attendance_rate(self):

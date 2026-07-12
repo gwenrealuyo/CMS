@@ -4,6 +4,13 @@ from django.utils import timezone
 import logging
 
 from apps.people.models import Person, Family, Journey
+from apps.evangelism.models import Prospect
+from apps.evangelism.services import (
+    create_invited_prospect_for_cluster,
+    find_duplicate_invited_prospects,
+    mark_prospect_attended,
+    prospect_belongs_to_cluster,
+)
 from apps.clusters.branch_membership import (
     clear_coordinator_if_invalid,
     ensure_coordinator_in_members,
@@ -14,6 +21,28 @@ from apps.clusters.branch_membership import (
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
 logger = logging.getLogger(__name__)
+
+
+class ClusterReportNewProspectSerializer(serializers.Serializer):
+    """Write-only payload for creating an INVITED prospect on a cluster weekly report."""
+
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    invited_by_id = serializers.PrimaryKeyRelatedField(
+        source="invited_by",
+        queryset=Person.objects.exclude(role="ADMIN"),
+    )
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    suffix = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    gender = serializers.ChoiceField(
+        choices=[("MALE", "Male"), ("FEMALE", "Female"), ("", "")],
+        required=False,
+        allow_blank=True,
+    )
+    contact_info = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    facebook_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    date_first_invited = serializers.DateField(required=False, allow_null=True)
 
 
 class ClusterSerializer(serializers.ModelSerializer):
@@ -312,12 +341,28 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         queryset=Person.objects.filter(role="VISITOR").exclude(role="ADMIN"),
         required=False,
     )
+    prospects_invited = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Prospect.objects.all(),
+        required=False,
+    )
+    new_prospects = ClusterReportNewProspectSerializer(
+        many=True, required=False, write_only=True
+    )
+    prospects_attended = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Prospect.objects.all(),
+        required=False,
+        write_only=True,
+    )
     # Read-only fields with full person details
     members_attended_details = serializers.SerializerMethodField()
     visitors_attended_details = serializers.SerializerMethodField()
+    prospects_invited_details = serializers.SerializerMethodField()
     # Computed properties for backward compatibility
     members_present = serializers.IntegerField(read_only=True)
     visitors_present = serializers.IntegerField(read_only=True)
+    prospects_invited_count = serializers.IntegerField(read_only=True)
     member_attendance_rate = serializers.FloatField(read_only=True)
 
     class Meta:
@@ -332,10 +377,15 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "meeting_date",
             "members_attended",
             "visitors_attended",
+            "prospects_invited",
+            "new_prospects",
+            "prospects_attended",
             "members_attended_details",
             "visitors_attended_details",
+            "prospects_invited_details",
             "members_present",
             "visitors_present",
+            "prospects_invited_count",
             "member_attendance_rate",
             "gathering_type",
             "activities_held",
@@ -355,6 +405,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "updated_at",
             "members_present",
             "visitors_present",
+            "prospects_invited_count",
             "member_attendance_rate",
         ]
 
@@ -393,6 +444,273 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             }
             for person in obj.visitors_attended.exclude(role="ADMIN")
         ]
+
+    def get_prospects_invited_details(self, obj):
+        details = []
+        for prospect in obj.prospects_invited.select_related("invited_by").all():
+            inviter = prospect.invited_by
+            details.append(
+                {
+                    "id": prospect.id,
+                    "first_name": prospect.first_name,
+                    "last_name": prospect.last_name,
+                    "middle_name": prospect.middle_name,
+                    "suffix": prospect.suffix,
+                    "display_name": prospect.display_name,
+                    "pipeline_stage": prospect.pipeline_stage,
+                    "pipeline_stage_display": prospect.get_pipeline_stage_display(),
+                    "invited_by": (
+                        {
+                            "id": inviter.id,
+                            "first_name": inviter.first_name,
+                            "last_name": inviter.last_name,
+                            "username": inviter.username,
+                        }
+                        if inviter
+                        else None
+                    ),
+                    "person_id": prospect.person_id,
+                }
+            )
+        return details
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        cluster = attrs.get("cluster") or getattr(self.instance, "cluster", None)
+        meeting_date = attrs.get("meeting_date") or getattr(
+            self.instance, "meeting_date", None
+        )
+        new_prospects = attrs.get("new_prospects") or []
+        prospects_attended = attrs.get("prospects_attended") or []
+        prospects_invited = attrs.get("prospects_invited", serializers.empty)
+
+        if prospects_invited is serializers.empty and self.instance is not None:
+            invited_ids = set(
+                self.instance.prospects_invited.values_list("id", flat=True)
+            )
+        elif prospects_invited is serializers.empty:
+            invited_ids = set()
+        else:
+            invited_ids = {p.pk for p in prospects_invited}
+
+        attended_ids = {p.pk for p in prospects_attended}
+        overlap = invited_ids & attended_ids
+        if overlap:
+            raise serializers.ValidationError(
+                {
+                    "prospects_attended": (
+                        "A prospect cannot be both invited and attended on the same report. "
+                        f"Conflicting prospect ids: {sorted(overlap)}"
+                    )
+                }
+            )
+
+        if cluster and new_prospects:
+            for idx, payload in enumerate(new_prospects):
+                duplicates = find_duplicate_invited_prospects(
+                    cluster,
+                    payload.get("first_name", ""),
+                    payload.get("last_name", ""),
+                    contact_info=payload.get("contact_info", ""),
+                    facebook_name=payload.get("facebook_name", ""),
+                )
+                if duplicates:
+                    raise serializers.ValidationError(
+                        {
+                            "new_prospects": {
+                                idx: {
+                                    "non_field_errors": [
+                                        "A similar invited prospect already exists for this cluster. "
+                                        "Select the existing prospect instead of creating a duplicate."
+                                    ],
+                                    "matches": [
+                                        {
+                                            "id": d.id,
+                                            "display_name": d.display_name,
+                                            "first_name": d.first_name,
+                                            "last_name": d.last_name,
+                                        }
+                                        for d in duplicates
+                                    ],
+                                }
+                            }
+                        }
+                    )
+
+        if cluster and prospects_attended:
+            for prospect in prospects_attended:
+                if not prospect_belongs_to_cluster(prospect, cluster):
+                    raise serializers.ValidationError(
+                        {
+                            "prospects_attended": (
+                                f"Prospect {prospect.pk} is not attributed to this cluster."
+                            )
+                        }
+                    )
+                if prospect.is_dropped_off:
+                    raise serializers.ValidationError(
+                        {
+                            "prospects_attended": (
+                                f"Prospect {prospect.pk} is dropped off and cannot be marked attended."
+                            )
+                        }
+                    )
+                person = prospect.person
+                is_invited = prospect.pipeline_stage == Prospect.PipelineStage.INVITED
+                is_linked_visitor = bool(
+                    person and person.role == "VISITOR"
+                )
+                if not is_invited and not is_linked_visitor:
+                    raise serializers.ValidationError(
+                        {
+                            "prospects_attended": (
+                                f"Prospect {prospect.pk} cannot be marked attended "
+                                "(must be INVITED or a linked visitor)."
+                            )
+                        }
+                    )
+
+        attrs["_meeting_date_for_prospects"] = meeting_date
+        return attrs
+
+    def _create_new_prospects(self, cluster, meeting_date, new_prospects_data):
+        created = []
+        for payload in new_prospects_data:
+            invite_date = payload.get("date_first_invited") or meeting_date
+            prospect = create_invited_prospect_for_cluster(
+                cluster,
+                first_name=payload["first_name"],
+                last_name=payload["last_name"],
+                invited_by=payload["invited_by"],
+                middle_name=payload.get("middle_name", ""),
+                suffix=payload.get("suffix", ""),
+                gender=payload.get("gender", "") or "",
+                contact_info=payload.get("contact_info", ""),
+                facebook_name=payload.get("facebook_name", ""),
+                notes=payload.get("notes", ""),
+                date_first_invited=invite_date,
+            )
+            created.append(prospect)
+        return created
+
+    def _promote_prospects_attended(self, cluster, meeting_date, prospects_attended):
+        promoted_people = []
+        for prospect in prospects_attended:
+            if not prospect_belongs_to_cluster(prospect, cluster):
+                continue
+            mark_prospect_attended(
+                prospect,
+                activity_date=meeting_date or timezone.now().date(),
+            )
+            prospect.refresh_from_db()
+            if prospect.person_id:
+                promoted_people.append(prospect.person)
+        return promoted_people
+
+    @transaction.atomic
+    def create(self, validated_data):
+        new_prospects_data = validated_data.pop("new_prospects", [])
+        prospects_attended = validated_data.pop("prospects_attended", [])
+        meeting_date = validated_data.pop(
+            "_meeting_date_for_prospects", validated_data.get("meeting_date")
+        )
+        prospects_invited = validated_data.pop("prospects_invited", [])
+        members_attended = validated_data.pop("members_attended", [])
+        visitors_attended = validated_data.pop("visitors_attended", [])
+
+        cluster = validated_data["cluster"]
+        created_prospects = self._create_new_prospects(
+            cluster, meeting_date, new_prospects_data
+        )
+        promoted_people = self._promote_prospects_attended(
+            cluster, meeting_date, prospects_attended
+        )
+
+        report = ClusterWeeklyReport.objects.create(**validated_data)
+        if members_attended:
+            report.members_attended.set(members_attended)
+
+        visitor_set = list(visitors_attended) + promoted_people
+        # Deduplicate by pk while preserving order
+        seen = set()
+        unique_visitors = []
+        for person in visitor_set:
+            if person.pk not in seen:
+                seen.add(person.pk)
+                unique_visitors.append(person)
+        if unique_visitors:
+            report.visitors_attended.set(unique_visitors)
+
+        invited_set = list(prospects_invited) + created_prospects
+        # Remove any that were also promoted this submit
+        promoted_prospect_ids = {p.pk for p in prospects_attended}
+        invited_set = [p for p in invited_set if p.pk not in promoted_prospect_ids]
+        if invited_set:
+            report.prospects_invited.set(invited_set)
+
+        return report
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        new_prospects_data = validated_data.pop("new_prospects", None)
+        prospects_attended = validated_data.pop("prospects_attended", None)
+        meeting_date = validated_data.pop(
+            "_meeting_date_for_prospects",
+            validated_data.get("meeting_date", instance.meeting_date),
+        )
+        prospects_invited = validated_data.pop("prospects_invited", serializers.empty)
+        members_attended = validated_data.pop("members_attended", serializers.empty)
+        visitors_attended = validated_data.pop("visitors_attended", serializers.empty)
+
+        cluster = validated_data.get("cluster", instance.cluster)
+
+        created_prospects = []
+        if new_prospects_data:
+            created_prospects = self._create_new_prospects(
+                cluster, meeting_date, new_prospects_data
+            )
+
+        promoted_people = []
+        if prospects_attended:
+            promoted_people = self._promote_prospects_attended(
+                cluster, meeting_date, prospects_attended
+            )
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if members_attended is not serializers.empty:
+            instance.members_attended.set(members_attended)
+
+        if visitors_attended is not serializers.empty or promoted_people:
+            if visitors_attended is serializers.empty:
+                current = list(instance.visitors_attended.all())
+            else:
+                current = list(visitors_attended)
+            visitor_set = current + promoted_people
+            seen = set()
+            unique_visitors = []
+            for person in visitor_set:
+                if person.pk not in seen:
+                    seen.add(person.pk)
+                    unique_visitors.append(person)
+            instance.visitors_attended.set(unique_visitors)
+
+        if prospects_invited is not serializers.empty or created_prospects:
+            if prospects_invited is serializers.empty:
+                current_invited = list(instance.prospects_invited.all())
+            else:
+                current_invited = list(prospects_invited)
+            invited_set = current_invited + created_prospects
+            promoted_prospect_ids = (
+                {p.pk for p in prospects_attended} if prospects_attended else set()
+            )
+            invited_set = [p for p in invited_set if p.pk not in promoted_prospect_ids]
+            # Unlink only — never delete Prospect rows
+            instance.prospects_invited.set(invited_set)
+
+        return instance
 
 
 class ClusterComplianceNoteSerializer(serializers.ModelSerializer):

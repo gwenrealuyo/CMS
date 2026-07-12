@@ -1918,6 +1918,7 @@ export default function EvangelismPage() {
                 isSelectablePerson
               )}
               groups={groups}
+              prospectOptions={prospects}
               selectedBibleStudyGroup={
                 groupData ?? viewEditGroup ?? undefined
               }

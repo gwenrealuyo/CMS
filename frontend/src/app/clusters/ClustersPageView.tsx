@@ -1567,34 +1567,24 @@ export default function ClustersPageView({
               onEditReport={onEditReport}
               onSetReportSelectedCluster={onSetReportSelectedCluster}
               onSubmitReport={async (data) => {
-                // Convert data to ClusterWeeklyReportInput format
                 const reportData: ClusterWeeklyReportInput = {
-                  cluster:
-                    typeof data.cluster === "number"
-                      ? data.cluster
-                      : Number(data.cluster),
-                  year: data.year!,
-                  week_number: data.week_number!,
-                  meeting_date: data.meeting_date!,
-                  gathering_type: data.gathering_type!,
-                  members_attended: (data.members_attended || []).map(
-                    (id: any) =>
-                      typeof id === "number" ? id : Number(id)
-                  ),
-                  visitors_attended: (data.visitors_attended || []).map(
-                    (id: any) => (typeof id === "number" ? id : Number(id))
-                  ),
+                  cluster: data.cluster,
+                  year: data.year,
+                  week_number: data.week_number,
+                  meeting_date: data.meeting_date,
+                  gathering_type: data.gathering_type,
+                  members_attended: data.members_attended || [],
+                  visitors_attended: data.visitors_attended || [],
+                  prospects_invited: data.prospects_invited || [],
+                  new_prospects: data.new_prospects || [],
+                  prospects_attended: data.prospects_attended || [],
                   activities_held: data.activities_held || "",
                   prayer_requests: data.prayer_requests || "",
                   testimonies: data.testimonies || "",
                   offerings: String(data.offerings || 0),
                   highlights: data.highlights || "",
                   lowlights: data.lowlights || "",
-                  submitted_by: data.submitted_by
-                    ? typeof data.submitted_by === "number"
-                      ? data.submitted_by
-                      : Number(data.submitted_by)
-                    : undefined,
+                  submitted_by: data.submitted_by ?? undefined,
                 };
 
                 if (editingReport) {

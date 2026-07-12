@@ -999,6 +999,208 @@ class ClusterWeeklyReportAPITests(TestCase):
         self.assertIn("overdue_clusters", response.data)
 
 
+class ClusterWeeklyReportProspectsAPITests(TestCase):
+    """Prospects invited / attended nested on cluster weekly reports."""
+
+    def setUp(self):
+        from apps.evangelism.models import Prospect
+
+        self.Prospect = Prospect
+        self.client = APIClient()
+        self.branch = Branch.objects.create(name="Prospect Branch", code="BR_PROS")
+        self.reporter = Person.objects.create_user(
+            username="prospect_reporter",
+            email="prospect_reporter@example.com",
+            password="password123",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.inviter = Person.objects.create_user(
+            username="prospect_inviter",
+            email="prospect_inviter@example.com",
+            password="password123",
+            first_name="Invite",
+            last_name="Rer",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.cluster = Cluster.objects.create(
+            code="CLU-PROS",
+            name="Prospects Cluster",
+            coordinator=self.inviter,
+            branch=self.branch,
+        )
+        self.cluster.members.add(self.inviter)
+        ModuleCoordinator.objects.create(
+            person=self.reporter,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            resource_id=self.cluster.id,
+            resource_type="Cluster",
+        )
+        self.client.force_authenticate(user=self.reporter)
+
+    def _base_payload(self, **extra):
+        today = date.today()
+        payload = {
+            "cluster": self.cluster.id,
+            "year": today.year,
+            "week_number": today.isocalendar()[1],
+            "meeting_date": today.isoformat(),
+            "gathering_type": "PHYSICAL",
+            "members_attended": [],
+            "visitors_attended": [],
+            "offerings": "0.00",
+        }
+        payload.update(extra)
+        return payload
+
+    def test_reporter_can_create_report_with_new_prospects(self):
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            self._base_payload(
+                new_prospects=[
+                    {
+                        "first_name": "Ada",
+                        "last_name": "Invitee",
+                        "invited_by_id": self.inviter.id,
+                    }
+                ]
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["prospects_invited_count"], 1)
+        self.assertEqual(response.data["visitors_present"], 0)
+        prospect_id = response.data["prospects_invited"][0]
+        prospect = self.Prospect.objects.get(pk=prospect_id)
+        self.assertEqual(prospect.pipeline_stage, self.Prospect.PipelineStage.INVITED)
+        self.assertIsNone(prospect.person_id)
+        self.assertEqual(prospect.inviter_cluster_id, self.cluster.id)
+        self.assertNotIn(prospect.person, self.cluster.members.all())
+        self.assertFalse(
+            self.cluster.members.filter(
+                first_name="Ada", last_name="Invitee"
+            ).exists()
+        )
+
+    def test_new_prospects_dedupe_returns_400(self):
+        self.Prospect.objects.create(
+            first_name="Ada",
+            last_name="Invitee",
+            invited_by=self.inviter,
+            inviter_cluster=self.cluster,
+            pipeline_stage=self.Prospect.PipelineStage.INVITED,
+        )
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            self._base_payload(
+                new_prospects=[
+                    {
+                        "first_name": "Ada",
+                        "last_name": "Invitee",
+                        "invited_by_id": self.inviter.id,
+                    }
+                ]
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("new_prospects", response.data.get("details", response.data))
+
+    def test_dual_list_validation_rejects_overlap(self):
+        prospect = self.Prospect.objects.create(
+            first_name="Both",
+            last_name="Lists",
+            invited_by=self.inviter,
+            inviter_cluster=self.cluster,
+            pipeline_stage=self.Prospect.PipelineStage.INVITED,
+        )
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            self._base_payload(
+                prospects_invited=[prospect.id],
+                prospects_attended=[prospect.id],
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("prospects_attended", response.data.get("details", response.data))
+
+    def test_prospects_attended_promotes_person_and_cluster_member(self):
+        prospect = self.Prospect.objects.create(
+            first_name="Pat",
+            last_name="Promoted",
+            invited_by=self.inviter,
+            inviter_cluster=self.cluster,
+            pipeline_stage=self.Prospect.PipelineStage.INVITED,
+            date_first_invited=date.today(),
+        )
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            self._base_payload(prospects_attended=[prospect.id]),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        prospect.refresh_from_db()
+        self.assertEqual(prospect.pipeline_stage, self.Prospect.PipelineStage.ATTENDED)
+        self.assertIsNotNone(prospect.person_id)
+        self.assertEqual(prospect.person.role, "VISITOR")
+        self.assertEqual(prospect.person.status, "ATTENDED")
+        self.assertIn(prospect.person_id, response.data["visitors_attended"])
+        self.assertEqual(response.data["visitors_present"], 1)
+        self.assertEqual(response.data["prospects_invited_count"], 0)
+        self.cluster.refresh_from_db()
+        self.assertIn(prospect.person, self.cluster.members.all())
+
+    def test_patch_unlinks_prospect_without_deleting(self):
+        prospect = self.Prospect.objects.create(
+            first_name="Keep",
+            last_name="Alive",
+            invited_by=self.inviter,
+            inviter_cluster=self.cluster,
+            pipeline_stage=self.Prospect.PipelineStage.INVITED,
+        )
+        today = date.today()
+        report = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.reporter,
+        )
+        report.prospects_invited.add(prospect)
+
+        response = self.client.patch(
+            f"/api/clusters/cluster-weekly-reports/{report.id}/",
+            {"prospects_invited": []},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        report.refresh_from_db()
+        self.assertEqual(report.prospects_invited.count(), 0)
+        self.assertTrue(self.Prospect.objects.filter(pk=prospect.pk).exists())
+
+    def test_visitors_present_unchanged_by_invites_only(self):
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            self._base_payload(
+                new_prospects=[
+                    {
+                        "first_name": "Only",
+                        "last_name": "Invite",
+                        "invited_by_id": self.inviter.id,
+                    }
+                ]
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["visitors_present"], 0)
+        self.assertEqual(response.data["prospects_invited_count"], 1)
+
+
 class ClusterWeeklyReportDistinctYearsTests(TestCase):
     """distinct_years uses facet filters only; not list RBAC."""
 

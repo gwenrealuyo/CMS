@@ -61,6 +61,7 @@ from .services import (
     get_inviter_cluster,
     create_person_from_prospect,
     sync_prospect_invitation_journey_note,
+    mark_prospect_attended,
     update_monthly_tracking,
     calculate_monthly_statistics,
     person_ids_with_ncc_sessions_for_month,
@@ -1578,55 +1579,15 @@ class ProspectViewSet(viewsets.ModelViewSet):
         if activity_date is None:
             activity_date = timezone.now().date()
 
-        # Create or link Person if not exists
-        if not prospect.person:
-            first_name = request.data.get("first_name") or prospect.first_name
-            last_name = request.data.get("last_name") or prospect.last_name
-
-            if not first_name or not last_name:
-                return Response(
-                    {"error": "first_name and last_name are required to create Person"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            person = create_person_from_prospect(
+        try:
+            prospect = mark_prospect_attended(
                 prospect,
-                first_name,
-                last_name,
-                date_first_attended=activity_date,
+                activity_date=activity_date,
+                first_name=request.data.get("first_name"),
+                last_name=request.data.get("last_name"),
             )
-        else:
-            person = prospect.person
-            if person and person.role == "VISITOR":
-                updates = []
-                if person.status != "ATTENDED":
-                    person.status = "ATTENDED"
-                    updates.append("status")
-                if not person.date_first_attended:
-                    person.date_first_attended = activity_date
-                    updates.append("date_first_attended")
-                if prospect.facebook_name and not person.facebook_name:
-                    person.facebook_name = prospect.facebook_name
-                    updates.append("facebook_name")
-                if updates:
-                    person.save(update_fields=updates)
-
-            sync_prospect_invitation_journey_note(person, prospect)
-
-        # Update prospect stage and activity
-        prospect.pipeline_stage = Prospect.PipelineStage.ATTENDED
-        prospect.last_activity_date = activity_date
-        prospect.save()
-
-        # Update monthly tracking
-        cluster = prospect.inviter_cluster or prospect.endorsed_cluster
-        if cluster:
-            update_monthly_tracking(
-                prospect,
-                MonthlyConversionTracking.Stage.ATTENDED,
-                cluster,
-                prospect.last_activity_date,
-            )
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(prospect)
         return Response(serializer.data)

@@ -9,8 +9,13 @@ import {
   useState,
 } from "react";
 import Button from "@/src/components/ui/Button";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import type { Prospect, EvangelismGroup } from "@/src/types/evangelism";
 import type { Person } from "@/src/types/person";
+import {
+  describeDuplicateProspect,
+  findPossibleProspectNameDuplicates,
+} from "@/src/lib/prospectDuplicates";
 
 /** Match cluster weekly report `AddVisitorModal` inputs / selects. */
 const CLUSTER_VISITOR_CONTROL =
@@ -77,6 +82,8 @@ export interface ProspectFormValues {
 interface ProspectFormProps {
   inviters?: Person[];
   groups?: EvangelismGroup[];
+  /** Existing prospects used for soft duplicate warnings. */
+  prospectOptions?: Prospect[];
   /** When set (e.g. group modal context), selects this bible study group and ensures it appears in options. */
   selectedBibleStudyGroup?: EvangelismGroup | null;
   onSubmit: (values: ProspectFormValues) => Promise<void>;
@@ -105,6 +112,7 @@ const DEFAULT_VALUES: ProspectFormValues = {
 export default function ProspectForm({
   inviters = [],
   groups = [],
+  prospectOptions = [],
   onSubmit,
   onCancel,
   isSubmitting,
@@ -167,6 +175,10 @@ export default function ProspectForm({
   const groupDropdownRef = useRef<HTMLDivElement>(null);
 
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [duplicateNameConfirm, setDuplicateNameConfirm] = useState<{
+    isOpen: boolean;
+    matches: Prospect[];
+  }>({ isOpen: false, matches: [] });
 
   useEffect(() => {
     if (initialData) return;
@@ -280,12 +292,27 @@ export default function ProspectForm({
       setValidationError("Inviter is required.");
       return;
     }
+
+    if (prospectOptions.length > 0) {
+      const nameMatches = findPossibleProspectNameDuplicates(prospectOptions, {
+        firstName: values.first_name,
+        lastName: values.last_name,
+        evangelismGroupId: values.evangelism_group_id || contextGroupId || null,
+        excludeId: initialData?.id,
+      });
+      if (nameMatches.length > 0) {
+        setDuplicateNameConfirm({ isOpen: true, matches: nameMatches });
+        return;
+      }
+    }
+
     await onSubmit(values);
   };
 
   const shownError = validationError || error || null;
 
   return (
+    <>
     <form className="space-y-4" onSubmit={handleSubmit}>
       {shownError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -527,5 +554,36 @@ export default function ProspectForm({
         </Button>
       </div>
     </form>
+
+    <ConfirmationModal
+      isOpen={duplicateNameConfirm.isOpen}
+      onClose={() => setDuplicateNameConfirm({ isOpen: false, matches: [] })}
+      onConfirm={() => {
+        setDuplicateNameConfirm({ isOpen: false, matches: [] });
+        void onSubmit(values);
+      }}
+      title="Possible duplicate"
+      message={
+        <div className="space-y-2">
+          <p>
+            An invited visitor with the same first and last name already exists.
+            Continue anyway only if this is a different person.
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto">
+            {duplicateNameConfirm.matches.slice(0, 8).map((prospect) => (
+              <li key={prospect.id}>{describeDuplicateProspect(prospect)}</li>
+            ))}
+            {duplicateNameConfirm.matches.length > 8 && (
+              <li>…and {duplicateNameConfirm.matches.length - 8} more</li>
+            )}
+          </ul>
+        </div>
+      }
+      confirmText={initialData ? "Update anyway" : "Create anyway"}
+      cancelText="Go back"
+      variant="warning"
+      zIndex={80}
+    />
+    </>
   );
 }

@@ -208,7 +208,7 @@ export default function ViewWeeklyReportModal({
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 Attendance & Gathering
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Members Present</p>
                   <p className="text-xl font-bold text-gray-900">
@@ -225,6 +225,15 @@ export default function ViewWeeklyReportModal({
                     }`}
                   >
                     {report.visitors_present}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Prospects Invited</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {report.prospects_invited_count ??
+                      report.prospects_invited_details?.length ??
+                      report.prospects_invited?.length ??
+                      0}
                   </p>
                 </div>
                 <div>
@@ -470,6 +479,54 @@ export default function ViewWeeklyReportModal({
                   )}
               </div>
             )}
+
+            {/* Prospects Invited (not yet attended) */}
+            {report.prospects_invited_details &&
+              report.prospects_invited_details.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Prospects Invited ({report.prospects_invited_details.length})
+                  </h3>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Invited visitors only — not yet attended.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {report.prospects_invited_details.map((prospect) => {
+                      const inviter = prospect.invited_by;
+                      const inviterName = inviter
+                        ? `${inviter.first_name ?? ""} ${
+                            inviter.last_name ?? ""
+                          }`.trim() || inviter.username
+                        : null;
+                      return (
+                        <div
+                          key={prospect.id}
+                          className="flex items-center space-x-2 p-2 bg-amber-50/50 border border-amber-100 rounded-md"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate text-sm">
+                              {prospect.display_name ||
+                                `${prospect.first_name} ${prospect.last_name}`.trim()}
+                            </p>
+                            {inviterName && (
+                              <p className="text-xs text-gray-600 truncate">
+                                Invited by {inviterName}
+                              </p>
+                            )}
+                          </div>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
+                            {(
+                              prospect.pipeline_stage_display ||
+                              prospect.pipeline_stage ||
+                              "Invited"
+                            ).toLowerCase()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
             {/* Activities */}
             {report.activities_held && (

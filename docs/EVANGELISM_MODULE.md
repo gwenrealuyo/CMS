@@ -121,9 +121,15 @@ Key features include:
   - When prospect first attends: auto-create Person record (or link if Person with VISITOR role exists) using name, gender, facebook, and `date_first_invited` where applicable
   - Set `Person.inviter = prospect.invited_by` when Person is created
   - Auto-update `last_activity_date` on attendance or status change
-  - Auto-set `inviter_cluster` based on inviter's cluster membership
+  - Auto-set `inviter_cluster` based on inviter's cluster membership (direct Prospect API); cluster weekly reports force `inviter_cluster` to the **report’s cluster**
   - If prospect has `facebook_name` and Person does not, Person is updated
   - Prospect `notes`: when a linked `Person` is created or when an existing visitor is marked attended without a prior sync, notes are written to a Journey `NOTE` titled **Invitation note** dated `date_first_invited` (or today if unset)
+- **Cluster weekly report integration**:
+  - Prospects may be created nested on `POST/PATCH /api/clusters/cluster-weekly-reports/` via `new_prospects` (report permissions; no EVANGELISM write required)
+  - Soft dedupe (`find_duplicate_invited_prospects`) blocks creating a similar INVITED prospect for the same cluster
+  - Attending a prospect from a cluster report uses `prospects_attended` → `mark_prospect_attended` (same Person + monthly tracking path as `POST /prospects/{id}/mark_attended/`)
+  - After attend, the prospect leaves INVITED pickers (has a linked Person / stage ATTENDED); Prospect row is retained for history
+- **Future: walk-in visitors** — v1 requires `invited_by`. Walk-ins with no inviter are deferred; see Clusters module docs. Do not invent a fake inviter.
 
 ### FollowUpTask Model
 
@@ -321,6 +327,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
         - Returns people for that column (Unique HC returns the deduped union). Milestone date chips are included for display; the Unique HC UI highlights chips whose dates fall in the selected month
 
 - `/api/evangelism/prospects/` – ProspectViewSet CRUD
+  - Permissions: list/retrieve = member+; create/update = `HasModuleAccess("EVANGELISM", "write")`; destroy = admin
   - `GET` – List all prospects
     - Query params: `?invited_by={person_id}` – filter by inviter
     - Query params: `?inviter_cluster={cluster_id}` – filter by inviter's cluster
@@ -328,8 +335,9 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?pipeline_stage={stage}` – filter by pipeline stage
     - Query params: `?endorsed_cluster={cluster_id}` – filter by endorsed cluster
     - Query params: `?is_dropped_off=true` – filter by drop-off status
-  - `POST` – Create a new prospect (requires `name`, `invited_by_id`, optional `contact_info`, `evangelism_group_id`, `facebook_name`)
+  - `POST` – Create a new prospect (requires `first_name`, `last_name`, `invited_by_id`; optional `middle_name`, `suffix`, `gender`, `contact_info`, `evangelism_group_id`, `facebook_name`, `notes`, `date_first_invited`)
     - Auto-set `inviter_cluster` based on inviter's cluster membership
+    - No automatic name/contact dedupe on this endpoint (cluster report nested create does soft dedupe)
   - `GET /{id}/` – Retrieve a specific prospect
   - `PUT /{id}/` – Update a prospect (full update)
   - `PATCH /{id}/` – Partial update
@@ -340,7 +348,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Payload: `{ "pipeline_stage": "ATTENDED", "last_activity_date": "2024-03-15" }`
     - UI restricts stages to INVITED and ATTENDED
     - When set to ATTENDED, the system creates/links a Person and updates `Person.status` and `date_first_attended`
-  - `POST /{id}/mark_attended/` – Mark prospect as attended (auto-creates/links Person, updates monthly tracking)
+  - `POST /{id}/mark_attended/` – Mark prospect as attended (auto-creates/links Person, updates monthly tracking); shared service `mark_prospect_attended`
   - `POST /{id}/create_person/` – Manual action to create Person record from prospect
     - Payload: `{ "first_name": "John", "last_name": "Doe", ... }` (similar to cluster report attendance form)
   - `POST /{id}/mark_dropped_off/` – Manually mark visitor as dropped off

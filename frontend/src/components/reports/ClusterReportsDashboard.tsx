@@ -59,7 +59,7 @@ interface ClusterReportsDashboardProps {
   externalSelectedCluster?: Cluster | null;
   externalEditingReport?: ClusterWeeklyReport | null;
   onFormClose?: () => void;
-  onSubmitReport?: (data: Partial<ClusterWeeklyReport>) => Promise<void>;
+  onSubmitReport?: (data: ClusterWeeklyReportInput) => Promise<void>;
   onEditReport?: (report: ClusterWeeklyReport) => void;
   onSetReportSelectedCluster?: (cluster: Cluster | null) => void;
   refreshTrigger?: number; // Increment this to trigger a refresh
@@ -805,11 +805,11 @@ export default function ClusterReportsDashboard({
     }
   };
 
-  const handleSubmitReport = async (data: Partial<ClusterWeeklyReport>) => {
+  const handleSubmitReport = async (data: ClusterWeeklyReportInput) => {
     try {
       // Use external handler if provided
       if (externalOnSubmitReport) {
-        await externalOnSubmitReport(data as Partial<ClusterWeeklyReportInput>);
+        await externalOnSubmitReport(data);
         // Refresh reports after external submission
         await fetchReports();
         await fetchAnalytics();
@@ -823,10 +823,10 @@ export default function ClusterReportsDashboard({
       if (formEditingReport) {
         await clusterReportsApi.update(
           formEditingReport.id.toString(),
-          data as ClusterWeeklyReportInput,
+          data,
         );
       } else {
-        await clusterReportsApi.create(data as ClusterWeeklyReportInput);
+        await clusterReportsApi.create(data);
         // Reset to first page when adding new report
         setCurrentPage(1);
       }
@@ -905,6 +905,10 @@ export default function ClusterReportsDashboard({
         "Meeting Date": new Date(report.meeting_date).toLocaleDateString(),
         "Members Present": report.members_present,
         "Visitors Present": report.visitors_present,
+        "Prospects Invited":
+          report.prospects_invited_count ??
+          report.prospects_invited?.length ??
+          0,
         "Member Attendance Rate": report.member_attendance_rate
           ? `${report.member_attendance_rate.toFixed(1)}%`
           : "N/A",
@@ -2055,6 +2059,17 @@ export default function ClusterReportsDashboard({
                               >
                                 {report.visitors_present}V
                               </span>
+                              {(report.prospects_invited_count ??
+                                report.prospects_invited?.length ??
+                                0) > 0 && (
+                                <span className="text-gray-500">
+                                  {" "}
+                                  /{" "}
+                                  {report.prospects_invited_count ??
+                                    report.prospects_invited?.length}{" "}
+                                  P
+                                </span>
+                              )}
                             </p>
                           </div>
                         )}
@@ -2223,6 +2238,17 @@ export default function ClusterReportsDashboard({
                                 >
                                   {report.visitors_present}V
                                 </span>
+                                {(report.prospects_invited_count ??
+                                  report.prospects_invited?.length ??
+                                  0) > 0 && (
+                                  <span className="text-gray-500">
+                                    {" "}
+                                    /{" "}
+                                    {report.prospects_invited_count ??
+                                      report.prospects_invited?.length}{" "}
+                                    P
+                                  </span>
+                                )}
                               </span>
                             );
                             break;

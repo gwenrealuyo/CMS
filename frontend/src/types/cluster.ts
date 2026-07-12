@@ -44,20 +44,43 @@ export interface ClusterWeeklyReport {
   meeting_date: string;
   members_attended: number[];
   visitors_attended: number[];
+  prospects_invited?: number[];
   members_attended_details?: Array<{
     id: number;
     first_name: string;
     last_name: string;
     username: string;
+    role?: string;
+    status?: string;
   }>;
   visitors_attended_details?: Array<{
     id: number;
     first_name: string;
     last_name: string;
     username: string;
+    role?: string;
+    status?: string;
+  }>;
+  prospects_invited_details?: Array<{
+    id: number;
+    first_name: string;
+    last_name: string;
+    middle_name?: string;
+    suffix?: string;
+    display_name?: string;
+    pipeline_stage?: string;
+    pipeline_stage_display?: string;
+    invited_by?: {
+      id: number;
+      first_name: string;
+      last_name: string;
+      username: string;
+    } | null;
+    person_id?: number | null;
   }>;
   members_present: number;
   visitors_present: number;
+  prospects_invited_count?: number;
   member_attendance_rate: number;
   gathering_type: GatheringType;
   activities_held: string;
@@ -77,6 +100,19 @@ export interface ClusterWeeklyReport {
   updated_at: string;
 }
 
+export interface ClusterReportNewProspectInput {
+  first_name: string;
+  last_name: string;
+  invited_by_id: number | string;
+  middle_name?: string;
+  suffix?: string;
+  gender?: string;
+  contact_info?: string;
+  facebook_name?: string;
+  notes?: string;
+  date_first_invited?: string | null;
+}
+
 export interface ClusterWeeklyReportInput {
   cluster: number;
   year: number;
@@ -84,11 +120,34 @@ export interface ClusterWeeklyReportInput {
   meeting_date: string;
   members_attended?: number[];
   visitors_attended?: number[];
+  prospects_invited?: number[];
+  new_prospects?: ClusterReportNewProspectInput[];
+  prospects_attended?: number[];
   gathering_type: GatheringType;
   activities_held?: string;
   prayer_requests?: string;
   testimonies?: string;
   offerings?: string;
+  highlights?: string;
+  lowlights?: string;
+  submitted_by?: number | null;
+}
+
+/** Form state before API payload build (visitors may include `prospect:{id}`). */
+export interface ClusterWeeklyReportFormValues {
+  cluster?: number;
+  year?: number;
+  week_number?: number;
+  meeting_date?: string;
+  members_attended: string[];
+  visitors_attended: string[];
+  prospects_invited: string[];
+  pending_new_prospects: Record<string, ClusterReportNewProspectInput>;
+  gathering_type?: GatheringType;
+  activities_held?: string;
+  prayer_requests?: string;
+  testimonies?: string;
+  offerings?: string | number;
   highlights?: string;
   lowlights?: string;
   submitted_by?: number | null;

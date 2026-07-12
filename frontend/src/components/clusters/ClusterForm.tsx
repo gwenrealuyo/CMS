@@ -5,10 +5,13 @@ import { Person, PersonUI } from "@/src/types/person";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
+import { useClusters } from "@/src/hooks/useClusters";
 import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import toast from "react-hot-toast";
 import {
   CLUSTER_MEETING_DAY_OPTIONS,
   composeMeetingSchedule,
@@ -18,6 +21,11 @@ import {
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { formatPersonName } from "@/src/lib/name";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import {
+  describeDuplicateCluster,
+  findClusterCodeConflict,
+  findPossibleClusterNameDuplicates,
+} from "@/src/lib/clusterDuplicates";
 
 interface ClusterFormProps {
   initialData?: Cluster;
@@ -90,11 +98,16 @@ export default function ClusterForm({
   const { people, loading: peopleLoading } = usePeople();
   const { families, loading: familiesLoading } = useFamilies();
   const { branches } = useBranches();
+  const { clusters } = useClusters();
   const { user, isSeniorCoordinator } = useAuth();
   const canEditBranch =
     user?.role === "ADMIN" ||
     user?.role === "PASTOR" ||
     isSeniorCoordinator("CLUSTER");
+  const [duplicateNameConfirm, setDuplicateNameConfirm] = useState<{
+    isOpen: boolean;
+    matches: Cluster[];
+  }>({ isOpen: false, matches: [] });
 
   useEffect(() => {
     const clusterId = initialData?.id ?? null;
@@ -151,9 +164,8 @@ export default function ClusterForm({
     }
   }, [coordinatorId, memberIds]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({
+  const buildSubmitPayload = useCallback(
+    (): Partial<Cluster> => ({
       code: code || undefined,
       name: name || undefined,
       coordinator_id: coordinatorId ? Number(coordinatorId) : undefined,
@@ -163,7 +175,52 @@ export default function ClusterForm({
       location: location || undefined,
       meeting_schedule: composeMeetingSchedule(meetingDay, meetingTime),
       description: description || undefined,
+    }),
+    [
+      code,
+      name,
+      coordinatorId,
+      familyIds,
+      memberIds,
+      branchId,
+      location,
+      meetingDay,
+      meetingTime,
+      description,
+    ],
+  );
+
+  const performSubmit = useCallback(() => {
+    onSubmit(buildSubmitPayload());
+  }, [onSubmit, buildSubmitPayload]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const codeConflict = findClusterCodeConflict(clusters, {
+      code,
+      excludeId: initialData?.id,
     });
+    if (codeConflict) {
+      toast.error(
+        `Cluster code "${code.trim()}" is already used by ${describeDuplicateCluster(codeConflict)}.`,
+      );
+      return;
+    }
+
+    if (clusters.length > 0) {
+      const nameMatches = findPossibleClusterNameDuplicates(clusters, {
+        name,
+        branch: branchId ? Number(branchId) : null,
+        excludeId: initialData?.id,
+      });
+      if (nameMatches.length > 0) {
+        setDuplicateNameConfirm({ isOpen: true, matches: nameMatches });
+        return;
+      }
+    }
+
+    performSubmit();
   };
 
   // Coordinator options: only show cluster members
@@ -280,6 +337,7 @@ export default function ClusterForm({
   };
 
   return (
+    <>
     <form
       onSubmit={handleSubmit}
       className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
@@ -734,5 +792,36 @@ export default function ClusterForm({
         </Button>
       </div>
     </form>
+
+    <ConfirmationModal
+      isOpen={duplicateNameConfirm.isOpen}
+      onClose={() => setDuplicateNameConfirm({ isOpen: false, matches: [] })}
+      onConfirm={() => {
+        setDuplicateNameConfirm({ isOpen: false, matches: [] });
+        performSubmit();
+      }}
+      title="Possible duplicate"
+      message={
+        <div className="space-y-2">
+          <p>
+            A cluster with the same name already exists. Continue anyway only if
+            this is a different cluster.
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto">
+            {duplicateNameConfirm.matches.slice(0, 8).map((cluster) => (
+              <li key={cluster.id}>{describeDuplicateCluster(cluster)}</li>
+            ))}
+            {duplicateNameConfirm.matches.length > 8 && (
+              <li>…and {duplicateNameConfirm.matches.length - 8} more</li>
+            )}
+          </ul>
+        </div>
+      }
+      confirmText={initialData ? "Update anyway" : "Create anyway"}
+      cancelText="Go back"
+      variant="warning"
+      zIndex={80}
+    />
+    </>
   );
 }

@@ -17,7 +17,7 @@ export default function ChangePasswordPage() {
 }
 
 function ChangePasswordPageContent() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const router = useRouter();
   const [passwordData, setPasswordData] = useState({
     old_password: "",
@@ -25,6 +25,7 @@ function ChangePasswordPageContent() {
     confirm_password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isReturningToLogin, setIsReturningToLogin] = useState(false);
   const [error, setError] = useState("");
   const isFirstLogin = user?.first_login || false;
 
@@ -34,6 +35,20 @@ function ChangePasswordPageContent() {
       router.push("/dashboard");
     }
   }, [user, router]);
+
+  const handleBackToLogin = async () => {
+    setIsReturningToLogin(true);
+    setError("");
+    try {
+      // Clear the session first so /login does not bounce back here
+      await logout();
+      router.push("/login");
+    } catch {
+      router.push("/login");
+    } finally {
+      setIsReturningToLogin(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,12 +183,22 @@ function ChangePasswordPageContent() {
             />
           </div>
 
-          <Button type="submit" disabled={isLoading} className="w-full">
+          <Button type="submit" disabled={isLoading || isReturningToLogin} className="w-full">
             {isLoading
               ? "Changing Password..."
               : isFirstLogin
               ? "Set Password"
               : "Change Password"}
+          </Button>
+
+          <Button
+            type="button"
+            variant="tertiary"
+            disabled={isLoading || isReturningToLogin}
+            onClick={handleBackToLogin}
+            className="w-full"
+          >
+            {isReturningToLogin ? "Returning..." : "Back to Login"}
           </Button>
         </form>
       </div>

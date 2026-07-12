@@ -36,6 +36,7 @@ class PersonViewSet(viewsets.ModelViewSet):
         "email",
         "first_name",
         "last_name",
+        "nickname",
         "member_id",
     ]
     filterset_fields = ["role"]
@@ -534,6 +535,7 @@ class ModuleCoordinatorViewSet(viewsets.ModelViewSet):
         "person__username",
         "person__first_name",
         "person__last_name",
+        "person__nickname",
         "person__email",
     ]
     ordering = ["-created_at"]

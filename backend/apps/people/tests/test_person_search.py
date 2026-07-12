@@ -23,6 +23,7 @@ class PersonSearchAPITest(TestCase):
             password="testpass123",
             first_name="Lamp",
             last_name="User",
+            nickname="Sparky",
             role="MEMBER",
             member_id="LAMP-TEST-001",
         )
@@ -32,6 +33,7 @@ class PersonSearchAPITest(TestCase):
             password="testpass123",
             first_name="Other",
             last_name="Person",
+            nickname="Buddy",
             role="MEMBER",
             member_id="LAMP-OTHER-999",
         )
@@ -57,4 +59,12 @@ class PersonSearchAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         ids = self._people_ids(response)
         self.assertNotIn(self.target.id, ids)
+        self.assertNotIn(self.other.id, ids)
+
+    def test_search_matches_nickname(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/people/people/", {"search": "Sparky"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = self._people_ids(response)
+        self.assertIn(self.target.id, ids)
         self.assertNotIn(self.other.id, ids)

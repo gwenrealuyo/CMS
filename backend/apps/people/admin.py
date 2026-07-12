@@ -85,7 +85,14 @@ class PersonAdmin(UserAdmin):
     )
 
     list_display = ("username", "email", "first_name", "last_name", "role", "status")
-    search_fields = ("username", "email", "first_name", "last_name", "member_id")
+    search_fields = (
+        "username",
+        "email",
+        "first_name",
+        "last_name",
+        "nickname",
+        "member_id",
+    )
     ordering = ("username",)
 
 
@@ -103,6 +110,7 @@ class ModuleCoordinatorAdmin(admin.ModelAdmin):
         "person__username",
         "person__first_name",
         "person__last_name",
+        "person__nickname",
         "person__email",
     )
     raw_id_fields = ("person",)

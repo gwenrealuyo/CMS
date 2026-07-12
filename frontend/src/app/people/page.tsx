@@ -1068,6 +1068,7 @@ export default function PeoplePage() {
         person.phone || "",
         person.first_name || "",
         person.last_name || "",
+        person.nickname || "",
         person.member_id || "",
         person.facebook_name || "",
       ]

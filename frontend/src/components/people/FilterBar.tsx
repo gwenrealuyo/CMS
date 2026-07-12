@@ -242,7 +242,7 @@ export default function FilterBar({
           </div>
           <input
             type="text"
-            placeholder="Search by name, email, or phone..."
+            placeholder="Search by name, nickname, email, or phone..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className={`block w-full pl-10 py-2.5 md:py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0 ${

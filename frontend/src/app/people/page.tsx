@@ -158,6 +158,15 @@ export default function PeoplePage() {
         return;
       }
 
+      if (person && person.can_view_profile === false) {
+        setDirectoryAccessNotice(
+          mode === "edit"
+            ? "You can only edit people in your cluster. Assign them to your cluster first (Clusters → Assign Members), then try again."
+            : "You can only view profiles of people in your cluster. Assign them to your cluster first, then open their profile.",
+        );
+        return;
+      }
+
       if (person) {
         setCreateInitialData(undefined);
         setViewEditPerson(person);
@@ -205,7 +214,7 @@ export default function PeoplePage() {
         }
       } catch {
         setDirectoryAccessNotice(
-          "That person is not available in your directory view.",
+          "You can only view profiles of people in your cluster. Assign them to your cluster first, then open their profile.",
         );
       } finally {
         if (!cancelled) {
@@ -1742,7 +1751,21 @@ export default function PeoplePage() {
                   className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start justify-between gap-3"
                   role="alert"
                 >
-                  <p>{directoryAccessNotice}</p>
+                  <div className="space-y-1">
+                    <p>{directoryAccessNotice}</p>
+                    {isClusterCoordinator && (
+                      <p className="text-amber-800">
+                        Tip: find them in search, then assign from{" "}
+                        <a
+                          href="/clusters"
+                          className="font-medium underline hover:text-amber-950"
+                        >
+                          Clusters
+                        </a>
+                        .
+                      </p>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setDirectoryAccessNotice(null)}

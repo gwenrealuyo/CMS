@@ -126,7 +126,7 @@ When you have module assignments, you may see more people and families than a pl
 | Assignment | People you can view | Families you can view |
 |------------|--------------------|-----------------------|
 | **Senior Coordinator** (any module) | All people except admins (branch-scoped) | All families in scope |
-| **Cluster Coordinator** | Members of assigned cluster(s) + their families | Families linked to those clusters |
+| **Cluster Coordinator** | **Search/list:** same-branch people. **Profile:** members of assigned cluster(s) + their families only | Families linked to those clusters |
 | **Sunday School Teacher** | Students in your class(es) | Families of those students |
 | **Lessons Teacher** | Your lesson students | Families of those students |
 | **Bible Sharer** | Members of assigned evangelism groups | Families of those members |

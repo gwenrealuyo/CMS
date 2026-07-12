@@ -83,6 +83,8 @@ export interface Person {
   cluster_ids?: string[];
   module_coordinator_assignments?: ModuleCoordinator[];
   can_view_journey_timeline?: boolean;
+  /** False when listed for search/assign but profile retrieve is out of scope */
+  can_view_profile?: boolean;
   /** One-time value returned when an admin creates a user with auto-generated password */
   temporary_password?: string;
   /** Write-only: admin create flow */

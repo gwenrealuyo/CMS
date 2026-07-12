@@ -546,6 +546,11 @@ export default function DataTable({
                 {onView && (
                   <button
                     type="button"
+                    title={
+                      person.can_view_profile === false
+                        ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                        : undefined
+                    }
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -585,6 +590,11 @@ export default function DataTable({
                 {onEdit && (
                   <button
                     type="button"
+                    title={
+                      person.can_view_profile === false
+                        ? "Only people in your cluster can be edited. Assign them to your cluster first."
+                        : undefined
+                    }
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -815,6 +825,11 @@ export default function DataTable({
                         type="button"
                         onClick={() => onView && onView(person as Person)}
                         className="text-left w-full"
+                        title={
+                          person.can_view_profile === false
+                            ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                            : undefined
+                        }
                       >
                         <div className="text-sm font-semibold text-primary hover:underline truncate">
                           {person.first_name} {person.last_name}
@@ -963,7 +978,11 @@ export default function DataTable({
                                   onView && onView(person as Person)
                                 }
                                 className={TABLE_ENTITY_LINK_CLASS}
-                                title="View profile"
+                                title={
+                                  person.can_view_profile === false
+                                    ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                                    : "View profile"
+                                }
                               >
                                 {person.first_name || "-"}
                               </button>
@@ -974,7 +993,11 @@ export default function DataTable({
                               type="button"
                               onClick={() => onView && onView(person as Person)}
                               className={TABLE_ENTITY_LINK_CLASS}
-                              title="View profile"
+                              title={
+                                person.can_view_profile === false
+                                  ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                                  : "View profile"
+                              }
                             >
                               {person.last_name || "-"}
                             </button>
@@ -1196,7 +1219,11 @@ export default function DataTable({
                               type="button"
                               onClick={() => onView && onView(person as Person)}
                               className={TABLE_ENTITY_LINK_CLASS}
-                              title="View profile"
+                              title={
+                                person.can_view_profile === false
+                                  ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                                  : "View profile"
+                              }
                             >
                               {person.first_name || "-"}
                             </button>
@@ -1207,7 +1234,11 @@ export default function DataTable({
                             type="button"
                             onClick={() => onView && onView(person as Person)}
                             className={TABLE_ENTITY_LINK_CLASS}
-                            title="View profile"
+                            title={
+                              person.can_view_profile === false
+                                ? "Only people in your cluster can be viewed. Assign them to your cluster first."
+                                : "View profile"
+                            }
                           >
                             {person.last_name || "-"}
                           </button>

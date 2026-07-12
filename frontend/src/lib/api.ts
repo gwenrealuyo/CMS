@@ -97,6 +97,7 @@ const PERSON_FORM_DATA_SKIP_FIELDS = new Set([
   "family_names",
   "module_coordinator_assignments",
   "can_view_journey_timeline",
+  "can_view_profile",
   "temporary_password",
   "branch_name",
   "branch_code",

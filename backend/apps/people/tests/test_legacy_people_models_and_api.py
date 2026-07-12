@@ -1063,6 +1063,16 @@ class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
             branch=self.branch_a,
         )
 
+        self.same_branch_unassigned = Person.objects.create_user(
+            username="same_branch_unassigned",
+            email="same_branch_unassigned@test.com",
+            password="testpass123",
+            first_name="Unassigned",
+            last_name="Neighbor",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+
         self.cross_member = Person.objects.create_user(
             username="cross_member",
             email="cross_member@test.com",
@@ -1107,6 +1117,51 @@ class ClusterCoordinatorCrossBranchPeopleVisibilityTest(TestCase):
             usernames,
             "Same-branch cluster member should still appear for cluster coordinator",
         )
+
+    def test_coord_lists_same_branch_people_outside_managed_cluster(self):
+        """Search/list includes same-branch people not yet assigned to their cluster."""
+        self.client.force_authenticate(user=self.coord)
+        response = self.client.get("/api/people/people/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        usernames = self._people_usernames(response)
+        self.assertIn("same_branch_unassigned", usernames)
+
+        by_username = {
+            p["username"]: p
+            for p in (
+                response.data["results"]
+                if isinstance(response.data, dict)
+                else response.data
+            )
+        }
+        self.assertTrue(by_username["same_branch_member"]["can_view_profile"])
+        self.assertFalse(by_username["same_branch_unassigned"]["can_view_profile"])
+
+    def test_coord_can_search_same_branch_unassigned_person(self):
+        self.client.force_authenticate(user=self.coord)
+        response = self.client.get(
+            "/api/people/people/", {"search": "Unassigned Neighbor"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = self._people_usernames(response)
+        self.assertIn("same_branch_unassigned", usernames)
+
+    def test_coord_cannot_retrieve_unassigned_same_branch_person(self):
+        self.client.force_authenticate(user=self.coord)
+        response = self.client.get(
+            f"/api/people/people/{self.same_branch_unassigned.pk}/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_coord_can_retrieve_managed_cluster_member(self):
+        self.client.force_authenticate(user=self.coord)
+        response = self.client.get(
+            f"/api/people/people/{self.same_branch_member.pk}/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], "same_branch_member")
+        self.assertTrue(response.data["can_view_profile"])
 
     def test_coord_cannot_retrieve_cross_branch_cluster_member(self):
         self.client.force_authenticate(user=self.coord)

@@ -318,6 +318,7 @@ class PersonSerializer(serializers.ModelSerializer):
         many=True, read_only=True
     )
     can_view_journey_timeline = serializers.SerializerMethodField()
+    can_view_profile = serializers.SerializerMethodField()
     initial_password = serializers.CharField(
         write_only=True, required=False, allow_blank=True
     )
@@ -371,6 +372,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "cluster_ids",
             "module_coordinator_assignments",
             "can_view_journey_timeline",
+            "can_view_profile",
             "initial_password",
             "generate_temporary_password",
             "temporary_password",
@@ -749,6 +751,36 @@ class PersonSerializer(serializers.ModelSerializer):
             return obj.clusters.filter(id__in=cluster_ids).exists()
 
         return False
+
+    def get_can_view_profile(self, obj: Person):
+        """
+        Whether the requester may open this person's profile (retrieve).
+
+        Cluster coordinators can list/search same-branch people, but profile
+        access stays limited to managed-cluster scope (and other module scopes).
+        """
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+
+        user = request.user
+        if user.id == obj.id:
+            return True
+
+        profile_visible_ids = self.context.get("profile_visible_ids")
+        if profile_visible_ids is not None:
+            return obj.pk in profile_visible_ids
+
+        # retrieve/create/update responses: if the object was returned, allow.
+        view = self.context.get("view")
+        if view is not None and hasattr(view, "_scoped_people_queryset"):
+            return (
+                view._scoped_people_queryset(for_profile=True)
+                .filter(pk=obj.pk)
+                .exists()
+            )
+
+        return True
 
 
 class FamilySerializer(serializers.ModelSerializer):

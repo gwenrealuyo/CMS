@@ -40,7 +40,14 @@ class PersonViewSet(viewsets.ModelViewSet):
     ]
     filterset_fields = ["role"]
 
-    def _scoped_people_queryset(self):
+    def _scoped_people_queryset(self, *, for_profile=False):
+        """
+        Scope people for list/search vs profile/mutation access.
+
+        Cluster coordinators may list/search same-branch people (to find and
+        assign members), but profile retrieve/update stays limited to people in
+        their managed cluster(s) (plus other module scopes).
+        """
         user = self.request.user
         queryset = super().get_queryset()
 
@@ -72,42 +79,47 @@ class PersonViewSet(viewsets.ModelViewSet):
         # Collect people from all module assignments
         people_querysets = []
 
-        # 1. Cluster Coordinator: People in assigned cluster(s)
+        # 1. Cluster Coordinator
+        from apps.clusters.models import Cluster
+        from apps.clusters.permissions import is_non_senior_cluster_coordinator
+
         coordinator_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.CLUSTER,
             level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
         )
-        if coordinator_assignments.exists():
-            from apps.clusters.models import Cluster
+        is_cluster_coord = (
+            coordinator_assignments.exists()
+            or Cluster.objects.filter(coordinator=user).exists()
+        )
+        if is_cluster_coord and is_non_senior_cluster_coordinator(user):
+            if for_profile:
+                # Profile: only members (and family members) of managed clusters
+                cluster_ids = [
+                    assignment.resource_id
+                    for assignment in coordinator_assignments
+                    if assignment.resource_id
+                ]
+                coordinator_clusters = Cluster.objects.filter(coordinator=user)
+                if cluster_ids:
+                    assigned_clusters = Cluster.objects.filter(id__in=cluster_ids)
+                    all_clusters = (coordinator_clusters | assigned_clusters).distinct()
+                else:
+                    all_clusters = coordinator_clusters
 
-            # Get clusters from ModuleCoordinator assignments
-            cluster_ids = [
-                assignment.resource_id
-                for assignment in coordinator_assignments
-                if assignment.resource_id
-            ]
-            # Also get clusters where user is the coordinator
-            coordinator_clusters = Cluster.objects.filter(coordinator=user)
-            if cluster_ids:
-                assigned_clusters = Cluster.objects.filter(id__in=cluster_ids)
-                all_clusters = (coordinator_clusters | assigned_clusters).distinct()
+                cluster_member_ids = all_clusters.values_list(
+                    "members__id", flat=True
+                ).distinct()
+                family_member_ids = all_clusters.values_list(
+                    "families__members__id", flat=True
+                ).distinct()
+                all_member_ids = list(
+                    set(list(cluster_member_ids) + list(family_member_ids))
+                )
+                if all_member_ids:
+                    people_querysets.append(queryset.filter(id__in=all_member_ids))
             else:
-                all_clusters = coordinator_clusters
-
-            # Get all members of these clusters (excluding ADMINs)
-            cluster_member_ids = all_clusters.values_list(
-                "members__id", flat=True
-            ).distinct()
-            # Also get people from families in these clusters
-            family_member_ids = all_clusters.values_list(
-                "families__members__id", flat=True
-            ).distinct()
-            # Combine and add to querysets
-            all_member_ids = list(
-                set(list(cluster_member_ids) + list(family_member_ids))
-            )
-            if all_member_ids:
-                people_querysets.append(queryset.filter(id__in=all_member_ids))
+                # List/search: all same-branch people (branch filter applied below)
+                people_querysets.append(queryset)
 
         # 2. Sunday School Teacher: Students in classes where they are teacher/assistant
         sunday_school_assignments = user.module_coordinator_assignments.filter(
@@ -221,13 +233,33 @@ class PersonViewSet(viewsets.ModelViewSet):
         return queryset.none()
 
     def get_queryset(self):
-        qs = self._scoped_people_queryset()
+        # List/search may be wider than profile for cluster coordinators.
+        for_profile = getattr(self, "action", None) in (
+            "retrieve",
+            "update",
+            "partial_update",
+            "destroy",
+        )
+        qs = self._scoped_people_queryset(for_profile=for_profile)
         if getattr(self, "action", None) == "retrieve":
             user_pk = self.request.user.pk
             return super().get_queryset().filter(
                 Q(pk__in=qs.values_list("pk", flat=True)) | Q(pk=user_pk)
             )
         return qs
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # Avoid N+1: one profile-scope ID set for list responses.
+        if getattr(self, "action", None) == "list" and self.request.user.is_authenticated:
+            profile_ids = set(
+                self._scoped_people_queryset(for_profile=True).values_list(
+                    "pk", flat=True
+                )
+            )
+            profile_ids.add(self.request.user.pk)
+            context["profile_visible_ids"] = profile_ids
+        return context
 
     def get_permissions(self):
         """

@@ -79,6 +79,14 @@ export default function FamilyForm({
       alert("Please enter a family name");
       return;
     }
+    if (!formData.leader) {
+      alert(
+        formData.members.length === 0
+          ? "Please add members and select a family leader"
+          : "Please select a family leader"
+      );
+      return;
+    }
 
     try {
       setLoading(true);
@@ -109,6 +117,7 @@ export default function FamilyForm({
     setFormData({
       ...formData,
       members: formData.members.filter((id) => id !== memberId),
+      leader: formData.leader === memberId ? "" : formData.leader,
     });
   };
 
@@ -203,7 +212,7 @@ export default function FamilyForm({
               compactLayout ? "mb-2" : "mb-2"
             }`}
           >
-            Family Leader (Optional)
+            Family Leader *
           </label>
           <select
             value={formData.leader}
@@ -211,8 +220,9 @@ export default function FamilyForm({
               setFormData({ ...formData, leader: e.target.value })
             }
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+            required
           >
-            <option value="">Select a family leader (optional)</option>
+            <option value="">Select a family leader</option>
             {getSelectedMembers().map((member) => (
               <option key={member.id} value={member.id}>
                 {formatPersonName(member)}
@@ -220,7 +230,7 @@ export default function FamilyForm({
             ))}
           </select>
           <p className="text-xs text-gray-500 mt-1">
-            You can assign a leader after adding members to the family
+            Add members first, then choose a leader from the family
           </p>
         </div>
       </div>

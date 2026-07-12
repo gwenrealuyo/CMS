@@ -16,6 +16,11 @@ import { getCreatableRoles } from "@/src/lib/personRolePermissions";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import {
+  CLUSTER_BRANCH_CHIP_CLASSNAME,
+  getBranchDisplayCode,
+  getBranchOutlineBadgeStyle,
+} from "@/src/lib/branchChipColor";
+import {
   ALL_COUNTRIES,
   COUNTRY_META,
   DEFAULT_COUNTRY,
@@ -58,10 +63,26 @@ interface PersonFormProps {
 const normalizeIdList = (ids?: (string | number)[] | null): string[] =>
   (ids || []).map((id) => String(id));
 
-const clusterOptionLabel = (c: Cluster) =>
-  (c.code && c.code.trim()) ||
-  (c.name && c.name.trim()) ||
-  `Cluster ${c.id}`;
+function EntityBranchChip({
+  branchId,
+  branches,
+}: {
+  branchId?: number | null;
+  branches: Branch[];
+}) {
+  if (branchId == null) return null;
+  const id = Number(branchId);
+  const branch = branches.find((b) => b.id === id);
+  if (!branch) return null;
+  return (
+    <span
+      className={`${CLUSTER_BRANCH_CHIP_CLASSNAME} shrink-0`}
+      style={getBranchOutlineBadgeStyle(branch.id, branch.is_headquarters)}
+    >
+      {getBranchDisplayCode(branch)}
+    </span>
+  );
+}
 
 export default function PersonForm({
   onSubmit,
@@ -227,11 +248,19 @@ export default function PersonForm({
 
   // Track initial journeys to avoid re-creating unchanged ones on save
   const initialJourneyKeysRef = useRef<Set<string>>(new Set());
+  const journeyContentKey = (m: {
+    date?: string;
+    type?: string;
+    title?: string;
+    description?: string;
+    verified_by?: string | null;
+  }) =>
+    `${m.date ?? ""}|${m.type ?? ""}|${m.title ?? ""}|${m.description ?? ""}|${
+      m.verified_by ?? ""
+    }`;
   useEffect(() => {
-    const keyOf = (m: any) =>
-      `${m.date}|${m.type}|${m.title ?? ""}|${m.description ?? ""}`;
     const initialKeys = new Set(
-      (initialData?.journeys || []).map((m: any) => keyOf(m)),
+      (initialData?.journeys || []).map((m: any) => journeyContentKey(m)),
     );
     initialJourneyKeysRef.current = initialKeys;
   }, [initialData]);
@@ -521,6 +550,14 @@ export default function PersonForm({
     const currentJourneys = formData.journeys || [];
     const journeyToUpdate = currentJourneys[editingJourneyIndex];
 
+    const journeyUnchanged =
+      !!journeyToUpdate &&
+      journeyContentKey(journeyToUpdate) === journeyContentKey(newJourney);
+    if (journeyUnchanged) {
+      handleCancelEdit();
+      return;
+    }
+
     if (existingUserId && journeyToUpdate?.id) {
       (async () => {
         try {
@@ -748,20 +785,22 @@ export default function PersonForm({
 
       // If person was created/updated successfully and we have new journeys, save only new/changed ones
       if (result && typeof result === "object" && "id" in result) {
-        const keyOf = (m: any) =>
-          `${m.date}|${m.type}|${m.title ?? ""}|${m.description ?? ""}|${
-            m.verified_by ?? ""
-          }`;
+        const initialJourneyIds = new Set(
+          (initialData?.journeys || [])
+            .map((j: any) => (j?.id != null ? String(j.id) : ""))
+            .filter(Boolean),
+        );
         const newOrChanged = (journeys || []).filter((m: any) => {
-          const key = keyOf(m);
-          return !initialJourneyKeysRef.current.has(key);
+          if (!m.date && !m.title && !m.description) return false;
+          // Already-persisted journeys from initial load must not be recreated
+          if (m.id != null && initialJourneyIds.has(String(m.id))) {
+            return false;
+          }
+          return !initialJourneyKeysRef.current.has(journeyContentKey(m));
         });
         if (newOrChanged.length > 0) {
           try {
             for (const journey of newOrChanged) {
-              // skip if no date or all fields empty
-              if (!journey.date && !journey.title && !journey.description)
-                continue;
               await journeysApi.create({
                 user: (result as { id: string }).id,
                 title: journey.title,
@@ -778,23 +817,27 @@ export default function PersonForm({
             );
           }
         }
-
-        // Show success toast
-        if (initialData?.id) {
-          toast.success("Person updated successfully.");
-        } else {
-          toast.success("Person created successfully.");
-        }
       }
+
+      toast.success(
+        initialData?.id
+          ? "Person updated successfully."
+          : "Person created successfully.",
+      );
       setHasUnsavedChanges(false);
       setPhotoFile(null);
       setPhotoRemoved(false);
     } catch (error: any) {
       console.error("Failed to save person:", error);
+      const apiMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.detail ||
+        error?.message;
       toast.error(
-        error?.response?.data?.message || error?.message || initialData?.id
-          ? "Failed to update person. Please try again."
-          : "Failed to create person. Please try again.",
+        apiMessage ||
+          (initialData?.id
+            ? "Failed to update person. Please try again."
+            : "Failed to create person. Please try again."),
       );
       throw error; // Re-throw to let parent handle if needed
     } finally {
@@ -1521,18 +1564,26 @@ export default function PersonForm({
                                     setShowFamilyDropdown(false);
                                     setHasUnsavedChanges(true);
                                   }}
-                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
                                     selected
                                       ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                       : "text-gray-900"
                                   }`}
                                 >
-                                  {family.name}
-                                  {selected && (
-                                    <span className="text-xs text-gray-400 ml-2">
-                                      Added
-                                    </span>
-                                  )}
+                                  <span className="font-medium truncate">
+                                    {family.name}
+                                  </span>
+                                  <span className="min-w-0 flex items-center justify-end gap-2 shrink-0">
+                                    <EntityBranchChip
+                                      branchId={family.branch}
+                                      branches={branches}
+                                    />
+                                    {selected && (
+                                      <span className="text-xs text-gray-400">
+                                        Added
+                                      </span>
+                                    )}
+                                  </span>
                                 </button>
                               );
                             })}
@@ -1563,6 +1614,12 @@ export default function PersonForm({
                               <span className="text-sm font-medium text-gray-900">
                                 {family?.name || `Family ${id}`}
                               </span>
+                              {family && (
+                                <EntityBranchChip
+                                  branchId={family.branch}
+                                  branches={branches}
+                                />
+                              )}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1652,18 +1709,39 @@ export default function PersonForm({
                                     setShowClusterDropdown(false);
                                     setHasUnsavedChanges(true);
                                   }}
-                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
                                     selected
                                       ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                       : "text-gray-900"
                                   }`}
                                 >
-                                  {clusterOptionLabel(cluster)}
-                                  {selected && (
-                                    <span className="text-xs text-gray-400 ml-2">
-                                      Added
+                                  <span className="min-w-0 flex items-center gap-2">
+                                    <span className="font-medium shrink-0">
+                                      {(cluster.code || "").trim() ||
+                                        `Cluster ${cluster.id}`}
                                     </span>
-                                  )}
+                                    <span
+                                      className={`truncate ${
+                                        selected
+                                          ? "text-gray-400"
+                                          : "text-gray-500"
+                                      }`}
+                                    >
+                                      {(cluster.name || "").trim() ||
+                                        "Unnamed cluster"}
+                                    </span>
+                                  </span>
+                                  <span className="flex items-center justify-end gap-2 shrink-0">
+                                    <EntityBranchChip
+                                      branchId={cluster.branch}
+                                      branches={branches}
+                                    />
+                                    {selected && (
+                                      <span className="text-xs text-gray-400">
+                                        Added
+                                      </span>
+                                    )}
+                                  </span>
                                 </button>
                               );
                             })}
@@ -1693,11 +1771,18 @@ export default function PersonForm({
                               key={id}
                               className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
                             >
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-medium text-gray-900 shrink-0">
                                 {cluster
-                                  ? clusterOptionLabel(cluster)
+                                  ? (cluster.code || "").trim() ||
+                                    `Cluster ${cluster.id}`
                                   : `Cluster ${id}`}
                               </span>
+                              {cluster && (
+                                <span className="text-sm text-gray-600 truncate">
+                                  {(cluster.name || "").trim() ||
+                                    "Unnamed cluster"}
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => {

@@ -71,7 +71,6 @@ interface ClusterViewProps {
   onEdit: () => void;
   onDelete: () => void;
   onHardDelete?: () => void;
-  onCancel: () => void;
   onClose: () => void;
   onAssignMembers: () => void;
   onSubmitReport: () => void;
@@ -92,7 +91,6 @@ export default function ClusterView({
   onEdit,
   onDelete,
   onHardDelete,
-  onCancel,
   onClose,
   onAssignMembers,
   onSubmitReport,
@@ -369,13 +367,13 @@ export default function ClusterView({
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+              <div className="flex flex-row items-center gap-2 sm:gap-3 min-w-0">
                 <h2
                   className={`${
                     isPanelMode
-                      ? "text-xl break-words"
-                      : "text-lg md:text-xl truncate"
-                  } font-bold text-gray-900`}
+                      ? "text-xl"
+                      : "text-lg md:text-xl"
+                  } font-bold text-gray-900 min-w-0 truncate`}
                 >
                   {cluster.name || "Untitled Cluster"}
                 </h2>
@@ -832,89 +830,47 @@ export default function ClusterView({
       </div>
 
       {/* Footer */}
-      {isPanelMode ? (
-        <div className="flex flex-nowrap items-center gap-2 p-3 border-t border-gray-200 bg-white w-full overflow-x-auto">
-          {canManageCluster ? (
-            <>
-              <div className="flex flex-nowrap items-center gap-2 shrink-0">
-                <Button
-                  onClick={onDelete}
-                  variant="secondary"
-                  className="!text-gray-700 h-10 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 shrink-0"
-                  aria-label="Mark cluster inactive"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>Mark Inactive</span>
-                </Button>
-                {onHardDelete && (
-                  <DeleteClusterButton onClick={onHardDelete} />
-                )}
-              </div>
-              <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
-                <Button
-                  onClick={onEdit}
-                  variant="secondary"
-                  className="!text-primary h-10 px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 shrink-0"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  <span>Edit</span>
-                </Button>
-              </div>
-            </>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 p-4 md:p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex flex-col-reverse md:flex-row gap-2 md:gap-3 w-full md:w-auto md:order-2">
-            <Button
-              onClick={onCancel}
-              variant="secondary"
-              className="!text-black md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto md:hidden"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+      <div
+        className={`flex flex-nowrap items-center gap-2 w-full overflow-x-auto border-t border-gray-200 ${
+          isPanelMode ? "bg-white p-3" : "bg-gray-50 p-3 md:p-4"
+        }`}
+      >
+        {canManageCluster ? (
+          <>
+            <div className="flex flex-nowrap items-center gap-2 shrink-0">
+              <Button
+                onClick={onDelete}
+                variant="secondary"
+                className="!text-gray-700 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 shrink-0"
+                aria-label="Mark cluster inactive"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>Mark Inactive</span>
+              </Button>
+              {onHardDelete && (
+                <DeleteClusterButton
+                  onClick={onHardDelete}
+                  buttonClassName="h-10 min-h-[44px] px-4 text-sm font-medium"
                 />
-              </svg>
-              <span>Cancel</span>
-            </Button>
-            {canManageCluster && (
+              )}
+            </div>
+            <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
               <Button
                 onClick={onEdit}
                 variant="secondary"
-                className="!text-primary md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
+                className="!text-primary h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 shrink-0"
               >
                 <svg
                   className="w-4 h-4"
@@ -931,44 +887,10 @@ export default function ClusterView({
                 </svg>
                 <span>Edit</span>
               </Button>
-            )}
-          </div>
-          {canManageCluster && (
-            <div className="md:order-1">
-              <div className="border-t border-gray-200 my-2 md:hidden"></div>
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <Button
-                  onClick={onDelete}
-                  variant="secondary"
-                  className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] flex-1 md:flex-none md:py-4 md:px-4 md:text-sm md:font-normal"
-                  aria-label="Mark cluster inactive"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>Mark Inactive</span>
-                </Button>
-                {onHardDelete && (
-                  <DeleteClusterButton
-                    onClick={onHardDelete}
-                    buttonClassName="min-h-[44px] px-4 text-sm font-medium md:py-4 md:text-sm md:font-normal"
-                  />
-                )}
-              </div>
             </div>
-          )}
-        </div>
-      )}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

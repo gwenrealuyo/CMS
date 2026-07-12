@@ -403,15 +403,6 @@ export default function FamiliesTabContent({
                 ? () => openHardDeleteConfirmation(viewFamily)
                 : undefined
             }
-            onCancel={() => {
-              if (isPanel) {
-                closeFamilyPanel();
-              } else {
-                setIsModalOpen(false);
-                setViewFamily(null);
-                setFamilyViewMode("view");
-              }
-            }}
             onClose={() => {
               if (isPanel) {
                 closeFamilyPanel();
@@ -521,7 +512,6 @@ export default function FamiliesTabContent({
         hideDeleteButton
         onEdit={isPanel ? goBackFamilyPanel : closePersonOverFamily}
         onDelete={isPanel ? goBackFamilyPanel : closePersonOverFamily}
-        onCancel={isPanel ? goBackFamilyPanel : closePersonOverFamily}
         onAddTimeline={isPanel ? goBackFamilyPanel : closePersonOverFamily}
         onClose={isPanel ? goBackFamilyPanel : closePersonOverFamily}
         onNoFamilyClick={() => {}}

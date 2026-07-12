@@ -2476,10 +2476,6 @@ export default function ClusterReportsDashboard({
                 }
               : undefined
           }
-          onCancel={() => {
-            setShowViewModal(false);
-            setViewingReport(null);
-          }}
         />
       )}
 

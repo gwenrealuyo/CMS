@@ -549,7 +549,6 @@ export default function ClustersPageView({
               ? () => onHardDeleteCluster(currentViewCluster)
               : undefined
           }
-          onCancel={isPanel ? onBackClusterPanel : onCloseClusterModal}
           onClose={isPanel ? onCloseClusterPanel : onCloseClusterModal}
           onAssignMembers={() => onOpenAssignMembers(currentViewCluster)}
           onSubmitReport={() => {
@@ -624,7 +623,6 @@ export default function ClustersPageView({
             onClosePersonOverCluster();
           }
         }}
-        onCancel={isPanel ? onBackClusterPanel : onClosePersonOverCluster}
         onAddTimeline={() => {
           if (isPanel) {
             onBackClusterPanel();
@@ -663,7 +661,6 @@ export default function ClustersPageView({
             onCloseFamilyOverCluster();
           }
         }}
-        onCancel={isPanel ? onBackClusterPanel : onCloseFamilyOverCluster}
         onClose={isPanel ? onBackClusterPanel : onCloseFamilyOverCluster}
         hideEditButton={true}
         hideDeleteButton={true}
@@ -1716,7 +1713,6 @@ export default function ClustersPageView({
                 onOpenEditClusterOverlay(clusterOverPerson);
               }}
               onDelete={() => {}}
-              onCancel={onCloseClusterOverPerson}
               onClose={onCloseClusterOverPerson}
               onAssignMembers={() => onOpenAssignMembers(clusterOverPerson)}
               onSubmitReport={() => {

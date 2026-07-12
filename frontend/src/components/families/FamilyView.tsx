@@ -34,11 +34,9 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
 function DeleteFamilyButton({
   onClick,
   buttonClassName = "h-10 px-4 text-sm font-medium",
-  fullWidth = false,
 }: {
   onClick: () => void;
   buttonClassName?: string;
-  fullWidth?: boolean;
 }) {
   return (
     <Button
@@ -46,9 +44,7 @@ function DeleteFamilyButton({
       variant="secondary"
       aria-label="Delete permanently"
       title="Delete permanently"
-      className={`!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center !min-h-0 ${
-        fullWidth ? "w-full" : "shrink-0"
-      } ${buttonClassName}`}
+      className={`!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center !min-h-0 shrink-0 ${buttonClassName}`}
     >
       <TrashIcon />
     </Button>
@@ -62,7 +58,6 @@ interface FamilyViewProps {
   onEdit: () => void;
   onDelete: () => void;
   onHardDelete?: () => void;
-  onCancel: () => void;
   onClose: () => void;
   onAddMember?: () => void;
   onViewPerson?: (person: PersonUI) => void;
@@ -84,7 +79,6 @@ export default function FamilyView({
   onEdit,
   onDelete,
   onHardDelete,
-  onCancel,
   onClose,
   onAddMember,
   onViewPerson,
@@ -667,43 +661,18 @@ export default function FamilyView({
       </div>
 
       {/* Footer */}
-      {isPanelMode ? (
-        <div className="flex flex-nowrap items-center gap-2 p-3 border-t border-gray-200 bg-white w-full overflow-x-auto">
-          <div className="flex flex-nowrap items-center gap-2 shrink-0">
-            {!hideDeleteButton && (
-              <>
-                <Button
-                  onClick={onDelete}
-                  variant="secondary"
-                  className="!text-gray-700 h-10 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 shrink-0"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>Mark Inactive</span>
-                </Button>
-                {onHardDelete && (
-                  <DeleteFamilyButton onClick={onHardDelete} />
-                )}
-              </>
-            )}
-          </div>
-          <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
-            {!hideEditButton && (
+      <div
+        className={`flex flex-nowrap items-center gap-2 w-full overflow-x-auto border-t border-gray-200 ${
+          isPanelMode ? "bg-white p-3" : "bg-gray-50 p-3 md:p-4"
+        }`}
+      >
+        <div className="flex flex-nowrap items-center gap-2 shrink-0">
+          {!hideDeleteButton && (
+            <>
               <Button
-                onClick={onEdit}
+                onClick={onDelete}
                 variant="secondary"
-                className="!text-primary h-10 px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 shrink-0"
+                className="!text-gray-700 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 shrink-0"
               >
                 <svg
                   className="w-4 h-4"
@@ -715,21 +684,26 @@ export default function FamilyView({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <span>Edit</span>
+                <span>Mark Inactive</span>
               </Button>
-            )}
-          </div>
+              {onHardDelete && (
+                <DeleteFamilyButton
+                  onClick={onHardDelete}
+                  buttonClassName="h-10 min-h-[44px] px-4 text-sm font-medium"
+                />
+              )}
+            </>
+          )}
         </div>
-      ) : (
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 p-4 md:p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex flex-col-reverse md:flex-row gap-2 md:gap-3 w-full md:w-auto md:order-2">
+        <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
+          {!hideEditButton && (
             <Button
-              onClick={onCancel}
+              onClick={onEdit}
               variant="secondary"
-              className="!text-black md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto md:hidden"
+              className="!text-primary h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 shrink-0"
             >
               <svg
                 className="w-4 h-4"
@@ -741,76 +715,14 @@ export default function FamilyView({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                 />
               </svg>
-              <span>Cancel</span>
+              <span>Edit</span>
             </Button>
-            {!hideEditButton && (
-              <Button
-                onClick={onEdit}
-                variant="secondary"
-                className="!text-primary md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-                <span>Edit</span>
-              </Button>
-            )}
-          </div>
-          {!hideDeleteButton && (
-            <div className="md:order-1">
-              <div className="border-t border-gray-200 my-2 md:hidden"></div>
-              {onHardDelete ? (
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                  <Button
-                    onClick={onDelete}
-                    variant="secondary"
-                    className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] flex-1 md:flex-none md:py-4 md:px-4 md:text-sm md:font-normal"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>Mark Inactive</span>
-                  </Button>
-                  <DeleteFamilyButton
-                    onClick={onHardDelete}
-                    buttonClassName="min-h-[44px] px-4 text-sm font-medium md:py-4 md:text-sm md:font-normal"
-                  />
-                </div>
-              ) : (
-                <DeleteFamilyButton
-                  onClick={onDelete}
-                  fullWidth
-                  buttonClassName="min-h-[44px] w-full px-4 text-sm font-normal md:py-4 md:min-h-0 md:w-auto"
-                />
-              )}
-            </div>
           )}
-          {hideDeleteButton && <div className="md:order-1" />}
         </div>
-      )}
+      </div>
     </div>
   );
 }

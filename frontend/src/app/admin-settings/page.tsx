@@ -2341,13 +2341,13 @@ function AdminSettingsPageContent() {
                           </p>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-4 pt-4 border-t border-gray-200">
+                        <div className="flex flex-row items-center gap-2 mt-4 pt-4 border-t border-gray-200">
                           <button
                             onClick={() => {
                               setViewingBranch(branch);
                               setShowBranchView(true);
                             }}
-                            className="w-full min-h-[44px] flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-sm font-medium bg-white border border-gray-500 text-gray-600 rounded-md hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                            className="flex-1 min-h-[44px] flex items-center justify-center px-3 py-2 text-sm font-medium bg-white border border-gray-500 text-gray-600 rounded-md hover:bg-gray-50 active:bg-gray-100 transition-colors"
                           >
                             View
                           </button>
@@ -2356,7 +2356,7 @@ function AdminSettingsPageContent() {
                               setEditingBranch(branch);
                               setShowBranchForm(true);
                             }}
-                            className="w-full min-h-[44px] flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 active:bg-primary/15 transition-colors"
+                            className="flex-1 min-h-[44px] flex items-center justify-center px-3 py-2 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 active:bg-primary/15 transition-colors"
                           >
                             Edit
                           </button>
@@ -2520,119 +2520,9 @@ function AdminSettingsPageContent() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 pt-4 border-t border-gray-200">
-                        {/* Mobile buttons - full width with text */}
-                        <div className="flex flex-col md:hidden gap-3 w-full">
-                          <Button
-                            onClick={() => {
-                              setShowBranchView(false);
-                              setViewingBranch(null);
-                              setEditingBranch(viewingBranch);
-                              setShowBranchForm(true);
-                            }}
-                            variant="secondary"
-                            className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-lighthouse-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                            <span>Edit</span>
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              setShowBranchView(false);
-                              setViewingBranch(null);
-                            }}
-                            variant="secondary"
-                            className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                            <span>Cancel</span>
-                          </Button>
-                          <div className="border-t border-gray-200 my-1"></div>
-                          <Button
-                            onClick={() => {
-                              setShowBranchView(false);
-                              setViewingBranch(null);
-                              setBranchDeactivateConfirmation({
-                                isOpen: true,
-                                branch: viewingBranch,
-                                loading: false,
-                              });
-                            }}
-                            variant="secondary"
-                            className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span>Deactivate</span>
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              setShowBranchView(false);
-                              setViewingBranch(null);
-                              setBranchDeleteConfirmation({
-                                isOpen: true,
-                                branch: viewingBranch,
-                                loading: false,
-                              });
-                            }}
-                            variant="secondary"
-                            className="!text-red-600 py-3 px-4 text-sm font-medium bg-white border border-red-300 hover:bg-red-50 hover:border-red-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                            <span>Delete Permanently</span>
-                          </Button>
-                        </div>
-
-                        {/* Desktop/Tablet buttons */}
-                        <div className="hidden md:flex md:items-center md:justify-between md:w-full">
-                          <div className="flex items-center gap-2">
+                      <div className="pt-4 border-t border-gray-200">
+                        <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
+                          <div className="flex flex-nowrap items-center gap-2 shrink-0">
                             <Button
                               onClick={() => {
                                 setShowBranchView(false);
@@ -2644,7 +2534,9 @@ function AdminSettingsPageContent() {
                                 });
                               }}
                               variant="secondary"
-                              className="!text-gray-700 px-4 md:py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center"
+                              aria-label="Deactivate branch"
+                              title="Deactivate branch"
+                              className="!text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center h-10 min-h-[44px] px-4 text-sm font-medium shrink-0"
                             >
                               <svg
                                 className="w-4 h-4"
@@ -2671,7 +2563,9 @@ function AdminSettingsPageContent() {
                                 });
                               }}
                               variant="secondary"
-                              className="!text-red-600 px-4 md:py-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center"
+                              aria-label="Delete branch permanently"
+                              title="Delete branch permanently"
+                              className="!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center h-10 min-h-[44px] px-4 text-sm font-medium shrink-0"
                             >
                               <svg
                                 className="w-4 h-4"
@@ -2688,30 +2582,7 @@ function AdminSettingsPageContent() {
                               </svg>
                             </Button>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <Button
-                              onClick={() => {
-                                setShowBranchView(false);
-                                setViewingBranch(null);
-                              }}
-                              variant="secondary"
-                              className="!text-black px-6 md:py-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
-                              </svg>
-                              <span>Cancel</span>
-                            </Button>
+                          <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
                             <Button
                               onClick={() => {
                                 setShowBranchView(false);
@@ -2720,7 +2591,7 @@ function AdminSettingsPageContent() {
                                 setShowBranchForm(true);
                               }}
                               variant="secondary"
-                              className="!text-primary px-6 md:py-4 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2"
+                              className="!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 h-10 min-h-[44px] px-4 text-sm font-medium shrink-0"
                             >
                               <svg
                                 className="w-4 h-4"

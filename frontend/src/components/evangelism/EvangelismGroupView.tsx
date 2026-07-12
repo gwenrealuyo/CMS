@@ -325,101 +325,13 @@ export default function EvangelismGroupView({
         )}
       </div>
 
-      <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-4 md:px-6">
-        <div className="flex w-full flex-col gap-3 md:hidden">
-          <Button
-            onClick={onEdit}
-            variant="secondary"
-            className="flex min-h-[44px] w-full items-center justify-center space-x-2 border border-primary/30 bg-white px-4 py-3 text-sm font-medium !text-primary hover:border-lighthouse-gold hover:bg-primary/10"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-            <span>Edit</span>
-          </Button>
-          <Button
-            onClick={onClose}
-            variant="secondary"
-            className="flex min-h-[44px] w-full items-center justify-center space-x-2 border border-gray-300 bg-white px-4 py-3 text-sm font-medium !text-gray-700 hover:border-gray-400 hover:bg-gray-50"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-            <span>Cancel</span>
-          </Button>
-          <div className="my-1 border-t border-gray-200" />
-          <Button
-            onClick={onDelete}
-            variant="secondary"
-            className="flex min-h-[44px] w-full items-center justify-center space-x-2 border border-gray-200 bg-white px-4 py-3 text-sm font-medium !text-gray-700 hover:border-gray-300 hover:bg-gray-50"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>Mark Inactive</span>
-          </Button>
-          {onHardDelete && (
-          <Button
-            onClick={onHardDelete}
-            variant="secondary"
-            aria-label="Delete group permanently"
-            title="Delete group permanently"
-            className="flex min-h-[44px] w-full items-center justify-center border border-red-300 bg-white px-4 py-3 text-sm font-medium !text-red-600 hover:border-red-400 hover:bg-red-50"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </Button>
-          )}
-        </div>
-
-        <div className="hidden w-full items-center justify-between md:flex">
-          <div className="flex items-center gap-2">
+      <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-3 md:px-4">
+        <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
+          <div className="flex flex-nowrap items-center gap-2 shrink-0">
             <Button
               onClick={onDelete}
               variant="secondary"
-              className="flex min-h-[44px] items-center justify-center space-x-2 border border-gray-200 bg-white px-4 text-sm font-normal !text-gray-700 hover:border-gray-300 hover:bg-gray-50 md:py-4 shrink-0"
+              className="flex h-10 min-h-[44px] items-center justify-center space-x-2 border border-gray-200 bg-white px-4 text-sm font-medium !text-gray-700 hover:border-gray-300 hover:bg-gray-50 shrink-0"
             >
               <svg
                 className="h-4 w-4"
@@ -438,54 +350,35 @@ export default function EvangelismGroupView({
               <span>Mark Inactive</span>
             </Button>
             {onHardDelete && (
-            <Button
-              onClick={onHardDelete}
-              variant="secondary"
-              aria-label="Delete group permanently"
-              title="Delete group permanently"
-              className="flex min-h-[44px] items-center justify-center border border-red-200 bg-white px-4 text-sm font-normal !text-red-600 hover:border-red-300 hover:bg-red-50 md:py-4 shrink-0"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <Button
+                onClick={onHardDelete}
+                variant="secondary"
+                aria-label="Delete group permanently"
+                title="Delete group permanently"
+                className="flex h-10 min-h-[44px] items-center justify-center border border-red-200 bg-white px-4 text-sm font-medium !text-red-600 hover:border-red-300 hover:bg-red-50 shrink-0"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </Button>
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </Button>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={onClose}
-              variant="secondary"
-              className="flex min-h-[44px] items-center justify-center space-x-2 border border-gray-200 bg-white px-6 text-sm font-normal !text-black hover:border-gray-300 hover:bg-gray-50 md:py-4"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              <span>Cancel</span>
-            </Button>
+          <div className="ml-auto flex flex-nowrap items-center gap-2 shrink-0">
             <Button
               onClick={onEdit}
               variant="secondary"
-              className="flex min-h-[44px] items-center justify-center space-x-2 border border-primary/20 bg-white px-6 text-sm font-normal !text-primary hover:border-primary/30 hover:bg-primary/10 md:py-4"
+              className="flex h-10 min-h-[44px] items-center justify-center space-x-2 border border-primary/20 bg-white px-4 text-sm font-medium !text-primary hover:border-primary/30 hover:bg-primary/10 shrink-0"
             >
               <svg
                 className="h-4 w-4"

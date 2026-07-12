@@ -161,7 +161,6 @@ function MePageContent() {
                 setViewMode("edit");
               }}
               onDelete={() => {}}
-              onCancel={() => router.push("/dashboard")}
               onAddTimeline={() => {
                 setStartOnTimelineTab(true);
                 setViewMode("edit");

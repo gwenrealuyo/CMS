@@ -1486,19 +1486,6 @@ export default function PeoplePage() {
                 loading: false,
               });
             }}
-            onCancel={() => {
-              if (!isPanel && viewCluster) {
-                setViewEditPerson(null);
-                setModalType("cluster");
-                setClusterViewMode("view");
-                setIsModalOpen(true);
-              } else if (isPanel) {
-                closePersonPanel();
-              } else {
-                setIsModalOpen(false);
-                setViewEditPerson(null);
-              }
-            }}
             onAddTimeline={() => {
               setViewMode("edit");
               setStartOnTimelineTab(true);
@@ -2323,11 +2310,6 @@ export default function PeoplePage() {
                         loading: false,
                       });
                     }}
-                    onCancel={() => {
-                      setIsModalOpen(false);
-                      setViewFamily(null);
-                      setFamilyViewMode("view");
-                    }}
                     onClose={() => {
                       setIsModalOpen(false);
                       setViewFamily(null);
@@ -2411,11 +2393,6 @@ export default function PeoplePage() {
                     cluster: viewCluster,
                     loading: false,
                   });
-                }}
-                onCancel={() => {
-                  setIsModalOpen(false);
-                  setViewCluster(null);
-                  setClusterViewMode("view");
                 }}
                 onClose={() => {
                   setIsModalOpen(false);
@@ -2626,10 +2603,6 @@ export default function PeoplePage() {
                 loading: false,
               });
             }}
-            onCancel={() => {
-              setShowPersonOverCluster(false);
-              setPersonOverCluster(null);
-            }}
             onAddTimeline={() => {
               setIsModalOpen(false);
               setShowPersonOverCluster(false);
@@ -2676,10 +2649,6 @@ export default function PeoplePage() {
                 loading: false,
               });
             }}
-            onCancel={() => {
-              setShowFamilyOverCluster(false);
-              setFamilyOverCluster(null);
-            }}
             onClose={() => {
               setShowFamilyOverCluster(false);
               setFamilyOverCluster(null);
@@ -2716,10 +2685,6 @@ export default function PeoplePage() {
               setShowEditClusterOverlay(true);
             }}
             onDelete={() => {}}
-            onCancel={() => {
-              setShowClusterOverPerson(false);
-              setClusterOverPerson(null);
-            }}
             onClose={() => {
               setShowClusterOverPerson(false);
               setClusterOverPerson(null);

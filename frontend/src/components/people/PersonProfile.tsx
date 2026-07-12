@@ -34,22 +34,13 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
 
 function DeletePersonButton({
   onClick,
-  compact = false,
-  fullWidth = false,
   buttonClassName,
 }: {
   onClick: () => void;
-  compact?: boolean;
-  fullWidth?: boolean;
   buttonClassName?: string;
 }) {
   const sizeClass =
-    buttonClassName ??
-    (fullWidth
-      ? "min-h-[44px] w-full px-4 text-sm font-medium"
-      : compact
-        ? "min-h-[44px] px-4 text-sm font-medium shrink-0"
-        : "h-10 px-4 text-sm font-medium shrink-0");
+    buttonClassName ?? "h-10 min-h-[44px] px-4 text-sm font-medium shrink-0";
 
   return (
     <Button
@@ -57,12 +48,9 @@ function DeletePersonButton({
       variant="secondary"
       aria-label="Delete permanently"
       title="Delete permanently"
-      className={`!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center !min-h-0 ${
-        fullWidth ? "w-full space-x-2" : "shrink-0"
-      } ${sizeClass}`}
+      className={`!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center !min-h-0 shrink-0 ${sizeClass}`}
     >
       <TrashIcon />
-      {fullWidth && <span>Delete</span>}
     </Button>
   );
 }
@@ -77,7 +65,6 @@ interface PersonProfileProps {
   onNoClusterClick?: (person: Person) => void;
   onEdit: () => void;
   onDelete: () => void;
-  onCancel: () => void;
   onAddTimeline: () => void;
   onClose: () => void;
   hideEditButton?: boolean;
@@ -95,7 +82,6 @@ export default function PersonProfile({
   onNoClusterClick,
   onEdit,
   onDelete,
-  onCancel,
   onAddTimeline,
   onClose,
   hideEditButton = false,
@@ -487,9 +473,8 @@ export default function PersonProfile({
   };
 
   const isPanelMode = !showTopHeader;
-  const footerActionBtnClass = isPanelMode
-    ? "h-10 px-4 text-sm font-medium shrink-0"
-    : "px-4 md:py-4 text-sm font-normal shrink-0";
+  const footerActionBtnClass =
+    "h-10 min-h-[44px] px-4 text-sm font-medium shrink-0";
   const resetPasswordBtnClass =
     "!text-lighthouse-rust bg-white border border-lighthouse-rust/25 hover:bg-lighthouse-rust/10 hover:border-lighthouse-rust/40";
 
@@ -1050,59 +1035,30 @@ export default function PersonProfile({
         }`}
       >
         {activeTab === "overview" ? (
-          isPanelMode ? (
-            <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
-              <div className="flex flex-nowrap items-center gap-2 shrink-0">
-                {!hideDeleteButton && (
-                  <DeletePersonButton
-                    onClick={onDelete}
-                    buttonClassName={footerActionBtnClass}
-                  />
-                )}
-              </div>
-              <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
-                {canResetPassword && (
-                  <Button
-                    onClick={() => setResetPasswordOpen(true)}
-                    variant="secondary"
-                    className={`${resetPasswordBtnClass} ${footerActionBtnClass}`}
-                  >
-                    Reset password
-                  </Button>
-                )}
-                {!hideEditButton && (
-                  <Button
-                    onClick={onEdit}
-                    variant="secondary"
-                    className={`!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 ${footerActionBtnClass}`}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    <span>Edit</span>
-                  </Button>
-                )}
-              </div>
+          <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
+            <div className="flex flex-nowrap items-center gap-2 shrink-0">
+              {!hideDeleteButton && (
+                <DeletePersonButton
+                  onClick={onDelete}
+                  buttonClassName={footerActionBtnClass}
+                />
+              )}
             </div>
-          ) : (
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
-            {/* Mobile buttons - full width with text */}
-            <div className="flex flex-col md:hidden gap-3 w-full">
+            <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
+              {canResetPassword && (
+                <Button
+                  onClick={() => setResetPasswordOpen(true)}
+                  variant="secondary"
+                  className={`${resetPasswordBtnClass} ${footerActionBtnClass}`}
+                >
+                  Reset password
+                </Button>
+              )}
               {!hideEditButton && (
                 <Button
                   onClick={onEdit}
                   variant="secondary"
-                  className="!text-primary py-3 px-4 text-sm font-medium bg-white border border-primary/30 hover:bg-primary/10 hover:border-lighthouse-gold flex items-center justify-center space-x-2 min-h-[44px] w-full"
+                  className={`!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 ${footerActionBtnClass}`}
                 >
                   <svg
                     className="w-4 h-4"
@@ -1120,86 +1076,8 @@ export default function PersonProfile({
                   <span>Edit</span>
                 </Button>
               )}
-              {canResetPassword && (
-                <Button
-                  onClick={() => setResetPasswordOpen(true)}
-                  variant="secondary"
-                  className={`${resetPasswordBtnClass} py-3 px-4 text-sm font-medium flex items-center justify-center min-h-[44px] w-full`}
-                >
-                  Reset password
-                </Button>
-              )}
-              <Button
-                onClick={onCancel}
-                variant="secondary"
-                className="!text-gray-700 py-3 px-4 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 min-h-[44px] w-full"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-                <span>Cancel</span>
-              </Button>
-              {!hideDeleteButton && (
-                <DeletePersonButton onClick={onDelete} compact fullWidth />
-              )}
-            </div>
-
-            {/* Desktop/Tablet buttons */}
-            <div className="hidden md:flex flex-nowrap items-center gap-2 w-full overflow-x-auto">
-              <div className="flex flex-nowrap items-center gap-2 shrink-0">
-                {!hideDeleteButton && (
-                  <DeletePersonButton
-                    onClick={onDelete}
-                    buttonClassName={footerActionBtnClass}
-                  />
-                )}
-              </div>
-              <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
-                {canResetPassword && (
-                  <Button
-                    onClick={() => setResetPasswordOpen(true)}
-                    variant="secondary"
-                    className={`${resetPasswordBtnClass} ${footerActionBtnClass}`}
-                  >
-                    Reset password
-                  </Button>
-                )}
-                {!hideEditButton && (
-                  <Button
-                    onClick={onEdit}
-                    variant="secondary"
-                    className={`!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 ${footerActionBtnClass}`}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    <span>Edit</span>
-                  </Button>
-                )}
-              </div>
             </div>
           </div>
-          )
         ) : (
           <Button
             onClick={onAddTimeline}

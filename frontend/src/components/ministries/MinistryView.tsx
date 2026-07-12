@@ -9,7 +9,6 @@ interface MinistryViewProps {
   onEdit: () => void;
   onDelete: () => void;
   onHardDelete?: () => void;
-  onCancel: () => void;
   onClose: () => void;
   onViewPerson?: (person: UserSummary) => void;
 }
@@ -19,7 +18,6 @@ export default function MinistryView({
   onEdit,
   onDelete,
   onHardDelete,
-  onCancel,
   onClose,
   onViewPerson,
 }: MinistryViewProps) {
@@ -523,12 +521,13 @@ export default function MinistryView({
       </div>
 
       {/* Footer */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 md:p-6 border-t border-gray-200 bg-gray-50">
-        <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto sm:order-2">
+      <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto p-3 md:p-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex flex-nowrap items-center gap-2 shrink-0">
           <Button
-            onClick={onCancel}
+            onClick={onDelete}
             variant="secondary"
-            className="!text-black md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            className="!text-gray-700 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 shrink-0"
+            aria-label="Mark ministry inactive"
           >
             <svg
               className="w-4 h-4"
@@ -540,15 +539,40 @@ export default function MinistryView({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
+                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span>Cancel</span>
+            <span>Mark Inactive</span>
           </Button>
+          {onHardDelete && (
+            <Button
+              onClick={onHardDelete}
+              variant="secondary"
+              className="!text-red-600 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center shrink-0"
+              aria-label="Delete ministry permanently"
+              title="Delete ministry permanently"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </Button>
+          )}
+        </div>
+        <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
           <Button
             onClick={onEdit}
             variant="secondary"
-            className="!text-primary md:py-4 px-4 md:px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 min-h-[44px] md:min-h-0 w-full sm:w-auto"
+            className="!text-primary h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 shrink-0"
           >
             <svg
               className="w-4 h-4"
@@ -565,55 +589,6 @@ export default function MinistryView({
             </svg>
             <span>Edit</span>
           </Button>
-        </div>
-        <div className="sm:order-1">
-          <div className="border-t border-gray-200 my-2 sm:hidden"></div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={onDelete}
-              variant="secondary"
-              className="!text-gray-700 md:py-4 px-4 text-sm font-normal bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center min-h-[44px] md:min-h-0 w-full sm:w-auto"
-              aria-label="Mark ministry inactive"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <span className="md:hidden ml-2">Mark Inactive</span>
-            </Button>
-            {onHardDelete && (
-              <Button
-                onClick={onHardDelete}
-                variant="secondary"
-                className="!text-red-600 md:py-4 px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center min-h-[44px] md:min-h-0 w-full sm:w-auto"
-                aria-label="Delete ministry permanently"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                <span className="md:hidden ml-2">Delete</span>
-              </Button>
-            )}
-          </div>
         </div>
       </div>
     </div>

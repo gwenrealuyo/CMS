@@ -10,7 +10,7 @@
 ### Person (extends AbstractUser)
 
 - Names: `first_name`, `last_name`, `middle_name?`, `suffix?`
-- Demographics: `gender?` (MALE|FEMALE), `date_of_birth?`, `country?`
+- Demographics: `gender?` (MALE|FEMALE), `date_of_birth?`, `country?` (full country name, max 100 chars; person form offers a complete country list)
 - Contact: `phone?`, `address?`, `facebook_name?`
 - Role: `role` (MEMBER|VISITOR|PASTOR|ADMIN) — coordinator capability is granted via `ModuleCoordinator` assignments, not a base role
 - Church-specific: `date_first_attended?`, `member_id?`, `status?` (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|INVITED|ATTENDED)

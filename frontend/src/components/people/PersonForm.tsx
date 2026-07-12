@@ -15,6 +15,12 @@ import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import { getCreatableRoles } from "@/src/lib/personRolePermissions";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import PasswordInput from "@/src/components/ui/PasswordInput";
+import {
+  ALL_COUNTRIES,
+  COUNTRY_META,
+  DEFAULT_COUNTRY,
+  getCountryDialCode,
+} from "@/src/lib/countries";
 
 const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
   "BAPTISM",
@@ -122,7 +128,7 @@ export default function PersonForm({
   const [formData, setFormData] = useState<Partial<Person>>({
     status: "ACTIVE",
     journeys: [],
-    country: initialData?.country || "Philippines",
+    country: initialData?.country || DEFAULT_COUNTRY,
     ...initialData,
     role: defaultRole,
     family_ids: initialFamilyIds,
@@ -231,26 +237,9 @@ export default function PersonForm({
   }, [initialData]);
 
   // Phone management: country code and local number
-  const COUNTRY_META: Record<string, { code: string; localMax: number }> = {
-    Philippines: { code: "+63", localMax: 10 },
-    "United States": { code: "+1", localMax: 10 },
-    Canada: { code: "+1", localMax: 10 },
-    "United Kingdom": { code: "+44", localMax: 10 },
-    Australia: { code: "+61", localMax: 9 },
-    India: { code: "+91", localMax: 10 },
-  };
-  const ALL_COUNTRIES = Object.keys(COUNTRY_META).concat([
-    "Japan",
-    "Singapore",
-    "Malaysia",
-    "Indonesia",
-    "Vietnam",
-    "Thailand",
-  ]);
-
   const initialCode = (() => {
-    const c = (initialData?.country || "Philippines") as string;
-    return COUNTRY_META[c]?.code || "+63";
+    const c = (initialData?.country || DEFAULT_COUNTRY) as string;
+    return getCountryDialCode(c);
   })();
   const initialLocal = (() => {
     const phoneVal = (initialData?.phone || "") as string;
@@ -258,8 +247,10 @@ export default function PersonForm({
     // naive parse: remove non-digits, then strip possible country code digits
     const digits = phoneVal.replace(/[^0-9+]/g, "");
     if (digits.startsWith("+")) {
-      // try match by known codes
-      const knownCodes = Object.values(COUNTRY_META).map((m) => m.code);
+      // try match by known codes (longest first so +1 does not steal +1868-style codes)
+      const knownCodes = Object.values(COUNTRY_META)
+        .map((m) => m.code)
+        .sort((a, b) => b.length - a.length);
       const match = knownCodes.find((code) => digits.startsWith(code));
       if (match) return digits.slice(match.length);
       return digits.replace(/^\+\d{1,3}/, "");
@@ -1009,7 +1000,7 @@ export default function PersonForm({
                     </label>
                     <select
                       name="country"
-                      value={formData.country || "Philippines"}
+                      value={formData.country || DEFAULT_COUNTRY}
                       onChange={(e) => {
                         const newCountry = e.target.value;
                         setFormData((prev) => ({
@@ -1032,6 +1023,12 @@ export default function PersonForm({
                           {c}
                         </option>
                       ))}
+                      {formData.country &&
+                        !ALL_COUNTRIES.includes(formData.country) && (
+                          <option value={formData.country}>
+                            {formData.country}
+                          </option>
+                        )}
                     </select>
                   </div>
                   <div>

@@ -59,7 +59,7 @@ class Person(AbstractUser):
     )
     phone = models.CharField(max_length=20, blank=True)
     address = models.TextField(blank=True)
-    country = models.CharField(max_length=20, blank=True)
+    country = models.CharField(max_length=100, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     date_first_invited = models.DateField(null=True, blank=True)
     date_first_attended = models.DateField(null=True, blank=True)

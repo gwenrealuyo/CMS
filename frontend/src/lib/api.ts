@@ -277,6 +277,45 @@ export const peopleApi = {
     page_size?: number;
   }) => api.get<Person[]>("/people/people/", { params }),
   getById: (id: string) => api.get<Person>(`/people/people/${id}/`),
+  getPossibleDuplicates: (params?: {
+    match?: "name" | "member_id" | "both";
+    branch_id?: number | "";
+    same_branch_only?: boolean;
+  }) =>
+    api.get<{
+      groups: Array<{
+        match_type: "name" | "member_id";
+        key: string;
+        label: string;
+        count: number;
+        same_branch: boolean;
+        people: Array<{
+          id: number;
+          first_name: string;
+          last_name: string;
+          middle_name?: string;
+          username: string;
+          email?: string;
+          phone?: string;
+          member_id?: string;
+          role: string;
+          status?: string;
+          branch_id?: number | null;
+          branch_name?: string | null;
+          branch_code?: string | null;
+        }>;
+      }>;
+      count: number;
+    }>("/people/people/possible-duplicates/", {
+      params: {
+        match: params?.match,
+        branch_id:
+          params?.branch_id === "" || params?.branch_id == null
+            ? undefined
+            : params.branch_id,
+        same_branch_only: params?.same_branch_only ? "1" : undefined,
+      },
+    }),
   create: (data: Partial<Person> | FormData) => {
     if (data instanceof FormData) {
       return api.post<Person>("/people/people/", data, peopleMultipartConfig);

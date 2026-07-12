@@ -265,6 +265,8 @@ class PersonViewSet(viewsets.ModelViewSet):
         """
         Override to set permissions based on action.
         """
+        if self.action == "possible_duplicates":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         if self.action in ["list", "retrieve"]:
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
@@ -282,6 +284,36 @@ class PersonViewSet(viewsets.ModelViewSet):
             # Delete: Only ADMIN
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    @action(detail=False, methods=["get"], url_path="possible-duplicates")
+    def possible_duplicates(self, request):
+        """
+        ADMIN-only audit: groups of people that may be duplicates
+        (same first+last name and/or same non-empty LAMP ID).
+        """
+        from apps.people.duplicate_people import find_possible_people_duplicate_groups
+
+        match = request.query_params.get("match", "both")
+        same_branch_only = request.query_params.get(
+            "same_branch_only", ""
+        ).lower() in ("1", "true", "yes")
+        branch_raw = request.query_params.get("branch_id")
+        branch_id = None
+        if branch_raw not in (None, ""):
+            try:
+                branch_id = int(branch_raw)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "branch_id must be an integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        groups = find_possible_people_duplicate_groups(
+            match=match,
+            branch_id=branch_id,
+            same_branch_only=same_branch_only,
+        )
+        return Response({"groups": groups, "count": len(groups)})
 
 
 class FamilyViewSet(viewsets.ModelViewSet):

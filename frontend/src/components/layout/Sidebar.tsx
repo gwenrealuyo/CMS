@@ -27,6 +27,7 @@ import {
   AcademicCapIcon,
   MegaphoneIcon,
   Cog6ToothIcon,
+  DocumentDuplicateIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
@@ -60,6 +61,14 @@ const navigation = [
     href: "/admin-settings",
     icon: Cog6ToothIcon,
     roles: ["ADMIN"],
+    children: [
+      { name: "Overview", href: "/admin-settings", icon: Cog6ToothIcon },
+      {
+        name: "People Duplicates",
+        href: "/admin-settings/people-duplicates",
+        icon: DocumentDuplicateIcon,
+      },
+    ],
   },
 ];
 
@@ -245,8 +254,7 @@ export default function Sidebar() {
         (child: { href: string }) =>
           pathname === getPathFromHref(child.href)
       );
-    const shouldShowChildren =
-      (item.name === "People" && childActive) || isExpanded;
+    const shouldShowChildren = childActive || isExpanded;
 
     return (
       <div key={item.name} className="mb-1">

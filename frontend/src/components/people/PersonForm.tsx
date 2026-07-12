@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { Person, JourneyType, Family } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
@@ -26,6 +26,12 @@ import {
   DEFAULT_COUNTRY,
   getCountryDialCode,
 } from "@/src/lib/countries";
+import {
+  describeDuplicatePerson,
+  findMemberIdConflict,
+  findPossibleNameDuplicates,
+} from "@/src/lib/personDuplicates";
+import { formatPersonName } from "@/src/lib/name";
 
 const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
   "BAPTISM",
@@ -678,6 +684,10 @@ export default function PersonForm({
     index: number | null;
     loading: boolean;
   }>({ isOpen: false, index: null, loading: false });
+  const [duplicateNameConfirm, setDuplicateNameConfirm] = useState<{
+    isOpen: boolean;
+    matches: Person[];
+  }>({ isOpen: false, matches: [] });
 
   const openJourneyDelete = (index: number) => {
     setJourneyDeleteConfirm({ isOpen: true, index, loading: false });
@@ -714,46 +724,7 @@ export default function PersonForm({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const skipBranchRequirement =
-      !canEditBranch || (plainMember && !initialData?.id);
-
-    if (
-      !skipBranchRequirement &&
-      formData.branch == null
-    ) {
-      toast.error("Please select a branch.");
-      return;
-    }
-
-    if (formData.has_finished_lessons && !formData.lessons_finished_at) {
-      toast.error(
-        "Set Lessons Finished Date when marking this person as finished in NC lessons.",
-      );
-      return;
-    }
-
-    if (showLoginAccess && !autoGeneratePassword) {
-      if (!manualPassword) {
-        toast.error("Please enter a temporary password.");
-        return;
-      }
-      if (manualPassword.length < 8) {
-        toast.error("Password must be at least 8 characters long.");
-        return;
-      }
-      if (!/[a-zA-Z]/.test(manualPassword) || !/[0-9]/.test(manualPassword)) {
-        toast.error("Password must contain at least one letter and one number.");
-        return;
-      }
-      if (manualPassword !== confirmPassword) {
-        toast.error("Passwords do not match.");
-        return;
-      }
-    }
-
+  const performSave = useCallback(async () => {
     // Extract journeys from formData before submitting person
     const journeys = formData.journeys || [];
     const personData = { ...formData };
@@ -843,6 +814,83 @@ export default function PersonForm({
     } finally {
       setLoading(false);
     }
+  }, [
+    formData,
+    showLoginAccess,
+    autoGeneratePassword,
+    manualPassword,
+    photoFile,
+    photoRemoved,
+    initialData?.id,
+    initialData?.journeys,
+    onSubmit,
+  ]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const skipBranchRequirement =
+      !canEditBranch || (plainMember && !initialData?.id);
+
+    if (
+      !skipBranchRequirement &&
+      formData.branch == null
+    ) {
+      toast.error("Please select a branch.");
+      return;
+    }
+
+    if (formData.has_finished_lessons && !formData.lessons_finished_at) {
+      toast.error(
+        "Set Lessons Finished Date when marking this person as finished in NC lessons.",
+      );
+      return;
+    }
+
+    if (showLoginAccess && !autoGeneratePassword) {
+      if (!manualPassword) {
+        toast.error("Please enter a temporary password.");
+        return;
+      }
+      if (manualPassword.length < 8) {
+        toast.error("Password must be at least 8 characters long.");
+        return;
+      }
+      if (!/[a-zA-Z]/.test(manualPassword) || !/[0-9]/.test(manualPassword)) {
+        toast.error("Password must contain at least one letter and one number.");
+        return;
+      }
+      if (manualPassword !== confirmPassword) {
+        toast.error("Passwords do not match.");
+        return;
+      }
+    }
+
+    const memberIdConflict = findMemberIdConflict(peopleOptions, {
+      memberId: formData.member_id,
+      excludeId: initialData?.id,
+    });
+    if (memberIdConflict) {
+      toast.error(
+        `LAMP ID "${formData.member_id?.trim()}" is already used by ${formatPersonName(memberIdConflict)}.`,
+      );
+      return;
+    }
+
+    if (peopleOptions.length > 0) {
+      const nameMatches = findPossibleNameDuplicates(peopleOptions, {
+        firstName: formData.first_name,
+        lastName: formData.last_name,
+        branch: formData.branch ?? null,
+        excludeId: initialData?.id,
+      });
+      if (nameMatches.length > 0) {
+        setDuplicateNameConfirm({ isOpen: true, matches: nameMatches });
+        return;
+      }
+    }
+
+    await performSave();
   };
 
   return (
@@ -1158,6 +1206,9 @@ export default function PersonForm({
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Must be unique when set
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2259,6 +2310,40 @@ export default function PersonForm({
         confirmText="Remove Photo"
         cancelText="Cancel"
         variant="warning"
+      />
+
+      <ConfirmationModal
+        isOpen={duplicateNameConfirm.isOpen}
+        onClose={() =>
+          setDuplicateNameConfirm({ isOpen: false, matches: [] })
+        }
+        onConfirm={() => {
+          setDuplicateNameConfirm({ isOpen: false, matches: [] });
+          void performSave();
+        }}
+        title="Possible duplicate"
+        message={
+          <div className="space-y-2">
+            <p>
+              Someone with the same first and last name already exists. Continue
+              anyway only if this is a different person.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto">
+              {duplicateNameConfirm.matches.slice(0, 8).map((person) => (
+                <li key={person.id}>{describeDuplicatePerson(person)}</li>
+              ))}
+              {duplicateNameConfirm.matches.length > 8 && (
+                <li>
+                  …and {duplicateNameConfirm.matches.length - 8} more
+                </li>
+              )}
+            </ul>
+          </div>
+        }
+        confirmText={initialData?.id ? "Update anyway" : "Create anyway"}
+        cancelText="Go back"
+        variant="warning"
+        zIndex={80}
       />
     </>
   );

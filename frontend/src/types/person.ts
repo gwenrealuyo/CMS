@@ -13,8 +13,8 @@ export type PersonStatus =
   | "DORMANT"
   | "FALLAWAY"
   | "DECEASED"
-  | "INVITED"
-  | "ATTENDED";
+  | "ONGOING"
+  | "NO_RESPONSE";
 
 export type Gender = "MALE" | "FEMALE" | "";
 
@@ -50,6 +50,7 @@ export interface Person {
   last_name: string;
   suffix?: string;
   nickname?: string;
+  maiden_name?: string;
   full_name?: string; // Computed full name from backend (includes nickname, middle initial, suffix)
   phone?: string;
   photo?: string | null; // URL to profile image; send null to clear

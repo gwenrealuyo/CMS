@@ -313,8 +313,8 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?cluster={cluster_id}` – cluster scope (formal `Cluster` membership on `Person`)
     - Query params: `?evangelism_group={group_id}` – evangelism-group scope (union of people in `EvangelismGroup.members` and prospects with a linked `Person` for that group); **do not send `cluster` and `evangelism_group` together**
     - Counts by month (each stage is independent — a person who hits multiple stages in the same month appears in **each** matching column):
-      - **INVITED**: Person created in month with `role=VISITOR` and `status=INVITED`
-      - **ATTENDED**: Person with `role=VISITOR`, `status=ATTENDED`, and `date_first_attended` in month
+      - **INVITED**: Visitor (`role=VISITOR`) with `date_joined` in month and no `date_first_attended` yet (date-based; not `Person.status`)
+      - **ATTENDED**: Visitor (`role=VISITOR`) with `date_first_attended` in month (date-based; not `Person.status`)
       - **NCC** (`students_count`): Distinct people with a `LessonSessionReport.session_date` in that month (same branch/cluster/group scoping). Conversion status / `commitment_form_signed` does **not** exclude them
       - **BAPTIZED**: `water_baptism_date` in month
       - **RECEIVED_HG**: `spirit_baptism_date` in month
@@ -346,8 +346,8 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Payload: `{ "cluster_id": 1 }`
   - `POST /{id}/update_progress/` – Update visitor's pipeline stage and last activity
     - Payload: `{ "pipeline_stage": "ATTENDED", "last_activity_date": "2024-03-15" }`
-    - UI restricts stages to INVITED and ATTENDED
-    - When set to ATTENDED, the system creates/links a Person and updates `Person.status` and `date_first_attended`
+    - UI restricts stages to INVITED and ATTENDED (**Prospect** `pipeline_stage`, not Person status)
+    - When set to ATTENDED, the system creates/links a Person, sets `Person.status=ONGOING`, and updates `date_first_attended`
   - `POST /{id}/mark_attended/` – Mark prospect as attended (auto-creates/links Person, updates monthly tracking); shared service `mark_prospect_attended`
   - `POST /{id}/create_person/` – Manual action to create Person record from prospect
     - Payload: `{ "first_name": "John", "last_name": "Doe", ... }` (similar to cluster report attendance form)
@@ -788,8 +788,8 @@ When viewing a group, a modal displays group details and related sections. Layou
 
 - Auto-update `water_baptism_date` and `spirit_baptism_date` when conversion is recorded
 - Link `inviter` field to `converted_by` in conversions
-- Track visitor role and status changes
-- Auto-create Person when prospect first attends (or link if Person with VISITOR role exists)
+- Track visitor role and status changes (`Person.status` for visitors: ONGOING | NO_RESPONSE | DECEASED — not Prospect pipeline INVITED/ATTENDED)
+- Auto-create Person when prospect first attends (or link if Person with VISITOR role exists); new/attended visitor Person status is **ONGOING**
 - Set `Person.inviter = prospect.invited_by` when Person is created
 
 ### Clusters Module

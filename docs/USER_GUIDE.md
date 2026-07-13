@@ -61,7 +61,7 @@ The dashboard shows key numbers for your church — active members, visitors, ba
 
 Use **People** in the sidebar to browse the church directory.
 
-- **Search and filter** by name, branch, role, or status (Active, Semi-active, Inactive, Dormant, Fall Away, Deceased).
+- **Search and filter** by name (including nickname / maiden name), branch, role, or status (members: Active, Semi-active, Inactive, Dormant, Fall Away, Deceased; visitors: Ongoing, No Response, Deceased).
 - **Open a profile** to see contact details, role, branch, family links, and the **Journey** timeline (baptism, cluster attendance, lessons, events, notes, and more).
 - **Table / Cards** toggle changes how the list is displayed.
 
@@ -73,7 +73,7 @@ Use **People** in the sidebar to browse the church directory.
 | **Module coordinator** (any module) | Add and edit people in your scope |
 | **Member** (no coordinator assignment) | Add **Visitors** only; view self and family |
 
-Use **+ → Add Person** or the **Add Person** button on the People page.
+Use **+ → Add Person** or the **Add Person** button on the People page. Optional fields include nickname and maiden name. For visitors, choose status **Ongoing**, **No Response**, or **Deceased** (not Invited/Attended — those labels apply only to evangelism prospects).
 
 When creating someone who will log in, an admin sets a **temporary password**. Share username and password securely.
 

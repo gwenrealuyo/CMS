@@ -38,6 +38,7 @@ class Person(AbstractUser):
     middle_name = models.CharField(blank=True, max_length=150)
     suffix = models.CharField(blank=True, max_length=150)
     nickname = models.CharField(blank=True, max_length=150)
+    maiden_name = models.CharField(blank=True, max_length=150)
     gender = models.CharField(
         blank=True,
         max_length=20,
@@ -101,8 +102,8 @@ class Person(AbstractUser):
             ("FALLAWAY", "Fall Away"),
             ("DECEASED", "Deceased"),
             # For VISITOR role specialized states; UI can restrict selection conditionally
-            ("INVITED", "Invited"),
-            ("ATTENDED", "Attended"),
+            ("ONGOING", "Ongoing"),
+            ("NO_RESPONSE", "No Response"),
         ],
     )
     must_change_password = models.BooleanField(default=False)

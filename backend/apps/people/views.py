@@ -37,6 +37,7 @@ class PersonViewSet(viewsets.ModelViewSet):
         "first_name",
         "last_name",
         "nickname",
+        "maiden_name",
         "member_id",
     ]
     filterset_fields = ["role"]

@@ -152,3 +152,24 @@ class PersonMembershipApiTests(TestCase):
             set(person.clusters.values_list("id", flat=True)),
             {self.cluster_a.id},
         )
+
+    def test_patch_maiden_name(self):
+        person = Person.objects.create_user(
+            username="maiden_mem",
+            email="maiden_mem@test.com",
+            password="testpass123",
+            first_name="Mae",
+            last_name="Member",
+            role="MEMBER",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        response = self.client.patch(
+            f"/api/people/people/{person.id}/",
+            {"maiden_name": "Reyes"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        person.refresh_from_db()
+        self.assertEqual(person.maiden_name, "Reyes")
+        self.assertEqual(response.data.get("maiden_name"), "Reyes")

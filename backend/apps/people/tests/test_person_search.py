@@ -24,6 +24,7 @@ class PersonSearchAPITest(TestCase):
             first_name="Lamp",
             last_name="User",
             nickname="Sparky",
+            maiden_name="Garcia",
             role="MEMBER",
             member_id="LAMP-TEST-001",
         )
@@ -34,6 +35,7 @@ class PersonSearchAPITest(TestCase):
             first_name="Other",
             last_name="Person",
             nickname="Buddy",
+            maiden_name="Santos",
             role="MEMBER",
             member_id="LAMP-OTHER-999",
         )
@@ -64,6 +66,14 @@ class PersonSearchAPITest(TestCase):
     def test_search_matches_nickname(self):
         self.client.force_authenticate(user=self.admin)
         response = self.client.get("/api/people/people/", {"search": "Sparky"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = self._people_ids(response)
+        self.assertIn(self.target.id, ids)
+        self.assertNotIn(self.other.id, ids)
+
+    def test_search_matches_maiden_name(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/people/people/", {"search": "Garcia"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         ids = self._people_ids(response)
         self.assertIn(self.target.id, ids)

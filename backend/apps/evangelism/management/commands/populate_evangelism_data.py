@@ -255,7 +255,7 @@ class Command(BaseCommand):
         def apply_person_milestones(person, prospect, target_stage):
             first_invited = prospect.date_first_invited
             person.date_first_invited = first_invited
-            person.status = "INVITED"
+            person.status = "ONGOING"
             fields = ["date_first_invited", "status"]
 
             if stage_index(target_stage) >= stage_index(Prospect.PipelineStage.ATTENDED):
@@ -263,7 +263,7 @@ class Command(BaseCommand):
                     days=random.randint(7, 30)
                 )
                 person.date_first_attended = attended_date
-                person.status = "ATTENDED"
+                person.status = "ONGOING"
                 fields.extend(["date_first_attended", "status"])
 
             if stage_index(target_stage) >= stage_index(

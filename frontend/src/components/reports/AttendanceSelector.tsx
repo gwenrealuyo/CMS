@@ -134,7 +134,7 @@ export default function AttendanceSelector({
   const activePeople = peopleByRole.filter((person) =>
     filterRole === "MEMBER"
       ? person.status === "ACTIVE"
-      : person.status === "ACTIVE" || person.status === "ATTENDED"
+      : person.status === "ACTIVE" || person.status === "ONGOING"
   );
 
   const togglePerson = (personId: string | number) => {
@@ -304,7 +304,7 @@ export default function AttendanceSelector({
       const activePeople = peopleByRole.filter((person) =>
         filterRole === "MEMBER"
           ? person.status === "ACTIVE"
-          : person.status === "ACTIVE" || person.status === "ATTENDED"
+          : person.status === "ACTIVE" || person.status === "ONGOING"
       );
       const activeIds = activePeople.map((p) => normalizePersonId(p.id));
       const activeIdsSet = new Set(activeIds);

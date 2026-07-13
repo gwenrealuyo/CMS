@@ -171,7 +171,7 @@ Where:
 
 - **Blue Chip**: Individual member is selected for the cluster
 - **Role Badge**: Shows member role (Pastor, Coordinator, Member, Visitor)
-- **Status Badge**: Shows member status (Active, Semi-active, Inactive, Dormant, Fall Away, Deceased)
+- **Status Badge**: Shows member status (Active, Semi-active, Inactive, Dormant, Fall Away, Deceased; visitors: Ongoing, No Response, Deceased)
 
 ## Conflict Resolution
 

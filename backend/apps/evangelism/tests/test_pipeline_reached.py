@@ -35,7 +35,7 @@ class PipelineReachedMilestoneTests(TestCase):
             username="prospect_person",
             password="pw",
             role="VISITOR",
-            status="ATTENDED",
+            status="ONGOING",
             branch=self.branch,
             date_first_invited=timezone.now().date().replace(month=1, day=5),
             date_first_attended=timezone.now().date().replace(month=2, day=5),

@@ -202,7 +202,10 @@ export default function EvangelismWeeklyReportForm({
     const attendedVisitors = prospects
       .filter((prospect) => prospect.person)
       .map((prospect) => prospect.person as Person)
-      .filter((person) => person.role === "VISITOR" && person.status === "ATTENDED")
+      .filter(
+        (person) =>
+          person.role === "VISITOR" && Boolean(person.date_first_attended),
+      )
       .map((person) => {
         const middleInitial = person.middle_name
           ? ` ${person.middle_name.trim().charAt(0)}.`
@@ -231,7 +234,7 @@ export default function EvangelismWeeklyReportForm({
           id: `prospect:${prospect.id}`,
           name: `${prospectInviteDisplayName(prospect)} (${stageLabel.toLowerCase()})`,
           role: "VISITOR" as const,
-          status: "INVITED" as const,
+          status: "NO_RESPONSE" as const,
           inviter: prospect.invited_by?.id,
           inviterName: invitedBy,
         };

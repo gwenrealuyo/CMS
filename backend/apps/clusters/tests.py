@@ -1146,7 +1146,7 @@ class ClusterWeeklyReportProspectsAPITests(TestCase):
         self.assertEqual(prospect.pipeline_stage, self.Prospect.PipelineStage.ATTENDED)
         self.assertIsNotNone(prospect.person_id)
         self.assertEqual(prospect.person.role, "VISITOR")
-        self.assertEqual(prospect.person.status, "ATTENDED")
+        self.assertEqual(prospect.person.status, "ONGOING")
         self.assertIn(prospect.person_id, response.data["visitors_attended"])
         self.assertEqual(response.data["visitors_present"], 1)
         self.assertEqual(response.data["prospects_invited_count"], 0)

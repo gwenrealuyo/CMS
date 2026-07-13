@@ -232,9 +232,9 @@ class Command(BaseCommand):
         roles = ["MEMBER", "VISITOR", "PASTOR"]
         statuses = ["ACTIVE", "SEMIACTIVE", "INACTIVE"]
         visitor_statuses = [
-            "INVITED",
-            "ATTENDED",
-        ]  # Visitors can only be INVITED or ATTENDED
+            "ONGOING",
+            "NO_RESPONSE",
+        ]  # Visitors: ONGOING / NO_RESPONSE / DECEASED (DECEASED manual-only in UI)
         genders = ["MALE", "FEMALE"]
         activities = list(
             EventType.objects.order_by("sort_order", "code").values_list("code", flat=True)

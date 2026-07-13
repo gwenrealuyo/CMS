@@ -12,10 +12,10 @@ export function getPersonStatusColor(
       return "bg-green-100 text-green-800";
     case "SEMIACTIVE":
       return "bg-yellow-100 text-yellow-800";
-    case "INVITED":
-      return "bg-yellow-100 text-yellow-800";
-    case "ATTENDED":
+    case "ONGOING":
       return "bg-green-100 text-green-800";
+    case "NO_RESPONSE":
+      return "bg-yellow-100 text-yellow-800";
     case "INACTIVE":
       return "bg-red-100 text-red-800";
     case "DORMANT":
@@ -43,6 +43,9 @@ export function formatPersonStatusLabel(
   }
   if (normalized === "SEMIACTIVE") {
     return "Semi-active";
+  }
+  if (normalized === "NO_RESPONSE") {
+    return "No Response";
   }
   return normalized
     .replace(/_/g, " ")

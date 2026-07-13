@@ -98,7 +98,7 @@ class PersonCreateWithPasswordTests(TestCase):
         self.client.force_authenticate(user=self.admin)
         response = self.client.post(
             "/api/people/people/",
-            self._create_payload(role="VISITOR", status="INVITED"),
+            self._create_payload(role="VISITOR", status="ONGOING"),
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -188,7 +188,7 @@ class AdminResetUserPasswordTests(TestCase):
             last_name="User",
             role="VISITOR",
             branch=self.branch,
-            status="INVITED",
+            status="ONGOING",
         )
 
     def test_admin_can_reset_password_with_auto_generate(self):

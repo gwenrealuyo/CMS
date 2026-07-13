@@ -465,6 +465,10 @@ export default function PersonProfile({
         return "bg-violet-100 text-violet-800";
       case "DECEASED":
         return "bg-gray-100 text-gray-800";
+      case "ONGOING":
+        return "bg-green-100 text-green-800";
+      case "NO_RESPONSE":
+        return "bg-yellow-100 text-yellow-800";
       case "VISITOR":
         return "bg-red-100 text-red-800";
       default:
@@ -811,6 +815,10 @@ export default function PersonProfile({
                       <ProfileFieldRow
                         label="Nickname"
                         value={(person as any).nickname}
+                      />
+                      <ProfileFieldRow
+                        label="Maiden name"
+                        value={person.maiden_name}
                       />
                       <ProfileFieldRow
                         label="Lessons finished"

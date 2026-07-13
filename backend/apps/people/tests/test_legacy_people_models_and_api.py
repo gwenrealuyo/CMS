@@ -292,7 +292,7 @@ class FirstAttendedJourneySyncTest(TestCase):
                 "first_name": "Visitor",
                 "last_name": "Note",
                 "role": "VISITOR",
-                "status": "INVITED",
+                "status": "ONGOING",
                 "branch": self.branch.id,
                 "date_first_attended": date(2026, 3, 3),
                 "note": "Initial visitor note",
@@ -379,7 +379,7 @@ class InvitedJourneySyncTest(TestCase):
                 "first_name": "Visitor",
                 "last_name": "Invited",
                 "role": "VISITOR",
-                "status": "INVITED",
+                "status": "ONGOING",
                 "branch": self.branch.id,
                 "inviter": self.inviter1.id,
                 "date_first_invited": invited_date,
@@ -402,7 +402,7 @@ class InvitedJourneySyncTest(TestCase):
             first_name="Visitor",
             last_name="Person",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.branch,
             inviter=self.inviter1,
             date_first_invited=invited_date,
@@ -429,7 +429,7 @@ class InvitedJourneySyncTest(TestCase):
             first_name="Visitor",
             last_name="DateUpdate",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.branch,
             inviter=self.inviter1,
             date_first_invited=date(2026, 4, 10),
@@ -455,7 +455,7 @@ class InvitedJourneySyncTest(TestCase):
             first_name="Visitor",
             last_name="Transition",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.branch,
             inviter=self.inviter1,
             date_first_invited=invited_date,
@@ -482,13 +482,13 @@ class InvitedJourneySyncTest(TestCase):
             first_name="Visitor",
             last_name="History",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.branch,
             inviter=self.inviter1,
         )
         invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
 
-        self._partial_update(person, {"status": "ATTENDED"})
+        self._partial_update(person, {"status": "ONGOING"})
 
         invited_journey.refresh_from_db()
         self.assertEqual(invited_journey.title, "Invited")
@@ -502,7 +502,7 @@ class InvitedJourneySyncTest(TestCase):
             first_name="Visitor",
             last_name="NoDate",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.branch,
             inviter=self.inviter1,
         )
@@ -518,7 +518,7 @@ class InvitedJourneySyncTest(TestCase):
             first_name="Visitor",
             last_name="ModelSave",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.branch,
             inviter=self.inviter1,
             date_first_invited=invited_date,
@@ -548,7 +548,7 @@ class BaptismRolePromotionTest(TestCase):
         )
         self.baptism_date = date(2026, 5, 10)
 
-    def _create_visitor(self, username, *, status="ATTENDED", date_first_attended=None):
+    def _create_visitor(self, username, *, status="ONGOING", date_first_attended=None):
         return Person.objects.create_user(
             username=username,
             email=f"{username}@test.com",
@@ -593,10 +593,10 @@ class BaptismRolePromotionTest(TestCase):
 
         person.refresh_from_db()
         self.assertEqual(person.role, "VISITOR")
-        self.assertEqual(person.status, "ATTENDED")
+        self.assertEqual(person.status, "ONGOING")
 
-    def test_clearing_water_baptism_reverts_to_invited_without_attendance(self):
-        person = self._create_visitor("visitor_revert_invited", status="INVITED")
+    def test_clearing_water_baptism_reverts_to_no_response_without_attendance(self):
+        person = self._create_visitor("visitor_revert_invited", status="ONGOING")
         person.water_baptism_date = self.baptism_date
         person.save(update_fields=["water_baptism_date"])
         person.refresh_from_db()
@@ -607,7 +607,7 @@ class BaptismRolePromotionTest(TestCase):
 
         person.refresh_from_db()
         self.assertEqual(person.role, "VISITOR")
-        self.assertEqual(person.status, "INVITED")
+        self.assertEqual(person.status, "NO_RESPONSE")
 
     def test_spirit_baptism_alone_does_not_promote(self):
         person = self._create_visitor("visitor_spirit_only")
@@ -655,7 +655,7 @@ class BaptismRolePromotionTest(TestCase):
             first_name="Visitor",
             last_name="CreatedBaptized",
             role="VISITOR",
-            status="ATTENDED",
+            status="ONGOING",
             branch=self.branch,
             date_first_attended=date(2026, 2, 1),
             water_baptism_date=self.baptism_date,

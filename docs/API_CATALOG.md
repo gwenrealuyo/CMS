@@ -43,7 +43,7 @@ id, name, code?, address?, phone?, email?, is_headquarters, is_active, created_a
 ### Person
 
 - List: `GET /api/people/`
-  - Query: `search` (username, email, first_name, last_name), `role`
+  - Query: `search` (username, email, first_name, last_name, nickname, maiden_name, member_id), `role`
   - Access: Based on role and module coordinator assignments. See `docs/ACCESS_CONTROL.md` for details.
 - Retrieve: `GET /api/people/{id}/`
   - Access: Based on role and module coordinator assignments. See `docs/ACCESS_CONTROL.md` for details.
@@ -61,18 +61,22 @@ id, name, code?, address?, phone?, email?, is_headquarters, is_active, created_a
 Person fields (serializer)
 
 ```
-id, username (read-only), first_name, last_name, middle_name?, suffix?, gender?,
+id, username (read-only), first_name, last_name, middle_name?, suffix?, nickname?, maiden_name?, gender?,
 facebook_name?, photo?, role, phone?, address?, country?, date_of_birth?,
-date_first_attended?, inviter (Person id)?, branch (Branch id)?, member_id?, status?
+date_first_attended?, inviter (Person id)?, branch (Branch id)?, member_id?,
+status? (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE)
 ```
 
-Note: When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.
+Notes:
+- `maiden_name` is optional metadata (searchable); not part of display `full_name` / username generation.
+- Status by role (UI): members/pastors/admins use ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED; visitors use ONGOING|NO_RESPONSE|DECEASED. Prospect pipeline stages INVITED/ATTENDED are separate from `Person.status`.
+- When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.
 
 - Update Status: `POST /api/people/people/{id}/update_status/`
   - Access: ADMIN, PASTOR, or Senior Coordinator
   - Manually trigger status update for a person based on attendance patterns
   - Returns: `{"status": "ACTIVE|SEMIACTIVE|INACTIVE", "updated": true|false}` (or `updated: false` when status is a manual pastoral value: DORMANT, FALLAWAY, DECEASED)
-  - Note: Status is automatically updated in real-time when attendance records change. This endpoint allows manual triggering. Manual pastoral statuses are never overwritten.
+  - Note: Status is automatically updated in real-time when attendance records change. This endpoint allows manual triggering. Manual pastoral statuses are never overwritten. Visitor statuses (ONGOING, NO_RESPONSE) are not produced by this attendance auto-calc.
 
 ### Family
 

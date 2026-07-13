@@ -57,7 +57,7 @@ class EvangelismDashboardStatsTests(TestCase):
             first_name="Prospect",
             last_name="Linked",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
         )
         Prospect.objects.create(
             first_name="Prospect",
@@ -75,7 +75,7 @@ class EvangelismDashboardStatsTests(TestCase):
             first_name="Cluster",
             last_name="OnlyVisitor",
             role="VISITOR",
-            status="ATTENDED",
+            status="ONGOING",
         )
         report = ClusterWeeklyReport.objects.create(
             cluster=self.cluster,
@@ -135,7 +135,7 @@ class EvangelismDashboardStatsTests(TestCase):
             first_name="Conv",
             last_name="Person",
             role="VISITOR",
-            status="ATTENDED",
+            status="ONGOING",
         )
         Conversion.objects.create(
             person=conv_person,
@@ -166,7 +166,7 @@ class EvangelismDashboardStatsTests(TestCase):
             first_name="EG",
             last_name="WeeklyV",
             role="VISITOR",
-            status="ATTENDED",
+            status="ONGOING",
         )
         eg_report = EvangelismWeeklyReport.objects.create(
             evangelism_group=self.group,
@@ -200,7 +200,7 @@ class EvangelismDashboardStatsTests(TestCase):
             first_name="Attended",
             last_name="Prospect",
             role="VISITOR",
-            status="ATTENDED",
+            status="ONGOING",
         )
         Prospect.objects.create(
             first_name="Attended",

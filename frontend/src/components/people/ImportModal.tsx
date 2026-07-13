@@ -143,7 +143,7 @@ export default function ImportModal({
           />
           {fileName && <p className="mt-2 text-sm text-gray-600">{fileName}</p>}
           <p className="text-xs text-gray-500 mt-2">
-            Expected headers: first_name, middle_name, last_name, email, phone,
+            Expected headers: first_name, middle_name, last_name, maiden_name, email, phone,
             role, status, country, address, date_of_birth, date_first_attended,
             first_activity_attended, water_baptism_date, spirit_baptism_date,
             member_id

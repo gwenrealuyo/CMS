@@ -78,7 +78,7 @@ class ReportsMetaScopeTests(TestCase):
             username="visitor_meta",
             password="password123",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 
@@ -179,7 +179,7 @@ class ComplianceReportTests(TestCase):
             username="visitor_comp",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 
@@ -355,7 +355,7 @@ class PeopleSummaryTests(TestCase):
             username="visitor_people",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 
@@ -375,7 +375,7 @@ class PeopleSummaryTests(TestCase):
             username="north_visitor",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
             gender="FEMALE",
         )
@@ -505,7 +505,7 @@ class V2bSummaryTests(TestCase):
             username="visitor_v2b",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 
@@ -566,7 +566,7 @@ class V2bSummaryTests(TestCase):
             username="north_attended_person",
             password="pw",
             role="VISITOR",
-            status="ATTENDED",
+            status="ONGOING",
             branch=self.north,
         )
         self.north_attended.person = self.north_attended_person
@@ -632,7 +632,7 @@ class V2bSummaryTests(TestCase):
             username="conv_north",
             password="pw",
             role="VISITOR",
-            status="ATTENDED",
+            status="ONGOING",
             branch=self.north,
         )
         Conversion.objects.create(
@@ -753,7 +753,7 @@ class NccSummaryTests(TestCase):
             username="visitor_ncc",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 
@@ -770,21 +770,21 @@ class NccSummaryTests(TestCase):
             username="north_student_ncc",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
         self.south_student = Person.objects.create_user(
             username="south_student_ncc",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.south,
         )
         self.unassigned_north_visitor = Person.objects.create_user(
             username="unassigned_north",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 
@@ -983,7 +983,7 @@ class EngagementSummaryTests(TestCase):
             username="visitor_engagement",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 
@@ -1003,7 +1003,7 @@ class EngagementSummaryTests(TestCase):
             username="north_visitor_eng",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
         self.south_member = Person.objects.create_user(
@@ -1220,7 +1220,7 @@ class OverviewSummaryTests(TestCase):
             username="visitor_overview",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 
@@ -1356,7 +1356,7 @@ class StewardshipSummaryTests(TestCase):
             username="visitor_steward",
             password="pw",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             branch=self.north,
         )
 

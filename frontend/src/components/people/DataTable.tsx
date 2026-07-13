@@ -90,6 +90,7 @@ export default function DataTable({
     { key: "middle_name", label: "Middle Name", default: false },
     { key: "last_name", label: "Last Name", default: true },
     { key: "suffix", label: "Suffix", default: false },
+    { key: "maiden_name", label: "Maiden Name", default: false },
     { key: "username", label: "Username", default: false },
     { key: "email", label: "Email", default: false },
     { key: "phone", label: "Phone", default: false },
@@ -150,10 +151,10 @@ export default function DataTable({
         return "bg-green-100 text-green-800";
       case "SEMIACTIVE":
         return "bg-yellow-100 text-yellow-800";
-      case "INVITED":
-        return "bg-yellow-100 text-yellow-800";
-      case "ATTENDED":
+      case "ONGOING":
         return "bg-green-100 text-green-800";
+      case "NO_RESPONSE":
+        return "bg-yellow-100 text-yellow-800";
       case "INACTIVE":
         return "bg-red-100 text-red-800";
       case "DORMANT":
@@ -1012,6 +1013,11 @@ export default function DataTable({
                               {person.suffix || "-"}
                             </div>
                           )}
+                          {field === "maiden_name" && (
+                            <div className="text-sm text-gray-900">
+                              {person.maiden_name || "-"}
+                            </div>
+                          )}
                           {field === "username" && (
                             <div className="text-sm text-gray-900">
                               {person.username || "-"}
@@ -1251,6 +1257,11 @@ export default function DataTable({
                         {field === "suffix" && (
                           <div className="text-sm text-gray-900">
                             {person.suffix || "-"}
+                          </div>
+                        )}
+                        {field === "maiden_name" && (
+                          <div className="text-sm text-gray-900">
+                            {person.maiden_name || "-"}
                           </div>
                         )}
                         {field === "username" && (

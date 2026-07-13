@@ -8,6 +8,7 @@
   - Tabs: People | Families
   - People: search, filter (role, date range), table listing via `PeopleTable`
   - Create person via `PersonForm` (uses `usePeople` hook → backend)
+  - Person form fields include optional `maiden_name`; visitor status options are Ongoing / No Response / Deceased (member statuses unchanged)
   - **Families tab:** `FamilyManagementDashboard` with stacked mobile toolbar (search, branch, Table/Cards, Sort, Filter), filter chips in toolbar card, responsive unassigned-members grid
 - `src/app/clusters/page.tsx`: Clusters hub via `ClustersPageView` — same stacked list toolbar on the Clusters tab (search, branch, Table/Cards, Select, Bulk, Sort, Filter)
 - `src/app/finance/page.tsx`: Finance hub for donations, offerings, and pledges

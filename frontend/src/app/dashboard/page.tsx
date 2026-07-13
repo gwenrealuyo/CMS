@@ -690,19 +690,17 @@ export default function Dashboard() {
       }
 
       if (person.role === "VISITOR") {
-        if (person.status === "ATTENDED") {
+        if (person.date_first_attended) {
           metrics.attendedVisitors += 1;
-          if (person.date_first_attended) {
-            const attendedDate = new Date(person.date_first_attended);
-            if (
-              !Number.isNaN(attendedDate.getTime()) &&
-              attendedDate.getMonth() === currentMonth &&
-              attendedDate.getFullYear() === currentYear
-            ) {
-              metrics.newVisitorsThisMonth += 1;
-            }
+          const attendedDate = new Date(person.date_first_attended);
+          if (
+            !Number.isNaN(attendedDate.getTime()) &&
+            attendedDate.getMonth() === currentMonth &&
+            attendedDate.getFullYear() === currentYear
+          ) {
+            metrics.newVisitorsThisMonth += 1;
           }
-        } else if (person.status === "INVITED") {
+        } else if (person.status !== "DECEASED") {
           metrics.invitedVisitors += 1;
         }
       } else {

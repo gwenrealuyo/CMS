@@ -65,7 +65,7 @@ In the **Account & Role** section:
 
 Coordinator capabilities come from **module assignments** (see Part 3 and the Access Levels Guide).
 
-Choose **Status**. For members/pastors/admins: Active, Semi-active, Inactive, Dormant, Fall Away, or Deceased. For visitors, use Invited or Attended.
+Choose **Status**. For members/pastors/admins: Active, Semi-active, Inactive, Dormant, Fall Away, or Deceased. For visitors: Ongoing, No Response, or Deceased (create/attend defaults to Ongoing; Deceased is set manually).
 
 Manual pastoral statuses (**Dormant**, **Fall Away**, **Deceased**) are set only in this edit form status field (there is no separate “Set Deceased” profile button). Attendance auto-updates do not overwrite them.
 

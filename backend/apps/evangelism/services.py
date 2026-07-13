@@ -104,7 +104,7 @@ def create_person_from_prospect(
         "gender": gender,
         "facebook_name": facebook_name,
         "role": "VISITOR",
-        "status": "ATTENDED",
+        "status": "ONGOING",
         "inviter": prospect.invited_by,
         "date_first_attended": date_first_attended,
         "date_first_invited": date_first_invited,
@@ -247,8 +247,8 @@ def mark_prospect_attended(
         person = prospect.person
         if person.role == "VISITOR":
             updates = []
-            if person.status != "ATTENDED":
-                person.status = "ATTENDED"
+            if person.status != "ONGOING":
+                person.status = "ONGOING"
                 updates.append("status")
             if not person.date_first_attended:
                 person.date_first_attended = activity_date

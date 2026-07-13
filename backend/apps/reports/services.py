@@ -374,8 +374,8 @@ STATUS_LABELS = {
     "DORMANT": "Dormant",
     "FALLAWAY": "Fall Away",
     "DECEASED": "Deceased",
-    "INVITED": "Invited",
-    "ATTENDED": "Attended",
+    "ONGOING": "Ongoing",
+    "NO_RESPONSE": "No Response",
 }
 
 GENDER_LABELS = {

@@ -19,6 +19,7 @@ class PersonAdmin(UserAdmin):
                     "last_name",
                     "suffix",
                     "nickname",
+                    "maiden_name",
                     "gender",
                     "facebook_name",
                     "photo",
@@ -65,6 +66,7 @@ class PersonAdmin(UserAdmin):
                     "last_name",
                     "suffix",
                     "nickname",
+                    "maiden_name",
                     "gender",
                     "facebook_name",
                     "photo",
@@ -91,6 +93,7 @@ class PersonAdmin(UserAdmin):
         "first_name",
         "last_name",
         "nickname",
+        "maiden_name",
         "member_id",
     )
     ordering = ("username",)

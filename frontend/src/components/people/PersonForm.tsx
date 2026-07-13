@@ -354,7 +354,7 @@ export default function PersonForm({
       return {
         ...next,
         role: "VISITOR",
-        status: next.date_first_attended ? "ATTENDED" : "INVITED",
+        status: next.date_first_attended ? "ONGOING" : "NO_RESPONSE",
       };
     }
     return next;
@@ -370,11 +370,12 @@ export default function PersonForm({
       let next = { ...prev, [name]: value } as Partial<Person>;
       if (name === "role") {
         if (value === "VISITOR") {
-          if (next.status !== "INVITED" && next.status !== "ATTENDED") {
-            next.status = "INVITED";
+          const visitorStatuses = ["ONGOING", "NO_RESPONSE", "DECEASED"];
+          if (!visitorStatuses.includes(next.status || "")) {
+            next.status = "ONGOING";
           }
         } else {
-          if (next.status === "INVITED" || next.status === "ATTENDED") {
+          if (next.status === "ONGOING" || next.status === "NO_RESPONSE") {
             next.status = "ACTIVE";
           }
         }
@@ -389,7 +390,7 @@ export default function PersonForm({
 
   const statusOptions =
     formData.role === "VISITOR"
-      ? ["INVITED", "ATTENDED"]
+      ? ["ONGOING", "NO_RESPONSE", "DECEASED"]
       : ["ACTIVE", "SEMIACTIVE", "INACTIVE", "DORMANT", "FALLAWAY", "DECEASED"];
 
   useEffect(() => {
@@ -1015,6 +1016,18 @@ export default function PersonForm({
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Maiden Name
+                      </label>
+                      <input
+                        type="text"
+                        name="maiden_name"
+                        value={formData.maiden_name || ""}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Gender
                       </label>
                       <select
@@ -1190,7 +1203,10 @@ export default function PersonForm({
                             ? "Fall Away"
                             : status === "SEMIACTIVE"
                               ? "Semi-active"
-                              : status.charAt(0) + status.slice(1).toLowerCase()}
+                              : status === "NO_RESPONSE"
+                                ? "No Response"
+                                : status.charAt(0) +
+                                  status.slice(1).toLowerCase()}
                         </option>
                       ))}
                     </select>

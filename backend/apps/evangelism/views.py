@@ -1004,15 +1004,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             invited_ids = set(
                 base_qs.filter(
                     role="VISITOR",
-                    status="INVITED",
                     date_joined__year=year_int,
                     date_joined__month=month,
+                    date_first_attended__isnull=True,
                 ).values_list("id", flat=True)
             )
             attended_ids = set(
                 base_qs.filter(
                     role="VISITOR",
-                    status="ATTENDED",
                     date_first_attended__year=year_int,
                     date_first_attended__month=month,
                 ).values_list("id", flat=True)
@@ -1089,15 +1088,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         years.update(
             people_qs.filter(
                 role="VISITOR",
-                status="INVITED",
                 date_joined__isnull=False,
+                date_first_attended__isnull=True,
             )
             .dates("date_joined", "year")
         )
         years.update(
             people_qs.filter(
                 role="VISITOR",
-                status="ATTENDED",
                 date_first_attended__isnull=False,
             )
             .dates("date_first_attended", "year")
@@ -1181,9 +1179,9 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             rows = self._serialize_people_rows(
                 base_people.filter(
                     role="VISITOR",
-                    status="INVITED",
                     date_joined__year=year_int,
                     date_joined__month=month_int,
+                    date_first_attended__isnull=True,
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="date_joined",
@@ -1192,7 +1190,6 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             rows = self._serialize_people_rows(
                 base_people.filter(
                     role="VISITOR",
-                    status="ATTENDED",
                     date_first_attended__year=year_int,
                     date_first_attended__month=month_int,
                 ).order_by("first_name", "last_name", "username"),
@@ -1270,15 +1267,14 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             invited_ids = set(
                 base_people.filter(
                     role="VISITOR",
-                    status="INVITED",
                     date_joined__year=year_int,
                     date_joined__month=month_int,
+                    date_first_attended__isnull=True,
                 ).values_list("id", flat=True)
             )
             attended_ids = set(
                 base_people.filter(
                     role="VISITOR",
-                    status="ATTENDED",
                     date_first_attended__year=year_int,
                     date_first_attended__month=month_int,
                 ).values_list("id", flat=True)
@@ -1530,7 +1526,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
                 Prospect.PipelineStage.INVITED,
                 Prospect.PipelineStage.ATTENDED,
             ]:
-                person.status = pipeline_stage
+                person.status = "ONGOING"
                 fields_to_update.append("status")
 
             if pipeline_stage == Prospect.PipelineStage.ATTENDED:

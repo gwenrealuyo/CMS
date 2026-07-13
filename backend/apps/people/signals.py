@@ -210,7 +210,7 @@ def _handle_baptism_role_update(person, current_date, original_date):
 
     if date_cleared and person.role == "MEMBER":
         person.role = "VISITOR"
-        person.status = "ATTENDED" if person.date_first_attended else "INVITED"
+        person.status = "ONGOING" if person.date_first_attended else "NO_RESPONSE"
         person.save(update_fields=["role", "status"])
 
 
@@ -344,7 +344,7 @@ def _handle_invited_journey(
     original_inviter_id,
     original_invited_date,
 ):
-    qualifies_for_creation = person.role == "VISITOR" and person.status == "INVITED"
+    qualifies_for_creation = person.role == "VISITOR" and person.status != "DECEASED"
     inviter_changed = original_inviter_id != person.inviter_id
     role_changed = original_role != person.role
     status_changed = original_status != person.status

@@ -32,6 +32,7 @@ export default function ExportPreviewModal({
     { key: "first_name", label: "First Name" },
     { key: "middle_name", label: "Middle Name" },
     { key: "last_name", label: "Last Name" },
+    { key: "maiden_name", label: "Maiden Name" },
     { key: "email", label: "Email" },
     { key: "phone", label: "Phone" },
     { key: "role", label: "Role" },

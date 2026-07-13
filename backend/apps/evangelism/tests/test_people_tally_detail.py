@@ -31,7 +31,7 @@ class PeopleTallyDetailTests(TestCase):
             first_name="Invited",
             last_name="Visitor",
             role="VISITOR",
-            status="INVITED",
+            status="ONGOING",
             date_joined=joined,
         )
 

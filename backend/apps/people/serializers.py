@@ -344,6 +344,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "middle_name",
             "suffix",
             "nickname",
+            "maiden_name",
             "gender",
             "facebook_name",
             "photo",

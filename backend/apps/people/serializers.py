@@ -11,6 +11,10 @@ from apps.people.coordinator_assignment_validation import (
     user_has_people_write_coordinator_assignment,
     validate_module_coordinator_assignment,
 )
+from apps.people.name_formatting import (
+    PERSON_NAME_FIELDS,
+    apply_title_case_name_fields,
+)
 
 
 def delete_person_photo_if_cleared(instance, validated_data):
@@ -520,6 +524,7 @@ class PersonSerializer(serializers.ModelSerializer):
         if attrs.get("first_activity_attended") == "":
             attrs["first_activity_attended"] = None
 
+        apply_title_case_name_fields(attrs, PERSON_NAME_FIELDS)
         return attrs
 
     def _trigger_legacy_lessons_backfill(

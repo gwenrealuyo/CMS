@@ -173,3 +173,46 @@ class PersonMembershipApiTests(TestCase):
         person.refresh_from_db()
         self.assertEqual(person.maiden_name, "Reyes")
         self.assertEqual(response.data.get("maiden_name"), "Reyes")
+
+    def test_patch_title_cases_name_fields(self):
+        person = Person.objects.create_user(
+            username="case_mem",
+            email="case_mem@test.com",
+            password="testpass123",
+            first_name="Case",
+            last_name="Member",
+            role="MEMBER",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        response = self.client.patch(
+            f"/api/people/people/{person.id}/",
+            {
+                "first_name": "juan",
+                "last_name": "DELA CRUZ",
+                "middle_name": "MARIA",
+                "nickname": "jun",
+                "maiden_name": "santos",
+                "suffix": "iii",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        person.refresh_from_db()
+        self.assertEqual(person.first_name, "Juan")
+        self.assertEqual(person.last_name, "dela Cruz")
+        self.assertEqual(person.middle_name, "Maria")
+        self.assertEqual(person.nickname, "Jun")
+        self.assertEqual(person.maiden_name, "Santos")
+        self.assertEqual(person.suffix, "III")
+
+        # Mixed-case input is preserved as typed.
+        response = self.client.patch(
+            f"/api/people/people/{person.id}/",
+            {"last_name": "McDonald", "middle_name": "de la Cruz"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        person.refresh_from_db()
+        self.assertEqual(person.last_name, "McDonald")
+        self.assertEqual(person.middle_name, "de la Cruz")

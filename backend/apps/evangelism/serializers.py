@@ -4,6 +4,10 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from apps.people.models import Person
+from apps.people.name_formatting import (
+    PROSPECT_NAME_FIELDS,
+    apply_title_case_name_fields,
+)
 from apps.clusters.models import Cluster
 
 from .models import (
@@ -439,6 +443,10 @@ class ProspectSerializer(serializers.ModelSerializer):
             "days_since_last_activity",
             "display_name",
         )
+
+    def validate(self, attrs):
+        apply_title_case_name_fields(attrs, PROSPECT_NAME_FIELDS)
+        return attrs
 
 
 class FollowUpTaskSerializer(serializers.ModelSerializer):

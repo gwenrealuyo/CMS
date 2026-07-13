@@ -10,6 +10,7 @@
 ### Person (extends AbstractUser)
 
 - Names: `first_name`, `last_name`, `middle_name?`, `suffix?`, `nickname?`, `maiden_name?`
+  - On create/update via API (and prospect create paths), name fields are normalized on write: mixed-case input is preserved; all-lowercase / all-uppercase input is title-cased with particles (`de`, `la`, …), Mc/Mac mid-capitals, and Roman numerals (`III`).
 - Demographics: `gender?` (MALE|FEMALE), `date_of_birth?`, `country?` (full country name, max 100 chars; person form offers a complete country list)
 - Contact: `phone?`, `address?`, `facebook_name?`
 - Role: `role` (MEMBER|VISITOR|PASTOR|ADMIN) — coordinator capability is granted via `ModuleCoordinator` assignments, not a base role

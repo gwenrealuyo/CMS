@@ -69,6 +69,7 @@ status? (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONS
 
 Notes:
 - `maiden_name` is optional metadata (searchable); not part of display `full_name` / username generation.
+- Name fields (`first_name`, `last_name`, `middle_name`, `suffix`, `nickname`, `maiden_name`) are normalized on write: mixed-case is preserved; all-lower/all-upper is title-cased (particles, Mc/Mac, Roman numerals).
 - Status by role (UI): members/pastors/admins use ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED; visitors use ONGOING|NO_RESPONSE|DECEASED. Prospect pipeline stages INVITED/ATTENDED are separate from `Person.status`.
 - When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.
 

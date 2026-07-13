@@ -5,6 +5,7 @@ from django.db.models import Q, Count
 from django.utils import timezone
 
 from apps.people.models import Person, Journey
+from apps.people.name_formatting import title_case_name
 from apps.clusters.models import Cluster
 
 from .models import (
@@ -75,8 +76,8 @@ def create_person_from_prospect(
     """
     date_first_attended = kwargs.pop("date_first_attended", timezone.now().date())
 
-    fn = (first_name or "").strip() or prospect.first_name
-    ln = (last_name or "").strip() or prospect.last_name
+    fn = title_case_name((first_name or "").strip() or prospect.first_name)
+    ln = title_case_name((last_name or "").strip() or prospect.last_name)
 
     # Generate username from first two letters of first name + last name
     first_two_letters = fn[:2].lower() if fn else ""
@@ -89,8 +90,10 @@ def create_person_from_prospect(
         username = f"{original_username}{counter}"
         counter += 1
 
-    middle_name = kwargs.pop("middle_name", prospect.middle_name)
-    suffix = kwargs.pop("suffix", prospect.suffix)
+    middle_name = title_case_name(
+        kwargs.pop("middle_name", prospect.middle_name) or ""
+    )
+    suffix = title_case_name(kwargs.pop("suffix", prospect.suffix) or "")
     gender = kwargs.pop("gender", prospect.gender) or ""
     facebook_name = kwargs.pop("facebook_name", prospect.facebook_name) or ""
     date_first_invited = kwargs.pop("date_first_invited", prospect.date_first_invited)
@@ -99,8 +102,8 @@ def create_person_from_prospect(
         "username": username,
         "first_name": fn,
         "last_name": ln,
-        "middle_name": middle_name or "",
-        "suffix": suffix or "",
+        "middle_name": middle_name,
+        "suffix": suffix,
         "gender": gender,
         "facebook_name": facebook_name,
         "role": "VISITOR",
@@ -191,10 +194,10 @@ def create_invited_prospect_for_cluster(
 
     invite_date = date_first_invited or timezone.now().date()
     prospect = Prospect.objects.create(
-        first_name=(first_name or "").strip(),
-        last_name=(last_name or "").strip(),
-        middle_name=(middle_name or "").strip(),
-        suffix=(suffix or "").strip(),
+        first_name=title_case_name(first_name),
+        last_name=title_case_name(last_name),
+        middle_name=title_case_name(middle_name),
+        suffix=title_case_name(suffix),
         gender=gender or "",
         contact_info=(contact_info or "").strip(),
         facebook_name=(facebook_name or "").strip(),

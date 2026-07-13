@@ -4,6 +4,10 @@ from django.utils import timezone
 import logging
 
 from apps.people.models import Person, Family, Journey
+from apps.people.name_formatting import (
+    PROSPECT_NAME_FIELDS,
+    apply_title_case_name_fields,
+)
 from apps.evangelism.models import Prospect
 from apps.evangelism.services import (
     create_invited_prospect_for_cluster,
@@ -43,6 +47,10 @@ class ClusterReportNewProspectSerializer(serializers.Serializer):
     facebook_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
     date_first_invited = serializers.DateField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        apply_title_case_name_fields(attrs, PROSPECT_NAME_FIELDS)
+        return attrs
 
 
 class ClusterSerializer(serializers.ModelSerializer):

@@ -5,6 +5,7 @@ from apps.people.serializers import (
     ModuleCoordinatorSerializer,
     delete_person_photo_if_cleared,
 )
+from apps.people.name_formatting import apply_title_case_name_fields
 from .models import PasswordResetRequest, AccountLockout, AuditLog
 from .password_validators import PasswordStrengthValidator
 
@@ -192,6 +193,12 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "email": {"required": False},
             "photo": {"required": False},
         }
+
+    def validate(self, attrs):
+        apply_title_case_name_fields(
+            attrs, ("first_name", "last_name", "middle_name")
+        )
+        return attrs
 
     def update(self, instance, validated_data):
         delete_person_photo_if_cleared(instance, validated_data)

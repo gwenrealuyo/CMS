@@ -33,6 +33,7 @@ import { Branch } from "@/src/types/branch";
 import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorManager";
 import BranchForm from "@/src/components/admin/BranchForm";
 import ModuleSettingsManager from "@/src/components/admin/ModuleSettingsManager";
+import PeopleDuplicatesPanel from "@/src/components/admin/PeopleDuplicatesPanel";
 import { TABLET_MIN } from "@/src/lib/breakpoints";
 
 type Tab =
@@ -42,7 +43,8 @@ type Tab =
   | "audit-logs"
   | "module-coordinators"
   | "module-controls"
-  | "branches";
+  | "branches"
+  | "people-duplicates";
 
 export default function AdminSettingsPage() {
   return (
@@ -176,7 +178,7 @@ function AdminSettingsPageContent() {
         return window.innerWidth < TABLET_MIN ? "cards" : "table";
       }
       return "table";
-    }
+    },
   );
   const [passwordResetsViewMode, setPasswordResetsViewMode] = useState<
     "table" | "cards"
@@ -200,7 +202,7 @@ function AdminSettingsPageContent() {
         return window.innerWidth < TABLET_MIN ? "cards" : "table";
       }
       return "table";
-    }
+    },
   );
 
   // Debounce search input for password reset requests
@@ -265,7 +267,7 @@ function AdminSettingsPageContent() {
           status,
           resetRequestsPage,
           resetRequestsItemsPerPage,
-          resetRequestsSearchDebounced || undefined
+          resetRequestsSearchDebounced || undefined,
         );
         setPasswordResetRequests(response.data.results);
         setResetRequestsTotal(response.data.count);
@@ -276,7 +278,7 @@ function AdminSettingsPageContent() {
           lockedAccountsSearchDebounced || undefined,
           lockedAccountsFilter || undefined,
           lockedAccountsSort.field,
-          lockedAccountsSort.order
+          lockedAccountsSort.order,
         );
         setLockedAccounts(response.data.results);
         setLockedAccountsTotal(response.data.count);
@@ -347,7 +349,7 @@ function AdminSettingsPageContent() {
       }
     } catch (err: any) {
       setError(
-        err.response?.data?.message || err.message || "Failed to load data."
+        err.response?.data?.message || err.message || "Failed to load data.",
       );
     } finally {
       setLoading(false);
@@ -379,7 +381,7 @@ function AdminSettingsPageContent() {
       toast.error(
         err.response?.data?.message ||
           err.message ||
-          "Failed to approve request."
+          "Failed to approve request.",
       );
       setApproveConfirmation((prev) => ({ ...prev, loading: false }));
     }
@@ -405,7 +407,7 @@ function AdminSettingsPageContent() {
     try {
       await authApi.rejectPasswordReset(
         rejectConfirmation.request.id,
-        rejectConfirmation.notes
+        rejectConfirmation.notes,
       );
       setRejectConfirmation({
         isOpen: false,
@@ -419,7 +421,7 @@ function AdminSettingsPageContent() {
       toast.error(
         err.response?.data?.message ||
           err.message ||
-          "Failed to reject request."
+          "Failed to reject request.",
       );
       setRejectConfirmation((prev) => ({ ...prev, loading: false }));
     }
@@ -450,7 +452,7 @@ function AdminSettingsPageContent() {
       toast.error(
         err.response?.data?.message ||
           err.message ||
-          "Failed to unlock account."
+          "Failed to unlock account.",
       );
       setUnlockConfirmation((prev) => ({ ...prev, loading: false }));
     }
@@ -510,7 +512,7 @@ function AdminSettingsPageContent() {
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
-              Password Reset Requests
+              Password Resets
             </button>
             <button
               onClick={() => setActiveTab("locked-accounts")}
@@ -561,6 +563,16 @@ function AdminSettingsPageContent() {
               }`}
             >
               Branches
+            </button>
+            <button
+              onClick={() => setActiveTab("people-duplicates")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
+                activeTab === "people-duplicates"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              People Duplicates
             </button>
           </nav>
         </div>
@@ -672,7 +684,7 @@ function AdminSettingsPageContent() {
                                 </span>
                                 <span
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
-                                    log.action
+                                    log.action,
                                   )}`}
                                 >
                                   {log.action.replace(/_/g, " ")}
@@ -768,7 +780,7 @@ function AdminSettingsPageContent() {
                               <td className="px-3 py-4 md:px-6 md:py-4">
                                 <span
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
-                                    log.action
+                                    log.action,
                                   )}`}
                                 >
                                   {log.action.replace(/_/g, " ")}
@@ -905,8 +917,8 @@ function AdminSettingsPageContent() {
                                     request.status === "APPROVED"
                                       ? "bg-green-100 text-green-800"
                                       : request.status === "PENDING"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-red-100 text-red-800"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : "bg-red-100 text-red-800"
                                   }`}
                                 >
                                   {request.status}
@@ -1029,8 +1041,8 @@ function AdminSettingsPageContent() {
                                       request.status === "APPROVED"
                                         ? "bg-green-100 text-green-800"
                                         : request.status === "PENDING"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : "bg-red-100 text-red-800"
+                                          ? "bg-yellow-100 text-yellow-800"
+                                          : "bg-red-100 text-red-800"
                                     }`}
                                   >
                                     {request.status}
@@ -1077,7 +1089,7 @@ function AdminSettingsPageContent() {
                   <Pagination
                     currentPage={resetRequestsPage}
                     totalPages={Math.ceil(
-                      resetRequestsTotal / resetRequestsItemsPerPage
+                      resetRequestsTotal / resetRequestsItemsPerPage,
                     )}
                     onPageChange={(page) => {
                       setResetRequestsPage(page);
@@ -1286,7 +1298,7 @@ function AdminSettingsPageContent() {
                                         <span className="text-right">
                                           {formatDate(
                                             account.locked_until ||
-                                              account.last_attempt
+                                              account.last_attempt,
                                           )}
                                         </span>
                                       </div>
@@ -1317,7 +1329,7 @@ function AdminSettingsPageContent() {
                                     setExpandedLockedAccount(
                                       expandedLockedAccount === account.user_id
                                         ? null
-                                        : account.user_id
+                                        : account.user_id,
                                     )
                                   }
                                   className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
@@ -1509,7 +1521,7 @@ function AdminSettingsPageContent() {
                                             expandedLockedAccount ===
                                               account.user_id
                                               ? null
-                                              : account.user_id
+                                              : account.user_id,
                                           )
                                         }
                                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -1573,7 +1585,7 @@ function AdminSettingsPageContent() {
                                             </span>{" "}
                                             {formatDate(
                                               account.locked_until ||
-                                                account.last_attempt
+                                                account.last_attempt,
                                             )}
                                           </div>
                                           {account.locked_until && (
@@ -1608,7 +1620,7 @@ function AdminSettingsPageContent() {
                       <Pagination
                         currentPage={lockedAccountsPage}
                         totalPages={Math.ceil(
-                          lockedAccountsTotal / lockedAccountsItemsPerPage
+                          lockedAccountsTotal / lockedAccountsItemsPerPage,
                         )}
                         onPageChange={(page) => {
                           setLockedAccountsPage(page);
@@ -1711,7 +1723,7 @@ function AdminSettingsPageContent() {
                           const startOfDay = new Date(
                             today.getFullYear(),
                             today.getMonth(),
-                            today.getDate()
+                            today.getDate(),
                           );
                           let startDate = "";
                           let endDate = "";
@@ -1729,7 +1741,7 @@ function AdminSettingsPageContent() {
                             startDate = new Date(
                               today.getFullYear(),
                               today.getMonth(),
-                              1
+                              1,
                             )
                               .toISOString()
                               .split("T")[0];
@@ -1881,7 +1893,7 @@ function AdminSettingsPageContent() {
                                 </span>
                                 <span
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
-                                    log.action
+                                    log.action,
                                   )}`}
                                 >
                                   {log.action.replace(/_/g, " ")}
@@ -1940,7 +1952,7 @@ function AdminSettingsPageContent() {
                                       setExpandedAuditLog(
                                         expandedAuditLog === log.id
                                           ? null
-                                          : log.id
+                                          : log.id,
                                       )
                                     }
                                     className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
@@ -2015,7 +2027,7 @@ function AdminSettingsPageContent() {
                                   <td className="px-3 py-4 md:px-6 md:py-4">
                                     <span
                                       className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getActionBadgeColor(
-                                        log.action
+                                        log.action,
                                       )}`}
                                     >
                                       {log.action.replace(/_/g, " ")}
@@ -2042,7 +2054,7 @@ function AdminSettingsPageContent() {
                                               setExpandedAuditLog(
                                                 expandedAuditLog === log.id
                                                   ? null
-                                                  : log.id
+                                                  : log.id,
                                               )
                                             }
                                             className="p-1 text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -2079,7 +2091,7 @@ function AdminSettingsPageContent() {
                                             {JSON.stringify(
                                               log.details,
                                               null,
-                                              2
+                                              2,
                                             )}
                                           </pre>
                                         </div>
@@ -2122,6 +2134,9 @@ function AdminSettingsPageContent() {
 
             {/* Module Controls Tab */}
             {activeTab === "module-controls" && <ModuleSettingsManager />}
+
+            {/* People Duplicates Tab */}
+            {activeTab === "people-duplicates" && <PeopleDuplicatesPanel />}
 
             {/* Branches Tab */}
             {activeTab === "branches" && (
@@ -2624,68 +2639,68 @@ function AdminSettingsPageContent() {
                   }}
                   panelClassName="relative w-full max-w-2xl"
                 >
-                    <div className="max-h-[90vh] overflow-y-auto rounded-lg bg-white">
-                      <div className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-xl font-semibold text-gray-900">
-                            {editingBranch ? "Edit Branch" : "Create Branch"}
-                          </h3>
-                          <button
-                            onClick={() => {
-                              setShowBranchForm(false);
-                              setEditingBranch(null);
-                            }}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <svg
-                              className="w-6 h-6"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-
-                        <BranchForm
-                          branch={editingBranch}
-                          loading={branchesLoading}
-                          onSave={async (data) => {
-                            try {
-                              setBranchesLoading(true);
-                              if (editingBranch) {
-                                await branchesApi.patch(editingBranch.id, data);
-                                toast.success("Branch updated successfully");
-                              } else {
-                                await branchesApi.create(data);
-                                toast.success("Branch created successfully");
-                              }
-                              setShowBranchForm(false);
-                              setEditingBranch(null);
-                              await fetchData();
-                            } catch (err: any) {
-                              toast.error(
-                                err.response?.data?.message ||
-                                  err.message ||
-                                  "Failed to save branch"
-                              );
-                            } finally {
-                              setBranchesLoading(false);
-                            }
-                          }}
-                          onCancel={() => {
+                  <div className="max-h-[90vh] overflow-y-auto rounded-lg bg-white">
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-semibold text-gray-900">
+                          {editingBranch ? "Edit Branch" : "Create Branch"}
+                        </h3>
+                        <button
+                          onClick={() => {
                             setShowBranchForm(false);
                             setEditingBranch(null);
                           }}
-                        />
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <svg
+                            className="w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
                       </div>
+
+                      <BranchForm
+                        branch={editingBranch}
+                        loading={branchesLoading}
+                        onSave={async (data) => {
+                          try {
+                            setBranchesLoading(true);
+                            if (editingBranch) {
+                              await branchesApi.patch(editingBranch.id, data);
+                              toast.success("Branch updated successfully");
+                            } else {
+                              await branchesApi.create(data);
+                              toast.success("Branch created successfully");
+                            }
+                            setShowBranchForm(false);
+                            setEditingBranch(null);
+                            await fetchData();
+                          } catch (err: any) {
+                            toast.error(
+                              err.response?.data?.message ||
+                                err.message ||
+                                "Failed to save branch",
+                            );
+                          } finally {
+                            setBranchesLoading(false);
+                          }
+                        }}
+                        onCancel={() => {
+                          setShowBranchForm(false);
+                          setEditingBranch(null);
+                        }}
+                      />
                     </div>
+                  </div>
                 </ModalOverlay>
               </div>
             )}
@@ -2727,7 +2742,10 @@ function AdminSettingsPageContent() {
         }
         onConfirm={async () => {
           if (!branchDeactivateConfirmation.branch) return;
-          setBranchDeactivateConfirmation((prev) => ({ ...prev, loading: true }));
+          setBranchDeactivateConfirmation((prev) => ({
+            ...prev,
+            loading: true,
+          }));
           try {
             await branchesApi.patch(branchDeactivateConfirmation.branch.id, {
               is_active: false,
@@ -2789,7 +2807,7 @@ function AdminSettingsPageContent() {
             toast.error(
               err.response?.data?.message ||
                 err.message ||
-                "Failed to delete branch"
+                "Failed to delete branch",
             );
             setBranchDeleteConfirmation((prev) => ({
               ...prev,
@@ -2845,70 +2863,70 @@ function AdminSettingsPageContent() {
         }
         panelClassName="relative w-full max-w-lg"
       >
-          <div className="overflow-hidden rounded-lg bg-white shadow-xl">
-            <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="sm:flex sm:items-start">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <XCircleIcon className="h-6 w-6 text-red-600" />
-                </div>
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Reject Password Reset Request
-                  </h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500 mb-4">
-                      Are you sure you want to reject the password reset request
-                      for {rejectConfirmation.request?.full_name} (
-                      {rejectConfirmation.request?.email})? Please provide a
-                      reason for rejection.
-                    </p>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Rejection Reason <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      value={rejectConfirmation.notes}
-                      onChange={(e) =>
-                        setRejectConfirmation((prev) => ({
-                          ...prev,
-                          notes: e.target.value,
-                        }))
-                      }
-                      placeholder="Enter rejection reason..."
-                      required
-                      rows={4}
-                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                  </div>
+        <div className="overflow-hidden rounded-lg bg-white shadow-xl">
+          <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="sm:flex sm:items-start">
+              <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                <XCircleIcon className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Reject Password Reset Request
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500 mb-4">
+                    Are you sure you want to reject the password reset request
+                    for {rejectConfirmation.request?.full_name} (
+                    {rejectConfirmation.request?.email})? Please provide a
+                    reason for rejection.
+                  </p>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Rejection Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={rejectConfirmation.notes}
+                    onChange={(e) =>
+                      setRejectConfirmation((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))
+                    }
+                    placeholder="Enter rejection reason..."
+                    required
+                    rows={4}
+                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
                 </div>
               </div>
             </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-              <Button
-                variant="tertiary"
-                onClick={() =>
-                  setRejectConfirmation({
-                    isOpen: false,
-                    request: null,
-                    loading: false,
-                    notes: "",
-                  })
-                }
-                disabled={rejectConfirmation.loading}
-                className="w-full sm:w-auto min-h-[44px]"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={confirmRejectReset}
-                disabled={
-                  rejectConfirmation.loading || !rejectConfirmation.notes.trim()
-                }
-                className="w-full sm:w-auto min-h-[44px] bg-red-600 hover:bg-red-700"
-              >
-                {rejectConfirmation.loading ? "Rejecting..." : "Reject"}
-              </Button>
-            </div>
           </div>
+          <div className="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <Button
+              variant="tertiary"
+              onClick={() =>
+                setRejectConfirmation({
+                  isOpen: false,
+                  request: null,
+                  loading: false,
+                  notes: "",
+                })
+              }
+              disabled={rejectConfirmation.loading}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRejectReset}
+              disabled={
+                rejectConfirmation.loading || !rejectConfirmation.notes.trim()
+              }
+              className="w-full sm:w-auto min-h-[44px] bg-red-600 hover:bg-red-700"
+            >
+              {rejectConfirmation.loading ? "Rejecting..." : "Reject"}
+            </Button>
+          </div>
+        </div>
       </ModalOverlay>
     </DashboardLayout>
   );

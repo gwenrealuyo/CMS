@@ -27,7 +27,6 @@ import {
   AcademicCapIcon,
   MegaphoneIcon,
   Cog6ToothIcon,
-  DocumentDuplicateIcon,
   QuestionMarkCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -62,14 +61,6 @@ const navigation = [
     href: "/admin-settings",
     icon: Cog6ToothIcon,
     roles: ["ADMIN"],
-    children: [
-      { name: "Overview", href: "/admin-settings", icon: Cog6ToothIcon },
-      {
-        name: "People Duplicates",
-        href: "/admin-settings/people-duplicates",
-        icon: DocumentDuplicateIcon,
-      },
-    ],
   },
 ];
 

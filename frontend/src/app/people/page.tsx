@@ -198,6 +198,7 @@ export default function PeoplePage() {
   }, []);
 
   const openPersonId = searchParams.get("open");
+  const openPersonModeParam = searchParams.get("mode");
 
   useEffect(() => {
     if (!openPersonId) {
@@ -205,16 +206,20 @@ export default function PeoplePage() {
     }
 
     let cancelled = false;
+    const mode =
+      openPersonModeParam === "edit" ? ("edit" as const) : ("view" as const);
 
-    const openFromGlobalSearch = async () => {
+    const openFromDeepLink = async () => {
       try {
         const response = await peopleApi.getById(openPersonId);
         if (!cancelled) {
-          openPersonInteraction("view", response.data);
+          openPersonInteraction(mode, response.data);
         }
       } catch {
         setDirectoryAccessNotice(
-          "You can only view profiles of people in your cluster. Assign them to your cluster first, then open their profile.",
+          mode === "edit"
+            ? "You can only edit people in your cluster. Assign them to your cluster first (Clusters → Assign Members), then try again."
+            : "You can only view profiles of people in your cluster. Assign them to your cluster first, then open their profile.",
         );
       } finally {
         if (!cancelled) {
@@ -223,12 +228,18 @@ export default function PeoplePage() {
       }
     };
 
-    openFromGlobalSearch();
+    openFromDeepLink();
 
     return () => {
       cancelled = true;
     };
-  }, [openPersonId, openPersonInteraction, pathname, router]);
+  }, [
+    openPersonId,
+    openPersonModeParam,
+    openPersonInteraction,
+    pathname,
+    router,
+  ]);
 
   useEffect(() => {
     if (action === "create") {

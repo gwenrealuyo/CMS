@@ -28,6 +28,7 @@ import {
   MegaphoneIcon,
   Cog6ToothIcon,
   DocumentDuplicateIcon,
+  QuestionMarkCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
@@ -398,20 +399,51 @@ export default function Sidebar() {
           </div>
         </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-2">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-2 pt-2">
         {filteredNavigation.map((item) => renderNavItem(item))}
       </nav>
 
-      {false && !isCompact && (
-        <div className="absolute bottom-0 left-0 right-0 p-6">
-          <div className="bg-primary/10 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-primary">Need Help?</h3>
-            <p className="text-sm text-primary mt-1">
-              Check our documentation or contact support
-            </p>
-          </div>
-        </div>
-      )}
+      <div
+        className={`shrink-0 border-t border-gray-100 ${
+          isCompact ? "p-2" : "p-3"
+        }`}
+      >
+        {isCompact ? (
+          <Link
+            href="/faq"
+            title="FAQs"
+            aria-label="Frequently asked questions"
+            onClick={closeMobile}
+            className={`flex items-center justify-center rounded-lg p-2 min-h-[44px] transition-colors ${
+              pathname === "/faq"
+                ? "bg-blue-50 text-blue-700"
+                : "text-gray-500 hover:bg-gray-50 hover:text-primary"
+            }`}
+          >
+            <QuestionMarkCircleIcon className="h-5 w-5" />
+          </Link>
+        ) : (
+          <Link
+            href="/faq"
+            onClick={closeMobile}
+            className={`block rounded-lg p-3 transition-colors ${
+              pathname === "/faq"
+                ? "bg-blue-50 text-blue-700"
+                : "bg-primary/10 text-primary hover:bg-primary/15"
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              <QuestionMarkCircleIcon className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <h3 className="text-sm font-medium">Need help?</h3>
+                <p className="mt-0.5 text-xs opacity-90">
+                  Browse FAQs for signing in, access, and modules
+                </p>
+              </div>
+            </div>
+          </Link>
+        )}
+      </div>
     </aside>
     </>
   );

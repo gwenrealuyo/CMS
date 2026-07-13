@@ -3,6 +3,12 @@ import { Ministry, MinistryMember, UserSummary } from "@/src/types/ministry";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import { useBranches } from "@/src/hooks/useBranches";
+import {
+  CLUSTER_BRANCH_CHIP_CLASSNAME,
+  getBranchOutlineBadgeStyle,
+  getBranchDisplayCode,
+} from "@/src/lib/branchChipColor";
 
 interface MinistryViewProps {
   ministry: Ministry;
@@ -21,6 +27,12 @@ export default function MinistryView({
   onClose,
   onViewPerson,
 }: MinistryViewProps) {
+  const { branches } = useBranches();
+  const ministryBranch =
+    ministry.branch != null
+      ? (branches.find((b) => b.id === ministry.branch) ?? null)
+      : null;
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "—";
     try {
@@ -150,24 +162,48 @@ export default function MinistryView({
           {/* Ministry Info Card */}
           <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-lg p-4 border border-primary/20">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
-                <h2 className="text-lg md:text-xl font-bold text-gray-900 truncate">
-                  {ministry.name}
-                </h2>
-                {ministry.category && (
-                  <span className="chip-gray text-sm flex-shrink-0">
-                    {getCategoryLabel(ministry.category)}
+              <div className="min-w-0">
+                <div className="flex flex-row flex-wrap items-center gap-2">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900 truncate min-w-0">
+                    {ministry.name}
+                  </h2>
+                  {ministry.scope === "NATIONAL" ? (
+                    <span className="chip-primary text-sm flex-shrink-0">
+                      National
+                    </span>
+                  ) : ministryBranch ? (
+                    <span
+                      className={`${CLUSTER_BRANCH_CHIP_CLASSNAME} flex-shrink-0`}
+                      style={getBranchOutlineBadgeStyle(
+                        ministryBranch.id,
+                        ministryBranch.is_headquarters,
+                      )}
+                    >
+                      {getBranchDisplayCode(ministryBranch)}
+                    </span>
+                  ) : (
+                    <span className="chip-gray text-sm flex-shrink-0">
+                      Branch
+                    </span>
+                  )}
+                  {ministry.category && (
+                    <span className="chip-gray text-sm flex-shrink-0">
+                      {getCategoryLabel(ministry.category)}
+                    </span>
+                  )}
+                  <span
+                    className={`text-sm flex-shrink-0 ${
+                      ministry.is_active ? "chip-green" : "chip-gray"
+                    }`}
+                  >
+                    {ministry.is_active ? "Active" : "Inactive"}
                   </span>
+                </div>
+                {ministry.code && (
+                  <div className="mt-1 text-sm text-gray-500">
+                    {ministry.code}
+                  </div>
                 )}
-                <span
-                  className={`text-sm flex-shrink-0 ${
-                    ministry.is_active
-                      ? "chip-green"
-                      : "chip-gray"
-                  }`}
-                >
-                  {ministry.is_active ? "Active" : "Inactive"}
-                </span>
               </div>
               <div className="flex items-center gap-2 sm:gap-3 text-gray-700 flex-wrap">
                 <div className="flex items-center gap-1">

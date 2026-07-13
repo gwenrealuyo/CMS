@@ -51,6 +51,8 @@ class ModuleDestroyAdminOnlyTests(TestCase):
         ministry = Ministry.objects.create(
             name="Worship Team",
             is_active=True,
+            scope="NATIONAL",
+            code="WORSHIP",
             primary_coordinator=self.coordinator,
         )
         self.client.force_authenticate(user=self.coordinator)
@@ -89,7 +91,9 @@ class ModuleDestroyAdminOnlyTests(TestCase):
     def test_admin_can_delete_ministry(self):
         from apps.ministries.models import Ministry
 
-        ministry = Ministry.objects.create(name="Outreach", is_active=True)
+        ministry = Ministry.objects.create(
+            name="Outreach", is_active=True, scope="NATIONAL", code="OUTREACH"
+        )
         self.client.force_authenticate(user=self.admin)
         res = self.client.delete(f"/api/ministries/{ministry.id}/")
         self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)

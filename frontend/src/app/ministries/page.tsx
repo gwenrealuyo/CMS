@@ -17,9 +17,16 @@ import MinistryForm, {
 import MinistryView from "@/src/components/ministries/MinistryView";
 import { useMinistries } from "@/src/hooks/useMinistries";
 import { usePeople } from "@/src/hooks/usePeople";
+import { useBranches } from "@/src/hooks/useBranches";
 import { Ministry, MinistryMember } from "@/src/types/ministry";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
+import {
+  getBranchChipStyle,
+  getBranchDisplayCode,
+} from "@/src/lib/branchChipColor";
+import { formatPersonName } from "@/src/lib/name";
 
 export default function MinistriesPage() {
   const {
@@ -39,6 +46,11 @@ export default function MinistriesPage() {
     removeMember,
   } = useMinistries();
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
+  const { branches } = useBranches();
+  const branchById = useMemo(
+    () => new Map(branches.map((branch) => [Number(branch.id), branch])),
+    [branches],
+  );
   const { user } = useAuth();
   const userCanHardDelete = canHardDelete(user);
   const [searchQuery, setSearchQuery] = useState(filters.search ?? "");
@@ -72,7 +84,7 @@ export default function MinistriesPage() {
 
   const cadenceOptionsForForm = useMemo(
     () => cadenceOptions.filter((option) => option.value !== "all"),
-    [cadenceOptions]
+    [cadenceOptions],
   );
 
   const categoryOptionsForForm = useMemo(
@@ -80,7 +92,7 @@ export default function MinistriesPage() {
       { label: "Uncategorized", value: "" },
       ...categoryOptions.filter((option) => option.value !== "all"),
     ],
-    [categoryOptions]
+    [categoryOptions],
   );
 
   const stats = useMemo(() => {
@@ -92,7 +104,7 @@ export default function MinistriesPage() {
           (acc[ministry.activity_cadence] || 0) + 1;
         return acc;
       },
-      {}
+      {},
     );
     return { total, active, byCadence };
   }, [ministries]);
@@ -114,7 +126,7 @@ export default function MinistriesPage() {
         setIsSearching(false);
       }, 300); // 300ms delay
     },
-    [setFilter]
+    [setFilter],
   );
 
   // Cleanup timeout on unmount
@@ -138,6 +150,7 @@ export default function MinistriesPage() {
     setFilter("search", "");
     setFilter("activity_cadence", "all");
     setFilter("category", "all");
+    setFilter("scope", "all");
     setFilter("is_active", true);
   };
 
@@ -240,7 +253,7 @@ export default function MinistriesPage() {
         loading: false,
       });
       toast.success(
-        `Ministry "${deleteConfirmation.ministry.name}" has been deleted.`
+        `Ministry "${deleteConfirmation.ministry.name}" has been deleted.`,
       );
     } catch (error) {
       console.error("Error deleting ministry:", error);
@@ -326,7 +339,7 @@ export default function MinistriesPage() {
                   onChange={(event) =>
                     setFilter(
                       "activity_cadence",
-                      event.target.value as typeof filters.activity_cadence
+                      event.target.value as typeof filters.activity_cadence,
                     )
                   }
                   className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
@@ -348,7 +361,7 @@ export default function MinistriesPage() {
                   onChange={(event) =>
                     setFilter(
                       "category",
-                      event.target.value as typeof filters.category
+                      event.target.value as typeof filters.category,
                     )
                   }
                   className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
@@ -363,6 +376,26 @@ export default function MinistriesPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Scope
+                </label>
+                <select
+                  value={filters.scope ?? "all"}
+                  onChange={(event) =>
+                    setFilter(
+                      "scope",
+                      event.target.value as typeof filters.scope,
+                    )
+                  }
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="all">All</option>
+                  <option value="BRANCH">Branch</option>
+                  <option value="NATIONAL">National</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Status
                 </label>
                 <select
@@ -370,8 +403,8 @@ export default function MinistriesPage() {
                     filters.is_active === "all"
                       ? "all"
                       : filters.is_active
-                      ? "active"
-                      : "inactive"
+                        ? "active"
+                        : "inactive"
                   }
                   onChange={(event) => {
                     const value = event.target.value;
@@ -401,7 +434,7 @@ export default function MinistriesPage() {
             </div>
           </Card>
 
-          <Card title="Ministry roster">
+          <Card className="!p-0">
             {loading ? (
               <div className="py-12 flex justify-center">
                 <LoadingSpinner />
@@ -428,101 +461,104 @@ export default function MinistriesPage() {
                   {
                     header: "Ministry",
                     accessor: "name" as const,
-                    render: (_value, row: any) => (
-                      <div>
-                        <p className="font-semibold text-foreground">
-                          {row.name}
-                        </p>
-                        {row.description && (
-                          <p className="text-sm text-gray-500 line-clamp-2">
-                            {row.description}
-                          </p>
-                        )}
-                      </div>
-                    ),
+                    render: (_value, row: any) => {
+                      const code = (row.code || "").trim();
+                      const name = row.name || "Untitled Ministry";
+                      return (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => handleView(row as Ministry)}
+                            className={TABLE_ENTITY_LINK_CLASS}
+                          >
+                            {code || name}
+                          </button>
+                          <div className="mt-1 text-xs text-gray-500">
+                            {name}
+                          </div>
+                        </div>
+                      );
+                    },
                   },
                   {
-                    header: "Coordinators",
+                    header: "Branch",
+                    accessor: "branch" as const,
+                    render: (_value, row: any) => {
+                      if (row.scope === "NATIONAL") {
+                        return (
+                          <span className="chip-primary text-xs">National</span>
+                        );
+                      }
+                      const ministryBranch =
+                        row.branch != null
+                          ? (branchById.get(Number(row.branch)) ?? null)
+                          : null;
+                      if (!ministryBranch) {
+                        return <span className="text-gray-700">—</span>;
+                      }
+                      return (
+                        <span
+                          className="font-medium"
+                          style={{
+                            color: getBranchChipStyle(
+                              ministryBranch.id,
+                              ministryBranch.is_headquarters,
+                            ).color,
+                          }}
+                        >
+                          {getBranchDisplayCode(ministryBranch)}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    header: "Coordinator",
                     accessor: "primary_coordinator" as const,
                     render: (_value, row: any) => (
-                      <div className="text-sm text-gray-700">
-                        {row.primary_coordinator ? (
-                          <p>
-                            Primary:{" "}
-                            <span className="font-medium">
-                              {row.primary_coordinator.first_name}{" "}
-                              {row.primary_coordinator.last_name}
-                            </span>
-                          </p>
-                        ) : (
-                          <p className="text-gray-400">Unset</p>
-                        )}
-                        {row.support_coordinators.length > 0 && (
-                          <p className="text-xs text-gray-500">
-                            Support:{" "}
-                            {row.support_coordinators
-                              .map((person: any) =>
-                                `${person.first_name ?? ""} ${
-                                  person.last_name ?? ""
-                                }`.trim()
-                              )
-                              .join(", ")}
-                          </p>
-                        )}
-                      </div>
+                      <span className="text-sm text-gray-700">
+                        {row.primary_coordinator
+                          ? formatPersonName(row.primary_coordinator)
+                          : "—"}
+                      </span>
                     ),
-                  },
-                  {
-                    header: "Cadence",
-                    accessor: "activity_cadence" as const,
-                    render: (_value, row: any) => (
-                      <div className="text-sm text-gray-700">
-                        {cadenceLabels[row.activity_cadence] ?? "—"}
-                        {row.meeting_location && (
-                          <p className="text-xs text-gray-500">
-                            {row.meeting_location}
-                          </p>
-                        )}
-                      </div>
-                    ),
-                  },
-                  {
-                    header: "Category",
-                    accessor: "category" as const,
-                    render: (_value, row: any) =>
-                      row.category
-                        ? categoryLabels[row.category] ?? row.category
-                        : "—",
                   },
                   {
                     header: "Members",
                     accessor: "membersCount" as const,
                     render: (value: number) => (
-                      <span className="text-sm font-medium text-foreground">
-                        {value}
-                      </span>
+                      <span className="text-gray-700">{value}</span>
                     ),
                   },
                   {
-                    header: "Status",
-                    accessor: "is_active" as const,
-                    render: (value: boolean) => (
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          value
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {value ? "Active" : "Inactive"}
-                      </span>
-                    ),
+                    header: "Location / Schedule",
+                    accessor: "meeting_location" as const,
+                    render: (_value, row: any) => {
+                      const schedule = row.meeting_schedule as Record<
+                        string,
+                        string
+                      > | null;
+                      const scheduleParts = [
+                        schedule?.day,
+                        schedule?.time,
+                        schedule?.window,
+                      ].filter(Boolean);
+                      return (
+                        <div className="space-y-1 text-gray-700">
+                          <div>{row.meeting_location || "—"}</div>
+                          <div className="text-xs text-gray-500">
+                            {scheduleParts.length > 0
+                              ? scheduleParts.join(" ")
+                              : "No schedule"}
+                          </div>
+                        </div>
+                      );
+                    },
                   },
                   {
                     header: "Actions",
                     accessor: "id" as const,
                     render: (_value, row: any) => (
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
                         <button
                           type="button"
                           onClick={() => handleView(row as Ministry)}
@@ -709,12 +745,13 @@ export default function MinistriesPage() {
                     values.support_coordinator_ids
                       .filter(Boolean)
                       .map((id) => Number(id))
-                      .filter((id) => !Number.isNaN(id))
-                  )
+                      .filter((id) => !Number.isNaN(id)),
+                  ),
                 );
 
                 const payload = {
                   name: values.name.trim(),
+                  code: values.code.trim().toUpperCase(),
                   description: values.description,
                   category: values.category,
                   activity_cadence: values.activity_cadence,
@@ -722,7 +759,13 @@ export default function MinistriesPage() {
                     ? Number(values.primary_coordinator_id)
                     : null,
                   support_coordinator_ids: supportIds,
-                  branch: values.branch_id ? Number(values.branch_id) : null,
+                  scope: values.scope,
+                  branch:
+                    values.scope === "NATIONAL"
+                      ? null
+                      : values.branch_id
+                        ? Number(values.branch_id)
+                        : null,
                   meeting_location: values.meeting_location,
                   meeting_schedule:
                     Object.keys(meetingSchedule).length > 0
@@ -746,13 +789,13 @@ export default function MinistriesPage() {
                           role: member.role,
                           skills: member.skills || "",
                           notes: member.notes || "",
-                        } as Partial<MinistryMember>)
-                      )
+                        } as Partial<MinistryMember>),
+                      ),
                     );
                   } catch (memberError) {
                     console.error("Error adding members:", memberError);
                     toast.error(
-                      "Ministry created but some members could not be added."
+                      "Ministry created but some members could not be added.",
                     );
                   }
                 }
@@ -774,21 +817,21 @@ export default function MinistriesPage() {
 
                     if (!message) {
                       const firstFieldError = Object.values(
-                        data as Record<string, unknown>
+                        data as Record<string, unknown>,
                       ).find(
                         (value) =>
-                          Array.isArray(value) && typeof value[0] === "string"
+                          Array.isArray(value) && typeof value[0] === "string",
                       ) as string[] | undefined;
                       message = firstFieldError ? firstFieldError[0] : null;
                     }
 
                     setFormError(
                       message ??
-                        "Unable to create ministry. Please fix the highlighted fields."
+                        "Unable to create ministry. Please fix the highlighted fields.",
                     );
                   } else {
                     setFormError(
-                      "Unable to create ministry. Please fix the highlighted fields."
+                      "Unable to create ministry. Please fix the highlighted fields.",
                     );
                   }
                 } else if (submitError instanceof Error) {
@@ -883,12 +926,13 @@ export default function MinistriesPage() {
                     values.support_coordinator_ids
                       .filter(Boolean)
                       .map((id) => Number(id))
-                      .filter((id) => !Number.isNaN(id))
-                  )
+                      .filter((id) => !Number.isNaN(id)),
+                  ),
                 );
 
                 const payload = {
                   name: values.name.trim(),
+                  code: values.code.trim().toUpperCase(),
                   description: values.description,
                   category: values.category,
                   activity_cadence: values.activity_cadence,
@@ -896,7 +940,13 @@ export default function MinistriesPage() {
                     ? Number(values.primary_coordinator_id)
                     : null,
                   support_coordinator_ids: supportIds,
-                  branch: values.branch_id ? Number(values.branch_id) : null,
+                  scope: values.scope,
+                  branch:
+                    values.scope === "NATIONAL"
+                      ? null
+                      : values.branch_id
+                        ? Number(values.branch_id)
+                        : null,
                   meeting_location: values.meeting_location,
                   meeting_schedule:
                     Object.keys(meetingSchedule).length > 0
@@ -919,7 +969,7 @@ export default function MinistriesPage() {
                     values.removed_member_ids.length > 0
                   ) {
                     await Promise.all(
-                      values.removed_member_ids.map((id) => removeMember(id))
+                      values.removed_member_ids.map((id) => removeMember(id)),
                     );
                   }
 
@@ -927,7 +977,7 @@ export default function MinistriesPage() {
                   await Promise.all(
                     values.members.map(async (member) => {
                       const existingMembership = existingMemberships.find(
-                        (m: any) => String(m.member.id) === member.member_id
+                        (m: any) => String(m.member.id) === member.member_id,
                       );
 
                       if (!existingMembership) {
@@ -956,12 +1006,12 @@ export default function MinistriesPage() {
                           });
                         }
                       }
-                    })
+                    }),
                   );
                 } catch (memberError) {
                   console.error("Error syncing members:", memberError);
                   toast.error(
-                    "Ministry updated but some member changes could not be applied."
+                    "Ministry updated but some member changes could not be applied.",
                   );
                 }
 
@@ -983,21 +1033,21 @@ export default function MinistriesPage() {
 
                     if (!message) {
                       const firstFieldError = Object.values(
-                        data as Record<string, unknown>
+                        data as Record<string, unknown>,
                       ).find(
                         (value) =>
-                          Array.isArray(value) && typeof value[0] === "string"
+                          Array.isArray(value) && typeof value[0] === "string",
                       ) as string[] | undefined;
                       message = firstFieldError ? firstFieldError[0] : null;
                     }
 
                     setFormError(
                       message ??
-                        "Unable to update ministry. Please fix the highlighted fields."
+                        "Unable to update ministry. Please fix the highlighted fields.",
                     );
                   } else {
                     setFormError(
-                      "Unable to update ministry. Please fix the highlighted fields."
+                      "Unable to update ministry. Please fix the highlighted fields.",
                     );
                   }
                 } else if (submitError instanceof Error) {

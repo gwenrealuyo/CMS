@@ -10,6 +10,7 @@ The Ministries module manages church ministries, their coordinators, and team me
 
 - `apps.ministries.models.Ministry` represents a church ministry with:
   - `name` (CharField, max 100 chars) - Name of the ministry
+  - `code` (CharField, unique, optional) - Short shortcut name (e.g. `WORSHIP`)
   - `description` (TextField, optional) - Detailed description of the ministry
   - `category` (CharField, optional) - Ministry category:
     - `worship` - Worship ministries (music, choir, etc.)
@@ -26,6 +27,8 @@ The Ministries module manages church ministries, their coordinators, and team me
     - `ad_hoc` - As needed
   - `primary_coordinator` (ForeignKey to Person, nullable) - Primary coordinator for the ministry
   - `support_coordinators` (ManyToMany to Person) - Additional support coordinators
+  - `scope` (CharField) - `BRANCH` (local) or `NATIONAL` (all branches). BRANCH requires `branch`; NATIONAL requires `branch` null.
+  - `branch` (ForeignKey to Branch, nullable) - Required when `scope=BRANCH`
   - `meeting_location` (CharField, optional) - Where the ministry meets
   - `meeting_schedule` (JSONField, optional) - Meeting schedule details (day, time, window, notes)
   - `communication_channel` (URLField, optional) - Link to communication channel (e.g., WhatsApp, Discord)
@@ -196,26 +199,37 @@ All routes live under `/api/ministries/`:
 
 ## Access Control
 
+### Scope (branch vs national)
+
+- **BRANCH**: visible to users in that branch (plus admins / HQ pastors who see all).
+- **NATIONAL**: visible to every authenticated non-visitor (within their other list rules).
+- Creating or changing a ministry to **NATIONAL** requires Admin, HQ Pastor (`can_see_all_branches`), or Senior Ministries coordinator.
+- Branch pastors and non-senior writers create **BRANCH** ministries for their own branch.
+
 ### Role-Based Permissions
 
-| Role        | Read Access                | Write Access   |
-| ----------- | -------------------------- | -------------- |
-| **ADMIN**   | All ministries             | All ministries |
-| **PASTOR**  | All ministries             | All ministries |
-| **MEMBER**  | All ministries (read-only) | None           |
-| **VISITOR** | Cannot log in              | Cannot log in  |
+| Role | Read Access | Write Access |
+| ---- | ----------- | ------------ |
+| **ADMIN** | All ministries | All ministries |
+| **HQ PASTOR** | All ministries | All ministries (including NATIONAL) |
+| **Branch PASTOR** | Own-branch + NATIONAL | Branch ministries (own branch); cannot create NATIONAL |
+| **MEMBER** | Own-branch + NATIONAL (read-only) | None |
+| **VISITOR** | Cannot log in | Cannot log in |
 
 ### Module Coordinator Access
 
 - **Ministry Coordinators** (assigned via `ModuleCoordinator` with `module=MINISTRIES`):
   - Can read and write ministries they are assigned to
   - Can also access ministries where they are `primary_coordinator` or in `support_coordinators`
-  - Access is determined by `resource_id` in the coordinator assignment
+  - Results are still filtered to own-branch + NATIONAL (no other-branch local ministries)
+  - Access is determined by `resource_id` in the coordinator assignment (when set)
+  - **Senior** Ministries coordinators may create NATIONAL ministries
 
 ### Permission Classes
 
 - **Read Operations** (`list`, `retrieve`): `IsAuthenticatedAndNotVisitor`, `IsMemberOrAbove`
-- **Write Operations** (`create`, `update`, `destroy`): `IsAuthenticatedAndNotVisitor`, `HasModuleAccess(MINISTRIES, "write")`
+- **Write Operations** (`create`, `update`): `IsAuthenticatedAndNotVisitor`, `HasModuleAccess(MINISTRIES, "write")`
+- **Destroy**: Admin only
 
 ## Common Workflows
 

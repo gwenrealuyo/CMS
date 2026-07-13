@@ -25,8 +25,20 @@ class MinistryCadence(models.TextChoices):
     AD_HOC = "ad_hoc", "Ad Hoc"
 
 
+class MinistryScope(models.TextChoices):
+    BRANCH = "BRANCH", "Branch"
+    NATIONAL = "NATIONAL", "National"
+
+
 class Ministry(models.Model):
     name = models.CharField(max_length=100)
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Short shortcut name for the ministry (e.g. WORSHIP).",
+    )
     description = models.TextField(blank=True)
     category = models.CharField(
         max_length=30,
@@ -50,6 +62,12 @@ class Ministry(models.Model):
         blank=True,
         related_name="ministries_supporting",
     )
+    scope = models.CharField(
+        max_length=20,
+        choices=MinistryScope.choices,
+        default=MinistryScope.BRANCH,
+        help_text="BRANCH = one local branch; NATIONAL = visible across all branches.",
+    )
     branch = models.ForeignKey(
         "people.Branch",
         on_delete=models.SET_NULL,
@@ -67,6 +85,15 @@ class Ministry(models.Model):
     class Meta:
         verbose_name_plural = "Ministries"
         ordering = ("name",)
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(scope="NATIONAL", branch__isnull=True)
+                    | models.Q(scope="BRANCH", branch__isnull=False)
+                ),
+                name="ministries_scope_branch_consistency",
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.name

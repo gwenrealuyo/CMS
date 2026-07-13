@@ -7,12 +7,14 @@ import {
   MinistryCreateInput,
   MinistryMember,
   MinistryRole,
+  MinistryScope,
 } from "@/src/types/ministry";
 
 export interface MinistryFilters {
   search?: string;
   activity_cadence?: MinistryCadence | "all";
   category?: MinistryCategory | "all";
+  scope?: MinistryScope | "all";
   is_active?: boolean | "all";
 }
 
@@ -22,6 +24,7 @@ export const useMinistries = () => {
     search: "",
     activity_cadence: "all",
     category: "all",
+    scope: "all",
     is_active: true,
   });
   const [loading, setLoading] = useState(false);
@@ -37,6 +40,9 @@ export const useMinistries = () => {
       }
       if (filters.category && filters.category !== "all") {
         params.category = filters.category;
+      }
+      if (filters.scope && filters.scope !== "all") {
+        params.scope = filters.scope;
       }
       if (filters.is_active !== "all") {
         params.is_active = filters.is_active ?? undefined;

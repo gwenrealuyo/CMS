@@ -10,14 +10,19 @@ import {
   Ministry,
   MinistryRole,
   MinistryMember,
+  MinistryScope,
 } from "@/src/types/ministry";
 import { Person } from "@/src/types/person";
-import { Branch } from "@/src/types/branch";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
-import { getPersonRoleColor } from "@/src/lib/personRole";
+import {
+  formatPersonClusterLabel,
+  formatPersonStatusLabel,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
+import { getClusterCodeBadgeStyle } from "@/src/lib/branchChipColor";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 
 export interface PendingMember {
@@ -29,9 +34,11 @@ export interface PendingMember {
 
 export interface MinistryFormValues {
   name: string;
+  code: string;
   description: string;
   category: MinistryCategory | "";
   activity_cadence: MinistryCadence;
+  scope: MinistryScope;
   primary_coordinator_id: string;
   support_coordinator_ids: string[];
   branch_id: string;
@@ -65,9 +72,11 @@ interface MinistryFormProps {
 
 const DEFAULT_VALUES: MinistryFormValues = {
   name: "",
+  code: "",
   description: "",
   category: "",
   activity_cadence: "weekly",
+  scope: "BRANCH",
   primary_coordinator_id: "",
   support_coordinator_ids: [],
   branch_id: "",
@@ -142,9 +151,11 @@ export default function MinistryForm({
 
     return {
       name: initialData.name ?? "",
+      code: initialData.code ?? "",
       description: initialData.description ?? "",
       category: (initialData.category as MinistryCategory) ?? "",
       activity_cadence: initialData.activity_cadence ?? "weekly",
+      scope: initialData.scope ?? (initialData.branch ? "BRANCH" : "NATIONAL"),
       primary_coordinator_id: initialData.primary_coordinator
         ? String(initialData.primary_coordinator.id)
         : "",
@@ -163,8 +174,15 @@ export default function MinistryForm({
   };
 
   const { branches } = useBranches();
-  const { user } = useAuth();
-  const canEditBranch = user?.role === "ADMIN" || user?.role === "PASTOR";
+  const { user, isSeniorCoordinator } = useAuth();
+  const userBranch = branches.find((b) => Number(b.id) === Number(user?.branch));
+  const canChooseNational =
+    user?.role === "ADMIN" ||
+    isSeniorCoordinator("MINISTRIES") ||
+    (user?.role === "PASTOR" && Boolean(userBranch?.is_headquarters));
+  const canPickAnyBranch =
+    user?.role === "ADMIN" ||
+    (user?.role === "PASTOR" && Boolean(userBranch?.is_headquarters));
 
   const [values, setValues] = useState<MinistryFormValues>(getInitialValues());
   const [supportSelectorValue, setSupportSelectorValue] = useState("");
@@ -200,9 +218,11 @@ export default function MinistryForm({
 
       setValues({
         name: initialData.name ?? "",
+        code: initialData.code ?? "",
         description: initialData.description ?? "",
         category: (initialData.category as MinistryCategory) ?? "",
         activity_cadence: initialData.activity_cadence ?? "weekly",
+        scope: initialData.scope ?? (initialData.branch ? "BRANCH" : "NATIONAL"),
         primary_coordinator_id: initialData.primary_coordinator
           ? String(initialData.primary_coordinator.id)
           : "",
@@ -219,22 +239,42 @@ export default function MinistryForm({
         removed_member_ids: [],
       });
     } else {
-      setValues(DEFAULT_VALUES);
+      setValues({
+        ...DEFAULT_VALUES,
+        branch_id: user?.branch != null ? String(user.branch) : "",
+        scope: "BRANCH",
+      });
       setMemberSearch("");
       setSelectedMemberRole("team_member");
     }
-  }, [initialData]);
+  }, [initialData, user?.branch]);
+
+  const showBranchCodeInPickers = values.scope === "NATIONAL";
+
+  const personToSelectOption = (person: Person) => {
+    const clusterCodes = (person.cluster_codes ?? []).filter(Boolean);
+    return {
+      label: formatPersonName(person),
+      value: String(person.id),
+      statusLabel: formatPersonStatusLabel(person.status),
+      statusClassName: getPersonStatusColor(person.status),
+      clusterCode:
+        clusterCodes.length > 0 ? formatPersonClusterLabel(clusterCodes) : null,
+      clusterBranchId: person.branch ?? null,
+      branchCode: showBranchCodeInPickers
+        ? person.branch_code?.trim() || null
+        : null,
+      memberId: person.member_id?.trim() || null,
+    };
+  };
 
   const coordinatorOptions = useMemo(
     () =>
       people
         .filter(isSelectablePerson)
-        .map((person) => ({
-          label: formatPersonName(person),
-          value: String(person.id),
-        }))
+        .map(personToSelectOption)
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [people]
+    [people, showBranchCodeInPickers]
   );
 
   const supportOptions = useMemo(
@@ -279,12 +319,17 @@ export default function MinistryForm({
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return availablePeopleForMembers;
     const searchLower = memberSearch.toLowerCase();
-    return availablePeopleForMembers.filter(
-      (person) =>
+    return availablePeopleForMembers.filter((person) => {
+      const clusterLabel = formatPersonClusterLabel(person.cluster_codes);
+      return (
         formatPersonName(person).toLowerCase().includes(searchLower) ||
         person.email?.toLowerCase().includes(searchLower) ||
-        person.role?.toLowerCase().includes(searchLower)
-    );
+        person.role?.toLowerCase().includes(searchLower) ||
+        person.member_id?.toLowerCase().includes(searchLower) ||
+        clusterLabel.toLowerCase().includes(searchLower) ||
+        (person.branch_code?.toLowerCase().includes(searchLower) ?? false)
+      );
+    });
   }, [availablePeopleForMembers, memberSearch]);
 
   const addMember = (person: Person) => {
@@ -448,6 +493,7 @@ export default function MinistryForm({
   const disableSubmit =
     isSubmitting ||
     values.name.trim().length === 0 ||
+    values.code.trim().length === 0 ||
     values.activity_cadence === undefined;
 
   return (
@@ -455,7 +501,7 @@ export default function MinistryForm({
       {error && <ErrorMessage message={error} />}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Ministry Name<span className="text-red-500">*</span>
           </label>
@@ -467,6 +513,28 @@ export default function MinistryForm({
             placeholder="e.g. Worship Team"
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Ministry Code<span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={values.code}
+            onChange={(event) =>
+              setValues((prev) => ({
+                ...prev,
+                code: event.target.value.toUpperCase(),
+              }))
+            }
+            placeholder="e.g. WORSHIP"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm uppercase focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Shortcut name shown in tables and pickers.
+          </p>
         </div>
 
         <div className="md:col-span-2">
@@ -516,6 +584,64 @@ export default function MinistryForm({
             ))}
           </select>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Scope<span className="text-red-500">*</span>
+          </label>
+          <select
+            required
+            value={values.scope}
+            onChange={(event) => {
+              const nextScope = event.target.value as MinistryScope;
+              setValues((prev) => ({
+                ...prev,
+                scope: nextScope,
+                branch_id:
+                  nextScope === "NATIONAL"
+                    ? ""
+                    : prev.branch_id ||
+                      (user?.branch != null ? String(user.branch) : ""),
+              }));
+            }}
+            disabled={!canChooseNational}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100"
+          >
+            <option value="BRANCH">Branch</option>
+            {(canChooseNational || values.scope === "NATIONAL") && (
+              <option value="NATIONAL">National</option>
+            )}
+          </select>
+          {!canChooseNational && (
+            <p className="mt-1 text-xs text-gray-500">
+              National ministries can be created by admins, HQ pastors, or senior
+              ministries coordinators.
+            </p>
+          )}
+        </div>
+
+        {values.scope === "BRANCH" && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Branch<span className="text-red-500">*</span>
+            </label>
+            <select
+              required
+              value={values.branch_id}
+              onChange={handleChange("branch_id")}
+              disabled={!canPickAnyBranch}
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100"
+            >
+              <option value="">Select branch</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={String(branch.id)}>
+                  {branch.name}
+                  {branch.is_headquarters ? " (HQ)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -745,30 +871,55 @@ export default function MinistryForm({
                     No members found matching &ldquo;{memberSearch}&rdquo;
                   </div>
                 ) : (
-                  filteredMembers.map((person) => (
-                    <button
-                      key={person.id}
-                      type="button"
-                      onClick={() => addMember(person)}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 text-gray-900"
-                    >
-                      <PersonAvatar person={person} size="sm" />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">
-                          {formatPersonName(person)}
-                        </p>
-                        <div className="flex items-center space-x-1 mt-0.5">
-                          <span
-                            className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
-                              person.role
-                            )}`}
-                          >
-                            {person.role.toLowerCase()}
-                          </span>
+                  filteredMembers.map((person) => {
+                    const clusterCodes = (person.cluster_codes ?? []).filter(
+                      Boolean
+                    );
+                    const clusterLabel =
+                      clusterCodes.length > 0
+                        ? formatPersonClusterLabel(clusterCodes)
+                        : null;
+                    const branchCode = showBranchCodeInPickers
+                      ? person.branch_code?.trim() || null
+                      : null;
+                    return (
+                      <button
+                        key={person.id}
+                        type="button"
+                        onClick={() => addMember(person)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-3 text-gray-900"
+                      >
+                        <PersonAvatar person={person} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {formatPersonName(person)}
+                            </p>
+                            <span
+                              className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(
+                                person.status
+                              )}`}
+                            >
+                              {formatPersonStatusLabel(person.status)}
+                            </span>
+                            {clusterLabel && (
+                              <span
+                                className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                style={getClusterCodeBadgeStyle(person.branch)}
+                              >
+                                {clusterLabel}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))
+                        {branchCode && (
+                          <span className="text-xs font-medium text-gray-500 shrink-0">
+                            {branchCode}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
                 )}
               </div>
             )}

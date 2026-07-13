@@ -5,12 +5,19 @@ import {
   MagnifyingGlassIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { getClusterCodeBadgeStyle } from "@/src/lib/branchChipColor";
 
 interface SelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  statusLabel?: string | null;
+  statusClassName?: string | null;
   clusterCode?: string | null;
+  /** Colors the cluster chip from the person's branch. */
+  clusterBranchId?: number | null;
+  /** Shown on the right (e.g. for national ministry pickers). */
+  branchCode?: string | null;
   familyName?: string | null;
   memberId?: string | null;
   /** When set, renders a small Cluster vs Group badge (distinct styling). */
@@ -73,7 +80,9 @@ export default function ScalableSelect({
       (option) =>
         option.label.toLowerCase().includes(query) ||
         String(option.value).toLowerCase().includes(query) ||
-        (option.memberId?.toLowerCase().includes(query) ?? false)
+        (option.memberId?.toLowerCase().includes(query) ?? false) ||
+        (option.clusterCode?.toLowerCase().includes(query) ?? false) ||
+        (option.branchCode?.toLowerCase().includes(query) ?? false)
     );
   }, [options, searchQuery]);
 
@@ -176,6 +185,83 @@ export default function ScalableSelect({
     }
   };
 
+  const renderOptionRow = (option: SelectOption) => {
+    const isSelected = String(option.value) === String(value);
+    return (
+      <button
+        key={option.value}
+        type="button"
+        onClick={() => handleOptionClick(option.value)}
+        disabled={option.disabled}
+        className={`
+          w-full px-3 py-1.5 text-left text-sm transition-colors
+          ${
+            option.disabled
+              ? "text-gray-400 cursor-not-allowed"
+              : "text-gray-900 hover:bg-gray-100"
+          }
+          ${isSelected ? "bg-primary/10 text-primary" : ""}
+        `}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate">{option.label}</span>
+            {option.statusLabel && (
+              <span
+                className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  option.statusClassName ?? "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {option.statusLabel}
+              </span>
+            )}
+            {option.clusterCode && (
+              <span
+                className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={getClusterCodeBadgeStyle(option.clusterBranchId)}
+              >
+                {option.clusterCode}
+              </span>
+            )}
+            {option.typeLabel === "cluster" && (
+              <span className="chip-primary-sm shrink-0">Cluster</span>
+            )}
+            {option.typeLabel === "group" && (
+              <span className="inline-flex shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                Group
+              </span>
+            )}
+            {option.familyName && (
+              <span className="chip-green-sm shrink-0 text-[10px]">
+                {option.familyName}
+              </span>
+            )}
+          </span>
+          <span className="ml-2 flex shrink-0 items-center gap-1.5 text-xs">
+            {option.branchCode && (
+              <span className="font-medium text-gray-500">
+                {option.branchCode}
+              </span>
+            )}
+            {isSelected && (
+              <svg
+                className="h-4 w-4 text-primary"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+          </span>
+        </div>
+      </button>
+    );
+  };
+
   // Render options with virtualization for large lists
   const renderOptions = () => {
     if (loading) {
@@ -215,7 +301,6 @@ export default function ScalableSelect({
       );
     }
 
-    // For large lists, show a message about virtualization
     if (shouldVirtualize) {
       return (
         <>
@@ -224,62 +309,9 @@ export default function ScalableSelect({
             results.
           </div>
           <div className="max-h-48 overflow-y-auto">
-            {filteredOptions.slice(0, 50).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => handleOptionClick(option.value)}
-                disabled={option.disabled}
-                className={`
-                  w-full px-3 py-1.5 text-left text-sm transition-colors
-                  ${
-                    option.disabled
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "text-gray-900 hover:bg-gray-100"
-                  }
-                  ${String(option.value) === String(value) ? "bg-primary/10 text-primary" : ""}
-                `}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="truncate">{option.label}</span>
-                  <span className="ml-2 flex shrink-0 flex-wrap items-center justify-end gap-1 text-xs">
-                    {option.typeLabel === "cluster" && (
-                      <span className="chip-primary-sm">
-                        Cluster
-                      </span>
-                    )}
-                    {option.typeLabel === "group" && (
-                      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                        Group
-                      </span>
-                    )}
-                    {option.clusterCode && (
-                      <span className="chip-primary-sm">
-                        {option.clusterCode}
-                      </span>
-                    )}
-                    {option.familyName && (
-                      <span className="chip-green-sm text-[10px]">
-                        {option.familyName}
-                      </span>
-                    )}
-                    {String(option.value) === String(value) && (
-                      <svg
-                        className="w-4 h-4 text-primary"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
-                  </span>
-                </div>
-              </button>
-            ))}
+            {filteredOptions
+              .slice(0, 50)
+              .map((option) => renderOptionRow(option))}
             {filteredOptions.length > 50 && (
               <div className="p-2 text-xs text-gray-500 text-center bg-gray-50">
                 ... and {filteredOptions.length - 50} more. Use search to find
@@ -291,63 +323,7 @@ export default function ScalableSelect({
       );
     }
 
-    // For smaller lists, render all options
-    return filteredOptions.map((option) => (
-      <button
-        key={option.value}
-        type="button"
-        onClick={() => handleOptionClick(option.value)}
-        disabled={option.disabled}
-        className={`
-          w-full px-3 py-1.5 text-left text-sm transition-colors
-          ${
-            option.disabled
-              ? "text-gray-400 cursor-not-allowed"
-              : "text-gray-900 hover:bg-gray-100"
-          }
-          ${String(option.value) === String(value) ? "bg-primary/10 text-primary" : ""}
-        `}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate">{option.label}</span>
-          <span className="ml-2 flex shrink-0 flex-wrap items-center justify-end gap-1 text-xs">
-            {option.typeLabel === "cluster" && (
-              <span className="chip-primary-sm">
-                Cluster
-              </span>
-            )}
-            {option.typeLabel === "group" && (
-              <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                Group
-              </span>
-            )}
-            {option.clusterCode && (
-              <span className="chip-primary-sm">
-                {option.clusterCode}
-              </span>
-            )}
-            {option.familyName && (
-              <span className="chip-green-sm text-[10px]">
-                {option.familyName}
-              </span>
-            )}
-            {String(option.value) === String(value) && (
-            <svg
-              className="w-4 h-4 text-primary"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-            )}
-          </span>
-        </div>
-      </button>
-    ));
+    return filteredOptions.map((option) => renderOptionRow(option));
   };
 
   const renderDropdown = () => {

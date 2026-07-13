@@ -185,6 +185,8 @@ class CoordinatorSyncTests(TestCase):
         ministry = Ministry.objects.create(
             name="Test Ministry",
             activity_cadence="weekly",
+            scope="NATIONAL",
+            code="TEST-MIN",
         )
 
         payload = {
@@ -206,6 +208,8 @@ class CoordinatorSyncTests(TestCase):
         ministry = Ministry.objects.create(
             name="Test Ministry",
             activity_cadence="weekly",
+            scope="NATIONAL",
+            code="TEST-MIN",
         )
 
         payload = {
@@ -231,6 +235,8 @@ class CoordinatorSyncTests(TestCase):
         ministry = Ministry.objects.create(
             name="Test Ministry",
             activity_cadence="weekly",
+            scope="NATIONAL",
+            code="TEST-MIN-P",
             primary_coordinator=self.primary,
         )
         ministry.support_coordinators.add(self.support1)
@@ -270,6 +276,8 @@ class CoordinatorSyncTests(TestCase):
         ministry = Ministry.objects.create(
             name="Test Ministry",
             activity_cadence="weekly",
+            scope="NATIONAL",
+            code="TEST-MIN",
         )
         ministry.support_coordinators.add(self.support1, self.support2)
 
@@ -305,6 +313,8 @@ class CoordinatorSyncTests(TestCase):
         ministry = Ministry.objects.create(
             name="Test Ministry",
             activity_cadence="weekly",
+            scope="NATIONAL",
+            code="TEST-MIN-P",
             primary_coordinator=self.primary,
         )
 
@@ -337,6 +347,8 @@ class CoordinatorSyncTests(TestCase):
         ministry = Ministry.objects.create(
             name="Test Ministry",
             activity_cadence="weekly",
+            scope="NATIONAL",
+            code="TEST-MIN",
         )
 
         # Create existing membership as team member
@@ -389,3 +401,214 @@ class CoordinatorSyncTests(TestCase):
             ministry=ministry, member=self.support1
         )
         self.assertEqual(support_membership.role, MinistryRole.COORDINATOR)
+
+
+class MinistryScopeVisibilityAPITests(TestCase):
+    """Branch vs national list/create rules for ministries."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        from apps.people.models import Branch, ModuleCoordinator
+
+        self.client = APIClient()
+        self.User = get_user_model()
+        self.branch_a = Branch.objects.create(
+            name="Branch A", code="MIN_A", is_active=True
+        )
+        self.branch_b = Branch.objects.create(
+            name="Branch B", code="MIN_B", is_active=True
+        )
+        self.hq = Branch.objects.create(
+            name="HQ", code="MIN_HQ", is_active=True, is_headquarters=True
+        )
+
+        self.member_a = self.User.objects.create_user(
+            username="min_member_a",
+            email="min_member_a@test.com",
+            password="testpass123",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+        self.pastor_a = self.User.objects.create_user(
+            username="min_pastor_a",
+            email="min_pastor_a@test.com",
+            password="testpass123",
+            role="PASTOR",
+            branch=self.branch_a,
+        )
+        self.hq_pastor = self.User.objects.create_user(
+            username="min_hq_pastor",
+            email="min_hq_pastor@test.com",
+            password="testpass123",
+            role="PASTOR",
+            branch=self.hq,
+        )
+        self.admin = self.User.objects.create_user(
+            username="min_admin",
+            email="min_admin@test.com",
+            password="testpass123",
+            role="ADMIN",
+            branch=self.hq,
+        )
+        self.coord_a = self.User.objects.create_user(
+            username="min_coord_a",
+            email="min_coord_a@test.com",
+            password="testpass123",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+        self.senior = self.User.objects.create_user(
+            username="min_senior",
+            email="min_senior@test.com",
+            password="testpass123",
+            role="MEMBER",
+            branch=self.branch_a,
+        )
+        ModuleCoordinator.objects.create(
+            person=self.coord_a,
+            module=ModuleCoordinator.ModuleType.MINISTRIES,
+            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+        )
+        ModuleCoordinator.objects.create(
+            person=self.senior,
+            module=ModuleCoordinator.ModuleType.MINISTRIES,
+            level=ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+        )
+
+        self.local_a = Ministry.objects.create(
+            name="Local A Worship",
+            code="LOC-A",
+            scope="BRANCH",
+            branch=self.branch_a,
+            primary_coordinator=self.coord_a,
+        )
+        self.local_b = Ministry.objects.create(
+            name="Local B Worship",
+            code="LOC-B",
+            scope="BRANCH",
+            branch=self.branch_b,
+        )
+        self.national = Ministry.objects.create(
+            name="National Youth",
+            code="NAT-YTH",
+            scope="NATIONAL",
+            branch=None,
+            primary_coordinator=self.coord_a,
+        )
+
+    def _names(self, response):
+        data = response.data
+        rows = data["results"] if isinstance(data, dict) and "results" in data else data
+        return [row["name"] for row in rows]
+
+    def test_member_sees_own_branch_and_national_not_other_branch(self):
+        self.client.force_authenticate(user=self.member_a)
+        response = self.client.get("/api/ministries/")
+        self.assertEqual(response.status_code, 200)
+        names = self._names(response)
+        self.assertIn("Local A Worship", names)
+        self.assertIn("National Youth", names)
+        self.assertNotIn("Local B Worship", names)
+
+    def test_branch_pastor_cannot_create_national(self):
+        self.client.force_authenticate(user=self.pastor_a)
+        response = self.client.post(
+            "/api/ministries/",
+            {
+                "name": "Should Fail National",
+                "activity_cadence": "weekly",
+                "scope": "NATIONAL",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        details = response.data.get("details") or response.data
+        self.assertIn("scope", details)
+
+    def test_hq_pastor_can_create_national(self):
+        self.client.force_authenticate(user=self.hq_pastor)
+        response = self.client.post(
+            "/api/ministries/",
+            {
+                "name": "HQ National Choir",
+                "activity_cadence": "weekly",
+                "scope": "NATIONAL",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["scope"], "NATIONAL")
+        self.assertIsNone(response.data["branch"])
+
+    def test_admin_can_create_national(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/ministries/",
+            {
+                "name": "Admin National",
+                "activity_cadence": "weekly",
+                "scope": "NATIONAL",
+                "branch": self.branch_a.pk,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["scope"], "NATIONAL")
+        self.assertIsNone(response.data["branch"])
+
+    def test_senior_can_create_national(self):
+        self.client.force_authenticate(user=self.senior)
+        response = self.client.post(
+            "/api/ministries/",
+            {
+                "name": "Senior National",
+                "activity_cadence": "weekly",
+                "scope": "NATIONAL",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["scope"], "NATIONAL")
+
+    def test_branch_pastor_creates_branch_ministry_for_own_branch(self):
+        self.client.force_authenticate(user=self.pastor_a)
+        response = self.client.post(
+            "/api/ministries/",
+            {
+                "name": "Pastor Local",
+                "activity_cadence": "weekly",
+                "scope": "BRANCH",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["scope"], "BRANCH")
+        self.assertEqual(response.data["branch"], self.branch_a.pk)
+
+    def test_coord_does_not_see_other_branch_local_even_if_primary(self):
+        self.local_b.primary_coordinator = self.coord_a
+        self.local_b.save(update_fields=["primary_coordinator"])
+        self.client.force_authenticate(user=self.coord_a)
+        response = self.client.get("/api/ministries/")
+        self.assertEqual(response.status_code, 200)
+        names = self._names(response)
+        self.assertIn("Local A Worship", names)
+        self.assertIn("National Youth", names)
+        self.assertNotIn("Local B Worship", names)
+
+    def test_national_create_forbids_keeping_branch(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/ministries/",
+            {
+                "name": "National Clears Branch",
+                "activity_cadence": "weekly",
+                "scope": "NATIONAL",
+                "branch": self.branch_a.pk,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertIsNone(response.data["branch"])
+

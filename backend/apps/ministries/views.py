@@ -10,12 +10,13 @@ from apps.people.models import ModuleCoordinator
 
 from .models import Ministry, MinistryMember
 from .serializers import MinistryMemberSerializer, MinistrySerializer
+from .utils import apply_ministry_branch_visibility
 
 
 class MinistryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
-        Ministry.objects.select_related("primary_coordinator")
+        Ministry.objects.select_related("primary_coordinator", "branch")
         .prefetch_related("support_coordinators", "memberships__member")
         .all()
     )
@@ -25,9 +26,10 @@ class MinistryViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter,
     )
-    filterset_fields = ("activity_cadence", "category", "is_active")
+    filterset_fields = ("activity_cadence", "category", "is_active", "scope", "branch")
     search_fields = (
         "name",
+        "code",
         "description",
         "primary_coordinator__first_name",
         "primary_coordinator__last_name",
@@ -39,11 +41,11 @@ class MinistryViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
 
-        # ADMIN/PASTOR: All ministries
-        if user.role in ["ADMIN", "PASTOR"]:
+        # Admin and HQ pastors: all ministries
+        if user.role == "ADMIN" or user.can_see_all_branches():
             return queryset
 
-        # Ministry Coordinator: Only ministries they're assigned to
+        # Ministry Coordinator: assigned / primary / support, then branch+national
         coordinator_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.MINISTRIES
         )
@@ -53,25 +55,25 @@ class MinistryViewSet(viewsets.ModelViewSet):
                 for assignment in coordinator_assignments
                 if assignment.resource_id
             ]
-            # Also check if user is primary_coordinator or in support_coordinators
             primary_coordinator_ministries = queryset.filter(primary_coordinator=user)
             support_coordinator_ministries = queryset.filter(support_coordinators=user)
             if ministry_ids:
                 assigned_ministries = queryset.filter(id__in=ministry_ids)
-                return (
+                scoped = (
                     primary_coordinator_ministries
                     | support_coordinator_ministries
                     | assigned_ministries
                 ).distinct()
-            return (
-                primary_coordinator_ministries | support_coordinator_ministries
-            ).distinct()
+            else:
+                scoped = (
+                    primary_coordinator_ministries | support_coordinator_ministries
+                ).distinct()
+            return apply_ministry_branch_visibility(scoped, user)
 
-        # MEMBER: Read-only, all ministries visible
-        if user.role == "MEMBER":
-            return queryset
+        # Member / branch pastor: own branch + national
+        if user.role in ("MEMBER", "PASTOR"):
+            return apply_ministry_branch_visibility(queryset, user)
 
-        # Default: empty queryset for safety
         return queryset.none()
 
     def get_permissions(self):
@@ -93,7 +95,7 @@ class MinistryViewSet(viewsets.ModelViewSet):
 class MinistryMemberViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
-        MinistryMember.objects.select_related("ministry", "member")
+        MinistryMember.objects.select_related("ministry", "ministry__branch", "member")
         .prefetch_related("ministry__support_coordinators")
         .all()
     )
@@ -107,6 +109,38 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
     search_fields = ("ministry__name", "member__first_name", "member__last_name")
     ordering_fields = ("join_date", "role")
     ordering = ("ministry__name", "member__first_name")
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = super().get_queryset()
+
+        if user.role == "ADMIN" or user.can_see_all_branches():
+            return queryset
+
+        ministry_qs = Ministry.objects.all()
+        coordinator_assignments = user.module_coordinator_assignments.filter(
+            module=ModuleCoordinator.ModuleType.MINISTRIES
+        )
+        if coordinator_assignments.exists():
+            ministry_ids = [
+                assignment.resource_id
+                for assignment in coordinator_assignments
+                if assignment.resource_id
+            ]
+            primary = ministry_qs.filter(primary_coordinator=user)
+            support = ministry_qs.filter(support_coordinators=user)
+            if ministry_ids:
+                assigned = ministry_qs.filter(id__in=ministry_ids)
+                scoped = (primary | support | assigned).distinct()
+            else:
+                scoped = (primary | support).distinct()
+            scoped = apply_ministry_branch_visibility(scoped, user)
+        elif user.role in ("MEMBER", "PASTOR"):
+            scoped = apply_ministry_branch_visibility(ministry_qs, user)
+        else:
+            return queryset.none()
+
+        return queryset.filter(ministry_id__in=scoped.values_list("pk", flat=True))
 
     def get_permissions(self):
         """

@@ -112,6 +112,7 @@ export default function Navbar() {
                     photo: user.photo,
                   }}
                   size="sm"
+                  enlargeable={false}
                 />
               ) : (
                 <UserCircleIcon className="h-8 w-8 text-muted-foreground" />

@@ -2,7 +2,38 @@
 Utility functions for the ministries app.
 """
 
-from .models import Ministry, MinistryMember, MinistryRole
+from django.db.models import Q
+
+from apps.people.models import ModuleCoordinator
+
+from .models import MinistryMember, MinistryRole, MinistryScope
+
+
+def user_can_set_national_ministry_scope(user) -> bool:
+    """Admin, HQ pastor (all-branch), or Senior Ministries coordinator."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) == "ADMIN":
+        return True
+    if hasattr(user, "can_see_all_branches") and user.can_see_all_branches():
+        return True
+    if hasattr(user, "is_senior_coordinator") and user.is_senior_coordinator(
+        ModuleCoordinator.ModuleType.MINISTRIES
+    ):
+        return True
+    return False
+
+
+def apply_ministry_branch_visibility(queryset, user):
+    """
+    Restrict to NATIONAL ministries plus the user's own branch.
+    Callers who may see all branches should skip this helper.
+    """
+    if getattr(user, "branch_id", None):
+        return queryset.filter(
+            Q(scope=MinistryScope.NATIONAL) | Q(branch_id=user.branch_id)
+        )
+    return queryset.filter(scope=MinistryScope.NATIONAL)
 
 
 def sync_coordinators_to_members(ministry):
@@ -58,9 +89,3 @@ def sync_coordinators_to_members(ministry):
                 # They were removed from coordinator positions, update to TEAM_MEMBER
                 membership.role = MinistryRole.TEAM_MEMBER
                 membership.save(update_fields=["role"])
-
-
-
-
-
-

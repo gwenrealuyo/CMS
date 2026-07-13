@@ -182,7 +182,11 @@ Coordinators and pastors should **mark records inactive** or update status inste
 
 **Ministries**
 
-- Ministry coordinators see ministries they are assigned to or listed on as primary/support coordinator.
+- Ministries are either **branch-scoped** (`scope=BRANCH` + branch required) or **national** (`scope=NATIONAL`, no branch).
+- **List visibility:** own-branch ministries plus all national ministries. Admins and HQ pastors see everything.
+- Ministry coordinators remain assignment-scoped (ModuleCoordinator / primary / support), then filtered so they never see another branch’s local ministries.
+- **Create/edit NATIONAL:** Admin, HQ Pastor (`can_see_all_branches`), or Senior Ministries coordinator only. Branch pastors and non-senior coordinators create branch ministries for their own branch.
+- Ministry coordinators see ministries they are assigned to or listed on as primary/support coordinator (within those branch/national rules).
 
 **Finance**
 

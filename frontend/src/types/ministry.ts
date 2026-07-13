@@ -20,6 +20,8 @@ export type MinistryRole =
   | "team_member"
   | "guest_helper";
 
+export type MinistryScope = "BRANCH" | "NATIONAL";
+
 export interface UserSummary {
   id: number;
   username: string;
@@ -46,8 +48,10 @@ export interface MinistryMember {
 export interface Ministry {
   id: number;
   name: string;
+  code?: string | null;
   description: string;
   category: MinistryCategory;
+  scope: MinistryScope;
   branch?: number | null;
   activity_cadence: MinistryCadence;
   primary_coordinator: UserSummary | null;
@@ -63,8 +67,11 @@ export interface Ministry {
 
 export interface MinistryCreateInput {
   name: string;
+  code?: string;
   description?: string;
   category?: MinistryCategory | "";
+  scope?: MinistryScope;
+  branch?: number | null;
   activity_cadence: MinistryCadence;
   primary_coordinator_id?: number | string | null;
   support_coordinator_ids?: Array<number | string>;

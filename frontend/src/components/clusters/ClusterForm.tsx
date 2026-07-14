@@ -57,6 +57,7 @@ export default function ClusterForm({
         "",
       familyIds: (initialData?.families || []).map((id) => id.toString()),
       memberIds: (initialData?.members || []).map((id) => id.toString()),
+      reporterIds: (initialData?.reporter_ids || []).map((id) => id.toString()),
       location: initialData?.location || "",
       meetingDay: parsedSchedule.dayKey,
       meetingTime: parsedSchedule.timeHHmm,
@@ -76,6 +77,9 @@ export default function ClusterForm({
   const [memberIds, setMemberIds] = useState<string[]>(
     getInitialFormData().memberIds,
   );
+  const [reporterIds, setReporterIds] = useState<string[]>(
+    getInitialFormData().reporterIds,
+  );
   const [location, setLocation] = useState(getInitialFormData().location);
   const [meetingDay, setMeetingDay] = useState<MeetingDayKey>(
     getInitialFormData().meetingDay,
@@ -91,6 +95,8 @@ export default function ClusterForm({
   );
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [reporterSearch, setReporterSearch] = useState("");
+  const [showReporterDropdown, setShowReporterDropdown] = useState(false);
   const [familySearch, setFamilySearch] = useState("");
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
   const initializedForClusterRef = useRef<number | null>(null);
@@ -123,6 +129,7 @@ export default function ClusterForm({
       setCoordinatorId(next.coordinatorId);
       setFamilyIds(next.familyIds);
       setMemberIds(next.memberIds);
+      setReporterIds(next.reporterIds);
       setLocation(next.location);
       setMeetingDay(next.meetingDay);
       setMeetingTime(next.meetingTime);
@@ -130,6 +137,8 @@ export default function ClusterForm({
       setBranchId(next.branchId);
       setMemberSearch("");
       setShowMemberDropdown(false);
+      setReporterSearch("");
+      setShowReporterDropdown(false);
       setFamilySearch("");
       setShowFamilyDropdown(false);
       return;
@@ -146,6 +155,7 @@ export default function ClusterForm({
     setCoordinatorId(next.coordinatorId);
     setFamilyIds(next.familyIds);
     setMemberIds(next.memberIds);
+    setReporterIds(next.reporterIds);
     setLocation(next.location);
     setMeetingDay(next.meetingDay);
     setMeetingTime(next.meetingTime);
@@ -153,6 +163,8 @@ export default function ClusterForm({
     setBranchId(next.branchId);
     setMemberSearch("");
     setShowMemberDropdown(false);
+    setReporterSearch("");
+    setShowReporterDropdown(false);
     setFamilySearch("");
     setShowFamilyDropdown(false);
   }, [initialData?.id, getInitialFormData]);
@@ -164,6 +176,15 @@ export default function ClusterForm({
     }
   }, [coordinatorId, memberIds]);
 
+  // Drop reporters who are no longer members or who became coordinator
+  useEffect(() => {
+    setReporterIds((prev) =>
+      prev.filter(
+        (id) => memberIds.includes(id) && id !== coordinatorId,
+      ),
+    );
+  }, [memberIds, coordinatorId]);
+
   const buildSubmitPayload = useCallback(
     (): Partial<Cluster> => ({
       code: code || undefined,
@@ -171,6 +192,9 @@ export default function ClusterForm({
       coordinator_id: coordinatorId ? Number(coordinatorId) : undefined,
       families: familyIds.map(Number),
       members: memberIds.map(Number),
+      reporter_ids: reporterIds
+        .filter((id) => id !== coordinatorId)
+        .map(Number),
       branch: branchId ? Number(branchId) : undefined,
       location: location || undefined,
       meeting_schedule: composeMeetingSchedule(meetingDay, meetingTime),
@@ -182,6 +206,7 @@ export default function ClusterForm({
       coordinatorId,
       familyIds,
       memberIds,
+      reporterIds,
       branchId,
       location,
       meetingDay,
@@ -229,6 +254,59 @@ export default function ClusterForm({
     const memberIdsSet = new Set(memberIds);
     return people.filter((p) => memberIdsSet.has(p.id.toString()));
   }, [people, memberIds]);
+
+  const reporterCandidateOptions = useMemo(() => {
+    const memberIdsSet = new Set(memberIds);
+    return people.filter(
+      (p) =>
+        memberIdsSet.has(p.id.toString()) &&
+        p.id.toString() !== coordinatorId,
+    );
+  }, [people, memberIds, coordinatorId]);
+
+  const filteredReporterCandidates = useMemo(() => {
+    if (!reporterSearch.trim()) return reporterCandidateOptions;
+    const searchLower = reporterSearch.toLowerCase();
+    return reporterCandidateOptions.filter(
+      (person) =>
+        formatPersonName(person).toLowerCase().includes(searchLower) ||
+        person.role.toLowerCase().includes(searchLower),
+    );
+  }, [reporterCandidateOptions, reporterSearch]);
+
+  const addReporter = (person: Person | PersonUI) => {
+    const id = person.id.toString();
+    if (id === coordinatorId) {
+      toast.error("The cluster coordinator cannot also be a reporter.");
+      return;
+    }
+    if (!memberIds.includes(id)) {
+      toast.error("Reporters must be cluster members.");
+      return;
+    }
+    if (!reporterIds.includes(id)) {
+      setReporterIds([...reporterIds, id]);
+    }
+    setReporterSearch("");
+    setShowReporterDropdown(false);
+  };
+
+  const removeReporter = (personId: string) => {
+    setReporterIds(reporterIds.filter((id) => id !== personId));
+  };
+
+  const getSelectedReporters = () => {
+    return people.filter((person) =>
+      reporterIds.includes(person.id.toString()),
+    );
+  };
+
+  const handleCoordinatorChange = (value: string) => {
+    setCoordinatorId(value);
+    if (value) {
+      setReporterIds((prev) => prev.filter((id) => id !== value));
+    }
+  };
 
   const filteredFamilies = useMemo(() => {
     if (!familySearch.trim()) return families;
@@ -414,7 +492,7 @@ export default function ClusterForm({
         <SearchableSelect
           options={coordinatorOptions as any}
           value={coordinatorId}
-          onChange={setCoordinatorId}
+          onChange={handleCoordinatorChange}
           placeholder={
             memberIds.length === 0
               ? "Add members first to select coordinator"
@@ -462,6 +540,135 @@ export default function ClusterForm({
             Selected members not found in system. Please refresh or re-add
             members.
           </p>
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Reporters ({reporterIds.length} selected)
+          {memberIds.length === 0 && (
+            <span className="ml-2 text-xs font-normal text-gray-500">
+              (Add members first)
+            </span>
+          )}
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Optional helpers who can submit weekly reports. Cannot be the same
+          person as the coordinator.
+        </p>
+        <div className="relative">
+          <input
+            type="text"
+            value={reporterSearch}
+            onChange={(e) => {
+              setReporterSearch(e.target.value);
+              setShowReporterDropdown(true);
+            }}
+            onFocus={() => setShowReporterDropdown(true)}
+            className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
+            placeholder={
+              memberIds.length === 0
+                ? "Add members first to select reporters"
+                : "Search members to add as reporters..."
+            }
+            disabled={memberIds.length === 0 || peopleLoading}
+          />
+          {showReporterDropdown &&
+            reporterSearch &&
+            !peopleLoading &&
+            memberIds.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {filteredReporterCandidates.length === 0 ? (
+                  <div className="px-3 py-2 text-gray-500 text-sm">
+                    No members found matching &ldquo;{reporterSearch}&rdquo;
+                  </div>
+                ) : (
+                  filteredReporterCandidates.map((person) => {
+                    const personIdStr = person.id.toString();
+                    const isSelected = reporterIds.includes(personIdStr);
+                    return (
+                      <button
+                        key={person.id}
+                        type="button"
+                        onClick={() => addReporter(person)}
+                        disabled={isSelected}
+                        className={`w-full px-3 py-2.5 md:py-2 text-left hover:bg-gray-50 flex items-center space-x-3 min-h-[44px] md:min-h-0 ${
+                          isSelected
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : "text-gray-900"
+                        }`}
+                      >
+                        <PersonAvatar person={person} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">
+                            {formatPersonName(person)}
+                          </p>
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
+                              person.role,
+                            )}`}
+                          >
+                            {person.role.toLowerCase()}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <span className="text-xs text-gray-400">Added</span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+        </div>
+        {reporterIds.length > 0 && (
+          <div className="mt-3">
+            <p className="text-sm font-medium text-gray-700 mb-2">
+              Selected Reporters:
+            </p>
+            <div
+              className={
+                panelLayout ? "flex flex-col gap-2" : "flex flex-wrap gap-2"
+              }
+            >
+              {getSelectedReporters().map((person) => (
+                <div
+                  key={person.id}
+                  className="flex items-center space-x-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+                >
+                  <PersonAvatar person={person} size="xs" />
+                  <span className="text-sm font-medium text-gray-900">
+                    {formatPersonName(person)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeReporter(person.id.toString())}
+                    className="text-gray-400 hover:text-red-500 ml-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                    aria-label="Remove reporter"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {showReporterDropdown && (
+          <div
+            className="fixed inset-0 z-0"
+            onClick={() => setShowReporterDropdown(false)}
+          />
         )}
       </div>
       <div>

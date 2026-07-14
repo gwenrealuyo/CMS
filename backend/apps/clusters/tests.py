@@ -2188,6 +2188,200 @@ class ClusterCoordinatorModuleSyncTests(TestCase):
         self.assertEqual(self._scoped_qs(cluster.id).count(), 0)
 
 
+class ClusterReporterAssignmentAPITests(TestCase):
+    """Writable reporter_ids on cluster create/update sync CLUSTER REPORTER rows."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = Person.objects.create_user(
+            username="reporter_admin",
+            email="reporter_admin@example.com",
+            password="password123",
+            role="ADMIN",
+        )
+        self.client.force_authenticate(user=self.admin)
+        self.branch = Branch.objects.create(name="Rep Form Branch", code="BR_RPF")
+        self.coordinator = Person.objects.create_user(
+            username="rep_form_coord",
+            email="rep_form_coord@example.com",
+            password="password123",
+            first_name="Coord",
+            last_name="Person",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.reporter_a = Person.objects.create_user(
+            username="rep_form_a",
+            email="rep_form_a@example.com",
+            password="password123",
+            first_name="Rep",
+            last_name="Alpha",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.reporter_b = Person.objects.create_user(
+            username="rep_form_b",
+            email="rep_form_b@example.com",
+            password="password123",
+            first_name="Rep",
+            last_name="Beta",
+            role="MEMBER",
+            branch=self.branch,
+        )
+
+    def _reporter_qs(self, cluster_id):
+        return ModuleCoordinator.objects.filter(
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            resource_id=cluster_id,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+        )
+
+    def test_create_cluster_with_reporters(self):
+        response = self.client.post(
+            "/api/clusters/clusters/",
+            {
+                "code": "CLU-REP-CREATE",
+                "name": "Reporter Create",
+                "coordinator_id": self.coordinator.id,
+                "families": [],
+                "members": [
+                    self.coordinator.id,
+                    self.reporter_a.id,
+                    self.reporter_b.id,
+                ],
+                "reporter_ids": [self.reporter_a.id, self.reporter_b.id],
+                "branch": self.branch.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        cluster = Cluster.objects.get(code="CLU-REP-CREATE")
+        self.assertCountEqual(
+            response.data["reporter_ids"],
+            [self.reporter_a.id, self.reporter_b.id],
+        )
+        self.assertEqual(self._reporter_qs(cluster.id).count(), 2)
+        self.assertTrue(
+            self._reporter_qs(cluster.id).filter(person=self.reporter_a).exists()
+        )
+        self.assertTrue(
+            self._reporter_qs(cluster.id).filter(person=self.reporter_b).exists()
+        )
+
+    def test_reject_coordinator_as_reporter(self):
+        response = self.client.post(
+            "/api/clusters/clusters/",
+            {
+                "code": "CLU-REP-OVERLAP",
+                "name": "Overlap",
+                "coordinator_id": self.coordinator.id,
+                "families": [],
+                "members": [self.coordinator.id, self.reporter_a.id],
+                "reporter_ids": [self.coordinator.id],
+                "branch": self.branch.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        details = response.data.get("details") or response.data
+        self.assertIn("reporter_ids", details)
+
+    def test_reject_reporter_not_in_members(self):
+        response = self.client.post(
+            "/api/clusters/clusters/",
+            {
+                "code": "CLU-REP-OUT",
+                "name": "Out",
+                "coordinator_id": self.coordinator.id,
+                "families": [],
+                "members": [self.coordinator.id],
+                "reporter_ids": [self.reporter_a.id],
+                "branch": self.branch.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        details = response.data.get("details") or response.data
+        self.assertIn("reporter_ids", details)
+
+    def test_update_replaces_reporters_and_empty_clears(self):
+        cluster = Cluster.objects.create(
+            code="CLU-REP-UPD",
+            name="Update Reporters",
+            coordinator=self.coordinator,
+            branch=self.branch,
+        )
+        cluster.members.set([self.coordinator, self.reporter_a, self.reporter_b])
+        ModuleCoordinator.objects.create(
+            person=self.reporter_a,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            resource_id=cluster.id,
+            resource_type="Cluster",
+        )
+
+        response = self.client.patch(
+            f"/api/clusters/clusters/{cluster.id}/",
+            {
+                "members": [
+                    self.coordinator.id,
+                    self.reporter_a.id,
+                    self.reporter_b.id,
+                ],
+                "reporter_ids": [self.reporter_b.id],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["reporter_ids"], [self.reporter_b.id])
+        self.assertFalse(
+            self._reporter_qs(cluster.id).filter(person=self.reporter_a).exists()
+        )
+        self.assertTrue(
+            self._reporter_qs(cluster.id).filter(person=self.reporter_b).exists()
+        )
+
+        clear_response = self.client.patch(
+            f"/api/clusters/clusters/{cluster.id}/",
+            {
+                "members": [
+                    self.coordinator.id,
+                    self.reporter_a.id,
+                    self.reporter_b.id,
+                ],
+                "reporter_ids": [],
+            },
+            format="json",
+        )
+        self.assertEqual(clear_response.status_code, 200, clear_response.data)
+        self.assertEqual(clear_response.data["reporter_ids"], [])
+        self.assertEqual(self._reporter_qs(cluster.id).count(), 0)
+
+    def test_omit_reporter_ids_leaves_assignments_unchanged(self):
+        cluster = Cluster.objects.create(
+            code="CLU-REP-OMIT",
+            name="Omit Reporters",
+            coordinator=self.coordinator,
+            branch=self.branch,
+        )
+        cluster.members.set([self.coordinator, self.reporter_a])
+        ModuleCoordinator.objects.create(
+            person=self.reporter_a,
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            resource_id=cluster.id,
+            resource_type="Cluster",
+        )
+        response = self.client.patch(
+            f"/api/clusters/clusters/{cluster.id}/",
+            {"name": "Omit Reporters Renamed"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["reporter_ids"], [self.reporter_a.id])
+        self.assertEqual(self._reporter_qs(cluster.id).count(), 1)
+
+
 class ClusterSoftDeleteTests(TestCase):
     @classmethod
     def setUpTestData(cls):

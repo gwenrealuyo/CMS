@@ -25,6 +25,10 @@ from apps.clusters.branch_membership import (
     prune_members_not_matching_cluster_branch,
     sync_member_branches_to_cluster,
 )
+from apps.clusters.coordinator_assignments import (
+    prune_cluster_reporter_assignments_to_members,
+    sync_cluster_reporter_assignments,
+)
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
 logger = logging.getLogger(__name__)
@@ -168,6 +172,91 @@ class ClusterSerializer(serializers.ModelSerializer):
                 resource_id=obj.id,
             ).values_list("person_id", flat=True)
         )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        # Writable reporter_ids via initial_data (field is SerializerMethodField / read-only).
+        if "reporter_ids" not in self.initial_data:
+            return attrs
+
+        raw = self.initial_data.get("reporter_ids")
+        if raw is None:
+            raw = []
+        if not isinstance(raw, list):
+            raise serializers.ValidationError(
+                {"reporter_ids": "Expected a list of person IDs."}
+            )
+
+        reporter_ids: list[int] = []
+        for item in raw:
+            try:
+                reporter_ids.append(int(item))
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(
+                    {"reporter_ids": "Each reporter ID must be an integer."}
+                )
+
+        if len(reporter_ids) != len(set(reporter_ids)):
+            raise serializers.ValidationError(
+                {"reporter_ids": "Duplicate reporter IDs are not allowed."}
+            )
+
+        coordinator = attrs.get("coordinator", serializers.empty)
+        if coordinator is serializers.empty:
+            coordinator_id = (
+                self.instance.coordinator_id if self.instance else None
+            )
+        else:
+            coordinator_id = coordinator.id if coordinator else None
+
+        if coordinator_id is not None and coordinator_id in reporter_ids:
+            raise serializers.ValidationError(
+                {
+                    "reporter_ids": (
+                        "The cluster coordinator cannot also be a reporter."
+                    )
+                }
+            )
+
+        members = attrs.get("members", serializers.empty)
+        if members is serializers.empty:
+            member_ids = (
+                set(self.instance.members.values_list("id", flat=True))
+                if self.instance
+                else set()
+            )
+        else:
+            member_ids = {m.id for m in members}
+
+        # Coordinator is always treated as a member after save.
+        if coordinator_id is not None:
+            member_ids.add(coordinator_id)
+
+        invalid = [rid for rid in reporter_ids if rid not in member_ids]
+        if invalid:
+            raise serializers.ValidationError(
+                {
+                    "reporter_ids": (
+                        "Reporters must be cluster members. "
+                        f"Invalid IDs: {invalid}"
+                    )
+                }
+            )
+
+        existing_ids = set(
+            Person.objects.filter(id__in=reporter_ids)
+            .exclude(role="ADMIN")
+            .values_list("id", flat=True)
+        )
+        missing = [rid for rid in reporter_ids if rid not in existing_ids]
+        if missing:
+            raise serializers.ValidationError(
+                {"reporter_ids": f"Unknown person IDs: {missing}"}
+            )
+
+        attrs["_reporter_ids"] = reporter_ids
+        return attrs
 
     def get_members_details(self, obj):
         """Privacy-safe roster for cluster browse (no email/phone/address/status)."""
@@ -315,6 +404,7 @@ class ClusterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         families = validated_data.pop("families", [])
         members = validated_data.pop("members", [])
+        reporter_ids = validated_data.pop("_reporter_ids", None)
 
         # Get request user for verified_by
         request = self.context.get("request")
@@ -351,11 +441,16 @@ class ClusterSerializer(serializers.ModelSerializer):
                 instance, final_member_ids, old_member_ids, verified_by
             )
 
+        if reporter_ids is not None:
+            sync_cluster_reporter_assignments(instance, reporter_ids)
+        prune_cluster_reporter_assignments_to_members(instance, final_member_ids)
+
         return instance
 
     def update(self, instance, validated_data):
         families = validated_data.pop("families", None)
         members = validated_data.pop("members", None)
+        reporter_ids = validated_data.pop("_reporter_ids", serializers.empty)
 
         # Get request user for verified_by
         request = self.context.get("request")
@@ -424,6 +519,10 @@ class ClusterSerializer(serializers.ModelSerializer):
                 verified_by,
                 previous_cluster_map,
             )
+
+        if reporter_ids is not serializers.empty:
+            sync_cluster_reporter_assignments(instance, reporter_ids)
+        prune_cluster_reporter_assignments_to_members(instance, new_member_ids)
 
         return instance
 

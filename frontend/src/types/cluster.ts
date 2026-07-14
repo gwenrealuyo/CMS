@@ -47,6 +47,8 @@ export interface ClusterInput {
   coordinator_id?: number | null;
   families?: number[];
   members?: number[];
+  /** Person IDs to assign as CLUSTER REPORTER for this cluster */
+  reporter_ids?: number[];
   branch?: number | null;
   location?: string;
   meeting_schedule?: string;

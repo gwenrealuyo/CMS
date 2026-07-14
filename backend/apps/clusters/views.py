@@ -98,8 +98,11 @@ class ClusterViewSet(viewsets.ModelViewSet):
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault("context", self.get_serializer_context())
         instance = args[0] if args else kwargs.get("instance")
+        # Bulk-load reporter IDs for reads only. Write serializers must query after
+        # save so to_representation reflects synced assignments.
         if (
             instance is not None
+            and kwargs.get("data") is None
             and "cluster_reporter_ids_map" not in kwargs["context"]
         ):
             if kwargs.get("many"):

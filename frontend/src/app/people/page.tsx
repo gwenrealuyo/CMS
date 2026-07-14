@@ -22,7 +22,12 @@ import { Cluster } from "@/src/types/cluster";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
-import { clustersApi, peopleApi, journeysApi, User } from "@/src/lib/api";
+import { clustersApi, peopleApi, journeysApi, eventTypesApi, eventsApi, User } from "@/src/lib/api";
+import {
+  formatPeopleImportApiError,
+  mapImportRowToPerson,
+  normalizeImportRow,
+} from "@/src/lib/peopleImport";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import {
@@ -317,6 +322,17 @@ export default function PeoplePage() {
     );
     return match?.name ?? null;
   }, [user?.branch, user?.branch_name, branches]);
+  const userBranchCode = useMemo(() => {
+    const match = branches.find(
+      (b) => user?.branch != null && Number(b.id) === Number(user.branch),
+    );
+    return match?.code?.trim() || null;
+  }, [user?.branch, branches]);
+  const userBranchId = useMemo(() => {
+    if (user?.branch == null || user.branch === undefined) return null;
+    const id = Number(user.branch);
+    return Number.isNaN(id) ? null : id;
+  }, [user?.branch]);
   const isClusterCoordinator = useMemo(
     () => isModuleCoordinator("CLUSTER"),
     [isModuleCoordinator],
@@ -1385,6 +1401,91 @@ export default function PeoplePage() {
     console.log(`Exporting ${people.length} people to ${format}`);
   };
 
+  const handleImportPeople = async (rows: Record<string, string>[]) => {
+    let eventTypes: { code: string; label: string }[] = [];
+    try {
+      const response = await eventTypesApi
+        .list()
+        .catch(() =>
+          eventsApi.listTypes().catch(() => ({
+            data: [] as { code: string; label: string }[],
+          }))
+        );
+      eventTypes = response.data ?? [];
+    } catch {
+      eventTypes = [];
+    }
+
+    const resolveActivityCode = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const byCode = eventTypes.find(
+        (t) => t.code.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (byCode) return byCode.code;
+      const byLabel = eventTypes.find(
+        (t) => t.label.toLowerCase() === trimmed.toLowerCase()
+      );
+      return byLabel?.code;
+    };
+
+    const defaultBranchId =
+      user?.branch != null ? Number(user.branch) : null;
+
+    let created = 0;
+    const failures: string[] = [];
+    const skipped: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowNumber = i + 2; // header is row 1
+      const normalized = normalizeImportRow(rows[i]);
+      const payload = mapImportRowToPerson(normalized, {
+        defaultBranchId,
+        resolveActivityCode,
+      });
+
+      if (!payload) {
+        skipped.push(`Row ${rowNumber}: missing first_name or last_name`);
+        continue;
+      }
+
+      if (payload.branch == null) {
+        failures.push(`Row ${rowNumber}: branch is required`);
+        continue;
+      }
+
+      try {
+        await peopleApi.create(payload);
+        created += 1;
+      } catch (error) {
+        const name = `${payload.first_name} ${payload.last_name}`.trim();
+        failures.push(
+          `Row ${rowNumber} (${name}): ${formatPeopleImportApiError(error)}`
+        );
+      }
+    }
+
+    await refreshPeople();
+
+    const parts = [`Imported ${created} of ${rows.length} people.`];
+    if (skipped.length) {
+      parts.push(
+        `Skipped ${skipped.length}:\n${skipped.slice(0, 8).join("\n")}`
+      );
+    }
+    if (failures.length) {
+      parts.push(
+        `Failed ${failures.length}:\n${failures.slice(0, 8).join("\n")}`
+      );
+    }
+
+    if (created === 0 && (failures.length > 0 || skipped.length > 0)) {
+      throw new Error(parts.join("\n\n"));
+    }
+
+    alert(parts.join("\n\n"));
+  };
+
   const handleApplyFilter = (filter: FilterCondition) => {
     setActiveFilters([...activeFilters, filter]);
   };
@@ -1833,6 +1934,9 @@ export default function PeoplePage() {
                   }
                   onBulkDelete={userCanHardDelete ? handleBulkDelete : undefined}
                   onBulkExport={handleBulkExport}
+                  onImport={handleImportPeople}
+                  defaultBranchId={userBranchId}
+                  defaultBranchCode={userBranchCode}
                 />
               )}
             </div>

@@ -3,12 +3,52 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Person } from "@/src/types/person";
+import {
+  PEOPLE_EXPORT_FIELDS,
+  type PeopleExportFormat,
+} from "@/src/lib/peopleImport";
+
+export { PEOPLE_EXPORT_FIELDS };
+export type { PeopleExportFormat };
+
+const FORMAT_BUTTONS: {
+  format: PeopleExportFormat;
+  label: string;
+  className: string;
+}[] = [
+  {
+    format: "excel",
+    label: "Export Excel",
+    className:
+      "rounded-lg bg-emerald-600 px-4 py-2 text-white shadow-sm hover:bg-emerald-700",
+  },
+  {
+    format: "pdf",
+    label: "Export PDF",
+    className:
+      "rounded-lg bg-rose-600 px-4 py-2 text-white shadow-sm hover:bg-rose-700",
+  },
+  {
+    format: "csv",
+    label: "Export CSV",
+    className:
+      "rounded-lg bg-sky-600 px-4 py-2 text-white shadow-sm hover:bg-sky-700",
+  },
+];
 
 interface ExportPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: Person[];
-  onExport: (format: "excel" | "pdf" | "csv", fields: string[]) => void;
+  onExport: (format: PeopleExportFormat, fields: string[]) => void;
+  /** When set (e.g. from Bulk Actions), only show that format's export button. */
+  lockedFormat?: PeopleExportFormat | null;
+}
+
+function getSelectedFields(): string[] {
+  return Array.from(
+    document.querySelectorAll<HTMLInputElement>("input[data-field]:checked")
+  ).map((el) => el.getAttribute("data-field") || "");
 }
 
 export default function ExportPreviewModal({
@@ -16,6 +56,7 @@ export default function ExportPreviewModal({
   onClose,
   data,
   onExport,
+  lockedFormat = null,
 }: ExportPreviewModalProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -28,28 +69,13 @@ export default function ExportPreviewModal({
 
   if (!isOpen) return null;
 
-  const ALL_FIELDS: { key: string; label: string }[] = [
-    { key: "first_name", label: "First Name" },
-    { key: "middle_name", label: "Middle Name" },
-    { key: "last_name", label: "Last Name" },
-    { key: "maiden_name", label: "Maiden Name" },
-    { key: "email", label: "Email" },
-    { key: "phone", label: "Phone" },
-    { key: "role", label: "Role" },
-    { key: "status", label: "Status" },
-    { key: "country", label: "Country" },
-    { key: "address", label: "Address" },
-    { key: "date_of_birth", label: "Birth Date" },
-    { key: "date_first_attended", label: "First Attended" },
-    { key: "first_activity_attended", label: "First Activity Attended" },
-    { key: "water_baptism_date", label: "Water Baptism" },
-    { key: "spirit_baptism_date", label: "Spirit Baptism" },
-    { key: "member_id", label: "LAMP ID" },
-  ];
-
   const defaultSelected = new Set(
-    ALL_FIELDS.map((f) => f.key).filter((k) => k !== "address")
+    PEOPLE_EXPORT_FIELDS.map((f) => f.key).filter((k) => k !== "address")
   );
+
+  const buttons = lockedFormat
+    ? FORMAT_BUTTONS.filter((b) => b.format === lockedFormat)
+    : FORMAT_BUTTONS;
 
   return createPortal(
     <div
@@ -92,7 +118,7 @@ export default function ExportPreviewModal({
               Select fields
             </h3>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
-              {ALL_FIELDS.map((f) => (
+              {PEOPLE_EXPORT_FIELDS.map((f) => (
                 <label key={f.key} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -123,53 +149,23 @@ export default function ExportPreviewModal({
               records
             </p>
           )}
+          {data.length > 0 && data.length <= 5 && (
+            <p className="mt-4 text-sm text-gray-500">
+              Exporting {data.length} record{data.length === 1 ? "" : "s"}
+            </p>
+          )}
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <button
-              onClick={() =>
-                onExport(
-                  "excel",
-                  Array.from(
-                    document.querySelectorAll<HTMLInputElement>(
-                      "input[data-field]:checked"
-                    )
-                  ).map((el) => el.getAttribute("data-field") || "")
-                )
-              }
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-white shadow-sm hover:bg-emerald-700"
-            >
-              Export Excel
-            </button>
-            <button
-              onClick={() =>
-                onExport(
-                  "pdf",
-                  Array.from(
-                    document.querySelectorAll<HTMLInputElement>(
-                      "input[data-field]:checked"
-                    )
-                  ).map((el) => el.getAttribute("data-field") || "")
-                )
-              }
-              className="rounded-lg bg-rose-600 px-4 py-2 text-white shadow-sm hover:bg-rose-700"
-            >
-              Export PDF
-            </button>
-            <button
-              onClick={() =>
-                onExport(
-                  "csv",
-                  Array.from(
-                    document.querySelectorAll<HTMLInputElement>(
-                      "input[data-field]:checked"
-                    )
-                  ).map((el) => el.getAttribute("data-field") || "")
-                )
-              }
-              className="rounded-lg bg-sky-600 px-4 py-2 text-white shadow-sm hover:bg-sky-700"
-            >
-              Export CSV
-            </button>
+            {buttons.map((button) => (
+              <button
+                key={button.format}
+                type="button"
+                onClick={() => onExport(button.format, getSelectedFields())}
+                className={button.className}
+              >
+                {button.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>

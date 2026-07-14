@@ -10,6 +10,11 @@ import BulkActionsMenu from "./BulkActionsMenu";
 import SelectedPeoplePreview from "./SelectedPeoplePreview";
 import { formatPersonStatusLabel } from "@/src/lib/personStatus";
 import {
+  PEOPLE_EXPORT_FIELDS,
+  formatExportDate,
+  type PeopleExportFormat,
+} from "@/src/lib/peopleImport";
+import {
   ChevronUpIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -22,6 +27,7 @@ import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 
 interface DataTableProps {
   people: Person[];
@@ -30,7 +36,10 @@ interface DataTableProps {
   onEdit?: (person: Person) => void;
   onDelete?: (person: Person) => void;
   onBulkDelete?: (people: Person[]) => void;
-  onBulkExport?: (people: Person[], format: "excel" | "pdf" | "csv") => void;
+  onBulkExport?: (people: Person[], format: PeopleExportFormat) => void;
+  onImport?: (rows: Record<string, string>[]) => Promise<void> | void;
+  defaultBranchId?: number | null;
+  defaultBranchCode?: string | null;
 }
 
 export default function DataTable({
@@ -41,6 +50,9 @@ export default function DataTable({
   onDelete,
   onBulkDelete,
   onBulkExport,
+  onImport,
+  defaultBranchId = null,
+  defaultBranchCode = null,
 }: DataTableProps) {
   const { getLabel: getEventTypeLabel } = useEventTypeOptions();
   type DisplayPerson = Person & {
@@ -73,6 +85,11 @@ export default function DataTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [exportLockedFormat, setExportLockedFormat] =
+    useState<PeopleExportFormat | null>(null);
+  const [exportModalPeople, setExportModalPeople] = useState<DisplayPerson[]>(
+    []
+  );
   const [showImportModal, setShowImportModal] = useState(false);
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
@@ -177,39 +194,83 @@ export default function DataTable({
     setSelectedPeople(new Set());
   };
 
-  const handleBulkExport = (format: "excel" | "pdf" | "csv") => {
-    const selectedPeopleObjects = getSelectedPeopleObjects();
-    if (onBulkExport) {
-      onBulkExport(selectedPeopleObjects, format);
-    } else {
-      // Fallback to local export
-      switch (format) {
-        case "excel":
-          exportToExcel(selectedPeopleObjects as DisplayPerson[]);
-          break;
-        case "pdf":
-          exportToPDF(selectedPeopleObjects as DisplayPerson[]);
-          break;
-        case "csv":
-          exportToCSV(selectedPeopleObjects as DisplayPerson[]);
-          break;
-      }
-    }
-    setSelectedPeople(new Set());
+  const openExportModal = (
+    people: DisplayPerson[],
+    lockedFormat: PeopleExportFormat | null = null
+  ) => {
+    setExportModalPeople(people);
+    setExportLockedFormat(lockedFormat);
+    setShowExportModal(true);
   };
 
-  const exportToExcel = (peopleToExport: any[] = displayPeople) => {
+  const closeExportModal = () => {
+    setShowExportModal(false);
+    setExportLockedFormat(null);
+    setExportModalPeople([]);
+  };
+
+  const handleBulkExport = (format: PeopleExportFormat) => {
+    openExportModal(getSelectedPeopleObjects() as DisplayPerson[], format);
+  };
+
+  const EXPORT_DATE_KEYS = new Set([
+    "date_of_birth",
+    "date_first_attended",
+    "water_baptism_date",
+    "spirit_baptism_date",
+  ]);
+
+  const resolveExportColumns = (fields?: string[]) => {
+    const wanted =
+      fields && fields.length > 0
+        ? fields
+        : PEOPLE_EXPORT_FIELDS.map((f) => f.key).filter((k) => k !== "address");
+    const byKey = new Map(PEOPLE_EXPORT_FIELDS.map((f) => [f.key, f]));
+    return wanted
+      .map((key) => byKey.get(key))
+      .filter((f): f is (typeof PEOPLE_EXPORT_FIELDS)[number] => Boolean(f));
+  };
+
+  const getExportCellValue = (person: any, key: string) => {
+    const raw =
+      person[key] ??
+      (key === "date_first_attended"
+        ? person.dateFirstAttended
+        : key === "water_baptism_date"
+          ? person.waterBaptismDate
+          : key === "spirit_baptism_date"
+            ? person.spiritBaptismDate
+            : key === "date_of_birth"
+              ? person.dateOfBirth
+              : undefined);
+
+    if (raw == null || raw === "") return "";
+    if (EXPORT_DATE_KEYS.has(key)) {
+      return formatExportDate(String(raw));
+    }
+    return String(raw);
+  };
+
+  const escapeCsvValue = (value: string) => {
+    if (/[",\n\r]/.test(value)) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  };
+
+  const exportToExcel = (
+    peopleToExport: any[] = displayPeople,
+    fields?: string[]
+  ) => {
+    const columns = resolveExportColumns(fields);
     const worksheet = XLSX.utils.json_to_sheet(
-      peopleToExport.map((person) => ({
-        Name: person.name,
-        Email: person.email,
-        Phone: person.phone,
-        Role: person.role,
-        Status: person.status,
-        "Join Date": person.dateFirstAttended
-          ? new Date(person.dateFirstAttended).toLocaleDateString()
-          : "",
-      }))
+      peopleToExport.map((person) => {
+        const row: Record<string, string> = {};
+        for (const col of columns) {
+          row[col.label] = getExportCellValue(person, col.key);
+        }
+        return row;
+      })
     );
 
     const workbook = XLSX.utils.book_new();
@@ -217,71 +278,82 @@ export default function DataTable({
     XLSX.writeFile(workbook, "people_data.xlsx");
   };
 
-  const exportToPDF = (peopleToExport: any[] = displayPeople) => {
-    const doc = new jsPDF();
-
-    const tableColumn = [
-      "Name",
-      "Email",
-      "Phone",
-      "Role",
-      "Status",
-      "Join Date",
-    ];
-    const tableRows = peopleToExport.map((person) => [
-      person.name,
-      person.email,
-      person.phone ?? "",
-      person.role,
-      person.status,
-      person.dateFirstAttended
-        ? new Date(person.dateFirstAttended).toLocaleDateString()
-        : "",
-    ]);
+  const exportToPDF = (
+    peopleToExport: any[] = displayPeople,
+    fields?: string[]
+  ) => {
+    const doc = new jsPDF({
+      orientation: "landscape",
+    });
+    const columns = resolveExportColumns(fields);
+    const tableColumn = columns.map((c) => c.label);
+    const tableRows = peopleToExport.map((person) =>
+      columns.map((c) => getExportCellValue(person, c.key))
+    );
 
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 20,
       theme: "grid",
-      styles: { fontSize: 8 },
+      styles: { fontSize: 7 },
     });
 
     doc.save("people_data.pdf");
   };
 
-  const exportToCSV = (peopleToExport: any[] = displayPeople) => {
+  const exportToCSV = (
+    peopleToExport: any[] = displayPeople,
+    fields?: string[]
+  ) => {
+    const columns = resolveExportColumns(fields);
+    const header = columns.map((c) => escapeCsvValue(c.label)).join(",");
     const csvContent = peopleToExport
       .map((person) =>
-        [
-          person.name,
-          person.email,
-          person.phone ?? "",
-          person.role,
-          person.status,
-          person.dateFirstAttended
-            ? new Date(person.dateFirstAttended).toLocaleDateString()
-            : "",
-        ].join(",")
+        columns
+          .map((c) => escapeCsvValue(getExportCellValue(person, c.key)))
+          .join(",")
       )
       .join("\n");
 
-    const blob = new Blob(
-      [`Name,Email,Phone,Role,Status,Join Date\n${csvContent}`],
-      {
-        type: "text/csv;charset=utf-8;",
-      }
-    );
+    const blob = new Blob([`${header}\n${csvContent}`], {
+      type: "text/csv;charset=utf-8;",
+    });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "people_data.csv";
     link.click();
   };
 
-  const handleExport = (format: "excel" | "pdf" | "csv", fields?: string[]) => {
-    setShowExportModal(false);
+  const handleExport = (
+    format: PeopleExportFormat,
+    fields?: string[]
+  ) => {
+    const wasBulkExport = exportLockedFormat != null;
+    closeExportModal();
+
     // Build a projection of current people using selected fields
     const selected = fields && fields.length > 0 ? fields : undefined;
+    const wanted = selected || [
+      "first_name",
+      "middle_name",
+      "last_name",
+      "maiden_name",
+      "email",
+      "phone",
+      "role",
+      "status",
+      "country",
+      "address",
+      "date_of_birth",
+      "date_first_attended",
+      "first_activity_attended",
+      "water_baptism_date",
+      "spirit_baptism_date",
+      "member_id",
+    ];
+    const sourcePeople =
+      exportModalPeople.length > 0 ? exportModalPeople : displayPeople;
     const project = (list: DisplayPerson[]) =>
       list.map((p) => {
         const row: Record<string, any> = {};
@@ -289,23 +361,6 @@ export default function DataTable({
         const add = (k: string, v: any) => {
           row[k] = v ?? "";
         };
-        const wanted = selected || [
-          "first_name",
-          "middle_name",
-          "last_name",
-          "email",
-          "phone",
-          "role",
-          "status",
-          "country",
-          "address",
-          "date_of_birth",
-          "date_first_attended",
-          "first_activity_attended",
-          "water_baptism_date",
-          "spirit_baptism_date",
-          "member_id",
-        ];
         for (const key of wanted) {
           switch (key) {
             case "date_first_attended":
@@ -331,16 +386,23 @@ export default function DataTable({
         return row;
       });
 
-    switch (format) {
+    const exportFormat = exportLockedFormat ?? format;
+    const rows = project(sourcePeople);
+    switch (exportFormat) {
       case "excel":
-        exportToExcel(project(displayPeople));
+        exportToExcel(rows, wanted);
         break;
       case "pdf":
-        exportToPDF(project(displayPeople));
+        exportToPDF(rows, wanted);
         break;
       case "csv":
-        exportToCSV(project(displayPeople));
+        exportToCSV(rows, wanted);
         break;
+    }
+
+    if (wasBulkExport) {
+      onBulkExport?.(sourcePeople, exportFormat);
+      setSelectedPeople(new Set());
     }
   };
 
@@ -694,6 +756,21 @@ export default function DataTable({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedPeople = sortedPeople.slice(startIndex, endIndex);
+  const hasSelection = selectedPeople.size > 0;
+  const selectionActionTooltip =
+    "Use the Bulk Actions button instead for selected people.";
+
+  const wrapWhenSelected = (button: React.ReactNode) =>
+    hasSelection ? (
+      <LockedControlTooltip
+        label={selectionActionTooltip}
+        wrapperClassName="inline-block cursor-default"
+      >
+        <span className="pointer-events-none inline-flex">{button}</span>
+      </LockedControlTooltip>
+    ) : (
+      button
+    );
 
   return (
     <div className="space-y-6">
@@ -768,33 +845,41 @@ export default function DataTable({
                   </svg>
                   Columns
                 </button>
-                <button
-                  onClick={() => setShowExportModal(true)}
-                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0"
-                >
-                  <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Export All</span>
-                  <span className="sm:hidden">Export</span>
-                </button>
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0"
-                >
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                {wrapWhenSelected(
+                  <button
+                    type="button"
+                    onClick={() => openExportModal(sortedPeople)}
+                    disabled={hasSelection}
+                    className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v16h16M12 4v12m0 0l-3-3m3 3l3-3"
-                    />
-                  </svg>
-                  Import
-                </button>
+                    <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Export All</span>
+                    <span className="sm:hidden">Export</span>
+                  </button>
+                )}
+                {wrapWhenSelected(
+                  <button
+                    type="button"
+                    onClick={() => setShowImportModal(true)}
+                    disabled={hasSelection || !onImport}
+                    className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v16h16M12 4v12m0 0l-3-3m3 3l3-3"
+                      />
+                    </svg>
+                    Import
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1458,18 +1543,23 @@ export default function DataTable({
       </div>
 
       <ExportPreviewModal
+        key={`${exportLockedFormat ?? "all"}-${exportModalPeople.length}`}
         isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        data={sortedPeople}
+        onClose={closeExportModal}
+        data={exportModalPeople}
+        lockedFormat={exportLockedFormat}
         onExport={handleExport}
       />
       <ImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
+        defaultBranchId={defaultBranchId}
+        defaultBranchCode={defaultBranchCode}
         onImport={async (rows) => {
-          // Minimal import passthrough: user can refine later
-          // Here we just log; integrating with createPerson API can be added
-          console.log("Import rows:", rows.length);
+          if (!onImport) {
+            throw new Error("Import is not configured.");
+          }
+          await onImport(rows);
         }}
       />
 

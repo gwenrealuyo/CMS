@@ -34,6 +34,7 @@ import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorMa
 import BranchForm from "@/src/components/admin/BranchForm";
 import ModuleSettingsManager from "@/src/components/admin/ModuleSettingsManager";
 import PeopleDuplicatesPanel from "@/src/components/admin/PeopleDuplicatesPanel";
+import AdminAccountsPanel from "@/src/components/admin/AdminAccountsPanel";
 import { TABLET_MIN } from "@/src/lib/breakpoints";
 
 type Tab =
@@ -44,7 +45,8 @@ type Tab =
   | "module-coordinators"
   | "module-controls"
   | "branches"
-  | "people-duplicates";
+  | "people-duplicates"
+  | "admin-accounts";
 
 export default function AdminSettingsPage() {
   return (
@@ -573,6 +575,16 @@ function AdminSettingsPageContent() {
               }`}
             >
               People Duplicates
+            </button>
+            <button
+              onClick={() => setActiveTab("admin-accounts")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm min-h-[44px] ${
+                activeTab === "admin-accounts"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Admin Accounts
             </button>
           </nav>
         </div>
@@ -2137,6 +2149,9 @@ function AdminSettingsPageContent() {
 
             {/* People Duplicates Tab */}
             {activeTab === "people-duplicates" && <PeopleDuplicatesPanel />}
+
+            {/* Admin Accounts Tab */}
+            {activeTab === "admin-accounts" && <AdminAccountsPanel />}
 
             {/* Branches Tab */}
             {activeTab === "branches" && (

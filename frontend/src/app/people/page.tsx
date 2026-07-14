@@ -1920,7 +1920,20 @@ export default function PeoplePage() {
                       : null
                   }
                   onView={(p) => openPersonInteraction("view", p)}
-                  onEdit={(p) => openPersonInteraction("edit", p)}
+                  onEdit={(p) => {
+                    if (
+                      plainMember &&
+                      !!user?.id &&
+                      String(p.id) !== String(user.id)
+                    ) {
+                      return;
+                    }
+                    openPersonInteraction("edit", p);
+                  }}
+                  canEditPerson={(p) =>
+                    !plainMember ||
+                    (!!user?.id && String(p.id) === String(user.id))
+                  }
                   onDelete={
                     isAdmin
                       ? (p) => {

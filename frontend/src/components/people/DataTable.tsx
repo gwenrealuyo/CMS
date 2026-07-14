@@ -34,6 +34,8 @@ interface DataTableProps {
   highlightedPersonId?: string | null;
   onView?: (person: Person) => void;
   onEdit?: (person: Person) => void;
+  /** When set, Edit is shown only for people this returns true for. Defaults to all when onEdit is set. */
+  canEditPerson?: (person: Person) => boolean;
   onDelete?: (person: Person) => void;
   onBulkDelete?: (people: Person[]) => void;
   onBulkExport?: (people: Person[], format: PeopleExportFormat) => void;
@@ -47,6 +49,7 @@ export default function DataTable({
   highlightedPersonId = null,
   onView,
   onEdit,
+  canEditPerson,
   onDelete,
   onBulkDelete,
   onBulkExport,
@@ -650,7 +653,10 @@ export default function DataTable({
                     View
                   </button>
                 )}
-                {onEdit && (
+                {onEdit &&
+                  (canEditPerson
+                    ? canEditPerson(person as Person)
+                    : true) && (
                   <button
                     type="button"
                     title={

@@ -524,6 +524,25 @@ class PersonSerializer(serializers.ModelSerializer):
         if attrs.get("first_activity_attended") == "":
             attrs["first_activity_attended"] = None
 
+        today = timezone.localdate()
+        person_date_fields = (
+            "date_of_birth",
+            "date_first_invited",
+            "date_first_attended",
+            "water_baptism_date",
+            "spirit_baptism_date",
+            "lessons_finished_at",
+        )
+        future_date_errors = {}
+        for field_name in person_date_fields:
+            if field_name not in attrs:
+                continue
+            value = attrs.get(field_name)
+            if value is not None and value > today:
+                future_date_errors[field_name] = "Cannot be in the future."
+        if future_date_errors:
+            raise serializers.ValidationError(future_date_errors)
+
         apply_title_case_name_fields(attrs, PERSON_NAME_FIELDS)
         return attrs
 

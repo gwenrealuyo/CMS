@@ -8,6 +8,15 @@ import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import { EventTypeOption } from "@/src/types/event";
 
+/** Local calendar date as YYYY-MM-DD (avoids UTC off-by-one from toISOString). */
+const getLocalTodayDateString = (): string => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
 interface AddVisitorModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,6 +32,7 @@ export default function AddVisitorModal({
   defaultDateFirstAttended,
   defaultFirstActivityAttended,
 }: AddVisitorModalProps) {
+  const todayDateMax = getLocalTodayDateString();
   const [formData, setFormData] = useState({
     first_name: "",
     middle_name: "",
@@ -31,7 +41,7 @@ export default function AddVisitorModal({
     facebook_name: "",
     inviter: "",
     date_first_attended:
-      defaultDateFirstAttended || new Date().toISOString().split("T")[0],
+      defaultDateFirstAttended || todayDateMax,
     first_activity_attended: defaultFirstActivityAttended || "",
     gender: "" as "MALE" | "FEMALE" | "",
     note: "",
@@ -60,7 +70,7 @@ export default function AddVisitorModal({
     setFormData((prev) => ({
       ...prev,
       date_first_attended:
-        defaultDateFirstAttended || new Date().toISOString().split("T")[0],
+        defaultDateFirstAttended || getLocalTodayDateString(),
       first_activity_attended: defaultActivity,
     }));
   }, [
@@ -120,6 +130,14 @@ export default function AddVisitorModal({
       return;
     }
 
+    if (
+      formData.date_first_attended &&
+      formData.date_first_attended > todayDateMax
+    ) {
+      setError("Date First Attended cannot be in the future.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -144,7 +162,7 @@ export default function AddVisitorModal({
         facebook_name: "",
         inviter: "",
         date_first_attended:
-          defaultDateFirstAttended || new Date().toISOString().split("T")[0],
+          defaultDateFirstAttended || todayDateMax,
         first_activity_attended: defaultActivityValue,
         gender: "",
         note: "",
@@ -167,7 +185,7 @@ export default function AddVisitorModal({
         facebook_name: "",
         inviter: "",
         date_first_attended:
-          defaultDateFirstAttended || new Date().toISOString().split("T")[0],
+          defaultDateFirstAttended || todayDateMax,
         first_activity_attended: defaultActivityValue,
         gender: "",
         note: "",
@@ -350,6 +368,7 @@ export default function AddVisitorModal({
                   date_first_attended: e.target.value,
                 })
               }
+              max={todayDateMax}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               required
             />

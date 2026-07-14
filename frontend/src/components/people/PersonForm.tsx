@@ -69,6 +69,24 @@ interface PersonFormProps {
 const normalizeIdList = (ids?: (string | number)[] | null): string[] =>
   (ids || []).map((id) => String(id));
 
+/** Local calendar date as YYYY-MM-DD (avoids UTC off-by-one from toISOString). */
+const getLocalTodayDateString = (): string => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const PERSON_DATE_FIELDS: { key: keyof Person; label: string }[] = [
+  { key: "date_of_birth", label: "Date of Birth" },
+  { key: "date_first_invited", label: "Date First Invited" },
+  { key: "date_first_attended", label: "Date First Attended" },
+  { key: "water_baptism_date", label: "Water Baptism Date" },
+  { key: "spirit_baptism_date", label: "Spirit Baptism Date" },
+  { key: "lessons_finished_at", label: "Lessons Finished Date" },
+];
+
 function EntityBranchChip({
   branchId,
   branches,
@@ -108,6 +126,7 @@ export default function PersonForm({
   const plainMember = isPlainMember();
   const isAdmin = user?.role === "ADMIN";
   const isCreating = !initialData?.id;
+  const todayDateMax = getLocalTodayDateString();
 
   const [autoGeneratePassword, setAutoGeneratePassword] = useState(true);
   const [manualPassword, setManualPassword] = useState("");
@@ -848,6 +867,14 @@ export default function PersonForm({
       return;
     }
 
+    for (const { key, label } of PERSON_DATE_FIELDS) {
+      const value = formData[key];
+      if (typeof value === "string" && value && value > todayDateMax) {
+        toast.error(`${label} cannot be in the future.`);
+        return;
+      }
+    }
+
     if (showLoginAccess && !autoGeneratePassword) {
       if (!manualPassword) {
         toast.error("Please enter a temporary password.");
@@ -1398,6 +1425,7 @@ export default function PersonForm({
                       name="date_of_birth"
                       value={formData.date_of_birth || ""}
                       onChange={handleChange}
+                      max={todayDateMax}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
@@ -1410,6 +1438,7 @@ export default function PersonForm({
                       name="date_first_invited"
                       value={(formData as any).date_first_invited || ""}
                       onChange={handleChange}
+                      max={todayDateMax}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
@@ -1422,6 +1451,7 @@ export default function PersonForm({
                       name="date_first_attended"
                       value={formData.date_first_attended || ""}
                       onChange={handleChange}
+                      max={todayDateMax}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
@@ -1434,6 +1464,7 @@ export default function PersonForm({
                       name="water_baptism_date"
                       value={(formData as any).water_baptism_date || ""}
                       onChange={handleChange}
+                      max={todayDateMax}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
@@ -1446,6 +1477,7 @@ export default function PersonForm({
                       name="spirit_baptism_date"
                       value={(formData as any).spirit_baptism_date || ""}
                       onChange={handleChange}
+                      max={todayDateMax}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                   </div>
@@ -1458,6 +1490,7 @@ export default function PersonForm({
                       name="lessons_finished_at"
                       value={(formData as any).lessons_finished_at || ""}
                       onChange={handleChange}
+                      max={todayDateMax}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
                     {formData.has_finished_lessons &&

@@ -398,8 +398,8 @@ export default function ClusterView({
                 : "bg-gradient-to-r from-lighthouse-ivory to-muted border-primary/20"
             }`}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-              <div className="flex flex-row items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex flex-row items-start justify-between gap-3 mb-3">
+              <div className="flex flex-row items-center gap-2 sm:gap-3 min-w-0 flex-1">
                 <h2
                   className={`${
                     isPanelMode
@@ -421,10 +421,10 @@ export default function ClusterView({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 sm:gap-3 text-gray-700 flex-wrap">
+              <div className="flex flex-col items-start gap-1 text-gray-700 flex-shrink-0">
                 <div className="flex items-center gap-1">
                   <svg
-                    className="w-4 h-4"
+                    className="w-4 h-4 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -442,7 +442,7 @@ export default function ClusterView({
                 </div>
                 <div className="flex items-center gap-1">
                   <svg
-                    className="w-4 h-4"
+                    className="w-4 h-4 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

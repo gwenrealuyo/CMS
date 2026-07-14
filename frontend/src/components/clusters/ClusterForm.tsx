@@ -378,7 +378,7 @@ export default function ClusterForm({
       >
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Code
+            Code *
           </label>
           <input
             type="text"
@@ -386,6 +386,7 @@ export default function ClusterForm({
             onChange={(e) => setCode(e.target.value)}
             className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             placeholder="CLU-001"
+            required
           />
         </div>
         <div>

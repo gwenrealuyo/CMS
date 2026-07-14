@@ -42,6 +42,8 @@ interface DataTableProps {
   onImport?: (rows: Record<string, string>[]) => Promise<void> | void;
   defaultBranchId?: number | null;
   defaultBranchCode?: string | null;
+  /** Shrinks the double-click hint when the people side panel is open. */
+  sidePanelOpen?: boolean;
 }
 
 export default function DataTable({
@@ -56,6 +58,7 @@ export default function DataTable({
   onImport,
   defaultBranchId = null,
   defaultBranchCode = null,
+  sidePanelOpen = false,
 }: DataTableProps) {
   const { getLabel: getEventTypeLabel } = useEventTypeOptions();
   type DisplayPerson = Person & {
@@ -788,10 +791,9 @@ export default function DataTable({
       {/* Table Header with Actions */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-          <div className="flex flex-col tablet:flex-row tablet:items-center tablet:justify-between gap-0 tablet:gap-4">
-            {/* Selected People */}
-            <div className="flex items-center justify-end tablet:justify-start space-x-4 mb-2 tablet:mb-0">
-              {selectedPeople.size > 0 && (
+          <div className="flex flex-col tablet:flex-row tablet:items-center tablet:justify-between gap-2 tablet:gap-3">
+            <div className="min-w-0 flex-1 flex items-center justify-end tablet:justify-start">
+              {selectedPeople.size > 0 ? (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">
                     {selectedPeople.size} selected
@@ -802,9 +804,18 @@ export default function DataTable({
                     selectedCount={selectedPeople.size}
                   />
                 </div>
+              ) : (
+                <p
+                  className={`hidden tablet:block leading-snug text-gray-500 truncate pr-2 ${
+                    sidePanelOpen ? "text-[10px]" : "text-xs"
+                  }`}
+                  title="Double-click a row to open a profile"
+                >
+                  Double-click a row to open a profile
+                </p>
               )}
             </div>
-            <div className="flex items-center space-x-2 flex-wrap gap-2">
+            <div className="flex items-center gap-2 justify-end shrink-0">
               {/* Mobile View Toggle - Only visible on mobile */}
               <div className="tablet:hidden flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
@@ -831,13 +842,13 @@ export default function DataTable({
                 </button>
               </div>
 
-              <div className="flex items-center flex-wrap gap-2 md:gap-4 !ml-0 md:ml-2">
+              <div className="flex items-center flex-nowrap gap-1.5 sm:gap-2">
                 <button
                   onClick={() => setShowColumnsModal(true)}
-                  className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0"
+                  className="inline-flex items-center px-2.5 sm:px-3 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 whitespace-nowrap"
                 >
                   <svg
-                    className="w-4 h-4 mr-2"
+                    className="w-4 h-4 mr-1.5 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -856,11 +867,10 @@ export default function DataTable({
                     type="button"
                     onClick={() => openExportModal(sortedPeople)}
                     disabled={hasSelection}
-                    className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-2.5 sm:px-3 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
-                    <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Export All</span>
-                    <span className="sm:hidden">Export</span>
+                    <DocumentArrowDownIcon className="w-4 h-4 mr-1.5 shrink-0" />
+                    Export All
                   </button>
                 )}
                 {wrapWhenSelected(
@@ -868,10 +878,10 @@ export default function DataTable({
                     type="button"
                     onClick={() => setShowImportModal(true)}
                     disabled={hasSelection || !onImport}
-                    className="inline-flex items-center px-3 md:px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-2.5 sm:px-3 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     <svg
-                      className="w-4 h-4 mr-2"
+                      className="w-4 h-4 mr-1.5 shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1042,6 +1052,18 @@ export default function DataTable({
                 {paginatedPeople.map((person) => (
                   <tr
                     key={person.id}
+                    title="Double-click to open profile"
+                    onDoubleClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (
+                        target.closest(
+                          'button, a, input, label, [role="menu"]',
+                        )
+                      ) {
+                        return;
+                      }
+                      onView?.(person as Person);
+                    }}
                     className={`transition-colors ${
                       highlightedPersonId === person.id
                         ? "bg-primary/10 hover:bg-primary/15"
@@ -1290,6 +1312,18 @@ export default function DataTable({
               {paginatedPeople.map((person) => (
                 <tr
                   key={person.id}
+                  title="Double-click to open profile"
+                  onDoubleClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (
+                      target.closest(
+                        'button, a, input, label, [role="menu"]',
+                      )
+                    ) {
+                      return;
+                    }
+                    onView?.(person as Person);
+                  }}
                   className={`transition-colors ${
                     highlightedPersonId === person.id
                       ? "bg-primary/10 hover:bg-primary/15"

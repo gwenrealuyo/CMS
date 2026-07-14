@@ -1950,6 +1950,7 @@ export default function PeoplePage() {
                   onImport={handleImportPeople}
                   defaultBranchId={userBranchId}
                   defaultBranchCode={userBranchCode}
+                  sidePanelOpen={personPanelOpen}
                 />
               )}
             </div>

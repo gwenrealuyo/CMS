@@ -108,7 +108,7 @@ function MePageContent() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-4 px-2 sm:px-0">
+      <div className="max-w-4xl mx-auto space-y-3 px-3 sm:px-4 md:px-0 pb-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <h1 className="text-2xl font-bold text-foreground">My record</h1>
           <Link
@@ -120,8 +120,9 @@ function MePageContent() {
         </div>
         {isMember && (
           <p className="text-sm text-gray-600">
-            To update your name, email, or photo, use Account settings. Other
-            details may be updated by church staff.
+            You can edit your profile here. Account login details (password) are
+            under Account settings. Role, status, branch, and membership are
+            managed by church staff.
           </p>
         )}
         {loading && (
@@ -146,8 +147,7 @@ function MePageContent() {
               clusters={clusters}
               families={families}
               hideDeleteButton
-              hideEditButton={isMember}
-              showTopHeader
+              showTopHeader={false}
               onViewFamily={() => router.push("/people/families")}
               onViewCluster={() => router.push("/clusters")}
               onNoFamilyClick={
@@ -170,7 +170,7 @@ function MePageContent() {
           </div>
         )}
         {!loading && !error && person && viewMode === "edit" && (
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-4 sm:px-6 md:px-8 pt-2 sm:pt-3 pb-4 sm:pb-6 md:pb-8">
             <PersonForm
               initialData={person}
               isEditingFromProfile

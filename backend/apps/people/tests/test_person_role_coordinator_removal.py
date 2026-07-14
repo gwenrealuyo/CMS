@@ -110,7 +110,42 @@ class PersonRoleCoordinatorRemovalTests(TestCase):
             {"phone": "+63-900-111-1111"},
             format="json",
         )
-        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        # Out of Member people scope → 404; privileged permission would be 403.
+        self.assertIn(
+            res.status_code,
+            (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND),
+        )
+
+    def test_plain_member_can_update_own_profile(self):
+        self.client.force_authenticate(user=self.plain_member)
+        res = self.client.patch(
+            f"/api/people/people/{self.plain_member.id}/",
+            {"phone": "+63-900-222-2222", "address": "123 Own Street"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.plain_member.refresh_from_db()
+        self.assertEqual(self.plain_member.phone, "+63-900-222-2222")
+        self.assertEqual(self.plain_member.address, "123 Own Street")
+
+    def test_plain_member_self_update_ignores_role_and_status(self):
+        self.client.force_authenticate(user=self.plain_member)
+        original_role = self.plain_member.role
+        original_status = self.plain_member.status
+        res = self.client.patch(
+            f"/api/people/people/{self.plain_member.id}/",
+            {
+                "phone": "+63-900-333-3333",
+                "role": "PASTOR",
+                "status": "INACTIVE",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.plain_member.refresh_from_db()
+        self.assertEqual(self.plain_member.phone, "+63-900-333-3333")
+        self.assertEqual(self.plain_member.role, original_role)
+        self.assertEqual(self.plain_member.status, original_status)
 
     def test_member_with_assignment_cannot_delete_person(self):
         self.client.force_authenticate(user=self.coordinator)

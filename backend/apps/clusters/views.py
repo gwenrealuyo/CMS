@@ -70,7 +70,12 @@ class ClusterViewSet(viewsets.ModelViewSet):
         branch_param = self.request.query_params.get(
             "branch_id"
         ) or self.request.query_params.get("branch")
-        return apply_cluster_branch_scope(queryset, user, branch_param)
+        queryset = apply_cluster_branch_scope(queryset, user, branch_param)
+        return queryset.select_related("coordinator").prefetch_related(
+            "members",
+            "families",
+            "families__members",
+        )
     
     def get_permissions(self):
         """

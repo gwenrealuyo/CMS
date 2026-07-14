@@ -21,6 +21,7 @@ from apps.authentication.permissions import (
     IsSeniorCoordinator,
     HasModuleAccess,
     IsAdmin,
+    IsSelf,
 )
 
 
@@ -272,15 +273,21 @@ class PersonViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve"]:
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        elif self.action in ["create", "update", "partial_update"]:
-            # Write: ADMIN, PASTOR, or anyone with a ModuleCoordinator assignment
-            if self.action == "create" and self.request.user.role == "MEMBER":
+        elif self.action == "create":
+            # Create: ADMIN, PASTOR, module coordinator; or MEMBER creating a visitor
+            if self.request.user.role == "MEMBER":
                 requested_role = (self.request.data or {}).get("role")
                 if requested_role == "VISITOR":
                     return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
             return [
                 IsAuthenticatedAndNotVisitor(),
                 (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment)(),
+            ]
+        elif self.action in ["update", "partial_update"]:
+            # Update: privileged writers, or the person updating themselves
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment | IsSelf)(),
             ]
         elif self.action == "destroy":
             # Delete: Only ADMIN

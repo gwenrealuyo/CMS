@@ -257,6 +257,8 @@ Serializers (`apps.clusters.serializers`) expose:
   - `coordinator_id` – write-only field for setting coordinator
   - `families` – list of family IDs (when families are assigned, all family members are automatically added to members)
   - `members` – list of person IDs (automatically includes all family members when families are assigned)
+  - `members_details` – read-only privacy-safe roster (`id`, `first_name`, `last_name`, `role`, `photo`); includes visitors (role distinguishes them). No email/phone/address/status. Used so Members can see names on every branch cluster without expanding People list access.
+  - `families_details` – read-only privacy-safe family roster (`id`, `name`, `member_count`); no address or nested member PII.
   - **Automatic Member Addition**: The serializer's `create()` and `update()` methods automatically add all members from assigned families to the cluster's members list. Users can manually remove individual members if needed.
 - `ClusterWeeklyReportSerializer`:
   - `cluster_name` – read-only cluster name
@@ -273,7 +275,7 @@ Serializers (`apps.clusters.serializers`) expose:
 
 Backend helpers in `apps.clusters.permissions`:
 
-- `filter_clusters_for_read` — **Reporters**: assigned cluster(s) only. **Coordinators**: branch-wide cluster cards (read-only for non-managed).
+- `filter_clusters_for_read` — **Reporters**: assigned cluster(s) only. **Coordinators / Members**: branch-wide cluster cards (Members read-only; roster via `members_details` / `families_details`).
 - `managed_cluster_ids_for_reports` — weekly report list/retrieve/analytics/`distinct_years`/`overdue` for coordinators **and reporters**.
 - Object-level mutations still use `ClusterCoordinatorScopedPermission` / `ClusterWeeklyReportScopedPermission`.
 - **Cluster Reporter** can submit weekly reports and nested `new_prospects` / `prospects_attended` for assigned clusters, but **cannot** create Prospects via `/api/evangelism/prospects/` unless they also have EVANGELISM write.

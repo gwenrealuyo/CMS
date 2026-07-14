@@ -1470,6 +1470,11 @@ export default function PeoplePage() {
             families={families}
             showTopHeader={!isPanel}
             hideDeleteButton={!userCanHardDelete}
+            hideEditButton={
+              plainMember &&
+              !!user?.id &&
+              String(viewEditPerson.id) !== String(user.id)
+            }
             onViewFamily={(f) => {
               setFamilyOverCluster(f);
               setShowFamilyOverCluster(true);
@@ -2581,6 +2586,11 @@ export default function PeoplePage() {
             clusters={clusters}
             families={families}
             hideDeleteButton={!userCanHardDelete}
+            hideEditButton={
+              plainMember &&
+              !!user?.id &&
+              String(personOverCluster.id) !== String(user.id)
+            }
             onViewFamily={(f) => {
               setFamilyOverCluster(f);
               setShowFamilyOverCluster(true);

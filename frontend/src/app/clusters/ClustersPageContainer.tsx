@@ -21,6 +21,7 @@ import {
   clustersForReportSubmission,
   canAccessClusterReports,
 } from "@/src/lib/clusterPermissions";
+import { countClusterMembersFromDetails } from "@/src/lib/clusterRoster";
 
 type PanelEntity = "cluster" | "person" | "family";
 type PanelMode = "view" | "edit" | "create";
@@ -540,16 +541,8 @@ export default function ClustersPageContainer() {
           bValue = b.members?.length || 0;
           break;
         case "visitor_count":
-          const aVisitors = (a.members || []).filter((memberId: number) => {
-            const person = peopleUI.find((p) => p.id === memberId.toString());
-            return person?.role === "VISITOR";
-          }).length;
-          const bVisitors = (b.members || []).filter((memberId: number) => {
-            const person = peopleUI.find((p) => p.id === memberId.toString());
-            return person?.role === "VISITOR";
-          }).length;
-          aValue = aVisitors;
-          bValue = bVisitors;
+          aValue = countClusterMembersFromDetails(a, peopleUI).visitorCount;
+          bValue = countClusterMembersFromDetails(b, peopleUI).visitorCount;
           break;
         case "family_count":
           aValue = a.families?.length || 0;
@@ -802,13 +795,14 @@ export default function ClustersPageContainer() {
       );
       const coordinatorName = coordinator
         ? `${coordinator.first_name} ${coordinator.last_name}`
-        : "N/A";
+        : cluster.coordinator
+          ? `${cluster.coordinator.first_name} ${cluster.coordinator.last_name}`
+          : "N/A";
 
-      const members = peopleUI.filter((person) =>
-        (cluster as any).members?.includes(Number(person.id))
+      const { memberCount, visitorCount } = countClusterMembersFromDetails(
+        cluster,
+        peopleUI
       );
-      const memberCount = members.filter((m) => m.role === "MEMBER").length;
-      const visitorCount = members.filter((m) => m.role === "VISITOR").length;
 
       return {
         Code: cluster.code || "",

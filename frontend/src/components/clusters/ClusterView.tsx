@@ -13,6 +13,10 @@ import {
 } from "@/src/lib/branchChipColor";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import type {
+  ClusterRosterFamily,
+  ClusterRosterPerson,
+} from "@/src/lib/clusterRoster";
 
 type SortField =
   | "first_name"
@@ -65,8 +69,8 @@ function DeleteClusterButton({
 
 interface ClusterViewProps {
   cluster: Cluster;
-  clusterMembers: Person[];
-  clusterFamilies: Family[];
+  clusterMembers: ClusterRosterPerson[];
+  clusterFamilies: ClusterRosterFamily[];
   coordinator?: Person;
   onEdit: () => void;
   onDelete: () => void;
@@ -133,14 +137,28 @@ export default function ClusterView({
     ? branches.find((b) => b.id === cluster.branch)
     : null;
 
+  const displayCoordinator = useMemo((): Person | undefined => {
+    if (coordinator) return coordinator;
+    if (!cluster.coordinator) return undefined;
+    return {
+      id: String(cluster.coordinator.id),
+      username: cluster.coordinator.username || "",
+      email: "",
+      first_name: cluster.coordinator.first_name || "",
+      last_name: cluster.coordinator.last_name || "",
+      role: "MEMBER",
+      status: "ACTIVE",
+    };
+  }, [coordinator, cluster.coordinator]);
+
   // Calculate member and visitor counts
   // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, PASTOR, etc.)
   // Visitors: role is "VISITOR"
   // ADMIN is excluded from both counts
 
   // Check if coordinator is already in clusterMembers to avoid double counting
-  const coordinatorInMembers = coordinator
-    ? clusterMembers.some((m) => m.id === coordinator.id)
+  const coordinatorInMembers = displayCoordinator
+    ? clusterMembers.some((m) => m.id === displayCoordinator.id)
     : false;
 
   // Calculate members: all people who are not ADMIN or VISITOR
@@ -151,10 +169,10 @@ export default function ClusterView({
   // Add coordinator to member count only if not already in clusterMembers and is not ADMIN/VISITOR
   const memberCount =
     memberCountFromCluster +
-    (coordinator &&
+    (displayCoordinator &&
     !coordinatorInMembers &&
-    coordinator.role !== "ADMIN" &&
-    coordinator.role !== "VISITOR"
+    displayCoordinator.role !== "ADMIN" &&
+    displayCoordinator.role !== "VISITOR"
       ? 1
       : 0);
 
@@ -166,7 +184,9 @@ export default function ClusterView({
   // Add coordinator to visitor count only if not already in clusterMembers and is VISITOR
   const visitorCount =
     visitorCountFromCluster +
-    (coordinator && !coordinatorInMembers && coordinator.role === "VISITOR"
+    (displayCoordinator &&
+    !coordinatorInMembers &&
+    displayCoordinator.role === "VISITOR"
       ? 1
       : 0);
 
@@ -182,10 +202,16 @@ export default function ClusterView({
 
     const combined = [...clusterMembers];
     if (
-      coordinator &&
-      !combined.some((member) => member.id === coordinator.id)
+      displayCoordinator &&
+      !combined.some((member) => member.id === displayCoordinator.id)
     ) {
-      combined.push(coordinator);
+      combined.push({
+        ...displayCoordinator,
+        canOpenProfile: coordinator
+          ? (coordinator as Person & { can_view_profile?: boolean })
+              .can_view_profile !== false
+          : false,
+      });
     }
 
     return combined.sort((a, b) => {
@@ -230,7 +256,7 @@ export default function ClusterView({
       if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
-  }, [clusterMembers, coordinator, sortBy, sortOrder]);
+  }, [clusterMembers, coordinator, displayCoordinator, sortBy, sortOrder]);
 
   const handleSortSelect = (field: SortField) => {
     if (sortBy === field) {
@@ -262,15 +288,19 @@ export default function ClusterView({
       ? "grid gap-2 grid-cols-1 sm:grid-cols-2"
       : "grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
 
-  const renderPersonCard = (member: Person) => {
+  const renderPersonCard = (member: ClusterRosterPerson) => {
+    const canOpen = Boolean(member.canOpenProfile && onViewPerson);
+    const cardClass = canOpen
+      ? "cursor-pointer hover:bg-gray-50"
+      : "cursor-default";
     if (isPanelMode) {
       const memberName = formatFullName(member);
       const isLongWrappedName = memberName.length > 20;
       return (
         <div
           key={member.id}
-          className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
-          onClick={() => onViewPerson && onViewPerson(member)}
+          className={`flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md ${cardClass}`}
+          onClick={() => canOpen && onViewPerson?.(member)}
         >
           <PersonAvatar person={member} size="sm" />
           <div className="flex-1 min-w-0">
@@ -295,15 +325,17 @@ export default function ClusterView({
     return (
       <div
         key={member.id}
-        className="p-2.5 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50 flex items-center space-x-2"
-        onClick={() => onViewPerson && onViewPerson(member)}
+        className={`p-2.5 bg-white border border-gray-200 rounded-md flex items-center space-x-2 ${cardClass}`}
+        onClick={() => canOpen && onViewPerson?.(member)}
       >
         <PersonAvatar person={member} size="sm" />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900 truncate text-sm">
             {formatFullName(member)}
           </p>
-          <p className="text-xs text-gray-600 truncate">{member.email}</p>
+          {canOpen && member.email ? (
+            <p className="text-xs text-gray-600 truncate">{member.email}</p>
+          ) : null}
         </div>
         <span
           className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
@@ -503,7 +535,7 @@ export default function ClusterView({
                   </span>
                 )}
               </div>
-              {coordinator && (
+              {displayCoordinator && (
                 <div className="flex items-center gap-1">
                   <svg
                     className="w-4 h-4"
@@ -519,7 +551,7 @@ export default function ClusterView({
                     />
                   </svg>
                   <span className="font-normal break-words">
-                    {formatFullName(coordinator)}
+                    {formatFullName(displayCoordinator)}
                   </span>
                 </div>
               )}
@@ -752,25 +784,38 @@ export default function ClusterView({
                     : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
                 }`}
               >
-                {clusterFamilies.map((family) => (
-                  <div
-                    key={family.id}
-                    className="p-2 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
-                    onClick={() => onViewFamily && onViewFamily(family)}
-                  >
-                    <h4 className="font-medium text-gray-900 text-sm">
-                      {family.name}
-                    </h4>
-                    <p className="text-xs text-gray-600">
-                      {family.members.length} members
-                    </p>
-                    {family.address && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {family.address}
+                {clusterFamilies.map((family) => {
+                  const canOpenFamily = Boolean(
+                    family.canOpenProfile && onViewFamily
+                  );
+                  const memberLabelCount =
+                    family.member_count ?? family.members?.length ?? 0;
+                  return (
+                    <div
+                      key={family.id}
+                      className={`p-2 bg-white border border-gray-200 rounded-md ${
+                        canOpenFamily
+                          ? "cursor-pointer hover:bg-gray-50"
+                          : "cursor-default"
+                      }`}
+                      onClick={() =>
+                        canOpenFamily && onViewFamily?.(family)
+                      }
+                    >
+                      <h4 className="font-medium text-gray-900 text-sm">
+                        {family.name}
+                      </h4>
+                      <p className="text-xs text-gray-600">
+                        {memberLabelCount} members
                       </p>
-                    )}
-                  </div>
-                ))}
+                      {canOpenFamily && family.address && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {family.address}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -778,7 +823,7 @@ export default function ClusterView({
           {/* Empty States */}
           {clusterMembers.length === 0 &&
             clusterFamilies.length === 0 &&
-            !coordinator && (
+            !displayCoordinator && (
               <div className="text-center py-8">
                 <svg
                   className="mx-auto h-12 w-12 text-gray-400"

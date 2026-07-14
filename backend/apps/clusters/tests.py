@@ -1855,6 +1855,29 @@ class MemberClusterBrowseAPITests(TestCase):
             role="MEMBER",
             branch=self.branch,
         )
+        self.peer = Person.objects.create_user(
+            username="peer_browse",
+            email="peer_browse@example.com",
+            password="password123",
+            first_name="Peer",
+            last_name="Neighbor",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.visitor = Person.objects.create_user(
+            username="visitor_browse",
+            email="visitor_browse@example.com",
+            password="password123",
+            first_name="Visit",
+            last_name="Or",
+            role="VISITOR",
+            branch=self.branch,
+        )
+        self.out_family = Family.objects.create(
+            name="Out Family",
+            branch=self.branch,
+        )
+        self.out_family.members.add(self.peer)
         self.cluster_in = Cluster.objects.create(
             code="CLU-IN",
             name="In Cluster",
@@ -1868,6 +1891,8 @@ class MemberClusterBrowseAPITests(TestCase):
             coordinator=self.coordinator,
             branch=self.branch,
         )
+        self.cluster_out.members.add(self.peer, self.visitor)
+        self.cluster_out.families.add(self.out_family)
         self.cluster_other_branch = Cluster.objects.create(
             code="CLU-OTHER-BR",
             name="Other Branch Cluster",
@@ -1882,6 +1907,39 @@ class MemberClusterBrowseAPITests(TestCase):
         self.assertEqual(len(response.data), 2)
         codes = {row["code"] for row in response.data}
         self.assertEqual(codes, {"CLU-IN", "CLU-OUT"})
+
+    def test_member_sees_roster_details_on_other_branch_cluster(self):
+        """Members get privacy-safe names for every branch cluster, not only their own."""
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get(f"/api/clusters/clusters/{self.cluster_out.id}/")
+        self.assertEqual(response.status_code, 200)
+
+        members_details = response.data["members_details"]
+        member_ids = {row["id"] for row in members_details}
+        self.assertIn(self.peer.id, member_ids)
+        self.assertIn(self.visitor.id, member_ids)
+        peer_row = next(r for r in members_details if r["id"] == self.peer.id)
+        self.assertEqual(peer_row["first_name"], "Peer")
+        self.assertEqual(peer_row["last_name"], "Neighbor")
+        self.assertEqual(peer_row["role"], "MEMBER")
+        self.assertNotIn("email", peer_row)
+        self.assertNotIn("phone", peer_row)
+        self.assertNotIn("status", peer_row)
+        visitor_row = next(r for r in members_details if r["id"] == self.visitor.id)
+        self.assertEqual(visitor_row["role"], "VISITOR")
+
+        families_details = response.data["families_details"]
+        self.assertEqual(len(families_details), 1)
+        self.assertEqual(families_details[0]["id"], self.out_family.id)
+        self.assertEqual(families_details[0]["name"], "Out Family")
+        self.assertEqual(families_details[0]["member_count"], 1)
+        self.assertNotIn("address", families_details[0])
+        self.assertNotIn("members", families_details[0])
+
+    def test_member_cannot_retrieve_fellow_cluster_member_profile(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get(f"/api/people/people/{self.peer.id}/")
+        self.assertEqual(response.status_code, 404)
 
     def test_member_cannot_list_weekly_reports(self):
         today = date.today()

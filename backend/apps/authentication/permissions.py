@@ -104,6 +104,20 @@ class HasAnyModuleCoordinatorAssignment(permissions.BasePermission):
         )
 
 
+class IsSelf(permissions.BasePermission):
+    """
+    Object-level: the Person being mutated is the requesting user.
+    has_permission is True so DRF can reach has_object_permission;
+    only use this OR'd with privileged write permissions on update actions.
+    """
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        return getattr(obj, "pk", None) == getattr(request.user, "pk", None)
+
+
 class IsMemberOrAbove(permissions.BasePermission):
     """
     Allows access to MEMBER, PASTOR, or ADMIN roles.

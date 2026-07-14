@@ -10,6 +10,7 @@ import {
   getClusterCodeBadgeStyle,
   getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
+import { countClusterMembersFromDetails } from "@/src/lib/clusterRoster";
 
 interface ClusterCardProps {
   cluster: Cluster;
@@ -47,7 +48,6 @@ const ClusterCard = memo(
       return branches.find((b) => b.id === branchId) || null;
     }, [branches, cluster.branch]);
 
-    // Memoize expensive calculations
     const coordinator = React.useMemo(
       () =>
         peopleUI.find((person) => 
@@ -57,41 +57,10 @@ const ClusterCard = memo(
       [peopleUI, cluster]
     );
 
-    const clusterMembers = React.useMemo(
-      () =>
-        peopleUI.filter((person) =>
-          (cluster as any).members?.includes(Number(person.id))
-        ),
-      [peopleUI, cluster]
+    const { memberCount, visitorCount } = React.useMemo(
+      () => countClusterMembersFromDetails(cluster, peopleUI),
+      [cluster, peopleUI]
     );
-
-    // Calculate member and visitor counts
-    // Members: role is NOT "ADMIN" and NOT "VISITOR" (includes MEMBER, PASTOR, etc.)
-    // Visitors: role is "VISITOR"
-    // ADMIN is excluded from both counts
-    
-    // Check if coordinator is already in clusterMembers to avoid double counting
-    const coordinatorInMembers = coordinator 
-      ? clusterMembers.some(m => m.id === coordinator.id)
-      : false;
-    
-    const memberCount = React.useMemo(() => {
-      const members = clusterMembers.filter(
-        (member) => member.role !== "ADMIN" && member.role !== "VISITOR"
-      );
-      // Add coordinator to member count only if not already in clusterMembers and is not ADMIN/VISITOR
-      const coordinatorCount = coordinator && !coordinatorInMembers && coordinator.role !== "ADMIN" && coordinator.role !== "VISITOR" ? 1 : 0;
-      return members.length + coordinatorCount;
-    }, [clusterMembers, coordinator, coordinatorInMembers]);
-
-    const visitorCount = React.useMemo(() => {
-      const visitors = clusterMembers.filter(
-        (member) => member.role === "VISITOR"
-      );
-      // Add coordinator to visitor count only if not already in clusterMembers and is VISITOR
-      const coordinatorCount = coordinator && !coordinatorInMembers && coordinator.role === "VISITOR" ? 1 : 0;
-      return visitors.length + coordinatorCount;
-    }, [clusterMembers, coordinator, coordinatorInMembers]);
 
     const coordinatorName = React.useMemo(() => {
       if (coordinator) {

@@ -426,14 +426,33 @@ class PersonSerializer(serializers.ModelSerializer):
             and not user_has_people_write_coordinator_assignment(request.user)
         )
 
+        # Plain members editing themselves may not change staff-controlled fields.
+        if (
+            is_plain_member
+            and instance
+            and request
+            and instance.pk == request.user.pk
+        ):
+            for field in (
+                "role",
+                "status",
+                "branch",
+                "families",
+                "clusters",
+                "member_id",
+                "username",
+                "inviter",
+            ):
+                attrs.pop(field, None)
+
         # Member-created visitors get branch from inviter in create(); inviter must have a branch
-        if is_plain_member:
+        if is_plain_member and not instance:
             role = attrs.get("role")
             if role != "VISITOR":
                 raise serializers.ValidationError(
                     {"role": "Members can only create visitors."}
                 )
-            if not instance and not request.user.branch:
+            if not request.user.branch:
                 raise serializers.ValidationError(
                     {
                         "branch": (

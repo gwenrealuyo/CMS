@@ -52,6 +52,11 @@ import {
   clustersForReportSubmission,
   isClusterReporterOnly,
 } from "@/src/lib/clusterPermissions";
+import {
+  countClusterMembersFromDetails,
+  resolveClusterRosterFamilies,
+  resolveClusterRosterPeople,
+} from "@/src/lib/clusterRoster";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { useBranches } from "@/src/hooks/useBranches";
 import {
@@ -533,11 +538,13 @@ export default function ClustersPageView({
       return (
         <ClusterView
           cluster={currentViewCluster as any}
-          clusterMembers={peopleUI.filter((p) =>
-            (currentViewCluster.members || []).includes(Number(p.id))
+          clusterMembers={resolveClusterRosterPeople(
+            currentViewCluster as Cluster,
+            peopleUI
           )}
-          clusterFamilies={families.filter((f) =>
-            (currentViewCluster.families || []).includes(Number(f.id))
+          clusterFamilies={resolveClusterRosterFamilies(
+            currentViewCluster as Cluster,
+            families
           )}
           coordinator={peopleUI.find(
             (p) => p.id === currentViewCluster.coordinator?.id?.toString()
@@ -1346,31 +1353,8 @@ export default function ClustersPageView({
                               person.id === c.coordinator?.id?.toString() ||
                               person.id === (c as any).coordinator_id?.toString()
                           );
-                          const clusterMembers = peopleUI.filter((person) =>
-                            (c.members || []).includes(Number(person.id))
-                          );
-                          const coordinatorInMembers = coordinator
-                            ? clusterMembers.some((member) => member.id === coordinator.id)
-                            : false;
-                          const memberCount =
-                            clusterMembers.filter(
-                              (member) =>
-                                member.role !== "ADMIN" && member.role !== "VISITOR"
-                            ).length +
-                            (coordinator &&
-                            !coordinatorInMembers &&
-                            coordinator.role !== "ADMIN" &&
-                            coordinator.role !== "VISITOR"
-                              ? 1
-                              : 0);
-                          const visitorCount =
-                            clusterMembers.filter((member) => member.role === "VISITOR")
-                              .length +
-                            (coordinator &&
-                            !coordinatorInMembers &&
-                            coordinator.role === "VISITOR"
-                              ? 1
-                              : 0);
+                          const { memberCount, visitorCount } =
+                            countClusterMembersFromDetails(c, peopleUI);
                           const clusterBranch =
                             c.branch != null ?
                               branchById.get(Number(c.branch)) ?? null
@@ -1700,11 +1684,13 @@ export default function ClustersPageView({
           >
             <ClusterView
               cluster={clusterOverPerson as any}
-              clusterMembers={peopleUI.filter((p) =>
-                (clusterOverPerson.members || []).includes(Number(p.id))
+              clusterMembers={resolveClusterRosterPeople(
+                clusterOverPerson as Cluster,
+                peopleUI
               )}
-              clusterFamilies={families.filter((f) =>
-                (clusterOverPerson.families || []).includes(Number(f.id))
+              clusterFamilies={resolveClusterRosterFamilies(
+                clusterOverPerson as Cluster,
+                families
               )}
               coordinator={peopleUI.find(
                 (p) => p.id === clusterOverPerson.coordinator?.id?.toString()

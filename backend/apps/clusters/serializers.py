@@ -68,6 +68,8 @@ class ClusterSerializer(serializers.ModelSerializer):
     members = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Person.objects.exclude(role="ADMIN")
     )
+    members_details = serializers.SerializerMethodField()
+    families_details = serializers.SerializerMethodField()
 
     class Meta:
         model = Cluster
@@ -79,6 +81,8 @@ class ClusterSerializer(serializers.ModelSerializer):
             "coordinator_id",
             "families",
             "members",
+            "members_details",
+            "families_details",
             "branch",
             "location",
             "meeting_schedule",
@@ -86,7 +90,19 @@ class ClusterSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["created_at"]
+        read_only_fields = ["created_at", "members_details", "families_details"]
+
+    def _person_photo_url(self, person):
+        if not getattr(person, "photo", None):
+            return None
+        try:
+            url = person.photo.url
+        except ValueError:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
     def get_coordinator(self, obj):
         if obj.coordinator:
@@ -97,6 +113,30 @@ class ClusterSerializer(serializers.ModelSerializer):
                 "username": obj.coordinator.username,
             }
         return None
+
+    def get_members_details(self, obj):
+        """Privacy-safe roster for cluster browse (no email/phone/address/status)."""
+        return [
+            {
+                "id": person.id,
+                "first_name": person.first_name,
+                "last_name": person.last_name,
+                "role": person.role,
+                "photo": self._person_photo_url(person),
+            }
+            for person in obj.members.exclude(role="ADMIN")
+        ]
+
+    def get_families_details(self, obj):
+        """Privacy-safe family roster (name + count only; no address/member PII)."""
+        return [
+            {
+                "id": family.id,
+                "name": family.name,
+                "member_count": len(family.members.all()),
+            }
+            for family in obj.families.all()
+        ]
 
     def _get_cluster_display_name(self, cluster):
         """Get cluster code, name, or fallback identifier"""

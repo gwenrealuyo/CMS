@@ -1,5 +1,21 @@
 export type GatheringType = "PHYSICAL" | "ONLINE" | "HYBRID";
 
+/** Privacy-safe person summary on cluster browse payloads. */
+export interface ClusterMemberDetail {
+  id: number;
+  first_name: string;
+  last_name: string;
+  role: string;
+  photo?: string | null;
+}
+
+/** Privacy-safe family summary on cluster browse payloads. */
+export interface ClusterFamilyDetail {
+  id: number;
+  name: string;
+  member_count: number;
+}
+
 export interface Cluster {
   id: number;
   code: string | null;
@@ -13,6 +29,8 @@ export interface Cluster {
   coordinator_id?: number | null;
   families: number[];
   members: number[];
+  members_details?: ClusterMemberDetail[];
+  families_details?: ClusterFamilyDetail[];
   branch?: number | null;
   location: string;
   meeting_schedule: string;

@@ -131,6 +131,13 @@ export default function PersonForm({
   const plainMember = isPlainMember();
   const isAdmin = user?.role === "ADMIN";
   const isCreating = !initialData?.id;
+  const editingSelf = Boolean(
+    initialData?.id &&
+      user?.id != null &&
+      String(initialData.id) === String(user.id)
+  );
+  /** Plain member editing their own record: profile fields yes; staff fields locked. */
+  const selfEditLocked = plainMember && editingSelf;
   const todayDateMax = getLocalTodayDateString();
 
   const [autoGeneratePassword, setAutoGeneratePassword] = useState(true);
@@ -193,6 +200,9 @@ export default function PersonForm({
 
   const creatableRoles = useMemo(() => {
     if (plainMember) {
+      if (editingSelf && initialData?.role) {
+        return [initialData.role];
+      }
       return formData.water_baptism_date ? ["MEMBER"] : ["VISITOR"];
     }
     const roles = getCreatableRoles(user, false);
@@ -206,6 +216,7 @@ export default function PersonForm({
     return roles;
   }, [
     plainMember,
+    editingSelf,
     user,
     initialData?.role,
     isCreating,
@@ -214,6 +225,7 @@ export default function PersonForm({
 
   const roleSelectDisabled =
     plainMember || (initialData?.role === "ADMIN" && !isAdmin);
+  const statusSelectDisabled = selfEditLocked;
 
   const showLoginAccess =
     isAdmin && isCreating && formData.role !== "VISITOR";
@@ -948,11 +960,11 @@ export default function PersonForm({
       <form
         onSubmit={handleSubmit}
         className={`text-sm max-w-3xl ${
-          panelLayout ? "p-4 sm:p-5 space-y-6 mt-0" : "space-y-6 -mt-2 md:-mt-4"
+          panelLayout ? "p-4 sm:p-5 space-y-6 mt-0" : "space-y-4"
         }`}
       >
         {/* Tabs */}
-        <div className="flex border-b mb-4">
+        <div className="flex border-b border-gray-200 mb-0">
           <button
             type="button"
             className={`px-4 py-2 font-medium ${
@@ -984,12 +996,12 @@ export default function PersonForm({
           <div
             className={`space-y-6 ${panelLayout ? "pr-0" : "pr-1"}`}
           >
-            <div>
+            <div className="pt-2">
               <div className="p-0">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
                   Personal Details
                 </h3>
-                <p className="text-xs text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 mb-5">
                   Basic identity information.
                 </p>
                 <div className="space-y-4">
@@ -1075,6 +1087,9 @@ export default function PersonForm({
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Gender
@@ -1095,12 +1110,12 @@ export default function PersonForm({
               </div>
             </div>
 
-            <div>
+            <div className="pt-2">
               <div className="p-0">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
                   Contact
                 </h3>
-                <p className="text-xs text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 mb-5">
                   How we can reach them.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
@@ -1207,9 +1222,14 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Membership and system roles.
                 </p>
-                {plainMember && (
+                {plainMember && !editingSelf && (
                   <p className="text-xs text-primary mb-4">
                     Members can only add visitors. The role is fixed to Visitor.
+                  </p>
+                )}
+                {selfEditLocked && (
+                  <p className="text-xs text-gray-500 mb-4">
+                    Role, status, and branch are managed by church staff.
                   </p>
                 )}
                 {!plainMember && !isAdmin && hasAnyModuleCoordinatorAssignment() && (
@@ -1244,7 +1264,12 @@ export default function PersonForm({
                       name="status"
                       value={formData.status}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                      disabled={statusSelectDisabled}
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                        statusSelectDisabled
+                          ? "bg-gray-100 cursor-not-allowed"
+                          : ""
+                      }`}
                     >
                       {statusOptions.map((status) => (
                         <option key={status} value={status}>
@@ -1613,9 +1638,14 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Link inviter, family, and cluster membership.
                 </p>
-                {plainMember && (
+                {plainMember && !editingSelf && (
                   <p className="text-xs text-primary mb-4">
                     Inviter defaults to you. Coordinators can edit this later.
+                  </p>
+                )}
+                {selfEditLocked && (
+                  <p className="text-xs text-gray-500 mb-4">
+                    Family and cluster membership are managed by church staff.
                   </p>
                 )}
                 <div className="space-y-4">
@@ -1631,6 +1661,7 @@ export default function PersonForm({
                         );
                         setHasUnsavedChanges(true);
                       }}
+                      disabled={selfEditLocked}
                       options={peopleOptions
                         .filter(
                           (p) => p.role !== "ADMIN" && p.username !== "admin",
@@ -1660,10 +1691,15 @@ export default function PersonForm({
                           setShowFamilyDropdown(true);
                         }}
                         onFocus={() => setShowFamilyDropdown(true)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        disabled={selfEditLocked}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          selfEditLocked
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
                         placeholder="Search families by name..."
                       />
-                      {showFamilyDropdown && familySearch && (
+                      {showFamilyDropdown && familySearch && !selfEditLocked && (
                         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                           {familyOptions
                             .filter((f) =>
@@ -1749,34 +1785,36 @@ export default function PersonForm({
                                   branches={branches}
                                 />
                               )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    family_ids: (prev.family_ids || []).filter(
-                                      (fid) => fid !== id,
-                                    ),
-                                  }));
-                                  setHasUnsavedChanges(true);
-                                }}
-                                className="text-gray-400 hover:text-red-500 ml-1"
-                                aria-label={`Remove ${family?.name || id}`}
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                              {!selfEditLocked && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      family_ids: (prev.family_ids || []).filter(
+                                        (fid) => fid !== id,
+                                      ),
+                                    }));
+                                    setHasUnsavedChanges(true);
+                                  }}
+                                  className="text-gray-400 hover:text-red-500 ml-1"
+                                  aria-label={`Remove ${family?.name || id}`}
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M6 18L18 6M6 6l12 12"
-                                  />
-                                </svg>
-                              </button>
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
                             </div>
                           );
                         })}
@@ -1803,10 +1841,15 @@ export default function PersonForm({
                           setShowClusterDropdown(true);
                         }}
                         onFocus={() => setShowClusterDropdown(true)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        disabled={selfEditLocked}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          selfEditLocked
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
                         placeholder="Search clusters by code or name..."
                       />
-                      {showClusterDropdown && clusterSearch && (
+                      {showClusterDropdown && clusterSearch && !selfEditLocked && (
                         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                           {clusterOptions
                             .filter((c) => {
@@ -1912,34 +1955,36 @@ export default function PersonForm({
                                     "Unnamed cluster"}
                                 </span>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    cluster_ids: (
-                                      prev.cluster_ids || []
-                                    ).filter((cid) => cid !== id),
-                                  }));
-                                  setHasUnsavedChanges(true);
-                                }}
-                                className="text-gray-400 hover:text-red-500 ml-1"
-                                aria-label={`Remove cluster ${id}`}
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                              {!selfEditLocked && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      cluster_ids: (
+                                        prev.cluster_ids || []
+                                      ).filter((cid) => cid !== id),
+                                    }));
+                                    setHasUnsavedChanges(true);
+                                  }}
+                                  className="text-gray-400 hover:text-red-500 ml-1"
+                                  aria-label={`Remove cluster ${id}`}
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M6 18L18 6M6 6l12 12"
-                                  />
-                                </svg>
-                              </button>
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
                             </div>
                           );
                         })}

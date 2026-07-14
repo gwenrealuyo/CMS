@@ -15,6 +15,7 @@ from apps.people.name_formatting import (
     PERSON_NAME_FIELDS,
     apply_title_case_name_fields,
 )
+from apps.people.photo_validators import validate_person_photo
 
 
 def delete_person_photo_if_cleared(instance, validated_data):
@@ -300,7 +301,11 @@ class PersonSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
-    photo = serializers.ImageField(required=False, allow_null=True)
+    photo = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        validators=[validate_person_photo],
+    )
     note = serializers.CharField(write_only=True, required=False, allow_blank=True)
     journeys = JourneySerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()

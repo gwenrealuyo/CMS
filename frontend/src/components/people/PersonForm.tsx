@@ -32,6 +32,11 @@ import {
   findPossibleNameDuplicates,
 } from "@/src/lib/personDuplicates";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  PERSON_PHOTO_ACCEPT,
+  PERSON_PHOTO_HELPER_TEXT,
+  validatePersonPhoto,
+} from "@/src/lib/personPhoto";
 
 const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
   "BAPTISM",
@@ -458,13 +463,30 @@ export default function PersonForm({
     Boolean(photoPreviewUrl) ||
     Boolean(initialData?.photo && !photoRemoved);
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPhotoFile(file);
-      setPhotoRemoved(false);
-      setHasUnsavedChanges(true);
+    if (!file) return;
+
+    const result = await validatePersonPhoto(file);
+    if (!result.ok) {
+      toast.error(result.message);
+      if (photoInputRef.current) {
+        photoInputRef.current.value = "";
+      }
+      return;
     }
+
+    setPhotoFile(file);
+    setPhotoRemoved(false);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleClearSelectedPhoto = () => {
+    setPhotoFile(null);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+    setHasUnsavedChanges(true);
   };
 
   const handleRemovePhoto = () => {
@@ -1547,27 +1569,34 @@ export default function PersonForm({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Photo
                     </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      {PERSON_PHOTO_HELPER_TEXT}
+                    </p>
                     {showPhotoPreview && (
                       <div className="flex items-center gap-3 mb-3">
                         <PersonAvatar person={photoPreviewPerson} size="md" />
-                        {initialData?.id &&
-                          initialData?.photo &&
-                          !photoRemoved &&
-                          !photoFile && (
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              onClick={() => setShowPhotoRemoveConfirmation(true)}
-                            >
-                              Remove photo
-                            </Button>
-                          )}
+                        {(photoFile ||
+                          (initialData?.photo && !photoRemoved)) && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                              if (photoFile) {
+                                handleClearSelectedPhoto();
+                              } else {
+                                setShowPhotoRemoveConfirmation(true);
+                              }
+                            }}
+                          >
+                            Remove photo
+                          </Button>
+                        )}
                       </div>
                     )}
                     <input
                       ref={photoInputRef}
                       type="file"
-                      accept="image/*"
+                      accept={PERSON_PHOTO_ACCEPT}
                       onChange={handlePhotoChange}
                       className="w-full"
                     />

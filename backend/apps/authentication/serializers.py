@@ -6,6 +6,7 @@ from apps.people.serializers import (
     delete_person_photo_if_cleared,
 )
 from apps.people.name_formatting import apply_title_case_name_fields
+from apps.people.photo_validators import validate_person_photo
 from .models import PasswordResetRequest, AccountLockout, AuditLog
 from .password_validators import PasswordStrengthValidator
 
@@ -183,6 +184,12 @@ class AdminPasswordResetSerializer(serializers.Serializer):
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
+    photo = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        validators=[validate_person_photo],
+    )
+
     class Meta:
         model = User
         fields = ("first_name", "last_name", "middle_name", "email", "photo")
@@ -191,7 +198,6 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "last_name": {"required": False},
             "middle_name": {"required": False},
             "email": {"required": False},
-            "photo": {"required": False},
         }
 
     def validate(self, attrs):

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "@/src/contexts/AuthContext";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
@@ -11,6 +11,12 @@ import PersonAvatar from "@/src/components/people/PersonAvatar";
 import ProtectedRoute from "@/src/components/auth/ProtectedRoute";
 import ProfileAccessSection from "@/src/components/profile/ProfileAccessSection";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import toast from "react-hot-toast";
+import {
+  PERSON_PHOTO_ACCEPT,
+  PERSON_PHOTO_HELPER_TEXT,
+  validatePersonPhoto,
+} from "@/src/lib/personPhoto";
 
 export default function ProfilePage() {
   return (
@@ -43,6 +49,7 @@ function ProfilePageContent() {
   const [photoRemoved, setPhotoRemoved] = useState(false);
   const [showPhotoRemoveConfirmation, setShowPhotoRemoveConfirmation] =
     useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -54,8 +61,29 @@ function ProfilePageContent() {
         photo: null,
       });
       setPhotoRemoved(false);
+      if (photoInputRef.current) {
+        photoInputRef.current.value = "";
+      }
     }
   }, [user]);
+
+  const photoPreviewUrl = useMemo(() => {
+    if (profileData.photo) {
+      return URL.createObjectURL(profileData.photo);
+    }
+    return null;
+  }, [profileData.photo]);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(photoPreviewUrl);
+      }
+    };
+  }, [photoPreviewUrl]);
+
+  const showPhotoPreview =
+    Boolean(photoPreviewUrl) || Boolean(user?.photo && !photoRemoved);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,36 +296,59 @@ function ProfilePageContent() {
               >
                 Photo
               </label>
-              {user.photo && !photoRemoved && (
+              <p className="text-xs text-gray-500 mb-2">
+                {PERSON_PHOTO_HELPER_TEXT}
+              </p>
+              {showPhotoPreview && (
                 <div className="flex items-center gap-3 mb-3">
                   <PersonAvatar
                     person={{
                       id: user.id,
                       first_name: user.first_name,
                       last_name: user.last_name,
-                      photo: user.photo,
+                      photo: photoPreviewUrl || (photoRemoved ? undefined : user.photo),
                     }}
                     size="md"
                   />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setShowPhotoRemoveConfirmation(true)}
-                  >
-                    Remove photo
-                  </Button>
+                  {(profileData.photo ||
+                    (user.photo && !photoRemoved)) && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        if (profileData.photo) {
+                          setProfileData({ ...profileData, photo: null });
+                          if (photoInputRef.current) {
+                            photoInputRef.current.value = "";
+                          }
+                        } else {
+                          setShowPhotoRemoveConfirmation(true);
+                        }
+                      }}
+                    >
+                      Remove photo
+                    </Button>
+                  )}
                 </div>
               )}
               <input
                 id="photo"
+                ref={photoInputRef}
                 type="file"
-                accept="image/*"
-                onChange={(e) => {
+                accept={PERSON_PHOTO_ACCEPT}
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (file) {
-                    setProfileData({ ...profileData, photo: file });
-                    setPhotoRemoved(false);
+                  if (!file) return;
+                  const result = await validatePersonPhoto(file);
+                  if (!result.ok) {
+                    toast.error(result.message);
+                    if (photoInputRef.current) {
+                      photoInputRef.current.value = "";
+                    }
+                    return;
                   }
+                  setProfileData({ ...profileData, photo: file });
+                  setPhotoRemoved(false);
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
@@ -424,6 +475,10 @@ function ProfilePageContent() {
         onClose={() => setShowPhotoRemoveConfirmation(false)}
         onConfirm={() => {
           setPhotoRemoved(true);
+          setProfileData((prev) => ({ ...prev, photo: null }));
+          if (photoInputRef.current) {
+            photoInputRef.current.value = "";
+          }
           setShowPhotoRemoveConfirmation(false);
         }}
         title="Remove Photo"

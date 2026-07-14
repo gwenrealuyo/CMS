@@ -43,6 +43,38 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+function CoordinatorIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M12 2l2.39 4.84 5.34.78-3.87 3.77.91 5.32L12 14.9l-4.77 2.51.91-5.32L4.27 7.62l5.34-.78L12 2z" />
+    </svg>
+  );
+}
+
+function ReporterIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+      />
+    </svg>
+  );
+}
+
 function DeleteClusterButton({
   onClick,
   buttonClassName = "h-10 px-4 text-sm font-medium",
@@ -288,8 +320,45 @@ export default function ClusterView({
       ? "grid gap-2 grid-cols-1 sm:grid-cols-2"
       : "grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
 
+  const isClusterCoordinator = (member: ClusterRosterPerson) =>
+    Boolean(
+      displayCoordinator &&
+        String(member.id) === String(displayCoordinator.id),
+    );
+
+  const isClusterReporter = (member: ClusterRosterPerson) => {
+    const memberId = String(member.id);
+    if (
+      (cluster.reporter_ids ?? []).some(
+        (id) => String(id) === memberId,
+      )
+    ) {
+      return true;
+    }
+    return Boolean(
+      (member.module_coordinator_assignments ?? []).some(
+        (assignment) =>
+          assignment.module === "CLUSTER" &&
+          assignment.level === "REPORTER" &&
+          assignment.resource_id != null &&
+          Number(assignment.resource_id) === Number(cluster.id),
+      ),
+    );
+  };
+
+  const roleBadgeHighlightClass = (
+    isCoordinator: boolean,
+    isReporter: boolean,
+  ) => {
+    if (isCoordinator) return " border-primary/30 bg-primary/5";
+    if (isReporter) return " border-amber-300/60 bg-amber-50/50";
+    return "";
+  };
+
   const renderPersonCard = (member: ClusterRosterPerson) => {
     const canOpen = Boolean(member.canOpenProfile && onViewPerson);
+    const isCoordinator = isClusterCoordinator(member);
+    const isReporter = isClusterReporter(member);
     const cardClass = canOpen
       ? "cursor-pointer hover:bg-gray-50"
       : "cursor-default";
@@ -299,24 +368,57 @@ export default function ClusterView({
       return (
         <div
           key={member.id}
-          className={`flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md ${cardClass}`}
+          className={`flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md ${cardClass}${roleBadgeHighlightClass(
+            isCoordinator,
+            isReporter,
+          )}`}
           onClick={() => canOpen && onViewPerson?.(member)}
         >
           <PersonAvatar person={member} size="sm" />
           <div className="flex-1 min-w-0">
             <p
-              className={`font-medium text-gray-900 break-words ${
+              className={`font-medium text-gray-900 break-words flex items-start gap-1 ${
                 isLongWrappedName ? "text-xs leading-5" : "text-sm leading-5"
               }`}
             >
-              {memberName}
+              <span className="min-w-0 break-words">{memberName}</span>
+              {isCoordinator && (
+                <span
+                  className="inline-flex items-center text-primary flex-shrink-0 mt-0.5"
+                  title="Cluster coordinator"
+                  aria-label="Cluster coordinator"
+                >
+                  <CoordinatorIcon />
+                </span>
+              )}
+              {isReporter && (
+                <span
+                  className="inline-flex items-center text-amber-700 flex-shrink-0 mt-0.5"
+                  title="Cluster reporter"
+                  aria-label="Cluster reporter"
+                >
+                  <ReporterIcon />
+                </span>
+              )}
             </p>
-            <div className="">
+            <div className="flex items-center gap-1 flex-wrap mt-0.5">
               <span
                 className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
               >
                 {member.role}
               </span>
+              {isCoordinator && (
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary">
+                  <CoordinatorIcon className="w-2.5 h-2.5" />
+                  Coordinator
+                </span>
+              )}
+              {isReporter && (
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-yellow-sm">
+                  <ReporterIcon className="w-2.5 h-2.5" />
+                  Reporter
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -325,23 +427,64 @@ export default function ClusterView({
     return (
       <div
         key={member.id}
-        className={`p-2.5 bg-white border border-gray-200 rounded-md flex items-center space-x-2 ${cardClass}`}
+        className={`p-2.5 bg-white border border-gray-200 rounded-md flex items-center space-x-2 ${cardClass}${roleBadgeHighlightClass(
+          isCoordinator,
+          isReporter,
+        )}`}
         onClick={() => canOpen && onViewPerson?.(member)}
       >
         <PersonAvatar person={member} size="sm" />
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900 truncate text-sm">
-            {formatFullName(member)}
+          <p className="font-medium text-gray-900 truncate text-sm flex items-center gap-1">
+            <span className="truncate">{formatFullName(member)}</span>
+            {isCoordinator && (
+              <span
+                className="inline-flex items-center text-primary flex-shrink-0"
+                title="Cluster coordinator"
+                aria-label="Cluster coordinator"
+              >
+                <CoordinatorIcon />
+              </span>
+            )}
+            {isReporter && (
+              <span
+                className="inline-flex items-center text-amber-700 flex-shrink-0"
+                title="Cluster reporter"
+                aria-label="Cluster reporter"
+              >
+                <ReporterIcon />
+              </span>
+            )}
           </p>
           {canOpen && member.email ? (
             <p className="text-xs text-gray-600 truncate">{member.email}</p>
           ) : null}
         </div>
-        <span
-          className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
-        >
-          {member.role}
-        </span>
+        <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+          <span
+            className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
+          >
+            {member.role}
+          </span>
+          {isCoordinator && (
+            <span
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary"
+              title="Cluster coordinator"
+            >
+              <CoordinatorIcon className="w-2.5 h-2.5" />
+              Coordinator
+            </span>
+          )}
+          {isReporter && (
+            <span
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-yellow-sm"
+              title="Cluster reporter"
+            >
+              <ReporterIcon className="w-2.5 h-2.5" />
+              Reporter
+            </span>
+          )}
+        </div>
       </div>
     );
   };

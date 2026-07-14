@@ -31,6 +31,8 @@ export interface Cluster {
   members: number[];
   members_details?: ClusterMemberDetail[];
   families_details?: ClusterFamilyDetail[];
+  /** Person IDs with CLUSTER REPORTER assignment for this cluster */
+  reporter_ids?: number[];
   branch?: number | null;
   location: string;
   meeting_schedule: string;

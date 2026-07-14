@@ -76,7 +76,41 @@ class ClusterViewSet(viewsets.ModelViewSet):
             "families",
             "families__members",
         )
-    
+
+    @staticmethod
+    def _cluster_reporter_ids_map(cluster_ids):
+        from collections import defaultdict
+        from apps.people.models import ModuleCoordinator
+
+        mapping = defaultdict(list)
+        if not cluster_ids:
+            return mapping
+        rows = ModuleCoordinator.objects.filter(
+            module=ModuleCoordinator.ModuleType.CLUSTER,
+            level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+            resource_id__in=cluster_ids,
+        ).values_list("resource_id", "person_id")
+        for resource_id, person_id in rows:
+            if resource_id is not None:
+                mapping[resource_id].append(person_id)
+        return mapping
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs.setdefault("context", self.get_serializer_context())
+        instance = args[0] if args else kwargs.get("instance")
+        if (
+            instance is not None
+            and "cluster_reporter_ids_map" not in kwargs["context"]
+        ):
+            if kwargs.get("many"):
+                cluster_ids = [c.id for c in instance]
+            else:
+                cluster_ids = [instance.id]
+            kwargs["context"]["cluster_reporter_ids_map"] = (
+                self._cluster_reporter_ids_map(cluster_ids)
+            )
+        return super().get_serializer(*args, **kwargs)
+
     def get_permissions(self):
         """
         Override to set permissions based on action.

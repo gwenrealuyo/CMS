@@ -3,7 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 import logging
 
-from apps.people.models import Person, Family, Journey
+from apps.people.models import Person, Family, Journey, ModuleCoordinator
 from apps.people.name_formatting import (
     PERSON_NAME_FIELDS,
     PROSPECT_NAME_FIELDS,
@@ -106,6 +106,7 @@ class ClusterSerializer(serializers.ModelSerializer):
     )
     members_details = serializers.SerializerMethodField()
     families_details = serializers.SerializerMethodField()
+    reporter_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = Cluster
@@ -119,6 +120,7 @@ class ClusterSerializer(serializers.ModelSerializer):
             "members",
             "members_details",
             "families_details",
+            "reporter_ids",
             "branch",
             "location",
             "meeting_schedule",
@@ -126,7 +128,12 @@ class ClusterSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["created_at", "members_details", "families_details"]
+        read_only_fields = [
+            "created_at",
+            "members_details",
+            "families_details",
+            "reporter_ids",
+        ]
 
     def _person_photo_url(self, person):
         if not getattr(person, "photo", None):
@@ -149,6 +156,18 @@ class ClusterSerializer(serializers.ModelSerializer):
                 "username": obj.coordinator.username,
             }
         return None
+
+    def get_reporter_ids(self, obj):
+        reporter_map = self.context.get("cluster_reporter_ids_map")
+        if reporter_map is not None:
+            return reporter_map.get(obj.id, [])
+        return list(
+            ModuleCoordinator.objects.filter(
+                module=ModuleCoordinator.ModuleType.CLUSTER,
+                level=ModuleCoordinator.CoordinatorLevel.REPORTER,
+                resource_id=obj.id,
+            ).values_list("person_id", flat=True)
+        )
 
     def get_members_details(self, obj):
         """Privacy-safe roster for cluster browse (no email/phone/address/status)."""

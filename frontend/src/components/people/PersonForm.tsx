@@ -240,6 +240,10 @@ export default function PersonForm({
     role: defaultRole,
     family_ids: initialFamilyIds,
     cluster_ids: initialClusterIds,
+    // Create: show creator's branch (API sets it for plain members; editable roles can change it)
+    branch: isCreating
+      ? (initialData?.branch ?? user?.branch ?? undefined)
+      : initialData?.branch,
   });
 
   const [familySearch, setFamilySearch] = useState("");
@@ -286,6 +290,10 @@ export default function PersonForm({
       clusterAuthCtx,
     );
   }, [isCreating, clusterAuthCtx, formData.cluster_ids, clusterOptions]);
+
+  // Invite/attend + first activity: writable when creating a visitor (API accepts on create)
+  const canEditInviteAttendDates =
+    canEditVitalDates || (isCreating && formData.role === "VISITOR");
 
   const showLoginAccess = isAdmin && isCreating && formData.role !== "VISITOR";
 
@@ -1309,8 +1317,9 @@ export default function PersonForm({
                 )}
                 {!canEditVitalDates && !selfEditLocked && (
                   <p className="text-xs text-gray-500 mb-4">
-                    Vital dates can only be changed by a cluster coordinator (or
-                    higher).
+                    {isCreating && formData.role === "VISITOR"
+                      ? "Baptism and lessons dates can only be set by a cluster coordinator (or higher)."
+                      : "Vital dates can only be changed by a cluster coordinator (or higher)."}
                   </p>
                 )}
                 {!plainMember &&
@@ -1442,7 +1451,11 @@ export default function PersonForm({
                           {canEditBranch ? "Select branch" : "No branch"}
                         </option>
                         {branches
-                          .filter((b) => b.is_active)
+                          .filter(
+                            (b) =>
+                              b.is_active ||
+                              Number(b.id) === Number(formData.branch),
+                          )
                           .map((branch) => (
                             <option key={branch.id} value={branch.id}>
                               {branch.name}
@@ -1583,7 +1596,9 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Important dates for records.
                   {!canEditVitalDates
-                    ? " Vital dates can only be changed by your cluster coordinator."
+                    ? isCreating && formData.role === "VISITOR"
+                      ? " Baptism and lessons dates can only be set by your cluster coordinator."
+                      : " Vital dates can only be changed by your cluster coordinator."
                     : ""}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
@@ -1605,7 +1620,7 @@ export default function PersonForm({
                       Date First Invited
                     </label>
                     <LockedField
-                      locked={!canEditVitalDates}
+                      locked={!canEditInviteAttendDates}
                       hint={VITAL_DATE_HINT}
                     >
                       <input
@@ -1613,10 +1628,10 @@ export default function PersonForm({
                         name="date_first_invited"
                         value={(formData as any).date_first_invited || ""}
                         onChange={handleChange}
-                        disabled={!canEditVitalDates}
+                        disabled={!canEditInviteAttendDates}
                         max={todayDateMax}
                         className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditVitalDates
+                          !canEditInviteAttendDates
                             ? "bg-gray-100 cursor-not-allowed"
                             : ""
                         }`}
@@ -1628,7 +1643,7 @@ export default function PersonForm({
                       Date First Attended
                     </label>
                     <LockedField
-                      locked={!canEditVitalDates}
+                      locked={!canEditInviteAttendDates}
                       hint={VITAL_DATE_HINT}
                     >
                       <input
@@ -1636,10 +1651,10 @@ export default function PersonForm({
                         name="date_first_attended"
                         value={formData.date_first_attended || ""}
                         onChange={handleChange}
-                        disabled={!canEditVitalDates}
+                        disabled={!canEditInviteAttendDates}
                         max={todayDateMax}
                         className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditVitalDates
+                          !canEditInviteAttendDates
                             ? "bg-gray-100 cursor-not-allowed"
                             : ""
                         }`}
@@ -1751,16 +1766,16 @@ export default function PersonForm({
                       First Activity Attended
                     </label>
                     <LockedField
-                      locked={!canEditVitalDates}
+                      locked={!canEditInviteAttendDates}
                       hint={VITAL_DATE_HINT}
                     >
                       <select
                         name="first_activity_attended"
                         value={(formData as any).first_activity_attended || ""}
                         onChange={handleChange}
-                        disabled={!canEditVitalDates}
+                        disabled={!canEditInviteAttendDates}
                         className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditVitalDates
+                          !canEditInviteAttendDates
                             ? "bg-gray-100 cursor-not-allowed"
                             : ""
                         }`}

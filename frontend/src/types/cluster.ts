@@ -131,6 +131,19 @@ export interface ClusterReportNewProspectInput {
   date_first_invited?: string | null;
 }
 
+export interface ClusterReportNewVisitorInput {
+  first_name: string;
+  last_name: string;
+  inviter_id?: number | string | null;
+  middle_name?: string;
+  suffix?: string;
+  gender?: string;
+  facebook_name?: string;
+  note?: string;
+  date_first_attended?: string | null;
+  first_activity_attended?: string | null;
+}
+
 export interface ClusterWeeklyReportInput {
   cluster: number;
   year: number;
@@ -140,6 +153,7 @@ export interface ClusterWeeklyReportInput {
   visitors_attended?: number[];
   prospects_invited?: number[];
   new_prospects?: ClusterReportNewProspectInput[];
+  new_visitors?: ClusterReportNewVisitorInput[];
   prospects_attended?: number[];
   gathering_type: GatheringType;
   activities_held?: string;
@@ -151,7 +165,7 @@ export interface ClusterWeeklyReportInput {
   submitted_by?: number | null;
 }
 
-/** Form state before API payload build (visitors may include `prospect:{id}`). */
+/** Form state before API payload build (visitors may include `prospect:{id}` / `newvisitor:{id}`). */
 export interface ClusterWeeklyReportFormValues {
   cluster?: number;
   year?: number;
@@ -161,6 +175,7 @@ export interface ClusterWeeklyReportFormValues {
   visitors_attended: string[];
   prospects_invited: string[];
   pending_new_prospects: Record<string, ClusterReportNewProspectInput>;
+  pending_new_visitors: Record<string, ClusterReportNewVisitorInput>;
   gathering_type?: GatheringType;
   activities_held?: string;
   prayer_requests?: string;

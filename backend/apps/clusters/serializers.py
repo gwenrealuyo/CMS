@@ -5,9 +5,12 @@ import logging
 
 from apps.people.models import Person, Family, Journey
 from apps.people.name_formatting import (
+    PERSON_NAME_FIELDS,
     PROSPECT_NAME_FIELDS,
     apply_title_case_name_fields,
 )
+from apps.people.serializers import PersonSerializer
+from apps.events.models import EventType
 from apps.evangelism.models import Prospect
 from apps.evangelism.services import (
     create_invited_prospect_for_cluster,
@@ -50,6 +53,39 @@ class ClusterReportNewProspectSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         apply_title_case_name_fields(attrs, PROSPECT_NAME_FIELDS)
+        return attrs
+
+
+class ClusterReportNewVisitorSerializer(serializers.Serializer):
+    """Write-only payload for creating a VISITOR person on a cluster weekly report."""
+
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    inviter_id = serializers.PrimaryKeyRelatedField(
+        source="inviter",
+        queryset=Person.objects.exclude(role="ADMIN"),
+        required=False,
+        allow_null=True,
+    )
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    suffix = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    gender = serializers.ChoiceField(
+        choices=[("MALE", "Male"), ("FEMALE", "Female"), ("", "")],
+        required=False,
+        allow_blank=True,
+    )
+    facebook_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    note = serializers.CharField(required=False, allow_blank=True)
+    date_first_attended = serializers.DateField(required=False, allow_null=True)
+    first_activity_attended = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=EventType.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+    def validate(self, attrs):
+        apply_title_case_name_fields(attrs, PERSON_NAME_FIELDS)
         return attrs
 
 
@@ -397,6 +433,9 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     new_prospects = ClusterReportNewProspectSerializer(
         many=True, required=False, write_only=True
     )
+    new_visitors = ClusterReportNewVisitorSerializer(
+        many=True, required=False, write_only=True
+    )
     prospects_attended = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Prospect.objects.all(),
@@ -427,6 +466,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "visitors_attended",
             "prospects_invited",
             "new_prospects",
+            "new_visitors",
             "prospects_attended",
             "members_attended_details",
             "visitors_attended_details",
@@ -641,6 +681,37 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             created.append(prospect)
         return created
 
+    def _create_new_visitors(self, cluster, meeting_date, new_visitors_data):
+        created = []
+        for payload in new_visitors_data:
+            person_data = {
+                "first_name": payload["first_name"],
+                "last_name": payload["last_name"],
+                "middle_name": payload.get("middle_name", ""),
+                "suffix": payload.get("suffix", ""),
+                "gender": payload.get("gender", "") or "",
+                "facebook_name": payload.get("facebook_name", ""),
+                "role": "VISITOR",
+                "status": "ONGOING",
+                "date_first_attended": payload.get("date_first_attended")
+                or meeting_date,
+                "note": (payload.get("note") or "").strip(),
+                "generate_temporary_password": False,
+            }
+            if cluster.branch_id:
+                person_data["branch"] = cluster.branch_id
+            inviter = payload.get("inviter")
+            if inviter is not None:
+                person_data["inviter"] = inviter.pk
+            activity = payload.get("first_activity_attended")
+            if activity is not None:
+                person_data["first_activity_attended"] = activity.code
+
+            ser = PersonSerializer(data=person_data, context=self.context)
+            ser.is_valid(raise_exception=True)
+            created.append(ser.save())
+        return created
+
     def _promote_prospects_attended(self, cluster, meeting_date, prospects_attended):
         promoted_people = []
         for prospect in prospects_attended:
@@ -658,6 +729,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         new_prospects_data = validated_data.pop("new_prospects", [])
+        new_visitors_data = validated_data.pop("new_visitors", [])
         prospects_attended = validated_data.pop("prospects_attended", [])
         meeting_date = validated_data.pop(
             "_meeting_date_for_prospects", validated_data.get("meeting_date")
@@ -670,6 +742,9 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         created_prospects = self._create_new_prospects(
             cluster, meeting_date, new_prospects_data
         )
+        created_visitors = self._create_new_visitors(
+            cluster, meeting_date, new_visitors_data
+        )
         promoted_people = self._promote_prospects_attended(
             cluster, meeting_date, prospects_attended
         )
@@ -678,7 +753,9 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         if members_attended:
             report.members_attended.set(members_attended)
 
-        visitor_set = list(visitors_attended) + promoted_people
+        visitor_set = (
+            list(visitors_attended) + created_visitors + promoted_people
+        )
         # Deduplicate by pk while preserving order
         seen = set()
         unique_visitors = []
@@ -701,6 +778,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         new_prospects_data = validated_data.pop("new_prospects", None)
+        new_visitors_data = validated_data.pop("new_visitors", None)
         prospects_attended = validated_data.pop("prospects_attended", None)
         meeting_date = validated_data.pop(
             "_meeting_date_for_prospects",
@@ -718,6 +796,12 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
                 cluster, meeting_date, new_prospects_data
             )
 
+        created_visitors = []
+        if new_visitors_data:
+            created_visitors = self._create_new_visitors(
+                cluster, meeting_date, new_visitors_data
+            )
+
         promoted_people = []
         if prospects_attended:
             promoted_people = self._promote_prospects_attended(
@@ -731,12 +815,16 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         if members_attended is not serializers.empty:
             instance.members_attended.set(members_attended)
 
-        if visitors_attended is not serializers.empty or promoted_people:
+        if (
+            visitors_attended is not serializers.empty
+            or created_visitors
+            or promoted_people
+        ):
             if visitors_attended is serializers.empty:
                 current = list(instance.visitors_attended.all())
             else:
                 current = list(visitors_attended)
-            visitor_set = current + promoted_people
+            visitor_set = current + created_visitors + promoted_people
             seen = set()
             unique_visitors = []
             for person in visitor_set:

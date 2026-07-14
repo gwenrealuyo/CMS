@@ -1200,6 +1200,80 @@ class ClusterWeeklyReportProspectsAPITests(TestCase):
         self.assertEqual(response.data["visitors_present"], 0)
         self.assertEqual(response.data["prospects_invited_count"], 1)
 
+    def test_reporter_can_create_report_with_new_visitors(self):
+        from apps.events.models import EventType
+        from apps.people.models import Journey
+
+        EventType.objects.get_or_create(
+            code="CLUSTERING",
+            defaults={"label": "Clustering", "sort_order": 1, "is_system": True},
+        )
+        before_count = Person.objects.filter(role="VISITOR").count()
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            self._base_payload(
+                new_visitors=[
+                    {
+                        "first_name": "Walk",
+                        "last_name": "In",
+                        "inviter_id": self.inviter.id,
+                        "first_activity_attended": "CLUSTERING",
+                        "note": "First clustering visit",
+                    }
+                ]
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["visitors_present"], 1)
+        self.assertEqual(len(response.data["visitors_attended"]), 1)
+        visitor_id = response.data["visitors_attended"][0]
+        visitor = Person.objects.get(pk=visitor_id)
+        self.assertEqual(visitor.role, "VISITOR")
+        self.assertEqual(visitor.status, "ONGOING")
+        self.assertEqual(visitor.first_name, "Walk")
+        self.assertEqual(visitor.last_name, "In")
+        self.assertEqual(visitor.branch_id, self.branch.id)
+        self.assertEqual(
+            Person.objects.filter(role="VISITOR").count(), before_count + 1
+        )
+        self.assertTrue(
+            Journey.objects.filter(
+                user=visitor, type="NOTE", title="Visitor note"
+            ).exists()
+        )
+        self.cluster.refresh_from_db()
+        self.assertIn(visitor, self.cluster.members.all())
+
+    def test_patch_report_with_new_visitors_appends_attendance(self):
+        today = date.today()
+        report = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.reporter,
+        )
+        response = self.client.patch(
+            f"/api/clusters/cluster-weekly-reports/{report.id}/",
+            {
+                "new_visitors": [
+                    {
+                        "first_name": "Patch",
+                        "last_name": "Visitor",
+                        "inviter_id": self.inviter.id,
+                    }
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["visitors_present"], 1)
+        visitor = Person.objects.get(pk=response.data["visitors_attended"][0])
+        self.assertEqual(visitor.first_name, "Patch")
+        self.assertEqual(visitor.role, "VISITOR")
+
 
 class ClusterWeeklyReportDistinctYearsTests(TestCase):
     """distinct_years uses facet filters only; not list RBAC."""

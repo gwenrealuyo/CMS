@@ -20,7 +20,9 @@ const getLocalTodayDateString = (): string => {
 interface AddVisitorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (visitorData: Partial<Person>) => Promise<Person>;
+  onAdd: (
+    visitorData: Partial<Person> & { note?: string }
+  ) => Promise<Pick<Person, "first_name" | "last_name"> & Partial<Person>>;
   defaultDateFirstAttended?: string;
   defaultFirstActivityAttended?: string;
 }
@@ -151,7 +153,9 @@ export default function AddVisitorModal({
       };
 
       const created = await onAdd(visitorData);
-      toast.success(`${formatPersonName(created)} added as visitor.`);
+      toast.success(
+        `${formatPersonName(created)} added to this report.`
+      );
 
       // Reset form and close modal - user can reopen to add another visitor
       setFormData({
@@ -443,7 +447,7 @@ export default function AddVisitorModal({
             Cancel
           </Button>
           <Button className="flex-1" disabled={loading} type="submit">
-            {loading ? "Saving..." : "Add Visitor"}
+            {loading ? "Adding..." : "Add Visitor"}
           </Button>
         </div>
       </form>

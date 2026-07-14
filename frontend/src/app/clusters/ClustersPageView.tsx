@@ -1558,6 +1558,7 @@ export default function ClustersPageView({
                   visitors_attended: data.visitors_attended || [],
                   prospects_invited: data.prospects_invited || [],
                   new_prospects: data.new_prospects || [],
+                  new_visitors: data.new_visitors || [],
                   prospects_attended: data.prospects_attended || [],
                   activities_held: data.activities_held || "",
                   prayer_requests: data.prayer_requests || "",

@@ -1,5 +1,6 @@
 import type {
   ClusterReportNewProspectInput,
+  ClusterReportNewVisitorInput,
   ClusterWeeklyReportFormValues,
   ClusterWeeklyReportInput,
   GatheringType,
@@ -7,6 +8,7 @@ import type {
 
 const PROSPECT_PREFIX = "prospect:";
 const NEW_PROSPECT_PREFIX = "new:";
+const NEW_VISITOR_PREFIX = "newvisitor:";
 
 export function isProspectAttendanceId(id: string): boolean {
   return id.startsWith(PROSPECT_PREFIX);
@@ -14,6 +16,10 @@ export function isProspectAttendanceId(id: string): boolean {
 
 export function isPendingNewProspectId(id: string): boolean {
   return id.startsWith(NEW_PROSPECT_PREFIX);
+}
+
+export function isPendingNewVisitorId(id: string): boolean {
+  return id.startsWith(NEW_VISITOR_PREFIX);
 }
 
 export function prospectIdFromAttendanceId(id: string): string {
@@ -28,6 +34,16 @@ export function toPendingNewProspectId(tempId: string): string {
   return `${NEW_PROSPECT_PREFIX}${tempId}`;
 }
 
+export function toPendingNewVisitorId(tempId: string): string {
+  return `${NEW_VISITOR_PREFIX}${tempId}`;
+}
+
+export function pendingNewVisitorTempKey(id: string): string {
+  return id.startsWith(NEW_VISITOR_PREFIX)
+    ? id.slice(NEW_VISITOR_PREFIX.length)
+    : id;
+}
+
 function toNumberId(id: string | number): number | null {
   const n = typeof id === "number" ? id : Number(id);
   return Number.isFinite(n) && !Number.isNaN(n) ? n : null;
@@ -37,7 +53,7 @@ function toNumberId(id: string | number): number | null {
  * Builds API payload for cluster weekly report create/update.
  * Promotes `prospect:{id}` visitor selections via `prospects_attended`
  * (server marks attended under report permissions). Pending `new:` ids
- * become `new_prospects`.
+ * become `new_prospects`. Pending `newvisitor:` ids become `new_visitors`.
  */
 export function buildClusterWeeklyReportPayloadFromFormValues(
   values: ClusterWeeklyReportFormValues
@@ -53,10 +69,19 @@ export function buildClusterWeeklyReportPayloadFromFormValues(
 
   const visitors_attended: number[] = [];
   const prospects_attended: number[] = [];
+  const new_visitors: ClusterReportNewVisitorInput[] = [];
+  const pendingVisitors = values.pending_new_visitors || {};
+
   for (const id of values.visitors_attended || []) {
     if (isProspectAttendanceId(id)) {
       const prospectId = toNumberId(prospectIdFromAttendanceId(id));
       if (prospectId !== null) prospects_attended.push(prospectId);
+      continue;
+    }
+    if (isPendingNewVisitorId(id)) {
+      const tempKey = pendingNewVisitorTempKey(id);
+      const payload = pendingVisitors[tempKey] || pendingVisitors[id];
+      if (payload) new_visitors.push(payload);
       continue;
     }
     const personId = toNumberId(id);
@@ -98,6 +123,7 @@ export function buildClusterWeeklyReportPayloadFromFormValues(
     visitors_attended,
     prospects_invited,
     new_prospects,
+    new_visitors,
     prospects_attended,
     activities_held: values.activities_held || "",
     prayer_requests: values.prayer_requests || "",

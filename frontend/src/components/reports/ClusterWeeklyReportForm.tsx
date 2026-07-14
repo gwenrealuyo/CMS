@@ -4,6 +4,7 @@ import {
   ClusterWeeklyReport,
   ClusterWeeklyReportInput,
   ClusterReportNewProspectInput,
+  ClusterReportNewVisitorInput,
   Cluster,
   GatheringType,
 } from "@/src/types/cluster";
@@ -18,6 +19,7 @@ import {
   buildClusterWeeklyReportPayloadFromFormValues,
   isProspectAttendanceId,
   toPendingNewProspectId,
+  toPendingNewVisitorId,
   toProspectAttendanceId,
   prospectIdFromAttendanceId,
 } from "@/src/lib/clusterWeeklyReportSubmit";
@@ -196,6 +198,9 @@ export default function ClusterWeeklyReportForm({
   const [clusterProspects, setClusterProspects] = useState<Prospect[]>([]);
   const [pendingNewProspects, setPendingNewProspects] = useState<
     Record<string, ClusterReportNewProspectInput>
+  >({});
+  const [pendingNewVisitors, setPendingNewVisitors] = useState<
+    Record<string, ClusterReportNewVisitorInput>
   >({});
   const [previouslyAttendedVisitors, setPreviouslyAttendedVisitors] = useState<
     string[]
@@ -575,35 +580,46 @@ export default function ClusterWeeklyReportForm({
   }, [showClusterDropdown]);
 
   const handleCreateVisitor = async (visitorData: Partial<Person>) => {
-    const branchId = selectedCluster?.branch ?? user?.branch ?? undefined;
-    const payload: Partial<Person> = {
-      ...visitorData,
-      ...(branchId != null ? { branch: branchId } : {}),
+    const tempId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `tmp-${Date.now()}`;
+    const inviterRaw = visitorData.inviter;
+    const inviterId =
+      inviterRaw !== undefined &&
+      inviterRaw !== null &&
+      String(inviterRaw).trim() !== ""
+        ? inviterRaw
+        : null;
+    const payload: ClusterReportNewVisitorInput = {
+      first_name: visitorData.first_name || "",
+      last_name: visitorData.last_name || "",
+      middle_name: visitorData.middle_name || "",
+      suffix: visitorData.suffix || "",
+      gender: visitorData.gender || "",
+      facebook_name: visitorData.facebook_name || "",
+      note: String(
+        (visitorData as Partial<Person> & { note?: string }).note || ""
+      ).trim(),
+      inviter_id: inviterId,
+      date_first_attended: visitorData.date_first_attended || null,
+      first_activity_attended: visitorData.first_activity_attended || null,
     };
-    try {
-      const response = await peopleApi.create(payload);
-      const name = formatPersonNameFromFields(response.data);
-
-      const newVisitor: PersonUI = {
-        ...response.data,
-        id: String(response.data.id),
-        name,
-        dateFirstAttended: response.data.date_first_attended,
-      };
-
-      setPeople((prev) => [...prev, newVisitor]);
-      setFormData((prev) => ({
-        ...prev,
-        visitors_attended: [
-          ...(prev.visitors_attended || []),
-          String(response.data.id),
-        ],
-      }));
-
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const pendingId = toPendingNewVisitorId(tempId);
+    setPendingNewVisitors((prev) => ({ ...prev, [tempId]: payload }));
+    setFormData((prev) => ({
+      ...prev,
+      visitors_attended: [...(prev.visitors_attended || []), pendingId],
+    }));
+    return {
+      id: pendingId,
+      first_name: payload.first_name,
+      last_name: payload.last_name,
+      middle_name: payload.middle_name,
+      suffix: payload.suffix,
+      role: "VISITOR",
+      status: "ONGOING",
+    } as Person;
   };
 
   const invitedProspectIdsSelected = useMemo(
@@ -616,10 +632,24 @@ export default function ClusterWeeklyReportForm({
     const prospectOptions = clusterProspects
       .filter((p) => !invitedProspectIdsSelected.has(String(p.id)))
       .map(prospectToPersonUI);
-    // Pending new prospects can also be promoted to attended? Plan says block dual list.
-    // They stay in invite list only until submit.
-    return [...personVisitors, ...prospectOptions];
-  }, [people, clusterProspects, invitedProspectIdsSelected]);
+    const pendingVisitorOptions: PersonUI[] = Object.entries(
+      pendingNewVisitors
+    ).map(
+      ([tempId, payload]) =>
+        ({
+          id: toPendingNewVisitorId(tempId),
+          name: `${payload.first_name} ${payload.last_name} (new)`.trim(),
+          role: "VISITOR",
+          status: "ONGOING",
+          inviter: payload.inviter_id != null ? String(payload.inviter_id) : "",
+          username: "",
+          email: "",
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+        }) as unknown as PersonUI
+    );
+    return [...personVisitors, ...prospectOptions, ...pendingVisitorOptions];
+  }, [people, clusterProspects, invitedProspectIdsSelected, pendingNewVisitors]);
 
   const prospectInviteOptions = useMemo(() => {
     const attendedProspectIds = new Set(
@@ -750,6 +780,7 @@ export default function ClusterWeeklyReportForm({
         visitors_attended: formData.visitors_attended || [],
         prospects_invited: formData.prospects_invited || [],
         pending_new_prospects: pendingNewProspects,
+        pending_new_visitors: pendingNewVisitors,
       });
       await onSubmit(payload);
       onClose();

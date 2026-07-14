@@ -87,6 +87,9 @@ export default function EvangelismWeeklyReportForm({
   const [people, setPeople] = useState<PersonUI[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [showAddVisitorModal, setShowAddVisitorModal] = useState(false);
+  const [pendingNewVisitors, setPendingNewVisitors] = useState<
+    Record<string, Partial<Person> & { note?: string }>
+  >({});
 
   const todayIsoParts = getIsoWeekParts(new Date());
   const defaultDate = new Date().toISOString().split("T")[0];
@@ -240,40 +243,100 @@ export default function EvangelismWeeklyReportForm({
         };
       });
 
-    return [...attendedVisitors, ...invitedProspects] as PersonUI[];
-  }, [prospects]);
+    return [
+      ...attendedVisitors,
+      ...invitedProspects,
+      ...Object.entries(pendingNewVisitors).map(([tempId, payload]) => {
+        const middleInitial = payload.middle_name
+          ? ` ${payload.middle_name.trim().charAt(0)}.`
+          : "";
+        const suffixPart =
+          payload.suffix && payload.suffix.trim().length > 0
+            ? ` ${payload.suffix.trim()}`
+            : "";
+        const name = `${payload.first_name ?? ""}${middleInitial} ${
+          payload.last_name ?? ""
+        }${suffixPart} (new)`.trim();
+        return {
+          id: `newvisitor:${tempId}`,
+          name,
+          role: "VISITOR" as const,
+          status: "ONGOING" as const,
+          first_name: payload.first_name || "",
+          last_name: payload.last_name || "",
+          middle_name: payload.middle_name || "",
+          suffix: payload.suffix || "",
+          inviter: payload.inviter,
+          username: "",
+          email: "",
+        } as PersonUI;
+      }),
+    ] as PersonUI[];
+  }, [prospects, pendingNewVisitors]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    await onSubmit(formData);
+    const pendingEntries = Object.entries(pendingNewVisitors);
+    let visitorsAttended = [...formData.visitors_attended];
+
+    if (pendingEntries.length > 0) {
+      const idMap = new Map<string, string>();
+      for (const [tempId, payload] of pendingEntries) {
+        const created = await peopleApi.create(payload);
+        const realId = String(created.data.id);
+        idMap.set(`newvisitor:${tempId}`, realId);
+        const middleInitial = created.data.middle_name
+          ? ` ${created.data.middle_name.trim().charAt(0)}.`
+          : "";
+        const suffixPart =
+          created.data.suffix && created.data.suffix.trim().length > 0
+            ? ` ${created.data.suffix.trim()}`
+            : "";
+        const name = `${created.data.first_name ?? ""}${middleInitial} ${
+          created.data.last_name ?? ""
+        }${suffixPart}`.trim();
+        setPeople((prev) => [
+          ...prev,
+          {
+            ...created.data,
+            name,
+            dateFirstAttended: created.data.date_first_attended,
+            id: realId,
+          },
+        ]);
+      }
+      visitorsAttended = visitorsAttended.map((id) => idMap.get(id) || id);
+      setPendingNewVisitors({});
+    }
+
+    await onSubmit({
+      ...formData,
+      visitors_attended: visitorsAttended,
+    });
   };
 
-  const handleAddVisitor = async (visitorData: Partial<Person>) => {
-    const created = await peopleApi.create(visitorData);
-    const person = created.data;
-    const middleInitial = person.middle_name
-      ? ` ${person.middle_name.trim().charAt(0)}.`
-      : "";
-    const suffixPart =
-      person.suffix && person.suffix.trim().length > 0
-        ? ` ${person.suffix.trim()}`
-        : "";
-    const name = `${person.first_name ?? ""}${middleInitial} ${
-      person.last_name ?? ""
-    }${suffixPart}`.trim();
-    const personUI: PersonUI = {
-      ...person,
-      name,
-      dateFirstAttended: person.date_first_attended,
-      id: person.id?.toString() || "",
-    };
-
-    setPeople((prev) => [...prev, personUI]);
+  const handleAddVisitor = async (
+    visitorData: Partial<Person> & { note?: string }
+  ) => {
+    const tempId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `tmp-${Date.now()}`;
+    const pendingId = `newvisitor:${tempId}`;
+    setPendingNewVisitors((prev) => ({ ...prev, [tempId]: visitorData }));
     setFormData((prev) => ({
       ...prev,
-      visitors_attended: [...prev.visitors_attended, personUI.id],
+      visitors_attended: [...prev.visitors_attended, pendingId],
     }));
-    return person;
+    return {
+      id: pendingId,
+      first_name: visitorData.first_name || "",
+      last_name: visitorData.last_name || "",
+      middle_name: visitorData.middle_name,
+      suffix: visitorData.suffix,
+      role: "VISITOR" as const,
+      status: "ONGOING" as const,
+    } as Person;
   };
 
   return (

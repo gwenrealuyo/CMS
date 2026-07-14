@@ -147,6 +147,34 @@ class PersonRoleCoordinatorRemovalTests(TestCase):
         self.assertEqual(self.plain_member.role, original_role)
         self.assertEqual(self.plain_member.status, original_status)
 
+    def test_plain_member_cannot_change_own_vital_dates(self):
+        from datetime import date
+
+        self.plain_member.water_baptism_date = date(2020, 1, 15)
+        self.plain_member.save(update_fields=["water_baptism_date"])
+        self.client.force_authenticate(user=self.plain_member)
+        res = self.client.patch(
+            f"/api/people/people/{self.plain_member.id}/",
+            {"water_baptism_date": "2019-06-01"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.plain_member.refresh_from_db()
+        self.assertEqual(self.plain_member.water_baptism_date, date(2020, 1, 15))
+
+    def test_cluster_coordinator_can_change_member_vital_dates(self):
+        from datetime import date
+
+        self.client.force_authenticate(user=self.coordinator)
+        res = self.client.patch(
+            f"/api/people/people/{self.target.id}/",
+            {"water_baptism_date": "2021-03-20"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.target.refresh_from_db()
+        self.assertEqual(self.target.water_baptism_date, date(2021, 3, 20))
+
     def test_member_with_assignment_cannot_delete_person(self):
         self.client.force_authenticate(user=self.coordinator)
         res = self.client.delete(f"/api/people/people/{self.target.id}/")

@@ -161,6 +161,7 @@ class PersonMembershipApiTests(TestCase):
             first_name="Mae",
             last_name="Member",
             role="MEMBER",
+            gender="FEMALE",
             branch=self.branch,
             status="ACTIVE",
         )
@@ -174,6 +175,52 @@ class PersonMembershipApiTests(TestCase):
         self.assertEqual(person.maiden_name, "Reyes")
         self.assertEqual(response.data.get("maiden_name"), "Reyes")
 
+    def test_clears_maiden_name_when_gender_is_male(self):
+        person = Person.objects.create_user(
+            username="male_maiden",
+            email="male_maiden@test.com",
+            password="testpass123",
+            first_name="Jose",
+            last_name="Member",
+            role="MEMBER",
+            gender="FEMALE",
+            maiden_name="Santos",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        response = self.client.patch(
+            f"/api/people/people/{person.id}/",
+            {"gender": "MALE", "maiden_name": "Reyes"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        person.refresh_from_db()
+        self.assertEqual(person.gender, "MALE")
+        self.assertEqual(person.maiden_name, "")
+        self.assertEqual(response.data.get("maiden_name"), "")
+
+    def test_clears_maiden_name_write_for_existing_male(self):
+        person = Person.objects.create_user(
+            username="already_male",
+            email="already_male@test.com",
+            password="testpass123",
+            first_name="Pedro",
+            last_name="Member",
+            role="MEMBER",
+            gender="MALE",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        response = self.client.patch(
+            f"/api/people/people/{person.id}/",
+            {"maiden_name": "Reyes"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        person.refresh_from_db()
+        self.assertEqual(person.maiden_name, "")
+        self.assertEqual(response.data.get("maiden_name"), "")
+
     def test_patch_title_cases_name_fields(self):
         person = Person.objects.create_user(
             username="case_mem",
@@ -182,6 +229,7 @@ class PersonMembershipApiTests(TestCase):
             first_name="Case",
             last_name="Member",
             role="MEMBER",
+            gender="FEMALE",
             branch=self.branch,
             status="ACTIVE",
         )

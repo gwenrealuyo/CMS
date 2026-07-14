@@ -11,6 +11,10 @@ from apps.people.coordinator_assignment_validation import (
     user_has_people_write_coordinator_assignment,
     validate_module_coordinator_assignment,
 )
+from apps.people.vital_dates import (
+    strip_vital_date_attrs,
+    user_can_edit_vital_dates,
+)
 from apps.people.name_formatting import (
     PERSON_NAME_FIELDS,
     apply_title_case_name_fields,
@@ -445,6 +449,16 @@ class PersonSerializer(serializers.ModelSerializer):
             ):
                 attrs.pop(field, None)
 
+        # Vital dates: cluster coordinator+ only (strip for everyone else on update).
+        if (
+            instance
+            and request
+            and request.user
+            and request.user.is_authenticated
+            and not user_can_edit_vital_dates(request.user, instance)
+        ):
+            strip_vital_date_attrs(attrs)
+
         # Member-created visitors get branch from inviter in create(); inviter must have a branch
         if is_plain_member and not instance:
             role = attrs.get("role")
@@ -568,6 +582,14 @@ class PersonSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(future_date_errors)
 
         apply_title_case_name_fields(attrs, PERSON_NAME_FIELDS)
+
+        gender = attrs.get(
+            "gender",
+            getattr(instance, "gender", None) if instance else None,
+        )
+        if gender == "MALE":
+            attrs["maiden_name"] = ""
+
         return attrs
 
     def _trigger_legacy_lessons_backfill(

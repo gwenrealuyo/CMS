@@ -30,7 +30,7 @@ Branch filtering applies to:
 | ----------- | ----------------------------------- | ----------------- | ----------------------- | -------------------------------------------------------------------------- |
 | **ADMIN**   | All people (including other ADMINS) | All families      | All clusters            | Full access, can edit/delete. No branch filtering.                         |
 | **PASTOR**  | All people (excluding ADMINS)       | All families      | All clusters            | Full access, can edit/delete. Filtered by branch unless from headquarters. |
-| **MEMBER**  | Self + family members only. **May edit own profile** (not role/status/branch/membership). | Own families only | **All clusters in branch** (read-only), with privacy-safe roster summaries (`members_details` / `families_details`). Full person/family profiles remain self + own family only. | Limited access, no edit/delete on clusters. **Weekly cluster reports are not visible** unless assigned as Cluster Reporter or Coordinator (see module assignments below). Filtered by branch.            |
+| **MEMBER**  | Self + family members only. **May edit own profile** except staff fields and **vital dates** (invited / attended / baptism / lessons — cluster coordinator+ only; Members request changes via coordinator). | Own families only | **All clusters in branch** (read-only), with privacy-safe roster summaries (`members_details` / `families_details`). Full person/family profiles remain self + own family only. | Limited access, no edit/delete on clusters. **Weekly cluster reports are not visible** unless assigned as Cluster Reporter or Coordinator (see module assignments below). Filtered by branch.            |
 | **VISITOR** | Cannot log in                       | Cannot log in     | Cannot log in           | No access                                                                  |
 
 ## Senior Coordinators (Any Module)
@@ -90,9 +90,10 @@ When a user has multiple assignments, they see the union of all applicable peopl
 3. **Resource-Specific Assignments**: Assignments with `resource_id` limit access to that specific resource
 4. **Module-Wide Assignments**: For Cluster, Evangelism, and Sunday School, module-wide rows (`resource_id` null) are allowed only at **Senior Coordinator** level. Legacy Coordinator rows without a resource should be normalized with `python manage.py normalize_module_wide_coordinators`.
 5. **Member Cluster Access**: Members can browse all clusters in their branch (read-only) and see member/visitor/family **names** via cluster roster summaries. They cannot edit/delete clusters, and cannot open fellow members’ full person or family profiles (self + own families only).
-6. **Cluster Coordinator Family Access**: Cluster coordinators see families of their members even if the family isn't directly connected to the cluster
-7. **Member Sunday School Access**: Members can access Sunday School module but stats/summary cards are hidden
-8. **Cluster Coordinator Lessons Stats**: Cluster coordinators can see stats cards in Lessons module
+6. **Vital dates**: `date_first_invited`, `date_first_attended`, `first_activity_attended`, baptism dates, and lessons-finished fields are editable only by **cluster coordinator+** (ADMIN, PASTOR, CLUSTER Senior Coordinator, or CLUSTER Coordinator for a cluster containing that person). Others see locked fields with a “contact your cluster coordinator” hover hint.
+7. **Cluster Coordinator Family Access**: Cluster coordinators see families of their members even if the family isn't directly connected to the cluster
+8. **Member Sunday School Access**: Members can access Sunday School module but stats/summary cards are hidden
+9. **Cluster Coordinator Lessons Stats**: Cluster coordinators can see stats cards in Lessons module
 
 ## Implementation Details
 

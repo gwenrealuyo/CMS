@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { Person, JourneyType, Family } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
@@ -13,6 +20,11 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import { getCreatableRoles } from "@/src/lib/personRolePermissions";
+import {
+  userCanEditVitalDates,
+  userCanEditVitalDatesOnCreate,
+} from "@/src/lib/clusterPermissions";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import {
@@ -74,6 +86,28 @@ interface PersonFormProps {
 const normalizeIdList = (ids?: (string | number)[] | null): string[] =>
   (ids || []).map((id) => String(id));
 
+const VITAL_DATE_HINT =
+  "Contact your cluster coordinator to request a change to this date.";
+const STAFF_FIELD_HINT =
+  "Contact your cluster coordinator to request a change.";
+
+function LockedField({
+  locked,
+  hint,
+  children,
+}: {
+  locked: boolean;
+  hint: string;
+  children: ReactNode;
+}) {
+  if (!locked) return <>{children}</>;
+  return (
+    <LockedControlTooltip label={hint} wrapperClassName="block w-full">
+      <div className="pointer-events-none">{children}</div>
+    </LockedControlTooltip>
+  );
+}
+
 /** Local calendar date as YYYY-MM-DD (avoids UTC off-by-one from toISOString). */
 const getLocalTodayDateString = (): string => {
   const now = new Date();
@@ -126,20 +160,35 @@ export default function PersonForm({
   clusterOptions = [],
   panelLayout = false,
 }: PersonFormProps) {
-  const { user, hasAnyModuleCoordinatorAssignment, isPlainMember } = useAuth();
+  const {
+    user,
+    hasAnyModuleCoordinatorAssignment,
+    isPlainMember,
+    isSeniorCoordinator,
+    isModuleCoordinator,
+  } = useAuth();
   const { eventTypes } = useEventTypeOptions();
   const plainMember = isPlainMember();
   const isAdmin = user?.role === "ADMIN";
   const isCreating = !initialData?.id;
   const editingSelf = Boolean(
     initialData?.id &&
-      user?.id != null &&
-      String(initialData.id) === String(user.id)
+    user?.id != null &&
+    String(initialData.id) === String(user.id),
   );
   /** Plain member editing their own record: profile fields yes; staff fields locked. */
   const selfEditLocked = plainMember && editingSelf;
   const todayDateMax = getLocalTodayDateString();
 
+  const clusterAuthCtx = useMemo(
+    () => ({
+      userId: user?.id,
+      role: user?.role,
+      isSeniorCoordinator,
+      isModuleCoordinator,
+    }),
+    [user?.id, user?.role, isSeniorCoordinator, isModuleCoordinator],
+  );
   const [autoGeneratePassword, setAutoGeneratePassword] = useState(true);
   const [manualPassword, setManualPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -227,8 +276,18 @@ export default function PersonForm({
     plainMember || (initialData?.role === "ADMIN" && !isAdmin);
   const statusSelectDisabled = selfEditLocked;
 
-  const showLoginAccess =
-    isAdmin && isCreating && formData.role !== "VISITOR";
+  const canEditVitalDates = useMemo(() => {
+    if (isCreating) {
+      return userCanEditVitalDatesOnCreate(clusterAuthCtx);
+    }
+    return userCanEditVitalDates(
+      formData.cluster_ids || [],
+      clusterOptions,
+      clusterAuthCtx,
+    );
+  }, [isCreating, clusterAuthCtx, formData.cluster_ids, clusterOptions]);
+
+  const showLoginAccess = isAdmin && isCreating && formData.role !== "VISITOR";
 
   const [loading, setLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -416,6 +475,9 @@ export default function PersonForm({
           }
         }
       }
+      if (name === "gender" && value === "MALE") {
+        next.maiden_name = "";
+      }
       if (name === "water_baptism_date") {
         next = applyWaterBaptismRoleRules(next, value);
       }
@@ -457,9 +519,7 @@ export default function PersonForm({
       id: initialData?.id,
       first_name: formData.first_name,
       last_name: formData.last_name,
-      photo: photoRemoved
-        ? undefined
-        : photoPreviewUrl || initialData?.photo,
+      photo: photoRemoved ? undefined : photoPreviewUrl || initialData?.photo,
     }),
     [
       initialData?.id,
@@ -472,8 +532,7 @@ export default function PersonForm({
   );
 
   const showPhotoPreview =
-    Boolean(photoPreviewUrl) ||
-    Boolean(initialData?.photo && !photoRemoved);
+    Boolean(photoPreviewUrl) || Boolean(initialData?.photo && !photoRemoved);
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -886,10 +945,7 @@ export default function PersonForm({
     const skipBranchRequirement =
       !canEditBranch || (plainMember && !initialData?.id);
 
-    if (
-      !skipBranchRequirement &&
-      formData.branch == null
-    ) {
+    if (!skipBranchRequirement && formData.branch == null) {
       toast.error("Please select a branch.");
       return;
     }
@@ -919,7 +975,9 @@ export default function PersonForm({
         return;
       }
       if (!/[a-zA-Z]/.test(manualPassword) || !/[0-9]/.test(manualPassword)) {
-        toast.error("Password must contain at least one letter and one number.");
+        toast.error(
+          "Password must contain at least one letter and one number.",
+        );
         return;
       }
       if (manualPassword !== confirmPassword) {
@@ -959,8 +1017,8 @@ export default function PersonForm({
     <>
       <form
         onSubmit={handleSubmit}
-        className={`text-sm max-w-3xl ${
-          panelLayout ? "p-4 sm:p-5 space-y-6 mt-0" : "space-y-4"
+        className={`text-sm w-full ${
+          panelLayout ? "p-4 sm:p-5 space-y-6 mt-0 max-w-3xl" : "space-y-4"
         }`}
       >
         {/* Tabs */}
@@ -993,9 +1051,7 @@ export default function PersonForm({
 
         {/* BASIC INFO TAB */}
         {activeTab === "basic" && (
-          <div
-            className={`space-y-6 ${panelLayout ? "pr-0" : "pr-1"}`}
-          >
+          <div className="space-y-6">
             <div className="pt-2">
               <div className="p-0">
                 <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
@@ -1005,8 +1061,14 @@ export default function PersonForm({
                   Basic identity information.
                 </p>
                 <div className="space-y-4">
-                  {/* Name Fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {/* Name Fields: first / middle / last / narrow suffix */}
+                  <div
+                    className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${
+                      panelLayout
+                        ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(2.5rem,3.5rem)]"
+                        : "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(4.5rem,6.5rem)]"
+                    }`}
+                  >
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         First Name <span className="text-red-500">*</span>
@@ -1032,7 +1094,7 @@ export default function PersonForm({
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
-                    <div>
+                    <div className="sm:col-span-2 md:col-span-1">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Last Name <span className="text-red-500">*</span>
                       </label>
@@ -1045,10 +1107,7 @@ export default function PersonForm({
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
+                    <div className="sm:col-span-2 md:col-span-1">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Suffix
                       </label>
@@ -1060,6 +1119,10 @@ export default function PersonForm({
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
                     </div>
+                  </div>
+
+                  {/* Nickname (narrow) / Maiden (wider) / Gender (narrow) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.8fr)_minmax(0,0.9fr)] gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Nickname
@@ -1082,15 +1145,26 @@ export default function PersonForm({
                       <input
                         type="text"
                         name="maiden_name"
-                        value={formData.maiden_name || ""}
+                        value={
+                          formData.gender === "MALE"
+                            ? ""
+                            : formData.maiden_name || ""
+                        }
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                        disabled={formData.gender === "MALE"}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          formData.gender === "MALE"
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formData.gender === "MALE"
+                          ? "Not applicable when gender is male."
+                          : "Previous middle and last name before marriage, if different from their current name."}
+                      </p>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
+                    <div className="sm:col-span-2 md:col-span-1">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Gender
                       </label>
@@ -1229,73 +1303,105 @@ export default function PersonForm({
                 )}
                 {selfEditLocked && (
                   <p className="text-xs text-gray-500 mb-4">
-                    Role, status, and branch are managed by church staff.
+                    Role, status, branch, and vital dates are managed by your
+                    cluster coordinator.
                   </p>
                 )}
-                {!plainMember && !isAdmin && hasAnyModuleCoordinatorAssignment() && (
+                {!canEditVitalDates && !selfEditLocked && (
                   <p className="text-xs text-gray-500 mb-4">
-                    Login passwords for new members are set by an administrator.
+                    Vital dates can only be changed by a cluster coordinator (or
+                    higher).
                   </p>
                 )}
+                {!plainMember &&
+                  !isAdmin &&
+                  hasAnyModuleCoordinatorAssignment() && (
+                    <p className="text-xs text-gray-500 mb-4">
+                      Login passwords for new members are set by an
+                      administrator.
+                    </p>
+                  )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Role
                     </label>
-                    <select
-                      name="role"
-                      value={formData.role}
-                      onChange={handleChange}
-                      disabled={roleSelectDisabled}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                    <LockedField
+                      locked={roleSelectDisabled && selfEditLocked}
+                      hint={STAFF_FIELD_HINT}
                     >
-                      {creatableRoles.map((role) => (
-                        <option key={role} value={role}>
-                          {role.charAt(0) + role.slice(1).toLowerCase()}
-                        </option>
-                      ))}
-                    </select>
+                      <select
+                        name="role"
+                        value={formData.role}
+                        onChange={handleChange}
+                        disabled={roleSelectDisabled}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          roleSelectDisabled
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        {creatableRoles.map((role) => (
+                          <option key={role} value={role}>
+                            {role.charAt(0) + role.slice(1).toLowerCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </LockedField>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Status
                     </label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      disabled={statusSelectDisabled}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                        statusSelectDisabled
-                          ? "bg-gray-100 cursor-not-allowed"
-                          : ""
-                      }`}
+                    <LockedField
+                      locked={statusSelectDisabled}
+                      hint={STAFF_FIELD_HINT}
                     >
-                      {statusOptions.map((status) => (
-                        <option key={status} value={status}>
-                          {status === "FALLAWAY"
-                            ? "Fall Away"
-                            : status === "SEMIACTIVE"
-                              ? "Semi-active"
-                              : status === "NO_RESPONSE"
-                                ? "No Response"
-                                : status.charAt(0) +
-                                  status.slice(1).toLowerCase()}
-                        </option>
-                      ))}
-                    </select>
+                      <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleChange}
+                        disabled={statusSelectDisabled}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          statusSelectDisabled
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        {statusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {status === "FALLAWAY"
+                              ? "Fall Away"
+                              : status === "SEMIACTIVE"
+                                ? "Semi-active"
+                                : status === "NO_RESPONSE"
+                                  ? "No Response"
+                                  : status.charAt(0) +
+                                    status.slice(1).toLowerCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </LockedField>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       LAMP ID
                     </label>
-                    <input
-                      type="text"
-                      name="member_id"
-                      value={formData.member_id || ""}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
+                    <LockedField
+                      locked={selfEditLocked}
+                      hint={STAFF_FIELD_HINT}
+                    >
+                      <input
+                        type="text"
+                        name="member_id"
+                        value={formData.member_id || ""}
+                        onChange={handleChange}
+                        disabled={selfEditLocked}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          selfEditLocked ? "bg-gray-100 cursor-not-allowed" : ""
+                        }`}
+                      />
+                    </LockedField>
                     <p className="text-xs text-gray-500 mt-1">
                       Must be unique when set
                     </p>
@@ -1304,69 +1410,86 @@ export default function PersonForm({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Branch <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      name="branch"
-                      value={formData.branch ?? ""}
-                      onChange={(e) => {
-                        const value =
-                          e.target.value === ""
-                            ? undefined
-                            : Number(e.target.value);
-                        setFormData((prev) => ({
-                          ...prev,
-                          branch: value,
-                        }));
-                        setHasUnsavedChanges(true);
-                      }}
-                      disabled={!canEditBranch}
-                      required={
-                        canEditBranch && !(plainMember && !initialData?.id)
-                      }
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                        !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
-                      }`}
+                    <LockedField
+                      locked={!canEditBranch || selfEditLocked}
+                      hint={STAFF_FIELD_HINT}
                     >
-                      <option value="">
-                        {canEditBranch ? "Select branch" : "No branch"}
-                      </option>
-                      {branches
-                        .filter((b) => b.is_active)
-                        .map((branch) => (
-                          <option key={branch.id} value={branch.id}>
-                            {branch.name}
-                            {branch.is_headquarters ? " (HQ)" : ""}
-                          </option>
-                        ))}
-                    </select>
-                    {!canEditBranch && (
+                      <select
+                        name="branch"
+                        value={formData.branch ?? ""}
+                        onChange={(e) => {
+                          const value =
+                            e.target.value === ""
+                              ? undefined
+                              : Number(e.target.value);
+                          setFormData((prev) => ({
+                            ...prev,
+                            branch: value,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        disabled={!canEditBranch || selfEditLocked}
+                        required={
+                          canEditBranch && !(plainMember && !initialData?.id)
+                        }
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          !canEditBranch || selfEditLocked
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <option value="">
+                          {canEditBranch ? "Select branch" : "No branch"}
+                        </option>
+                        {branches
+                          .filter((b) => b.is_active)
+                          .map((branch) => (
+                            <option key={branch.id} value={branch.id}>
+                              {branch.name}
+                              {branch.is_headquarters ? " (HQ)" : ""}
+                            </option>
+                          ))}
+                      </select>
+                    </LockedField>
+                    {(!canEditBranch || selfEditLocked) && (
                       <p className="text-xs text-gray-500 mt-1">
-                        Branch is set automatically when adding visitors;
-                        coordinators and above assign branch via roster screens
-                        where permitted.
+                        {selfEditLocked
+                          ? "Contact your cluster coordinator to request a change."
+                          : "Branch is set automatically when adding visitors; coordinators and above assign branch via roster screens where permitted."}
                       </p>
                     )}
                   </div>
                   <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="has_finished_lessons"
-                      id="has_finished_lessons"
-                      checked={(formData as any).has_finished_lessons || false}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          has_finished_lessons: e.target.checked,
-                        }));
-                        setHasUnsavedChanges(true);
-                      }}
-                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
-                    />
-                    <label
-                      htmlFor="has_finished_lessons"
-                      className="ml-2 block text-sm font-medium text-gray-700"
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
                     >
-                      Has Finished NC Lessons
-                    </label>
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          name="has_finished_lessons"
+                          id="has_finished_lessons"
+                          checked={
+                            (formData as any).has_finished_lessons || false
+                          }
+                          disabled={!canEditVitalDates}
+                          onChange={(e) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              has_finished_lessons: e.target.checked,
+                            }));
+                            setHasUnsavedChanges(true);
+                          }}
+                          className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
+                        />
+                        <label
+                          htmlFor="has_finished_lessons"
+                          className="ml-2 block text-sm font-medium text-gray-700"
+                        >
+                          Has Finished NC Lessons
+                        </label>
+                      </div>
+                    </LockedField>
                   </div>
                   {formData.has_finished_lessons && (
                     <div className="md:col-span-2">
@@ -1440,9 +1563,7 @@ export default function PersonForm({
                           <PasswordInput
                             name="confirm_password"
                             value={confirmPassword}
-                            onChange={(e) =>
-                              setConfirmPassword(e.target.value)
-                            }
+                            onChange={(e) => setConfirmPassword(e.target.value)}
                             placeholder="Re-enter password"
                             autoComplete="new-password"
                           />
@@ -1461,6 +1582,9 @@ export default function PersonForm({
                 </h3>
                 <p className="text-xs text-gray-500 mb-4">
                   Important dates for records.
+                  {!canEditVitalDates
+                    ? " Vital dates can only be changed by your cluster coordinator."
+                    : ""}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                   <div>
@@ -1480,66 +1604,116 @@ export default function PersonForm({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Date First Invited
                     </label>
-                    <input
-                      type="date"
-                      name="date_first_invited"
-                      value={(formData as any).date_first_invited || ""}
-                      onChange={handleChange}
-                      max={todayDateMax}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <input
+                        type="date"
+                        name="date_first_invited"
+                        value={(formData as any).date_first_invited || ""}
+                        onChange={handleChange}
+                        disabled={!canEditVitalDates}
+                        max={todayDateMax}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          !canEditVitalDates
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    </LockedField>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Date First Attended
                     </label>
-                    <input
-                      type="date"
-                      name="date_first_attended"
-                      value={formData.date_first_attended || ""}
-                      onChange={handleChange}
-                      max={todayDateMax}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <input
+                        type="date"
+                        name="date_first_attended"
+                        value={formData.date_first_attended || ""}
+                        onChange={handleChange}
+                        disabled={!canEditVitalDates}
+                        max={todayDateMax}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          !canEditVitalDates
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    </LockedField>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Water Baptism Date
                     </label>
-                    <input
-                      type="date"
-                      name="water_baptism_date"
-                      value={(formData as any).water_baptism_date || ""}
-                      onChange={handleChange}
-                      max={todayDateMax}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <input
+                        type="date"
+                        name="water_baptism_date"
+                        value={(formData as any).water_baptism_date || ""}
+                        onChange={handleChange}
+                        disabled={!canEditVitalDates}
+                        max={todayDateMax}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          !canEditVitalDates
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    </LockedField>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Spirit Baptism Date
                     </label>
-                    <input
-                      type="date"
-                      name="spirit_baptism_date"
-                      value={(formData as any).spirit_baptism_date || ""}
-                      onChange={handleChange}
-                      max={todayDateMax}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <input
+                        type="date"
+                        name="spirit_baptism_date"
+                        value={(formData as any).spirit_baptism_date || ""}
+                        onChange={handleChange}
+                        disabled={!canEditVitalDates}
+                        max={todayDateMax}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          !canEditVitalDates
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    </LockedField>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Lessons Finished Date
                     </label>
-                    <input
-                      type="date"
-                      name="lessons_finished_at"
-                      value={(formData as any).lessons_finished_at || ""}
-                      onChange={handleChange}
-                      max={todayDateMax}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <input
+                        type="date"
+                        name="lessons_finished_at"
+                        value={(formData as any).lessons_finished_at || ""}
+                        onChange={handleChange}
+                        disabled={!canEditVitalDates}
+                        max={todayDateMax}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          !canEditVitalDates
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    </LockedField>
                     {formData.has_finished_lessons &&
                       !formData.lessons_finished_at && (
                         <p className="mt-1 text-xs text-red-600">
@@ -1576,19 +1750,29 @@ export default function PersonForm({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       First Activity Attended
                     </label>
-                    <select
-                      name="first_activity_attended"
-                      value={(formData as any).first_activity_attended || ""}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
                     >
-                      <option value="">Select activity</option>
-                      {eventTypes.map((type) => (
-                        <option key={type.code} value={type.code}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
+                      <select
+                        name="first_activity_attended"
+                        value={(formData as any).first_activity_attended || ""}
+                        onChange={handleChange}
+                        disabled={!canEditVitalDates}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          !canEditVitalDates
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <option value="">Select activity</option>
+                        {eventTypes.map((type) => (
+                          <option key={type.code} value={type.code}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </LockedField>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1653,349 +1837,370 @@ export default function PersonForm({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Inviter
                     </label>
-                    <SearchableSelect
-                      value={formData.inviter ? String(formData.inviter) : ""}
-                      onChange={(value) => {
-                        setFormData(
-                          (prev) => ({ ...prev, inviter: value }) as any,
-                        );
-                        setHasUnsavedChanges(true);
-                      }}
-                      disabled={selfEditLocked}
-                      options={peopleOptions
-                        .filter(
-                          (p) => p.role !== "ADMIN" && p.username !== "admin",
-                        )
-                        .map((p) => ({
-                          ...p,
-                          id: p.id,
-                          username: p.username || p.email || String(p.id),
-                        }))}
-                      placeholder="Type a name to search..."
-                      emptyMessage="No inviter found"
-                      showEmptyOption={true}
-                      emptyOptionLabel="No inviter"
-                    />
+                    <LockedField
+                      locked={selfEditLocked}
+                      hint={STAFF_FIELD_HINT}
+                    >
+                      <SearchableSelect
+                        value={formData.inviter ? String(formData.inviter) : ""}
+                        onChange={(value) => {
+                          setFormData(
+                            (prev) => ({ ...prev, inviter: value }) as any,
+                          );
+                          setHasUnsavedChanges(true);
+                        }}
+                        disabled={selfEditLocked}
+                        options={peopleOptions
+                          .filter(
+                            (p) => p.role !== "ADMIN" && p.username !== "admin",
+                          )
+                          .map((p) => ({
+                            ...p,
+                            id: p.id,
+                            username: p.username || p.email || String(p.id),
+                          }))}
+                        placeholder="Type a name to search..."
+                        emptyMessage="No inviter found"
+                        showEmptyOption={true}
+                        emptyOptionLabel="No inviter"
+                      />
+                    </LockedField>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Families ({(formData.family_ids || []).length} selected)
                     </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={familySearch}
-                        onChange={(e) => {
-                          setFamilySearch(e.target.value);
-                          setShowFamilyDropdown(true);
-                        }}
-                        onFocus={() => setShowFamilyDropdown(true)}
-                        disabled={selfEditLocked}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          selfEditLocked
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : ""
-                        }`}
-                        placeholder="Search families by name..."
-                      />
-                      {showFamilyDropdown && familySearch && !selfEditLocked && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                          {familyOptions
-                            .filter((f) =>
-                              f.name
-                                .toLowerCase()
-                                .includes(familySearch.toLowerCase()),
-                            )
-                            .map((family) => {
-                              const id = String(family.id);
-                              const selected = (
-                                formData.family_ids || []
-                              ).includes(id);
-                              return (
-                                <button
-                                  key={id}
-                                  type="button"
-                                  disabled={selected}
-                                  onClick={() => {
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      family_ids: [
-                                        ...(prev.family_ids || []),
-                                        id,
-                                      ],
-                                    }));
-                                    setFamilySearch("");
-                                    setShowFamilyDropdown(false);
-                                    setHasUnsavedChanges(true);
-                                  }}
-                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
-                                    selected
-                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                      : "text-gray-900"
-                                  }`}
-                                >
-                                  <span className="font-medium truncate">
-                                    {family.name}
-                                  </span>
-                                  <span className="min-w-0 flex items-center justify-end gap-2 shrink-0">
-                                    <EntityBranchChip
-                                      branchId={family.branch}
-                                      branches={branches}
-                                    />
-                                    {selected && (
-                                      <span className="text-xs text-gray-400">
-                                        Added
+                    <LockedField
+                      locked={selfEditLocked}
+                      hint={STAFF_FIELD_HINT}
+                    >
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={familySearch}
+                          onChange={(e) => {
+                            setFamilySearch(e.target.value);
+                            setShowFamilyDropdown(true);
+                          }}
+                          onFocus={() => setShowFamilyDropdown(true)}
+                          disabled={selfEditLocked}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                            selfEditLocked
+                              ? "bg-gray-100 cursor-not-allowed"
+                              : ""
+                          }`}
+                          placeholder="Search families by name..."
+                        />
+                        {showFamilyDropdown &&
+                          familySearch &&
+                          !selfEditLocked && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {familyOptions
+                                .filter((f) =>
+                                  f.name
+                                    .toLowerCase()
+                                    .includes(familySearch.toLowerCase()),
+                                )
+                                .map((family) => {
+                                  const id = String(family.id);
+                                  const selected = (
+                                    formData.family_ids || []
+                                  ).includes(id);
+                                  return (
+                                    <button
+                                      key={id}
+                                      type="button"
+                                      disabled={selected}
+                                      onClick={() => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          family_ids: [
+                                            ...(prev.family_ids || []),
+                                            id,
+                                          ],
+                                        }));
+                                        setFamilySearch("");
+                                        setShowFamilyDropdown(false);
+                                        setHasUnsavedChanges(true);
+                                      }}
+                                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
+                                        selected
+                                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                          : "text-gray-900"
+                                      }`}
+                                    >
+                                      <span className="font-medium truncate">
+                                        {family.name}
                                       </span>
-                                    )}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          {familyOptions.filter((f) =>
-                            f.name
-                              .toLowerCase()
-                              .includes(familySearch.toLowerCase()),
-                          ).length === 0 && (
-                            <div className="px-3 py-2 text-gray-500 text-sm">
-                              No families found matching &ldquo;{familySearch}
-                              &rdquo;
+                                      <span className="min-w-0 flex items-center justify-end gap-2 shrink-0">
+                                        <EntityBranchChip
+                                          branchId={family.branch}
+                                          branches={branches}
+                                        />
+                                        {selected && (
+                                          <span className="text-xs text-gray-400">
+                                            Added
+                                          </span>
+                                        )}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              {familyOptions.filter((f) =>
+                                f.name
+                                  .toLowerCase()
+                                  .includes(familySearch.toLowerCase()),
+                              ).length === 0 && (
+                                <div className="px-3 py-2 text-gray-500 text-sm">
+                                  No families found matching &ldquo;
+                                  {familySearch}
+                                  &rdquo;
+                                </div>
+                              )}
                             </div>
                           )}
+                      </div>
+                      {(formData.family_ids || []).length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(formData.family_ids || []).map((id) => {
+                            const family = familyOptions.find(
+                              (f) => String(f.id) === id,
+                            );
+                            return (
+                              <div
+                                key={id}
+                                className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
+                              >
+                                <span className="text-sm font-medium text-gray-900">
+                                  {family?.name || `Family ${id}`}
+                                </span>
+                                {family && (
+                                  <EntityBranchChip
+                                    branchId={family.branch}
+                                    branches={branches}
+                                  />
+                                )}
+                                {!selfEditLocked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        family_ids: (
+                                          prev.family_ids || []
+                                        ).filter((fid) => fid !== id),
+                                      }));
+                                      setHasUnsavedChanges(true);
+                                    }}
+                                    className="text-gray-400 hover:text-red-500 ml-1"
+                                    aria-label={`Remove ${family?.name || id}`}
+                                  >
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                      />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
-                    </div>
-                    {(formData.family_ids || []).length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {(formData.family_ids || []).map((id) => {
-                          const family = familyOptions.find(
-                            (f) => String(f.id) === id,
-                          );
-                          return (
-                            <div
-                              key={id}
-                              className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
-                            >
-                              <span className="text-sm font-medium text-gray-900">
-                                {family?.name || `Family ${id}`}
-                              </span>
-                              {family && (
-                                <EntityBranchChip
-                                  branchId={family.branch}
-                                  branches={branches}
-                                />
-                              )}
-                              {!selfEditLocked && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      family_ids: (prev.family_ids || []).filter(
-                                        (fid) => fid !== id,
-                                      ),
-                                    }));
-                                    setHasUnsavedChanges(true);
-                                  }}
-                                  className="text-gray-400 hover:text-red-500 ml-1"
-                                  aria-label={`Remove ${family?.name || id}`}
-                                >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M6 18L18 6M6 6l12 12"
-                                    />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {showFamilyDropdown && (
-                      <div
-                        className="fixed inset-0 z-0"
-                        onClick={() => setShowFamilyDropdown(false)}
-                      />
-                    )}
+                      {showFamilyDropdown && (
+                        <div
+                          className="fixed inset-0 z-0"
+                          onClick={() => setShowFamilyDropdown(false)}
+                        />
+                      )}
+                    </LockedField>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Clusters ({(formData.cluster_ids || []).length} selected)
                     </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={clusterSearch}
-                        onChange={(e) => {
-                          setClusterSearch(e.target.value);
-                          setShowClusterDropdown(true);
-                        }}
-                        onFocus={() => setShowClusterDropdown(true)}
-                        disabled={selfEditLocked}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          selfEditLocked
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : ""
-                        }`}
-                        placeholder="Search clusters by code or name..."
-                      />
-                      {showClusterDropdown && clusterSearch && !selfEditLocked && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                          {clusterOptions
-                            .filter((c) => {
-                              const q = clusterSearch.toLowerCase();
-                              return (
-                                (c.code || "").toLowerCase().includes(q) ||
-                                (c.name || "").toLowerCase().includes(q)
-                              );
-                            })
-                            .map((cluster) => {
-                              const id = String(cluster.id);
-                              const selected = (
-                                formData.cluster_ids || []
-                              ).includes(id);
-                              return (
-                                <button
-                                  key={id}
-                                  type="button"
-                                  disabled={selected}
-                                  onClick={() => {
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      cluster_ids: [
-                                        ...(prev.cluster_ids || []),
-                                        id,
-                                      ],
-                                    }));
-                                    setClusterSearch("");
-                                    setShowClusterDropdown(false);
-                                    setHasUnsavedChanges(true);
-                                  }}
-                                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
-                                    selected
-                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                      : "text-gray-900"
-                                  }`}
-                                >
-                                  <span className="min-w-0 flex items-center gap-2">
-                                    <span className="font-medium shrink-0">
-                                      {(cluster.code || "").trim() ||
-                                        `Cluster ${cluster.id}`}
-                                    </span>
-                                    <span
-                                      className={`truncate ${
+                    <LockedField
+                      locked={selfEditLocked}
+                      hint={STAFF_FIELD_HINT}
+                    >
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={clusterSearch}
+                          onChange={(e) => {
+                            setClusterSearch(e.target.value);
+                            setShowClusterDropdown(true);
+                          }}
+                          onFocus={() => setShowClusterDropdown(true)}
+                          disabled={selfEditLocked}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                            selfEditLocked
+                              ? "bg-gray-100 cursor-not-allowed"
+                              : ""
+                          }`}
+                          placeholder="Search clusters by code or name..."
+                        />
+                        {showClusterDropdown &&
+                          clusterSearch &&
+                          !selfEditLocked && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {clusterOptions
+                                .filter((c) => {
+                                  const q = clusterSearch.toLowerCase();
+                                  return (
+                                    (c.code || "").toLowerCase().includes(q) ||
+                                    (c.name || "").toLowerCase().includes(q)
+                                  );
+                                })
+                                .map((cluster) => {
+                                  const id = String(cluster.id);
+                                  const selected = (
+                                    formData.cluster_ids || []
+                                  ).includes(id);
+                                  return (
+                                    <button
+                                      key={id}
+                                      type="button"
+                                      disabled={selected}
+                                      onClick={() => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          cluster_ids: [
+                                            ...(prev.cluster_ids || []),
+                                            id,
+                                          ],
+                                        }));
+                                        setClusterSearch("");
+                                        setShowClusterDropdown(false);
+                                        setHasUnsavedChanges(true);
+                                      }}
+                                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-3 ${
                                         selected
-                                          ? "text-gray-400"
-                                          : "text-gray-500"
+                                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                          : "text-gray-900"
                                       }`}
                                     >
-                                      {(cluster.name || "").trim() ||
-                                        "Unnamed cluster"}
-                                    </span>
-                                  </span>
-                                  <span className="flex items-center justify-end gap-2 shrink-0">
-                                    <EntityBranchChip
-                                      branchId={cluster.branch}
-                                      branches={branches}
-                                    />
-                                    {selected && (
-                                      <span className="text-xs text-gray-400">
-                                        Added
+                                      <span className="min-w-0 flex items-center gap-2">
+                                        <span className="font-medium shrink-0">
+                                          {(cluster.code || "").trim() ||
+                                            `Cluster ${cluster.id}`}
+                                        </span>
+                                        <span
+                                          className={`truncate ${
+                                            selected
+                                              ? "text-gray-400"
+                                              : "text-gray-500"
+                                          }`}
+                                        >
+                                          {(cluster.name || "").trim() ||
+                                            "Unnamed cluster"}
+                                        </span>
                                       </span>
-                                    )}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          {clusterOptions.filter((c) => {
-                            const q = clusterSearch.toLowerCase();
-                            return (
-                              (c.code || "").toLowerCase().includes(q) ||
-                              (c.name || "").toLowerCase().includes(q)
-                            );
-                          }).length === 0 && (
-                            <div className="px-3 py-2 text-gray-500 text-sm">
-                              No clusters found matching &ldquo;{clusterSearch}
-                              &rdquo;
+                                      <span className="flex items-center justify-end gap-2 shrink-0">
+                                        <EntityBranchChip
+                                          branchId={cluster.branch}
+                                          branches={branches}
+                                        />
+                                        {selected && (
+                                          <span className="text-xs text-gray-400">
+                                            Added
+                                          </span>
+                                        )}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              {clusterOptions.filter((c) => {
+                                const q = clusterSearch.toLowerCase();
+                                return (
+                                  (c.code || "").toLowerCase().includes(q) ||
+                                  (c.name || "").toLowerCase().includes(q)
+                                );
+                              }).length === 0 && (
+                                <div className="px-3 py-2 text-gray-500 text-sm">
+                                  No clusters found matching &ldquo;
+                                  {clusterSearch}
+                                  &rdquo;
+                                </div>
+                              )}
                             </div>
                           )}
+                      </div>
+                      {(formData.cluster_ids || []).length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(formData.cluster_ids || []).map((id) => {
+                            const cluster = clusterOptions.find(
+                              (c) => String(c.id) === id,
+                            );
+                            return (
+                              <div
+                                key={id}
+                                className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
+                              >
+                                <span className="text-sm font-medium text-gray-900 shrink-0">
+                                  {cluster
+                                    ? (cluster.code || "").trim() ||
+                                      `Cluster ${cluster.id}`
+                                    : `Cluster ${id}`}
+                                </span>
+                                {cluster && (
+                                  <span className="text-sm text-gray-600 truncate">
+                                    {(cluster.name || "").trim() ||
+                                      "Unnamed cluster"}
+                                  </span>
+                                )}
+                                {!selfEditLocked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        cluster_ids: (
+                                          prev.cluster_ids || []
+                                        ).filter((cid) => cid !== id),
+                                      }));
+                                      setHasUnsavedChanges(true);
+                                    }}
+                                    className="text-gray-400 hover:text-red-500 ml-1"
+                                    aria-label={`Remove cluster ${id}`}
+                                  >
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                      />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
-                    </div>
-                    {(formData.cluster_ids || []).length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {(formData.cluster_ids || []).map((id) => {
-                          const cluster = clusterOptions.find(
-                            (c) => String(c.id) === id,
-                          );
-                          return (
-                            <div
-                              key={id}
-                              className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
-                            >
-                              <span className="text-sm font-medium text-gray-900 shrink-0">
-                                {cluster
-                                  ? (cluster.code || "").trim() ||
-                                    `Cluster ${cluster.id}`
-                                  : `Cluster ${id}`}
-                              </span>
-                              {cluster && (
-                                <span className="text-sm text-gray-600 truncate">
-                                  {(cluster.name || "").trim() ||
-                                    "Unnamed cluster"}
-                                </span>
-                              )}
-                              {!selfEditLocked && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      cluster_ids: (
-                                        prev.cluster_ids || []
-                                      ).filter((cid) => cid !== id),
-                                    }));
-                                    setHasUnsavedChanges(true);
-                                  }}
-                                  className="text-gray-400 hover:text-red-500 ml-1"
-                                  aria-label={`Remove cluster ${id}`}
-                                >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M6 18L18 6M6 6l12 12"
-                                    />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {showClusterDropdown && (
-                      <div
-                        className="fixed inset-0 z-0"
-                        onClick={() => setShowClusterDropdown(false)}
-                      />
-                    )}
+                      {showClusterDropdown && (
+                        <div
+                          className="fixed inset-0 z-0"
+                          onClick={() => setShowClusterDropdown(false)}
+                        />
+                      )}
+                    </LockedField>
                   </div>
                 </div>
               </div>
@@ -2032,9 +2237,7 @@ export default function PersonForm({
 
         {/* JOURNEY TIMELINE TAB */}
         {activeTab === "timeline" && (
-          <div
-            className={`space-y-4 p-0 ${panelLayout ? "pr-0" : "pr-1"}`}
-          >
+          <div className="space-y-4 p-0">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Event Title <span className="text-red-500">*</span>
@@ -2437,9 +2640,7 @@ export default function PersonForm({
 
       <ConfirmationModal
         isOpen={duplicateNameConfirm.isOpen}
-        onClose={() =>
-          setDuplicateNameConfirm({ isOpen: false, matches: [] })
-        }
+        onClose={() => setDuplicateNameConfirm({ isOpen: false, matches: [] })}
         onConfirm={() => {
           setDuplicateNameConfirm({ isOpen: false, matches: [] });
           void performSave();
@@ -2456,9 +2657,7 @@ export default function PersonForm({
                 <li key={person.id}>{describeDuplicatePerson(person)}</li>
               ))}
               {duplicateNameConfirm.matches.length > 8 && (
-                <li>
-                  …and {duplicateNameConfirm.matches.length - 8} more
-                </li>
+                <li>…and {duplicateNameConfirm.matches.length - 8} more</li>
               )}
             </ul>
           </div>

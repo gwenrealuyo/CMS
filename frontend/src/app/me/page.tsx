@@ -120,9 +120,10 @@ function MePageContent() {
         </div>
         {isMember && (
           <p className="text-sm text-gray-600">
-            You can edit your profile here. Account login details (password) are
-            under Account settings. Role, status, branch, and membership are
-            managed by church staff.
+            You can edit your profile here. Vital dates, role, status, branch,
+            and membership are managed by your cluster coordinator — contact
+            them to request changes. Account login details (password) are under
+            Account settings.
           </p>
         )}
         {loading && (

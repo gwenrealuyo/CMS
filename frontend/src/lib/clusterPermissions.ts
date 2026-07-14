@@ -145,3 +145,34 @@ export function canAccessClusterReports(
     return cid != null && Number(cid) === Number(userId);
   });
 }
+
+/**
+ * Who may edit vital milestone dates (invited/attended/baptism/lessons).
+ * Mirrors backend `user_can_edit_vital_dates`.
+ */
+export function userCanEditVitalDates(
+  personClusterIds: Array<string | number>,
+  clusters: Cluster[],
+  auth: ManageClusterAuth
+): boolean {
+  const { userId, role, isSeniorCoordinator } = auth;
+  if (!userId) return false;
+  if (role === "ADMIN" || role === "PASTOR") return true;
+  if (isSeniorCoordinator("CLUSTER")) return true;
+  const idSet = new Set(personClusterIds.map((id) => Number(id)));
+  return clusters.some(
+    (c) => idSet.has(Number(c.id)) && userCanManageCluster(c, auth)
+  );
+}
+
+/**
+ * On create, person has no membership yet — allow ADMIN/PASTOR/CLUSTER senior
+ * or any CLUSTER COORDINATOR assignment.
+ */
+export function userCanEditVitalDatesOnCreate(auth: ManageClusterAuth): boolean {
+  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  if (!userId) return false;
+  if (role === "ADMIN" || role === "PASTOR") return true;
+  if (isSeniorCoordinator("CLUSTER")) return true;
+  return isModuleCoordinator("CLUSTER", "COORDINATOR");
+}

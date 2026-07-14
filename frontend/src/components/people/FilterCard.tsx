@@ -273,7 +273,7 @@ export default function FilterCard({
   return (
     <div
       ref={cardRef}
-      className="absolute right-0 top-full mt-2 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+      className="absolute right-0 top-full mt-1.5 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-gray-900">

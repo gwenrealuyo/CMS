@@ -436,12 +436,18 @@ export default function FilterBar({
             <button
               ref={filterButtonRef}
               type="button"
+              aria-expanded={showFilterDropdown || showFilterCard}
+              aria-haspopup="menu"
               onClick={() => {
                 setShowFilterCard(false);
                 setSelectedField(null);
                 setShowFilterDropdown((open) => !open);
               }}
-              className="inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0"
+              className={`inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 transition-colors min-h-[44px] md:min-h-0 focus:outline-none ${
+                showFilterDropdown || showFilterCard
+                  ? "bg-gray-100"
+                  : "bg-white hover:bg-gray-50 active:bg-gray-100"
+              }`}
             >
               <svg
                 className="w-4 h-4 mr-1"

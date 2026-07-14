@@ -141,7 +141,7 @@ export default function FilterDropdown({
   return (
     <div
       ref={dropdownRef}
-      className="absolute right-0 top-full mt-2 z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+      className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
     >
       <div className="px-3 py-2 border-b border-gray-100">
         <h3 className="text-sm font-medium text-gray-900">Filter by Field</h3>

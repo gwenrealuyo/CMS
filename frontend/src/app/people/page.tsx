@@ -95,10 +95,8 @@ export default function PeoplePage() {
   const [personPanelInitialData, setPersonPanelInitialData] = useState<
     Partial<Person> | undefined
   >(undefined);
-  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth >= 1024;
-  });
+  // Start false so SSR and the first client render match; set real value in useEffect.
+  const [isDesktop, setIsDesktop] = useState(false);
   const [viewEditPerson, setViewEditPerson] = useState<Person | null>(null);
   const viewEditPersonRef = useRef<Person | null>(null);
   useEffect(() => {

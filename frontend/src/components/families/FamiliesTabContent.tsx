@@ -49,10 +49,8 @@ export default function FamiliesTabContent({
   const { user } = useAuth();
   const userCanHardDelete = canHardDelete(user);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth >= 1024;
-  });
+  // Start false so SSR and the first client render match; set real value in useEffect.
+  const [isDesktop, setIsDesktop] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelEntity, setPanelEntity] = useState<PanelEntity>("family");
   const [panelMode, setPanelMode] = useState<"view" | "edit" | "create">("view");

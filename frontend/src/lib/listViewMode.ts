@@ -13,14 +13,13 @@ export function getInitialListViewMode(
 }
 
 export function useIsMdUp(): boolean {
-  const [isMdUp, setIsMdUp] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.matchMedia("(min-width: 768px)").matches;
-  });
+  // Default true to match typical SSR / desktop-first rendering; sync after mount.
+  const [isMdUp, setIsMdUp] = useState(true);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 768px)");
     const onChange = (event: MediaQueryListEvent) => setIsMdUp(event.matches);
+    setIsMdUp(mediaQuery.matches);
     mediaQuery.addEventListener("change", onChange);
     return () => mediaQuery.removeEventListener("change", onChange);
   }, []);
@@ -29,15 +28,14 @@ export function useIsMdUp(): boolean {
 }
 
 export function useIsTabletUp(): boolean {
-  const [isTabletUp, setIsTabletUp] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.matchMedia(`(min-width: ${TABLET_MIN}px)`).matches;
-  });
+  // Default true to match typical SSR / desktop-first rendering; sync after mount.
+  const [isTabletUp, setIsTabletUp] = useState(true);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(`(min-width: ${TABLET_MIN}px)`);
     const onChange = (event: MediaQueryListEvent) =>
       setIsTabletUp(event.matches);
+    setIsTabletUp(mediaQuery.matches);
     mediaQuery.addEventListener("change", onChange);
     return () => mediaQuery.removeEventListener("change", onChange);
   }, []);

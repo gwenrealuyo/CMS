@@ -22,31 +22,42 @@ const SidebarContext = createContext<SidebarContextValue | undefined>(
   undefined
 );
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem("sidebarCollapsed");
-      if (saved !== null) {
-        return saved === "1";
-      }
-      if (typeof window !== "undefined") {
-        const width = window.innerWidth;
-        if (width >= MD_MIN && width < DESKTOP_MIN) {
-          return true;
-        }
-      }
-      return false;
-    } catch {
-      return false;
+function readCollapsedPreference(): boolean {
+  try {
+    const saved = localStorage.getItem("sidebarCollapsed");
+    if (saved !== null) {
+      return saved === "1";
     }
-  });
-  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
+    const width = window.innerWidth;
+    if (width >= MD_MIN && width < DESKTOP_MIN) {
+      return true;
+    }
+  } catch {
+    // ignore storage / window access errors
+  }
+  return false;
+}
+
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  // Always start expanded so server HTML matches the first client render.
+  // Restore preference after mount to avoid hydration mismatches (e.g. span labels).
+  const [collapsed, setCollapsed] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
+    setCollapsed(readCollapsedPreference());
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
     try {
       localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
-    } catch {}
-  }, [collapsed]);
+    } catch {
+      // ignore storage errors
+    }
+  }, [collapsed, hasHydrated]);
 
   useEffect(() => {
     if (!mobileOpen) return;

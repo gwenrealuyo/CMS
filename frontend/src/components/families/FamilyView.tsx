@@ -31,6 +31,19 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+function LeaderIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M12 2l2.39 4.84 5.34.78-3.87 3.77.91 5.32L12 14.9l-4.77 2.51.91-5.32L4.27 7.62l5.34-.78L12 2z" />
+    </svg>
+  );
+}
+
 function DeleteFamilyButton({
   onClick,
   buttonClassName = "h-10 px-4 text-sm font-medium",
@@ -552,6 +565,8 @@ export default function FamilyView({
                   {sortedMembers.map((member) => {
                     const memberName = formatFullName(member);
                     const isLongWrappedName = memberName.length > 20;
+                    const isLeader =
+                      String(member.id) === String(family.leader ?? "");
                     const cluster = clusters?.find((c) =>
                       (c as { members?: Array<string | number> }).members?.some(
                         (id) => String(id) === String(member.id),
@@ -560,19 +575,32 @@ export default function FamilyView({
                     return (
                       <div
                         key={member.id}
-                        className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
+                        className={`flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50${
+                          isLeader ? " border-primary/30 bg-primary/5" : ""
+                        }`}
                         onClick={() => onViewPerson && onViewPerson(member)}
                       >
                         <PersonAvatar person={member} size="sm" />
                         <div className="flex-1 min-w-0">
                           <p
-                            className={`font-medium text-gray-900 break-words ${
+                            className={`font-medium text-gray-900 break-words flex items-start gap-1 ${
                               isLongWrappedName
                                 ? "text-xs leading-5"
                                 : "text-sm leading-5"
                             }`}
                           >
-                            {memberName}
+                            <span className="min-w-0 break-words">
+                              {memberName}
+                            </span>
+                            {isLeader && (
+                              <span
+                                className="inline-flex items-center text-primary flex-shrink-0 mt-0.5"
+                                title="Family leader"
+                                aria-label="Family leader"
+                              >
+                                <LeaderIcon />
+                              </span>
+                            )}
                           </p>
                           <div className="flex items-center gap-1 flex-wrap mt-0.5">
                             <span
@@ -582,7 +610,7 @@ export default function FamilyView({
                             >
                               {member.status}
                             </span>
-                            {String(member.id) !== String(family.leader ?? "") && (
+                            {!isLeader && (
                               <span
                                 className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonRoleColor(
                                   member.role,
@@ -591,8 +619,9 @@ export default function FamilyView({
                                 {member.role}
                               </span>
                             )}
-                            {String(member.id) === String(family.leader ?? "") && (
-                              <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium chip-yellow-sm">
+                            {isLeader && (
+                              <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary">
+                                <LeaderIcon className="w-2.5 h-2.5" />
                                 Leader
                               </span>
                             )}

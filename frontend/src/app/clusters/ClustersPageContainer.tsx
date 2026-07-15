@@ -15,6 +15,8 @@ import {
   clustersApi,
   branchesApi,
   clusterReportsApi,
+  peopleApi,
+  familiesApi,
   type ClustersListParams,
   type ClustersSummary,
 } from "@/src/lib/api";
@@ -1039,37 +1041,55 @@ export default function ClustersPageContainer() {
   }, [searchParams, reportClusters, pathname, router, canAccessClusterReportsUser]);
 
   const openPersonInPanel = useCallback(
-    (person: Person) => {
+    async (person: Person) => {
+      let resolved = person;
+      if (!Array.isArray(person.journeys)) {
+        try {
+          const { data } = await peopleApi.getById(String(person.id));
+          resolved = data;
+        } catch (e) {
+          console.error("Failed to load person detail", e);
+        }
+      }
       if (isDesktop) {
         pushCurrentPanelToHistory();
         setPanelOpen(true);
         setPanelEntity("person");
         setPanelMode("view");
-        setPanelPerson(person);
+        setPanelPerson(resolved);
         setPanelCluster(null);
         setPanelFamily(null);
         return;
       }
-      setPersonOverCluster(person);
+      setPersonOverCluster(resolved);
       setShowPersonOverCluster(true);
     },
     [isDesktop, pushCurrentPanelToHistory]
   );
 
   const openFamilyInPanel = useCallback(
-    (family: Family) => {
+    async (family: Family) => {
       setNeedFamiliesCatalog(true);
+      let resolved = family;
+      if (family.members == null || family.members_details == null) {
+        try {
+          const { data } = await familiesApi.getById(String(family.id));
+          resolved = data;
+        } catch (e) {
+          console.error("Failed to load family detail", e);
+        }
+      }
       if (isDesktop) {
         pushCurrentPanelToHistory();
         setPanelOpen(true);
         setPanelEntity("family");
         setPanelMode("view");
-        setPanelFamily(family);
+        setPanelFamily(resolved);
         setPanelCluster(null);
         setPanelPerson(null);
         return;
       }
-      setFamilyOverCluster(family);
+      setFamilyOverCluster(resolved);
       setShowFamilyOverCluster(true);
     },
     [isDesktop, pushCurrentPanelToHistory]

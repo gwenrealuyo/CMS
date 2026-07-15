@@ -24,6 +24,11 @@ import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
 import { clustersApi, peopleApi, familiesApi, journeysApi, eventTypesApi, eventsApi, User } from "@/src/lib/api";
 import {
+  resolveClusterRosterFamilies,
+  resolveClusterRosterPeople,
+} from "@/src/lib/clusterRoster";
+import { resolveFamilyMembers } from "@/src/lib/familyRoster";
+import {
   filtersToPeopleListParams,
   sortFieldToOrdering,
 } from "@/src/lib/peopleDirectoryParams";
@@ -208,6 +213,50 @@ export default function PeoplePage() {
       }
     },
     [isDesktop, openCreatePersonModal],
+  );
+
+  const openClusterDetail = useCallback(async (cluster: Cluster) => {
+    let resolved = cluster;
+    if (cluster.members == null || cluster.families == null) {
+      try {
+        const { data } = await clustersApi.getById(cluster.id);
+        resolved = data;
+      } catch (e) {
+        console.error("Failed to load cluster detail", e);
+      }
+    }
+    return resolved;
+  }, []);
+
+  const openFamilyDetail = useCallback(async (family: Family) => {
+    let resolved = family;
+    if (family.members == null || family.members_details == null) {
+      try {
+        const { data } = await familiesApi.getById(String(family.id));
+        resolved = data;
+      } catch (e) {
+        console.error("Failed to load family detail", e);
+      }
+    }
+    return resolved;
+  }, []);
+
+  const openFamilyOverlay = useCallback(
+    async (family: Family) => {
+      const resolved = await openFamilyDetail(family);
+      setFamilyOverCluster(resolved);
+      setShowFamilyOverCluster(true);
+    },
+    [openFamilyDetail],
+  );
+
+  const openClusterOverlay = useCallback(
+    async (cluster: Cluster) => {
+      const resolved = await openClusterDetail(cluster);
+      setClusterOverPerson(resolved);
+      setShowClusterOverPerson(true);
+    },
+    [openClusterDetail],
   );
 
   const closePersonPanel = useCallback(() => {
@@ -1481,12 +1530,10 @@ export default function PeoplePage() {
               String(viewEditPerson.id) !== String(user.id)
             }
             onViewFamily={(f) => {
-              setFamilyOverCluster(f);
-              setShowFamilyOverCluster(true);
+              void openFamilyOverlay(f);
             }}
             onViewCluster={(c) => {
-              setClusterOverPerson(c);
-              setShowClusterOverPerson(true);
+              void openClusterOverlay(c);
             }}
             onNoFamilyClick={(p) => {
               setSelectFamilyModal({ isOpen: true, person: p });
@@ -2248,14 +2295,17 @@ export default function PeoplePage() {
                             key={c.id}
                             cluster={c}
                             peopleUI={peopleUI}
-                            onView={() => {
-                              setViewCluster(c);
+                            onView={async () => {
+                              const resolved = await openClusterDetail(c);
+                              setViewCluster(resolved);
                               setClusterViewMode("view");
                               setIsModalOpen(true);
                               setModalType("cluster");
                             }}
-                            onEdit={() => {
-                              setEditCluster(c);
+                            onEdit={async () => {
+                              const resolved = await openClusterDetail(c);
+                              setEditCluster(resolved);
+                              setViewCluster(resolved);
                               setClusterViewMode("edit");
                               setIsModalOpen(true);
                               setModalType("cluster");
@@ -2365,9 +2415,7 @@ export default function PeoplePage() {
                 <>
                   <FamilyView
                     family={viewFamily}
-                    familyMembers={peopleUI.filter((person) =>
-                      (viewFamily.members ?? []).includes(person.id),
-                    )}
+                    familyMembers={resolveFamilyMembers(viewFamily, peopleUI)}
                     clusters={clusters}
                     onViewPerson={async (p) => {
                       try {
@@ -2453,17 +2501,25 @@ export default function PeoplePage() {
             {viewCluster && clusterViewMode === "view" ? (
               <ClusterView
                 cluster={viewCluster}
-                clusterMembers={peopleUI.filter((person) =>
-                  (viewCluster as any).members?.includes(person.id),
+                clusterMembers={resolveClusterRosterPeople(
+                  viewCluster,
+                  peopleUI,
                 )}
-                clusterFamilies={families.filter((family) =>
-                  (viewCluster as any).families?.includes(family.id),
+                clusterFamilies={resolveClusterRosterFamilies(
+                  viewCluster,
+                  families,
                 )}
                 coordinator={peopleUI.find(
-                  (person) => person.id === (viewCluster as any).coordinator,
+                  (person) =>
+                    String(person.id) ===
+                      String(viewCluster.coordinator?.id ?? "") ||
+                    String(person.id) ===
+                      String(viewCluster.coordinator_id ?? ""),
                 )}
-                onEdit={() => {
-                  setEditCluster(viewCluster);
+                onEdit={async () => {
+                  const resolved = await openClusterDetail(viewCluster);
+                  setEditCluster(resolved);
+                  setViewCluster(resolved);
                   setClusterViewMode("edit");
                 }}
                 onDelete={() => {
@@ -2500,8 +2556,7 @@ export default function PeoplePage() {
                   setShowPersonOverCluster(true);
                 }}
                 onViewFamily={(f) => {
-                  setFamilyOverCluster(f);
-                  setShowFamilyOverCluster(true);
+                  void openFamilyOverlay(f);
                 }}
               />
             ) : editCluster ? (
@@ -2662,12 +2717,10 @@ export default function PeoplePage() {
               String(personOverCluster.id) !== String(user.id)
             }
             onViewFamily={(f) => {
-              setFamilyOverCluster(f);
-              setShowFamilyOverCluster(true);
+              void openFamilyOverlay(f);
             }}
             onViewCluster={(c) => {
-              setClusterOverPerson(c);
-              setShowClusterOverPerson(true);
+              void openClusterOverlay(c);
             }}
             onNoFamilyClick={(p) => {
               setSelectFamilyModal({ isOpen: true, person: p });
@@ -2717,9 +2770,7 @@ export default function PeoplePage() {
         >
           <FamilyView
             family={familyOverCluster}
-            familyMembers={peopleUI.filter((p) =>
-              (familyOverCluster.members ?? []).includes(p.id),
-            )}
+            familyMembers={resolveFamilyMembers(familyOverCluster, peopleUI)}
             clusters={clusters}
             onEdit={() => {
               setEditFamilyOverlay(familyOverCluster);
@@ -2754,17 +2805,23 @@ export default function PeoplePage() {
         >
           <ClusterView
             cluster={clusterOverPerson}
-            clusterMembers={peopleUI.filter((p) =>
-              ((clusterOverPerson as any).members || []).includes(p.id),
+            clusterMembers={resolveClusterRosterPeople(
+              clusterOverPerson,
+              peopleUI,
             )}
-            clusterFamilies={families.filter((f) =>
-              ((clusterOverPerson as any).families || []).includes(f.id),
+            clusterFamilies={resolveClusterRosterFamilies(
+              clusterOverPerson,
+              families,
             )}
             coordinator={peopleUI.find(
-              (p) => p.id === (clusterOverPerson as any).coordinator,
+              (p) =>
+                String(p.id) ===
+                  String(clusterOverPerson.coordinator?.id ?? "") ||
+                String(p.id) === String(clusterOverPerson.coordinator_id ?? ""),
             )}
-            onEdit={() => {
-              setEditClusterOverlay(clusterOverPerson);
+            onEdit={async () => {
+              const resolved = await openClusterDetail(clusterOverPerson);
+              setEditClusterOverlay(resolved);
               setShowEditClusterOverlay(true);
             }}
             onDelete={() => {}}
@@ -2783,8 +2840,7 @@ export default function PeoplePage() {
               setShowReportForm(true);
             }}
             onViewFamily={(f) => {
-              setFamilyOverCluster(f);
-              setShowFamilyOverCluster(true);
+              void openFamilyOverlay(f);
             }}
           />
         </Modal>

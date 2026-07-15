@@ -56,6 +56,7 @@ import {
   resolveClusterRosterFamilies,
   resolveClusterRosterPeople,
 } from "@/src/lib/clusterRoster";
+import { resolveFamilyMembers } from "@/src/lib/familyRoster";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { useBranches } from "@/src/hooks/useBranches";
 import {
@@ -660,7 +661,7 @@ export default function ClustersPageView({
     return (
       <FamilyView
         family={selectedFamily}
-        familyMembers={peopleUI.filter((p) => (selectedFamily.members ?? []).includes(p.id))}
+        familyMembers={resolveFamilyMembers(selectedFamily, peopleUI)}
         clusters={allClusters as any}
         onEdit={() => {
           if (isPanel) {

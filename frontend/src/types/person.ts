@@ -66,6 +66,9 @@ export interface Person {
   spirit_baptism_date?: string; // ISO date string
   has_finished_lessons?: boolean;
   lessons_finished_at?: string; // ISO date string
+  /** Derived from LessonStudentEnrollment; read-only on person profile */
+  commitment_form_signed?: boolean;
+  commitment_signed_at?: string | null; // ISO datetime
   first_activity_attended?: string;
   inviter?: string; // ID of another Person
   /** Branch ID; may be absent/null on legacy records created before branch was enforced */

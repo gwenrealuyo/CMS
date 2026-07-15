@@ -332,6 +332,8 @@ class PersonSerializer(serializers.ModelSerializer):
     )
     can_view_journey_timeline = serializers.SerializerMethodField()
     can_view_profile = serializers.SerializerMethodField()
+    commitment_form_signed = serializers.SerializerMethodField()
+    commitment_signed_at = serializers.SerializerMethodField()
     initial_password = serializers.CharField(
         write_only=True, required=False, allow_blank=True
     )
@@ -373,6 +375,8 @@ class PersonSerializer(serializers.ModelSerializer):
             "spirit_baptism_date",
             "has_finished_lessons",
             "lessons_finished_at",
+            "commitment_form_signed",
+            "commitment_signed_at",
             "inviter",
             "branch",
             "branch_code",
@@ -773,6 +777,21 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def get_family_names(self, obj: Person):
         return [f.name for f in obj.families.all()]
+
+    def _lesson_enrollment(self, obj: Person):
+        # Reverse OneToOne raises DoesNotExist (also AttributeError); getattr
+        # with default yields None when the person has no enrollment.
+        return getattr(obj, "lesson_enrollment", None)
+
+    def get_commitment_form_signed(self, obj: Person) -> bool:
+        enrollment = self._lesson_enrollment(obj)
+        return bool(enrollment and enrollment.commitment_signed)
+
+    def get_commitment_signed_at(self, obj: Person):
+        enrollment = self._lesson_enrollment(obj)
+        if not enrollment or not enrollment.commitment_signed:
+            return None
+        return enrollment.commitment_signed_at
 
     def get_can_view_journey_timeline(self, obj: Person):
         """

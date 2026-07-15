@@ -12,6 +12,7 @@ import PersonAvatar from "@/src/components/people/PersonAvatar";
 import DetailFieldRow from "@/src/components/ui/DetailFieldRow";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { formatPersonStatusLabel } from "@/src/lib/personStatus";
+import { formatDisplayDate as formatApiDate } from "@/src/lib/date";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -823,10 +824,19 @@ export default function PersonProfile({
                       <ProfileFieldRow
                         label="Lessons finished"
                         value={
-                          (person as any).has_finished_lessons
+                          person.has_finished_lessons
                             ? formatDisplayDate(
-                                (person as any).lessons_finished_at
+                                person.lessons_finished_at
                               ) || "Yes"
+                            : "Not yet"
+                        }
+                      />
+                      <ProfileFieldRow
+                        label="Commitment form"
+                        value={
+                          person.commitment_form_signed
+                            ? formatApiDate(person.commitment_signed_at) ||
+                              "Yes"
                             : "Not yet"
                         }
                       />

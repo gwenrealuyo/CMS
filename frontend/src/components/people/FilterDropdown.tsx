@@ -12,6 +12,7 @@ interface FilterDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectField: (field: FilterField) => void;
+  position: { top: number; left: number };
   branches?: Branch[];
   canChangeBranchFilter?: boolean;
 }
@@ -82,6 +83,7 @@ export default function FilterDropdown({
   isOpen,
   onClose,
   onSelectField,
+  position,
   branches = [],
   canChangeBranchFilter = true,
 }: FilterDropdownProps) {
@@ -138,10 +140,19 @@ export default function FilterDropdown({
 
   if (!isOpen) return null;
 
+  const adjustedPosition = {
+    top: position.top,
+    left: Math.max(16, Math.min(position.left, window.innerWidth - 272)), // 256 + 16 padding
+  };
+
   return (
     <div
       ref={dropdownRef}
-      className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+      className="fixed z-50 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+      style={{
+        top: adjustedPosition.top,
+        left: adjustedPosition.left,
+      }}
     >
       <div className="px-3 py-2 border-b border-gray-100">
         <h3 className="text-sm font-medium text-gray-900">Filter by Field</h3>

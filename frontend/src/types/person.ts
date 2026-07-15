@@ -124,6 +124,8 @@ export interface Family {
   member_count?: number;
   visitor_count?: number;
   member_preview?: FamilyMemberPreview[];
+  /** Present on retrieve — full slim roster for detail panel */
+  members_details?: FamilyMemberPreview[];
 }
 
 export interface ModuleCoordinator {

@@ -12,6 +12,10 @@ import {
   getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import {
+  formatPersonStatusLabel,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import type {
   ClusterRosterFamily,
@@ -410,11 +414,22 @@ export default function ClusterView({
               )}
             </p>
             <div className="flex items-center gap-1 flex-wrap mt-0.5">
-              <span
-                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
-              >
-                {member.role}
-              </span>
+              {member.status && (
+                <span
+                  className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonStatusColor(
+                    member.status,
+                  )}`}
+                >
+                  {formatPersonStatusLabel(member.status)}
+                </span>
+              )}
+              {!isCoordinator && (
+                <span
+                  className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
+                >
+                  {member.role}
+                </span>
+              )}
               {isCoordinator && (
                 <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary">
                   <CoordinatorIcon className="w-2.5 h-2.5" />
@@ -469,11 +484,22 @@ export default function ClusterView({
           ) : null}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
-          <span
-            className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
-          >
-            {member.role}
-          </span>
+          {member.status && (
+            <span
+              className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonStatusColor(
+                member.status,
+              )}`}
+            >
+              {formatPersonStatusLabel(member.status)}
+            </span>
+          )}
+          {!isCoordinator && (
+            <span
+              className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
+            >
+              {member.role}
+            </span>
+          )}
           {isCoordinator && (
             <span
               className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary"

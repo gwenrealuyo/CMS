@@ -6,6 +6,7 @@ export interface ClusterMemberDetail {
   first_name: string;
   last_name: string;
   role: string;
+  status?: string;
   photo?: string | null;
 }
 

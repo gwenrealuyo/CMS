@@ -29,7 +29,7 @@ function detailToRosterPerson(
     first_name: detail.first_name || "",
     last_name: detail.last_name || "",
     role: detail.role as Person["role"],
-    status: "ACTIVE",
+    status: (detail.status as Person["status"]) || "ACTIVE",
     photo: detail.photo ?? undefined,
     canOpenProfile: false,
   };

@@ -1014,6 +1014,9 @@ class FamilySerializer(serializers.ModelSerializer):
     members = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Person.objects.exclude(role="ADMIN")
     )
+    members_details = serializers.SerializerMethodField()
+    member_count = serializers.SerializerMethodField()
+    visitor_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Family
@@ -1022,13 +1025,39 @@ class FamilySerializer(serializers.ModelSerializer):
             "name",
             "leader",
             "members",
+            "members_details",
+            "member_count",
+            "visitor_count",
             "branch",
             "address",
             "notes",
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["created_at"]
+        read_only_fields = [
+            "created_at",
+            "members_details",
+            "member_count",
+            "visitor_count",
+        ]
+
+    def get_members_details(self, obj: Family):
+        return [
+            {
+                "id": m.id,
+                "first_name": m.first_name or "",
+                "last_name": m.last_name or "",
+                "role": m.role or "",
+                "photo": m.photo.url if m.photo else None,
+            }
+            for m in obj.members.all()
+        ]
+
+    def get_member_count(self, obj: Family):
+        return obj.members.count()
+
+    def get_visitor_count(self, obj: Family):
+        return obj.members.filter(role="VISITOR").count()
 
     def _get_person_label(self, person: Person) -> str:
         return person.get_full_name() or person.username

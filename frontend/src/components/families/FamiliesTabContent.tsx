@@ -9,7 +9,7 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
 import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
 import PersonProfile from "@/src/components/people/PersonProfile";
-import { PersonUI, Family, Person } from "@/src/types/person";
+import { PersonUI, Family, Person, FamilyMemberPreview } from "@/src/types/person";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { familiesApi } from "@/src/lib/api";
@@ -25,6 +25,70 @@ type PanelSnapshot = {
   viewFamily: Family | null;
   editFamily: Family | null;
 };
+
+/** Resolve family roster: prefer people catalog, fall back to retrieve details/preview. */
+function resolveFamilyMembers(
+  family: Family,
+  peopleUI: PersonUI[]
+): PersonUI[] {
+  const memberIds = (family.members ?? []).map((id) => String(id));
+  const byId = new Map(peopleUI.map((p) => [String(p.id), p]));
+
+  const fromCatalog: PersonUI[] = [];
+  const missingIds: string[] = [];
+  for (const id of memberIds) {
+    const hit = byId.get(id);
+    if (hit) {
+      fromCatalog.push(hit);
+    } else {
+      missingIds.push(id);
+    }
+  }
+
+  const slimSource: FamilyMemberPreview[] =
+    family.members_details ?? family.member_preview ?? [];
+  const slimById = new Map(
+    slimSource.map((m) => [String(m.id), m] as const)
+  );
+
+  const fromSlim = missingIds
+    .map((id) => slimById.get(id))
+    .filter((m): m is FamilyMemberPreview => !!m)
+    .map(
+      (m): PersonUI =>
+        ({
+          id: String(m.id),
+          username: "",
+          email: "",
+          first_name: m.first_name || "",
+          last_name: m.last_name || "",
+          role: (m.role || "MEMBER") as Person["role"],
+          status: "ACTIVE",
+          photo: m.photo ?? undefined,
+          name: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim(),
+        }) as PersonUI
+    );
+
+  // If members IDs absent (list-only row) but details/preview exist, use all slim rows.
+  if (memberIds.length === 0 && slimSource.length > 0) {
+    return slimSource.map(
+      (m): PersonUI =>
+        ({
+          id: String(m.id),
+          username: "",
+          email: "",
+          first_name: m.first_name || "",
+          last_name: m.last_name || "",
+          role: (m.role || "MEMBER") as Person["role"],
+          status: "ACTIVE",
+          photo: m.photo ?? undefined,
+          name: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim(),
+        }) as PersonUI
+    );
+  }
+
+  return [...fromCatalog, ...fromSlim];
+}
 
 interface FamiliesTabContentProps {
   families?: Family[];
@@ -398,11 +462,10 @@ export default function FamiliesTabContent({
         return (
           <FamilyView
             family={viewFamily}
-            familyMembers={peopleUI.filter((person) =>
-              (viewFamily.members ?? []).includes(person.id)
-            )}
+            familyMembers={resolveFamilyMembers(viewFamily, peopleUI)}
             showTopHeader={!isPanel}
             onEdit={() => {
+              onNeedPeopleCatalog?.();
               setEditFamily(viewFamily);
               setFamilyViewMode("edit");
               if (isPanel) {
@@ -425,6 +488,7 @@ export default function FamiliesTabContent({
               }
             }}
             onAddMember={() => {
+              onNeedPeopleCatalog?.();
               setAddFamilyMemberModal({
                 isOpen: true,
                 family: viewFamily,

@@ -49,6 +49,10 @@ import {
   PERSON_PHOTO_HELPER_TEXT,
   validatePersonPhoto,
 } from "@/src/lib/personPhoto";
+import { getLocalTodayDateString } from "@/src/lib/date";
+import PersonDateField, {
+  ESTIMATE_HELP,
+} from "@/src/components/people/PersonDateField";
 
 const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
   "BAPTISM",
@@ -107,15 +111,6 @@ function LockedField({
     </LockedControlTooltip>
   );
 }
-
-/** Local calendar date as YYYY-MM-DD (avoids UTC off-by-one from toISOString). */
-const getLocalTodayDateString = (): string => {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
 
 const PERSON_DATE_FIELDS: { key: keyof Person; label: string }[] = [
   { key: "date_of_birth", label: "Date of Birth" },
@@ -486,6 +481,17 @@ export default function PersonForm({
       if (name === "gender" && value === "MALE") {
         next.maiden_name = "";
       }
+      if (name === "water_baptism_date") {
+        next = applyWaterBaptismRoleRules(next, value);
+      }
+      return next;
+    });
+    setHasUnsavedChanges(true);
+  };
+
+  const handleDateFieldChange = (name: keyof Person, value: string) => {
+    setFormData((prev) => {
+      let next = { ...prev, [name]: value } as Partial<Person>;
       if (name === "water_baptism_date") {
         next = applyWaterBaptismRoleRules(next, value);
       }
@@ -1593,7 +1599,7 @@ export default function PersonForm({
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">
                   Dates
                 </h3>
-                <p className="text-xs text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 mb-1">
                   Important dates for records.
                   {!canEditVitalDates
                     ? isCreating && formData.role === "VISITOR"
@@ -1601,18 +1607,19 @@ export default function PersonForm({
                       : " Vital dates can only be changed by your cluster coordinator."
                     : ""}
                 </p>
+                <p className="text-xs text-gray-500 mb-4">{ESTIMATE_HELP}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Date of Birth
                     </label>
-                    <input
-                      type="date"
-                      name="date_of_birth"
+                    <PersonDateField
+                      id="date_of_birth"
                       value={formData.date_of_birth || ""}
-                      onChange={handleChange}
-                      max={todayDateMax}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                      onChange={(next) =>
+                        handleDateFieldChange("date_of_birth", next)
+                      }
+                      showAge
                     />
                   </div>
                   <div>
@@ -1623,18 +1630,13 @@ export default function PersonForm({
                       locked={!canEditInviteAttendDates}
                       hint={VITAL_DATE_HINT}
                     >
-                      <input
-                        type="date"
-                        name="date_first_invited"
+                      <PersonDateField
+                        id="date_first_invited"
                         value={(formData as any).date_first_invited || ""}
-                        onChange={handleChange}
+                        onChange={(next) =>
+                          handleDateFieldChange("date_first_invited", next)
+                        }
                         disabled={!canEditInviteAttendDates}
-                        max={todayDateMax}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditInviteAttendDates
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : ""
-                        }`}
                       />
                     </LockedField>
                   </div>
@@ -1646,18 +1648,13 @@ export default function PersonForm({
                       locked={!canEditInviteAttendDates}
                       hint={VITAL_DATE_HINT}
                     >
-                      <input
-                        type="date"
-                        name="date_first_attended"
+                      <PersonDateField
+                        id="date_first_attended"
                         value={formData.date_first_attended || ""}
-                        onChange={handleChange}
+                        onChange={(next) =>
+                          handleDateFieldChange("date_first_attended", next)
+                        }
                         disabled={!canEditInviteAttendDates}
-                        max={todayDateMax}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditInviteAttendDates
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : ""
-                        }`}
                       />
                     </LockedField>
                   </div>
@@ -1669,18 +1666,13 @@ export default function PersonForm({
                       locked={!canEditVitalDates}
                       hint={VITAL_DATE_HINT}
                     >
-                      <input
-                        type="date"
-                        name="water_baptism_date"
+                      <PersonDateField
+                        id="water_baptism_date"
                         value={(formData as any).water_baptism_date || ""}
-                        onChange={handleChange}
+                        onChange={(next) =>
+                          handleDateFieldChange("water_baptism_date", next)
+                        }
                         disabled={!canEditVitalDates}
-                        max={todayDateMax}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditVitalDates
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : ""
-                        }`}
                       />
                     </LockedField>
                   </div>
@@ -1692,18 +1684,13 @@ export default function PersonForm({
                       locked={!canEditVitalDates}
                       hint={VITAL_DATE_HINT}
                     >
-                      <input
-                        type="date"
-                        name="spirit_baptism_date"
+                      <PersonDateField
+                        id="spirit_baptism_date"
                         value={(formData as any).spirit_baptism_date || ""}
-                        onChange={handleChange}
+                        onChange={(next) =>
+                          handleDateFieldChange("spirit_baptism_date", next)
+                        }
                         disabled={!canEditVitalDates}
-                        max={todayDateMax}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditVitalDates
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : ""
-                        }`}
                       />
                     </LockedField>
                   </div>
@@ -1715,18 +1702,13 @@ export default function PersonForm({
                       locked={!canEditVitalDates}
                       hint={VITAL_DATE_HINT}
                     >
-                      <input
-                        type="date"
-                        name="lessons_finished_at"
+                      <PersonDateField
+                        id="lessons_finished_at"
                         value={(formData as any).lessons_finished_at || ""}
-                        onChange={handleChange}
+                        onChange={(next) =>
+                          handleDateFieldChange("lessons_finished_at", next)
+                        }
                         disabled={!canEditVitalDates}
-                        max={todayDateMax}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditVitalDates
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : ""
-                        }`}
                       />
                     </LockedField>
                     {formData.has_finished_lessons &&

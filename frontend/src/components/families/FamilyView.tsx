@@ -205,7 +205,9 @@ export default function FamilyView({
 
   const getLeader = () => {
     if (!family.leader) return null;
-    return familyMembers.find((member) => member.id === family.leader);
+    return familyMembers.find(
+      (member) => String(member.id) === String(family.leader),
+    );
   };
 
   const leader = getLeader();
@@ -580,14 +582,16 @@ export default function FamilyView({
                             >
                               {member.status}
                             </span>
-                            <span
-                              className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonRoleColor(
-                                member.role,
-                              )}`}
-                            >
-                              {member.role}
-                            </span>
-                            {member.id === family.leader && (
+                            {String(member.id) !== String(family.leader ?? "") && (
+                              <span
+                                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonRoleColor(
+                                  member.role,
+                                )}`}
+                              >
+                                {member.role}
+                              </span>
+                            )}
+                            {String(member.id) === String(family.leader ?? "") && (
                               <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium chip-yellow-sm">
                                 Leader
                               </span>

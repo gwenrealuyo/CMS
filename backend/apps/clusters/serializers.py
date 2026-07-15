@@ -296,13 +296,14 @@ class ClusterSerializer(serializers.ModelSerializer):
         return attrs
 
     def get_members_details(self, obj):
-        """Privacy-safe roster for cluster browse (no email/phone/address/status)."""
+        """Roster for cluster browse (no email/phone/address)."""
         return [
             {
                 "id": person.id,
                 "first_name": person.first_name,
                 "last_name": person.last_name,
                 "role": person.role,
+                "status": person.status,
                 "photo": self._person_photo_url(person),
             }
             for person in obj.members.exclude(role="ADMIN")

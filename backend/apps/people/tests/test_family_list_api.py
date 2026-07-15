@@ -102,6 +102,15 @@ class FamilyListPaginationAndFilterTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("members", response.data)
         self.assertEqual(len(response.data["members"]), 2)
+        self.assertEqual(response.data["member_count"], 2)
+        self.assertEqual(response.data["visitor_count"], 1)
+        self.assertIn("members_details", response.data)
+        detail_ids = {d["id"] for d in response.data["members_details"]}
+        self.assertEqual(detail_ids, {self.member.id, self.visitor.id})
+        for detail in response.data["members_details"]:
+            self.assertIn("first_name", detail)
+            self.assertIn("last_name", detail)
+            self.assertIn("role", detail)
 
     def test_filter_by_branch(self):
         response = self.client.get(

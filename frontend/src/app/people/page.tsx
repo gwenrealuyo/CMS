@@ -155,7 +155,7 @@ export default function PeoplePage() {
   }, []);
 
   const openPersonInteraction = useCallback(
-    (
+    async (
       mode: "view" | "edit" | "create",
       person?: Person | null,
       initialData?: Partial<Person>,
@@ -174,16 +174,32 @@ export default function PeoplePage() {
         return;
       }
 
-      if (person) {
+      let resolved = person ?? null;
+      // List rows omit journeys and other detail fields — fetch retrieve payload.
+      if (resolved?.id != null && !Array.isArray(resolved.journeys)) {
+        try {
+          const { data } = await peopleApi.getById(String(resolved.id));
+          resolved = data;
+        } catch {
+          setDirectoryAccessNotice(
+            mode === "edit"
+              ? "You can only edit people in your cluster. Assign them to your cluster first (Clusters → Assign Members), then try again."
+              : "You can only view profiles of people in your cluster. Assign them to your cluster first, then open their profile.",
+          );
+          return;
+        }
+      }
+
+      if (resolved) {
         setCreateInitialData(undefined);
-        setViewEditPerson(person);
+        setViewEditPerson(resolved);
         setViewMode(mode);
       }
 
       if (isDesktop) {
         setPersonPanelMode(mode);
         setPersonPanelOpen(true);
-        setPersonPanelPerson(person || null);
+        setPersonPanelPerson(resolved || null);
         setPersonPanelInitialData(undefined);
         setStartOnTimelineTab(false);
       } else {
@@ -1914,10 +1930,7 @@ export default function PeoplePage() {
               });
             }}
             onViewPerson={(p) => {
-              setViewEditPerson(p as unknown as Person);
-              setViewMode("view");
-              setIsModalOpen(true);
-              setModalType("person");
+              void openPersonInteraction("view", p as unknown as Person);
             }}
             onAssignMember={(personId, familyId) => {
               console.log("Assign member:", personId, "to family:", familyId);
@@ -2356,8 +2369,13 @@ export default function PeoplePage() {
                       (viewFamily.members ?? []).includes(person.id),
                     )}
                     clusters={clusters}
-                    onViewPerson={(p) => {
-                      setPersonOverCluster(p as Person);
+                    onViewPerson={async (p) => {
+                      try {
+                        const { data } = await peopleApi.getById(String(p.id));
+                        setPersonOverCluster(data);
+                      } catch {
+                        setPersonOverCluster(p as Person);
+                      }
                       setShowPersonOverCluster(true);
                     }}
                     onEdit={() => {
@@ -2472,9 +2490,13 @@ export default function PeoplePage() {
                   }
                   setShowReportForm(true);
                 }}
-                onViewPerson={(p) => {
-                  // Open person profile above the cluster view
-                  setPersonOverCluster(p as Person);
+                onViewPerson={async (p) => {
+                  try {
+                    const { data } = await peopleApi.getById(String(p.id));
+                    setPersonOverCluster(data);
+                  } catch {
+                    setPersonOverCluster(p as Person);
+                  }
                   setShowPersonOverCluster(true);
                 }}
                 onViewFamily={(f) => {
@@ -2657,11 +2679,7 @@ export default function PeoplePage() {
               // Switch to edit within this overlay
               setIsModalOpen(false);
               setShowPersonOverCluster(false);
-              setViewEditPerson(personOverCluster);
-              setViewMode("edit");
-              setStartOnTimelineTab(false);
-              setModalType("person");
-              setIsModalOpen(true);
+              void openPersonInteraction("edit", personOverCluster);
             }}
             onDelete={() => {
               setPersonDeleteConfirmation({
@@ -2673,11 +2691,9 @@ export default function PeoplePage() {
             onAddTimeline={() => {
               setIsModalOpen(false);
               setShowPersonOverCluster(false);
-              setViewEditPerson(personOverCluster);
-              setViewMode("edit");
-              setStartOnTimelineTab(true);
-              setModalType("person");
-              setIsModalOpen(true);
+              void openPersonInteraction("edit", personOverCluster).then(() => {
+                setStartOnTimelineTab(true);
+              });
             }}
             onClose={() => {
               setShowPersonOverCluster(false);

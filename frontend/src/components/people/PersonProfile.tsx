@@ -212,6 +212,9 @@ export default function PersonProfile({
 
   const personClusters = useMemo(() => {
     if (!clusters?.length) return [];
+    const clusterIdSet = new Set(
+      (person.cluster_ids ?? []).map((id) => String(id)),
+    );
     const seen = new Set<string>();
     const out: Cluster[] = [];
     for (const cc of clusters) {
@@ -221,14 +224,15 @@ export default function PersonProfile({
       const coordId = cc.coordinator_id ?? cc.coordinator?.id ?? null;
       const isCoordinator =
         coordId != null && String(coordId) === String(person.id);
-      if (!inMembers && !isCoordinator) continue;
+      const inClusterIds = clusterIdSet.has(String(cc.id));
+      if (!inMembers && !isCoordinator && !inClusterIds) continue;
       const key = String(cc.id);
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(cc);
     }
     return out;
-  }, [clusters, person.id]);
+  }, [clusters, person.id, person.cluster_ids]);
 
   const personFamilies = useMemo(() => {
     if (!families?.length) return [];
@@ -253,16 +257,16 @@ export default function PersonProfile({
   };
 
   const handleQuickFactsViewCluster = () => {
-    if (!clusters || clusters.length === 0) {
-      if (onNoClusterClick) onNoClusterClick(person);
-      return;
-    }
     const primary = personClusters[0];
     if (primary && onViewCluster) {
       onViewCluster(primary);
-    } else if (onNoClusterClick) {
-      onNoClusterClick(person);
+      return;
     }
+    // Codes without catalog: display-only; don't open assign flow.
+    if (person.cluster_codes?.length) {
+      return;
+    }
+    if (onNoClusterClick) onNoClusterClick(person);
   };
 
   const renderTypeIcon = (type: string) => {
@@ -697,7 +701,9 @@ export default function PersonProfile({
                             ? personClusters
                                 .map((c) => clusterQuickFactLabel(c))
                                 .join(", ")
-                            : null
+                            : person.cluster_codes?.length
+                              ? person.cluster_codes.join(", ")
+                              : null
                         }
                         valueNode={
                           personClusters.length > 0 ? (
@@ -726,6 +732,10 @@ export default function PersonProfile({
                                   </button>
                                 </span>
                               ))}
+                            </span>
+                          ) : person.cluster_codes?.length ? (
+                            <span className="text-sm text-gray-800">
+                              {person.cluster_codes.join(", ")}
                             </span>
                           ) : (
                             <div className="inline-flex items-center gap-2 text-sm flex-wrap justify-start md:justify-end">
@@ -862,7 +872,8 @@ export default function PersonProfile({
                         onClick={handleQuickFactsViewCluster}
                         className="w-full text-sm"
                       >
-                        {personClusters.length > 0
+                        {personClusters.length > 0 ||
+                        (person.cluster_codes?.length ?? 0) > 0
                           ? "View Cluster"
                           : "Assign Cluster"}
                       </Button>

@@ -170,7 +170,9 @@ export default function ClusterView({
     : null;
 
   const displayCoordinator = useMemo((): Person | undefined => {
-    if (coordinator) return coordinator;
+    if (coordinator) {
+      return { ...coordinator, id: String(coordinator.id) };
+    }
     if (!cluster.coordinator) return undefined;
     return {
       id: String(cluster.coordinator.id),
@@ -189,8 +191,11 @@ export default function ClusterView({
   // ADMIN is excluded from both counts
 
   // Check if coordinator is already in clusterMembers to avoid double counting
+  // (String() — peopleUI ids may be numeric while synthetic coordinator ids are strings)
   const coordinatorInMembers = displayCoordinator
-    ? clusterMembers.some((m) => m.id === displayCoordinator.id)
+    ? clusterMembers.some(
+        (m) => String(m.id) === String(displayCoordinator.id),
+      )
     : false;
 
   // Calculate members: all people who are not ADMIN or VISITOR
@@ -235,10 +240,13 @@ export default function ClusterView({
     const combined = [...clusterMembers];
     if (
       displayCoordinator &&
-      !combined.some((member) => member.id === displayCoordinator.id)
+      !combined.some(
+        (member) => String(member.id) === String(displayCoordinator.id),
+      )
     ) {
       combined.push({
         ...displayCoordinator,
+        id: String(displayCoordinator.id),
         canOpenProfile: coordinator
           ? (coordinator as Person & { can_view_profile?: boolean })
               .can_view_profile !== false

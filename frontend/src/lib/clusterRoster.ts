@@ -18,6 +18,7 @@ function detailToRosterPerson(
   if (existing) {
     return {
       ...existing,
+      id: String(existing.id),
       canOpenProfile: existing.can_view_profile !== false,
     };
   }
@@ -55,6 +56,7 @@ export function resolveClusterRosterPeople(
     .filter((p): p is PersonUI => !!p)
     .map((p) => ({
       ...p,
+      id: String(p.id),
       canOpenProfile: p.can_view_profile !== false,
     }));
 }
@@ -112,12 +114,12 @@ export function countClusterMembersFromDetails(
         : null;
 
   const coordinator = coordinatorId
-    ? peopleUI.find((p) => p.id === coordinatorId) ||
-      roster.find((p) => p.id === coordinatorId)
+    ? peopleUI.find((p) => String(p.id) === coordinatorId) ||
+      roster.find((p) => String(p.id) === coordinatorId)
     : undefined;
 
   const coordinatorInMembers = coordinator
-    ? roster.some((m) => m.id === coordinator.id)
+    ? roster.some((m) => String(m.id) === String(coordinator.id))
     : false;
 
   let memberCount = roster.filter(
@@ -144,7 +146,7 @@ export function countClusterMembersFromDetails(
   // Coordinator nested on cluster may not be in roster/peopleUI; count them as member
   if (!coordinator && cluster.coordinator) {
     const already = roster.some(
-      (m) => m.id === String(cluster.coordinator!.id)
+      (m) => String(m.id) === String(cluster.coordinator!.id)
     );
     if (!already) memberCount += 1;
   }

@@ -832,6 +832,10 @@ export default function PersonProfile({
                         value={person.maiden_name}
                       />
                       <ProfileFieldRow
+                        label="Lessons started"
+                        value={formatDisplayDate(person.lessons_started_at)}
+                      />
+                      <ProfileFieldRow
                         label="Lessons finished"
                         value={
                           person.has_finished_lessons

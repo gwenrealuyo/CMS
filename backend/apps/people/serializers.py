@@ -374,6 +374,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "water_baptism_date",
             "spirit_baptism_date",
             "has_finished_lessons",
+            "lessons_started_at",
             "lessons_finished_at",
             "commitment_form_signed",
             "commitment_signed_at",
@@ -573,6 +574,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "date_first_attended",
             "water_baptism_date",
             "spirit_baptism_date",
+            "lessons_started_at",
             "lessons_finished_at",
         )
         future_date_errors = {}

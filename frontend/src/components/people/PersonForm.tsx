@@ -118,6 +118,7 @@ const PERSON_DATE_FIELDS: { key: keyof Person; label: string }[] = [
   { key: "date_first_attended", label: "Date First Attended" },
   { key: "water_baptism_date", label: "Water Baptism Date" },
   { key: "spirit_baptism_date", label: "Spirit Baptism Date" },
+  { key: "lessons_started_at", label: "Lessons Started Date" },
   { key: "lessons_finished_at", label: "Lessons Finished Date" },
 ];
 
@@ -1689,6 +1690,24 @@ export default function PersonForm({
                         value={(formData as any).spirit_baptism_date || ""}
                         onChange={(next) =>
                           handleDateFieldChange("spirit_baptism_date", next)
+                        }
+                        disabled={!canEditVitalDates}
+                      />
+                    </LockedField>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Lessons Started Date
+                    </label>
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <PersonDateField
+                        id="lessons_started_at"
+                        value={(formData as any).lessons_started_at || ""}
+                        onChange={(next) =>
+                          handleDateFieldChange("lessons_started_at", next)
                         }
                         disabled={!canEditVitalDates}
                       />

@@ -10,6 +10,7 @@ VITAL_DATE_ATTRS = (
     "first_activity_attended",
     "water_baptism_date",
     "spirit_baptism_date",
+    "lessons_started_at",
     "lessons_finished_at",
     "has_finished_lessons",
 )

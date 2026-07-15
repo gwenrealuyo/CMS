@@ -67,6 +67,7 @@ class Person(AbstractUser):
     water_baptism_date = models.DateField(null=True, blank=True)
     spirit_baptism_date = models.DateField(null=True, blank=True)
     has_finished_lessons = models.BooleanField(default=False)
+    lessons_started_at = models.DateField(null=True, blank=True)
     lessons_finished_at = models.DateField(null=True, blank=True)
     first_activity_attended = models.ForeignKey(
         "events.EventType",

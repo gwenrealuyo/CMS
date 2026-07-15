@@ -435,17 +435,22 @@ export default function FilterBar({
           )}
         </div>
 
-        <div className="flex items-center space-x-2 flex-shrink-0">
+        <div className="flex w-full items-stretch gap-2 tablet:w-auto tablet:flex-shrink-0 tablet:items-center">
           {activeFilters.length > 0 && (
             <button
+              type="button"
               onClick={onClearAllFilters}
-              className="text-sm text-primary hover:text-primary font-medium transition-colors min-h-[44px] md:min-h-0 px-2 md:px-0"
+              className="inline-flex min-w-0 flex-1 items-center justify-center px-2 text-sm text-primary hover:text-primary font-medium transition-colors min-h-[44px] tablet:flex-none tablet:justify-start tablet:px-2 tablet:min-h-0 md:px-0"
             >
               Clear All
             </button>
           )}
 
-          <div className="relative">
+          <div
+            className={`relative min-w-0 ${
+              activeFilters.length > 0 ? "flex-[2]" : "w-full"
+            } tablet:w-auto tablet:flex-none`}
+          >
             <button
               ref={filterButtonRef}
               type="button"
@@ -461,7 +466,7 @@ export default function FilterBar({
                   setShowFilterDropdown(false);
                 }
               }}
-              className={`inline-flex items-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 transition-colors min-h-[44px] md:min-h-0 focus:outline-none ${
+              className={`inline-flex w-full items-center justify-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 transition-colors min-h-[44px] tablet:w-auto tablet:justify-start md:min-h-0 focus:outline-none ${
                 showFilterDropdown || showFilterCard
                   ? "bg-gray-100"
                   : "bg-white hover:bg-gray-50 active:bg-gray-100"

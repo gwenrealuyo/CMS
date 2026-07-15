@@ -1844,59 +1844,61 @@ export default function ClusterReportsDashboard({
 
       {/* Reports Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-end gap-2">
-          <div className="flex items-center space-x-2 flex-wrap gap-2">
-            {/* View Toggle - Mobile Only */}
-            <div className="md:hidden flex items-center border border-gray-300 rounded-lg overflow-hidden">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between gap-2 md:justify-end">
+            <div className="flex min-w-0 items-center gap-2">
+              {/* View Toggle - Mobile Only */}
+              <div className="md:hidden flex shrink-0 items-center border border-gray-300 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setViewMode("cards")}
+                  className={`px-2.5 sm:px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                    viewMode === "cards"
+                      ? "bg-primary/100 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                  title="Card View"
+                >
+                  <Squares2X2Icon className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("table")}
+                  className={`px-2.5 sm:px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                    viewMode === "table"
+                      ? "bg-primary/100 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                  title="Table View"
+                >
+                  <TableCellsIcon className="w-5 h-5" />
+                </button>
+              </div>
               <button
-                onClick={() => setViewMode("cards")}
-                className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
-                  viewMode === "cards"
-                    ? "bg-primary/100 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-                title="Card View"
+                onClick={() => setShowColumnsModal(true)}
+                className="inline-flex shrink-0 items-center px-3 sm:px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
-                <Squares2X2Icon className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode("table")}
-                className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
-                  viewMode === "table"
-                    ? "bg-primary/100 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-                title="Table View"
-              >
-                <TableCellsIcon className="w-5 h-5" />
+                <svg
+                  className="w-4 h-4 mr-2 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                  />
+                </svg>
+                Columns
               </button>
             </div>
-            <button
-              onClick={() => setShowColumnsModal(true)}
-              className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
-            >
-              <svg
-                className="w-4 h-4 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                />
-              </svg>
-              Columns
-            </button>
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 ref={exportButtonRef}
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="inline-flex items-center px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                className="inline-flex items-center px-3 sm:px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
-                <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
+                <DocumentArrowDownIcon className="w-4 h-4 mr-2 shrink-0" />
                 Export
               </button>
               {showExportDropdown && (

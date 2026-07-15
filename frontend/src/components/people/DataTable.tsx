@@ -833,13 +833,16 @@ export default function DataTable({
   const selectionActionTooltip =
     "Use the Bulk Actions button instead for selected people.";
 
-  const wrapWhenSelected = (button: React.ReactNode) =>
+  const wrapWhenSelected = (
+    button: React.ReactNode,
+    wrapperClassName = "inline-block cursor-default",
+  ) =>
     hasSelection ? (
       <LockedControlTooltip
         label={selectionActionTooltip}
-        wrapperClassName="inline-block cursor-default"
+        wrapperClassName={wrapperClassName}
       >
-        <span className="pointer-events-none inline-flex">{button}</span>
+        <span className="pointer-events-none inline-flex w-full">{button}</span>
       </LockedControlTooltip>
     ) : (
       button
@@ -879,37 +882,41 @@ export default function DataTable({
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 justify-end shrink-0">
+            <div className="flex w-full flex-col gap-2 tablet:w-auto tablet:shrink-0 tablet:flex-row tablet:items-center tablet:justify-end">
               {/* Mobile View Toggle - Only visible on mobile */}
-              <div className="tablet:hidden flex items-center border border-gray-300 rounded-lg overflow-hidden">
+              <div className="tablet:hidden flex w-full items-stretch border border-gray-300 rounded-lg overflow-hidden">
                 <button
+                  type="button"
                   onClick={() => setMobileViewMode("cards")}
-                  className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                  className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
                     mobileViewMode === "cards"
                       ? "bg-primary/100 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
                   }`}
                   title="Card View"
                 >
-                  <Squares2X2Icon className="w-5 h-5" />
+                  <Squares2X2Icon className="h-5 w-5 shrink-0" />
+                  Cards
                 </button>
                 <button
+                  type="button"
                   onClick={() => setMobileViewMode("table")}
-                  className={`px-3 py-2 min-h-[44px] flex items-center justify-center transition-colors ${
+                  className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
                     mobileViewMode === "table"
                       ? "bg-primary/100 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
                   }`}
                   title="Table View"
                 >
-                  <TableCellsIcon className="w-5 h-5" />
+                  <TableCellsIcon className="h-5 w-5 shrink-0" />
+                  Table
                 </button>
               </div>
 
-              <div className="flex items-center flex-nowrap gap-1.5 sm:gap-2">
+              <div className="flex w-full items-stretch gap-1.5 tablet:w-auto tablet:items-center tablet:justify-end tablet:gap-2">
                 <button
                   onClick={() => setShowColumnsModal(true)}
-                  className="inline-flex items-center px-2.5 sm:px-3 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 whitespace-nowrap"
+                  className="inline-flex min-w-0 flex-1 items-center justify-center px-2 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] tablet:flex-none tablet:justify-start tablet:px-3 md:min-h-0 whitespace-nowrap"
                 >
                   <svg
                     className="w-4 h-4 mr-1.5 shrink-0"
@@ -947,18 +954,19 @@ export default function DataTable({
                       openExportModal(sortedPeople);
                     }}
                     disabled={hasSelection}
-                    className="inline-flex items-center px-2.5 sm:px-3 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    className="inline-flex min-w-0 w-full flex-1 items-center justify-center px-2 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] tablet:w-auto tablet:flex-none tablet:justify-start tablet:px-3 md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     <DocumentArrowDownIcon className="w-4 h-4 mr-1.5 shrink-0" />
                     Export All
-                  </button>
+                  </button>,
+                  "min-w-0 flex-1 cursor-default tablet:flex-none",
                 )}
                 {wrapWhenSelected(
                   <button
                     type="button"
                     onClick={() => setShowImportModal(true)}
                     disabled={hasSelection || !onImport}
-                    className="inline-flex items-center px-2.5 sm:px-3 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    className="inline-flex min-w-0 w-full flex-1 items-center justify-center px-2 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] tablet:w-auto tablet:flex-none tablet:justify-start tablet:px-3 md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     <svg
                       className="w-4 h-4 mr-1.5 shrink-0"
@@ -974,7 +982,8 @@ export default function DataTable({
                       />
                     </svg>
                     Import
-                  </button>
+                  </button>,
+                  "min-w-0 flex-1 cursor-default tablet:flex-none",
                 )}
               </div>
             </div>

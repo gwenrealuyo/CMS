@@ -27,10 +27,15 @@ export interface Cluster {
     username: string;
   } | null;
   coordinator_id?: number | null;
-  families: number[];
-  members: number[];
+  /** Present on detail/write payloads; omitted from slim directory list. */
+  families?: number[];
+  members?: number[];
   members_details?: ClusterMemberDetail[];
   families_details?: ClusterFamilyDetail[];
+  /** Annotated counts on slim directory list rows. */
+  member_count?: number;
+  visitor_count?: number;
+  family_count?: number;
   /** Person IDs with CLUSTER REPORTER assignment for this cluster */
   reporter_ids?: number[];
   branch?: number | null;

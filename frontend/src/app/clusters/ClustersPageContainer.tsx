@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useClusters, useClusterReports } from "@/src/hooks/useClusters";
+import { useClusterReports } from "@/src/hooks/useClusters";
+import { useClustersDirectory } from "@/src/hooks/useClustersDirectory";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { ClusterContentTab } from "@/src/components/clusters/ClusterContentTabs";
@@ -10,7 +11,14 @@ import ClustersPageView from "./ClustersPageView";
 import { Cluster, ClusterInput } from "@/src/types/cluster";
 import { ClusterWeeklyReport, ClusterWeeklyReportInput } from "@/src/types/cluster";
 import { Person, PersonUI, Family } from "@/src/types/person";
-import { clustersApi, branchesApi, clusterReportsApi } from "@/src/lib/api";
+import {
+  clustersApi,
+  branchesApi,
+  clusterReportsApi,
+  type ClustersListParams,
+  type ClustersSummary,
+} from "@/src/lib/api";
+import { filtersToClustersListParams } from "@/src/lib/clustersDirectoryParams";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import toast from "react-hot-toast";
@@ -41,8 +49,6 @@ export default function ClustersPageContainer() {
   const [activeTab, setActiveTab] = useState<ClusterContentTab>("clusters");
   
   // Cluster state
-  const [allClusters, setAllClusters] = useState<Cluster[]>([]);
-  const [clustersLoading, setClustersLoading] = useState(true);
   const [clusterSearchQuery, setClusterSearchQuery] = useState("");
   const [clusterActiveFilters, setClusterActiveFilters] = useState<FilterCondition[]>([]);
   const [clusterSortBy, setClusterSortBy] = useState<string>("name");
@@ -52,6 +58,14 @@ export default function ClustersPageContainer() {
   const [selectedClusters, setSelectedClusters] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showInactiveClusters, setShowInactiveClusters] = useState(false);
+  const [needPeopleCatalog, setNeedPeopleCatalog] = useState(false);
+  const [needFamiliesCatalog, setNeedFamiliesCatalog] = useState(false);
+  const [reportClusters, setReportClusters] = useState<Cluster[]>([]);
+  const [directorySummary, setDirectorySummary] = useState<ClustersSummary>({
+    cluster_count: 0,
+    member_count: 0,
+    unassigned_count: 0,
+  });
   
   // Cluster modals
   const [viewCluster, setViewCluster] = useState<Cluster | null>(null);
@@ -148,8 +162,8 @@ export default function ClustersPageContainer() {
     loading: false,
   });
   
-  const { people, peopleUI, refreshPeople } = usePeople();
-  const { families } = useFamilies();
+  const { people, peopleUI, refreshPeople } = usePeople(needPeopleCatalog);
+  const { families } = useFamilies(needFamiliesCatalog);
   const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
 
   const isOnlyNonSeniorClusterCoordinator =
@@ -178,8 +192,8 @@ export default function ClustersPageContainer() {
   );
 
   const canAccessClusterReportsUser = useMemo(
-    () => canAccessClusterReports(clusterAuthCtx, allClusters),
-    [clusterAuthCtx, allClusters],
+    () => canAccessClusterReports(clusterAuthCtx, reportClusters),
+    [clusterAuthCtx, reportClusters],
   );
 
   const {
@@ -297,13 +311,13 @@ export default function ClustersPageContainer() {
         const lb = (b.name || b.code || "").toLowerCase();
         return la.localeCompare(lb);
       });
-    const forReports = clustersForReportSubmission(allClusters, clusterAuthCtx);
+    const forReports = clustersForReportSubmission(reportClusters, clusterAuthCtx);
     if (forReports.length > 0) {
       return sortClusters(forReports)[0];
     }
     return null;
   }, [
-    allClusters,
+    reportClusters,
     hasClusterModuleWideAccess,
     clusterAuthCtx,
   ]);
@@ -318,29 +332,81 @@ export default function ClustersPageContainer() {
     setReportFormOpen(true);
     router.replace(pathname);
   }, [action, pathname, router, resolveDefaultReportCluster]);
-  
-  // Fetch clusters
-  const fetchClusters = useCallback(async () => {
-    if (!branchFilterReady) return;
 
+  const directoryFilterParams = useMemo((): ClustersListParams => {
+    const params: ClustersListParams = {
+      ...filtersToClustersListParams(clusterActiveFilters),
+    };
+    if (canChangeClusterBranchFilter && selectedBranchId) {
+      params.branch_id = selectedBranchId;
+    }
+    if (showInactiveClusters) {
+      params.include_inactive = true;
+    }
+    return params;
+  }, [
+    clusterActiveFilters,
+    canChangeClusterBranchFilter,
+    selectedBranchId,
+    showInactiveClusters,
+  ]);
+
+  const directoryOrdering = useMemo(() => {
+    const prefix = clusterSortOrder === "desc" ? "-" : "";
+    return `${prefix}${clusterSortBy},id`;
+  }, [clusterSortBy, clusterSortOrder]);
+
+  const {
+    clusters: directoryClusters,
+    totalCount: clusterTotalCount,
+    loading: clustersLoading,
+    refetch: refetchDirectory,
+  } = useClustersDirectory({
+    search: clusterSearchQuery,
+    filters: directoryFilterParams,
+    page: clusterCurrentPage,
+    pageSize: clusterItemsPerPage,
+    ordering: directoryOrdering,
+    enabled: branchFilterReady,
+  });
+
+  const clusters = directoryClusters;
+  const clusterPaginatedData = directoryClusters;
+  const clusterTotalPages = Math.max(
+    1,
+    Math.ceil(clusterTotalCount / clusterItemsPerPage) || 1,
+  );
+
+  const clustersForNestedUi = useMemo(() => {
+    const byId = new Map<number, Cluster>();
+    for (const c of reportClusters) {
+      byId.set(c.id, c);
+    }
+    for (const c of directoryClusters) {
+      byId.set(c.id, c);
+    }
+    return Array.from(byId.values());
+  }, [reportClusters, directoryClusters]);
+
+  const refetchSummary = useCallback(async () => {
+    if (!branchFilterReady) return;
     try {
-      setClustersLoading(true);
-      const params: { branch_id?: string; include_inactive?: boolean } = {};
+      const params: {
+        branch_id?: string;
+        include_inactive?: boolean;
+      } = {};
       if (canChangeClusterBranchFilter && selectedBranchId) {
         params.branch_id = selectedBranchId;
       }
       if (showInactiveClusters) {
         params.include_inactive = true;
       }
-      const res = await clustersApi.getAll(
+      const res = await clustersApi.summary(
         Object.keys(params).length > 0 ? params : undefined,
       );
-      const clusterData = res.data;
-      setAllClusters(clusterData);
+      setDirectorySummary(res.data);
     } catch (e) {
-      console.error("Failed to load clusters", e);
-    } finally {
-      setClustersLoading(false);
+      console.error("Failed to load clusters summary", e);
     }
   }, [
     branchFilterReady,
@@ -348,10 +414,51 @@ export default function ClustersPageContainer() {
     selectedBranchId,
     showInactiveClusters,
   ]);
-  
+
   useEffect(() => {
-    fetchClusters();
-  }, [fetchClusters]);
+    refetchSummary();
+  }, [refetchSummary]);
+
+  const refreshDirectory = useCallback(async () => {
+    await Promise.all([refetchDirectory(), refetchSummary()]);
+  }, [refetchDirectory, refetchSummary]);
+
+  // Page-through clusters for report pickers / access helpers (not on directory land).
+  useEffect(() => {
+    if (activeTab !== "reports" && action !== "submit-report") {
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const params: ClustersListParams = {};
+        if (canChangeClusterBranchFilter && selectedBranchId) {
+          params.branch_id = selectedBranchId;
+        }
+        if (showInactiveClusters) {
+          params.include_inactive = true;
+        }
+        const res = await clustersApi.getAll(
+          Object.keys(params).length > 0 ? params : undefined,
+        );
+        if (!cancelled) {
+          setReportClusters(res.data);
+        }
+      } catch (e) {
+        console.error("Failed to load report clusters", e);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    action,
+    canChangeClusterBranchFilter,
+    selectedBranchId,
+    showInactiveClusters,
+  ]);
 
   useEffect(() => {
     const syncViewport = () => {
@@ -361,225 +468,23 @@ export default function ClustersPageContainer() {
     window.addEventListener("resize", syncViewport);
     return () => window.removeEventListener("resize", syncViewport);
   }, []);
-  
-  // Apply cluster filters using useMemo for better performance
-  const clusters = useMemo(() => {
-    let filtered = [...allClusters];
-    
-    // Apply search filter
-    if (clusterSearchQuery) {
-      const q = clusterSearchQuery.toLowerCase();
-      filtered = filtered.filter((c) => {
-        const name = (c.name || "").toLowerCase();
-        const code = (c.code || "").toLowerCase();
-        const desc = (c.description || "").toLowerCase();
-        const loc = c.location?.toLowerCase() || "";
-        const schedule = c.meeting_schedule?.toLowerCase() || "";
-        return (
-          name.includes(q) ||
-          code.includes(q) ||
-          desc.includes(q) ||
-          loc.includes(q) ||
-          schedule.includes(q)
-        );
-      });
-    }
-    
-    // Apply active filters
-    clusterActiveFilters.forEach((filter) => {
-      filtered = filtered.filter((cluster) => {
-        const filterValue = (filter.value as string).toLowerCase();
-        
-        switch (filter.field) {
-          case "name": {
-            const clusterName = (cluster.name || "").toLowerCase();
-            switch (filter.operator) {
-              case "contains":
-                return clusterName.includes(filterValue);
-              case "is":
-                return clusterName === filterValue;
-              case "is_not":
-                return clusterName !== filterValue;
-              case "starts_with":
-                return clusterName.startsWith(filterValue);
-              case "ends_with":
-                return clusterName.endsWith(filterValue);
-              default:
-                return clusterName.includes(filterValue);
-            }
-          }
-          case "code": {
-            const clusterCode = (cluster.code || "").toLowerCase();
-            switch (filter.operator) {
-              case "contains":
-                return clusterCode.includes(filterValue);
-              case "is":
-                return clusterCode === filterValue;
-              case "is_not":
-                return clusterCode !== filterValue;
-              case "starts_with":
-                return clusterCode.startsWith(filterValue);
-              case "ends_with":
-                return clusterCode.endsWith(filterValue);
-              default:
-                return clusterCode.includes(filterValue);
-            }
-          }
-          case "coordinator": {
-            const coordinator = peopleUI.find(
-              (person) => person.id === cluster.coordinator?.id?.toString()
-            );
-            const coordinatorName = coordinator
-              ? `${coordinator.first_name} ${coordinator.last_name}`.toLowerCase()
-              : "";
-            switch (filter.operator) {
-              case "contains":
-                return coordinatorName.includes(filterValue);
-              case "is":
-                return coordinatorName === filterValue;
-              case "is_not":
-                return coordinatorName !== filterValue;
-              case "starts_with":
-                return coordinatorName.startsWith(filterValue);
-              case "ends_with":
-                return coordinatorName.endsWith(filterValue);
-              default:
-                return coordinatorName.includes(filterValue);
-            }
-          }
-          case "location": {
-            const location = cluster.location?.toLowerCase() || "";
-            switch (filter.operator) {
-              case "contains":
-                return location.includes(filterValue);
-              case "is":
-                return location === filterValue;
-              case "is_not":
-                return location !== filterValue;
-              case "starts_with":
-                return location.startsWith(filterValue);
-              case "ends_with":
-                return location.endsWith(filterValue);
-              default:
-                return location.includes(filterValue);
-            }
-          }
-          case "meeting_schedule": {
-            const schedule = cluster.meeting_schedule?.toLowerCase() || "";
-            switch (filter.operator) {
-              case "contains":
-                return schedule.includes(filterValue);
-              case "is":
-                return schedule === filterValue;
-              case "is_not":
-                return schedule !== filterValue;
-              case "starts_with":
-                return schedule.startsWith(filterValue);
-              case "ends_with":
-                return schedule.endsWith(filterValue);
-              default:
-                return schedule.includes(filterValue);
-            }
-          }
-          case "member_count": {
-            const memberCount = cluster.members?.length || 0;
-            if (filter.operator === "between" && Array.isArray(filter.value)) {
-              const [min, max] = filter.value;
-              return (
-                memberCount >= parseInt(min.toString()) &&
-                memberCount <= parseInt(max.toString())
-              );
-            } else if (filter.operator === "greater_than") {
-              return memberCount > parseInt(filter.value.toString());
-            } else if (filter.operator === "less_than") {
-              return memberCount < parseInt(filter.value.toString());
-            } else {
-              // is or is_not
-              const filterCount = parseInt(filter.value.toString());
-              return filter.operator === "is_not"
-                ? memberCount !== filterCount
-                : memberCount === filterCount;
-            }
-          }
-          case "family_count": {
-            const familyCount = cluster.families?.length || 0;
-            if (filter.operator === "between" && Array.isArray(filter.value)) {
-              const [minFam, maxFam] = filter.value;
-              return (
-                familyCount >= parseInt(minFam.toString()) &&
-                familyCount <= parseInt(maxFam.toString())
-              );
-            } else if (filter.operator === "greater_than") {
-              return familyCount > parseInt(filter.value.toString());
-            } else if (filter.operator === "less_than") {
-              return familyCount < parseInt(filter.value.toString());
-            } else {
-              // is or is_not
-              const filterCount = parseInt(filter.value.toString());
-              return filter.operator === "is_not"
-                ? familyCount !== filterCount
-                : familyCount === filterCount;
-            }
-          }
-          default:
-            return true;
-        }
-      });
-    });
-    
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
-      
-      switch (clusterSortBy) {
-        case "name":
-          aValue = (a.name || "").toLowerCase();
-          bValue = (b.name || "").toLowerCase();
-          break;
-        case "member_count":
-          aValue = a.members?.length || 0;
-          bValue = b.members?.length || 0;
-          break;
-        case "visitor_count":
-          aValue = countClusterMembersFromDetails(a, peopleUI).visitorCount;
-          bValue = countClusterMembersFromDetails(b, peopleUI).visitorCount;
-          break;
-        case "family_count":
-          aValue = a.families?.length || 0;
-          bValue = b.families?.length || 0;
-          break;
-        case "created_at":
-          aValue = new Date(a.created_at || 0);
-          bValue = new Date(b.created_at || 0);
-          break;
-        default:
-          aValue = (a.name || "").toLowerCase();
-          bValue = (b.name || "").toLowerCase();
-      }
-      
-      if (aValue < bValue) return clusterSortOrder === "asc" ? -1 : 1;
-      if (aValue > bValue) return clusterSortOrder === "asc" ? 1 : -1;
-      return 0;
-    });
-    
-    return filtered;
-  }, [allClusters, clusterSearchQuery, clusterActiveFilters, clusterSortBy, clusterSortOrder, peopleUI]);
-  
-  // Pagination
-  const clusterTotalPages = Math.ceil(clusters.length / clusterItemsPerPage);
-  const clusterStartIndex = (clusterCurrentPage - 1) * clusterItemsPerPage;
-  const clusterEndIndex = clusterStartIndex + clusterItemsPerPage;
-  const clusterPaginatedData = clusters.slice(clusterStartIndex, clusterEndIndex);
-  
+
   useEffect(() => {
     setClusterCurrentPage(1);
-  }, [clusterSearchQuery, clusterActiveFilters, clusterSortBy, clusterSortOrder]);
-  
+  }, [
+    clusterSearchQuery,
+    clusterActiveFilters,
+    clusterSortBy,
+    clusterSortOrder,
+    selectedBranchId,
+    showInactiveClusters,
+  ]);
+
   // Cluster handlers
   const handleCreateCluster = async (data: ClusterInput) => {
     try {
       await clustersApi.create(data);
-      await fetchClusters();
+      await refreshDirectory();
       setIsClusterModalOpen(false);
       setPanelOpen(false);
       setPanelCluster(null);
@@ -602,9 +507,7 @@ export default function ClustersPageContainer() {
       const updatedCluster = await clustersApi.update(targetCluster.id, data);
       const updated = updatedCluster.data;
 
-      setAllClusters((prev) =>
-        prev.map((c) => (c.id === targetCluster.id ? updated : c))
-      );
+      await refreshDirectory();
 
       setEditCluster(null);
       setClusterViewMode("view");
@@ -629,7 +532,7 @@ export default function ClustersPageContainer() {
         (error as { response?: { data?: { message?: string } } })?.response?.data
           ?.message || "Failed to update cluster."
       );
-      await fetchClusters();
+      await refreshDirectory();
       throw error;
     }
   };
@@ -639,7 +542,7 @@ export default function ClustersPageContainer() {
       setClusterDeleteConfirmation((prev) => ({ ...prev, loading: true }));
       try {
         await clustersApi.delete(clusterDeleteConfirmation.cluster.id);
-        await fetchClusters();
+        await refreshDirectory();
         setClusterDeleteConfirmation({
           isOpen: false,
           cluster: null,
@@ -663,7 +566,7 @@ export default function ClustersPageContainer() {
       await clustersApi.patch(markInactiveConfirmation.cluster.id, {
         is_active: false,
       });
-      await fetchClusters();
+      await refreshDirectory();
       setMarkInactiveConfirmation({
         isOpen: false,
         cluster: null,
@@ -732,7 +635,7 @@ export default function ClustersPageContainer() {
           clustersApi.patch(Number(clusterId), { is_active: false }),
         ),
       );
-      await fetchClusters();
+      await refreshDirectory();
       setSelectedClusters(new Set());
       setIsSelectionMode(false);
       setBulkMarkInactiveConfirmation({ isOpen: false, loading: false });
@@ -759,7 +662,7 @@ export default function ClustersPageContainer() {
         clustersApi.delete(Number(clusterId))
       );
       await Promise.all(deletePromises);
-      await fetchClusters();
+      await refreshDirectory();
       setSelectedClusters(new Set());
       setIsSelectionMode(false);
       setBulkDeleteConfirmation({ isOpen: false, loading: false });
@@ -974,26 +877,41 @@ export default function ClustersPageContainer() {
   }, [isDesktop, goBackClusterPanel, viewCluster, editCluster]);
 
   const openClusterInteraction = useCallback(
-    (mode: PanelMode, cluster?: Cluster | null) => {
+    async (mode: PanelMode, cluster?: Cluster | null) => {
+      if (mode === "create" || mode === "edit") {
+        setNeedPeopleCatalog(true);
+        setNeedFamiliesCatalog(true);
+      }
+
+      let resolved = cluster || null;
+      if (resolved && (resolved.members == null || resolved.families == null)) {
+        try {
+          const res = await clustersApi.getById(resolved.id);
+          resolved = res.data;
+        } catch (e) {
+          console.error("Failed to load cluster detail", e);
+        }
+      }
+
       if (isDesktop) {
         pushCurrentPanelToHistory();
         setIsClusterModalOpen(false);
         setPanelOpen(true);
         setPanelEntity("cluster");
         setPanelMode(mode);
-        setPanelCluster(cluster || null);
+        setPanelCluster(resolved);
         setPanelPerson(null);
         setPanelFamily(null);
         return;
       }
 
-      if (mode === "view" && cluster) {
-        setViewCluster(cluster);
+      if (mode === "view" && resolved) {
+        setViewCluster(resolved);
         setEditCluster(null);
         setClusterViewMode("view");
-      } else if (mode === "edit" && cluster) {
-        setEditCluster(cluster);
-        setViewCluster(cluster);
+      } else if (mode === "edit" && resolved) {
+        setEditCluster(resolved);
+        setViewCluster(resolved);
         setClusterViewMode("edit");
       } else {
         setEditCluster(null);
@@ -1072,9 +990,17 @@ export default function ClustersPageContainer() {
           if (!cancelled) {
             setEditingReport(response.data);
             setReportFormOpen(true);
-            const cluster = allClusters.find(
+            let cluster = reportClusters.find(
               (c) => c.id === response.data.cluster,
             );
+            if (!cluster) {
+              try {
+                const clRes = await clustersApi.getById(response.data.cluster);
+                cluster = clRes.data;
+              } catch {
+                cluster = undefined;
+              }
+            }
             if (cluster) {
               setReportSelectedCluster(cluster);
             }
@@ -1087,7 +1013,15 @@ export default function ClustersPageContainer() {
           }
         }
       } else if (clusterId) {
-        const cluster = allClusters.find((c) => String(c.id) === clusterId);
+        let cluster = reportClusters.find((c) => String(c.id) === clusterId);
+        if (!cluster) {
+          try {
+            const clRes = await clustersApi.getById(clusterId);
+            cluster = clRes.data;
+          } catch {
+            cluster = undefined;
+          }
+        }
         if (!cancelled && cluster) {
           setReportSelectedCluster(cluster);
           setEditingReport(null);
@@ -1102,7 +1036,7 @@ export default function ClustersPageContainer() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, allClusters, pathname, router, canAccessClusterReportsUser]);
+  }, [searchParams, reportClusters, pathname, router, canAccessClusterReportsUser]);
 
   const openPersonInPanel = useCallback(
     (person: Person) => {
@@ -1124,6 +1058,7 @@ export default function ClustersPageContainer() {
 
   const openFamilyInPanel = useCallback(
     (family: Family) => {
+      setNeedFamiliesCatalog(true);
       if (isDesktop) {
         pushCurrentPanelToHistory();
         setPanelOpen(true);
@@ -1160,10 +1095,7 @@ export default function ClustersPageContainer() {
           );
         }
         
-        // Optimistically update the cluster in the list instead of refetching all
-        setAllClusters((prev) =>
-          prev.map((c) => (c.id === assignMembersModal.cluster!.id ? updatedCluster.data : c))
-        );
+        await refreshDirectory();
         
         // Update viewCluster if it's the same cluster
         if (viewCluster && viewCluster.id === assignMembersModal.cluster.id) {
@@ -1184,7 +1116,7 @@ export default function ClustersPageContainer() {
       } catch (error) {
         console.error("Error assigning members:", error);
         // On error, refetch to ensure consistency
-        await fetchClusters();
+        await refreshDirectory();
         throw error;
       }
     }
@@ -1260,7 +1192,7 @@ export default function ClustersPageContainer() {
   // Report handlers
   const syncClusterDetailsAfterReport = async (clusterId?: number) => {
     if (!clusterId) return;
-    await Promise.all([fetchClusters(), refreshPeople()]);
+    await refreshDirectory();
     try {
       const updated = await clustersApi.getById(clusterId);
       setViewCluster((prev) => (prev?.id === clusterId ? updated.data : prev));
@@ -1327,9 +1259,15 @@ export default function ClustersPageContainer() {
       onTabChange={setActiveTab}
       canAccessClusterReports={canAccessClusterReportsUser}
       // Clusters tab
-      allClusters={allClusters}
+      allClusters={clustersForNestedUi}
       clusters={clusters}
       clustersLoading={clustersLoading}
+      clusterTotalCount={clusterTotalCount}
+      summaryClusterCount={directorySummary.cluster_count}
+      summaryMemberCount={directorySummary.member_count}
+      summaryUnassignedCount={directorySummary.unassigned_count}
+      onNeedPeopleCatalog={() => setNeedPeopleCatalog(true)}
+      onNeedFamiliesCatalog={() => setNeedFamiliesCatalog(true)}
       clusterSearchQuery={clusterSearchQuery}
       onClusterSearchChange={setClusterSearchQuery}
       clusterBranchSelectedId={selectedBranchId}
@@ -1422,7 +1360,10 @@ export default function ClustersPageContainer() {
       assignMembersModal={assignMembersModal}
       onAssignMembers={handleAssignMembers}
       onCloseAssignMembers={() => setAssignMembersModal({ isOpen: false, cluster: null })}
-      onOpenAssignMembers={(cluster) => setAssignMembersModal({ isOpen: true, cluster })}
+      onOpenAssignMembers={(cluster) => {
+        setNeedPeopleCatalog(true);
+        setAssignMembersModal({ isOpen: true, cluster });
+      }}
       // Overlay modals
       showClusterOverPerson={showClusterOverPerson}
       clusterOverPerson={clusterOverPerson}
@@ -1457,10 +1398,7 @@ export default function ClustersPageContainer() {
           try {
             const updated = await clustersApi.update(editClusterOverlay.id, data);
             
-            // Optimistically update the cluster in the list
-            setAllClusters((prev) =>
-              prev.map((c) => (c.id === editClusterOverlay.id ? updated.data : c))
-            );
+            await refreshDirectory();
             
             // Update clusterOverPerson if it's the same cluster
             if (clusterOverPerson && clusterOverPerson.id === editClusterOverlay.id) {
@@ -1486,7 +1424,7 @@ export default function ClustersPageContainer() {
                 ?.message || "Failed to update cluster."
             );
             // On error, refetch to ensure consistency
-            await fetchClusters();
+            await refreshDirectory();
             throw error;
           }
         }
@@ -1510,7 +1448,7 @@ export default function ClustersPageContainer() {
       }}
       editingReport={editingReport}
       onEditReport={(report) => {
-        const cluster = allClusters.find((c) => c.id === report.cluster);
+        const cluster = reportClusters.find((c) => c.id === report.cluster);
         setReportSelectedCluster(cluster || null);
         setEditingReport(report);
         setReportFormOpen(true);

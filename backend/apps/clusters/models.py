@@ -28,18 +28,14 @@ class Cluster(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    @property
-    def member_count(self):
-        """Count members excluding ADMIN users"""
-        return self.members.exclude(role="ADMIN").count()
-
-    @property
-    def visitor_count(self):
-        """Count visitors excluding ADMIN users"""
-        return self.members.filter(role="VISITOR").exclude(role="ADMIN").count()
-
     def __str__(self):
         return self.name or self.code or f"Cluster {self.id}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["is_active"], name="cl_cluster_is_active_idx"),
+            models.Index(fields=["branch", "name"], name="cl_cluster_br_name_idx"),
+        ]
 
 
 class ClusterWeeklyReport(models.Model):

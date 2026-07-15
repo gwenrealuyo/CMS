@@ -45,7 +45,6 @@ import {
 } from "@/src/types/cluster";
 import { Person, PersonUI, Family } from "@/src/types/person";
 import { FilterCondition } from "@/src/components/people/FilterBar";
-import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   userCanManageCluster,
@@ -72,6 +71,12 @@ interface ClustersPageViewProps {
   allClusters: Cluster[];
   clusters: Cluster[];
   clustersLoading: boolean;
+  clusterTotalCount: number;
+  summaryClusterCount: number;
+  summaryMemberCount: number;
+  summaryUnassignedCount: number;
+  onNeedPeopleCatalog?: () => void;
+  onNeedFamiliesCatalog?: () => void;
   clusterSearchQuery: string;
   onClusterSearchChange: (query: string) => void;
   clusterBranchSelectedId: string;
@@ -224,6 +229,12 @@ export default function ClustersPageView({
   allClusters,
   clusters,
   clustersLoading,
+  clusterTotalCount,
+  summaryClusterCount,
+  summaryMemberCount,
+  summaryUnassignedCount,
+  onNeedPeopleCatalog,
+  onNeedFamiliesCatalog,
   clusterSearchQuery,
   onClusterSearchChange,
   clusterBranchSelectedId,
@@ -432,16 +443,9 @@ export default function ClustersPageView({
     }
   }, [canAccessClusterReports, activeTab, onTabChange]);
 
-  // Calculate stats
-  const totalMembers = allClusters.reduce(
-    (acc, c) => acc + (c.members?.length || 0),
-    0
-  );
-  const unassignedMembers = people.filter(
-    (p) =>
-      isSelectablePerson(p) &&
-      !allClusters.some((c) => c.members?.includes(Number(p.id)))
-  ).length;
+  // Calculate stats from summary endpoint (branch-scoped; not toolbar text filters)
+  const totalMembers = summaryMemberCount;
+  const unassignedMembers = summaryUnassignedCount;
 
   const useStackedToolbar = isDesktop && panelOpen;
 
@@ -580,6 +584,10 @@ export default function ClustersPageView({
       <ClusterForm
         initialData={currentEditCluster || undefined}
         panelLayout={isPanel}
+        onNeedCatalogs={() => {
+          onNeedPeopleCatalog?.();
+          onNeedFamiliesCatalog?.();
+        }}
         onSubmit={async (data) => {
           if (currentEditCluster) {
             await onUpdateClusterSubmit(data);
@@ -774,7 +782,7 @@ export default function ClustersPageView({
                       className="text-2xl font-semibold text-gray-900"
                       aria-label="Total clusters value"
                     >
-                      {allClusters.length}
+                      {summaryClusterCount}
                     </p>
                     <p
                       className="text-xs text-gray-500 mt-1"
@@ -1241,7 +1249,7 @@ export default function ClustersPageView({
             {/* Clusters Grid */}
             {clustersLoading ? (
               <LoadingSpinner />
-            ) : clusters.length === 0 ? (
+            ) : clusterTotalCount === 0 ? (
               <div className="text-center py-12">
                 <svg
                   className="mx-auto h-12 w-12 text-gray-400"
@@ -1348,11 +1356,9 @@ export default function ClustersPageView({
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {clusterPaginatedData.map((c) => {
-                          const coordinator = peopleUI.find(
-                            (person) =>
-                              person.id === c.coordinator?.id?.toString() ||
-                              person.id === (c as any).coordinator_id?.toString()
-                          );
+                          const coordinatorName = c.coordinator
+                            ? `${c.coordinator.first_name} ${c.coordinator.last_name}`.trim()
+                            : null;
                           const { memberCount, visitorCount } =
                             countClusterMembersFromDetails(c, peopleUI);
                           const clusterBranch =
@@ -1400,16 +1406,12 @@ export default function ClustersPageView({
                                 : <span className="text-gray-700">—</span>}
                               </td>
                               <td className="px-4 py-3 text-gray-700">
-                                {coordinator
-                                  ? `${coordinator.first_name} ${coordinator.last_name}`
-                                  : c.coordinator?.first_name && c.coordinator?.last_name
-                                  ? `${c.coordinator.first_name} ${c.coordinator.last_name}`
-                                  : "Unknown Coordinator"}
+                                {coordinatorName || "Unknown Coordinator"}
                               </td>
                               <td className="px-4 py-3 text-gray-700">{memberCount}</td>
                               <td className="px-4 py-3 text-gray-700">{visitorCount}</td>
                               <td className="px-4 py-3 text-gray-700">
-                                {c.families?.length || 0}
+                                {c.family_count ?? c.families?.length ?? 0}
                               </td>
                               <td className="px-4 py-3 text-gray-700">
                                 <div className="space-y-1">
@@ -1488,13 +1490,13 @@ export default function ClustersPageView({
             )}
 
             {/* Pagination */}
-            {clusters.length > 0 && (
+            {clusterTotalCount > 0 && (
               <Pagination
                 currentPage={clusterCurrentPage}
                 totalPages={clusterTotalPages}
                 onPageChange={onClusterPageChange}
                 itemsPerPage={clusterItemsPerPage}
-                totalItems={clusters.length}
+                totalItems={clusterTotalCount}
                 onItemsPerPageChange={onClusterItemsPerPageChange}
                 showItemsPerPage={true}
               />
@@ -1734,6 +1736,10 @@ export default function ClustersPageView({
           >
             <ClusterForm
               initialData={editClusterOverlay}
+              onNeedCatalogs={() => {
+                onNeedPeopleCatalog?.();
+                onNeedFamiliesCatalog?.();
+              }}
               onSubmit={async (data) => {
                 await onUpdateClusterOverlay(data);
               }}

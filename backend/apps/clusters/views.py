@@ -11,9 +11,11 @@ from django.utils import timezone
 import csv
 import io
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
+from .filters import ClusterFilter
 from .report_membership import sync_report_visitors_to_cluster_members
 from .serializers import (
     ClusterSerializer,
+    ClusterListSerializer,
     ClusterWeeklyReportSerializer,
     ClusterComplianceSerializer,
     ComplianceSummarySerializer,
@@ -33,7 +35,9 @@ from apps.authentication.permissions import (
     HasModuleAccess,
     IsAdmin,
 )
-from apps.people.models import Person
+from apps.people.models import ModuleCoordinator, Person
+from apps.people.views import PersonViewSet, PersonPagination
+from apps.people.serializers import PersonListSerializer
 from apps.clusters.permissions import (
     ClusterCoordinatorScopedPermission,
     ClusterMutationAttemptPermission,
@@ -48,16 +52,42 @@ from apps.clusters.permissions import (
     filter_clusters_for_read,
     filter_weekly_reports_for_user,
 )
-from apps.people.models import ModuleCoordinator, Person
+
+
+class ClusterPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 class ClusterViewSet(viewsets.ModelViewSet):
     queryset = Cluster.objects.all()
     serializer_class = ClusterSerializer
+    pagination_class = ClusterPagination
     permission_classes = [IsAuthenticatedAndNotVisitor]
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
-    search_fields = ['name', 'code', 'location']
-    
+    filter_backends = [
+        filters.SearchFilter,
+        DjangoFilterBackend,
+        filters.OrderingFilter,
+    ]
+    filterset_class = ClusterFilter
+    search_fields = ["name", "code", "location", "description"]
+    ordering_fields = [
+        "name",
+        "code",
+        "created_at",
+        "member_count",
+        "visitor_count",
+        "family_count",
+        "id",
+    ]
+    ordering = ["name", "id"]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ClusterListSerializer
+        return ClusterSerializer
+
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
@@ -71,6 +101,21 @@ class ClusterViewSet(viewsets.ModelViewSet):
             "branch_id"
         ) or self.request.query_params.get("branch")
         queryset = apply_cluster_branch_scope(queryset, user, branch_param)
+
+        # Annotate for list ordering/filters and ClusterListSerializer.
+        queryset = queryset.annotate(
+            member_count=Count("members", distinct=True),
+            visitor_count=Count(
+                "members",
+                filter=Q(members__role="VISITOR"),
+                distinct=True,
+            ),
+            family_count=Count("families", distinct=True),
+        )
+
+        if getattr(self, "action", None) == "list":
+            return queryset.select_related("coordinator")
+
         return queryset.select_related("coordinator").prefetch_related(
             "members",
             "families",
@@ -104,6 +149,7 @@ class ClusterViewSet(viewsets.ModelViewSet):
             instance is not None
             and kwargs.get("data") is None
             and "cluster_reporter_ids_map" not in kwargs["context"]
+            and self.get_serializer_class() is ClusterSerializer
         ):
             if kwargs.get("many"):
                 cluster_ids = [c.id for c in instance]
@@ -118,20 +164,102 @@ class ClusterViewSet(viewsets.ModelViewSet):
         """
         Override to set permissions based on action.
         """
-        if self.action == 'create':
+        if self.action == "create":
             # Only ADMIN, PASTOR, or Senior Coordinator can create
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'create')]
-        elif self.action in ['update', 'partial_update']:
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("CLUSTER", "create")]
+        elif self.action in ["update", "partial_update"]:
             return [
                 IsAuthenticatedAndNotVisitor(),
                 ClusterMutationAttemptPermission(),
                 ClusterCoordinatorScopedPermission(),
             ]
-        elif self.action == 'destroy':
+        elif self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         else:
-            # Read operations
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('CLUSTER', 'read')]
+            # Read operations (list, retrieve, summary, unassigned_people)
+            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("CLUSTER", "read")]
+
+    def _scoped_people_for_unassigned(self, request):
+        person_view = PersonViewSet()
+        person_view.request = request
+        person_view.args = getattr(self, "args", ())
+        person_view.kwargs = getattr(self, "kwargs", {})
+        person_view.action = "list"
+        person_view.format_kwarg = getattr(self, "format_kwarg", None)
+        return person_view
+
+    @action(detail=False, methods=["get"], url_path="unassigned-people")
+    def unassigned_people(self, request):
+        """Paginated people not in any active cluster (scoped like Person list)."""
+        person_view = self._scoped_people_for_unassigned(request)
+        people_qs = person_view._scoped_people_queryset(for_profile=False)
+        assigned_ids = (
+            Person.objects.filter(clusters__is_active=True)
+            .values_list("id", flat=True)
+            .distinct()
+        )
+        people_qs = (
+            people_qs.exclude(id__in=assigned_ids)
+            .exclude(username="admin")
+            .exclude(Q(first_name="") | Q(last_name=""))
+            .exclude(first_name__isnull=True)
+            .exclude(last_name__isnull=True)
+            .select_related("branch", "first_activity_attended")
+            .prefetch_related("clusters", "families")
+            .order_by("last_name", "first_name", "id")
+        )
+
+        search = (request.query_params.get("search") or "").strip()
+        if search:
+            people_qs = people_qs.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(nickname__icontains=search)
+                | Q(email__icontains=search)
+                | Q(member_id__icontains=search)
+            )
+
+        paginator = PersonPagination()
+        page = paginator.paginate_queryset(people_qs, request, view=self)
+        serializer = PersonListSerializer(
+            page, many=True, context=person_view.get_serializer_context()
+        )
+        return paginator.get_paginated_response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        """
+        KPI totals under the same branch / include_inactive scope as list.
+        Toolbar text filters beyond branch do not apply (Phase 1).
+        """
+        qs = self.filter_queryset(self.get_queryset())
+        cluster_count = qs.count()
+        member_agg = qs.aggregate(total_members=Sum("member_count"))
+        member_count = member_agg.get("total_members") or 0
+
+        person_view = self._scoped_people_for_unassigned(request)
+        people_qs = person_view._scoped_people_queryset(for_profile=False)
+        assigned_ids = (
+            Person.objects.filter(clusters__is_active=True)
+            .values_list("id", flat=True)
+            .distinct()
+        )
+        unassigned_count = (
+            people_qs.exclude(id__in=assigned_ids)
+            .exclude(username="admin")
+            .exclude(Q(first_name="") | Q(last_name=""))
+            .exclude(first_name__isnull=True)
+            .exclude(last_name__isnull=True)
+            .count()
+        )
+
+        return Response(
+            {
+                "cluster_count": cluster_count,
+                "member_count": member_count,
+                "unassigned_count": unassigned_count,
+            }
+        )
 
 
 class ClusterWeeklyReportPagination(PageNumberPagination):

@@ -34,6 +34,43 @@ from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 logger = logging.getLogger(__name__)
 
 
+class ClusterListSerializer(serializers.ModelSerializer):
+    """Slim read-only serializer for paginated clusters directory."""
+
+    coordinator = serializers.SerializerMethodField()
+    member_count = serializers.IntegerField(read_only=True, default=0)
+    visitor_count = serializers.IntegerField(read_only=True, default=0)
+    family_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Cluster
+        fields = [
+            "id",
+            "code",
+            "name",
+            "coordinator",
+            "branch",
+            "location",
+            "meeting_schedule",
+            "description",
+            "is_active",
+            "created_at",
+            "member_count",
+            "visitor_count",
+            "family_count",
+        ]
+
+    def get_coordinator(self, obj):
+        if obj.coordinator:
+            return {
+                "id": obj.coordinator.id,
+                "first_name": obj.coordinator.first_name,
+                "last_name": obj.coordinator.last_name,
+                "username": obj.coordinator.username,
+            }
+        return None
+
+
 class ClusterReportNewProspectSerializer(serializers.Serializer):
     """Write-only payload for creating an INVITED prospect on a cluster weekly report."""
 

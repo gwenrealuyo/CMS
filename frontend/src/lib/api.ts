@@ -575,28 +575,90 @@ export const branchesApi = {
   delete: (id: number | string) => api.delete(`/people/branches/${id}/`),
 };
 
-export const clustersApi = {
-  getAll: async (
-    params?: {
-      page?: number;
-      page_size?: number;
-      branch_id?: string | number;
-      branch?: string | number;
-      search?: string;
-      include_inactive?: boolean;
+export type ClustersListParams = {
+  search?: string;
+  page?: number;
+  page_size?: number;
+  ordering?: string;
+  branch?: number | string;
+  branch_id?: number | string;
+  include_inactive?: boolean | string;
+  name?: string;
+  name__icontains?: string;
+  name__istartswith?: string;
+  name__iendswith?: string;
+  name_ne?: string;
+  code?: string;
+  code__icontains?: string;
+  code__istartswith?: string;
+  location?: string;
+  location__icontains?: string;
+  meeting_schedule__icontains?: string;
+  member_count?: number | string;
+  member_count_min?: number | string;
+  member_count_max?: number | string;
+  visitor_count?: number | string;
+  visitor_count_min?: number | string;
+  visitor_count_max?: number | string;
+  family_count?: number | string;
+  family_count_min?: number | string;
+  family_count_max?: number | string;
+};
+
+export type ClustersListResponse = PaginatedResponse<Cluster> | Cluster[];
+
+export type ClustersSummary = {
+  cluster_count: number;
+  member_count: number;
+  unassigned_count: number;
+};
+
+async function fetchAllClustersPages(
+  params: ClustersListParams = {}
+): Promise<Cluster[]> {
+  const all: Cluster[] = [];
+  let page = 1;
+  for (let i = 0; i < 500; i += 1) {
+    const { data } = await api.get<ClustersListResponse>("/clusters/clusters/", {
+      params: { ...params, page, page_size: 100 },
+    });
+    if (Array.isArray(data)) {
+      return data;
     }
+    all.push(...(data.results ?? []));
+    if (!data.next) {
+      break;
+    }
+    page += 1;
+  }
+  return all;
+}
+
+export const clustersApi = {
+  /** Pages through clusters and returns every row (pickers / legacy callers). */
+  getAll: async (
+    params?: ClustersListParams
   ): Promise<AxiosResponse<Cluster[]>> => {
-    const response = await api.get<Cluster[] | { results: Cluster[] }>(
-      "/clusters/clusters/",
-      { params },
-    );
-    const raw = response.data;
-    const rows = Array.isArray(raw) ? raw : raw.results;
-    return {
-      ...response,
-      data: rows,
-    };
+    const data = await fetchAllClustersPages(params ?? {});
+    return { data } as AxiosResponse<Cluster[]>;
   },
+  list: (params?: ClustersListParams) =>
+    api.get<PaginatedResponse<Cluster>>("/clusters/clusters/", { params }),
+  unassignedPeople: (params?: {
+    search?: string;
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<Person>>(
+      "/clusters/clusters/unassigned-people/",
+      { params }
+    ),
+  summary: (params?: {
+    branch?: number | string;
+    branch_id?: number | string;
+    include_inactive?: boolean | string;
+  }) =>
+    api.get<ClustersSummary>("/clusters/clusters/summary/", { params }),
   getById: (id: string | number) =>
     api.get<Cluster>(`/clusters/clusters/${id}/`),
   create: (data: ClusterInput) =>

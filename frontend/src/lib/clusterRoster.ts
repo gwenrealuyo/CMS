@@ -105,6 +105,16 @@ export function countClusterMembersFromDetails(
   cluster: Cluster,
   peopleUI: PersonUI[]
 ): { memberCount: number; visitorCount: number } {
+  if (
+    typeof cluster.member_count === "number" ||
+    typeof cluster.visitor_count === "number"
+  ) {
+    return {
+      memberCount: cluster.member_count ?? 0,
+      visitorCount: cluster.visitor_count ?? 0,
+    };
+  }
+
   const roster = resolveClusterRosterPeople(cluster, peopleUI);
   const coordinatorId =
     cluster.coordinator?.id != null

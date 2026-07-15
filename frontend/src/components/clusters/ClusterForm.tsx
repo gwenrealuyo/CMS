@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Cluster } from "@/src/types/cluster";
-import { Person, PersonUI } from "@/src/types/person";
+import { Person, PersonUI, Family } from "@/src/types/person";
 // import { Branch } from "@/src/types/branch";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
-import { useClusters } from "@/src/hooks/useClusters";
+import { clustersApi } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
@@ -34,6 +34,10 @@ interface ClusterFormProps {
   error?: string | null;
   submitting?: boolean;
   panelLayout?: boolean;
+  /** When provided by the parent (directory page), avoids mounting catalog hooks. */
+  people?: Person[];
+  families?: Family[];
+  onNeedCatalogs?: () => void;
 }
 
 export default function ClusterForm({
@@ -43,6 +47,9 @@ export default function ClusterForm({
   error,
   submitting,
   panelLayout = false,
+  people: peopleProp,
+  families: familiesProp,
+  onNeedCatalogs,
 }: ClusterFormProps) {
   const getInitialFormData = useCallback(() => {
     const parsedSchedule = parseMeetingSchedule(
@@ -101,10 +108,23 @@ export default function ClusterForm({
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
   const initializedForClusterRef = useRef<number | null>(null);
 
-  const { people, loading: peopleLoading } = usePeople();
-  const { families, loading: familiesLoading } = useFamilies();
+  const loadCatalogsFromHooks = peopleProp === undefined;
+
+  useEffect(() => {
+    onNeedCatalogs?.();
+  }, [onNeedCatalogs]);
+
+  const { people: hookedPeople, loading: peopleLoadingHook } = usePeople(
+    loadCatalogsFromHooks
+  );
+  const { families: hookedFamilies, loading: familiesLoadingHook } =
+    useFamilies(familiesProp === undefined);
+  const people = peopleProp ?? hookedPeople;
+  const families = familiesProp ?? hookedFamilies;
+  const peopleLoading = peopleProp !== undefined ? peopleProp.length === 0 : peopleLoadingHook;
+  const familiesLoading =
+    familiesProp !== undefined ? familiesProp.length === 0 : familiesLoadingHook;
   const { branches } = useBranches();
-  const { clusters } = useClusters();
   const { user, isSeniorCoordinator } = useAuth();
   const canEditBranch =
     user?.role === "ADMIN" ||
@@ -114,6 +134,7 @@ export default function ClusterForm({
     isOpen: boolean;
     matches: Cluster[];
   }>({ isOpen: false, matches: [] });
+  const [duplicateCheckLoading, setDuplicateCheckLoading] = useState(false);
 
   useEffect(() => {
     const clusterId = initialData?.id ?? null;
@@ -219,33 +240,65 @@ export default function ClusterForm({
     onSubmit(buildSubmitPayload());
   }, [onSubmit, buildSubmitPayload]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const codeConflict = findClusterCodeConflict(clusters, {
-      code,
-      excludeId: initialData?.id,
-    });
-    if (codeConflict) {
-      toast.error(
-        `Cluster code "${code.trim()}" is already used by ${describeDuplicateCluster(codeConflict)}.`,
-      );
-      return;
-    }
+    setDuplicateCheckLoading(true);
+    try {
+      const searchTerm = (code || name || "").trim();
+      let candidateClusters: Cluster[] = [];
+      if (searchTerm) {
+        const [byCode, byName] = await Promise.all([
+          code.trim()
+            ? clustersApi.list({
+                search: code.trim(),
+                page_size: 10,
+              })
+            : Promise.resolve(null),
+          name.trim()
+            ? clustersApi.list({
+                search: name.trim(),
+                page_size: 10,
+              })
+            : Promise.resolve(null),
+        ]);
+        const byId = new Map<number, Cluster>();
+        for (const row of [
+          ...(byCode?.data.results ?? []),
+          ...(byName?.data.results ?? []),
+        ]) {
+          byId.set(row.id, row);
+        }
+        candidateClusters = Array.from(byId.values());
+      }
 
-    if (clusters.length > 0) {
-      const nameMatches = findPossibleClusterNameDuplicates(clusters, {
-        name,
-        branch: branchId ? Number(branchId) : null,
+      const codeConflict = findClusterCodeConflict(candidateClusters, {
+        code,
         excludeId: initialData?.id,
       });
-      if (nameMatches.length > 0) {
-        setDuplicateNameConfirm({ isOpen: true, matches: nameMatches });
+      if (codeConflict) {
+        toast.error(
+          `Cluster code "${code.trim()}" is already used by ${describeDuplicateCluster(codeConflict)}.`,
+        );
         return;
       }
-    }
 
-    performSubmit();
+      if (candidateClusters.length > 0) {
+        const nameMatches = findPossibleClusterNameDuplicates(candidateClusters, {
+          name,
+          branch: branchId ? Number(branchId) : null,
+          excludeId: initialData?.id,
+        });
+        if (nameMatches.length > 0) {
+          setDuplicateNameConfirm({ isOpen: true, matches: nameMatches });
+          return;
+        }
+      }
+
+      performSubmit();
+    } finally {
+      setDuplicateCheckLoading(false);
+    }
   };
 
   // Coordinator options: only show cluster members
@@ -989,11 +1042,13 @@ export default function ClusterForm({
         </Button>
         <Button
           className="w-full sm:flex-1 min-h-[44px]"
-          disabled={submitting}
+          disabled={submitting || duplicateCheckLoading}
           type="submit"
         >
-          {submitting
-            ? "Saving..."
+          {submitting || duplicateCheckLoading
+            ? submitting
+              ? "Saving..."
+              : "Checking..."
             : initialData
               ? "Update Cluster"
               : "Create Cluster"}

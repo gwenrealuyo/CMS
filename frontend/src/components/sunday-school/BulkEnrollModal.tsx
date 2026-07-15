@@ -62,7 +62,9 @@ export default function BulkEnrollModal({
         setLoading(true);
         setError(null);
         const response = await peopleApi.search({ search: debouncedSearchQuery });
-        setPeople(response.data.filter(isSelectablePerson));
+        const data = response.data;
+        const list = Array.isArray(data) ? data : data.results ?? [];
+        setPeople(list.filter(isSelectablePerson));
       } catch (err) {
         setError("Failed to search people");
         setPeople([]);

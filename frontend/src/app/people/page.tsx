@@ -12,7 +12,6 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import FamilyView from "@/src/components/families/FamilyView";
 import FilterBar, {
   FilterCondition,
-  flattenBranchFilterIds,
 } from "@/src/components/people/FilterBar";
 import Pagination from "@/src/components/ui/Pagination";
 import DataTable from "@/src/components/people/DataTable";
@@ -20,9 +19,14 @@ import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
 import { Person, PersonUI, Family, Journey } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { usePeople } from "@/src/hooks/usePeople";
+import { usePeopleDirectory } from "@/src/hooks/usePeopleDirectory";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
 import { clustersApi, peopleApi, journeysApi, eventTypesApi, eventsApi, User } from "@/src/lib/api";
+import {
+  filtersToPeopleListParams,
+  sortFieldToOrdering,
+} from "@/src/lib/peopleDirectoryParams";
 import {
   formatPeopleImportApiError,
   mapImportRowToPerson,
@@ -268,11 +272,24 @@ export default function PeoplePage() {
   });
   // const [people, setPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterCondition[]>([]);
+  const [directoryPage, setDirectoryPage] = useState(1);
+  const [directoryPageSize, setDirectoryPageSize] = useState(25);
+  const [directorySortBy, setDirectorySortBy] = useState("last_name");
+  const [directorySortDir, setDirectorySortDir] = useState<"asc" | "desc">(
+    "asc",
+  );
   const peopleBranchFilterUserIdRef = useRef<number | undefined>(undefined);
+
+  const needFullPeopleCatalog =
+    activeTab === "families" ||
+    activeTab === "clusters" ||
+    // Person create/edit needs peopleOptions for membership pickers; profile view does not.
+    (personPanelOpen && personPanelMode !== "view") ||
+    (isModalOpen &&
+      (modalType === "family" ||
+        modalType === "cluster" ||
+        modalType === "person"));
 
   const {
     people,
@@ -281,8 +298,7 @@ export default function PeoplePage() {
     deletePerson,
     updatePerson,
     refreshPeople,
-    loading: peopleLoading,
-  } = usePeople();
+  } = usePeople(needFullPeopleCatalog);
 
   const {
     families,
@@ -290,7 +306,11 @@ export default function PeoplePage() {
     updateFamily,
     deleteFamily,
     refreshFamilies,
-  } = useFamilies();
+  } = useFamilies(
+    activeTab === "families" ||
+      (isModalOpen && modalType === "family") ||
+      (personPanelOpen && personPanelMode !== "view"),
+  );
   const { branches } = useBranches();
   const { user, isSeniorCoordinator, isModuleCoordinator, isPlainMember } =
     useAuth();
@@ -341,6 +361,43 @@ export default function PeoplePage() {
     () => (canChangeBranchFilter ? [] : [DEFAULT_PEOPLE_BRANCH_FILTER_ID]),
     [canChangeBranchFilter],
   );
+
+  const directoryFilterParams = useMemo(() => {
+    const params = filtersToPeopleListParams(activeFilters);
+    if (
+      !canChangeBranchFilter &&
+      user?.branch != null &&
+      params.branch == null &&
+      !params.branch__in
+    ) {
+      params.branch = user.branch;
+    }
+    return params;
+  }, [activeFilters, canChangeBranchFilter, user?.branch]);
+
+  const directoryOrdering = useMemo(
+    () => sortFieldToOrdering(directorySortBy, directorySortDir),
+    [directorySortBy, directorySortDir],
+  );
+
+  const {
+    peopleUI: directoryPeopleUI,
+    totalCount: directoryTotalCount,
+    loading: directoryLoading,
+    refetch: refetchDirectory,
+  } = usePeopleDirectory({
+    search: searchQuery,
+    filters: directoryFilterParams,
+    page: directoryPage,
+    pageSize: directoryPageSize,
+    ordering: directoryOrdering,
+    enabled: activeTab === "people",
+  });
+
+  useEffect(() => {
+    setDirectoryPage(1);
+  }, [searchQuery, directoryFilterParams, directoryOrdering]);
+
   const [directoryAccessNotice, setDirectoryAccessNotice] = useState<
     string | null
   >(null);
@@ -524,30 +581,10 @@ export default function PeoplePage() {
     family: null,
   });
 
-  // Debounced search for better performance
+  // Debounced search is handled inside usePeopleDirectory
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
-    setIsSearching(true);
-
-    // Clear existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    // Set new timeout for debounced search
-    searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedSearchQuery(query);
-      setIsSearching(false);
-    }, 300); // 300ms delay
-  }, []);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
+    setDirectoryPage(1);
   }, []);
 
   const fetchClusters = async () => {
@@ -1052,8 +1089,8 @@ export default function PeoplePage() {
     if (personDeleteConfirmation.person) {
       setPersonDeleteConfirmation((prev) => ({ ...prev, loading: true }));
       try {
-        await peopleApi.delete(personDeleteConfirmation.person.id);
-        await refreshPeople();
+        await deletePerson(personDeleteConfirmation.person.id);
+        await refetchDirectory();
         setPersonDeleteConfirmation({
           isOpen: false,
           person: null,
@@ -1078,165 +1115,8 @@ export default function PeoplePage() {
     });
   };
 
-  // Memoized search function for better performance
-  const searchPeople = useCallback((people: PersonUI[], query: string) => {
-    if (!query.trim()) return people;
-
-    const lowerQuery = query.toLowerCase();
-    const searchTerms = lowerQuery.split(" ").filter((term) => term.length > 0);
-
-    return people.filter((person) => {
-      // Create searchable text from all relevant fields
-      const searchableText = [
-        person.name || "",
-        person.email || "",
-        person.phone || "",
-        person.first_name || "",
-        person.last_name || "",
-        person.nickname || "",
-        person.member_id || "",
-        person.facebook_name || "",
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      // Check if all search terms are present (AND logic)
-      return searchTerms.every((term) => searchableText.includes(term));
-    });
-  }, []);
-
-  const filteredPeopleUI = useMemo(() => {
-    let filtered = peopleUI;
-
-    // Apply active filters first (more selective)
-    if (activeFilters.length > 0) {
-      const branchFilters = activeFilters.filter((f) => f.field === "branch");
-      const nonBranchFilters = activeFilters.filter(
-        (f) => f.field !== "branch",
-      );
-      const branchIsIds = flattenBranchFilterIds(
-        branchFilters.filter((f) => f.operator === "is"),
-      );
-      const branchIsNotIds = flattenBranchFilterIds(
-        branchFilters.filter((f) => f.operator === "is_not"),
-      );
-
-      filtered = filtered.filter((person) => {
-        const personBranchId = String(person.branch ?? "");
-
-        const passesBranchIs =
-          branchIsIds.length === 0 || branchIsIds.includes(personBranchId);
-        const passesBranchNot =
-          branchIsNotIds.length === 0 ||
-          !branchIsNotIds.includes(personBranchId);
-
-        const passesNonBranch = nonBranchFilters.every((filter) => {
-          const fieldValue = person[filter.field as keyof PersonUI];
-
-          switch (filter.operator) {
-            case "is":
-              return (
-                fieldValue?.toString().toLowerCase() ===
-                filter.value.toString().toLowerCase()
-              );
-            case "is_not":
-              return (
-                fieldValue?.toString().toLowerCase() !==
-                filter.value.toString().toLowerCase()
-              );
-            case "contains":
-              return fieldValue
-                ?.toString()
-                .toLowerCase()
-                .includes(filter.value.toString().toLowerCase());
-            case "starts_with":
-              return fieldValue
-                ?.toString()
-                .toLowerCase()
-                .startsWith(filter.value.toString().toLowerCase());
-            case "ends_with":
-              return fieldValue
-                ?.toString()
-                .toLowerCase()
-                .endsWith(filter.value.toString().toLowerCase());
-            case "before":
-              if (
-                filter.field === "date_first_attended" ||
-                filter.field === "birth_date"
-              ) {
-                return (
-                  new Date(fieldValue as string) <
-                  new Date(filter.value as string)
-                );
-              }
-              return false;
-            case "after":
-              if (
-                filter.field === "date_first_attended" ||
-                filter.field === "birth_date"
-              ) {
-                return (
-                  new Date(fieldValue as string) >
-                  new Date(filter.value as string)
-                );
-              }
-              return false;
-            case "between":
-              if (Array.isArray(filter.value)) {
-                const [start, end] = filter.value;
-                if (
-                  filter.field === "date_first_attended" ||
-                  filter.field === "birth_date"
-                ) {
-                  const date = new Date(fieldValue as string);
-                  return date >= new Date(start) && date <= new Date(end);
-                }
-              }
-              return false;
-            case "greater_than":
-              return Number(fieldValue) > Number(filter.value);
-            case "less_than":
-              return Number(fieldValue) < Number(filter.value);
-            default:
-              return true;
-          }
-        });
-
-        return passesBranchIs && passesBranchNot && passesNonBranch;
-      });
-    }
-
-    // Apply search query filter (using optimized search function)
-    if (debouncedSearchQuery) {
-      filtered = searchPeople(filtered, debouncedSearchQuery);
-    }
-
-    // Filter out admin users and users without a name (always last)
-    filtered = filtered.filter(
-      (person) =>
-        person.username !== "admin" && (person.first_name || person.last_name),
-    );
-
-    if (
-      !canChangeBranchFilter &&
-      user?.branch != null &&
-      user.branch !== undefined
-    ) {
-      const userBranchId = String(user.branch);
-      filtered = filtered.filter(
-        (person) => String(person.branch ?? "") === userBranchId,
-      );
-    }
-
-    return filtered;
-  }, [
-    peopleUI,
-    debouncedSearchQuery,
-    activeFilters,
-    searchPeople,
-    canChangeBranchFilter,
-    user?.branch,
-  ]);
+  // Directory rows come from the paginated server API (see usePeopleDirectory above).
+  const filteredPeopleUI = directoryPeopleUI;
 
   // const handleCreatePerson = (personData: Partial<Person>) => {
   //   const newPerson = {
@@ -1373,6 +1253,7 @@ export default function PeoplePage() {
       await Promise.all(
         bulkDeleteConfirmation.people.map((person) => deletePerson(person.id)),
       );
+      await refetchDirectory();
       setBulkDeleteConfirmation({
         isOpen: false,
         people: [],
@@ -1465,7 +1346,10 @@ export default function PeoplePage() {
       }
     }
 
-    await refreshPeople();
+    await refetchDirectory();
+    if (needFullPeopleCatalog) {
+      await refreshPeople();
+    }
 
     const parts = [`Imported ${created} of ${rows.length} people.`];
     if (skipped.length) {
@@ -1488,6 +1372,7 @@ export default function PeoplePage() {
 
   const handleApplyFilter = (filter: FilterCondition) => {
     setActiveFilters([...activeFilters, filter]);
+    setDirectoryPage(1);
   };
 
   const handleRemoveFilter = (filterId: string) => {
@@ -1495,6 +1380,7 @@ export default function PeoplePage() {
       return;
     }
     setActiveFilters(activeFilters.filter((f) => f.id !== filterId));
+    setDirectoryPage(1);
   };
 
   const handleRemoveFilterIds = useCallback(
@@ -1506,6 +1392,7 @@ export default function PeoplePage() {
       setActiveFilters((prev) =>
         prev.filter((f) => !removable.includes(f.id)),
       );
+      setDirectoryPage(1);
     },
     [lockedBranchFilterIds],
   );
@@ -1514,18 +1401,20 @@ export default function PeoplePage() {
     if (!canChangeBranchFilter && user) {
       const f = buildDefaultBranchFilter(user, branches);
       setActiveFilters(f ? [f] : []);
+      setDirectoryPage(1);
       return;
     }
     setActiveFilters([]);
+    setDirectoryPage(1);
   };
 
   const hasActiveSearchOrFilters = useMemo(() => {
-    if (debouncedSearchQuery.trim()) return true;
+    if (searchQuery.trim()) return true;
     const nonDefaultFilters = activeFilters.filter(
       (f) => f.id !== DEFAULT_PEOPLE_BRANCH_FILTER_ID,
     );
     return nonDefaultFilters.length > 0;
-  }, [debouncedSearchQuery, activeFilters]);
+  }, [searchQuery, activeFilters]);
 
   const personPanelTitle =
     personPanelMode === "create"
@@ -1555,7 +1444,6 @@ export default function PeoplePage() {
       setPersonOverCluster((current) =>
         current && String(current.id) === personId ? refreshedPerson : current,
       );
-      await refreshPeople();
     } catch (error) {
       console.error("Failed to refresh person journey data:", error);
     }
@@ -1635,8 +1523,9 @@ export default function PeoplePage() {
             setPersonPanelPerson(result);
             setPersonPanelMode("view");
             setStartOnTimelineTab(false);
+            // updatePerson already patches the catalog when loaded; avoid full getAll.
             await Promise.all([
-              refreshPeople(),
+              refetchDirectory(),
               refreshFamilies(),
               fetchClusters(),
             ]);
@@ -1673,8 +1562,9 @@ export default function PeoplePage() {
             setPersonPanelOpen(true);
             setCreateInitialData(undefined);
             setPersonPanelInitialData(undefined);
+            // createPerson already patches the catalog when loaded; avoid full getAll.
             await Promise.all([
-              refreshPeople(),
+              refetchDirectory(),
               refreshFamilies(),
               fetchClusters(),
             ]);
@@ -1813,7 +1703,7 @@ export default function PeoplePage() {
                 onRemoveFilterIds={handleRemoveFilterIds}
                 onClearAllFilters={handleClearAllFilters}
                 onApplyFilter={handleApplyFilter}
-                isSearching={isSearching}
+                isSearching={directoryLoading}
                 branches={visibleBranches}
                 canChangeBranchFilter={canChangeBranchFilter}
                 lockedFilterIds={lockedBranchFilterIds}
@@ -1884,22 +1774,17 @@ export default function PeoplePage() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-gray-600">
                   <div className="flex flex-wrap items-center gap-2">
                     <span>
-                      {isSearching
+                      {directoryLoading
                         ? "Searching..."
-                        : `${filteredPeopleUI.length} result${
-                            filteredPeopleUI.length !== 1 ? "s" : ""
+                        : `${directoryTotalCount} result${
+                            directoryTotalCount !== 1 ? "s" : ""
                           } found`}
                     </span>
-                    {filteredPeopleUI.length !== peopleUI.length && (
-                      <span className="text-gray-400">
-                        (of {peopleUI.length} total)
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
 
-              {peopleLoading ? (
+              {directoryLoading ? (
                 <div className="text-center py-8 text-sm text-gray-500">
                   Loading people…
                 </div>
@@ -1948,9 +1833,33 @@ export default function PeoplePage() {
                   onBulkDelete={userCanHardDelete ? handleBulkDelete : undefined}
                   onBulkExport={handleBulkExport}
                   onImport={handleImportPeople}
+                  onExportAll={() =>
+                    peopleApi.getAllMatching({
+                      ...directoryFilterParams,
+                      search: searchQuery.trim() || undefined,
+                      ordering: directoryOrdering,
+                      has_name: true,
+                      exclude_username: "admin",
+                    })
+                  }
                   defaultBranchId={userBranchId}
                   defaultBranchCode={userBranchCode}
                   sidePanelOpen={personPanelOpen}
+                  page={directoryPage}
+                  pageSize={directoryPageSize}
+                  totalCount={directoryTotalCount}
+                  onPageChange={setDirectoryPage}
+                  onPageSizeChange={(size) => {
+                    setDirectoryPageSize(size);
+                    setDirectoryPage(1);
+                  }}
+                  sortBy={directorySortBy}
+                  sortDir={directorySortDir}
+                  onSortChange={(field, dir) => {
+                    setDirectorySortBy(field);
+                    setDirectorySortDir(dir);
+                    setDirectoryPage(1);
+                  }}
                 />
               )}
             </div>
@@ -3064,7 +2973,7 @@ export default function PeoplePage() {
                           notes: target.notes,
                         });
                         await refreshFamilies();
-                        await refreshPeople();
+                        await refetchDirectory();
                         let latestPerson: Person | null = null;
                         let updatedJourneys: Journey[] = [];
                         try {

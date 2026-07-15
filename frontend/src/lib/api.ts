@@ -268,14 +268,102 @@ api.interceptors.response.use(
   }
 );
 
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+/** Query params for paginated people list / directory filters. */
+export type PeopleListParams = {
+  search?: string;
+  page?: number;
+  page_size?: number;
+  ordering?: string;
+  role?: string;
+  role__in?: string;
+  role_ne?: string;
+  status?: string;
+  status__in?: string;
+  status_ne?: string;
+  branch?: number | string;
+  branch__in?: string;
+  branch_ne?: number | string;
+  branch_ne__in?: string;
+  cluster?: number | string;
+  first_name?: string;
+  first_name__icontains?: string;
+  first_name__istartswith?: string;
+  first_name__iendswith?: string;
+  first_name_ne?: string;
+  last_name?: string;
+  last_name__icontains?: string;
+  last_name__istartswith?: string;
+  last_name__iendswith?: string;
+  last_name_ne?: string;
+  email?: string;
+  email__icontains?: string;
+  email__istartswith?: string;
+  email__iendswith?: string;
+  email_ne?: string;
+  phone?: string;
+  phone__icontains?: string;
+  phone__istartswith?: string;
+  phone__iendswith?: string;
+  phone_ne?: string;
+  date_first_attended?: string;
+  date_first_attended_before?: string;
+  date_first_attended_after?: string;
+  date_first_attended_ne?: string;
+  date_first_attended_min?: string;
+  date_first_attended_max?: string;
+  date_of_birth?: string;
+  date_of_birth_before?: string;
+  date_of_birth_after?: string;
+  date_of_birth_ne?: string;
+  date_of_birth_min?: string;
+  date_of_birth_max?: string;
+  has_name?: boolean;
+  exclude_username?: string;
+};
+
+export type PeopleListResponse = PaginatedResponse<Person> | Person[];
+
+async function fetchAllPeoplePages(
+  params: PeopleListParams = {}
+): Promise<Person[]> {
+  const all: Person[] = [];
+  let page = 1;
+  // Cap pages to avoid runaway loops if next is malformed.
+  for (let i = 0; i < 500; i += 1) {
+    const { data } = await api.get<PeopleListResponse>("/people/people/", {
+      params: { ...params, page, page_size: 100 },
+    });
+    if (Array.isArray(data)) {
+      return data;
+    }
+    all.push(...(data.results ?? []));
+    if (!data.next) {
+      break;
+    }
+    page += 1;
+  }
+  return all;
+}
+
 export const peopleApi = {
-  getAll: () => api.get<Person[]>("/people/people"),
-  search: (params?: {
-    search?: string;
-    role?: string;
-    page?: number;
-    page_size?: number;
-  }) => api.get<Person[]>("/people/people/", { params }),
+  /** Pages through the people list and returns every row (picker / legacy callers). */
+  getAll: async (): Promise<{ data: Person[] }> => {
+    const data = await fetchAllPeoplePages();
+    return { data };
+  },
+  /** Fetch all pages matching directory filters (export). */
+  getAllMatching: (params?: PeopleListParams) => fetchAllPeoplePages(params ?? {}),
+  list: (params?: PeopleListParams) =>
+    api.get<PaginatedResponse<Person>>("/people/people/", { params }),
+  search: (params?: PeopleListParams) =>
+    api.get<PeopleListResponse>("/people/people/", { params }),
   getById: (id: string) => api.get<Person>(`/people/people/${id}/`),
   getPossibleDuplicates: (params?: {
     match?: "name" | "member_id" | "both";
@@ -811,13 +899,6 @@ export const ministryMembersApi = {
     api.put<MinistryMember>(`/ministries/members/${id}/`, data),
   delete: (id: number | string) => api.delete(`/ministries/members/${id}/`),
 };
-
-export interface PaginatedResponse<T> {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
-}
 
 const mapDonation = (payload: any): Donation => ({
   id: payload.id,

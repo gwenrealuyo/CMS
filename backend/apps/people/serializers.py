@@ -762,9 +762,8 @@ class PersonSerializer(serializers.ModelSerializer):
         return updated_instance
 
     def get_cluster_codes(self, obj: Person):
-        from apps.clusters.models import Cluster
-
-        return [code for code in obj.clusters.values_list("code", flat=True) if code]
+        # Use .all() so prefetched clusters are reused (avoids N+1 on list).
+        return [c.code for c in obj.clusters.all() if c.code]
 
     def get_branch_code(self, obj: Person):
         branch = getattr(obj, "branch", None)
@@ -773,7 +772,7 @@ class PersonSerializer(serializers.ModelSerializer):
         return None
 
     def get_family_names(self, obj: Person):
-        return list(obj.families.values_list("name", flat=True))
+        return [f.name for f in obj.families.all()]
 
     def get_can_view_journey_timeline(self, obj: Person):
         """
@@ -838,11 +837,101 @@ class PersonSerializer(serializers.ModelSerializer):
         if user.id == obj.id:
             return True
 
+        if self.context.get("profile_all_visible"):
+            return True
+
         profile_visible_ids = self.context.get("profile_visible_ids")
         if profile_visible_ids is not None:
             return obj.pk in profile_visible_ids
 
         # retrieve/create/update responses: if the object was returned, allow.
+        view = self.context.get("view")
+        if view is not None and hasattr(view, "_scoped_people_queryset"):
+            return (
+                view._scoped_people_queryset(for_profile=True)
+                .filter(pk=obj.pk)
+                .exists()
+            )
+
+        return True
+
+
+class PersonListSerializer(serializers.ModelSerializer):
+    """Slim read-only serializer for paginated directory / search list responses."""
+
+    cluster_codes = serializers.SerializerMethodField()
+    branch_code = serializers.SerializerMethodField()
+    family_names = serializers.SerializerMethodField()
+    can_view_profile = serializers.SerializerMethodField()
+    cluster_ids = serializers.PrimaryKeyRelatedField(
+        source="clusters", many=True, read_only=True
+    )
+    first_activity_attended = serializers.SlugRelatedField(
+        slug_field="code", read_only=True
+    )
+
+    class Meta:
+        model = Person
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "middle_name",
+            "suffix",
+            "nickname",
+            "maiden_name",
+            "gender",
+            "facebook_name",
+            "photo",
+            "role",
+            "phone",
+            "address",
+            "country",
+            "status",
+            "branch",
+            "branch_code",
+            "member_id",
+            "date_of_birth",
+            "date_first_attended",
+            "water_baptism_date",
+            "spirit_baptism_date",
+            "first_activity_attended",
+            "cluster_codes",
+            "cluster_ids",
+            "family_names",
+            "can_view_profile",
+        ]
+
+    def get_cluster_codes(self, obj: Person):
+        return [c.code for c in obj.clusters.all() if c.code]
+
+    def get_branch_code(self, obj: Person):
+        branch = getattr(obj, "branch", None)
+        if branch and branch.code:
+            return branch.code
+        return None
+
+    def get_family_names(self, obj: Person):
+        return [f.name for f in obj.families.all()]
+
+    def get_can_view_profile(self, obj: Person):
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+
+        user = request.user
+        if user.id == obj.id:
+            return True
+
+        if self.context.get("profile_all_visible"):
+            return True
+
+        profile_visible_ids = self.context.get("profile_visible_ids")
+        if profile_visible_ids is not None:
+            return obj.pk in profile_visible_ids
+
         view = self.context.get("view")
         if view is not None and hasattr(view, "_scoped_people_queryset"):
             return (

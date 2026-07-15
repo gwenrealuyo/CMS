@@ -1,13 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Family } from "@/src/types/person";
 import { familiesApi } from "@/src/lib/api";
 
-export function useFamilies() {
+export function useFamilies(enabled: boolean = true) {
   const [families, setFamilies] = useState<Family[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshFamilies = async () => {
+  const refreshFamilies = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -19,7 +22,7 @@ export function useFamilies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [enabled]);
 
   const createFamily = async (data: Partial<Family>) => {
     try {
@@ -103,8 +106,14 @@ export function useFamilies() {
   };
 
   useEffect(() => {
+    if (!enabled) {
+      setFamilies([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     refreshFamilies();
-  }, []);
+  }, [enabled, refreshFamilies]);
 
   return {
     families,
@@ -118,4 +127,3 @@ export function useFamilies() {
     removeMemberFromFamily,
   };
 }
-

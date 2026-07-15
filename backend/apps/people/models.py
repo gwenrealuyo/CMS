@@ -154,6 +154,21 @@ class Person(AbstractUser):
             queryset = queryset.filter(module=module_type)
         return queryset.exists()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["role"], name="people_person_role_idx"),
+            models.Index(fields=["status"], name="people_person_status_idx"),
+            models.Index(fields=["member_id"], name="people_person_member_id_idx"),
+            models.Index(
+                fields=["branch", "last_name", "first_name"],
+                name="people_person_branch_name_idx",
+            ),
+            models.Index(
+                fields=["branch", "role"],
+                name="people_person_branch_role_idx",
+            ),
+        ]
+
 
 class Family(models.Model):
     name = models.CharField(max_length=100)
@@ -207,6 +222,13 @@ class Journey(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.type} - {self.date}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "-date"], name="people_journey_user_date_idx"),
+            models.Index(fields=["user", "type"], name="people_journey_user_type_idx"),
+        ]
+        ordering = ["-date", "-created_at"]
 
 
 class ModuleCoordinator(models.Model):

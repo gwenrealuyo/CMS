@@ -39,11 +39,22 @@ interface DataTableProps {
   onDelete?: (person: Person) => void;
   onBulkDelete?: (people: Person[]) => void;
   onBulkExport?: (people: Person[], format: PeopleExportFormat) => void;
+  /** Export all matching (server-filtered) people; when set, Export All uses this instead of the current page. */
+  onExportAll?: () => Promise<Person[]> | Person[];
   onImport?: (rows: Record<string, string>[]) => Promise<void> | void;
   defaultBranchId?: number | null;
   defaultBranchCode?: string | null;
   /** Shrinks the double-click hint when the people side panel is open. */
   sidePanelOpen?: boolean;
+  /** Server-driven pagination (when totalCount is provided). */
+  page?: number;
+  pageSize?: number;
+  totalCount?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  onSortChange?: (sortBy: string, sortDir: "asc" | "desc") => void;
 }
 
 export default function DataTable({
@@ -55,9 +66,18 @@ export default function DataTable({
   onDelete,
   onBulkDelete,
   onBulkExport,
+  onExportAll,
   onImport,
   defaultBranchId = null,
   defaultBranchCode = null,
+  page: controlledPage,
+  pageSize: controlledPageSize,
+  totalCount,
+  onPageChange,
+  onPageSizeChange,
+  sortBy: controlledSortBy,
+  sortDir: controlledSortDir,
+  onSortChange,
   sidePanelOpen = false,
 }: DataTableProps) {
   const { getLabel: getEventTypeLabel } = useEventTypeOptions();
@@ -86,10 +106,37 @@ export default function DataTable({
       dateOfBirth: p.date_of_birth,
     }));
 
-  const [sortField, setSortField] = useState<keyof DisplayPerson>("last_name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const isServerPaged = typeof totalCount === "number";
+  const [internalSortField, setInternalSortField] =
+    useState<keyof DisplayPerson>("last_name");
+  const [internalSortDirection, setInternalSortDirection] = useState<
+    "asc" | "desc"
+  >("asc");
+  const [internalPage, setInternalPage] = useState(1);
+  const [internalPageSize, setInternalPageSize] = useState(10);
+
+  const sortField = (controlledSortBy ??
+    internalSortField) as keyof DisplayPerson;
+  const sortDirection = controlledSortDir ?? internalSortDirection;
+  const currentPage = controlledPage ?? internalPage;
+  const itemsPerPage = controlledPageSize ?? internalPageSize;
+
+  const setCurrentPage = (page: number) => {
+    if (onPageChange) {
+      onPageChange(page);
+    } else {
+      setInternalPage(page);
+    }
+  };
+
+  const setItemsPerPage = (size: number) => {
+    if (onPageSizeChange) {
+      onPageSizeChange(size);
+    } else {
+      setInternalPageSize(size);
+    }
+    setCurrentPage(1);
+  };
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportLockedFormat, setExportLockedFormat] =
     useState<PeopleExportFormat | null>(null);
@@ -138,11 +185,17 @@ export default function DataTable({
   );
 
   const handleSort = (field: keyof DisplayPerson) => {
+    const nextDir =
+      field === sortField && sortDirection === "asc" ? "desc" : "asc";
+    if (onSortChange) {
+      onSortChange(String(field), field === sortField ? nextDir : "asc");
+      return;
+    }
     if (field === sortField) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      setInternalSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
-      setSortField(field);
-      setSortDirection("asc");
+      setInternalSortField(field);
+      setInternalSortDirection("asc");
     }
   };
 
@@ -738,33 +791,44 @@ export default function DataTable({
     );
   };
 
-  const sortedPeople = [...displayPeople].sort((a, b) => {
-    const normalize = (person: DisplayPerson) => {
-      if (sortField === "cluster_codes") {
-        return person.cluster_codes?.filter(Boolean).join(", ") ?? "";
-      }
-      if (sortField === "branch") {
-        return person.branch_code?.trim() || "";
-      }
-      return person[sortField] as string | number | undefined;
-    };
+  const sortedPeople = isServerPaged
+    ? displayPeople
+    : [...displayPeople].sort((a, b) => {
+        const normalize = (person: DisplayPerson) => {
+          if (sortField === "cluster_codes") {
+            return person.cluster_codes?.filter(Boolean).join(", ") ?? "";
+          }
+          if (sortField === "branch") {
+            return person.branch_code?.trim() || "";
+          }
+          return person[sortField] as string | number | undefined;
+        };
 
-    const aNorm = normalize(a);
-    const bNorm = normalize(b);
+        const aNorm = normalize(a);
+        const bNorm = normalize(b);
 
-    if (aNorm == null && bNorm == null) return 0;
-    if (aNorm == null || aNorm === "") return sortDirection === "asc" ? 1 : -1;
-    if (bNorm == null || bNorm === "") return sortDirection === "asc" ? -1 : 1;
+        if (aNorm == null && bNorm == null) return 0;
+        if (aNorm == null || aNorm === "")
+          return sortDirection === "asc" ? 1 : -1;
+        if (bNorm == null || bNorm === "")
+          return sortDirection === "asc" ? -1 : 1;
 
-    if (aNorm < bNorm) return sortDirection === "asc" ? -1 : 1;
-    if (aNorm > bNorm) return sortDirection === "asc" ? 1 : -1;
-    return 0;
-  });
+        if (aNorm < bNorm) return sortDirection === "asc" ? -1 : 1;
+        if (aNorm > bNorm) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
 
-  const totalPages = Math.ceil(sortedPeople.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedPeople = sortedPeople.slice(startIndex, endIndex);
+  const resultCount = isServerPaged ? totalCount! : sortedPeople.length;
+  const totalPages = Math.max(1, Math.ceil(resultCount / itemsPerPage));
+  const startIndex = isServerPaged
+    ? (currentPage - 1) * itemsPerPage
+    : (currentPage - 1) * itemsPerPage;
+  const endIndex = isServerPaged
+    ? Math.min(startIndex + displayPeople.length, resultCount)
+    : startIndex + itemsPerPage;
+  const paginatedPeople = isServerPaged
+    ? sortedPeople
+    : sortedPeople.slice(startIndex, startIndex + itemsPerPage);
   const hasSelection = selectedPeople.size > 0;
   const selectionActionTooltip =
     "Use the Bulk Actions button instead for selected people.";
@@ -865,7 +929,23 @@ export default function DataTable({
                 {wrapWhenSelected(
                   <button
                     type="button"
-                    onClick={() => openExportModal(sortedPeople)}
+                    onClick={async () => {
+                      if (onExportAll) {
+                        const all = await onExportAll();
+                        openExportModal(
+                          all.map((p) => ({
+                            ...p,
+                            name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+                            dateFirstAttended: p.date_first_attended,
+                            waterBaptismDate: (p as any).water_baptism_date,
+                            spiritBaptismDate: (p as any).spirit_baptism_date,
+                            dateOfBirth: p.date_of_birth,
+                          }))
+                        );
+                        return;
+                      }
+                      openExportModal(sortedPeople);
+                    }}
                     disabled={hasSelection}
                     className="inline-flex items-center px-2.5 sm:px-3 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
@@ -1530,9 +1610,11 @@ export default function DataTable({
         <div className="bg-white px-4 md:px-6 py-3 border-t border-gray-200">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="text-sm text-gray-700 text-center sm:text-left">
-              Showing {startIndex + 1} to{" "}
-              {Math.min(endIndex, sortedPeople.length)} of {sortedPeople.length}{" "}
-              results
+              Showing {resultCount === 0 ? 0 : startIndex + 1} to{" "}
+              {isServerPaged
+                ? endIndex
+                : Math.min(endIndex, resultCount)}{" "}
+              of {resultCount} results
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4 flex-wrap justify-center">
               <div className="flex items-center space-x-2">

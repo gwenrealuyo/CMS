@@ -1,12 +1,15 @@
 from django.db.models import Q
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Branch, Person, Family, Journey, ModuleCoordinator, ModuleSetting
+from .filters import PersonFilter
 from .serializers import (
     BranchSerializer,
     PersonSerializer,
+    PersonListSerializer,
     FamilySerializer,
     JourneySerializer,
     ModuleCoordinatorSerializer,
@@ -25,13 +28,24 @@ from apps.authentication.permissions import (
 )
 
 
+class PersonPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class PersonViewSet(viewsets.ModelViewSet):
-    queryset = Person.objects.all().select_related("branch").prefetch_related(
-        "clusters", "families"
-    )
+    queryset = Person.objects.all().select_related(
+        "branch", "first_activity_attended"
+    ).prefetch_related("clusters", "families")
     serializer_class = PersonSerializer
+    pagination_class = PersonPagination
     permission_classes = [IsAuthenticatedAndNotVisitor]
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    filter_backends = [
+        filters.SearchFilter,
+        DjangoFilterBackend,
+        filters.OrderingFilter,
+    ]
     search_fields = [
         "username",
         "email",
@@ -40,8 +54,37 @@ class PersonViewSet(viewsets.ModelViewSet):
         "nickname",
         "maiden_name",
         "member_id",
+        "phone",
+        "facebook_name",
     ]
-    filterset_fields = ["role"]
+    filterset_class = PersonFilter
+    ordering_fields = [
+        "last_name",
+        "first_name",
+        "middle_name",
+        "suffix",
+        "maiden_name",
+        "username",
+        "email",
+        "phone",
+        "gender",
+        "role",
+        "status",
+        "date_of_birth",
+        "date_first_attended",
+        "water_baptism_date",
+        "spirit_baptism_date",
+        "member_id",
+        "facebook_name",
+        "branch__code",
+        "id",
+    ]
+    ordering = ["last_name", "first_name", "id"]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return PersonListSerializer
+        return PersonSerializer
 
     def _scoped_people_queryset(self, *, for_profile=False):
         """
@@ -246,22 +289,38 @@ class PersonViewSet(viewsets.ModelViewSet):
         qs = self._scoped_people_queryset(for_profile=for_profile)
         if getattr(self, "action", None) == "retrieve":
             user_pk = self.request.user.pk
-            return super().get_queryset().filter(
-                Q(pk__in=qs.values_list("pk", flat=True)) | Q(pk=user_pk)
+            return (
+                super()
+                .get_queryset()
+                .filter(Q(pk__in=qs.values_list("pk", flat=True)) | Q(pk=user_pk))
+                .prefetch_related(
+                    "journeys",
+                    "module_coordinator_assignments",
+                )
             )
+        # M2M filters (cluster) can duplicate rows; distinct keeps pagination stable.
+        if getattr(self, "action", None) == "list" and self.request.query_params.get(
+            "cluster"
+        ):
+            return qs.distinct()
         return qs
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         # Avoid N+1: one profile-scope ID set for list responses.
         if getattr(self, "action", None) == "list" and self.request.user.is_authenticated:
-            profile_ids = set(
-                self._scoped_people_queryset(for_profile=True).values_list(
-                    "pk", flat=True
+            user = self.request.user
+            # List and profile scope match for these roles — skip the extra queryset.
+            if user.role in ("ADMIN", "PASTOR") or user.is_senior_coordinator():
+                context["profile_all_visible"] = True
+            else:
+                profile_ids = set(
+                    self._scoped_people_queryset(for_profile=True).values_list(
+                        "pk", flat=True
+                    )
                 )
-            )
-            profile_ids.add(self.request.user.pk)
-            context["profile_visible_ids"] = profile_ids
+                profile_ids.add(user.pk)
+                context["profile_visible_ids"] = profile_ids
         return context
 
     def get_permissions(self):

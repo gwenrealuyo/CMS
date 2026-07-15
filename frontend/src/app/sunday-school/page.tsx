@@ -746,6 +746,7 @@ export default function SundaySchoolPage() {
           }
         }}
         title={viewEditClass ? "Edit Class" : "Add Class"}
+        closeOnOutsideClick={false}
       >
         <SundaySchoolClassForm
           categories={categories}
@@ -1040,6 +1041,7 @@ export default function SundaySchoolPage() {
           }
         }}
         title={editingSession ? "Edit Session" : "Add Session"}
+        closeOnOutsideClick={false}
       >
         {viewEditClass && (
           <SessionForm
@@ -1070,6 +1072,7 @@ export default function SundaySchoolPage() {
           }
         }}
         title="Create Recurring Sessions"
+        closeOnOutsideClick={false}
       >
         {viewEditClass && (
           <RecurringSessionForm

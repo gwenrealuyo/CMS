@@ -1733,6 +1733,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title="Create Evangelism Group"
+            closeOnOutsideClick={false}
           >
             <EvangelismGroupForm
               coordinators={coordinators}
@@ -1760,6 +1761,7 @@ export default function EvangelismPage() {
             }}
             hideHeader={viewMode === "view"}
             title={viewMode === "edit" ? "Edit Group" : ""}
+            closeOnOutsideClick={viewMode === "view"}
           >
             {viewMode === "edit" ? (
               <EvangelismGroupForm
@@ -1857,6 +1859,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title={editingReport ? "Edit Report" : "Submit Report"}
+            closeOnOutsideClick={false}
           >
             <EvangelismWeeklyReportForm
               group={viewEditGroup}
@@ -1912,6 +1915,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title="Add Invited Visitor"
+            closeOnOutsideClick={false}
           >
             <ProspectForm
               inviters={(people.length > 0 ? people : coordinators).filter(
@@ -1943,6 +1947,7 @@ export default function EvangelismPage() {
               setFormError(null);
             }}
             title={editingConversion ? "Update Conversion" : "Record Conversion"}
+            closeOnOutsideClick={false}
           >
             <ConversionForm
               key={editingConversion?.id ?? "create-conversion"}

@@ -2653,6 +2653,7 @@ function AdminSettingsPageContent() {
                     setEditingBranch(null);
                   }}
                   panelClassName="relative w-full max-w-2xl"
+                  closeOnOutsideClick={false}
                 >
                   <div className="max-h-[90vh] overflow-y-auto rounded-lg bg-white">
                     <div className="p-6">

@@ -1593,6 +1593,7 @@ export default function ClustersPageView({
               : "Create Cluster"
           }
           hideHeader={clusterViewMode === "view" && !!viewCluster}
+          closeOnOutsideClick={clusterViewMode === "view" && !!viewCluster}
         >
           {renderClusterFlow(false)}
         </Modal>
@@ -1733,6 +1734,7 @@ export default function ClustersPageView({
             onClose={onCloseEditClusterOverlay}
             title="Edit Cluster"
             className="!mt-0 z-[50]"
+            closeOnOutsideClick={false}
           >
             <ClusterForm
               initialData={editClusterOverlay}

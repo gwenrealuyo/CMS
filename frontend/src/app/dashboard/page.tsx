@@ -1298,6 +1298,7 @@ export default function Dashboard() {
               }}
               title="Submit Report"
               className="!mt-0"
+              closeOnOutsideClick={false}
             >
               <ClusterWeeklyReportForm
                 cluster={reportSelectedCluster}

@@ -10,6 +10,8 @@ interface ModalProps {
   className?: string;
   hideHeader?: boolean;
   headerClassName?: string;
+  /** When false, backdrop clicks do not dismiss the modal. Default true. */
+  closeOnOutsideClick?: boolean;
 }
 
 export default function Modal({
@@ -20,6 +22,7 @@ export default function Modal({
   className = "",
   hideHeader = false,
   headerClassName = "",
+  closeOnOutsideClick = true,
 }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
@@ -42,7 +45,7 @@ export default function Modal({
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] !mt-0 p-0 md:p-4"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (closeOnOutsideClick && e.target === e.currentTarget) {
           onClose();
         }
       }}

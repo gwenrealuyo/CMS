@@ -1419,6 +1419,7 @@ export default function ModuleCoordinatorManager() {
           setFormResourceSelectedIds([]);
         }}
         title={editingAssignment ? "Edit Assignment" : "Create Assignment"}
+        closeOnOutsideClick={false}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
@@ -1879,6 +1880,7 @@ export default function ModuleCoordinatorManager() {
           resetBulkModal();
         }}
         title="Bulk assign"
+        closeOnOutsideClick={false}
       >
         <form onSubmit={handleBulkSubmit} className="space-y-4">
           {bulkError && (

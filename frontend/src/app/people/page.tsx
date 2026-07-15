@@ -2331,6 +2331,17 @@ export default function PeoplePage() {
             !!viewCluster &&
             clusterViewMode === "view")
         }
+        closeOnOutsideClick={
+          (modalType === "person" &&
+            !!viewEditPerson &&
+            viewMode === "view") ||
+          (modalType === "family" &&
+            !!viewFamily &&
+            familyViewMode === "view") ||
+          (modalType === "cluster" &&
+            !!viewCluster &&
+            clusterViewMode === "view")
+        }
       >
         {modalType === "person" ? (
           renderPersonFlow(false)
@@ -2584,6 +2595,7 @@ export default function PeoplePage() {
           }}
           title="Submit Weekly Report"
           className="!mt-0"
+          closeOnOutsideClick={false}
         >
           <ClusterWeeklyReportForm
             cluster={reportSelectedCluster}
@@ -2772,6 +2784,7 @@ export default function PeoplePage() {
           }}
           title="Edit Cluster"
           className="!mt-0 z-[50]"
+          closeOnOutsideClick={false}
         >
           <ClusterForm
             onSubmit={async (data) => {
@@ -2818,6 +2831,7 @@ export default function PeoplePage() {
           }}
           title="Edit Family"
           className="!mt-0 z-[50]"
+          closeOnOutsideClick={false}
         >
           <FamilyForm
             onSubmit={async (data) => {
@@ -2868,6 +2882,7 @@ export default function PeoplePage() {
           onClose={() => setShowCreateFamilyOverlay(false)}
           title="Create Family"
           className="!mt-0 z-[50]"
+          closeOnOutsideClick={false}
         >
           <FamilyForm
             onSubmit={async (data) => {
@@ -3182,6 +3197,7 @@ export default function PeoplePage() {
           onClose={() => setShowCreateClusterOverlay(false)}
           title="Create Cluster"
           className="!mt-0 z-[50]"
+          closeOnOutsideClick={false}
         >
           <ClusterForm
             onSubmit={async (data) => {

@@ -710,6 +710,7 @@ export default function MinistriesPage() {
           }
         }}
         title="Add Ministry"
+        closeOnOutsideClick={false}
       >
         {peopleError && <ErrorMessage message={peopleError} />}
         {peopleLoading ? (
@@ -890,6 +891,7 @@ export default function MinistriesPage() {
           }
         }}
         title="Edit Ministry"
+        closeOnOutsideClick={false}
       >
         {peopleError && <ErrorMessage message={peopleError} />}
         {peopleLoading ? (

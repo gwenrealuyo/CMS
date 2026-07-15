@@ -1111,6 +1111,7 @@ export default function ClusterWeeklyReportForm({
           setProspectFormError(null);
         }}
         title="Add Prospect"
+        closeOnOutsideClick={false}
       >
         <p className="text-sm text-gray-600 mb-4">
           Invited visitors only — not yet attended. They are not added to People

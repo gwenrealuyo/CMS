@@ -745,6 +745,7 @@ export default function EventsPage() {
               : "Create New Event"
         }
         hideHeader={viewMode === "view"}
+        closeOnOutsideClick={viewMode === "view"}
       >
         {viewMode === "view" && viewEditEvent ? (
           <EventView

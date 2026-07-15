@@ -1096,6 +1096,7 @@ export default function EvangelismReportsDashboard({
         title={
           editingReport ? "Edit weekly report" : "Submit weekly report"
         }
+        closeOnOutsideClick={false}
       >
         {needsPick ? (
           <div className="space-y-4">

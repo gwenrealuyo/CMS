@@ -235,7 +235,12 @@ export default function AddVisitorModal({
   const selectedInviter = people.find((p) => p.id === formData.inviter);
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Add New Visitor">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Add New Visitor"
+      closeOnOutsideClick={false}
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">

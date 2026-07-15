@@ -623,6 +623,7 @@ export default function LessonsPageView({
         isOpen={isLessonFormOpen}
         onClose={onCloseLessonForm}
         title={editingLesson ? "Edit Lesson" : "New Lesson"}
+        closeOnOutsideClick={false}
       >
         {lessonFormError && (
           <div className="mb-4">
@@ -810,6 +811,7 @@ export default function LessonsPageView({
         title={
           editingSessionReport ? "Edit Lesson Session" : "Log Lesson Session"
         }
+        closeOnOutsideClick={false}
       >
         <LessonSessionReportForm
           report={editingSessionReport}

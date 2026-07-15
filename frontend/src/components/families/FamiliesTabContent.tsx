@@ -654,6 +654,7 @@ export default function FamiliesTabContent({
             : `Add New Family`
         }
         hideHeader={!!(viewFamily && familyViewMode === "view")}
+        closeOnOutsideClick={!!(viewFamily && familyViewMode === "view")}
       >
         {renderFamilyFlow(false)}
       </Modal>

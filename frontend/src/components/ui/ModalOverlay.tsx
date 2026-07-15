@@ -10,6 +10,8 @@ interface ModalOverlayProps {
   zIndex?: 70 | 80;
   className?: string;
   panelClassName?: string;
+  /** When false, backdrop clicks do not dismiss the modal. Default true. */
+  closeOnOutsideClick?: boolean;
 }
 
 export default function ModalOverlay({
@@ -19,6 +21,7 @@ export default function ModalOverlay({
   zIndex = 70,
   className = "",
   panelClassName = "",
+  closeOnOutsideClick = true,
 }: ModalOverlayProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -37,7 +40,7 @@ export default function ModalOverlay({
     <div
       className={`fixed inset-0 ${zClass} flex items-center justify-center bg-black/50 p-4 !mt-0 ${className}`}
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (closeOnOutsideClick && e.target === e.currentTarget) {
           onClose?.();
         }
       }}

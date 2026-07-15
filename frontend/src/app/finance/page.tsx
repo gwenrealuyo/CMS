@@ -1065,6 +1065,7 @@ export default function FinancePage() {
             setEditingDonation(null);
           }}
           title={editingDonation ? "Edit Donation" : "Record New Donation"}
+          closeOnOutsideClick={false}
         >
           <DonationForm
             onSubmit={
@@ -1091,6 +1092,7 @@ export default function FinancePage() {
             setEditingOffering(null);
           }}
           title={editingOffering ? "Edit Offering" : "Record Weekly Offering"}
+          closeOnOutsideClick={false}
         >
           <OfferingForm
             onSubmit={
@@ -1117,6 +1119,7 @@ export default function FinancePage() {
             setEditingPledge(null);
           }}
           title={editingPledge ? "Edit Pledge" : "Add Pledge"}
+          closeOnOutsideClick={false}
         >
           <PledgeForm
             onSubmit={editingPledge ? handleUpdatePledge : handleCreatePledge}
@@ -1148,6 +1151,7 @@ export default function FinancePage() {
               ? `Log Contributions — ${selectedPledge.pledgeTitle}`
               : "Log Contributions"
           }
+          closeOnOutsideClick={false}
         >
           <div className="space-y-6">
             {selectedPledge && (

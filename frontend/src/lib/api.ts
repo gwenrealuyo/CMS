@@ -422,13 +422,68 @@ export const peopleApi = {
   delete: (id: string) => api.delete(`/people/people/${id}/`),
 };
 
+export type FamiliesListParams = {
+  search?: string;
+  page?: number;
+  page_size?: number;
+  ordering?: string;
+  branch?: number | string;
+  include_inactive?: boolean | string;
+  name?: string;
+  name__icontains?: string;
+  name__istartswith?: string;
+  name__iendswith?: string;
+  name_ne?: string;
+  member_count?: number | string;
+  member_count_min?: number | string;
+  member_count_max?: number | string;
+  visitor_count?: number | string;
+  visitor_count_min?: number | string;
+  visitor_count_max?: number | string;
+};
+
+export type FamiliesListResponse = PaginatedResponse<Family> | Family[];
+
+async function fetchAllFamiliesPages(
+  params: FamiliesListParams = {}
+): Promise<Family[]> {
+  const all: Family[] = [];
+  let page = 1;
+  for (let i = 0; i < 500; i += 1) {
+    const { data } = await api.get<FamiliesListResponse>("/people/families/", {
+      params: { ...params, page, page_size: 100 },
+    });
+    if (Array.isArray(data)) {
+      return data;
+    }
+    all.push(...(data.results ?? []));
+    if (!data.next) {
+      break;
+    }
+    page += 1;
+  }
+  return all;
+}
+
 export const familiesApi = {
-  getAll: (params?: {
+  /** Pages through families and returns every row (pickers / legacy callers). */
+  getAll: async (
+    params?: FamiliesListParams
+  ): Promise<{ data: Family[] }> => {
+    const data = await fetchAllFamiliesPages(params ?? {});
+    return { data };
+  },
+  list: (params?: FamiliesListParams) =>
+    api.get<PaginatedResponse<Family>>("/people/families/", { params }),
+  unassignedPeople: (params?: {
     search?: string;
     page?: number;
     page_size?: number;
-    include_inactive?: boolean;
-  }) => api.get<Family[]>("/people/families/", { params }),
+  }) =>
+    api.get<PaginatedResponse<Person>>(
+      "/people/families/unassigned-people/",
+      { params }
+    ),
   getById: (id: string) => api.get<Family>(`/people/families/${id}/`),
   create: (data: Partial<Family>) =>
     api.post<Family>("/people/families/", data),

@@ -943,6 +943,51 @@ class PersonListSerializer(serializers.ModelSerializer):
         return True
 
 
+class FamilyMemberPreviewSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    first_name = serializers.CharField(allow_blank=True)
+    last_name = serializers.CharField(allow_blank=True)
+    role = serializers.CharField(allow_blank=True)
+    photo = serializers.ImageField(allow_null=True, required=False)
+
+
+class FamilyListSerializer(serializers.ModelSerializer):
+    """Slim read-only serializer for paginated families directory."""
+
+    member_count = serializers.IntegerField(read_only=True)
+    visitor_count = serializers.IntegerField(read_only=True)
+    member_preview = serializers.SerializerMethodField()
+    leader = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Family
+        fields = [
+            "id",
+            "name",
+            "leader",
+            "branch",
+            "notes",
+            "is_active",
+            "created_at",
+            "member_count",
+            "visitor_count",
+            "member_preview",
+        ]
+
+    def get_member_preview(self, obj: Family):
+        members = list(obj.members.all()[:5])
+        return [
+            {
+                "id": m.id,
+                "first_name": m.first_name or "",
+                "last_name": m.last_name or "",
+                "role": m.role or "",
+                "photo": m.photo.url if m.photo else None,
+            }
+            for m in members
+        ]
+
+
 class FamilySerializer(serializers.ModelSerializer):
     leader = serializers.PrimaryKeyRelatedField(
         queryset=Person.objects.exclude(role="ADMIN"), allow_null=True

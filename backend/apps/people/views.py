@@ -1,16 +1,17 @@
-from django.db.models import Q
+from django.db.models import Q, Count
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Branch, Person, Family, Journey, ModuleCoordinator, ModuleSetting
-from .filters import PersonFilter
+from .filters import PersonFilter, FamilyFilter
 from .serializers import (
     BranchSerializer,
     PersonSerializer,
     PersonListSerializer,
     FamilySerializer,
+    FamilyListSerializer,
     JourneySerializer,
     ModuleCoordinatorSerializer,
     ModuleSettingSerializer,
@@ -384,12 +385,39 @@ class PersonViewSet(viewsets.ModelViewSet):
         return Response({"groups": groups, "count": len(groups)})
 
 
+class FamilyPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class FamilyViewSet(viewsets.ModelViewSet):
-    queryset = Family.objects.all()
+    queryset = Family.objects.all().select_related("leader", "branch").prefetch_related(
+        "members"
+    )
     serializer_class = FamilySerializer
+    pagination_class = FamilyPagination
     permission_classes = [IsAuthenticatedAndNotVisitor]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = FamilyFilter
     search_fields = ["name"]
+    ordering_fields = [
+        "name",
+        "created_at",
+        "member_count",
+        "visitor_count",
+        "id",
+    ]
+    ordering = ["name", "id"]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return FamilyListSerializer
+        return FamilySerializer
 
     def get_queryset(self):
         user = self.request.user
@@ -412,76 +440,83 @@ class FamilyViewSet(viewsets.ModelViewSet):
 
         # ADMIN: All families
         if user.role == "ADMIN":
-            return queryset
-
+            scoped = queryset
         # PASTOR: Filter by branch unless from headquarters
-        if user.role == "PASTOR":
-            return filter_families_by_branch(queryset)
-
+        elif user.role == "PASTOR":
+            scoped = filter_families_by_branch(queryset)
         # Senior Coordinator: Filter by branch unless from headquarters
-        if user.is_senior_coordinator():
-            return filter_families_by_branch(queryset)
+        elif user.is_senior_coordinator():
+            scoped = filter_families_by_branch(queryset)
+        else:
+            # Cluster Coordinator: Families in their assigned cluster(s) + families of cluster members
+            coordinator_assignments = user.module_coordinator_assignments.filter(
+                module=ModuleCoordinator.ModuleType.CLUSTER,
+                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            )
+            if coordinator_assignments.exists():
+                from apps.clusters.models import Cluster
 
-        # Cluster Coordinator: Families in their assigned cluster(s) + families of cluster members
-        coordinator_assignments = user.module_coordinator_assignments.filter(
-            module=ModuleCoordinator.ModuleType.CLUSTER,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-        )
-        if coordinator_assignments.exists():
-            from apps.clusters.models import Cluster
+                # Get clusters from ModuleCoordinator assignments
+                cluster_ids = [
+                    assignment.resource_id
+                    for assignment in coordinator_assignments
+                    if assignment.resource_id
+                ]
+                # Also get clusters where user is the coordinator
+                coordinator_clusters = Cluster.objects.filter(coordinator=user)
+                if cluster_ids:
+                    assigned_clusters = Cluster.objects.filter(id__in=cluster_ids)
+                    all_clusters = (coordinator_clusters | assigned_clusters).distinct()
+                else:
+                    all_clusters = coordinator_clusters
 
-            # Get clusters from ModuleCoordinator assignments
-            cluster_ids = [
-                assignment.resource_id
-                for assignment in coordinator_assignments
-                if assignment.resource_id
-            ]
-            # Also get clusters where user is the coordinator
-            coordinator_clusters = Cluster.objects.filter(coordinator=user)
-            if cluster_ids:
-                assigned_clusters = Cluster.objects.filter(id__in=cluster_ids)
-                all_clusters = (coordinator_clusters | assigned_clusters).distinct()
-            else:
-                all_clusters = coordinator_clusters
-
-            # Get families directly connected to these clusters
-            directly_connected_families = queryset.filter(
-                cluster__in=all_clusters
-            ).distinct()
-
-            # Get all people in these clusters
-            cluster_member_ids = all_clusters.values_list(
-                "members__id", flat=True
-            ).distinct()
-            # Get families where these people are members
-            families_of_members = queryset.filter(
-                members__id__in=cluster_member_ids
-            ).distinct()
-
-            # Return union of both (cluster coordinators see cluster-linked families
-            # even when member branches differ — parity with PersonViewSet)
-            combined_families = (
-                directly_connected_families | families_of_members
-            ).distinct()
-            return filter_families_by_branch(combined_families)
-
-        # MEMBER: Only families they're members of
-        if user.role == "MEMBER":
-            member_families = queryset.filter(members=user).distinct()
-            if user.branch:
-                return member_families.filter(
-                    Q(branch=user.branch) | Q(members__branch=user.branch)
+                # Get families directly connected to these clusters
+                directly_connected_families = queryset.filter(
+                    cluster__in=all_clusters
                 ).distinct()
-            return member_families
 
-        # Default: empty queryset for safety
-        return queryset.none()
+                # Get all people in these clusters
+                cluster_member_ids = all_clusters.values_list(
+                    "members__id", flat=True
+                ).distinct()
+                # Get families where these people are members
+                families_of_members = queryset.filter(
+                    members__id__in=cluster_member_ids
+                ).distinct()
+
+                # Return union of both (cluster coordinators see cluster-linked families
+                # even when member branches differ — parity with PersonViewSet)
+                combined_families = (
+                    directly_connected_families | families_of_members
+                ).distinct()
+                scoped = filter_families_by_branch(combined_families)
+            # MEMBER: Only families they're members of
+            elif user.role == "MEMBER":
+                member_families = queryset.filter(members=user).distinct()
+                if user.branch:
+                    scoped = member_families.filter(
+                        Q(branch=user.branch) | Q(members__branch=user.branch)
+                    ).distinct()
+                else:
+                    scoped = member_families
+            else:
+                scoped = queryset.none()
+
+        # Annotate for list ordering/filters and FamilyListSerializer.
+        return scoped.annotate(
+            member_count=Count("members", distinct=True),
+            visitor_count=Count(
+                "members",
+                filter=Q(members__role="VISITOR"),
+                distinct=True,
+            ),
+        )
 
     def get_permissions(self):
         """
         Override to set permissions based on action.
         """
-        if self.action in ["list", "retrieve"]:
+        if self.action in ["list", "retrieve", "unassigned_people"]:
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action in ["create", "update", "partial_update"]:
@@ -494,6 +529,50 @@ class FamilyViewSet(viewsets.ModelViewSet):
             # Delete: Only ADMIN
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    @action(detail=False, methods=["get"], url_path="unassigned-people")
+    def unassigned_people(self, request):
+        """Paginated people not in any active family (scoped like Person list)."""
+        person_view = PersonViewSet()
+        person_view.request = request
+        person_view.args = getattr(self, "args", ())
+        person_view.kwargs = getattr(self, "kwargs", {})
+        person_view.action = "list"
+        person_view.format_kwarg = getattr(self, "format_kwarg", None)
+
+        people_qs = person_view._scoped_people_queryset(for_profile=False)
+        assigned_ids = (
+            Person.objects.filter(families__is_active=True)
+            .values_list("id", flat=True)
+            .distinct()
+        )
+        people_qs = (
+            people_qs.exclude(id__in=assigned_ids)
+            .exclude(username="admin")
+            .exclude(Q(first_name="") | Q(last_name=""))
+            .exclude(first_name__isnull=True)
+            .exclude(last_name__isnull=True)
+            .select_related("branch", "first_activity_attended")
+            .prefetch_related("clusters", "families")
+            .order_by("last_name", "first_name", "id")
+        )
+
+        search = (request.query_params.get("search") or "").strip()
+        if search:
+            people_qs = people_qs.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(nickname__icontains=search)
+                | Q(email__icontains=search)
+                | Q(member_id__icontains=search)
+            )
+
+        paginator = PersonPagination()
+        page = paginator.paginate_queryset(people_qs, request, view=self)
+        serializer = PersonListSerializer(
+            page, many=True, context=person_view.get_serializer_context()
+        )
+        return paginator.get_paginated_response(serializer.data)
 
 
 class JourneyViewSet(viewsets.ModelViewSet):

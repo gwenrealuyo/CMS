@@ -193,6 +193,12 @@ class Family(models.Model):
 
     class Meta:
         verbose_name_plural = "Families"
+        indexes = [
+            models.Index(fields=["is_active"], name="people_family_is_active_idx"),
+            models.Index(
+                fields=["branch", "name"], name="people_family_branch_name_idx"
+            ),
+        ]
 
 
 class Journey(models.Model):

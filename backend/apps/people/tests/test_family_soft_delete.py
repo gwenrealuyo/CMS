@@ -47,7 +47,9 @@ class FamilySoftDeleteTests(TestCase):
     def test_inactive_families_hidden_by_default(self):
         self.client.force_authenticate(user=self.admin)
         res = self.client.get("/api/people/families/")
-        names = {f["name"] for f in res.data}
+        data = res.data
+        results = data if isinstance(data, list) else data.get("results", [])
+        names = {f["name"] for f in results}
         self.assertIn("Active Family", names)
         self.assertNotIn("Inactive Family", names)
 

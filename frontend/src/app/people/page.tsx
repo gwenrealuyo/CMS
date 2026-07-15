@@ -22,7 +22,7 @@ import { usePeople } from "@/src/hooks/usePeople";
 import { usePeopleDirectory } from "@/src/hooks/usePeopleDirectory";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
-import { clustersApi, peopleApi, journeysApi, eventTypesApi, eventsApi, User } from "@/src/lib/api";
+import { clustersApi, peopleApi, familiesApi, journeysApi, eventTypesApi, eventsApi, User } from "@/src/lib/api";
 import {
   filtersToPeopleListParams,
   sortFieldToOrdering,
@@ -1234,7 +1234,7 @@ export default function PeoplePage() {
   };
 
   const getPeopleForFamily = (family: Family) => {
-    return people.filter((person) => family.members.includes(person.id));
+    return people.filter((person) => (family.members ?? []).includes(person.id));
   };
 
   const handleBulkDelete = async (people: Person[]) => {
@@ -1877,20 +1877,31 @@ export default function PeoplePage() {
 
         {activeTab === "families" && (
           <FamilyManagementDashboard
-            families={families}
             people={peopleUI}
             onCreateFamily={() => {
               setModalType("family");
               setIsModalOpen(true);
             }}
-            onViewFamily={(family) => {
-              setViewFamily(family);
+            onViewFamily={async (family) => {
+              try {
+                const { data } = await familiesApi.getById(String(family.id));
+                setViewFamily(data);
+              } catch {
+                setViewFamily(family);
+              }
               setFamilyViewMode("view");
               setModalType("family");
               setIsModalOpen(true);
             }}
-            onEditFamily={(family) => {
-              setEditFamily(family);
+            onEditFamily={async (family) => {
+              try {
+                const { data } = await familiesApi.getById(String(family.id));
+                setEditFamily(data);
+                setViewFamily(data);
+              } catch {
+                setEditFamily(family);
+                setViewFamily(family);
+              }
               setFamilyViewMode("edit");
               setModalType("family");
               setIsModalOpen(true);
@@ -1909,11 +1920,9 @@ export default function PeoplePage() {
               setModalType("person");
             }}
             onAssignMember={(personId, familyId) => {
-              // TODO: Implement assign member functionality
               console.log("Assign member:", personId, "to family:", familyId);
             }}
             onRemoveMember={(personId, familyId) => {
-              // TODO: Implement remove member functionality
               console.log("Remove member:", personId, "from family:", familyId);
             }}
           />
@@ -2333,7 +2342,7 @@ export default function PeoplePage() {
                   <FamilyView
                     family={viewFamily}
                     familyMembers={peopleUI.filter((person) =>
-                      viewFamily.members.includes(person.id),
+                      (viewFamily.members ?? []).includes(person.id),
                     )}
                     clusters={clusters}
                     onViewPerson={(p) => {
@@ -2681,7 +2690,7 @@ export default function PeoplePage() {
           <FamilyView
             family={familyOverCluster}
             familyMembers={peopleUI.filter((p) =>
-              familyOverCluster.members.includes(p.id),
+              (familyOverCluster.members ?? []).includes(p.id),
             )}
             clusters={clusters}
             onEdit={() => {
@@ -2961,7 +2970,7 @@ export default function PeoplePage() {
                         const target = f;
                         const updatedMembers = Array.from(
                           new Set([
-                            ...target.members,
+                            ...(target.members ?? []),
                             selectFamilyModal.person!.id,
                           ]),
                         );
@@ -3025,7 +3034,7 @@ export default function PeoplePage() {
                     >
                       {f.name}{" "}
                       <span className="text-gray-500">
-                        ({f.members.length})
+                        ({(f.members ?? []).length})
                       </span>
                     </button>
                   ))}
@@ -3190,7 +3199,7 @@ export default function PeoplePage() {
                 coordinator: p.id,
               };
               const personFamilies = families.filter((f) =>
-                f.members.includes(p.id),
+                (f.members ?? []).includes(p.id),
               );
               const unattachedFamilyIds = personFamilies
                 .filter((f) => {

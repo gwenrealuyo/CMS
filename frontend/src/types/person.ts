@@ -99,15 +99,28 @@ export interface PersonUI extends Person {
   dateFirstAttended?: string;
 }
 
+export interface FamilyMemberPreview {
+  id: number | string;
+  first_name?: string;
+  last_name?: string;
+  role?: string;
+  photo?: string | null;
+}
+
 export interface Family {
   id: string;
   name: string;
   leader?: string; // Person ID
-  members: string[]; // List of Person IDs
+  members?: string[]; // List of Person IDs (full detail / retrieve)
   branch?: number | null;
   address?: string; // Physical address/location
   notes?: string; // Family notes/description
   is_active?: boolean;
+  created_at?: string;
+  /** Present on paginated directory list responses */
+  member_count?: number;
+  visitor_count?: number;
+  member_preview?: FamilyMemberPreview[];
 }
 
 export interface ModuleCoordinator {

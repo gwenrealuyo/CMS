@@ -1,7 +1,7 @@
 import django_filters
 from django.db.models import Q
 
-from .models import Person
+from .models import Person, Family
 
 
 class NumberInFilter(django_filters.BaseInFilter, django_filters.NumberFilter):
@@ -175,3 +175,44 @@ class PersonFilter(django_filters.FilterSet):
         if not usernames:
             return queryset
         return queryset.exclude(username__in=usernames)
+
+
+class FamilyFilter(django_filters.FilterSet):
+    """Server-side filters for the families directory."""
+
+    branch = django_filters.NumberFilter(field_name="branch_id")
+    member_count_min = django_filters.NumberFilter(
+        field_name="member_count", lookup_expr="gte"
+    )
+    member_count_max = django_filters.NumberFilter(
+        field_name="member_count", lookup_expr="lte"
+    )
+    member_count = django_filters.NumberFilter(
+        field_name="member_count", lookup_expr="exact"
+    )
+    visitor_count_min = django_filters.NumberFilter(
+        field_name="visitor_count", lookup_expr="gte"
+    )
+    visitor_count_max = django_filters.NumberFilter(
+        field_name="visitor_count", lookup_expr="lte"
+    )
+    visitor_count = django_filters.NumberFilter(
+        field_name="visitor_count", lookup_expr="exact"
+    )
+    name = django_filters.CharFilter(field_name="name", lookup_expr="iexact")
+    name__icontains = django_filters.CharFilter(
+        field_name="name", lookup_expr="icontains"
+    )
+    name__istartswith = django_filters.CharFilter(
+        field_name="name", lookup_expr="istartswith"
+    )
+    name__iendswith = django_filters.CharFilter(
+        field_name="name", lookup_expr="iendswith"
+    )
+    name_ne = django_filters.CharFilter(
+        field_name="name", lookup_expr="iexact", exclude=True
+    )
+
+    class Meta:
+        model = Family
+        fields = []

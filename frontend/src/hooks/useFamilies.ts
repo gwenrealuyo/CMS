@@ -68,7 +68,7 @@ export function useFamilies(enabled: boolean = true) {
       setFamilies((prev) =>
         prev.map((family) =>
           family.id === familyId
-            ? { ...family, members: [...family.members, memberId] }
+            ? { ...family, members: [...(family.members ?? []), memberId] }
             : family
         )
       );
@@ -89,7 +89,7 @@ export function useFamilies(enabled: boolean = true) {
           family.id === familyId
             ? {
                 ...family,
-                members: family.members.filter((id) => id !== memberId),
+                members: (family.members ?? []).filter((id) => id !== memberId),
               }
             : family
         )

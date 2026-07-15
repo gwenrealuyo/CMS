@@ -652,7 +652,7 @@ export default function ClustersPageView({
     return (
       <FamilyView
         family={selectedFamily}
-        familyMembers={peopleUI.filter((p) => selectedFamily.members.includes(p.id))}
+        familyMembers={peopleUI.filter((p) => (selectedFamily.members ?? []).includes(p.id))}
         clusters={allClusters as any}
         onEdit={() => {
           if (isPanel) {

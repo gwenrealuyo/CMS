@@ -1,8 +1,11 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Family, Person, PersonUI } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
+import { useFamiliesDirectory } from "@/src/hooks/useFamiliesDirectory";
+import { useUnassignedPeople } from "@/src/hooks/useUnassignedPeople";
+import type { FamiliesListParams } from "@/src/lib/api";
 import {
   TOOLBAR_ACTION_BUTTON_CLASS,
   TOOLBAR_BRANCH_SELECT_CLASS,
@@ -17,7 +20,6 @@ import ActionMenu from "./ActionMenu";
 import FamilyFilterDropdown from "./FamilyFilterDropdown";
 import ClusterFilterCard from "../clusters/ClusterFilterCard";
 import { FilterCondition } from "../people/FilterBar";
-import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
@@ -37,10 +39,14 @@ const SORT_OPTIONS: SortOption[] = [
 ];
 
 interface FamilyManagementDashboardProps {
-  families: Family[];
-  people: PersonUI[];
+  /** Legacy optional catalog; directory uses server pagination when omitted. */
+  families?: Family[];
+  people?: PersonUI[];
   isDesktop?: boolean;
   panelOpen?: boolean;
+  /** Bump to force directory refetch after parent mutations. */
+  refetchKey?: number;
+  onRefetchReady?: (refetch: () => Promise<void> | void) => void;
   onCreateFamily: () => void;
   onViewFamily: (family: Family) => void;
   onEditFamily: (family: Family) => void;
@@ -51,11 +57,66 @@ interface FamilyManagementDashboardProps {
   onRemoveMember?: (personId: string, familyId: string) => void;
 }
 
+function filtersToFamilyParams(filters: FilterCondition[]): FamiliesListParams {
+  const params: FamiliesListParams = {};
+  for (const filter of filters) {
+    const field = filter.field;
+    const value = filter.value;
+    const scalar = Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
+    if (field === "name") {
+      switch (filter.operator) {
+        case "contains":
+          params.name__icontains = scalar;
+          break;
+        case "is":
+          params.name = scalar;
+          break;
+        case "is_not":
+          params.name_ne = scalar;
+          break;
+        case "starts_with":
+          params.name__istartswith = scalar;
+          break;
+        case "ends_with":
+          params.name__iendswith = scalar;
+          break;
+        default:
+          break;
+      }
+    } else if (field === "member_count") {
+      if (Array.isArray(value) && value.length >= 2) {
+        params.member_count_min = value[0];
+        params.member_count_max = value[1];
+      } else if (filter.operator === "greater_than") {
+        params.member_count_min = Number(scalar) + 1;
+      } else if (filter.operator === "less_than") {
+        params.member_count_max = Number(scalar) - 1;
+      } else if (filter.operator === "is") {
+        params.member_count = scalar;
+      }
+    } else if (field === "visitor_count") {
+      if (Array.isArray(value) && value.length >= 2) {
+        params.visitor_count_min = value[0];
+        params.visitor_count_max = value[1];
+      } else if (filter.operator === "greater_than") {
+        params.visitor_count_min = Number(scalar) + 1;
+      } else if (filter.operator === "less_than") {
+        params.visitor_count_max = Number(scalar) - 1;
+      } else if (filter.operator === "is") {
+        params.visitor_count = scalar;
+      }
+    }
+  }
+  return params;
+}
+
 export default function FamilyManagementDashboard({
-  families,
-  people,
+  families: _legacyFamilies,
+  people: _legacyPeople = [],
   isDesktop = false,
   panelOpen = false,
+  refetchKey = 0,
+  onRefetchReady,
   onCreateFamily,
   onViewFamily,
   onEditFamily,
@@ -267,211 +328,85 @@ export default function FamilyManagementDashboard({
     setShowFamilyFilterDropdown(true);
   };
 
-  // Get unassigned members (people not in any family)
-  const unassignedMembers = useMemo(() => {
-    const assignedMemberIds = new Set(
-      families.flatMap((family) => family.members),
-    );
-    return people.filter(
-      (person) =>
-        !assignedMemberIds.has(person.id) && isSelectablePerson(person),
-    );
-  }, [families, people]);
+  const directoryFilters = useMemo(() => {
+    const params = filtersToFamilyParams(familyFilters);
+    if (branchFilterId) {
+      params.branch = branchFilterId;
+    }
+    return params;
+  }, [familyFilters, branchFilterId]);
 
-  // Scalable: filter + paginate unassigned members
-  const filteredUnassignedMembers = useMemo(() => {
-    if (!unassignedSearch.trim()) return unassignedMembers;
-    const q = unassignedSearch.toLowerCase();
-    return unassignedMembers.filter((p) =>
-      `${p.first_name ?? ""} ${p.last_name ?? ""}`.toLowerCase().includes(q),
-    );
-  }, [unassignedMembers, unassignedSearch]);
+  const directoryOrdering = useMemo(() => {
+    const field =
+      sortBy === "member_count"
+        ? "member_count"
+        : sortBy === "visitor_count"
+          ? "visitor_count"
+          : "name";
+    return sortOrder === "desc" ? `-${field}` : field;
+  }, [sortBy, sortOrder]);
 
+  const {
+    families,
+    totalCount: familiesTotalCount,
+    loading: familiesLoading,
+    refetch: refetchFamilies,
+  } = useFamiliesDirectory({
+    search: searchQuery,
+    filters: directoryFilters,
+    page: familyPage,
+    pageSize: FAMILY_PAGE_SIZE,
+    ordering: directoryOrdering,
+  });
+
+  const {
+    peopleUI: unassignedPeopleUI,
+    totalCount: unassignedTotalCount,
+    loading: unassignedLoading,
+    refetch: refetchUnassigned,
+  } = useUnassignedPeople({
+    search: unassignedSearch,
+    page: unassignedPage,
+    pageSize: UNASSIGNED_PAGE_SIZE,
+  });
+
+  const unassignedMembers = unassignedPeopleUI;
+  const filteredUnassignedMembers = unassignedPeopleUI;
   const totalUnassignedPages = Math.max(
     1,
-    Math.ceil(filteredUnassignedMembers.length / UNASSIGNED_PAGE_SIZE),
+    Math.ceil(unassignedTotalCount / UNASSIGNED_PAGE_SIZE),
   );
-
-  const visibleUnassignedMembers = useMemo(() => {
-    const start = (unassignedPage - 1) * UNASSIGNED_PAGE_SIZE;
-    return filteredUnassignedMembers.slice(start, start + UNASSIGNED_PAGE_SIZE);
-  }, [filteredUnassignedMembers, unassignedPage]);
-
-  // Filter families based on search query and active filters
-  const filteredFamilies = useMemo(() => {
-    let result = families;
-
-    // Text search on name
-    if (searchQuery) {
-      result = result.filter((family) =>
-        family.name.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-    }
-
-    if (branchFilterId) {
-      const bid = Number(branchFilterId);
-      result = result.filter((family) => {
-        if (family.branch != null && family.branch !== undefined) {
-          return family.branch === bid;
-        }
-        const ids = new Set<string>(family.members);
-        if (family.leader) ids.add(family.leader);
-        return Array.from(ids).some((id) => {
-          const p = people.find((pp) => pp.id === id);
-          return p?.branch === bid;
-        });
-      });
-    }
-
-    // Apply structured filters
-    for (const filter of familyFilters) {
-      switch (filter.field) {
-        case "name": {
-          const val = String(filter.value).toLowerCase();
-          result = result.filter((family) => {
-            const name = family.name.toLowerCase();
-            switch (filter.operator) {
-              case "contains":
-                return name.includes(val);
-              case "is":
-                return name === val;
-              case "is_not":
-                return name !== val;
-              case "starts_with":
-                return name.startsWith(val);
-              case "ends_with":
-                return name.endsWith(val);
-              default:
-                return true;
-            }
-          });
-          break;
-        }
-        case "member_count": {
-          const count = (family: Family) => family.members.length;
-          if (Array.isArray(filter.value)) {
-            const [min, max] = filter.value as [string, string];
-            const minNum = parseInt(min);
-            const maxNum = parseInt(max);
-            result = result.filter(
-              (f) => count(f) >= minNum && count(f) <= maxNum,
-            );
-          } else {
-            const num = parseInt(String(filter.value));
-            switch (filter.operator) {
-              case "greater_than":
-                result = result.filter((f) => count(f) > num);
-                break;
-              case "less_than":
-                result = result.filter((f) => count(f) < num);
-                break;
-              case "is":
-                result = result.filter((f) => count(f) === num);
-                break;
-              case "is_not":
-                result = result.filter((f) => count(f) !== num);
-                break;
-              default:
-                break;
-            }
-          }
-          break;
-        }
-        case "visitor_count": {
-          const countVisitors = (family: Family) =>
-            family.members.filter((id) => {
-              const p = people.find((pp) => pp.id === id);
-              return p?.role === "VISITOR";
-            }).length;
-          if (Array.isArray(filter.value)) {
-            const [min, max] = filter.value as [string, string];
-            const minNum = parseInt(min);
-            const maxNum = parseInt(max);
-            result = result.filter(
-              (f) => countVisitors(f) >= minNum && countVisitors(f) <= maxNum,
-            );
-          } else {
-            const num = parseInt(String(filter.value));
-            switch (filter.operator) {
-              case "greater_than":
-                result = result.filter((f) => countVisitors(f) > num);
-                break;
-              case "less_than":
-                result = result.filter((f) => countVisitors(f) < num);
-                break;
-              case "is":
-                result = result.filter((f) => countVisitors(f) === num);
-                break;
-              case "is_not":
-                result = result.filter((f) => countVisitors(f) !== num);
-                break;
-              default:
-                break;
-            }
-          }
-          break;
-        }
-        default:
-          break;
-      }
-    }
-
-    return result;
-  }, [families, searchQuery, branchFilterId, familyFilters, people]);
-
-  // Sort families
-  const sortedFamilies = useMemo(() => {
-    const sorted = [...filteredFamilies];
-    sorted.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-
-      switch (sortBy) {
-        case "name":
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case "member_count":
-          aValue = a.members.length;
-          bValue = b.members.length;
-          break;
-        case "visitor_count":
-          // Count visitors by checking member roles
-          const aVisitors = a.members.filter((memberId) => {
-            const person = people.find((p) => p.id === memberId);
-            return person?.role === "VISITOR";
-          }).length;
-          const bVisitors = b.members.filter((memberId) => {
-            const person = people.find((p) => p.id === memberId);
-            return person?.role === "VISITOR";
-          }).length;
-          aValue = aVisitors;
-          bValue = bVisitors;
-          break;
-        default:
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-      }
-
-      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
-      return 0;
-    });
-    return sorted;
-  }, [filteredFamilies, sortBy, sortOrder, people]);
-
-  // Paginate families
+  const visibleUnassignedMembers = unassignedPeopleUI;
+  const visibleFamilies = families;
+  const sortedFamilies = families;
   const totalFamilyPages = Math.max(
     1,
-    Math.ceil(sortedFamilies.length / FAMILY_PAGE_SIZE),
+    Math.ceil(familiesTotalCount / FAMILY_PAGE_SIZE),
   );
 
-  const visibleFamilies = useMemo(() => {
-    const start = (familyPage - 1) * FAMILY_PAGE_SIZE;
-    return sortedFamilies.slice(start, start + FAMILY_PAGE_SIZE);
-  }, [sortedFamilies, familyPage]);
+  const refetchDirectory = useCallback(async () => {
+    await Promise.all([refetchFamilies(), refetchUnassigned()]);
+  }, [refetchFamilies, refetchUnassigned]);
 
-  // Handle click outside sort dropdown (consider button and dropdown refs)
+  useEffect(() => {
+    onRefetchReady?.(refetchDirectory);
+  }, [onRefetchReady, refetchDirectory]);
+
+  useEffect(() => {
+    if (refetchKey > 0) {
+      void refetchDirectory();
+    }
+  }, [refetchKey, refetchDirectory]);
+
+  useEffect(() => {
+    setFamilyPage(1);
+  }, [searchQuery, directoryFilters, directoryOrdering]);
+
+  useEffect(() => {
+    setUnassignedPage(1);
+  }, [unassignedSearch]);
+
+    // Handle click outside sort dropdown (consider button and dropdown refs)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -522,16 +457,38 @@ export default function FamilyManagementDashboard({
     };
   };
 
-  // Get person details for a given ID
   const getPersonById = (id: string) => {
-    return people.find((person) => person.id === id);
+    return _legacyPeople.find((person) => String(person.id) === String(id));
   };
 
   const getFamilyVisitorCount = (family: Family) => {
-    return family.members.filter((memberId) => {
-      const person = people.find((p) => p.id === memberId);
+    if (typeof family.visitor_count === "number") return family.visitor_count;
+    const members = family.members ?? [];
+    return members.filter((memberId) => {
+      const person = getPersonById(String(memberId));
       return person?.role === "VISITOR";
     }).length;
+  };
+
+  const getFamilyMemberCount = (family: Family) => {
+    if (typeof family.member_count === "number") return family.member_count;
+    return family.members?.length ?? family.member_preview?.length ?? 0;
+  };
+
+  const getFamilyPreviewMembers = (family: Family): PersonUI[] => {
+    if (family.member_preview?.length) {
+      return family.member_preview.map((m) => ({
+        id: String(m.id),
+        first_name: m.first_name ?? "",
+        last_name: m.last_name ?? "",
+        role: (m.role as PersonUI["role"]) ?? "MEMBER",
+        photo: m.photo ?? undefined,
+        name: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim(),
+      })) as PersonUI[];
+    }
+    return (family.members ?? [])
+      .map((id) => getPersonById(String(id)))
+      .filter(Boolean) as PersonUI[];
   };
 
   // Get status color
@@ -592,7 +549,7 @@ export default function FamilyManagementDashboard({
                 Total Families
               </p>
               <p className="text-2xl font-semibold text-gray-900">
-                {families.length}
+                {familiesTotalCount}
               </p>
             </div>
           </div>
@@ -619,10 +576,7 @@ export default function FamilyManagementDashboard({
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Total Members</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {families.reduce(
-                  (acc, family) => acc + family.members.length,
-                  0,
-                )}
+                {families.reduce((acc, family) => acc + getFamilyMemberCount(family), 0)}
               </p>
             </div>
           </div>
@@ -651,7 +605,7 @@ export default function FamilyManagementDashboard({
                 Unassigned Members
               </p>
               <p className="text-2xl font-semibold text-gray-900">
-                {unassignedMembers.length}
+                {unassignedTotalCount}
               </p>
             </div>
           </div>
@@ -949,11 +903,11 @@ export default function FamilyManagementDashboard({
       )}
 
       {/* Unassigned Members Section */}
-      {unassignedMembers.length > 0 && (
+      {unassignedTotalCount > 0 && (
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">
-              Unassigned Members ({filteredUnassignedMembers.length})
+              Unassigned Members ({unassignedTotalCount})
             </h2>
             <button
               onClick={() => setShowUnassignedMembers(!showUnassignedMembers)}
@@ -1108,7 +1062,7 @@ export default function FamilyManagementDashboard({
       {/* Family Cards Section */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">
-          Families ({sortedFamilies.length})
+          Families ({familiesTotalCount})
         </h2>
         {viewMode === "table" ? (
           <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -1137,14 +1091,8 @@ export default function FamilyManagementDashboard({
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {visibleFamilies.map((family) => {
-                  const familyMembers = family.members
-                    .map((id) => getPersonById(id))
-                    .filter(Boolean) as PersonUI[];
-                  const sinceText = familyMembers[0]?.dateFirstAttended
-                    ? new Date(
-                        familyMembers[0].dateFirstAttended,
-                      ).toLocaleDateString()
-                    : "Unknown";
+                  const familyMembers = getFamilyPreviewMembers(family);
+                  const sinceText = "—";
 
                   return (
                     <tr key={family.id} className="hover:bg-gray-50">
@@ -1158,7 +1106,7 @@ export default function FamilyManagementDashboard({
                         </button>
                       </td>
                       <td className="px-4 py-3 text-gray-700">
-                        {familyMembers.length}
+                        {getFamilyMemberCount(family)}
                       </td>
                       <td className="px-4 py-3 text-gray-700">
                         {getFamilyVisitorCount(family)}
@@ -1206,9 +1154,7 @@ export default function FamilyManagementDashboard({
             }
           >
             {visibleFamilies.map((family) => {
-              const familyMembers = family.members
-                .map((id) => getPersonById(id))
-                .filter(Boolean) as PersonUI[];
+              const familyMembers = getFamilyPreviewMembers(family);
 
               return (
                 <div
@@ -1224,12 +1170,8 @@ export default function FamilyManagementDashboard({
                           The {family.name} Family
                         </h3>
                         <p className="text-xs text-gray-600 mt-1">
-                          {familyMembers.length} members • Since{" "}
-                          {familyMembers[0]?.dateFirstAttended
-                            ? new Date(
-                                familyMembers[0].dateFirstAttended,
-                              ).toLocaleDateString()
-                            : "Unknown"}
+                          {getFamilyMemberCount(family)} members •{" "}
+                          {getFamilyVisitorCount(family)} visitors
                         </p>
                       </div>
                       <div

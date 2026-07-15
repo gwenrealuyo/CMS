@@ -12,6 +12,7 @@ import PersonProfile from "@/src/components/people/PersonProfile";
 import { PersonUI, Family, Person } from "@/src/types/person";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+import { familiesApi } from "@/src/lib/api";
 
 type PanelEntity = "family" | "person";
 
@@ -26,7 +27,7 @@ type PanelSnapshot = {
 };
 
 interface FamiliesTabContentProps {
-  families: Family[];
+  families?: Family[];
   peopleUI: PersonUI[];
   people: Person[];
   createFamily: (data: any) => Promise<any>;
@@ -34,10 +35,11 @@ interface FamiliesTabContentProps {
   deleteFamily: (id: string) => Promise<void>;
   refreshFamilies: () => Promise<void>;
   createTrigger?: number; // when incremented, open create modal
+  directoryRefetchKey?: number;
+  onNeedPeopleCatalog?: () => void;
 }
 
 export default function FamiliesTabContent({
-  families,
   peopleUI,
   people,
   createFamily,
@@ -45,6 +47,8 @@ export default function FamiliesTabContent({
   deleteFamily,
   refreshFamilies,
   createTrigger,
+  directoryRefetchKey = 0,
+  onNeedPeopleCatalog,
 }: FamiliesTabContentProps) {
   const { user } = useAuth();
   const userCanHardDelete = canHardDelete(user);
@@ -185,27 +189,37 @@ export default function FamiliesTabContent({
     return "Family";
   };
 
-  const openFamilyInteraction = (
+  const openFamilyInteraction = async (
     mode: "view" | "edit" | "create",
     family?: Family | null
   ) => {
+    let fullFamily = family || null;
+    if (family && (mode === "view" || mode === "edit")) {
+      try {
+        const response = await familiesApi.getById(String(family.id));
+        fullFamily = response.data;
+      } catch (err) {
+        console.error("Failed to load family detail", err);
+      }
+    }
+
     if (isDesktop) {
       setPanelOpen(true);
       setPanelEntity("family");
       setPanelPerson(null);
       setPanelHistory([]);
       setPanelMode(mode);
-      setPanelFamily(family || null);
+      setPanelFamily(fullFamily);
       setIsModalOpen(false);
 
       if (mode === "view") {
-        setViewFamily(family || null);
+        setViewFamily(fullFamily);
         setFamilyViewMode("view");
         setEditFamily(null);
       } else if (mode === "edit") {
-        setEditFamily(family || null);
+        setEditFamily(fullFamily);
         setFamilyViewMode("edit");
-        setViewFamily(family || null);
+        setViewFamily(fullFamily);
       } else {
         setViewFamily(null);
         setEditFamily(null);
@@ -216,13 +230,13 @@ export default function FamiliesTabContent({
 
     setIsModalOpen(true);
     if (mode === "view") {
-      setViewFamily(family || null);
+      setViewFamily(fullFamily);
       setFamilyViewMode("view");
       setEditFamily(null);
     } else if (mode === "edit") {
-      setEditFamily(family || null);
+      setEditFamily(fullFamily);
       setFamilyViewMode("edit");
-      setViewFamily(family || null);
+      setViewFamily(fullFamily);
     } else {
       setViewFamily(null);
       setEditFamily(null);
@@ -385,7 +399,7 @@ export default function FamiliesTabContent({
           <FamilyView
             family={viewFamily}
             familyMembers={peopleUI.filter((person) =>
-              viewFamily.members.includes(person.id)
+              (viewFamily.members ?? []).includes(person.id)
             )}
             showTopHeader={!isPanel}
             onEdit={() => {
@@ -504,7 +518,7 @@ export default function FamiliesTabContent({
     return (
       <PersonProfile
         person={selectedPerson}
-        families={families}
+        families={[]}
         showTopHeader={!isPanel}
         hideEditButton
         hideDeleteButton
@@ -528,13 +542,19 @@ export default function FamiliesTabContent({
         }
       >
         <FamilyManagementDashboard
-          families={families}
           people={peopleUI}
           isDesktop={isDesktop}
           panelOpen={panelOpen}
-          onCreateFamily={() => openFamilyInteraction("create")}
+          refetchKey={directoryRefetchKey}
+          onCreateFamily={() => {
+            onNeedPeopleCatalog?.();
+            openFamilyInteraction("create");
+          }}
           onViewFamily={(family) => openFamilyInteraction("view", family)}
-          onEditFamily={(family) => openFamilyInteraction("edit", family)}
+          onEditFamily={(family) => {
+            onNeedPeopleCatalog?.();
+            openFamilyInteraction("edit", family);
+          }}
           onDeleteFamily={openMarkInactiveConfirmation}
           onHardDeleteFamily={
             userCanHardDelete ? openHardDeleteConfirmation : undefined

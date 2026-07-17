@@ -9,7 +9,10 @@ interface EvangelismGroupSortDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectSort: (sortBy: string, sortOrder: "asc" | "desc") => void;
-  position: { top: number; left: number };
+  /** Viewport-fixed placement; ignored when `anchored` is true. */
+  position?: { top: number; left: number };
+  /** Anchor under parent with absolute positioning (scrolls with page). */
+  anchored?: boolean;
   currentSortBy: string;
   currentSortOrder: "asc" | "desc";
 }
@@ -26,7 +29,8 @@ export default function EvangelismGroupSortDropdown({
   isOpen,
   onClose,
   onSelectSort,
-  position,
+  position = { top: 0, left: 0 },
+  anchored = false,
   currentSortBy,
   currentSortOrder,
 }: EvangelismGroupSortDropdownProps) {
@@ -44,7 +48,7 @@ export default function EvangelismGroupSortDropdown({
           const buttonText = clickedButton.textContent?.trim() || "";
           if (buttonText.startsWith("Sort")) {
             const hasSortIcon = clickedButton.querySelector(
-              'svg path[d*="M3 4h13"]'
+              'svg path[d*="M3 4h13"]',
             );
             if (hasSortIcon) return;
           }
@@ -75,11 +79,19 @@ export default function EvangelismGroupSortDropdown({
   return (
     <div
       ref={dropdownRef}
-      className="fixed z-50 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white py-2 shadow-lg"
-      style={{
-        top: adjustedPosition.top,
-        left: adjustedPosition.left,
-      }}
+      className={
+        anchored
+          ? "absolute inset-x-0 top-full z-50 mt-1.5 w-full max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white py-2 shadow-lg tablet:left-auto tablet:right-0 tablet:w-64"
+          : "fixed z-50 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white py-2 shadow-lg"
+      }
+      style={
+        anchored
+          ? undefined
+          : {
+              top: adjustedPosition.top,
+              left: adjustedPosition.left,
+            }
+      }
     >
       <div className="border-b border-gray-100 px-3 py-2">
         <h3 className="text-sm font-medium text-gray-900">Sort by</h3>

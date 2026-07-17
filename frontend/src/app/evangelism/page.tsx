@@ -67,10 +67,10 @@ import { FilterCondition } from "@/src/components/people/FilterBar";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
-  TOOLBAR_ACTION_BUTTON_CLASS,
-  TOOLBAR_ACTIONS_ROW_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
+  TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
+  TOOLBAR_STACKED_ACTIONS_ROW_CLASS,
 } from "@/src/lib/toolbarStyles";
 import {
   effectiveListViewMode,
@@ -187,18 +187,12 @@ export default function EvangelismPage() {
   const [showGroupSortDropdown, setShowGroupSortDropdown] = useState(false);
   const [selectedGroupField, setSelectedGroupField] =
     useState<EvangelismGroupFilterField | null>(null);
-  const [groupFilterDropdownPosition, setGroupFilterDropdownPosition] = useState({
-    top: 0,
-    left: 0,
-  });
-  const [groupFilterCardPosition, setGroupFilterCardPosition] = useState({
-    top: 0,
-    left: 0,
-  });
-  const [groupSortDropdownPosition, setGroupSortDropdownPosition] = useState({
-    top: 0,
-    left: 0,
-  });
+  const [groupFilterMenuAnchor, setGroupFilterMenuAnchor] = useState<
+    "mobile" | "desktop"
+  >("mobile");
+  const [groupSortMenuAnchor, setGroupSortMenuAnchor] = useState<
+    "mobile" | "desktop"
+  >("mobile");
   const [isGroupSelectionMode, setIsGroupSelectionMode] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState<{
@@ -855,48 +849,32 @@ export default function EvangelismPage() {
   }, [filteredGroups, selectedGroups.size]);
 
   const handleGroupAddFilter = useCallback(
-    (anchorRect: DOMRect) => {
-      if (showGroupFilterDropdown || showGroupFilterCard) {
+    (anchor: "mobile" | "desktop") => {
+      setShowGroupSortDropdown(false);
+      if (
+        (showGroupFilterDropdown || showGroupFilterCard) &&
+        groupFilterMenuAnchor === anchor
+      ) {
         setShowGroupFilterDropdown(false);
         setShowGroupFilterCard(false);
         setSelectedGroupField(null);
         return;
       }
-      const dropdownWidth = 256;
-      const viewportWidth = window.innerWidth;
-      const rightEdge = anchorRect.left + dropdownWidth;
-      let left = anchorRect.left;
-      if (rightEdge > viewportWidth) {
-        left = viewportWidth - dropdownWidth - 16;
-      }
-      setGroupFilterDropdownPosition({
-        top: anchorRect.bottom + 8,
-        left: Math.max(16, left),
-      });
+      setShowGroupFilterCard(false);
+      setSelectedGroupField(null);
+      setGroupFilterMenuAnchor(anchor);
       setShowGroupFilterDropdown(true);
     },
-    [showGroupFilterDropdown, showGroupFilterCard],
+    [showGroupFilterDropdown, showGroupFilterCard, groupFilterMenuAnchor],
   );
 
   const handleGroupSelectField = useCallback(
     (field: EvangelismGroupFilterField) => {
       setSelectedGroupField(field);
       setShowGroupFilterDropdown(false);
-
-      const cardWidth = 320;
-      const viewportWidth = window.innerWidth;
-      const rightEdge = groupFilterDropdownPosition.left + cardWidth;
-      let left = groupFilterDropdownPosition.left;
-      if (rightEdge > viewportWidth) {
-        left = viewportWidth - cardWidth - 16;
-      }
-      setGroupFilterCardPosition({
-        top: groupFilterDropdownPosition.top + 8,
-        left: Math.max(16, left),
-      });
       setShowGroupFilterCard(true);
     },
-    [groupFilterDropdownPosition]
+    [],
   );
 
   const handleGroupApplyFilter = useCallback((filter: FilterCondition) => {
@@ -905,20 +883,20 @@ export default function EvangelismPage() {
     setSelectedGroupField(null);
   }, []);
 
-  const handleGroupSortDropdown = useCallback((anchorRect: DOMRect) => {
-    const dropdownWidth = 256;
-    const viewportWidth = window.innerWidth;
-    const rightEdge = anchorRect.left + dropdownWidth;
-    let left = anchorRect.left;
-    if (rightEdge > viewportWidth) {
-      left = viewportWidth - dropdownWidth - 16;
-    }
-    setGroupSortDropdownPosition({
-      top: anchorRect.bottom + 8,
-      left: Math.max(16, left),
-    });
-    setShowGroupSortDropdown(true);
-  }, []);
+  const handleGroupSortDropdown = useCallback(
+    (anchor: "mobile" | "desktop") => {
+      setShowGroupFilterDropdown(false);
+      setShowGroupFilterCard(false);
+      setSelectedGroupField(null);
+      if (showGroupSortDropdown && groupSortMenuAnchor === anchor) {
+        setShowGroupSortDropdown(false);
+      } else {
+        setGroupSortMenuAnchor(anchor);
+        setShowGroupSortDropdown(true);
+      }
+    },
+    [showGroupSortDropdown, groupSortMenuAnchor],
+  );
 
   const handleGroupSelectSort = useCallback(
     (sortBy: string, sortOrder: "asc" | "desc") => {
@@ -926,7 +904,7 @@ export default function EvangelismPage() {
       setGroupSortOrder(sortOrder);
       setShowGroupSortDropdown(false);
     },
-    []
+    [],
   );
 
   const buildGroupExportRows = useCallback(
@@ -1246,91 +1224,128 @@ export default function EvangelismPage() {
                   />
                 </div>
 
-                <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
-                  <button
-                    type="button"
-                    onClick={handleToggleGroupSelectionMode}
-                    className={`inline-flex min-h-[44px] shrink-0 items-center border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ${
-                      isGroupSelectionMode
-                        ? "rounded-lg border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                        : "rounded-lg border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <svg
-                      className={`mr-1 h-4 w-4 shrink-0 ${
-                        isGroupSelectionMode ? "text-primary" : "text-gray-500"
+                <div className="relative">
+                  <div className={TOOLBAR_STACKED_ACTIONS_ROW_CLASS}>
+                    <button
+                      type="button"
+                      onClick={handleToggleGroupSelectionMode}
+                      className={`${TOOLBAR_STACKED_ACTION_BUTTON_CLASS} ${
+                        isGroupSelectionMode
+                          ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                          : ""
                       }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    {isGroupSelectionMode ? "Cancel Selection" : "Select"}
-                  </button>
+                      <svg
+                        className={`mr-1 h-4 w-4 shrink-0 ${
+                          isGroupSelectionMode ? "text-primary" : "text-gray-500"
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span className="truncate">
+                        {isGroupSelectionMode ? "Cancel" : "Select"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleGroupSortDropdown("mobile")}
+                      className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
+                    >
+                      <svg
+                        className="mr-1 h-4 w-4 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                        />
+                      </svg>
+                      <span className="truncate">
+                        Sort {groupSortOrder === "asc" ? "↑" : "↓"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleGroupAddFilter("mobile")}
+                      className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
+                    >
+                      <svg
+                        className="mr-1 h-4 w-4 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      Filter
+                    </button>
+                  </div>
+
                   {isGroupSelectionMode && selectedGroups.size > 0 && (
-                    <BulkActionsMenu
-                      onBulkMarkInactive={handleBulkMarkInactive}
-                      onBulkDelete={
-                        userCanHardDelete ? handleBulkDeleteGroups : undefined
-                      }
-                      onBulkExport={(format) => void handleBulkExportGroups(format)}
-                      selectedCount={selectedGroups.size}
+                    <div className="mt-2">
+                      <BulkActionsMenu
+                        onBulkMarkInactive={handleBulkMarkInactive}
+                        onBulkDelete={
+                          userCanHardDelete ? handleBulkDeleteGroups : undefined
+                        }
+                        onBulkExport={(format) =>
+                          void handleBulkExportGroups(format)
+                        }
+                        selectedCount={selectedGroups.size}
+                      />
+                    </div>
+                  )}
+
+                  {groupSortMenuAnchor === "mobile" && (
+                    <EvangelismGroupSortDropdown
+                      isOpen={showGroupSortDropdown}
+                      onClose={() => setShowGroupSortDropdown(false)}
+                      onSelectSort={handleGroupSelectSort}
+                      currentSortBy={groupSortBy}
+                      currentSortOrder={groupSortOrder}
+                      anchored
                     />
                   )}
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      handleGroupSortDropdown(
-                        (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
-                      )
-                    }
-                    className={TOOLBAR_ACTION_BUTTON_CLASS}
-                  >
-                    <svg
-                      className="mr-1 h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+
+                  {groupFilterMenuAnchor === "mobile" && (
+                    <>
+                      <EvangelismGroupFilterDropdown
+                        isOpen={showGroupFilterDropdown}
+                        onClose={() => setShowGroupFilterDropdown(false)}
+                        onSelectField={handleGroupSelectField}
+                        anchored
                       />
-                    </svg>
-                    Sort {groupSortOrder === "asc" ? "↑" : "↓"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      handleGroupAddFilter(
-                        (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
-                      )
-                    }
-                    className={TOOLBAR_ACTION_BUTTON_CLASS}
-                  >
-                    <svg
-                      className="mr-1 h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    Filter
-                  </button>
+                      {selectedGroupField && (
+                        <ClusterFilterCard
+                          field={selectedGroupField}
+                          isOpen={showGroupFilterCard}
+                          onClose={() => {
+                            setShowGroupFilterCard(false);
+                            setSelectedGroupField(null);
+                          }}
+                          onApplyFilter={handleGroupApplyFilter}
+                          anchored
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {groupActiveFilters.length > 0 && (
@@ -1476,54 +1491,82 @@ export default function EvangelismPage() {
                       </button>
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      handleGroupSortDropdown(
-                        (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
-                      )
-                    }
-                    className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
-                  >
-                    <svg
-                      className="mr-1 h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => handleGroupSortDropdown("desktop")}
+                      className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                      <svg
+                        className="mr-1 h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                        />
+                      </svg>
+                      Sort {groupSortOrder === "asc" ? "↑" : "↓"}
+                    </button>
+                    {groupSortMenuAnchor === "desktop" && (
+                      <EvangelismGroupSortDropdown
+                        isOpen={showGroupSortDropdown}
+                        onClose={() => setShowGroupSortDropdown(false)}
+                        onSelectSort={handleGroupSelectSort}
+                        currentSortBy={groupSortBy}
+                        currentSortOrder={groupSortOrder}
+                        anchored
                       />
-                    </svg>
-                    Sort {groupSortOrder === "asc" ? "↑" : "↓"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      handleGroupAddFilter(
-                        (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
-                      )
-                    }
-                    className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
-                  >
-                    <svg
-                      className="mr-1 h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    )}
+                  </div>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => handleGroupAddFilter("desktop")}
+                      className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    Filter
-                  </button>
+                      <svg
+                        className="mr-1 h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      Filter
+                    </button>
+                    {groupFilterMenuAnchor === "desktop" && (
+                      <>
+                        <EvangelismGroupFilterDropdown
+                          isOpen={showGroupFilterDropdown}
+                          onClose={() => setShowGroupFilterDropdown(false)}
+                          onSelectField={handleGroupSelectField}
+                          anchored
+                        />
+                        {selectedGroupField && (
+                          <ClusterFilterCard
+                            field={selectedGroupField}
+                            isOpen={showGroupFilterCard}
+                            onClose={() => {
+                              setShowGroupFilterCard(false);
+                              setSelectedGroupField(null);
+                            }}
+                            onApplyFilter={handleGroupApplyFilter}
+                            anchored
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1642,32 +1685,6 @@ export default function EvangelismPage() {
                 )}
               </Card>
             )}
-            <EvangelismGroupFilterDropdown
-              isOpen={showGroupFilterDropdown}
-              onClose={() => setShowGroupFilterDropdown(false)}
-              onSelectField={handleGroupSelectField}
-              position={groupFilterDropdownPosition}
-            />
-            {selectedGroupField && (
-              <ClusterFilterCard
-                field={selectedGroupField}
-                isOpen={showGroupFilterCard}
-                onClose={() => {
-                  setShowGroupFilterCard(false);
-                  setSelectedGroupField(null);
-                }}
-                onApplyFilter={handleGroupApplyFilter}
-                position={groupFilterCardPosition}
-              />
-            )}
-            <EvangelismGroupSortDropdown
-              isOpen={showGroupSortDropdown}
-              onClose={() => setShowGroupSortDropdown(false)}
-              onSelectSort={handleGroupSelectSort}
-              position={groupSortDropdownPosition}
-              currentSortBy={groupSortBy}
-              currentSortOrder={groupSortOrder}
-            />
           </div>
         )}
 

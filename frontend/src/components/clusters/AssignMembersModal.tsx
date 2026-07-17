@@ -4,6 +4,7 @@ import { Person, PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { personMatchesClusterBranch } from "@/src/lib/clusterMembership";
+import { clustersApi } from "@/src/lib/api";
 import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
@@ -45,6 +46,7 @@ export default function AssignMembersModal({
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hydratingMembers, setHydratingMembers] = useState(false);
   const [removeMemberConfirmation, setRemoveMemberConfirmation] = useState<{
     isOpen: boolean;
     memberId: string | null;
@@ -68,9 +70,11 @@ export default function AssignMembersModal({
   );
 
   // Initialize selected members once when the modal opens for a cluster.
+  // Slim list rows omit `members`; hydrate from detail so we never start from [].
   useEffect(() => {
     if (!isOpen) {
       initializedForClusterRef.current = null;
+      setHydratingMembers(false);
       setSelectedPersonById({});
       setRemoveMemberConfirmation({
         isOpen: false,
@@ -82,17 +86,49 @@ export default function AssignMembersModal({
     if (!cluster) return;
     if (initializedForClusterRef.current === cluster.id) return;
 
-    initializedForClusterRef.current = cluster.id;
-    const initialMembers = (cluster.members || []).map(normalizeMemberId);
-    const initialPeople: Record<string, PersonUI> = {};
-    for (const id of initialMembers) {
-      const person = peopleUI.find((p) => memberIdsMatch(p.id, id));
-      if (person) {
-        initialPeople[id] = person;
+    const clusterId = cluster.id;
+    initializedForClusterRef.current = clusterId;
+    let cancelled = false;
+
+    const applyMembers = (memberIds: Array<string | number>) => {
+      if (cancelled || initializedForClusterRef.current !== clusterId) return;
+      const initialMembers = memberIds.map(normalizeMemberId);
+      const initialPeople: Record<string, PersonUI> = {};
+      for (const id of initialMembers) {
+        const person = peopleUI.find((p) => memberIdsMatch(p.id, id));
+        if (person) {
+          initialPeople[id] = person;
+        }
       }
-    }
-    setSelectedMemberIds(initialMembers);
-    setSelectedPersonById(initialPeople);
+      setSelectedMemberIds(initialMembers);
+      setSelectedPersonById(initialPeople);
+      setHydratingMembers(false);
+    };
+
+    const hydrate = async () => {
+      if (cluster.members != null) {
+        applyMembers(cluster.members);
+        return;
+      }
+      if (cluster.members_details != null) {
+        applyMembers(cluster.members_details.map((d) => d.id));
+        return;
+      }
+      setHydratingMembers(true);
+      try {
+        const { data } = await clustersApi.getById(clusterId);
+        applyMembers(data.members ?? []);
+      } catch (e) {
+        console.error("Failed to load cluster members for assign modal", e);
+        applyMembers([]);
+      }
+    };
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, cluster, peopleUI.length]);
 
   // Filter members based on search
@@ -191,6 +227,7 @@ export default function AssignMembersModal({
   };
 
   const handleSubmit = async () => {
+    if (hydratingMembers) return;
     try {
       setLoading(true);
       await onAssignMembers(selectedMemberIds);
@@ -434,10 +471,10 @@ export default function AssignMembersModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={loading || selectedMemberIds.length === 0}
+            disabled={loading || hydratingMembers || selectedMemberIds.length === 0}
             className="w-full sm:flex-1 min-h-[44px] !text-white py-2 px-4 text-sm font-normal bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
-            {loading ? (
+            {loading || hydratingMembers ? (
               <>
                 <svg
                   className="animate-spin h-4 w-4"
@@ -458,7 +495,7 @@ export default function AssignMembersModal({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <span>Saving...</span>
+                <span>{hydratingMembers ? "Loading..." : "Saving..."}</span>
               </>
             ) : (
               <>

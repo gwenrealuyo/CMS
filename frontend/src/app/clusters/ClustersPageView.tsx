@@ -153,7 +153,7 @@ interface ClustersPageViewProps {
   assignMembersModal: { isOpen: boolean; cluster: Cluster | null };
   onAssignMembers: (memberIds: number[]) => Promise<void>;
   onCloseAssignMembers: () => void;
-  onOpenAssignMembers: (cluster: Cluster) => void;
+  onOpenAssignMembers: (cluster: Cluster) => void | Promise<void>;
   // Overlay modals
   showClusterOverPerson: boolean;
   clusterOverPerson: Cluster | null;

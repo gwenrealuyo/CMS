@@ -1098,9 +1098,15 @@ export default function ClustersPageContainer() {
   const handleAssignMembers = async (memberIds: number[]) => {
     if (assignMembersModal.cluster) {
       try {
-        const updatedCluster = await clustersApi.update(assignMembersModal.cluster.id, {
+        // List/slim rows omit members/families; hydrate so we never wipe on replace.
+        let cluster = assignMembersModal.cluster;
+        if (cluster.members == null || cluster.families == null) {
+          const res = await clustersApi.getById(cluster.id);
+          cluster = res.data;
+        }
+        const updatedCluster = await clustersApi.update(cluster.id, {
           members: memberIds,
-          families: assignMembersModal.cluster.families || [],
+          families: cluster.families ?? [],
         } as Partial<ClusterInput>);
 
         const returnedIdSet = new Set(
@@ -1380,9 +1386,18 @@ export default function ClustersPageContainer() {
       assignMembersModal={assignMembersModal}
       onAssignMembers={handleAssignMembers}
       onCloseAssignMembers={() => setAssignMembersModal({ isOpen: false, cluster: null })}
-      onOpenAssignMembers={(cluster) => {
+      onOpenAssignMembers={async (cluster) => {
         setNeedPeopleCatalog(true);
-        setAssignMembersModal({ isOpen: true, cluster });
+        let resolved = cluster;
+        if (resolved.members == null || resolved.families == null) {
+          try {
+            const res = await clustersApi.getById(resolved.id);
+            resolved = res.data;
+          } catch (e) {
+            console.error("Failed to load cluster detail for assign members", e);
+          }
+        }
+        setAssignMembersModal({ isOpen: true, cluster: resolved });
       }}
       // Overlay modals
       showClusterOverPerson={showClusterOverPerson}

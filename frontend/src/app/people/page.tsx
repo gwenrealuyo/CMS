@@ -1045,17 +1045,13 @@ export default function PeoplePage() {
   const handleAssignMembers = async (memberIds: string[]) => {
     if (assignMembersModal.cluster) {
       try {
-        const prevMembers =
-          (
-            assignMembersModal.cluster as unknown as {
-              members?: Array<string | number>;
-            }
-          ).members || [];
-        // Include existing families so backend validators that require it won't fail
-        const updated = await clustersApi.update(assignMembersModal.cluster.id, {
-          members: memberIds,
-          families: (assignMembersModal.cluster as any).families || [],
-        } as any);
+        const cluster = await openClusterDetail(assignMembersModal.cluster);
+        const prevMembers = cluster.members ?? [];
+        // Include existing families so we do not wipe family assignments on save
+        const updated = await clustersApi.update(cluster.id, {
+          members: memberIds.map(Number),
+          families: cluster.families ?? [],
+        });
         const returnedIdSet = new Set(
           (updated.data.members ?? []).map((id: number) => String(id))
         );
@@ -2533,10 +2529,13 @@ export default function PeoplePage() {
                   setIsModalOpen(false);
                   setViewCluster(null);
                 }}
-                onAssignMembers={() => {
+                onAssignMembers={async () => {
+                  if (!viewCluster) return;
+                  const resolved = await openClusterDetail(viewCluster);
+                  setViewCluster(resolved);
                   setAssignMembersModal({
                     isOpen: true,
-                    cluster: viewCluster,
+                    cluster: resolved,
                   });
                 }}
                 onSubmitReport={() => {
@@ -2829,10 +2828,12 @@ export default function PeoplePage() {
               setShowClusterOverPerson(false);
               setClusterOverPerson(null);
             }}
-            onAssignMembers={() => {
+            onAssignMembers={async () => {
+              const resolved = await openClusterDetail(clusterOverPerson);
+              setClusterOverPerson(resolved);
               setAssignMembersModal({
                 isOpen: true,
-                cluster: clusterOverPerson,
+                cluster: resolved,
               });
             }}
             onSubmitReport={() => {
@@ -3204,35 +3205,38 @@ export default function PeoplePage() {
                         type="button"
                         key={c.id}
                         onClick={async () => {
-                          const target = c as any;
-                          const members = Array.isArray(target.members)
-                            ? target.members
-                            : [];
-                          const updatedMembers = Array.from(
-                            new Set([
-                              ...members,
+                          try {
+                            // List rows omit members/families; load detail before merge.
+                            const full = await openClusterDetail(c);
+                            const prevMembers = full.members ?? [];
+                            const personId = Number(
                               selectClusterModal.person!.id,
-                            ]),
-                          );
-                          await clustersApi.update(c.id, {
-                            name: c.name,
-                            code: (c as any).code,
-                            coordinator: (c as any).coordinator,
-                            families: (c as any).families || [],
-                            members: updatedMembers,
-                            location: (c as any).location,
-                            meeting_schedule: (c as any).meeting_schedule,
-                            description: c.description,
-                          } as any);
-                          await fetchClusters();
-                          await refreshOpenPersonProfilesAfterClusterMemberChange(
-                            members,
-                            updatedMembers,
-                          );
-                          setSelectClusterModal({
-                            isOpen: false,
-                            person: null,
-                          });
+                            );
+                            const updatedMembers = Array.from(
+                              new Set([...prevMembers, personId]),
+                            );
+                            await clustersApi.update(full.id, {
+                              members: updatedMembers,
+                              families: full.families ?? [],
+                            });
+                            await fetchClusters();
+                            await refreshOpenPersonProfilesAfterClusterMemberChange(
+                              prevMembers,
+                              updatedMembers,
+                            );
+                            setSelectClusterModal({
+                              isOpen: false,
+                              person: null,
+                            });
+                          } catch (error) {
+                            console.error(
+                              "Failed to assign person to cluster:",
+                              error,
+                            );
+                            alert(
+                              "Failed to assign person to cluster. Please try again.",
+                            );
+                          }
                         }}
                         className="w-full text-left px-3 py-2 min-h-[44px] text-sm hover:bg-gray-50 border-b last:border-b-0"
                       >

@@ -26,16 +26,16 @@ export default function ViewModeToggle({
 
     return `${base} ${
       active
-        ? "border border-gray-200 bg-white text-gray-900 shadow-sm"
-        : "bg-transparent text-gray-400 hover:text-gray-600"
+        ? "border border-primary bg-primary text-white shadow-sm"
+        : "bg-transparent text-gray-500 hover:text-gray-700"
     }`;
   };
 
   const containerClass = compact
-    ? `inline-flex shrink-0 rounded-lg border border-gray-200 bg-gray-100 p-0.25 ${className}`
+    ? `inline-flex shrink-0 rounded-lg border border-gray-300 bg-white p-0.5 ${className}`
     : fullWidth
-      ? `flex w-full rounded-lg border border-gray-200 bg-gray-100 p-0.25 ${className}`
-      : `flex w-full rounded-lg border border-gray-200 bg-gray-100 p-0.25 md:inline-flex md:w-auto md:shrink-0 ${className}`;
+      ? `flex w-full rounded-lg border border-gray-300 bg-white p-0.5 ${className}`
+      : `flex w-full rounded-lg border border-gray-300 bg-white p-0.5 md:inline-flex md:w-auto md:shrink-0 ${className}`;
 
   return (
     <div className={containerClass}>

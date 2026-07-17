@@ -20,14 +20,13 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DocumentArrowDownIcon,
-  Squares2X2Icon,
-  TableCellsIcon,
 } from "@heroicons/react/24/outline";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
+import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 
 interface DataTableProps {
   people: Person[];
@@ -884,33 +883,12 @@ export default function DataTable({
             </div>
             <div className="flex w-full flex-col gap-2 tablet:w-auto tablet:shrink-0 tablet:flex-row tablet:items-center tablet:justify-end">
               {/* Mobile View Toggle - Only visible on mobile */}
-              <div className="tablet:hidden flex w-full items-stretch border border-gray-300 rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setMobileViewMode("cards")}
-                  className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
-                    mobileViewMode === "cards"
-                      ? "bg-primary/100 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                  title="Card View"
-                >
-                  <Squares2X2Icon className="h-5 w-5 shrink-0" />
-                  Cards
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileViewMode("table")}
-                  className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
-                    mobileViewMode === "table"
-                      ? "bg-primary/100 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                  title="Table View"
-                >
-                  <TableCellsIcon className="h-5 w-5 shrink-0" />
-                  Table
-                </button>
+              <div className="tablet:hidden w-full">
+                <ViewModeToggle
+                  fullWidth
+                  viewMode={mobileViewMode}
+                  onViewModeChange={setMobileViewMode}
+                />
               </div>
 
               <div className="flex w-full items-stretch gap-1.5 tablet:w-auto tablet:items-center tablet:justify-end tablet:gap-2">

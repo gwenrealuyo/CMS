@@ -474,3 +474,35 @@ class ManualStatusProtectionTest(TestCase):
                 self.assertFalse(updated)
                 self.assertEqual(person.status, status)
 
+
+class AutoStatusUpdatesToggleTest(TestCase):
+    """Attendance auto-status respects PeopleAutomationSetting flag."""
+
+    def setUp(self):
+        from apps.people.models import PeopleAutomationSetting
+
+        self.setting = PeopleAutomationSetting.get_solo()
+        self.setting.auto_status_updates_enabled = True
+        self.setting.save(update_fields=["auto_status_updates_enabled"])
+        self.person = Person.objects.create_user(
+            username="auto_toggle_member",
+            email="auto_toggle@example.com",
+            password="testpass123",
+            first_name="Auto",
+            last_name="Toggle",
+            role="MEMBER",
+            status="ACTIVE",
+        )
+
+    def test_update_skipped_when_automation_disabled(self):
+        from apps.people.models import PeopleAutomationSetting
+
+        setting = PeopleAutomationSetting.get_solo()
+        setting.auto_status_updates_enabled = False
+        setting.save(update_fields=["auto_status_updates_enabled"])
+
+        updated = update_person_status(self.person, force=True)
+        self.person.refresh_from_db()
+        self.assertFalse(updated)
+        self.assertEqual(self.person.status, "ACTIVE")
+

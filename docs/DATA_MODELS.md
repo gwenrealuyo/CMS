@@ -23,13 +23,14 @@ Notes
 
 - `__str__` returns `username`
 - Custom username generation handled in `PersonSerializer.create`
-- **Automatic Status Updates**: The `status` field is automatically updated based on attendance patterns within a rolling 4-week window:
+- **Automatic Status Updates**: The `status` field is automatically updated based on attendance patterns within a rolling 4-week window **when enabled** in Admin Settings → Module Controls → People automations (`PeopleAutomationSetting.auto_status_updates_enabled`):
   - **ACTIVE**: ≥3 attendances for ALL THREE types (Sunday Service AND Clustering AND Doctrinal Class)
   - **SEMIACTIVE**: ≥1 attendance for at least ONE type (but not all three with ≥3 each). If person not in any cluster, maximum status is SEMIACTIVE.
   - **INACTIVE**: 0 attendances for ALL types
   - Status updates occur in real-time when attendance records are created/updated for Sunday Service or Doctrinal Class events, or when cluster attendance changes.
   - When status changes, a Journey entry of type `NOTE` is automatically created with title "Status Update: {OLD_STATUS} → {NEW_STATUS}".
   - Auto-calc never overwrites manual pastoral statuses: **DORMANT**, **FALLAWAY**, or **DECEASED**.
+  - When automation is disabled, attendance and the `update_status` endpoint do not change status; manual edits in the person form still work.
 - **Manual pastoral statuses** (set via Edit person form status field; not produced by attendance auto-calc):
   - **DORMANT**: Member who remains on the church roll but has been away from regular fellowship and activities for an extended period. Distinct from Inactive (short-term 4-week attendance drop). Return to fellowship is still expected or hoped for.
   - **FALLAWAY** (Fall Away): Member who has left fellowship or abandoned regular participation with no current expectation of return. Distinct from Dormant (membership retained, return still hoped for) and from Inactive (temporary attendance drop).

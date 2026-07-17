@@ -3,8 +3,17 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Branch, Person, Family, Journey, ModuleCoordinator, ModuleSetting
+from .models import (
+    Branch,
+    Person,
+    Family,
+    Journey,
+    ModuleCoordinator,
+    ModuleSetting,
+    PeopleAutomationSetting,
+)
 from .filters import PersonFilter, FamilyFilter
 from .serializers import (
     BranchSerializer,
@@ -15,6 +24,7 @@ from .serializers import (
     JourneySerializer,
     ModuleCoordinatorSerializer,
     ModuleSettingSerializer,
+    PeopleAutomationSettingSerializer,
     ModuleCoordinatorBulkCreateSerializer,
 )
 from apps.authentication.permissions import (
@@ -730,6 +740,28 @@ class ModuleSettingViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(updated_by=self.request.user)
+
+
+class PeopleAutomationSettingView(APIView):
+    """
+    Singleton people automation flags (ADMIN only).
+    GET/PATCH /api/people/people-automation-settings/
+    """
+
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsAdmin]
+
+    def get(self, request):
+        setting = PeopleAutomationSetting.get_solo()
+        return Response(PeopleAutomationSettingSerializer(setting).data)
+
+    def patch(self, request):
+        setting = PeopleAutomationSetting.get_solo()
+        serializer = PeopleAutomationSettingSerializer(
+            setting, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save(updated_by=request.user)
+        return Response(serializer.data)
 
 
 class BranchViewSet(viewsets.ModelViewSet):

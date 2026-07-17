@@ -33,6 +33,7 @@ import { Branch } from "@/src/types/branch";
 import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorManager";
 import BranchForm from "@/src/components/admin/BranchForm";
 import ModuleSettingsManager from "@/src/components/admin/ModuleSettingsManager";
+import PeopleAutomationSettingsManager from "@/src/components/admin/PeopleAutomationSettingsManager";
 import PeopleDuplicatesPanel from "@/src/components/admin/PeopleDuplicatesPanel";
 import AdminAccountsPanel from "@/src/components/admin/AdminAccountsPanel";
 import { TABLET_MIN } from "@/src/lib/breakpoints";
@@ -2145,7 +2146,12 @@ function AdminSettingsPageContent() {
             )}
 
             {/* Module Controls Tab */}
-            {activeTab === "module-controls" && <ModuleSettingsManager />}
+            {activeTab === "module-controls" && (
+              <div className="space-y-8">
+                <ModuleSettingsManager />
+                <PeopleAutomationSettingsManager />
+              </div>
+            )}
 
             {/* People Duplicates Tab */}
             {activeTab === "people-duplicates" && <PeopleDuplicatesPanel />}

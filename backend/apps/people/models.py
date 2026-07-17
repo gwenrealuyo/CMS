@@ -319,3 +319,51 @@ class ModuleSetting(models.Model):
     def __str__(self):
         status = "Enabled" if self.is_enabled else "Disabled"
         return f"{self.get_module_display()}: {status}"
+
+
+class PeopleAutomationSetting(models.Model):
+    """Singleton flags for people-module automations (e.g. attendance status)."""
+
+    SOLO_PK = 1
+
+    auto_status_updates_enabled = models.BooleanField(
+        default=True,
+        help_text=(
+            "When enabled, ACTIVE/SEMIACTIVE/INACTIVE are auto-updated from "
+            "attendance patterns. Manual pastoral statuses are never overwritten."
+        ),
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_people_automation_settings",
+    )
+
+    class Meta:
+        verbose_name = "People Automation Setting"
+        verbose_name_plural = "People Automation Settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = self.SOLO_PK
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Singleton must not be deleted; keep the row and reset to defaults.
+        self.auto_status_updates_enabled = True
+        self.updated_by = None
+        self.save(update_fields=["auto_status_updates_enabled", "updated_by", "updated_at"])
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(
+            pk=cls.SOLO_PK,
+            defaults={"auto_status_updates_enabled": True},
+        )
+        return obj
+
+    def __str__(self):
+        status = "Enabled" if self.auto_status_updates_enabled else "Disabled"
+        return f"Auto status updates: {status}"

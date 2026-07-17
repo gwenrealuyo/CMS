@@ -2,7 +2,7 @@ import secrets
 
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting
+from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting, PeopleAutomationSetting
 from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
 from apps.clusters.models import Cluster
 from apps.authentication.password_validators import PasswordStrengthValidator
@@ -133,6 +133,26 @@ class ModuleSettingSerializer(serializers.ModelSerializer):
             "updated_by_name",
         ]
         read_only_fields = ["id", "module", "updated_at", "updated_by", "updated_by_name"]
+
+    def get_updated_by_name(self, obj):
+        if not obj.updated_by:
+            return None
+        return obj.updated_by.get_full_name() or obj.updated_by.username
+
+
+class PeopleAutomationSettingSerializer(serializers.ModelSerializer):
+    updated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PeopleAutomationSetting
+        fields = [
+            "id",
+            "auto_status_updates_enabled",
+            "updated_at",
+            "updated_by",
+            "updated_by_name",
+        ]
+        read_only_fields = ["id", "updated_at", "updated_by", "updated_by_name"]
 
     def get_updated_by_name(self, obj):
         if not obj.updated_by:

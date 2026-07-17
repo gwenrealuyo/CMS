@@ -126,7 +126,10 @@ def update_person_status(person, force=False):
     Returns:
         bool: True if status was updated, False otherwise
     """
-    from apps.people.models import Journey
+    from apps.people.models import Journey, PeopleAutomationSetting
+
+    if not PeopleAutomationSetting.get_solo().auto_status_updates_enabled:
+        return False
 
     # Manual pastoral statuses must not be overwritten by attendance auto-calc
     MANUAL_STATUSES = {"DECEASED", "DORMANT", "FALLAWAY"}

@@ -76,8 +76,13 @@ Notes:
 - Update Status: `POST /api/people/people/{id}/update_status/`
   - Access: ADMIN, PASTOR, or Senior Coordinator
   - Manually trigger status update for a person based on attendance patterns
-  - Returns: `{"status": "ACTIVE|SEMIACTIVE|INACTIVE", "updated": true|false}` (or `updated: false` when status is a manual pastoral value: DORMANT, FALLAWAY, DECEASED)
-  - Note: Status is automatically updated in real-time when attendance records change. This endpoint allows manual triggering. Manual pastoral statuses are never overwritten. Visitor statuses (ONGOING, NO_RESPONSE) are not produced by this attendance auto-calc.
+  - Returns: `{"status": "ACTIVE|SEMIACTIVE|INACTIVE", "updated": true|false}` (or `updated: false` when status is a manual pastoral value: DORMANT, FALLAWAY, DECEASED, or when auto status updates are disabled)
+  - Note: Status is automatically updated in real-time when attendance records change **if** Admin Settings → Module Controls → People automations has automated attendance status updates enabled. This endpoint allows manual triggering of the same logic. Manual pastoral statuses are never overwritten. Visitor statuses (ONGOING, NO_RESPONSE) are not produced by this attendance auto-calc.
+
+- People Automation Settings: `GET|PATCH /api/people/people-automation-settings/`
+  - Access: ADMIN only
+  - Singleton: `auto_status_updates_enabled` (boolean). When false, attendance signals, the management command, and `update_status` do not change Active/Semi-active/Inactive.
+  - UI: Admin Settings → Module Controls → People automations
 
 ### Family
 

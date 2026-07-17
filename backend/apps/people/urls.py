@@ -7,6 +7,7 @@ from .views import (
     JourneyViewSet,
     ModuleCoordinatorViewSet,
     ModuleSettingViewSet,
+    PeopleAutomationSettingView,
 )
 
 app_name = "people"
@@ -22,5 +23,10 @@ router.register(
 router.register(r"module-settings", ModuleSettingViewSet, basename="module-setting")
 
 urlpatterns = [
+    path(
+        "people-automation-settings/",
+        PeopleAutomationSettingView.as_view(),
+        name="people-automation-settings",
+    ),
     path("", include(router.urls)),
 ]

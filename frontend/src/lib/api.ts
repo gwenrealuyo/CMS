@@ -78,6 +78,7 @@ import {
 } from "@/src/types/finance";
 import { Branch } from "@/src/types/branch";
 import { ModuleSetting } from "@/src/types/moduleSettings";
+import { PeopleAutomationSetting } from "@/src/types/peopleAutomationSettings";
 import { NotificationFeedResponse } from "@/src/types/notifications";
 import { ReportsScopeMeta, PeopleSummary, EngagementSummary, NccSummary, CymSummary, V2bSummary, StewardshipSummary, OverviewSummary } from "@/src/types/reports";
 
@@ -557,6 +558,18 @@ export const moduleSettingsApi = {
   getById: (id: number) => api.get<ModuleSetting>(`/people/module-settings/${id}/`),
   patch: (id: number, data: Partial<Pick<ModuleSetting, "is_enabled">>) =>
     api.patch<ModuleSetting>(`/people/module-settings/${id}/`, data),
+};
+
+export const peopleAutomationSettingsApi = {
+  get: () =>
+    api.get<PeopleAutomationSetting>("/people/people-automation-settings/"),
+  patch: (
+    data: Partial<Pick<PeopleAutomationSetting, "auto_status_updates_enabled">>,
+  ) =>
+    api.patch<PeopleAutomationSetting>(
+      "/people/people-automation-settings/",
+      data,
+    ),
 };
 
 export const branchesApi = {

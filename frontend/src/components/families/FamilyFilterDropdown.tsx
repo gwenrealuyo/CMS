@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 
 interface FilterField {
   key: string;
@@ -11,7 +11,6 @@ interface FamilyFilterDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectField: (field: FilterField) => void;
-  position: { top: number; left: number };
 }
 
 const FAMILY_FILTER_FIELDS: FilterField[] = [
@@ -36,7 +35,6 @@ export default function FamilyFilterDropdown({
   isOpen,
   onClose,
   onSelectField,
-  position,
 }: FamilyFilterDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -46,17 +44,28 @@ export default function FamilyFilterDropdown({
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
       ) {
+        const target = event.target as HTMLElement;
+        const clickedButton = target.closest("button");
+        if (clickedButton) {
+          const buttonText = clickedButton.textContent?.trim() || "";
+          if (buttonText === "Filter" || buttonText.startsWith("Filter")) {
+            return;
+          }
+        }
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+      const timeoutId = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside);
+      }, 100);
 
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -64,20 +73,17 @@ export default function FamilyFilterDropdown({
   return (
     <div
       ref={dropdownRef}
-      className="fixed z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
-      style={{
-        top: position.top,
-        left: position.left,
-      }}
+      className="absolute inset-x-0 top-full mt-1.5 z-50 w-full tablet:right-0 tablet:left-auto tablet:w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
     >
       <div className="px-3 py-2 border-b border-gray-100">
         <h3 className="text-sm font-medium text-gray-900">Filter by Field</h3>
       </div>
 
-      <div className="max-h-64 overflow-y-auto">
+      <div className="tablet:max-h-64 tablet:overflow-y-auto">
         {FAMILY_FILTER_FIELDS.map((field) => (
           <button
             key={field.key}
+            type="button"
             onClick={() => {
               onSelectField(field);
               onClose();

@@ -102,7 +102,7 @@ export default function EvangelismGroupFilterDropdown({
         <h3 className="text-sm font-medium text-gray-900">Filter by Field</h3>
       </div>
 
-      <div className="max-h-64 overflow-y-auto">
+      <div className="tablet:max-h-64 tablet:overflow-y-auto">
         {EVANGELISM_GROUP_FILTER_FIELDS.map((field) => (
           <button
             key={field.key}

@@ -85,7 +85,7 @@ export default function EvangelismGroupSortDropdown({
         <h3 className="text-sm font-medium text-gray-900">Sort by</h3>
       </div>
 
-      <div className="max-h-64 overflow-y-auto">
+      <div className="tablet:max-h-64 tablet:overflow-y-auto">
         {SORT_OPTIONS.map((option) => (
           <div key={option.key} className="px-3 py-2.5 md:py-2">
             <div className="flex items-center justify-between">

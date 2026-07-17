@@ -14,7 +14,10 @@ interface ClusterFilterCardProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyFilter: (filter: FilterCondition) => void;
-  position: { top: number; left: number };
+  /** Viewport-fixed placement; ignored when `anchored` is true. */
+  position?: { top: number; left: number };
+  /** Anchor under parent with absolute positioning (scrolls with page). */
+  anchored?: boolean;
 }
 
 const OPERATORS = {
@@ -55,7 +58,8 @@ export default function ClusterFilterCard({
   isOpen,
   onClose,
   onApplyFilter,
-  position,
+  position = { top: 0, left: 0 },
+  anchored = false,
 }: ClusterFilterCardProps) {
   const [operator, setOperator] = useState("contains");
   const [value, setValue] = useState("");
@@ -169,7 +173,7 @@ export default function ClusterFilterCard({
 
   if (!isOpen) return null;
 
-  // Adjust position for mobile
+  // Adjust position for mobile (fixed placement only)
   const adjustedPosition = {
     top: position.top,
     left: Math.max(16, Math.min(position.left, window.innerWidth - 336)), // 320 + 16 padding
@@ -178,11 +182,19 @@ export default function ClusterFilterCard({
   return (
     <div
       ref={cardRef}
-      className="fixed z-50 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 p-4"
-      style={{
-        top: adjustedPosition.top,
-        left: adjustedPosition.left,
-      }}
+      className={
+        anchored
+          ? "absolute inset-x-0 top-full mt-1.5 z-50 w-full tablet:right-0 tablet:left-auto tablet:w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+          : "fixed z-50 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+      }
+      style={
+        anchored
+          ? undefined
+          : {
+              top: adjustedPosition.top,
+              left: adjustedPosition.left,
+            }
+      }
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-gray-900">

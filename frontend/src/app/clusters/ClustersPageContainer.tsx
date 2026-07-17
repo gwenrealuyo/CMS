@@ -120,18 +120,12 @@ export default function ClustersPageContainer() {
   const [showClusterFilterCard, setShowClusterFilterCard] = useState(false);
   const [showClusterSortDropdown, setShowClusterSortDropdown] = useState(false);
   const [selectedClusterField, setSelectedClusterField] = useState<any>(null);
-  const [clusterFilterDropdownPosition, setClusterFilterDropdownPosition] = useState({
-    top: 0,
-    left: 0,
-  });
-  const [clusterFilterCardPosition, setClusterFilterCardPosition] = useState({
-    top: 0,
-    left: 0,
-  });
-  const [clusterSortDropdownPosition, setClusterSortDropdownPosition] = useState({
-    top: 0,
-    left: 0,
-  });
+  const [clusterFilterMenuAnchor, setClusterFilterMenuAnchor] = useState<
+    "mobile" | "desktop"
+  >("mobile");
+  const [clusterSortMenuAnchor, setClusterSortMenuAnchor] = useState<
+    "mobile" | "desktop"
+  >("mobile");
   
   // Overlay modals
   const [showClusterOverPerson, setShowClusterOverPerson] = useState(false);
@@ -1149,66 +1143,47 @@ export default function ClustersPageContainer() {
   };
   
   // Filter handlers
-  const handleClusterAddFilter = (anchorRect: DOMRect) => {
-    const dropdownWidth = 256;
-    const viewportWidth = window.innerWidth;
-    const rightEdge = anchorRect.left + dropdownWidth;
-    
-    let left = anchorRect.left;
-    if (rightEdge > viewportWidth) {
-      left = viewportWidth - dropdownWidth - 16;
+  const handleClusterAddFilter = (anchor: "mobile" | "desktop") => {
+    setShowClusterSortDropdown(false);
+    if (
+      (showClusterFilterDropdown || showClusterFilterCard) &&
+      clusterFilterMenuAnchor === anchor
+    ) {
+      setShowClusterFilterDropdown(false);
+      setShowClusterFilterCard(false);
+      setSelectedClusterField(null);
+      return;
     }
-    
-    setClusterFilterDropdownPosition({
-      top: anchorRect.bottom + 8,
-      left: Math.max(16, left),
-    });
+    setShowClusterFilterCard(false);
+    setSelectedClusterField(null);
+    setClusterFilterMenuAnchor(anchor);
     setShowClusterFilterDropdown(true);
   };
-  
+
   const handleClusterSelectField = (field: any) => {
     setSelectedClusterField(field);
     setShowClusterFilterDropdown(false);
-    
-    const cardWidth = 320;
-    const viewportWidth = window.innerWidth;
-    const rightEdge = clusterFilterDropdownPosition.left + cardWidth;
-    
-    let left = clusterFilterDropdownPosition.left;
-    if (rightEdge > viewportWidth) {
-      left = viewportWidth - cardWidth - 16;
-    }
-    
-    setClusterFilterCardPosition({
-      top: clusterFilterDropdownPosition.top + 8,
-      left: Math.max(16, left),
-    });
     setShowClusterFilterCard(true);
   };
-  
+
   const handleClusterApplyFilter = (filter: FilterCondition) => {
     setClusterActiveFilters((prev) => [...prev, filter]);
     setShowClusterFilterCard(false);
     setSelectedClusterField(null);
   };
-  
-  const handleClusterSortDropdown = (anchorRect: DOMRect) => {
-    const dropdownWidth = 256;
-    const viewportWidth = window.innerWidth;
-    const rightEdge = anchorRect.left + dropdownWidth;
-    
-    let left = anchorRect.left;
-    if (rightEdge > viewportWidth) {
-      left = viewportWidth - dropdownWidth - 16;
+
+  const handleClusterSortDropdown = (anchor: "mobile" | "desktop") => {
+    setShowClusterFilterDropdown(false);
+    setShowClusterFilterCard(false);
+    setSelectedClusterField(null);
+    if (showClusterSortDropdown && clusterSortMenuAnchor === anchor) {
+      setShowClusterSortDropdown(false);
+    } else {
+      setClusterSortMenuAnchor(anchor);
+      setShowClusterSortDropdown(true);
     }
-    
-    setClusterSortDropdownPosition({
-      top: anchorRect.bottom + 8,
-      left: Math.max(16, left),
-    });
-    setShowClusterSortDropdown(true);
   };
-  
+
   const handleClusterSelectSort = (sortBy: string, sortOrder: "asc" | "desc") => {
     setClusterSortBy(sortBy);
     setClusterSortOrder(sortOrder);
@@ -1324,9 +1299,8 @@ export default function ClustersPageContainer() {
       showClusterFilterCard={showClusterFilterCard}
       showClusterSortDropdown={showClusterSortDropdown}
       selectedClusterField={selectedClusterField}
-      clusterFilterDropdownPosition={clusterFilterDropdownPosition}
-      clusterFilterCardPosition={clusterFilterCardPosition}
-      clusterSortDropdownPosition={clusterSortDropdownPosition}
+      clusterFilterMenuAnchor={clusterFilterMenuAnchor}
+      clusterSortMenuAnchor={clusterSortMenuAnchor}
       onClusterSelectField={handleClusterSelectField}
       onClusterApplyFilter={handleClusterApplyFilter}
       onClusterSelectSort={handleClusterSelectSort}

@@ -136,23 +136,22 @@ export default function FamilyManagementDashboard({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const sortButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [sortMenuAnchor, setSortMenuAnchor] = useState<"mobile" | "desktop">(
+    "mobile",
+  );
+  const mobileSortButtonRef = React.useRef<HTMLButtonElement>(null);
+  const desktopSortButtonRef = React.useRef<HTMLButtonElement>(null);
   const sortDropdownRef = React.useRef<HTMLDivElement>(null);
   const [showUnassignedMembers, setShowUnassignedMembers] = useState(false);
   const [familyFilters, setFamilyFilters] = useState<FilterCondition[]>([]);
   const [showFamilyFilterDropdown, setShowFamilyFilterDropdown] =
     useState(false);
-  const [familyFilterDropdownPosition, setFamilyFilterDropdownPosition] =
-    useState({
-      top: 0,
-      left: 0,
-    });
-  const familyFilterButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [filterMenuAnchor, setFilterMenuAnchor] = useState<"mobile" | "desktop">(
+    "mobile",
+  );
+  const mobileFilterButtonRef = React.useRef<HTMLButtonElement>(null);
+  const desktopFilterButtonRef = React.useRef<HTMLButtonElement>(null);
   const [showFamilyFilterCard, setShowFamilyFilterCard] = useState(false);
-  const [familyFilterCardPosition, setFamilyFilterCardPosition] = useState({
-    top: 0,
-    left: 0,
-  });
   const [selectedFamilyField, setSelectedFamilyField] = useState<any>(null);
   const { user, isSeniorCoordinator } = useAuth();
 
@@ -309,23 +308,39 @@ export default function FamilyManagementDashboard({
 
   // Family filter dropdown handles its own click-outside; no parent listener needed
 
-  const handleFamilyFilterClick = () => {
-    if (!familyFilterButtonRef.current) return;
-    const rect = familyFilterButtonRef.current.getBoundingClientRect();
-    const dropdownWidth = 256;
-    const viewportWidth = window.innerWidth;
-    const rightEdge = rect.left + dropdownWidth;
-
-    let left = rect.left;
-    if (rightEdge > viewportWidth) {
-      left = viewportWidth - dropdownWidth - 16;
+  const handleSortButtonClick = (anchor: "mobile" | "desktop") => {
+    setShowFamilyFilterDropdown(false);
+    setShowFamilyFilterCard(false);
+    setSelectedFamilyField(null);
+    if (showSortDropdown && sortMenuAnchor === anchor) {
+      setShowSortDropdown(false);
+    } else {
+      setSortMenuAnchor(anchor);
+      setShowSortDropdown(true);
     }
+  };
 
-    setFamilyFilterDropdownPosition({
-      top: rect.bottom + 8,
-      left: left,
-    });
+  const handleFamilyFilterClick = (anchor: "mobile" | "desktop") => {
+    setShowSortDropdown(false);
+    if (
+      (showFamilyFilterDropdown || showFamilyFilterCard) &&
+      filterMenuAnchor === anchor
+    ) {
+      setShowFamilyFilterDropdown(false);
+      setShowFamilyFilterCard(false);
+      setSelectedFamilyField(null);
+      return;
+    }
+    setShowFamilyFilterCard(false);
+    setSelectedFamilyField(null);
+    setFilterMenuAnchor(anchor);
     setShowFamilyFilterDropdown(true);
+  };
+
+  const handleFamilyFilterFieldSelect = (field: any) => {
+    setSelectedFamilyField(field);
+    setShowFamilyFilterDropdown(false);
+    setShowFamilyFilterCard(true);
   };
 
   const directoryFilters = useMemo(() => {
@@ -406,15 +421,18 @@ export default function FamilyManagementDashboard({
     setUnassignedPage(1);
   }, [unassignedSearch]);
 
-    // Handle click outside sort dropdown (consider button and dropdown refs)
+  // Handle click outside sort dropdown (consider button and dropdown refs)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const onSortButton =
+        mobileSortButtonRef.current?.contains(target) ||
+        desktopSortButtonRef.current?.contains(target);
       if (
         showSortDropdown &&
-        sortButtonRef.current &&
         sortDropdownRef.current &&
-        !sortButtonRef.current.contains(event.target as Node) &&
-        !sortDropdownRef.current.contains(event.target as Node)
+        !onSortButton &&
+        !sortDropdownRef.current.contains(target)
       ) {
         setShowSortDropdown(false);
       }
@@ -437,24 +455,6 @@ export default function FamilyManagementDashboard({
     setSortOrder(newSortOrder);
     setShowSortDropdown(false);
     setFamilyPage(1);
-  };
-
-  const getSortButtonPosition = () => {
-    if (!sortButtonRef.current) return { top: 0, left: 0 };
-    const rect = sortButtonRef.current.getBoundingClientRect();
-    const dropdownWidth = 256; // w-64
-    const viewportWidth = window.innerWidth;
-    const rightEdge = rect.left + dropdownWidth;
-
-    let left = rect.left;
-    if (rightEdge > viewportWidth) {
-      left = viewportWidth - dropdownWidth - 16;
-    }
-
-    return {
-      top: rect.bottom + 8,
-      left: left,
-    };
   };
 
   const getPersonById = (id: string) => {
@@ -642,50 +642,127 @@ export default function FamilyManagementDashboard({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              ref={sortButtonRef}
-              onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
-            >
-              <svg
-                className="w-4 h-4 mr-1 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          <div className="relative">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                ref={mobileSortButtonRef}
+                type="button"
+                onClick={() => handleSortButtonClick("mobile")}
+                className={`${TOOLBAR_STACKED_ACTION_BUTTON_CLASS} w-full`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                />
-              </svg>
-              <span className="truncate">
-                Sort {sortOrder === "asc" ? "↑" : "↓"}
-              </span>
-            </button>
+                <svg
+                  className="w-4 h-4 mr-1 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                  />
+                </svg>
+                <span className="truncate">
+                  Sort {sortOrder === "asc" ? "↑" : "↓"}
+                </span>
+              </button>
 
-            <button
-              ref={familyFilterButtonRef}
-              onClick={handleFamilyFilterClick}
-              className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
-            >
-              <svg
-                className="w-4 h-4 mr-1 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <button
+                ref={mobileFilterButtonRef}
+                type="button"
+                onClick={() => handleFamilyFilterClick("mobile")}
+                className={`${TOOLBAR_STACKED_ACTION_BUTTON_CLASS} w-full`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                <svg
+                  className="w-4 h-4 mr-1 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                Filter
+              </button>
+            </div>
+
+            {showSortDropdown && sortMenuAnchor === "mobile" && (
+              <div
+                ref={sortDropdownRef}
+                className="absolute inset-x-0 top-full z-50 mt-1.5 w-full rounded-lg border border-gray-200 bg-white py-2 shadow-lg"
+              >
+                <div className="border-b border-gray-100 px-3 py-2">
+                  <h3 className="text-sm font-medium text-gray-900">Sort by</h3>
+                </div>
+                <div className="tablet:max-h-64 tablet:overflow-y-auto">
+                  {SORT_OPTIONS.map((option) => (
+                    <div key={option.key} className="px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">
+                          {option.label}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSortSelect(option.key, "asc")}
+                            className={`rounded px-2 py-1 text-xs ${
+                              sortBy === option.key && sortOrder === "asc"
+                                ? "chip-primary"
+                                : "text-gray-500 hover:text-gray-700"
+                            }`}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSortSelect(option.key, "desc")}
+                            className={`rounded px-2 py-1 text-xs ${
+                              sortBy === option.key && sortOrder === "desc"
+                                ? "chip-primary"
+                                : "text-gray-500 hover:text-gray-700"
+                            }`}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filterMenuAnchor === "mobile" && (
+              <>
+                <FamilyFilterDropdown
+                  isOpen={showFamilyFilterDropdown}
+                  onClose={() => setShowFamilyFilterDropdown(false)}
+                  onSelectField={handleFamilyFilterFieldSelect}
                 />
-              </svg>
-              Filter
-            </button>
+                {showFamilyFilterCard && selectedFamilyField && (
+                  <ClusterFilterCard
+                    field={selectedFamilyField}
+                    isOpen={showFamilyFilterCard}
+                    onClose={() => {
+                      setShowFamilyFilterCard(false);
+                      setSelectedFamilyField(null);
+                    }}
+                    onApplyFilter={(filter: FilterCondition) => {
+                      setFamilyFilters([...familyFilters, filter]);
+                      setShowFamilyFilterCard(false);
+                      setSelectedFamilyField(null);
+                      setFamilyPage(1);
+                    }}
+                    anchored
+                  />
+                )}
+              </>
+            )}
           </div>
 
           {familyFilters.length > 0 && (
@@ -810,97 +887,132 @@ export default function FamilyManagementDashboard({
                 </button>
               </div>
             )}
-            <button
-              ref={sortButtonRef}
-              onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
-            >
-              <svg
-                className="w-4 h-4 mr-1"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="relative">
+              <button
+                ref={desktopSortButtonRef}
+                type="button"
+                onClick={() => handleSortButtonClick("desktop")}
+                className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                />
-              </svg>
-              Sort {sortOrder === "asc" ? "↑" : "↓"}
-            </button>
-            <button
-              ref={familyFilterButtonRef}
-              onClick={handleFamilyFilterClick}
-              className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
-            >
-              <svg
-                className="w-4 h-4 mr-1"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                  />
+                </svg>
+                Sort {sortOrder === "asc" ? "↑" : "↓"}
+              </button>
+              {showSortDropdown && sortMenuAnchor === "desktop" && (
+                <div
+                  ref={sortDropdownRef}
+                  className="absolute right-0 top-full mt-1.5 z-50 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+                >
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <h3 className="text-sm font-medium text-gray-900">
+                      Sort by
+                    </h3>
+                  </div>
+                  <div className="tablet:max-h-64 tablet:overflow-y-auto">
+                    {SORT_OPTIONS.map((option) => (
+                      <div key={option.key} className="px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700">
+                            {option.label}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSortSelect(option.key, "asc")
+                              }
+                              className={`px-2 py-1 text-xs rounded ${
+                                sortBy === option.key && sortOrder === "asc"
+                                  ? "chip-primary"
+                                  : "text-gray-500 hover:text-gray-700"
+                              }`}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSortSelect(option.key, "desc")
+                              }
+                              className={`px-2 py-1 text-xs rounded ${
+                                sortBy === option.key && sortOrder === "desc"
+                                  ? "chip-primary"
+                                  : "text-gray-500 hover:text-gray-700"
+                              }`}
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                ref={desktopFilterButtonRef}
+                type="button"
+                onClick={() => handleFamilyFilterClick("desktop")}
+                className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-              Filter
-            </button>
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                Filter
+              </button>
+              {filterMenuAnchor === "desktop" && (
+                <>
+                  <FamilyFilterDropdown
+                    isOpen={showFamilyFilterDropdown}
+                    onClose={() => setShowFamilyFilterDropdown(false)}
+                    onSelectField={handleFamilyFilterFieldSelect}
+                  />
+                  {showFamilyFilterCard && selectedFamilyField && (
+                    <ClusterFilterCard
+                      field={selectedFamilyField}
+                      isOpen={showFamilyFilterCard}
+                      onClose={() => {
+                        setShowFamilyFilterCard(false);
+                        setSelectedFamilyField(null);
+                      }}
+                      onApplyFilter={(filter: FilterCondition) => {
+                        setFamilyFilters([...familyFilters, filter]);
+                        setShowFamilyFilterCard(false);
+                        setSelectedFamilyField(null);
+                        setFamilyPage(1);
+                      }}
+                      anchored
+                    />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Sort Dropdown */}
-      {showSortDropdown && (
-        <div
-          ref={sortDropdownRef}
-          className="fixed z-50 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2"
-          style={{
-            top: getSortButtonPosition().top,
-            left: getSortButtonPosition().left,
-          }}
-        >
-          <div className="px-3 py-2 border-b border-gray-100">
-            <h3 className="text-sm font-medium text-gray-900">Sort by</h3>
-          </div>
-
-          <div className="max-h-64 overflow-y-auto">
-            {SORT_OPTIONS.map((option) => (
-              <div key={option.key} className="px-3 py-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">{option.label}</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleSortSelect(option.key, "asc")}
-                      className={`px-2 py-1 text-xs rounded ${
-                        sortBy === option.key && sortOrder === "asc"
-                          ? "chip-primary"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={() => handleSortSelect(option.key, "desc")}
-                      className={`px-2 py-1 text-xs rounded ${
-                        sortBy === option.key && sortOrder === "desc"
-                          ? "chip-primary"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      ↓
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Unassigned Members Section */}
       {unassignedTotalCount > 0 && (
@@ -1300,48 +1412,6 @@ export default function FamilyManagementDashboard({
           </div>
         )}
       </div>
-
-      {/* Family Filter Dropdown */}
-      {showFamilyFilterDropdown && (
-        <FamilyFilterDropdown
-          isOpen={showFamilyFilterDropdown}
-          onClose={() => setShowFamilyFilterDropdown(false)}
-          onSelectField={(field) => {
-            setSelectedFamilyField(field);
-            setShowFamilyFilterDropdown(false);
-
-            // Position the filter card similar to clusters
-            const cardWidth = 320; // w-80
-            const viewportWidth = window.innerWidth;
-            const rightEdge = familyFilterDropdownPosition.left + cardWidth;
-            let left = familyFilterDropdownPosition.left;
-            if (rightEdge > viewportWidth) {
-              left = viewportWidth - cardWidth - 16;
-            }
-            setFamilyFilterCardPosition({
-              top: familyFilterDropdownPosition.top,
-              left,
-            });
-            setShowFamilyFilterCard(true);
-          }}
-          position={familyFilterDropdownPosition}
-        />
-      )}
-
-      {/* Family Filter Card */}
-      {showFamilyFilterCard && selectedFamilyField && (
-        <ClusterFilterCard
-          field={selectedFamilyField}
-          isOpen={showFamilyFilterCard}
-          onClose={() => setShowFamilyFilterCard(false)}
-          onApplyFilter={(filter: FilterCondition) => {
-            setFamilyFilters([...familyFilters, filter]);
-            setShowFamilyFilterCard(false);
-            setFamilyPage(1);
-          }}
-          position={familyFilterCardPosition}
-        />
-      )}
     </div>
   );
 }

@@ -13,7 +13,6 @@ interface FilterCardProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyFilter: (filter: FilterCondition) => void;
-  position: { top: number; left: number };
 }
 
 const OPERATORS = {
@@ -67,7 +66,6 @@ export default function FilterCard({
   isOpen,
   onClose,
   onApplyFilter,
-  position,
 }: FilterCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [operator, setOperator] = useState("contains");
@@ -272,19 +270,10 @@ export default function FilterCard({
 
   const opList = operatorsForField(field);
 
-  const adjustedPosition = {
-    top: position.top,
-    left: Math.max(16, Math.min(position.left, window.innerWidth - 336)), // 320 + 16 padding
-  };
-
   return (
     <div
       ref={cardRef}
-      className="fixed z-50 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 p-4"
-      style={{
-        top: adjustedPosition.top,
-        left: adjustedPosition.left,
-      }}
+      className="absolute right-0 top-full mt-1.5 z-50 w-full tablet:w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 p-4"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-gray-900">

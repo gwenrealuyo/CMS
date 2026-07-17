@@ -883,6 +883,12 @@ export default function PeoplePage() {
 
   // Cluster filter handlers
   const handleClusterAddFilter = (anchorRect: DOMRect) => {
+    if (showClusterFilterDropdown || showClusterFilterCard) {
+      setShowClusterFilterDropdown(false);
+      setShowClusterFilterCard(false);
+      setSelectedClusterField(null);
+      return;
+    }
     const dropdownWidth = 256; // w-64 in ClusterFilterDropdown
     const viewportWidth = window.innerWidth;
     const rightEdge = anchorRect.left + dropdownWidth;

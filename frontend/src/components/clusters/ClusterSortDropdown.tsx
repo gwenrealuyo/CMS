@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 
 interface SortOption {
   key: string;
@@ -9,7 +9,10 @@ interface ClusterSortDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectSort: (sortBy: string, sortOrder: "asc" | "desc") => void;
-  position: { top: number; left: number };
+  /** Viewport-fixed placement; ignored when `anchored` is true. */
+  position?: { top: number; left: number };
+  /** Anchor under parent with absolute positioning (scrolls with page). */
+  anchored?: boolean;
   currentSortBy: string;
   currentSortOrder: "asc" | "desc";
 }
@@ -26,7 +29,8 @@ export default function ClusterSortDropdown({
   isOpen,
   onClose,
   onSelectSort,
-  position,
+  position = { top: 0, left: 0 },
+  anchored = false,
   currentSortBy,
   currentSortOrder,
 }: ClusterSortDropdownProps) {
@@ -39,17 +43,15 @@ export default function ClusterSortDropdown({
         dropdownRef.current &&
         !dropdownRef.current.contains(target as Node)
       ) {
-        // Check if click is on the sort button or its children
-        const clickedButton = target.closest('button');
+        const clickedButton = target.closest("button");
         if (clickedButton) {
-          const buttonText = clickedButton.textContent?.trim() || '';
-          // Don't close if clicking the sort button itself
-          // Check by text content (should start with "Sort") and SVG icon
-          if (buttonText.startsWith('Sort')) {
-            // Verify it has the sort icon by checking for the specific path pattern
-            const hasSortIcon = clickedButton.querySelector('svg path[d*="M3 4h13"]');
+          const buttonText = clickedButton.textContent?.trim() || "";
+          if (buttonText.startsWith("Sort")) {
+            const hasSortIcon = clickedButton.querySelector(
+              'svg path[d*="M3 4h13"]',
+            );
             if (hasSortIcon) {
-              return; // This is the sort button, don't close
+              return;
             }
           }
         }
@@ -58,11 +60,10 @@ export default function ClusterSortDropdown({
     };
 
     if (isOpen) {
-      // Use a small delay to avoid closing immediately when opening
       const timeoutId = setTimeout(() => {
         document.addEventListener("mousedown", handleClickOutside);
       }, 100);
-      
+
       return () => {
         clearTimeout(timeoutId);
         document.removeEventListener("mousedown", handleClickOutside);
@@ -72,32 +73,40 @@ export default function ClusterSortDropdown({
 
   if (!isOpen) return null;
 
-  // Adjust position for mobile
   const adjustedPosition = {
     top: position.top,
-    left: Math.max(16, Math.min(position.left, window.innerWidth - 272)), // 256 + 16 padding
+    left: Math.max(16, Math.min(position.left, window.innerWidth - 272)),
   };
 
   return (
     <div
       ref={dropdownRef}
-      className="fixed z-50 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
-      style={{
-        top: adjustedPosition.top,
-        left: adjustedPosition.left,
-      }}
+      className={
+        anchored
+          ? "absolute inset-x-0 top-full mt-1.5 z-50 w-full tablet:right-0 tablet:left-auto tablet:w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+          : "fixed z-50 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+      }
+      style={
+        anchored
+          ? undefined
+          : {
+              top: adjustedPosition.top,
+              left: adjustedPosition.left,
+            }
+      }
     >
       <div className="px-3 py-2 border-b border-gray-100">
         <h3 className="text-sm font-medium text-gray-900">Sort by</h3>
       </div>
 
-      <div className="max-h-64 overflow-y-auto">
+      <div className="tablet:max-h-64 tablet:overflow-y-auto">
         {SORT_OPTIONS.map((option) => (
           <div key={option.key} className="px-3 py-2.5 md:py-2">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-700">{option.label}</span>
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
                   onClick={() => onSelectSort(option.key, "asc")}
                   className={`px-2.5 py-1.5 md:px-2 md:py-1 text-xs rounded min-h-[36px] md:min-h-0 ${
                     currentSortBy === option.key && currentSortOrder === "asc"
@@ -109,6 +118,7 @@ export default function ClusterSortDropdown({
                   ↑
                 </button>
                 <button
+                  type="button"
                   onClick={() => onSelectSort(option.key, "desc")}
                   className={`px-2.5 py-1.5 md:px-2 md:py-1 text-xs rounded min-h-[36px] md:min-h-0 ${
                     currentSortBy === option.key && currentSortOrder === "desc"

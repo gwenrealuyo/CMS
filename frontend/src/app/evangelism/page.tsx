@@ -854,20 +854,29 @@ export default function EvangelismPage() {
     }
   }, [filteredGroups, selectedGroups.size]);
 
-  const handleGroupAddFilter = useCallback((anchorRect: DOMRect) => {
-    const dropdownWidth = 256;
-    const viewportWidth = window.innerWidth;
-    const rightEdge = anchorRect.left + dropdownWidth;
-    let left = anchorRect.left;
-    if (rightEdge > viewportWidth) {
-      left = viewportWidth - dropdownWidth - 16;
-    }
-    setGroupFilterDropdownPosition({
-      top: anchorRect.bottom + 8,
-      left: Math.max(16, left),
-    });
-    setShowGroupFilterDropdown(true);
-  }, []);
+  const handleGroupAddFilter = useCallback(
+    (anchorRect: DOMRect) => {
+      if (showGroupFilterDropdown || showGroupFilterCard) {
+        setShowGroupFilterDropdown(false);
+        setShowGroupFilterCard(false);
+        setSelectedGroupField(null);
+        return;
+      }
+      const dropdownWidth = 256;
+      const viewportWidth = window.innerWidth;
+      const rightEdge = anchorRect.left + dropdownWidth;
+      let left = anchorRect.left;
+      if (rightEdge > viewportWidth) {
+        left = viewportWidth - dropdownWidth - 16;
+      }
+      setGroupFilterDropdownPosition({
+        top: anchorRect.bottom + 8,
+        left: Math.max(16, left),
+      });
+      setShowGroupFilterDropdown(true);
+    },
+    [showGroupFilterDropdown, showGroupFilterCard],
+  );
 
   const handleGroupSelectField = useCallback(
     (field: EvangelismGroupFilterField) => {

@@ -137,20 +137,7 @@ export default function FilterBar({
   const [selectedField, setSelectedField] = useState<FilterCardField | null>(
     null,
   );
-  const [filterMenuPosition, setFilterMenuPosition] = useState({
-    top: 0,
-    left: 0,
-  });
   const filterButtonRef = useRef<HTMLButtonElement>(null);
-
-  const getFilterMenuPosition = () => {
-    if (!filterButtonRef.current) return { top: 0, left: 0 };
-    const rect = filterButtonRef.current.getBoundingClientRect();
-    return {
-      top: rect.bottom + 6, // matches prior mt-1.5
-      left: rect.left,
-    };
-  };
   const getFilterChipColor = (field: string) => {
     switch (field) {
       case "status":
@@ -457,13 +444,12 @@ export default function FilterBar({
               aria-expanded={showFilterDropdown || showFilterCard}
               aria-haspopup="menu"
               onClick={() => {
-                setShowFilterCard(false);
-                setSelectedField(null);
-                if (!showFilterDropdown) {
-                  setFilterMenuPosition(getFilterMenuPosition());
-                  setShowFilterDropdown(true);
-                } else {
+                if (showFilterDropdown || showFilterCard) {
                   setShowFilterDropdown(false);
+                  setShowFilterCard(false);
+                  setSelectedField(null);
+                } else {
+                  setShowFilterDropdown(true);
                 }
               }}
               className={`inline-flex w-full items-center justify-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 transition-colors min-h-[44px] tablet:w-auto tablet:justify-start md:min-h-0 focus:outline-none ${
@@ -494,10 +480,8 @@ export default function FilterBar({
               onSelectField={(field: FilterField) => {
                 setShowFilterDropdown(false);
                 setSelectedField(field);
-                setFilterMenuPosition(getFilterMenuPosition());
                 setShowFilterCard(true);
               }}
-              position={filterMenuPosition}
               branches={branches}
               canChangeBranchFilter={canChangeBranchFilter}
             />
@@ -515,7 +499,6 @@ export default function FilterBar({
                   setShowFilterCard(false);
                   setSelectedField(null);
                 }}
-                position={filterMenuPosition}
               />
             )}
           </div>

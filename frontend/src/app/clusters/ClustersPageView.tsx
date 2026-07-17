@@ -97,15 +97,14 @@ interface ClustersPageViewProps {
   clusterItemsPerPage: number;
   onClusterPageChange: (page: number) => void;
   onClusterItemsPerPageChange: (size: number) => void;
-  onClusterAddFilter: (anchorRect: DOMRect) => void;
-  onClusterSortDropdown: (anchorRect: DOMRect) => void;
+  onClusterAddFilter: (anchor: "mobile" | "desktop") => void;
+  onClusterSortDropdown: (anchor: "mobile" | "desktop") => void;
   showClusterFilterDropdown: boolean;
   showClusterFilterCard: boolean;
   showClusterSortDropdown: boolean;
   selectedClusterField: any;
-  clusterFilterDropdownPosition: { top: number; left: number };
-  clusterFilterCardPosition: { top: number; left: number };
-  clusterSortDropdownPosition: { top: number; left: number };
+  clusterFilterMenuAnchor: "mobile" | "desktop";
+  clusterSortMenuAnchor: "mobile" | "desktop";
   onClusterSelectField: (field: any) => void;
   onClusterApplyFilter: (filter: FilterCondition) => void;
   onClusterSelectSort: (sortBy: string, sortOrder: "asc" | "desc") => void;
@@ -261,9 +260,8 @@ export default function ClustersPageView({
   showClusterFilterCard,
   showClusterSortDropdown,
   selectedClusterField,
-  clusterFilterDropdownPosition,
-  clusterFilterCardPosition,
-  clusterSortDropdownPosition,
+  clusterFilterMenuAnchor,
+  clusterSortMenuAnchor,
   onClusterSelectField,
   onClusterApplyFilter,
   onClusterSelectSort,
@@ -932,21 +930,46 @@ export default function ClustersPageView({
                   />
                 </div>
 
-                <div className={TOOLBAR_STACKED_ACTIONS_ROW_CLASS}>
-                  {hasClusterModuleWideAccess && (
+                <div className="relative">
+                  <div className={TOOLBAR_STACKED_ACTIONS_ROW_CLASS}>
+                    {hasClusterModuleWideAccess && (
+                      <button
+                        type="button"
+                        onClick={onToggleSelectionMode}
+                        className={`${TOOLBAR_STACKED_ACTION_BUTTON_CLASS} ${
+                          isSelectionMode
+                            ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                            : ""
+                        }`}
+                      >
+                        <svg
+                          className={`mr-1 h-4 w-4 shrink-0 ${
+                            isSelectionMode ? "text-primary" : "text-gray-500"
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="truncate">
+                          {isSelectionMode ? "Cancel" : "Select"}
+                        </span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
-                      onClick={onToggleSelectionMode}
-                      className={`${TOOLBAR_STACKED_ACTION_BUTTON_CLASS} ${
-                        isSelectionMode
-                          ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                          : ""
-                      }`}
+                      onClick={() => onClusterSortDropdown("mobile")}
+                      className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
                     >
                       <svg
-                        className={`mr-1 h-4 w-4 shrink-0 ${
-                          isSelectionMode ? "text-primary" : "text-gray-500"
-                        }`}
+                        className="w-4 h-4 mr-1 shrink-0"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -955,70 +978,66 @@ export default function ClustersPageView({
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
                         />
                       </svg>
                       <span className="truncate">
-                        {isSelectionMode ? "Cancel" : "Select"}
+                        Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
                       </span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onClusterAddFilter("mobile")}
+                      className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
+                    >
+                      <svg
+                        className="w-4 h-4 mr-1 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      Filter
+                    </button>
+                  </div>
+
+                  {clusterSortMenuAnchor === "mobile" && (
+                    <ClusterSortDropdown
+                      isOpen={showClusterSortDropdown}
+                      onClose={onCloseClusterSortDropdown}
+                      onSelectSort={onClusterSelectSort}
+                      currentSortBy={clusterSortBy}
+                      currentSortOrder={clusterSortOrder}
+                      anchored
+                    />
                   )}
 
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      onClusterSortDropdown(
-                        (
-                          e.currentTarget as HTMLButtonElement
-                        ).getBoundingClientRect()
-                      )
-                    }
-                    className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
-                  >
-                    <svg
-                      className="w-4 h-4 mr-1 shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                  {clusterFilterMenuAnchor === "mobile" && (
+                    <>
+                      <ClusterFilterDropdown
+                        isOpen={showClusterFilterDropdown}
+                        onClose={onCloseClusterFilterDropdown}
+                        onSelectField={onClusterSelectField}
+                        anchored
                       />
-                    </svg>
-                    <span className="truncate">
-                      Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      onClusterAddFilter(
-                        (
-                          e.currentTarget as HTMLButtonElement
-                        ).getBoundingClientRect()
-                      )
-                    }
-                    className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
-                  >
-                    <svg
-                      className="w-4 h-4 mr-1 shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    Filter
-                  </button>
+                      {selectedClusterField && (
+                        <ClusterFilterCard
+                          field={selectedClusterField}
+                          isOpen={showClusterFilterCard}
+                          onClose={onCloseClusterFilterCard}
+                          onApplyFilter={onClusterApplyFilter}
+                          anchored
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {hasClusterModuleWideAccess &&
@@ -1188,58 +1207,79 @@ export default function ClustersPageView({
                       </button>
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      onClusterSortDropdown(
-                        (
-                          e.currentTarget as HTMLButtonElement
-                        ).getBoundingClientRect()
-                      )
-                    }
-                    className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
-                  >
-                    <svg
-                      className="w-4 h-4 mr-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => onClusterSortDropdown("desktop")}
+                      className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                      <svg
+                        className="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                        />
+                      </svg>
+                      Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
+                    </button>
+                    {clusterSortMenuAnchor === "desktop" && (
+                      <ClusterSortDropdown
+                        isOpen={showClusterSortDropdown}
+                        onClose={onCloseClusterSortDropdown}
+                        onSelectSort={onClusterSelectSort}
+                        currentSortBy={clusterSortBy}
+                        currentSortOrder={clusterSortOrder}
+                        anchored
                       />
-                    </svg>
-                    Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) =>
-                      onClusterAddFilter(
-                        (
-                          e.currentTarget as HTMLButtonElement
-                        ).getBoundingClientRect()
-                      )
-                    }
-                    className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
-                  >
-                    <svg
-                      className="w-4 h-4 mr-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    )}
+                  </div>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => onClusterAddFilter("desktop")}
+                      className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
-                    Filter
-                  </button>
+                      <svg
+                        className="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      Filter
+                    </button>
+                    {clusterFilterMenuAnchor === "desktop" && (
+                      <>
+                        <ClusterFilterDropdown
+                          isOpen={showClusterFilterDropdown}
+                          onClose={onCloseClusterFilterDropdown}
+                          onSelectField={onClusterSelectField}
+                          anchored
+                        />
+                        {selectedClusterField && (
+                          <ClusterFilterCard
+                            field={selectedClusterField}
+                            isOpen={showClusterFilterCard}
+                            onClose={onCloseClusterFilterCard}
+                            onApplyFilter={onClusterApplyFilter}
+                            anchored
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1752,35 +1792,6 @@ export default function ClustersPageView({
             />
           </Modal>
         )}
-
-        {/* Filter Dropdown */}
-        <ClusterFilterDropdown
-          isOpen={showClusterFilterDropdown}
-          onClose={onCloseClusterFilterDropdown}
-          onSelectField={onClusterSelectField}
-          position={clusterFilterDropdownPosition}
-        />
-
-        {/* Filter Card */}
-        {selectedClusterField && (
-          <ClusterFilterCard
-            field={selectedClusterField}
-            isOpen={showClusterFilterCard}
-            onClose={onCloseClusterFilterCard}
-            onApplyFilter={onClusterApplyFilter}
-            position={clusterFilterCardPosition}
-          />
-        )}
-
-        {/* Sort Dropdown */}
-        <ClusterSortDropdown
-          isOpen={showClusterSortDropdown}
-          onClose={onCloseClusterSortDropdown}
-          onSelectSort={onClusterSelectSort}
-          position={clusterSortDropdownPosition}
-          currentSortBy={clusterSortBy}
-          currentSortOrder={clusterSortOrder}
-        />
 
         {/* Person Profile Modal (overlays View Cluster modal) */}
         {!isDesktop && showPersonOverCluster && personOverCluster && (

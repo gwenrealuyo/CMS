@@ -1424,8 +1424,17 @@ export default function ClustersPageContainer() {
         setShowEditClusterOverlay(false);
         setEditClusterOverlay(null);
       }}
-      onOpenEditClusterOverlay={(cluster) => {
-        setEditClusterOverlay(cluster);
+      onOpenEditClusterOverlay={async (cluster) => {
+        let resolved = cluster;
+        if (resolved.members == null || resolved.families == null) {
+          try {
+            const res = await clustersApi.getById(resolved.id);
+            resolved = res.data;
+          } catch (e) {
+            console.error("Failed to load cluster detail for edit overlay", e);
+          }
+        }
+        setEditClusterOverlay(resolved);
         setShowEditClusterOverlay(true);
       }}
       onUpdateClusterOverlay={async (data) => {

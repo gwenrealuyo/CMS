@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Family, PersonUI } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { familiesApi } from "@/src/lib/api";
 import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
@@ -27,16 +28,20 @@ export default function AddFamilyMemberModal({
   const [memberSearch, setMemberSearch] = useState("");
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hydratingMembers, setHydratingMembers] = useState(false);
   const [removeMemberConfirmation, setRemoveMemberConfirmation] = useState<{
     isOpen: boolean;
     memberId: string | null;
     memberName: string | null;
   }>({ isOpen: false, memberId: null, memberName: null });
   const memberDropdownRef = useRef<HTMLDivElement>(null);
+  const initializedForFamilyRef = useRef<string | null>(null);
 
-  // Initialize selected members from family
+  // Initialize selected members from family. Slim list rows omit `members`.
   useEffect(() => {
     if (!isOpen) {
+      initializedForFamilyRef.current = null;
+      setHydratingMembers(false);
       setRemoveMemberConfirmation({
         isOpen: false,
         memberId: null,
@@ -44,9 +49,43 @@ export default function AddFamilyMemberModal({
       });
       return;
     }
-    if (family) {
-      setSelectedMembers(family.members || []);
-    }
+    if (!family) return;
+    if (initializedForFamilyRef.current === family.id) return;
+
+    const familyId = family.id;
+    initializedForFamilyRef.current = familyId;
+    let cancelled = false;
+
+    const applyMembers = (memberIds: string[]) => {
+      if (cancelled || initializedForFamilyRef.current !== familyId) return;
+      setSelectedMembers(memberIds.map(String));
+      setHydratingMembers(false);
+    };
+
+    const hydrate = async () => {
+      if (family.members != null) {
+        applyMembers(family.members.map(String));
+        return;
+      }
+      if (family.members_details != null) {
+        applyMembers(family.members_details.map((d) => String(d.id)));
+        return;
+      }
+      setHydratingMembers(true);
+      try {
+        const { data } = await familiesApi.getById(String(familyId));
+        applyMembers((data.members ?? []).map(String));
+      } catch (e) {
+        console.error("Failed to load family members for add-member modal", e);
+        applyMembers([]);
+      }
+    };
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, family]);
 
   const formatFullName = (person: PersonUI) => formatPersonName(person);
@@ -130,6 +169,7 @@ export default function AddFamilyMemberModal({
   };
 
   const handleSubmit = async () => {
+    if (hydratingMembers) return;
     try {
       setLoading(true);
       await onAddMembers(selectedMembers);
@@ -364,10 +404,10 @@ export default function AddFamilyMemberModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={loading || selectedMembers.length === 0}
+            disabled={loading || hydratingMembers || selectedMembers.length === 0}
             className="w-full sm:flex-1 min-h-[44px] !text-white py-2 px-4 text-sm font-normal bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
-            {loading ? (
+            {loading || hydratingMembers ? (
               <>
                 <svg
                   className="animate-spin h-4 w-4"
@@ -388,7 +428,7 @@ export default function AddFamilyMemberModal({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <span>Saving...</span>
+                <span>{hydratingMembers ? "Loading..." : "Saving..."}</span>
               </>
             ) : (
               <>

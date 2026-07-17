@@ -1087,19 +1087,16 @@ export default function PeoplePage() {
   const handleAddFamilyMembers = async (memberIds: string[]) => {
     if (addFamilyMemberModal.family) {
       try {
-        await updateFamily(addFamilyMemberModal.family.id, {
+        const family = await openFamilyDetail(addFamilyMemberModal.family);
+        await updateFamily(family.id, {
           members: memberIds,
         });
 
         // Refresh families and update viewFamily if it's the same family
         await refreshFamilies();
-        if (viewFamily && viewFamily.id === addFamilyMemberModal.family.id) {
-          const updatedFamily = families.find(
-            (f: Family) => f.id === viewFamily.id,
-          );
-          if (updatedFamily) {
-            setViewFamily(updatedFamily);
-          }
+        if (viewFamily && viewFamily.id === family.id) {
+          const { data } = await familiesApi.getById(String(family.id));
+          setViewFamily(data);
         }
 
         setAddFamilyMemberModal({ isOpen: false, family: null });
@@ -2438,10 +2435,13 @@ export default function PeoplePage() {
                       setViewFamily(null);
                       setFamilyViewMode("view");
                     }}
-                    onAddMember={() => {
+                    onAddMember={async () => {
+                      if (!viewFamily) return;
+                      const resolved = await openFamilyDetail(viewFamily);
+                      setViewFamily(resolved);
                       setAddFamilyMemberModal({
                         isOpen: true,
-                        family: viewFamily,
+                        family: resolved,
                       });
                     }}
                   />
@@ -3052,77 +3052,85 @@ export default function PeoplePage() {
               return (
                 <div className="max-h-[min(60vh,32rem)] overflow-y-auto border border-gray-200 rounded-md">
                   {filtered.map((f) => (
-                    <button
+                      <button
                       key={f.id}
                       onClick={async () => {
-                        const target = f;
-                        const updatedMembers = Array.from(
-                          new Set([
-                            ...(target.members ?? []),
-                            selectFamilyModal.person!.id,
-                          ]),
-                        );
-                        await updateFamily(target.id, {
-                          name: target.name,
-                          leader: target.leader || undefined,
-                          members: updatedMembers,
-                          address: target.address,
-                          notes: target.notes,
-                        });
-                        await refreshFamilies();
-                        await refetchDirectory();
-                        let latestPerson: Person | null = null;
-                        let updatedJourneys: Journey[] = [];
                         try {
-                          const [personResponse, journeysResponse] =
-                            await Promise.all([
-                              peopleApi.getById(
-                                String(selectFamilyModal.person!.id),
-                              ),
-                              journeysApi.getByUser(
-                                String(selectFamilyModal.person!.id),
-                              ),
-                            ]);
-                          latestPerson = personResponse.data;
-                          updatedJourneys = journeysResponse.data;
+                          // List rows omit members; load detail before merge.
+                          const full = await openFamilyDetail(f);
+                          const prevMembers = (full.members ?? []).map(String);
+                          const personId = String(
+                            selectFamilyModal.person!.id,
+                          );
+                          const updatedMembers = Array.from(
+                            new Set([...prevMembers, personId]),
+                          );
+                          await updateFamily(full.id, {
+                            members: updatedMembers,
+                          });
+                          await refreshFamilies();
+                          await refetchDirectory();
+                          let latestPerson: Person | null = null;
+                          let updatedJourneys: Journey[] = [];
+                          try {
+                            const [personResponse, journeysResponse] =
+                              await Promise.all([
+                                peopleApi.getById(
+                                  String(selectFamilyModal.person!.id),
+                                ),
+                                journeysApi.getByUser(
+                                  String(selectFamilyModal.person!.id),
+                                ),
+                              ]);
+                            latestPerson = personResponse.data;
+                            updatedJourneys = journeysResponse.data;
+                          } catch (error) {
+                            console.error(
+                              "Failed to refresh person details after family update:",
+                              error,
+                            );
+                          }
+
+                          if (latestPerson) {
+                            const nextPerson: Person = {
+                              ...latestPerson,
+                              journeys: updatedJourneys.length
+                                ? updatedJourneys
+                                : latestPerson.journeys,
+                            };
+
+                            setViewEditPerson((current) =>
+                              current && current.id === nextPerson.id
+                                ? nextPerson
+                                : current,
+                            );
+                            setPersonPanelPerson((current) =>
+                              current && current.id === nextPerson.id
+                                ? nextPerson
+                                : current,
+                            );
+                            setPersonOverCluster((current) =>
+                              current && current.id === nextPerson.id
+                                ? nextPerson
+                                : current,
+                            );
+                          }
+                          setSelectFamilyModal({ isOpen: false, person: null });
                         } catch (error) {
                           console.error(
-                            "Failed to refresh person details after family update:",
+                            "Failed to assign person to family:",
                             error,
                           );
-                        }
-
-                        if (latestPerson) {
-                          const nextPerson: Person = {
-                            ...latestPerson,
-                            journeys: updatedJourneys.length
-                              ? updatedJourneys
-                              : latestPerson.journeys,
-                          };
-
-                          setViewEditPerson((current) =>
-                            current && current.id === nextPerson.id
-                              ? nextPerson
-                              : current,
-                          );
-                          setPersonPanelPerson((current) =>
-                            current && current.id === nextPerson.id
-                              ? nextPerson
-                              : current,
-                          );
-                          setPersonOverCluster((current) =>
-                            current && current.id === nextPerson.id
-                              ? nextPerson
-                              : current,
+                          alert(
+                            "Failed to assign person to family. Please try again.",
                           );
                         }
-                        setSelectFamilyModal({ isOpen: false, person: null });
                       }}
                       className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
                     >
                       {f.name}{" "}
                       <span className="text-gray-500">
-                        ({(f.members ?? []).length})
+                        ({f.member_count ?? (f.members ?? []).length})
                       </span>
                     </button>
                   ))}

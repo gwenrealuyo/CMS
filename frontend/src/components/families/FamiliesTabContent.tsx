@@ -433,11 +433,22 @@ export default function FamiliesTabContent({
                 setFamilyViewMode("view");
               }
             }}
-            onAddMember={() => {
+            onAddMember={async () => {
               onNeedPeopleCatalog?.();
+              if (!viewFamily) return;
+              let resolved = viewFamily;
+              if (resolved.members == null || resolved.members_details == null) {
+                try {
+                  const response = await familiesApi.getById(String(resolved.id));
+                  resolved = response.data;
+                  setViewFamily(resolved);
+                } catch (err) {
+                  console.error("Failed to load family detail", err);
+                }
+              }
               setAddFamilyMemberModal({
                 isOpen: true,
-                family: viewFamily,
+                family: resolved,
               });
             }}
             onViewPerson={(person) => openPersonFromFamily(person as Person)}

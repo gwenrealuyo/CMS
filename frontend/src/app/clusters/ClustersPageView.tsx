@@ -167,7 +167,7 @@ interface ClustersPageViewProps {
   showEditClusterOverlay: boolean;
   editClusterOverlay: Cluster | null;
   onCloseEditClusterOverlay: () => void;
-  onOpenEditClusterOverlay: (cluster: Cluster) => void;
+  onOpenEditClusterOverlay: (cluster: Cluster) => void | Promise<void>;
   onUpdateClusterOverlay: (data: Partial<ClusterInput>) => Promise<void>;
   onViewFamily?: (family: Family) => void;
   onViewPerson?: (person: Person) => void;

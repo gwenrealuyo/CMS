@@ -394,7 +394,7 @@ export default function ProspectForm({
             onChange={handleChange("gender")}
             className={CLUSTER_VISITOR_CONTROL}
           >
-            <option value="">Select...</option>
+            <option value="" disabled hidden>Select...</option>
             <option value="MALE">Male</option>
             <option value="FEMALE">Female</option>
           </select>

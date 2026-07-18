@@ -217,7 +217,7 @@ export default function FilterCard({
           onKeyPress={handleKeyPress}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
         >
-          <option value="">Select {field.label}</option>
+          <option disabled hidden value="">Select {field.label}</option>
           {field.options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}

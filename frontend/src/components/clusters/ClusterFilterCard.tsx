@@ -255,7 +255,7 @@ export default function ClusterFilterCard({
               onKeyPress={handleKeyPress}
               className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
             >
-              <option value="">Select {field.label}</option>
+              <option value="" disabled hidden>Select {field.label}</option>
               {field.options?.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}

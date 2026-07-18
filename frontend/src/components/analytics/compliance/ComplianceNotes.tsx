@@ -63,7 +63,7 @@ export default function ComplianceNotes({
             onChange={(e) => setClusterId(e.target.value)}
             className="h-11 rounded-md border border-gray-300 px-3 text-sm"
           >
-            <option value="">Select cluster...</option>
+            <option value="" disabled hidden>Select cluster...</option>
             {clusterOptions.map((c) => (
               <option key={c.id} value={String(c.id)}>
                 {c.label}

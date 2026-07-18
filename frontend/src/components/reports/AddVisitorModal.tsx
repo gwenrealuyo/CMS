@@ -340,7 +340,7 @@ export default function AddVisitorModal({
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             >
-              <option value="">Select...</option>
+              <option value="" disabled hidden>Select...</option>
               <option value="MALE">Male</option>
               <option value="FEMALE">Female</option>
             </select>
@@ -397,7 +397,7 @@ export default function AddVisitorModal({
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             >
-              <option value="">Select...</option>
+              <option value="" disabled hidden>Select...</option>
               {eventTypes.map((type) => (
                 <option key={type.code} value={type.code}>
                   {type.label}

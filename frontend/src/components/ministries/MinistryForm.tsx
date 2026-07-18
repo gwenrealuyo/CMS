@@ -632,7 +632,7 @@ export default function MinistryForm({
               disabled={!canPickAnyBranch}
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100"
             >
-              <option value="">Select branch</option>
+              <option value="" disabled hidden>Select branch</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={String(branch.id)}>
                   {branch.name}

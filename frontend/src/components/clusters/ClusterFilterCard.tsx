@@ -72,17 +72,22 @@ export default function ClusterFilterCard({
 
   useEffect(() => {
     if (isOpen) {
-      // Reset form when opening
-      setOperator("contains");
+      // Set to "between" for numbers/ranges/dates, otherwise default to "contains"
+      const defaultOperator = 
+        field.type === "range" || field.type === "number" || field.type === "date" 
+          ? "between" 
+          : "contains";
+
+      setOperator(defaultOperator);
       setValue("");
       setValue2("");
       setSelectedOption("");
-      // Defer focus to next tick to ensure elements are rendered
+      
       setTimeout(() => {
         firstInputRef.current?.focus();
       }, 0);
     }
-  }, [isOpen]);
+  }, [isOpen, field.type]);
 
   // Handle click outside to close the filter card
   useEffect(() => {

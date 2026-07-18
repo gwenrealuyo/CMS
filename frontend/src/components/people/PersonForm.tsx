@@ -1189,7 +1189,7 @@ export default function PersonForm({
                         onChange={handleChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                       >
-                        <option value="">Select gender</option>
+                        <option value="" disabled hidden>Select gender</option>
                         <option value="MALE">Male</option>
                         <option value="FEMALE">Female</option>
                       </select>
@@ -1781,7 +1781,7 @@ export default function PersonForm({
                             : ""
                         }`}
                       >
-                        <option value="">Select activity</option>
+                        <option value="" disabled hidden>Select activity</option>
                         {eventTypes.map((type) => (
                           <option key={type.code} value={type.code}>
                             {type.label}

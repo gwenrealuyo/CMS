@@ -82,7 +82,7 @@ export default function ClusterFilterCard({
       setValue("");
       setValue2("");
       setSelectedOption("");
-      
+      // Defer focus to next tick to ensure elements are rendered
       setTimeout(() => {
         firstInputRef.current?.focus();
       }, 0);

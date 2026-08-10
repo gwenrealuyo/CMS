@@ -93,7 +93,9 @@ import {
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+import { canWriteEvangelism } from "@/src/lib/evangelism/evangelismPermissions";
 import {
   canChangeEvangelismBranchFilter,
   EVANGELISM_BRANCH_LOCKED_HINT,
@@ -122,7 +124,12 @@ export default function EvangelismPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isSeniorCoordinator } = useAuth();
+  const { moduleEnabled } = useModuleSettings();
   const userCanHardDelete = canHardDelete(user);
+  const canWriteEvangelismAccess = useMemo(
+    () => canWriteEvangelism({ user, moduleEnabled }),
+    [user, moduleEnabled],
+  );
   const canChangeEvangelismBranch = useMemo(
     () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
     [user, isSeniorCoordinator],
@@ -1100,7 +1107,7 @@ export default function EvangelismPage() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            {activeTab === "groups" ? (
+            {activeTab === "groups" && canWriteEvangelismAccess ? (
               <Button
                 variant="primary"
                 onClick={() => setIsCreateOpen(true)}
@@ -1582,12 +1589,14 @@ export default function EvangelismPage() {
               <Card
                 title="Evangelism Groups"
                 headerAction={
-                  <Button
-                    onClick={() => setIsCreateOpen(true)}
-                    className="text-sm w-full sm:w-auto min-h-[44px]"
-                  >
-                    Add Group
-                  </Button>
+                  canWriteEvangelismAccess ? (
+                    <Button
+                      onClick={() => setIsCreateOpen(true)}
+                      className="text-sm w-full sm:w-auto min-h-[44px]"
+                    >
+                      Add Group
+                    </Button>
+                  ) : undefined
                 }
               >
                 {filteredGroups.length === 0 ? (
@@ -1751,7 +1760,7 @@ export default function EvangelismPage() {
         )}
 
         {/* Create Group Modal */}
-        {isCreateOpen && (
+        {canWriteEvangelismAccess && isCreateOpen && (
           <Modal
             isOpen={isCreateOpen}
             onClose={() => {

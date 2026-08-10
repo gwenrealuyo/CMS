@@ -39,6 +39,7 @@ import {
 } from "@/src/lib/peopleImport";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+import { canManageFamilies } from "@/src/lib/familyPermissions";
 import {
   canChangePeopleBranchFilter,
 } from "@/src/lib/peopleBranchFilter";
@@ -380,6 +381,10 @@ export default function PeoplePage() {
   const { user, isSeniorCoordinator, isModuleCoordinator, isPlainMember } =
     useAuth();
   const plainMember = isPlainMember();
+  const userCanManageFamilies = canManageFamilies(user, {
+    isModuleCoordinator,
+    isSeniorCoordinator,
+  });
   const addPeopleButtonLabel = plainMember ? "Add Visitor" : "Add Person";
   const createPeopleTitle = plainMember ? "Create Visitor" : "Create Person";
   const isAdmin = user?.role === "ADMIN";
@@ -1723,7 +1728,8 @@ export default function PeoplePage() {
               Reports
             </button>
           </div>
-          {activeTab !== "reports" && (
+          {activeTab !== "reports" &&
+            (activeTab !== "families" || userCanManageFamilies) && (
             <Button
               onClick={() => {
                 if (activeTab === "people") {
@@ -1940,6 +1946,7 @@ export default function PeoplePage() {
         {activeTab === "families" && (
           <FamilyManagementDashboard
             people={peopleUI}
+            showWriteActions={userCanManageFamilies}
             onCreateFamily={() => {
               setModalType("family");
               setIsModalOpen(true);
@@ -2441,15 +2448,21 @@ export default function PeoplePage() {
                       setViewFamily(null);
                       setFamilyViewMode("view");
                     }}
-                    onAddMember={async () => {
-                      if (!viewFamily) return;
-                      const resolved = await openFamilyDetail(viewFamily);
-                      setViewFamily(resolved);
-                      setAddFamilyMemberModal({
-                        isOpen: true,
-                        family: resolved,
-                      });
-                    }}
+                    hideEditButton={!userCanManageFamilies}
+                    hideDeleteButton={!userCanManageFamilies}
+                    onAddMember={
+                      userCanManageFamilies
+                        ? async () => {
+                            if (!viewFamily) return;
+                            const resolved = await openFamilyDetail(viewFamily);
+                            setViewFamily(resolved);
+                            setAddFamilyMemberModal({
+                              isOpen: true,
+                              family: resolved,
+                            });
+                          }
+                        : undefined
+                    }
                   />
                 </>
               ) : (
@@ -2792,6 +2805,8 @@ export default function PeoplePage() {
               setShowFamilyOverCluster(false);
               setFamilyOverCluster(null);
             }}
+            hideEditButton={!userCanManageFamilies}
+            hideDeleteButton={!userCanManageFamilies}
           />
         </Modal>
       )}

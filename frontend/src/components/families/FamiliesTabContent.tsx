@@ -12,6 +12,7 @@ import PersonProfile from "@/src/components/people/PersonProfile";
 import { PersonUI, Family, Person } from "@/src/types/person";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+import { canManageFamilies } from "@/src/lib/familyPermissions";
 import { familiesApi, peopleApi } from "@/src/lib/api";
 import { resolveFamilyMembers } from "@/src/lib/familyRoster";
 
@@ -51,8 +52,12 @@ export default function FamiliesTabContent({
   directoryRefetchKey = 0,
   onNeedPeopleCatalog,
 }: FamiliesTabContentProps) {
-  const { user } = useAuth();
+  const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
   const userCanHardDelete = canHardDelete(user);
+  const userCanManageFamilies = canManageFamilies(user, {
+    isModuleCoordinator,
+    isSeniorCoordinator,
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Start false so SSR and the first client render match; set real value in useEffect.
   const [isDesktop, setIsDesktop] = useState(false);
@@ -203,6 +208,13 @@ export default function FamiliesTabContent({
     mode: "view" | "edit" | "create",
     family?: Family | null
   ) => {
+    if (
+      (mode === "create" || mode === "edit") &&
+      !userCanManageFamilies
+    ) {
+      return;
+    }
+
     let fullFamily = family || null;
     if (family && (mode === "view" || mode === "edit")) {
       try {
@@ -256,10 +268,10 @@ export default function FamiliesTabContent({
 
   // Open create modal when parent triggers
   React.useEffect(() => {
-    if (createTrigger && createTrigger > 0) {
+    if (createTrigger && createTrigger > 0 && userCanManageFamilies) {
       openFamilyInteraction("create");
     }
-  }, [createTrigger, isDesktop]);
+  }, [createTrigger, isDesktop, userCanManageFamilies]);
 
   const handleCreateFamily = async (familyData: Partial<Family>) => {
     try {
@@ -433,24 +445,35 @@ export default function FamiliesTabContent({
                 setFamilyViewMode("view");
               }
             }}
-            onAddMember={async () => {
-              onNeedPeopleCatalog?.();
-              if (!viewFamily) return;
-              let resolved = viewFamily;
-              if (resolved.members == null || resolved.members_details == null) {
-                try {
-                  const response = await familiesApi.getById(String(resolved.id));
-                  resolved = response.data;
-                  setViewFamily(resolved);
-                } catch (err) {
-                  console.error("Failed to load family detail", err);
-                }
-              }
-              setAddFamilyMemberModal({
-                isOpen: true,
-                family: resolved,
-              });
-            }}
+            hideEditButton={!userCanManageFamilies}
+            hideDeleteButton={!userCanManageFamilies}
+            onAddMember={
+              userCanManageFamilies
+                ? async () => {
+                    onNeedPeopleCatalog?.();
+                    if (!viewFamily) return;
+                    let resolved = viewFamily;
+                    if (
+                      resolved.members == null ||
+                      resolved.members_details == null
+                    ) {
+                      try {
+                        const response = await familiesApi.getById(
+                          String(resolved.id),
+                        );
+                        resolved = response.data;
+                        setViewFamily(resolved);
+                      } catch (err) {
+                        console.error("Failed to load family detail", err);
+                      }
+                    }
+                    setAddFamilyMemberModal({
+                      isOpen: true,
+                      family: resolved,
+                    });
+                  }
+                : undefined
+            }
             onViewPerson={(person) => openPersonFromFamily(person as Person)}
           />
         );
@@ -567,6 +590,7 @@ export default function FamiliesTabContent({
           isDesktop={isDesktop}
           panelOpen={panelOpen}
           refetchKey={directoryRefetchKey}
+          showWriteActions={userCanManageFamilies}
           onCreateFamily={() => {
             onNeedPeopleCatalog?.();
             openFamilyInteraction("create");

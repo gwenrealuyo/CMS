@@ -81,6 +81,8 @@ When creating someone who will log in, an admin sets a **temporary password**. S
 
 Use **People → Families** to manage households.
 
+**Who can create or edit families:** Admins, Pastors, and **Cluster** coordinators (senior or non-senior). Plain Members and Cluster Reporters can view families in their scope but cannot create or edit. Coordinators for other modules only (e.g. Evangelism) cannot create families unless they also have a Cluster coordinator assignment.
+
 - Create a family, assign a **family leader**, and add members.
 - Link families to **clusters**.
 - View members who are not yet in a family from the unassigned list.

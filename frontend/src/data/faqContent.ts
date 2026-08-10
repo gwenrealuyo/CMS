@@ -98,7 +98,7 @@ export const faqCategories: FaqCategory[] = [
         id: "families",
         question: "How do families work?",
         answer:
-          "Use People → Families to create a household, assign a family leader, add members, and optionally link the family to a cluster. You can also see people who are not yet in a family from the unassigned list.",
+          "Use People → Families to create a household, assign a family leader, add members, and optionally link the family to a cluster. Creating and editing families is available to Admins, Pastors, and Cluster coordinators (senior or non-senior). Plain Members can view their own family but cannot create or edit. You can also see people who are not yet in a family from the unassigned list.",
       },
     ],
   },

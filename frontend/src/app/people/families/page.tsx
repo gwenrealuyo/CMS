@@ -3,11 +3,18 @@
 import { Suspense, useCallback, useState } from "react";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { canManageFamilies } from "@/src/lib/familyPermissions";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import FamiliesTabContent from "@/src/components/families/FamiliesTabContent";
 
 export default function FamiliesPage() {
+  const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  const userCanManageFamilies = canManageFamilies(user, {
+    isModuleCoordinator,
+    isSeniorCoordinator,
+  });
   const [needPeopleCatalog, setNeedPeopleCatalog] = useState(false);
   const { people, peopleUI } = usePeople(needPeopleCatalog);
   const {
@@ -27,14 +34,16 @@ export default function FamiliesPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Families</h1>
-          <Button
-            onClick={() => {
-              setNeedPeopleCatalog(true);
-              setCreateTrigger((n) => n + 1);
-            }}
-          >
-            Add Family
-          </Button>
+          {userCanManageFamilies && (
+            <Button
+              onClick={() => {
+                setNeedPeopleCatalog(true);
+                setCreateTrigger((n) => n + 1);
+              }}
+            >
+              Add Family
+            </Button>
+          )}
         </div>
 
         <Suspense

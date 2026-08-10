@@ -165,7 +165,7 @@ The system uses **JWT (JSON Web Tokens)** for stateless authentication:
 
 4. **HasAnyModuleCoordinatorAssignment**
    - Allows access to any user holding at least one `ModuleCoordinator` assignment
-   - Combined with `IsAdminOrPastor` to gate People/Family create and update operations
+   - Combined with `IsAdminOrPastor` to gate **People** create and update operations
 
 5. **IsMemberOrAbove**
    - Allows access to MEMBER, PASTOR, or ADMIN roles
@@ -176,7 +176,8 @@ The system uses **JWT (JSON Web Tokens)** for stateless authentication:
 
 | Module | Read Permission | Write Permission |
 |--------|----------------|------------------|
-| **People** | IsMemberOrAbove | IsAdminOrPastor or HasAnyModuleCoordinatorAssignment (create/update); IsAdminOrPastor (destroy) |
+| **People** | IsMemberOrAbove | IsAdminOrPastor or HasAnyModuleCoordinatorAssignment (create/update); IsAdmin (destroy) |
+| **Families** | IsMemberOrAbove | HasModuleAccess('CLUSTER') for create/update (Admin, Pastor, Cluster COORDINATOR or SENIOR_COORDINATOR); IsAdmin (destroy) |
 | **Finance** | IsAdminOrPastor | IsAdminOrPastor |
 | **Events** | IsMemberOrAbove | IsMemberOrAbove |
 | **Clusters** | IsMemberOrAbove | HasModuleAccess('CLUSTER') |

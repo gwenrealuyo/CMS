@@ -100,7 +100,7 @@ When a user has multiple assignments, they see the union of all applicable peopl
 ### Backend Queries
 
 - **PersonViewSet**: Collects people from all module assignments (Cluster, Sunday School, Lessons, Evangelism) and returns union
-- **FamilyViewSet**: Includes families directly connected to clusters + families of cluster members
+- **FamilyViewSet**: List/retrieve scoped by role (Members: own families; Cluster coordinators: cluster-linked families + families of cluster members). **Create/update** requires Admin, Pastor, or `HasModuleAccess('CLUSTER')` (Cluster COORDINATOR or SENIOR_COORDINATOR). Destroy remains Admin-only. Other-module coordinators (e.g. Evangelism-only) cannot create/update families.
 - **ClusterViewSet**: Members can list/retrieve all clusters in their branch; roster fields `members_details` / `families_details` provide display-only summaries without expanding People/Family list scope
 
 ### Frontend Conditional Rendering
@@ -109,6 +109,7 @@ When a user has multiple assignments, they see the union of all applicable peopl
 - **Lessons**: `LessonStatsCards` shown for ADMIN, PASTOR, Senior Coordinators, and Cluster Coordinators
 - **Lessons branch filter** (tab row on `/lessons`): editable for ADMIN, PASTOR, and **senior** Lessons coordinators; locked to the user’s assigned branch for Lessons teachers and other roles. Student-linked API lists honor `branch_id` when privileged; otherwise server forces `user.branch`. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
 - **Clusters**: On `ClustersPageView`, the **Clusters** tab primary header action is **Add Cluster** for **ADMIN**, **CLUSTER Senior Coordinator**, or **PASTOR** without a non-senior CLUSTER coordinator-only assignment; others see **Submit Report** as primary. Requires **`module_coordinator_assignments`** on the auth user payload (`UserSerializer` / `GET /auth/me/`). See **Clusters homepage / CTAs** in `docs/CLUSTERS_MODULE.md`. Member cluster cards/views use `members_details` / `families_details` for rosters; person/family panels open only when already in People/Family scope.
+- **Families**: **Add Family** and family edit/add-members/mark-inactive actions on People → Families are shown only for Admin, Pastor, or Cluster coordinators (senior or non-senior) via `canManageFamilies`. Plain Members and Cluster Reporters can view families in their list scope but cannot create or edit.
 
 ## Multiple Assignment Tagging
 

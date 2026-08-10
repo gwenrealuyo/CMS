@@ -529,11 +529,17 @@ class FamilyViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve", "unassigned_people"]:
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        elif self.action in ["create", "update", "partial_update"]:
-            # Write: ADMIN, PASTOR, or anyone with a ModuleCoordinator assignment
+        elif self.action == "create":
+            # Write create: ADMIN, PASTOR, or CLUSTER coordinator (any level)
             return [
                 IsAuthenticatedAndNotVisitor(),
-                (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment)(),
+                HasModuleAccess("CLUSTER", "create"),
+            ]
+        elif self.action in ["update", "partial_update"]:
+            # Write update: ADMIN, PASTOR, or CLUSTER coordinator (any level)
+            return [
+                IsAuthenticatedAndNotVisitor(),
+                HasModuleAccess("CLUSTER", "write"),
             ]
         elif self.action == "destroy":
             # Delete: Only ADMIN

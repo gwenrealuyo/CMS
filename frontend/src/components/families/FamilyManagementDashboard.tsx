@@ -52,6 +52,8 @@ interface FamilyManagementDashboardProps {
   onEditFamily: (family: Family) => void;
   onDeleteFamily: (family: Family) => void;
   onHardDeleteFamily?: (family: Family) => void;
+  /** When false, ActionMenu shows View only (plain Members / non–Cluster roles). */
+  showWriteActions?: boolean;
   onViewPerson?: (person: PersonUI) => void;
   onAssignMember?: (personId: string, familyId: string) => void;
   onRemoveMember?: (personId: string, familyId: string) => void;
@@ -122,6 +124,7 @@ export default function FamilyManagementDashboard({
   onEditFamily,
   onDeleteFamily,
   onHardDeleteFamily,
+  showWriteActions = true,
   onViewPerson,
   onAssignMember,
   onRemoveMember,
@@ -1241,6 +1244,7 @@ export default function FamilyManagementDashboard({
                                 ? () => onHardDeleteFamily(family)
                                 : undefined
                             }
+                            showEditDelete={showWriteActions}
                             labels={{
                               view: "View Family",
                               edit: "Edit Family",
@@ -1299,6 +1303,7 @@ export default function FamilyManagementDashboard({
                               ? () => onHardDeleteFamily(family)
                               : undefined
                           }
+                          showEditDelete={showWriteActions}
                           labels={{
                             view: "View Family",
                             edit: "Edit Family",

@@ -43,6 +43,7 @@ These are set when an administrator creates or edits a person under **Account & 
 | People — create/edit | Yes | Yes | Add visitors only | — |
 | People — delete | Yes | No | No | — |
 | Families — view | All | All (branch-scoped) | Own families | — |
+| Families — create/edit | Yes | Yes | No (view only) | — |
 | Clusters — view | All | All (branch-scoped) | Own cluster (read-only) | — |
 | Module read access | All modules | All enabled modules | All enabled modules (limited data) | — |
 | Module write access | All | All enabled | **Read only** | — |
@@ -126,10 +127,10 @@ When you have module assignments, you may see more people and families than a pl
 | Assignment | People you can view | Families you can view |
 |------------|--------------------|-----------------------|
 | **Senior Coordinator** (any module) | All people except admins (branch-scoped) | All families in scope |
-| **Cluster Coordinator** | **Search/list:** same-branch people. **Profile:** members of assigned cluster(s) + their families only | Families linked to those clusters |
-| **Sunday School Teacher** | Students in your class(es) | Families of those students |
-| **Lessons Teacher** | Your lesson students | Families of those students |
-| **Bible Sharer** | Members of assigned evangelism groups | Families of those members |
+| **Cluster Coordinator** (senior or non-senior) | **Search/list:** same-branch people. **Profile:** members of assigned cluster(s) + their families only | Families linked to those clusters. **May create/edit families** (Add Family, edit, add members) |
+| **Sunday School Teacher** | Students in your class(es) | Families of those students (view only; cannot create/edit families) |
+| **Lessons Teacher** | Your lesson students | Families of those students (view only; cannot create/edit families) |
+| **Bible Sharer** | Members of assigned evangelism groups | Families of those members (view only; cannot create/edit families) |
 | **Multiple assignments** | Union of all the above | Union of all the above |
 
 ### People and families editing
@@ -214,7 +215,7 @@ Branch filters appear as chips or dropdowns on many pages. If a filter is locked
 
 | Person | Assignments | Effective access |
 |--------|-------------|------------------|
-| Small-group leader | Member + Cluster Coordinator (Cluster A) | Submit reports for Cluster A; edit cluster members; see those families |
+| Small-group leader | Member + Cluster Coordinator (Cluster A) | Submit reports for Cluster A; edit cluster members; create/edit families in scope |
 | NCC teacher | Member + Lessons Teacher | Log lesson sessions; view assigned students |
 | SS teacher + cluster lead | Member + Sunday School Teacher (Class 1) + Cluster Coordinator (Cluster B) | Students in Class 1 **plus** Cluster B members and families |
 | Department head | Pastor + Evangelism Senior Coordinator | Full evangelism module in branch + pastoral people access |

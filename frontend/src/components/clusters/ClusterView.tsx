@@ -121,6 +121,11 @@ interface ClusterViewProps {
   showSubmitReportButton?: boolean;
   /** When false, hides Edit, Delete, and Assign Members actions. */
   canManageCluster?: boolean;
+  /**
+   * Use stacked member cards (name wraps, badges under name).
+   * Prefer for read-only surfaces with narrow grid cells (e.g. evangelism tally).
+   */
+  stackMemberCards?: boolean;
 }
 
 export default function ClusterView({
@@ -139,6 +144,7 @@ export default function ClusterView({
   showTopHeader = true,
   showSubmitReportButton = true,
   canManageCluster = true,
+  stackMemberCards = false,
 }: ClusterViewProps) {
   const { branches } = useBranches();
   const [sortBy, setSortBy] = useState<SortField>("last_name");
@@ -374,7 +380,7 @@ export default function ClusterView({
     const cardClass = canOpen
       ? "cursor-pointer hover:bg-gray-50"
       : "cursor-default";
-    if (isPanelMode) {
+    if (isPanelMode || stackMemberCards) {
       const memberName = formatFullName(member);
       const isLongWrappedName = memberName.length > 20;
       return (

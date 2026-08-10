@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -13,6 +13,7 @@ from apps.lessons.services import (
     sync_person_lessons_finished_from_progress,
 )
 from apps.people.models import ModuleCoordinator, ModuleSetting, Person
+from core.datetime_utils import church_calendar_date
 
 
 class PersonLessonsSyncTests(TestCase):
@@ -60,7 +61,8 @@ class PersonLessonsSyncTests(TestCase):
         self.assertGreater(len(lessons), 0)
 
         latest_completed_date = None
-        base_time = timezone.make_aware(datetime(2026, 6, 10, 12, 0, 0))
+        # 16:00 UTC is next calendar day in Asia/Manila (UTC+8)
+        base_time = timezone.make_aware(datetime(2026, 6, 10, 16, 0, 0))
 
         for index, lesson in enumerate(lessons):
             progress = self._ensure_progress(lesson)
@@ -70,11 +72,15 @@ class PersonLessonsSyncTests(TestCase):
                 completed_by=self.admin,
                 completed_at=completed_at,
             )
-            latest_completed_date = completed_at.date()
+            latest_completed_date = church_calendar_date(completed_at)
 
         self.student.refresh_from_db()
         self.assertTrue(self.student.has_finished_lessons)
         self.assertEqual(self.student.lessons_finished_at, latest_completed_date)
+        self.assertEqual(
+            self.student.lessons_finished_at,
+            date(2026, 6, 10 + len(lessons)),
+        )
 
     def test_clears_flags_on_revert(self):
         lessons = self._active_latest_lessons()
@@ -139,16 +145,54 @@ class PersonLessonsSyncTests(TestCase):
             )
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        expected_date = max(
-            progress.completed_at.date()
-            for progress in PersonLessonProgress.objects.filter(
-                person=self.student,
-                lesson_id__in=[lesson.id for lesson in lessons],
-                status=PersonLessonProgress.Status.COMPLETED,
-            )
-            if progress.completed_at is not None
-        )
+        expected_date = date(2026, 6, len(lessons))
 
         self.student.refresh_from_db()
         self.assertTrue(self.student.has_finished_lessons)
         self.assertEqual(self.student.lessons_finished_at, expected_date)
+
+    def test_session_report_prefers_session_date_over_utc_datetime(self):
+        lessons = self._active_latest_lessons()
+        self.assertGreater(len(lessons), 0)
+
+        # session_start is Jul 13 UTC evening → Jul 14 in Manila; session_date wins.
+        utc_evening = datetime(2026, 7, 13, 16, 30, 0, tzinfo=dt_timezone.utc)
+
+        for lesson in lessons:
+            response = self.client.post(
+                self.session_reports_url,
+                {
+                    "student_id": self.student.id,
+                    "session_type": "LESSON",
+                    "lesson_id": lesson.id,
+                    "session_date": "2026-07-14",
+                    "session_start": utc_evening.isoformat(),
+                },
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.has_finished_lessons)
+        self.assertEqual(self.student.lessons_finished_at, date(2026, 7, 14))
+
+        last_progress = (
+            PersonLessonProgress.objects.filter(
+                person=self.student,
+                lesson=lessons[-1],
+                status=PersonLessonProgress.Status.COMPLETED,
+            )
+            .select_related("journey")
+            .get()
+        )
+        self.assertEqual(last_progress.journey.date, date(2026, 7, 14))
+
+
+@override_settings(CHURCH_TIME_ZONE="Asia/Manila")
+class ChurchCalendarDateTests(TestCase):
+    def test_utc_evening_is_next_church_day(self):
+        utc_evening = datetime(2026, 7, 13, 16, 30, 0, tzinfo=dt_timezone.utc)
+        self.assertEqual(church_calendar_date(utc_evening), date(2026, 7, 14))
+
+    def test_plain_date_unchanged(self):
+        self.assertEqual(church_calendar_date(date(2026, 7, 14)), date(2026, 7, 14))

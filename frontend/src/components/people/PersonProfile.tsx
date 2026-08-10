@@ -173,17 +173,14 @@ export default function PersonProfile({
     return getEventTypeLabel(rawValue) || rawValue;
   };
 
+  // Date-only values use shared calendar-day formatting (no UTC shift).
   const formatDisplayDate = (rawValue?: string | null) => {
     if (!rawValue) return rawValue;
     const value = rawValue.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return rawValue;
-    const parsed = new Date(`${value}T00:00:00`);
-    if (Number.isNaN(parsed.getTime())) return rawValue;
-    return parsed.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return formatApiDate(value) || rawValue;
+    }
+    return rawValue;
   };
 
   // Filter and sort journeys for virtualization

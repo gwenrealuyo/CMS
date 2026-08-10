@@ -419,6 +419,7 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
             completed_by=completed_by,
             note=completion_note,
             completed_at=completed_at,
+            completion_date=report.session_date,
         )
 
         if report.progress_id != progress.id:

@@ -1,13 +1,39 @@
-/** e.g. May 1, 2026 */
+/** e.g. May 1, 2026 — date-only strings stay on the calendar day (no UTC shift). */
 export function formatDisplayDate(value?: string | null): string | null {
   if (!value) return null;
-  const date = new Date(value);
+  const trimmed = value.trim();
+  const ymd = parseLocalYmd(trimmed);
+  if (ymd) {
+    const parsed = new Date(ymd.year, ymd.month - 1, ymd.day);
+    return parsed.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+  const date = new Date(trimmed);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
+}
+
+/**
+ * Locale short date for API values.
+ * Date-only (YYYY-MM-DD) is treated as a local calendar day; datetimes use local TZ.
+ */
+export function formatLocaleDate(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const ymd = parseLocalYmd(trimmed);
+  if (ymd) {
+    return new Date(ymd.year, ymd.month - 1, ymd.day).toLocaleDateString();
+  }
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString();
 }
 
 export const MONTH_NAMES = [

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
@@ -9,6 +9,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from apps.people.models import Journey, Person
+from core.datetime_utils import church_calendar_date, get_church_timezone
 
 from .models import (
     Lesson,
@@ -32,8 +33,35 @@ def _as_aware_datetime(value) -> datetime:
     else:
         dt = datetime.combine(value, time.min)
     if timezone.is_naive(dt):
-        return timezone.make_aware(dt, timezone.get_current_timezone())
+        return timezone.make_aware(dt, get_church_timezone())
     return dt
+
+
+def _session_date_for_progress(progress: PersonLessonProgress) -> Optional[date]:
+    """Prefer the LESSON session report calendar day for this progress."""
+    return (
+        LessonSessionReport.objects.filter(
+            student_id=progress.person_id,
+            lesson_id=progress.lesson_id,
+            session_type=LessonSessionReport.SessionType.LESSON,
+        )
+        .order_by("-session_date", "-session_start", "-id")
+        .values_list("session_date", flat=True)
+        .first()
+    )
+
+
+def _milestone_date_for_progress(progress: PersonLessonProgress) -> Optional[date]:
+    """
+    Calendar day for lesson completion milestones.
+
+    Prefer session_date from the related LESSON report; otherwise convert
+    completed_at using CHURCH_TIME_ZONE (never bare UTC ``.date()``).
+    """
+    session_date = _session_date_for_progress(progress)
+    if session_date is not None:
+        return session_date
+    return church_calendar_date(progress.completed_at)
 
 
 def _get_or_create_journey_config(lesson: Lesson) -> LessonJourney:
@@ -76,9 +104,9 @@ def sync_person_lessons_finished_from_progress(person: Person) -> None:
 
     if all_completed:
         completed_dates = [
-            progress.completed_at.date()
+            milestone
             for progress in progresses
-            if progress.completed_at is not None
+            if (milestone := _milestone_date_for_progress(progress)) is not None
         ]
         lessons_finished_at = max(completed_dates) if completed_dates else None
         if (
@@ -105,10 +133,15 @@ def mark_progress_completed(
     completed_by: Optional[Person] = None,
     note: Optional[str] = None,
     completed_at=None,
+    completion_date: Optional[date] = None,
 ) -> LessonCompletionResult:
     """
     Transitions a progress record to the COMPLETED state, producing a journey entry
     in the conversion timeline (NOTE type by default).
+
+    ``completion_date`` is the calendar milestone day (prefer session_date from
+    reports). When omitted, falls back to the related report's session_date or
+    the church-local day of ``completed_at``.
     """
 
     completed_at = completed_at or timezone.now()
@@ -134,6 +167,12 @@ def mark_progress_completed(
         ]
     )
 
+    milestone_date = (
+        completion_date
+        or _session_date_for_progress(progress)
+        or church_calendar_date(completed_at)
+    )
+
     journey_config = _get_or_create_journey_config(progress.lesson)
     journey_title = journey_config.title_template or progress.lesson.title
     journey_description = note or journey_config.note_template
@@ -143,7 +182,7 @@ def mark_progress_completed(
         journey.type = journey_config.journey_type
         journey.title = journey_title
         journey.description = journey_description
-        journey.date = completed_at.date()
+        journey.date = milestone_date
         journey.verified_by = completed_by
         journey.save(
             update_fields=["type", "title", "description", "date", "verified_by"]
@@ -154,7 +193,7 @@ def mark_progress_completed(
             title=journey_title,
             description=journey_description,
             type=journey_config.journey_type,
-            date=completed_at.date(),
+            date=milestone_date,
             verified_by=completed_by,
         )
         progress.journey = journey
@@ -192,13 +231,15 @@ def set_enrollment_commitment_signed(
         ]
     )
 
+    signed_milestone = church_calendar_date(signed_at)
+
     commitment_journey, created = Journey.objects.get_or_create(
         user=enrollment.student,
         type="NOTE",
         title="Commitment Form Signed",
         defaults={
             "description": "Signed the New Converts Course commitment form.",
-            "date": signed_at.date(),
+            "date": signed_milestone,
             "verified_by": signed_by,
         },
     )
@@ -207,7 +248,7 @@ def set_enrollment_commitment_signed(
         commitment_journey.description = (
             note or "Signed the New Converts Course commitment form."
         )
-        commitment_journey.date = signed_at.date()
+        commitment_journey.date = signed_milestone
         commitment_journey.verified_by = signed_by
         commitment_journey.save(update_fields=["description", "date", "verified_by"])
 
@@ -416,6 +457,7 @@ def backfill_missing_completed_lessons_for_person(
             progress,
             completed_by=completed_by,
             completed_at=completed_at,
+            completion_date=church_calendar_date(lessons_finished_at),
         )
         created_count += 1
 
@@ -472,6 +514,7 @@ def reconcile_student_progress_from_reports(
                     completed_by=completed_by,
                     note=progress.notes,
                     completed_at=completed_at,
+                    completion_date=_session_date_for_progress(progress),
                 )
             continue
 

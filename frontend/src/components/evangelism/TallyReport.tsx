@@ -13,6 +13,7 @@ import type { Cluster } from "@/src/types/cluster";
 import { useEvangelismTally } from "@/src/hooks/useEvangelism";
 import { clustersApi, evangelismApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
+import { formatLocaleDate } from "@/src/lib/date";
 import {
   resolveClusterRosterFamilies,
   resolveClusterRosterPeople,
@@ -204,9 +205,7 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
                 accessor: "meeting_date" as keyof EvangelismTallyRow,
                 render: (value) => (
                   <span className="text-sm text-gray-700">
-                    {value
-                      ? new Date(value as string).toLocaleDateString()
-                      : "N/A"}
+                    {formatLocaleDate(value as string) || "N/A"}
                   </span>
                 ),
               },

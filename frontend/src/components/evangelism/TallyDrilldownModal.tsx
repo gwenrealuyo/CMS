@@ -5,6 +5,7 @@ import Modal from "@/src/components/ui/Modal";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { PaginatedResponse } from "@/src/lib/api";
+import { formatLocaleDate } from "@/src/lib/date";
 import { formatPersonName } from "@/src/lib/name";
 import { EvangelismTallyDrilldownRow } from "@/src/types/evangelism";
 
@@ -63,8 +64,7 @@ export default function TallyDrilldownModal({
     }
   };
 
-  const formatDate = (value?: string | null) =>
-    value ? new Date(value).toLocaleDateString() : null;
+  const formatDate = (value?: string | null) => formatLocaleDate(value);
 
   const isInHighlightMonth = (value?: string | null) => {
     if (highlightMonth == null || highlightYear == null || !value) {

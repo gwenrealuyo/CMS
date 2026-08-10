@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect, useRef } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import toast from "react-hot-toast";
 import { Person, PersonUI } from "@/src/types/person";
 import { peopleApi, eventTypesApi } from "@/src/lib/api";
@@ -6,6 +6,7 @@ import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
+import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import { EventTypeOption } from "@/src/types/event";
 
 /** Local calendar date as YYYY-MM-DD (avoids UTC off-by-one from toISOString). */
@@ -52,9 +53,6 @@ export default function AddVisitorModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [people, setPeople] = useState<PersonUI[]>([]);
-  const [inviterSearch, setInviterSearch] = useState("");
-  const [showInviterDropdown, setShowInviterDropdown] = useState(false);
-  const inviterDropdownRef = useRef<HTMLDivElement>(null);
 
   const defaultActivityValue =
     defaultFirstActivityAttended ||
@@ -198,41 +196,6 @@ export default function AddVisitorModal({
       onClose();
     }
   };
-
-  // Filter people for inviter dropdown
-  const filteredPeople = people.filter((person) =>
-    person.name.toLowerCase().includes(inviterSearch.toLowerCase())
-  );
-
-  // Handle inviter selection
-  const handleInviterSelect = (personId: string) => {
-    setFormData({ ...formData, inviter: personId });
-    setShowInviterDropdown(false);
-    setInviterSearch("");
-  };
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        inviterDropdownRef.current &&
-        !inviterDropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowInviterDropdown(false);
-      }
-    };
-
-    if (showInviterDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showInviterDropdown]);
-
-  // Get selected inviter name for display
-  const selectedInviter = people.find((p) => p.id === formData.inviter);
 
   return (
     <Modal
@@ -411,35 +374,21 @@ export default function AddVisitorModal({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Inviter
           </label>
-          <div className="relative" ref={inviterDropdownRef}>
-            <input
-              type="text"
-              value={inviterSearch || selectedInviter?.name || ""}
-              onChange={(e) => {
-                setInviterSearch(e.target.value);
-                setShowInviterDropdown(true);
-              }}
-              onFocus={() => setShowInviterDropdown(true)}
-              placeholder="Search for inviter..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-            />
-            {showInviterDropdown && filteredPeople.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {filteredPeople.map((person) => (
-                  <button
-                    key={person.id}
-                    type="button"
-                    onClick={() => handleInviterSelect(person.id)}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                  >
-                    <div className="font-medium text-gray-900">
-                      {person.name}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <SearchableSelect
+            value={formData.inviter ? String(formData.inviter) : ""}
+            onChange={(value) =>
+              setFormData((prev) => ({ ...prev, inviter: value }))
+            }
+            options={people.map((p) => ({
+              ...p,
+              id: p.id,
+              username: p.username || p.email || String(p.id),
+            }))}
+            placeholder="Search for inviter..."
+            emptyMessage="No inviter found"
+            showEmptyOption={true}
+            emptyOptionLabel="No inviter"
+          />
         </div>
 
         <div className="flex gap-4 pt-4">

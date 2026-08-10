@@ -3,6 +3,13 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { formatPersonName } from "@/src/lib/name";
+import { getPersonRoleColor } from "@/src/lib/personRole";
+import {
+  formatPersonClusterLabel,
+  formatPersonStatusLabel,
+  getPersonClusterChipClass,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
 
 export type SearchableOption = {
   id?: string | number;
@@ -251,6 +258,13 @@ export default function SearchableSelect({
                   const optionId = option.id;
                   if (optionId === undefined) return null;
                   const isSelected = String(optionId) === value;
+                  const role =
+                    typeof option.role === "string" ? option.role : "";
+                  const status =
+                    typeof option.status === "string" ? option.status : "";
+                  const clusterCodes = Array.isArray(option.cluster_codes)
+                    ? (option.cluster_codes as string[])
+                    : null;
                   return (
                     <button
                       key={optionId}
@@ -262,7 +276,38 @@ export default function SearchableSelect({
                           : "text-gray-900"
                       }`}
                     >
-                      {formatPersonName(option)}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">
+                          {formatPersonName(option)}
+                        </span>
+                        {(role || status || clusterCodes) && (
+                          <span className="flex shrink-0 flex-wrap gap-1">
+                            {role ? (
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonRoleColor(role)}`}
+                              >
+                                {role}
+                              </span>
+                            ) : null}
+                            {status ? (
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonStatusColor(status)}`}
+                              >
+                                {formatPersonStatusLabel(status)}
+                              </span>
+                            ) : null}
+                            {clusterCodes ? (
+                              <span
+                                className={getPersonClusterChipClass(
+                                  clusterCodes.filter(Boolean).length > 0,
+                                )}
+                              >
+                                {formatPersonClusterLabel(clusterCodes)}
+                              </span>
+                            ) : null}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   );
                 })

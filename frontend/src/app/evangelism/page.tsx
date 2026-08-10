@@ -1897,7 +1897,7 @@ export default function EvangelismPage() {
             closeOnOutsideClick={false}
           >
             <EvangelismWeeklyReportForm
-              group={viewEditGroup}
+              group={groupData || viewEditGroup}
               prospects={prospects}
               onSubmit={handleSubmitReport}
               onCancel={() => {

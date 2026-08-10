@@ -21,6 +21,8 @@ interface AttendanceSelectorProps {
   allowedIds?: string[];
   previouslyAttendedIds?: string[]; // All visitors who have attended this cluster (for list filtering)
   mostRecentAttendedIds?: string[]; // Visitors from most recent report only (for auto-selection)
+  /** True while the selected cluster roster is being fetched. */
+  isLoadingRoster?: boolean;
 }
 
 export default function AttendanceSelector({
@@ -34,6 +36,7 @@ export default function AttendanceSelector({
   allowedIds = [],
   previouslyAttendedIds = [],
   mostRecentAttendedIds = [],
+  isLoadingRoster = false,
 }: AttendanceSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -44,13 +47,16 @@ export default function AttendanceSelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const hasAutoSelectedRef = useRef<string | null>(null);
 
-  // Get cluster member IDs if cluster is selected
+  // Get cluster member IDs if cluster is selected (members PK list or privacy-safe details)
   const clusterMemberIds =
-    selectedCluster?.members?.map((id) => normalizePersonId(id)) || [];
+    selectedCluster?.members?.map((id) => normalizePersonId(id)) ||
+    selectedCluster?.members_details?.map((d) => normalizePersonId(d.id)) ||
+    [];
   const allowedIdSet = new Set(allowedIds.map(normalizePersonId));
 
   // Filter people by role and cluster membership (for MEMBER role)
-  const hasMemberSource = Boolean(selectedCluster) || allowedIds.length > 0;
+  const hasMemberSource =
+    Boolean(selectedCluster) || allowedIds.length > 0 || isLoadingRoster;
 
   const peopleByRole = availablePeople.filter((person) => {
     if (filterRole === "MEMBER" && allowedIds.length > 0) {
@@ -61,6 +67,12 @@ export default function AttendanceSelector({
       if (!selectedCluster) return false; // No cluster selected = no members shown
       if (person.role === "VISITOR") return false; // Exclude visitors
       return clusterMemberIds.includes(normalizePersonId(person.id)); // Must be in cluster members list
+    } else if (filterRole === "VISITOR" && allowedIds.length > 0) {
+      // Prospects Invited (and similar): restrict to the provided id set
+      return (
+        person.role === "VISITOR" &&
+        allowedIdSet.has(normalizePersonId(person.id))
+      );
     } else if (filterRole === "VISITOR") {
       // For visitors: only show VISITOR role, no cluster filtering
       return person.role === "VISITOR";
@@ -453,7 +465,8 @@ export default function AttendanceSelector({
       {/* Bulk Action Buttons */}
       <div className="flex flex-wrap gap-2 mb-2">
       {viewMode === "list" &&
-        !(filterRole === "MEMBER" && !hasMemberSource) && (
+        !(filterRole === "MEMBER" && !hasMemberSource) &&
+        !(filterRole === "MEMBER" && isLoadingRoster) && (
             <>
               <button
                 type="button"
@@ -579,7 +592,11 @@ export default function AttendanceSelector({
           {/* Dropdown */}
           {isDropdownOpen && searchTerm.trim().length >= 1 && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {filterRole === "MEMBER" && !hasMemberSource ? (
+              {filterRole === "MEMBER" && isLoadingRoster ? (
+                <div className="px-3 py-2 text-gray-500 text-sm">
+                  Loading members…
+                </div>
+              ) : filterRole === "MEMBER" && !hasMemberSource ? (
                 <div className="px-3 py-2 text-gray-500 text-sm">
                   Please select a cluster first to view members
                 </div>
@@ -642,15 +659,22 @@ export default function AttendanceSelector({
       {viewMode === "list" && (
         <div className="border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
           {/* Empty state for MEMBER role when no cluster selected */}
-          {filterRole === "MEMBER" && !hasMemberSource && (
+          {filterRole === "MEMBER" && !hasMemberSource && !isLoadingRoster && (
             <div className="px-3 py-8 text-center text-gray-500 text-sm">
               Please select a cluster first to view members
+            </div>
+          )}
+
+          {filterRole === "MEMBER" && isLoadingRoster && (
+            <div className="px-3 py-8 text-center text-gray-500 text-sm">
+              Loading members…
             </div>
           )}
 
           {/* Previously Attended Members Section */}
           {filterRole === "MEMBER" &&
             hasMemberSource &&
+            !isLoadingRoster &&
             previouslyAttendedPeople.length > 0 && (
             <>
               <div className="p-2 border-b sticky top-0 z-10 bg-purple-50 border-purple-200 shadow-sm">
@@ -689,7 +713,10 @@ export default function AttendanceSelector({
           )}
 
           {/* Other Members Section */}
-          {filterRole === "MEMBER" && selectedCluster && otherPeople.length > 0 && (
+          {filterRole === "MEMBER" &&
+            selectedCluster &&
+            !isLoadingRoster &&
+            otherPeople.length > 0 && (
             <>
               {(previouslyAttendedPeople.length > 0 ||
                 otherPeople.length > 0) && (
@@ -830,7 +857,17 @@ export default function AttendanceSelector({
             )}
 
           {filterRole === "MEMBER" &&
+            hasMemberSource &&
+            !isLoadingRoster &&
+            !selectedCluster &&
+            peopleByRole.length === 0 && (
+              <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                No members found
+              </div>
+            )}
+          {filterRole === "MEMBER" &&
             selectedCluster &&
+            !isLoadingRoster &&
             peopleByRole.length === 0 && (
               <div className="px-3 py-4 text-center text-gray-500 text-sm">
                 No members found in this cluster

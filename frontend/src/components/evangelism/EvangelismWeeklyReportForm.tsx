@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import AttendanceSelector from "@/src/components/reports/AttendanceSelector";
 import AddVisitorModal from "@/src/components/reports/AddVisitorModal";
@@ -10,7 +10,7 @@ import {
   Prospect,
 } from "@/src/types/evangelism";
 import { Person, PersonUI } from "@/src/types/person";
-import { peopleApi } from "@/src/lib/api";
+import { evangelismApi, peopleApi } from "@/src/lib/api";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import {
   getIsoWeekParts,
@@ -27,6 +27,14 @@ function prospectInviteDisplayName(prospect: Prospect): string {
   if (prospect.suffix?.trim())
     base = base ? `${base}, ${prospect.suffix}` : prospect.suffix!;
   return base || "Unknown";
+}
+
+/** True when members is a (possibly empty) person roster, not omitted or PK-only. */
+function groupHasPersonRoster(g?: EvangelismGroup | null): boolean {
+  if (!g || !Array.isArray(g.members)) return false;
+  if (g.members.length === 0) return true;
+  const first = g.members[0] as Person | number | string;
+  return typeof first === "object" && first != null && "id" in first;
 }
 
 export interface EvangelismWeeklyReportFormValues {
@@ -90,6 +98,9 @@ export default function EvangelismWeeklyReportForm({
   const [pendingNewVisitors, setPendingNewVisitors] = useState<
     Record<string, Partial<Person> & { note?: string }>
   >({});
+  const [rosterGroup, setRosterGroup] = useState<EvangelismGroup>(group);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const rosterCacheRef = useRef<Record<string, EvangelismGroup>>({});
 
   const todayIsoParts = getIsoWeekParts(new Date());
   const defaultDate = new Date().toISOString().split("T")[0];
@@ -128,6 +139,51 @@ export default function EvangelismWeeklyReportForm({
     });
   }, [group.id, initialData]);
 
+  // Lazy-load full member roster when the passed group lacks person members.
+  useEffect(() => {
+    const groupId = String(group.id);
+    setFormData((prev) =>
+      prev.evangelism_group_id === groupId
+        ? prev
+        : { ...prev, evangelism_group_id: groupId }
+    );
+
+    const cached = rosterCacheRef.current[groupId];
+    if (cached && groupHasPersonRoster(cached)) {
+      setRosterGroup(cached);
+      setLoadingRoster(false);
+      return;
+    }
+
+    if (groupHasPersonRoster(group)) {
+      rosterCacheRef.current[groupId] = group;
+      setRosterGroup(group);
+      setLoadingRoster(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingRoster(true);
+    setRosterGroup(group);
+
+    (async () => {
+      try {
+        const { data } = await evangelismApi.getGroup(groupId);
+        if (cancelled) return;
+        rosterCacheRef.current[String(data.id)] = data;
+        setRosterGroup(data);
+      } catch (err) {
+        console.error("Error loading evangelism group roster:", err);
+      } finally {
+        if (!cancelled) setLoadingRoster(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [group]);
+
   useEffect(() => {
     const fetchPeople = async () => {
       try {
@@ -165,24 +221,24 @@ export default function EvangelismWeeklyReportForm({
 
   const allowedMemberIds = useMemo(() => {
     const inlineIds =
-      group.members?.map((member) => String(member.id)) || [];
-    const coordinatorIds = group.coordinator?.id
-      ? [String(group.coordinator.id)]
+      rosterGroup.members?.map((member) => String(member.id)) || [];
+    const coordinatorIds = rosterGroup.coordinator?.id
+      ? [String(rosterGroup.coordinator.id)]
       : [];
     return Array.from(new Set([...inlineIds, ...coordinatorIds]));
-  }, [group.members, group.coordinator?.id]);
+  }, [rosterGroup.members, rosterGroup.coordinator?.id]);
 
   const coordinatorOption = useMemo(
     () =>
-      group.coordinator
-        ? personToMemberOption(group.coordinator as Person)
+      rosterGroup.coordinator
+        ? personToMemberOption(rosterGroup.coordinator as Person)
         : null,
-    [group.coordinator],
+    [rosterGroup.coordinator],
   );
 
   const memberOptions = useMemo(() => {
     const inlineMembers =
-      group.members?.map((member) => personToMemberOption(member)) || [];
+      rosterGroup.members?.map((member) => personToMemberOption(member)) || [];
 
     const combined = [...people, ...inlineMembers];
     if (coordinatorOption) {
@@ -199,7 +255,7 @@ export default function EvangelismWeeklyReportForm({
       seen.add(person.id);
       return true;
     });
-  }, [coordinatorOption, group.members, people]);
+  }, [coordinatorOption, rosterGroup.members, people]);
 
   const visitorOptions = useMemo(() => {
     const attendedVisitors = prospects
@@ -450,6 +506,7 @@ export default function EvangelismWeeklyReportForm({
             setFormData((prev) => ({ ...prev, members_attended: ids }))
           }
           allowedIds={allowedMemberIds}
+          isLoadingRoster={loadingRoster}
         />
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-gray-700">
@@ -474,8 +531,10 @@ export default function EvangelismWeeklyReportForm({
           }
           className="mt-0"
         />
-        {loadingPeople && (
-          <div className="text-xs text-gray-500">Loading people...</div>
+        {(loadingPeople || loadingRoster) && (
+          <div className="text-xs text-gray-500">
+            {loadingRoster ? "Loading members…" : "Loading people..."}
+          </div>
         )}
       </div>
 

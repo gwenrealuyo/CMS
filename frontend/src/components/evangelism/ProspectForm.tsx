@@ -10,8 +10,10 @@ import {
 } from "react";
 import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import type { Prospect, EvangelismGroup } from "@/src/types/evangelism";
 import type { Person } from "@/src/types/person";
+import { formatPersonName } from "@/src/lib/name";
 import {
   describeDuplicateProspect,
   findPossibleProspectNameDuplicates,
@@ -27,18 +29,6 @@ function todayISO(): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-function personDisplayLabel(p: Person): string {
-  const middleInitial = p.middle_name
-    ? ` ${p.middle_name.trim().charAt(0)}.`
-    : "";
-  const suffixPart =
-    p.suffix && p.suffix.trim().length > 0 ? ` ${p.suffix.trim()}` : "";
-  const base = `${p.first_name ?? ""}${middleInitial} ${
-    p.last_name ?? ""
-  }${suffixPart}`.trim();
-  return base || p.email || p.username || "";
 }
 
 function groupDisplayLabel(g: EvangelismGroup): string {
@@ -166,10 +156,6 @@ export default function ProspectForm({
         },
   );
 
-  const [inviterSearch, setInviterSearch] = useState("");
-  const [showInviterDropdown, setShowInviterDropdown] = useState(false);
-  const inviterDropdownRef = useRef<HTMLDivElement>(null);
-
   const [groupSearch, setGroupSearch] = useState("");
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
   const groupDropdownRef = useRef<HTMLDivElement>(null);
@@ -193,19 +179,9 @@ export default function ProspectForm({
   const inviterCandidates = useMemo(
     () =>
       [...inviters].sort((a, b) =>
-        personDisplayLabel(a).localeCompare(personDisplayLabel(b)),
+        formatPersonName(a).localeCompare(formatPersonName(b)),
       ),
     [inviters],
-  );
-
-  const selectedInviter = inviterCandidates.find(
-    (p) => String(p.id) === values.invited_by_id,
-  );
-
-  const filteredInviters = inviterCandidates.filter((person) =>
-    personDisplayLabel(person)
-      .toLowerCase()
-      .includes(inviterSearch.toLowerCase()),
   );
 
   const groupCandidates = useMemo(
@@ -228,23 +204,17 @@ export default function ProspectForm({
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (
-        inviterDropdownRef.current &&
-        !inviterDropdownRef.current.contains(target)
-      ) {
-        setShowInviterDropdown(false);
-      }
-      if (
         groupDropdownRef.current &&
         !groupDropdownRef.current.contains(target)
       ) {
         setShowGroupDropdown(false);
       }
     };
-    if (showInviterDropdown || showGroupDropdown) {
+    if (showGroupDropdown) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showInviterDropdown, showGroupDropdown]);
+  }, [showGroupDropdown]);
 
   useEffect(() => {
     setValidationError(null);
@@ -266,12 +236,6 @@ export default function ProspectForm({
         [field]: event.target.value,
       }));
     };
-
-  const handleInviterSelect = (personId: string) => {
-    setValues((prev) => ({ ...prev, invited_by_id: personId }));
-    setShowInviterDropdown(false);
-    setInviterSearch("");
-  };
 
   const handleGroupSelect = (groupId: string) => {
     setValues((prev) => ({
@@ -501,38 +465,20 @@ export default function ProspectForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Inviter *
         </label>
-        <div className="relative" ref={inviterDropdownRef}>
-          <input
-            type="text"
-            value={
-              inviterSearch ||
-              (selectedInviter ? personDisplayLabel(selectedInviter) : "")
-            }
-            onChange={(e) => {
-              setInviterSearch(e.target.value);
-              setShowInviterDropdown(true);
-            }}
-            onFocus={() => setShowInviterDropdown(true)}
-            placeholder="Search for inviter..."
-            className={CLUSTER_VISITOR_CONTROL}
-          />
-          {showInviterDropdown && filteredInviters.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {filteredInviters.map((person) => (
-                <button
-                  key={person.id}
-                  type="button"
-                  onClick={() => handleInviterSelect(String(person.id))}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                >
-                  <div className="font-medium text-gray-900">
-                    {personDisplayLabel(person)}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <SearchableSelect
+          value={values.invited_by_id ? String(values.invited_by_id) : ""}
+          onChange={(value) =>
+            setValues((prev) => ({ ...prev, invited_by_id: value }))
+          }
+          options={inviterCandidates.map((p) => ({
+            ...p,
+            id: p.id,
+            username: p.username || p.email || String(p.id),
+          }))}
+          placeholder="Search for inviter..."
+          emptyMessage="No inviter found"
+          showEmptyOption={false}
+        />
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">

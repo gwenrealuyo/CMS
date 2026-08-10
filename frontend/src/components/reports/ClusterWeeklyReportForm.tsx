@@ -6,6 +6,7 @@ import {
   ClusterReportNewProspectInput,
   ClusterReportNewVisitorInput,
   Cluster,
+  ClusterMemberDetail,
   GatheringType,
 } from "@/src/types/cluster";
 import type { Prospect } from "@/src/types/evangelism";
@@ -14,7 +15,12 @@ import {
   getIsoWeekParts,
   getIsoWeekPartsFromDateString,
 } from "@/src/lib/isoWeek";
-import { peopleApi, clusterReportsApi, evangelismApi } from "@/src/lib/api";
+import {
+  peopleApi,
+  clusterReportsApi,
+  evangelismApi,
+  clustersApi,
+} from "@/src/lib/api";
 import {
   buildClusterWeeklyReportPayloadFromFormValues,
   isProspectAttendanceId,
@@ -102,6 +108,35 @@ function mergeReportAttendeesIntoPeople(
 
   appendDetails(initialData.visitors_attended_details, "VISITOR");
   appendDetails(initialData.members_attended_details, "MEMBER");
+
+  return merged;
+}
+
+/** List payloads omit roster fields; detail/retrieve includes arrays (possibly empty). */
+function clusterHasRoster(c?: Cluster | null): boolean {
+  return Boolean(
+    c && (Array.isArray(c.members) || Array.isArray(c.members_details))
+  );
+}
+
+function mergeClusterMembersIntoPeople(
+  people: PersonUI[],
+  membersDetails?: ClusterMemberDetail[]
+): PersonUI[] {
+  if (!membersDetails?.length) return people;
+
+  const existingIds = new Set(people.map((p) => String(p.id)));
+  const merged = [...people];
+
+  for (const detail of membersDetails) {
+    const id = String(detail.id);
+    if (!existingIds.has(id) && isSelectablePerson(detail)) {
+      const defaultRole =
+        detail.role === "VISITOR" ? "VISITOR" : "MEMBER";
+      merged.push(reportAttendeeToPersonUI(detail, defaultRole));
+      existingIds.add(id);
+    }
+  }
 
   return merged;
 }
@@ -214,6 +249,9 @@ export default function ClusterWeeklyReportForm({
   const [mostRecentAttendedMembers, setMostRecentAttendedMembers] = useState<
     string[]
   >([]);
+  const [rosterCluster, setRosterCluster] = useState<Cluster | null>(null);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const rosterCacheRef = useRef<Record<number, Cluster>>({});
 
   // Fetch people data
   useEffect(() => {
@@ -304,16 +342,19 @@ export default function ClusterWeeklyReportForm({
           }
           return [];
         };
+        const prospectParams = {
+          pipeline_stage: "INVITED" as const,
+          is_dropped_off: false,
+          page_size: 500,
+        };
         const [byInviter, byEndorsed] = await Promise.all([
           evangelismApi.listProspects({
+            ...prospectParams,
             inviter_cluster: clusterId,
-            pipeline_stage: "INVITED",
-            is_dropped_off: false,
           }),
           evangelismApi.listProspects({
+            ...prospectParams,
             endorsed_cluster: clusterId,
-            pipeline_stage: "INVITED",
-            is_dropped_off: false,
           }),
         ]);
         if (cancelled) return;
@@ -347,12 +388,69 @@ export default function ClusterWeeklyReportForm({
   });
 
   // Get selected cluster name for display
-  const selectedCluster = clusters.find((c) => c.id === formData.cluster);
+  const selectedCluster = clusters.find(
+    (c) => Number(c.id) === Number(formData.cluster)
+  );
   const selectedClusterDisplay = selectedCluster
     ? selectedCluster.code
       ? `${selectedCluster.code} - ${selectedCluster.name}`
       : selectedCluster.name
     : "";
+
+  // Lazy-load full roster for the selected cluster (list API omits members).
+  useEffect(() => {
+    const clusterId = Number(formData.cluster);
+    if (!clusterId) {
+      setRosterCluster(null);
+      setLoadingRoster(false);
+      return;
+    }
+
+    const cached = rosterCacheRef.current[clusterId];
+    if (cached && clusterHasRoster(cached)) {
+      setRosterCluster(cached);
+      setLoadingRoster(false);
+      return;
+    }
+
+    const candidates: Cluster[] = [];
+    if (cluster && Number(cluster.id) === clusterId) {
+      candidates.push(cluster);
+    }
+    const fromList = clusters.find((c) => Number(c.id) === clusterId);
+    if (fromList) {
+      candidates.push(fromList);
+    }
+
+    const withRoster = candidates.find(clusterHasRoster);
+    if (withRoster) {
+      rosterCacheRef.current[clusterId] = withRoster;
+      setRosterCluster(withRoster);
+      setLoadingRoster(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingRoster(true);
+    setRosterCluster(candidates[0] ?? null);
+
+    (async () => {
+      try {
+        const { data } = await clustersApi.getById(clusterId);
+        if (cancelled) return;
+        rosterCacheRef.current[Number(data.id)] = data;
+        setRosterCluster(data);
+      } catch (error) {
+        console.error("Error loading cluster roster:", error);
+      } finally {
+        if (!cancelled) setLoadingRoster(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.cluster, cluster, clusters]);
 
   useEffect(() => {
     if (cluster) {
@@ -627,8 +725,14 @@ export default function ClusterWeeklyReportForm({
     [formData.prospects_invited]
   );
 
+  const memberPeople = useMemo(
+    () =>
+      mergeClusterMembersIntoPeople(people, rosterCluster?.members_details),
+    [people, rosterCluster?.members_details]
+  );
+
   const visitorOptions = useMemo(() => {
-    const personVisitors = people.filter((p) => p.role === "VISITOR");
+    const personVisitors = memberPeople.filter((p) => p.role === "VISITOR");
     const prospectOptions = clusterProspects
       .filter((p) => !invitedProspectIdsSelected.has(String(p.id)))
       .map(prospectToPersonUI);
@@ -649,7 +753,12 @@ export default function ClusterWeeklyReportForm({
         }) as unknown as PersonUI
     );
     return [...personVisitors, ...prospectOptions, ...pendingVisitorOptions];
-  }, [people, clusterProspects, invitedProspectIdsSelected, pendingNewVisitors]);
+  }, [
+    memberPeople,
+    clusterProspects,
+    invitedProspectIdsSelected,
+    pendingNewVisitors,
+  ]);
 
   const prospectInviteOptions = useMemo(() => {
     const attendedProspectIds = new Set(
@@ -657,9 +766,56 @@ export default function ClusterWeeklyReportForm({
         .filter((id) => isProspectAttendanceId(String(id)))
         .map((id) => prospectIdFromAttendanceId(String(id)))
     );
-    const fromApi = clusterProspects
-      .filter((p) => !attendedProspectIds.has(String(p.id)))
-      .map(prospectToPersonUI);
+    const byId = new Map<string, PersonUI>();
+
+    for (const p of clusterProspects) {
+      if (attendedProspectIds.has(String(p.id))) continue;
+      const ui = prospectToPersonUI(p);
+      byId.set(String(ui.id), ui);
+    }
+
+    // Ensure edit-mode selections remain visible even if not in the INVITED list.
+    for (const detail of initialData?.prospects_invited_details || []) {
+      const attendanceId = toProspectAttendanceId(detail.id);
+      if (attendedProspectIds.has(String(detail.id))) continue;
+      if (byId.has(attendanceId)) continue;
+      const invitedBy =
+        detail.invited_by != null
+          ? `${detail.invited_by.first_name ?? ""} ${
+              detail.invited_by.last_name ?? ""
+            }`.trim()
+          : "Unknown";
+      const stageLabel =
+        detail.pipeline_stage_display ||
+        detail.pipeline_stage ||
+        "INVITED";
+      let displayName = detail.display_name?.trim() || "";
+      if (!displayName) {
+        const middleInitial = detail.middle_name
+          ? ` ${detail.middle_name.trim().charAt(0)}.`
+          : "";
+        const suffixPart =
+          detail.suffix && detail.suffix.trim().length > 0
+            ? ` ${detail.suffix.trim()}`
+            : "";
+        displayName = `${detail.first_name ?? ""}${middleInitial} ${
+          detail.last_name ?? ""
+        }${suffixPart}`.trim();
+      }
+      byId.set(attendanceId, {
+        id: attendanceId,
+        name: `${displayName || "Unknown"} (${stageLabel.toLowerCase()})`,
+        role: "VISITOR",
+        status: "NO_RESPONSE",
+        inviter: detail.invited_by?.id,
+        inviterName: invitedBy || "Unknown",
+        username: "",
+        email: "",
+        first_name: detail.first_name || "",
+        last_name: detail.last_name || "",
+      } as unknown as PersonUI);
+    }
+
     const pendingOptions: PersonUI[] = Object.entries(pendingNewProspects).map(
       ([tempId, payload]) =>
         ({
@@ -674,12 +830,56 @@ export default function ClusterWeeklyReportForm({
           last_name: payload.last_name,
         }) as unknown as PersonUI
     );
-    return [...fromApi, ...pendingOptions];
+    for (const opt of pendingOptions) {
+      byId.set(String(opt.id), opt);
+    }
+    return Array.from(byId.values());
   }, [
     clusterProspects,
     formData.visitors_attended,
     pendingNewProspects,
+    initialData?.prospects_invited_details,
   ]);
+
+  const prospectAllowedIds = useMemo(
+    () => prospectInviteOptions.map((p) => String(p.id)),
+    [prospectInviteOptions]
+  );
+
+  const invitersForProspectForm = useMemo(
+    () =>
+      memberPeople.filter(
+        (p) => p.role !== "VISITOR" && p.role !== "ADMIN"
+      ),
+    [memberPeople]
+  );
+
+  const prospectOptionsForForm = useMemo(() => {
+    const fromCluster = clusterProspects;
+    const fromPending: Prospect[] = Object.entries(pendingNewProspects).map(
+      ([tempId, payload]) =>
+        ({
+          id: `pending:${tempId}`,
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+          middle_name: payload.middle_name || "",
+          contact_info: payload.contact_info || "",
+          facebook_name: payload.facebook_name || "",
+          pipeline_stage: "INVITED",
+          pipeline_stage_display: "Invited",
+          is_dropped_off: false,
+          is_attending_cluster: false,
+          has_finished_lessons: false,
+          commitment_form_signed: false,
+          invited_by: {} as Person,
+          invited_by_id: String(payload.invited_by_id || ""),
+          created_at: "",
+          updated_at: "",
+          display_name: `${payload.first_name} ${payload.last_name}`.trim(),
+        }) as Prospect,
+    );
+    return [...fromCluster, ...fromPending];
+  }, [clusterProspects, pendingNewProspects]);
 
   const handleMembersChange = (ids: string[]) => {
     setFormData((prev) => ({ ...prev, members_attended: ids }));
@@ -799,37 +999,6 @@ export default function ClusterWeeklyReportForm({
   };
 
   if (!isOpen) return null;
-
-  const invitersForProspectForm = people.filter(
-    (p) => p.role !== "VISITOR" && p.role !== "ADMIN"
-  );
-
-  const prospectOptionsForForm = useMemo(() => {
-    const fromCluster = clusterProspects;
-    const fromPending: Prospect[] = Object.entries(pendingNewProspects).map(
-      ([tempId, payload]) =>
-        ({
-          id: `pending:${tempId}`,
-          first_name: payload.first_name,
-          last_name: payload.last_name,
-          middle_name: payload.middle_name || "",
-          contact_info: payload.contact_info || "",
-          facebook_name: payload.facebook_name || "",
-          pipeline_stage: "INVITED",
-          pipeline_stage_display: "Invited",
-          is_dropped_off: false,
-          is_attending_cluster: false,
-          has_finished_lessons: false,
-          commitment_form_signed: false,
-          invited_by: {} as Person,
-          invited_by_id: String(payload.invited_by_id || ""),
-          created_at: "",
-          updated_at: "",
-          display_name: `${payload.first_name} ${payload.last_name}`.trim(),
-        }) as Prospect,
-    );
-    return [...fromCluster, ...fromPending];
-  }, [clusterProspects, pendingNewProspects]);
 
   return (
     <form
@@ -983,10 +1152,11 @@ export default function ClusterWeeklyReportForm({
             selectedIds={(formData.members_attended || []).map((id) =>
               String(id)
             )}
-            availablePeople={people}
+            availablePeople={memberPeople}
             filterRole="MEMBER"
             onSelectionChange={handleMembersChange}
-            selectedCluster={(selectedCluster as any) || undefined}
+            selectedCluster={rosterCluster || undefined}
+            isLoadingRoster={loadingRoster}
             previouslyAttendedIds={previouslyAttendedMembers}
             mostRecentAttendedIds={mostRecentAttendedMembers}
           />
@@ -1023,7 +1193,7 @@ export default function ClusterWeeklyReportForm({
               filterRole="VISITOR"
               onSelectionChange={handleVisitorsChange}
               className="mb-0"
-              selectedCluster={(selectedCluster as any) || undefined}
+              selectedCluster={rosterCluster || undefined}
               previouslyAttendedIds={previouslyAttendedVisitors}
               mostRecentAttendedIds={mostRecentAttendedVisitors}
             />
@@ -1065,7 +1235,7 @@ export default function ClusterWeeklyReportForm({
               filterRole="VISITOR"
               onSelectionChange={handleProspectsInvitedChange}
               className="mb-0"
-              selectedCluster={(selectedCluster as any) || undefined}
+              allowedIds={prospectAllowedIds}
             />
           </div>
         </>

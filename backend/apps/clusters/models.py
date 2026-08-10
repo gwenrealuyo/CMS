@@ -131,7 +131,8 @@ class ClusterWeeklyReport(models.Model):
         if total_members == 0:
             return 0.0  # Avoid division by zero
         members_attended_count = self.members_attended.exclude(role="ADMIN").count()
-        return round((members_attended_count / total_members) * 100, 2)
+        # Cap at 100% when attended exceeds current roster (stale membership, etc.)
+        return min(100.0, round((members_attended_count / total_members) * 100, 2))
 
     class Meta:
         unique_together = ["cluster", "year", "week_number"]

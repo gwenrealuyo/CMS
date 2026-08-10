@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 from rest_framework.test import APIRequestFactory
 from datetime import date, timedelta
 
-from .models import Cluster, ClusterWeeklyReport
+from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.people.models import Family, Branch, ModuleCoordinator, Journey
 from apps.clusters.serializers import ClusterSerializer
 from apps.people.serializers import PersonSerializer
@@ -193,6 +193,21 @@ class ClusterWeeklyReportModelTests(TestCase):
 
         # 2 members total, 2 attended = 100%
         report.members_attended.add(self.member2)
+        self.assertEqual(report.member_attendance_rate, 100.0)
+
+    def test_member_attendance_rate_clamped_at_100(self):
+        today = date.today()
+        # Only one person remains on the roster; both still marked attended.
+        self.cluster.members.remove(self.member2)
+        report = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=today.year,
+            week_number=today.isocalendar()[1],
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            submitted_by=self.coordinator,
+        )
+        report.members_attended.add(self.member1, self.member2)
         self.assertEqual(report.member_attendance_rate, 100.0)
 
     def test_member_attendance_rate_zero_members(self):
@@ -888,6 +903,9 @@ class ClusterWeeklyReportAPITests(TestCase):
         self.assertEqual(cs["monthly_attendance"][0]["members"], 1)
         self.assertEqual(len(cs["cluster_comparison"]), 1)
         self.assertEqual(cs["cluster_comparison"][0]["sum_members_attended"], 1)
+        self.assertEqual(cs["cluster_comparison"][0]["member_count"], 1)
+        self.assertEqual(cs["cluster_comparison"][0]["attendance_rate"], 100.0)
+        self.assertEqual(response.data["average_member_attendance_rate"], 100.0)
 
     def test_analytics_aggregate_sums_across_multiple_reports(self):
         visitor = Person.objects.create_user(
@@ -929,6 +947,8 @@ class ClusterWeeklyReportAPITests(TestCase):
         self.assertEqual(response.data["average_attendance"]["avg_members"], 1.5)
         self.assertEqual(response.data["average_attendance"]["avg_visitors"], 0.5)
         self.assertEqual(float(response.data["total_offerings"]), 500.0)
+        # Visitor sync expands roster to 2; rates: 50% + 100% → 75% avg
+        self.assertEqual(response.data["average_member_attendance_rate"], 75.0)
 
         cs = response.data["chart_series"]
         self.assertEqual(len(cs["monthly_attendance"]), 1)
@@ -937,6 +957,39 @@ class ClusterWeeklyReportAPITests(TestCase):
         self.assertEqual(len(cs["cluster_comparison"]), 1)
         self.assertEqual(cs["cluster_comparison"][0]["report_count"], 2)
         self.assertEqual(cs["cluster_comparison"][0]["sum_members_attended"], 3)
+        self.assertEqual(cs["cluster_comparison"][0]["member_count"], 2)
+        self.assertEqual(cs["cluster_comparison"][0]["attendance_rate"], 75.0)
+
+    def test_analytics_attendance_rate_clamped_when_attended_exceeds_roster(self):
+        """Attended count > current roster must not yield rates above 100%."""
+        extra = Person.objects.create_user(
+            username="extra_member",
+            email="extra_member@example.com",
+            password="password123",
+            first_name="Extra",
+            last_name="Member",
+            role="MEMBER",
+        )
+        today = date.today()
+        report = ClusterWeeklyReport.objects.create(
+            cluster=self.cluster,
+            year=today.year,
+            week_number=12,
+            meeting_date=today,
+            gathering_type="PHYSICAL",
+            offerings=Decimal("0"),
+            submitted_by=self.coordinator,
+        )
+        # Roster has only self.member; mark two people attended.
+        report.members_attended.add(self.member, extra)
+
+        response = self.client.get("/api/clusters/cluster-weekly-reports/analytics/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["average_member_attendance_rate"], 100.0)
+        row = response.data["chart_series"]["cluster_comparison"][0]
+        self.assertEqual(row["member_count"], 1)
+        self.assertEqual(row["attendance_rate"], 100.0)
+        self.assertLessEqual(row["attendance_rate"], 100.0)
 
     def test_analytics_chart_series_two_months_two_clusters(self):
         cluster2 = Cluster.objects.create(
@@ -987,8 +1040,12 @@ class ClusterWeeklyReportAPITests(TestCase):
         by_id = {c["cluster_id"]: c for c in cc}
         self.assertEqual(by_id[self.cluster.id]["report_count"], 1)
         self.assertEqual(by_id[self.cluster.id]["sum_members_attended"], 1)
+        self.assertEqual(by_id[self.cluster.id]["attendance_rate"], 100.0)
         self.assertEqual(by_id[cluster2.id]["report_count"], 1)
         self.assertEqual(by_id[cluster2.id]["sum_members_attended"], 2)
+        # 2 attended / 1 roster → clamped
+        self.assertEqual(by_id[cluster2.id]["attendance_rate"], 100.0)
+        self.assertEqual(response.data["average_member_attendance_rate"], 100.0)
 
     def test_overdue_endpoint(self):
         response = self.client.get("/api/clusters/cluster-weekly-reports/overdue/")

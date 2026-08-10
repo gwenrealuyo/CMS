@@ -208,6 +208,9 @@ export interface ClusterAnalyticsClusterRow {
   cluster_label: string;
   report_count: number;
   sum_members_attended: number;
+  member_count?: number;
+  /** Percent 0–100, server-computed and clamped. */
+  attendance_rate?: number;
 }
 
 export interface ClusterAnalyticsChartSeries {
@@ -225,6 +228,8 @@ export interface ClusterAnalytics {
     avg_members: number;
     avg_visitors: number;
   };
+  /** Mean of per-report member attendance rates (0–100), clamped. */
+  average_member_attendance_rate?: number;
   total_offerings: number;
   gathering_type_distribution: Array<{
     gathering_type: string;

@@ -692,15 +692,18 @@ export default function ClusterReportsDashboard({
       return rows
         .map((row) => {
           const cluster = clustersForFilters.find((c) => c.id === row.cluster_id);
-          const totalMembers = cluster?.members?.length || 1;
           const rc = row.report_count;
           const sum = row.sum_members_attended;
           const attendanceRate =
-            totalMembers > 0 && rc > 0
-              ? Math.round((sum / (totalMembers * rc)) * 100)
+            typeof row.attendance_rate === "number"
+              ? Math.min(100, Math.round(row.attendance_rate))
               : 0;
           return {
-            cluster: row.cluster_label,
+            cluster:
+              cluster?.code ||
+              (row.cluster_label.includes(" - ")
+                ? row.cluster_label.split(" - ")[0]
+                : row.cluster_label),
             attendanceRate,
             avgAttendance: rc > 0 ? Math.round(sum / rc) : 0,
           };
@@ -715,11 +718,11 @@ export default function ClusterReportsDashboard({
     reports.forEach((report) => {
       const clusterId = report.cluster?.toString() || "";
       const cluster = clustersForFilters.find((c) => c.id.toString() === clusterId);
-      const clusterName =
-        cluster?.name || cluster?.code || `Cluster ${clusterId}`;
+      const clusterLabel =
+        cluster?.code || cluster?.name || `Cluster ${clusterId}`;
       if (!clusterData[clusterId]) {
         clusterData[clusterId] = {
-          cluster: clusterName,
+          cluster: clusterLabel,
           attendanceRate: 0,
           avgAttendance: 0,
         };
@@ -735,15 +738,16 @@ export default function ClusterReportsDashboard({
         clusterData[clusterId].avgAttendance = Math.round(
           clusterData[clusterId].avgAttendance / clusterReports.length,
         );
-        const cluster = clustersForFilters.find((c) => c.id.toString() === clusterId);
-        const totalMembers = cluster?.members?.length || 1;
-        const totalAttendance =
-          clusterData[clusterId].avgAttendance * clusterReports.length;
+        const rates = clusterReports
+          .map((r) => r.member_attendance_rate)
+          .filter((rate): rate is number => typeof rate === "number");
         clusterData[clusterId].attendanceRate =
-          totalMembers > 0
-            ? Math.round(
-                (totalAttendance / (totalMembers * clusterReports.length)) *
-                  100,
+          rates.length > 0
+            ? Math.min(
+                100,
+                Math.round(
+                  rates.reduce((sum, rate) => sum + rate, 0) / rates.length,
+                ),
               )
             : 0;
       }
@@ -1151,32 +1155,12 @@ export default function ClusterReportsDashboard({
               ? analytics.total_reports
               : Math.round((analytics.total_reports / 12) * 10) / 10;
 
-            const filteredClusters = selectedClusterFilter
-              ? clustersForFilters.filter(
-                  (c) => c.id.toString() === selectedClusterFilter,
-                )
-              : clustersForFilters;
-
-            const avgMembersPerCluster =
-              filteredClusters.length > 0
-                ? filteredClusters.reduce(
-                    (sum, c) => sum + (c.members?.length || 0),
-                    0,
-                  ) / filteredClusters.length
-                : 0;
-
-            const totalPossibleMemberAttendances =
-              analytics.total_reports * avgMembersPerCluster;
-
-            const memberAttendanceRate =
-              totalPossibleMemberAttendances > 0
-                ? Math.round(
-                    (analytics.total_attendance.members /
-                      totalPossibleMemberAttendances) *
-                      100 *
-                      10,
-                  ) / 10
-                : 0;
+            const memberAttendanceRate = Math.min(
+              100,
+              typeof analytics.average_member_attendance_rate === "number"
+                ? Math.round(analytics.average_member_attendance_rate * 10) / 10
+                : 0,
+            );
 
             const visitorCountPerMonth = selectedMonth
               ? analytics.total_attendance.visitors

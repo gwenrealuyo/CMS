@@ -458,6 +458,46 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             )
         }
 
+        # Non-ADMIN roster sizes and attended counts (match member_attendance_rate).
+        cluster_ids = list(queryset.values_list("cluster_id", flat=True).distinct())
+        roster_by_cluster = {
+            row["id"]: row["mc"]
+            for row in Cluster.objects.filter(id__in=cluster_ids)
+            .annotate(
+                mc=Count(
+                    "members",
+                    filter=~Q(members__role="ADMIN"),
+                    distinct=True,
+                )
+            )
+            .values("id", "mc")
+        }
+        non_admin_member_links = member_links.exclude(person__role="ADMIN")
+        attended_per_report = {
+            row["clusterweeklyreport_id"]: row["c"]
+            for row in non_admin_member_links.values(
+                "clusterweeklyreport_id"
+            ).annotate(c=Count("id"))
+        }
+        non_admin_attended_by_cluster = {
+            row["clusterweeklyreport__cluster_id"]: row["sum_members_attended"]
+            for row in non_admin_member_links.values(
+                "clusterweeklyreport__cluster_id"
+            ).annotate(sum_members_attended=Count("id"))
+        }
+
+        report_rates = []
+        for report in queryset.values("id", "cluster_id"):
+            roster = roster_by_cluster.get(report["cluster_id"], 0) or 0
+            attended = attended_per_report.get(report["id"], 0) or 0
+            if roster == 0:
+                report_rates.append(0.0)
+            else:
+                report_rates.append(min(100.0, (attended / roster) * 100))
+        average_member_attendance_rate = (
+            round(sum(report_rates) / len(report_rates), 1) if report_rates else 0.0
+        )
+
         cluster_comparison = []
         cluster_qs = (
             queryset.values("cluster_id", "cluster__name", "cluster__code")
@@ -476,14 +516,24 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 label = code
             else:
                 label = f"Cluster {cid}"
+            rc = row["report_count"]
+            member_count = int(roster_by_cluster.get(cid, 0) or 0)
+            sum_attended = int(member_counts_by_cluster.get(cid, 0))
+            non_admin_sum = int(non_admin_attended_by_cluster.get(cid, 0))
+            denom = member_count * rc
+            attendance_rate = (
+                min(100.0, round((non_admin_sum / denom) * 100, 1))
+                if denom > 0
+                else 0.0
+            )
             cluster_comparison.append(
                 {
                     "cluster_id": cid,
                     "cluster_label": label,
-                    "report_count": row["report_count"],
-                    "sum_members_attended": int(
-                        member_counts_by_cluster.get(cid, 0)
-                    ),
+                    "report_count": rc,
+                    "sum_members_attended": sum_attended,
+                    "member_count": member_count,
+                    "attendance_rate": attendance_rate,
                 }
             )
 
@@ -497,6 +547,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
                 "avg_members": round(avg_members, 2),
                 "avg_visitors": round(avg_visitors, 2),
             },
+            "average_member_attendance_rate": average_member_attendance_rate,
             "total_offerings": queryset.aggregate(total=Sum("offerings"))["total"] or 0,
             "gathering_type_distribution": list(
                 queryset.values("gathering_type").annotate(count=Count("id"))

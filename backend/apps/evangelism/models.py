@@ -141,6 +141,9 @@ class EvangelismWeeklyReport(models.Model):
         ordering = ["-year", "-week_number"]
         verbose_name = "Evangelism Weekly Report"
         verbose_name_plural = "Evangelism Weekly Reports"
+        indexes = [
+            models.Index(fields=["year", "week_number"]),
+        ]
 
     def __str__(self):
         return f"{self.evangelism_group.name} - {self.year} Week {self.week_number}"

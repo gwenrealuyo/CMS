@@ -1,8 +1,8 @@
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from django.db.models import Min, Q
-from django.db.models.functions import Greatest
+from django.db.models import Count, Min, Q, Sum
+from django.db.models.functions import Coalesce, Greatest
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.pagination import PageNumberPagination
@@ -876,47 +876,25 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         serializer = EvangelismTallyDrilldownSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
-    @action(detail=False, methods=["get"])
-    def tally(self, request):
-        """Unified weekly tally for evangelism + cluster reports."""
-        cluster_id = request.query_params.get("cluster")
-        year = request.query_params.get("year")
-        week_number = request.query_params.get("week_number")
-
-        evangelism_qs = EvangelismWeeklyReport.objects.select_related(
-            "evangelism_group", "evangelism_group__cluster"
-        ).prefetch_related("members_attended", "visitors_attended")
-        cluster_qs = ClusterWeeklyReport.objects.select_related("cluster").prefetch_related(
-            "members_attended", "visitors_attended"
-        )
-
-        if year:
-            evangelism_qs = evangelism_qs.filter(year=year)
-            cluster_qs = cluster_qs.filter(year=year)
-        if week_number:
-            evangelism_qs = evangelism_qs.filter(week_number=week_number)
-            cluster_qs = cluster_qs.filter(week_number=week_number)
-
-        cluster = None
-        if cluster_id:
-            try:
-                cluster = Cluster.objects.get(id=cluster_id)
-            except Cluster.DoesNotExist:
-                cluster = None
-
-        if cluster:
-            evangelism_qs = evangelism_qs.filter(evangelism_group__cluster=cluster)
-            cluster_qs = cluster_qs.filter(cluster=cluster)
-
+    @staticmethod
+    def _build_weekly_tally_rows(evangelism_qs, cluster_qs):
+        """Aggregate evangelism + cluster weekly reports without per-report M2M queries."""
         tallies = {}
 
-        def get_entry(cluster_obj, year_val, week_val):
-            key = (cluster_obj.id if cluster_obj else None, int(year_val), int(week_val))
+        def ensure_entry(cluster_id, cluster_name, cluster_code, year_val, week_val):
+            key = (cluster_id, int(year_val), int(week_val))
             if key not in tallies:
+                if cluster_id is None:
+                    resolved_name = "Unassigned"
+                    resolved_code = "Unassigned"
+                else:
+                    # Preserve blank names/codes; only Unassigned when there is no cluster.
+                    resolved_name = cluster_name
+                    resolved_code = cluster_code
                 tallies[key] = {
-                    "cluster_id": cluster_obj.id if cluster_obj else None,
-                    "cluster_name": cluster_obj.name if cluster_obj else "Unassigned",
-                    "cluster_code": cluster_obj.code if cluster_obj else "Unassigned",
+                    "cluster_id": cluster_id,
+                    "cluster_name": resolved_name,
+                    "cluster_code": resolved_code,
                     "year": int(year_val),
                     "week_number": int(week_val),
                     "meeting_dates": [],
@@ -930,23 +908,136 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 }
             return tallies[key]
 
-        for report in evangelism_qs:
-            entry = get_entry(report.evangelism_group.cluster, report.year, report.week_number)
-            entry["meeting_dates"].append(report.meeting_date)
-            entry["gathering_types"].add(report.gathering_type)
-            entry["members_set"].update(report.members_attended.values_list("id", flat=True))
-            entry["visitors_set"].update(report.visitors_attended.values_list("id", flat=True))
-            entry["evangelism_reports_count"] += 1
-            entry["new_prospects"] += report.new_prospects or 0
-            entry["conversions_this_week"] += report.conversions_this_week or 0
+        for row in evangelism_qs.values(
+            "evangelism_group__cluster_id",
+            "evangelism_group__cluster__name",
+            "evangelism_group__cluster__code",
+            "year",
+            "week_number",
+        ).annotate(
+            evangelism_reports_count=Count("id"),
+            new_prospects=Coalesce(Sum("new_prospects"), 0),
+            conversions_this_week=Coalesce(Sum("conversions_this_week"), 0),
+            meeting_date=Min("meeting_date"),
+        ):
+            cluster_id = row["evangelism_group__cluster_id"]
+            entry = ensure_entry(
+                cluster_id,
+                row["evangelism_group__cluster__name"],
+                row["evangelism_group__cluster__code"],
+                row["year"],
+                row["week_number"],
+            )
+            entry["evangelism_reports_count"] += row["evangelism_reports_count"]
+            entry["new_prospects"] += row["new_prospects"] or 0
+            entry["conversions_this_week"] += row["conversions_this_week"] or 0
+            if row["meeting_date"] is not None:
+                entry["meeting_dates"].append(row["meeting_date"])
 
-        for report in cluster_qs:
-            entry = get_entry(report.cluster, report.year, report.week_number)
-            entry["meeting_dates"].append(report.meeting_date)
-            entry["gathering_types"].add(report.gathering_type)
-            entry["members_set"].update(report.members_attended.values_list("id", flat=True))
-            entry["visitors_set"].update(report.visitors_attended.values_list("id", flat=True))
-            entry["cluster_reports_count"] += 1
+        for row in cluster_qs.values(
+            "cluster_id",
+            "cluster__name",
+            "cluster__code",
+            "year",
+            "week_number",
+        ).annotate(
+            cluster_reports_count=Count("id"),
+            meeting_date=Min("meeting_date"),
+        ):
+            entry = ensure_entry(
+                row["cluster_id"],
+                row["cluster__name"],
+                row["cluster__code"],
+                row["year"],
+                row["week_number"],
+            )
+            entry["cluster_reports_count"] += row["cluster_reports_count"]
+            if row["meeting_date"] is not None:
+                entry["meeting_dates"].append(row["meeting_date"])
+
+        for cluster_id, year_val, week_val, gathering_type in evangelism_qs.values_list(
+            "evangelism_group__cluster_id",
+            "year",
+            "week_number",
+            "gathering_type",
+        ):
+            key = (cluster_id, int(year_val), int(week_val))
+            entry = tallies.get(key)
+            if entry is not None and gathering_type:
+                entry["gathering_types"].add(gathering_type)
+
+        for cluster_id, year_val, week_val, gathering_type in cluster_qs.values_list(
+            "cluster_id",
+            "year",
+            "week_number",
+            "gathering_type",
+        ):
+            key = (cluster_id, int(year_val), int(week_val))
+            entry = tallies.get(key)
+            if entry is not None and gathering_type:
+                entry["gathering_types"].add(gathering_type)
+
+        report_ids = evangelism_qs.values("id")
+        for cluster_id, year_val, week_val, person_id in (
+            EvangelismWeeklyReport.members_attended.through.objects.filter(
+                evangelismweeklyreport_id__in=report_ids
+            ).values_list(
+                "evangelismweeklyreport__evangelism_group__cluster_id",
+                "evangelismweeklyreport__year",
+                "evangelismweeklyreport__week_number",
+                "person_id",
+            )
+        ):
+            key = (cluster_id, int(year_val), int(week_val))
+            entry = tallies.get(key)
+            if entry is not None and person_id is not None:
+                entry["members_set"].add(person_id)
+
+        for cluster_id, year_val, week_val, person_id in (
+            EvangelismWeeklyReport.visitors_attended.through.objects.filter(
+                evangelismweeklyreport_id__in=report_ids
+            ).values_list(
+                "evangelismweeklyreport__evangelism_group__cluster_id",
+                "evangelismweeklyreport__year",
+                "evangelismweeklyreport__week_number",
+                "person_id",
+            )
+        ):
+            key = (cluster_id, int(year_val), int(week_val))
+            entry = tallies.get(key)
+            if entry is not None and person_id is not None:
+                entry["visitors_set"].add(person_id)
+
+        cluster_report_ids = cluster_qs.values("id")
+        for cluster_id, year_val, week_val, person_id in (
+            ClusterWeeklyReport.members_attended.through.objects.filter(
+                clusterweeklyreport_id__in=cluster_report_ids
+            ).values_list(
+                "clusterweeklyreport__cluster_id",
+                "clusterweeklyreport__year",
+                "clusterweeklyreport__week_number",
+                "person_id",
+            )
+        ):
+            key = (cluster_id, int(year_val), int(week_val))
+            entry = tallies.get(key)
+            if entry is not None and person_id is not None:
+                entry["members_set"].add(person_id)
+
+        for cluster_id, year_val, week_val, person_id in (
+            ClusterWeeklyReport.visitors_attended.through.objects.filter(
+                clusterweeklyreport_id__in=cluster_report_ids
+            ).values_list(
+                "clusterweeklyreport__cluster_id",
+                "clusterweeklyreport__year",
+                "clusterweeklyreport__week_number",
+                "person_id",
+            )
+        ):
+            key = (cluster_id, int(year_val), int(week_val))
+            entry = tallies.get(key)
+            if entry is not None and person_id is not None:
+                entry["visitors_set"].add(person_id)
 
         rows = []
         for entry in tallies.values():
@@ -979,6 +1070,37 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             )
 
         rows.sort(key=lambda r: (r["year"], r["week_number"]), reverse=True)
+        return rows
+
+    @action(detail=False, methods=["get"])
+    def tally(self, request):
+        """Unified weekly tally for evangelism + cluster reports."""
+        cluster_id = request.query_params.get("cluster")
+        year = request.query_params.get("year")
+        week_number = request.query_params.get("week_number")
+
+        evangelism_qs = EvangelismWeeklyReport.objects.all()
+        cluster_qs = ClusterWeeklyReport.objects.all()
+
+        if year:
+            evangelism_qs = evangelism_qs.filter(year=year)
+            cluster_qs = cluster_qs.filter(year=year)
+        if week_number:
+            evangelism_qs = evangelism_qs.filter(week_number=week_number)
+            cluster_qs = cluster_qs.filter(week_number=week_number)
+
+        cluster = None
+        if cluster_id:
+            try:
+                cluster = Cluster.objects.get(id=cluster_id)
+            except Cluster.DoesNotExist:
+                cluster = None
+
+        if cluster:
+            evangelism_qs = evangelism_qs.filter(evangelism_group__cluster=cluster)
+            cluster_qs = cluster_qs.filter(cluster=cluster)
+
+        rows = self._build_weekly_tally_rows(evangelism_qs, cluster_qs)
         serializer = EvangelismTallySerializer(rows, many=True)
         return Response(serializer.data)
 

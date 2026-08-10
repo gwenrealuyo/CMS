@@ -22,10 +22,7 @@ import {
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
-import {
-  getInitialListViewMode,
-  useIsMdUp,
-} from "@/src/lib/listViewMode";
+import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
 
 const MONTH_NAMES = [
   "January",
@@ -249,7 +246,7 @@ export default function PeopleTallyReport({
         type="button"
         className={
           emphasizeCountCells
-            ? "text-base font-bold text-primary hover:text-primary hover:underline"
+            ? "text-base font-medium text-primary hover:text-primary hover:underline"
             : "text-sm font-medium text-primary hover:text-primary hover:underline"
         }
         onClick={() => openDrilldown(row, metric, label, count)}
@@ -469,7 +466,10 @@ export default function PeopleTallyReport({
         ) : (
           <>
             <div className="mb-3 flex flex-col gap-2 md:hidden">
-              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              <ViewModeToggle
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
               {viewMode === "table" && (
                 <span className="text-xs text-gray-500">
                   Table scrolls horizontally.
@@ -548,9 +548,7 @@ export default function PeopleTallyReport({
         highlightMonth={
           drilldown?.metric === "unique_hc" ? drilldown.month : null
         }
-        highlightYear={
-          drilldown?.metric === "unique_hc" ? selectedYear : null
-        }
+        highlightYear={drilldown?.metric === "unique_hc" ? selectedYear : null}
         onClose={() => setDrilldown(null)}
         fetchPage={fetchDrilldownPage}
       />

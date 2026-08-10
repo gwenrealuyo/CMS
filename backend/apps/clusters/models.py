@@ -137,6 +137,9 @@ class ClusterWeeklyReport(models.Model):
     class Meta:
         unique_together = ["cluster", "year", "week_number"]
         ordering = ["-year", "-week_number"]
+        indexes = [
+            models.Index(fields=["year", "week_number"]),
+        ]
 
     def __str__(self):
         return f"{self.cluster.name} - {self.year} Week {self.week_number}"

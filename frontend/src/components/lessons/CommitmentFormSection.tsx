@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
@@ -17,6 +20,7 @@ export default function CommitmentFormSection({
   commitmentError,
   onOpenModal,
 }: CommitmentFormSectionProps) {
+  const [downloading, setDownloading] = useState(false);
   const commitmentUrl = commitmentSettings?.commitment_form_url ?? "";
   const hasCommitmentForm = Boolean(commitmentUrl && !commitmentLoading);
   const uploadedAt = commitmentSettings?.updated_at
@@ -25,6 +29,33 @@ export default function CommitmentFormSection({
   const fileName = commitmentUrl
     ? decodeURIComponent(commitmentUrl.split("/").pop() || "commitment-form")
     : "commitment-form";
+
+  const handleDownload = async () => {
+    if (!commitmentUrl || downloading) return;
+    setDownloading(true);
+    try {
+      // `download` on <a> is ignored for cross-origin URLs (frontend ≠ API host),
+      // so fetch the file and trigger a same-origin blob download instead.
+      const response = await fetch(commitmentUrl);
+      if (!response.ok) {
+        throw new Error(`Download failed (${response.status})`);
+      }
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+    } catch {
+      // Fallback: open the PDF if blob download is blocked (e.g. CORS).
+      window.open(commitmentUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <Card title="Commitment Forms">
@@ -54,22 +85,23 @@ export default function CommitmentFormSection({
                   )}
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <a href={commitmentUrl} target="_blank" rel="noopener noreferrer">
-                    <Button
-                      variant="secondary"
-                      className="w-full sm:w-auto min-h-[44px] text-sm"
-                    >
-                      View Form
-                    </Button>
-                  </a>
-                  <a href={commitmentUrl} download={fileName}>
-                    <Button
-                      variant="secondary"
-                      className="w-full sm:w-auto min-h-[44px] text-sm"
-                    >
-                      Download Form
-                    </Button>
-                  </a>
+                  <Button
+                    variant="secondary"
+                    className="w-full sm:w-auto min-h-[44px] text-sm"
+                    onClick={() =>
+                      window.open(commitmentUrl, "_blank", "noopener,noreferrer")
+                    }
+                  >
+                    View Form
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full sm:w-auto min-h-[44px] text-sm"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                  >
+                    {downloading ? "Downloading…" : "Download Form"}
+                  </Button>
                   <Button
                     onClick={onOpenModal}
                     className="w-full sm:w-auto min-h-[44px] text-sm"
@@ -97,5 +129,3 @@ export default function CommitmentFormSection({
     </Card>
   );
 }
-
-

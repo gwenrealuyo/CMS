@@ -5,6 +5,7 @@ import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import { resolveCommitmentFormUrl } from "@/src/lib/lessonsUtils";
 import { LessonCommitmentSettings } from "@/src/types/lesson";
 
 interface CommitmentFormSectionProps {
@@ -14,6 +15,9 @@ interface CommitmentFormSectionProps {
   onOpenModal: () => void;
 }
 
+const secondaryLinkClassName =
+  "px-4 py-2.5 md:py-2 rounded-md font-medium transition-colors duration-200 min-h-[44px] md:min-h-0 flex items-center justify-center bg-[#4A5568] text-white hover:bg-[#2D3748] w-full sm:w-auto text-sm";
+
 export default function CommitmentFormSection({
   commitmentSettings,
   commitmentLoading,
@@ -21,7 +25,10 @@ export default function CommitmentFormSection({
   onOpenModal,
 }: CommitmentFormSectionProps) {
   const [downloading, setDownloading] = useState(false);
-  const commitmentUrl = commitmentSettings?.commitment_form_url ?? "";
+  const commitmentUrl = resolveCommitmentFormUrl(
+    commitmentSettings?.commitment_form_url ||
+      commitmentSettings?.commitment_form,
+  );
   const hasCommitmentForm = Boolean(commitmentUrl && !commitmentLoading);
   const uploadedAt = commitmentSettings?.updated_at
     ? new Date(commitmentSettings.updated_at).toLocaleString()
@@ -34,8 +41,7 @@ export default function CommitmentFormSection({
     if (!commitmentUrl || downloading) return;
     setDownloading(true);
     try {
-      // `download` on <a> is ignored for cross-origin URLs (frontend ≠ API host),
-      // so fetch the file and trigger a same-origin blob download instead.
+      // HTML download= is ignored for cross-origin URLs (frontend ≠ API host).
       const response = await fetch(commitmentUrl);
       if (!response.ok) {
         throw new Error(`Download failed (${response.status})`);
@@ -85,15 +91,15 @@ export default function CommitmentFormSection({
                   )}
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Button
-                    variant="secondary"
-                    className="w-full sm:w-auto min-h-[44px] text-sm"
-                    onClick={() =>
-                      window.open(commitmentUrl, "_blank", "noopener,noreferrer")
-                    }
+                  {/* Real <a> (not button-in-anchor) so View always navigates. */}
+                  <a
+                    href={commitmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={secondaryLinkClassName}
                   >
                     View Form
-                  </Button>
+                  </a>
                   <Button
                     variant="secondary"
                     className="w-full sm:w-auto min-h-[44px] text-sm"

@@ -228,3 +228,30 @@ export function enrollmentByStudentId(
   }
   return map;
 }
+
+/**
+ * Build a browser-reachable media URL for the commitment PDF.
+ * Prefers the API origin from NEXT_PUBLIC_API_URL so view/download still work
+ * when Django's build_absolute_uri() returns an internal or wrong host.
+ */
+export function resolveCommitmentFormUrl(
+  url: string | null | undefined,
+): string {
+  if (!url) return "";
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+  try {
+    const apiOrigin = new URL(apiBase).origin;
+    const parsed = new URL(url, apiOrigin);
+    const mediaIndex = parsed.pathname.indexOf("/media/");
+    if (mediaIndex >= 0) {
+      return `${apiOrigin}${parsed.pathname.slice(mediaIndex)}${parsed.search}`;
+    }
+    if (parsed.pathname.startsWith("media/")) {
+      return `${apiOrigin}/${parsed.pathname}${parsed.search}`;
+    }
+    return parsed.href;
+  } catch {
+    return url;
+  }
+}

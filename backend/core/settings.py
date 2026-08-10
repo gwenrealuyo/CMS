@@ -109,7 +109,8 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 # Calendar-day milestones (lessons finished, journey dates, etc.) use this zone
-# when deriving a date from a datetime. Branch-level TZ can replace this later.
+# when deriving a date from a datetime. Single global default for now; per-branch
+# TZ is planned — see docs/FUTURE_IMPROVEMENTS.md ("Per-branch … church calendar").
 CHURCH_TIME_ZONE = os.getenv("CHURCH_TIME_ZONE", "Asia/Manila")
 USE_I18N = True
 USE_TZ = True

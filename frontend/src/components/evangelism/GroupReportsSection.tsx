@@ -5,6 +5,7 @@ import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
 import { EvangelismWeeklyReport } from "@/src/types/evangelism";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface GroupReportsSectionProps {
   reports: EvangelismWeeklyReport[];
@@ -76,7 +77,7 @@ export default function GroupReportsSection({
                     title="Click to view report details"
                   >
                     {value ?
-                      new Date(value as string).toLocaleDateString()
+                      formatLocaleDate(value as string)
                     : "N/A"}
                   </button>
                 ),

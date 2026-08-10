@@ -5,6 +5,8 @@ from typing import Dict, Iterable, List, Optional, TypedDict
 from django.db.models import Sum, F, QuerySet, Count, Avg
 from django.db.models.functions import TruncWeek, Coalesce
 
+from core.datetime_utils import church_calendar_date
+
 from .models import Donation, Offering, Pledge, PledgeContribution
 
 
@@ -127,8 +129,8 @@ def weekly_offering_totals(
     results: List[OfferingWeeklyTotal] = []
     for row in annotated:
         week_start = row["week_start"]
-        if week_start and hasattr(week_start, "date"):
-            week_start = week_start.date()
+        if week_start is not None:
+            week_start = church_calendar_date(week_start)
         results.append(
             OfferingWeeklyTotal(
                 week_start=week_start,

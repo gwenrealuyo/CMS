@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import Card from "@/src/components/ui/Card";
 import { Offering } from "@/src/types/finance";
 import { ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface OfferingTableProps {
   offerings: Offering[];
@@ -185,7 +186,7 @@ export default function OfferingTable({
                           {offering.serviceName}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          {new Date(offering.serviceDate).toLocaleDateString()}
+                          {formatLocaleDate(offering.serviceDate)}
                         </div>
                       </button>
                     ) : (
@@ -194,7 +195,7 @@ export default function OfferingTable({
                           {offering.serviceName}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {new Date(offering.serviceDate).toLocaleDateString()}
+                          {formatLocaleDate(offering.serviceDate)}
                         </div>
                       </>
                     )}

@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 
 from django.http import HttpResponse
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 from rest_framework import status as http_status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -168,7 +170,7 @@ class ComplianceView(APIView):
     permission_classes = [IsReportsViewer]
 
     def get(self, request):
-        today = timezone.now().date()
+        today = church_today()
 
         start_date, err = _parse_date(request.query_params.get("start_date"))
         if err:
@@ -352,7 +354,7 @@ class ComplianceExportCsvView(APIView):
     permission_classes = [IsReportsViewer]
 
     def get(self, request):
-        today = timezone.now().date()
+        today = church_today()
 
         start_date, err = _parse_date(request.query_params.get("start_date"))
         if err:
@@ -644,7 +646,7 @@ class OverviewSummaryView(APIView):
         if err:
             return err
 
-        today = timezone.now().date()
+        today = church_today()
         compliance_start = today - timedelta(days=28)
         compliance_end = today
 

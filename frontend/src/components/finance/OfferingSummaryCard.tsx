@@ -1,6 +1,7 @@
 import Card from "@/src/components/ui/Card";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import { OfferingWeeklySummary } from "@/src/types/finance";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface OfferingSummaryCardProps {
   summary: OfferingWeeklySummary[];
@@ -43,7 +44,7 @@ export default function OfferingSummaryCard({
                 <p className="text-sm font-semibold text-foreground">
                   Week of{" "}
                   {entry.weekStart
-                    ? new Date(entry.weekStart).toLocaleDateString()
+                    ? formatLocaleDate(entry.weekStart)
                     : "Unknown"}
                 </p>
                 <p className="text-xs text-gray-500">

@@ -8,6 +8,8 @@ from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 import csv
 import io
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
@@ -564,7 +566,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
     def overdue(self, request):
         """Get clusters with overdue reports for current week"""
         # Get current year and week number
-        today = timezone.now().date()
+        today = church_today()
         current_year = today.year
         current_week = today.isocalendar()[1]  # ISO week number
 
@@ -618,7 +620,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             )
         
         # Parse date range (default: last 4 weeks)
-        today = timezone.now().date()
+        today = church_today()
         start_date_str = request.query_params.get('start_date')
         end_date_str = request.query_params.get('end_date')
         
@@ -772,7 +774,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             )
         
         weeks_back = int(request.query_params.get('weeks_back', 4))
-        today = timezone.now().date()
+        today = church_today()
         start_date = today - timedelta(weeks=weeks_back)
         end_date = today
         
@@ -837,7 +839,7 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
         months = int(request.query_params.get('months', 3))
         group_by = request.query_params.get('group_by', 'week')
         
-        today = timezone.now().date()
+        today = church_today()
         start_date = today - timedelta(days=months * 30)
         end_date = today
         

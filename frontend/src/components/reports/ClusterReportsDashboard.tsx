@@ -50,6 +50,7 @@ import {
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { userCanAttemptClusterWeeklyReportMutation } from "@/src/lib/clusterPermissions";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface ClusterReportsDashboardProps {
   clusters: Cluster[];
@@ -906,7 +907,7 @@ export default function ClusterReportsDashboard({
         Week: `${report.year} W${report.week_number}`,
         Year: report.year,
         "Week Number": report.week_number,
-        "Meeting Date": new Date(report.meeting_date).toLocaleDateString(),
+        "Meeting Date": formatLocaleDate(report.meeting_date),
         "Members Present": report.members_present,
         "Visitors Present": report.visitors_present,
         "Prospects Invited":
@@ -948,7 +949,7 @@ export default function ClusterReportsDashboard({
     const tableRows = sortedReports.map((report) => [
       report.cluster_name || report.cluster_code || "",
       `${report.year} W${report.week_number}`,
-      new Date(report.meeting_date).toLocaleDateString(),
+      formatLocaleDate(report.meeting_date),
       report.members_present.toString(),
       report.visitors_present.toString(),
       report.member_attendance_rate
@@ -982,7 +983,7 @@ export default function ClusterReportsDashboard({
         [
           report.cluster_name || report.cluster_code || "",
           `${report.year} W${report.week_number}`,
-          new Date(report.meeting_date).toLocaleDateString(),
+          formatLocaleDate(report.meeting_date),
           report.members_present,
           report.visitors_present,
           report.member_attendance_rate
@@ -2023,9 +2024,7 @@ export default function ClusterReportsDashboard({
                               Meeting Date
                             </span>
                             <p className="text-sm text-gray-900">
-                              {new Date(
-                                report.meeting_date,
-                              ).toLocaleDateString()}
+                              {formatLocaleDate(report.meeting_date)}
                             </p>
                           </div>
                         )}
@@ -2205,9 +2204,7 @@ export default function ClusterReportsDashboard({
                           case "meeting_date":
                             cellContent = (
                               <span className="text-sm text-gray-900">
-                                {new Date(
-                                  report.meeting_date,
-                                ).toLocaleDateString()}
+                                {formatLocaleDate(report.meeting_date)}
                               </span>
                             );
                             break;

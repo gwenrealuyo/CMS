@@ -2,10 +2,12 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
+from core.datetime_utils import church_today
+
 
 def today():
     """Return today's date (not datetime) for DateField defaults."""
-    return timezone.now().date()
+    return church_today()
 
 
 class MinistryCategory(models.TextChoices):

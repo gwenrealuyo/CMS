@@ -4,6 +4,7 @@ import Card from "@/src/components/ui/Card";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { AttendanceReport as AttendanceReportType } from "@/src/types/sundaySchool";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface AttendanceReportProps {
   report: AttendanceReportType | null;
@@ -76,7 +77,7 @@ export default function AttendanceReport({ report, loading, error }: AttendanceR
         <div className="text-sm text-gray-600">
           <p>
             <span className="font-medium">Session Date:</span>{" "}
-            {new Date(report.session_date).toLocaleDateString()}
+            {formatLocaleDate(report.session_date)}
           </p>
           {report.lesson_title && (
             <p className="mt-1">

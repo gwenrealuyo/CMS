@@ -6,6 +6,8 @@ from typing import Dict, Iterable, List, Optional
 
 from django.utils import timezone
 
+from core.datetime_utils import church_calendar_date
+
 
 MAX_OCCURRENCE_DAYS = 366
 
@@ -52,7 +54,7 @@ def clean_weekly_pattern(pattern: Optional[Dict], start: datetime) -> Dict:
         pattern = {}
 
     start = _ensure_timezone(start)
-    base_date = start.date()
+    base_date = church_calendar_date(start)
 
     frequency = pattern.get("frequency") or "weekly"
     if frequency != "weekly":
@@ -64,7 +66,7 @@ def clean_weekly_pattern(pattern: Optional[Dict], start: datetime) -> Dict:
     )
     cleaned_weekdays = [day for day in cleaned_weekdays if 0 <= day <= 6]
     if not cleaned_weekdays:
-        cleaned_weekdays = [start.weekday()]
+        cleaned_weekdays = [base_date.weekday()]
 
     through_candidate = _parse_date(pattern.get("through"))
     if through_candidate is None:
@@ -118,8 +120,8 @@ def generate_occurrences(
         )
         return [occurrence]
 
-    through = _parse_date(pattern.get("through")) or base_start.date()
-    weekdays = pattern.get("weekdays") or [base_start.weekday()]
+    through = _parse_date(pattern.get("through")) or church_calendar_date(base_start)
+    weekdays = pattern.get("weekdays") or [church_calendar_date(base_start).weekday()]
     excluded = {
         _parse_date(value)
         for value in pattern.get("excluded_dates", [])
@@ -129,22 +131,23 @@ def generate_occurrences(
     start_filter = _ensure_timezone(start) if start else None
     end_filter = _ensure_timezone(end) if end else None
 
+    base_day = church_calendar_date(base_start)
     max_end_date = min(
         through,
-        base_start.date() + timedelta(days=MAX_OCCURRENCE_DAYS),
+        base_day + timedelta(days=MAX_OCCURRENCE_DAYS),
     )
 
-    total_days = (max_end_date - base_start.date()).days
+    total_days = (max_end_date - base_day).days
 
     for offset in range(total_days + 1):
-        day = base_start.date() + timedelta(days=offset)
+        occurrence_start = base_start + timedelta(days=offset)
+        day = church_calendar_date(occurrence_start)
 
         if day.weekday() not in weekdays:
             continue
         if day in excluded:
             continue
 
-        occurrence_start = base_start + timedelta(days=offset)
         occurrence_end = occurrence_start + duration
 
         if start_filter and occurrence_end < start_filter:

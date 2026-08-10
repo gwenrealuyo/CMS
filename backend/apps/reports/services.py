@@ -15,6 +15,8 @@ from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
+from core.datetime_utils import church_today
+
 from apps.clusters.models import Cluster, ClusterComplianceNote, ClusterWeeklyReport
 from apps.events.models import EventType
 from apps.evangelism.models import EvangelismWeeklyReport
@@ -151,7 +153,7 @@ def build_compliance_payload(
 
 def build_at_risk(clusters, weeks_back):
     """Build the at-risk clusters list."""
-    today = timezone.now().date()
+    today = church_today()
     start_date = today - timedelta(weeks=weeks_back)
     end_date = today
 
@@ -188,7 +190,7 @@ def build_at_risk(clusters, weeks_back):
 
 def build_compliance_history(clusters, months, group_by):
     """Build historical compliance series grouped by week or month."""
-    today = timezone.now().date()
+    today = church_today()
     start_date = today - timedelta(days=months * 30)
     end_date = today
 
@@ -269,7 +271,7 @@ def build_compliance_history(clusters, months, group_by):
 
 def build_overdue(clusters):
     """Build the overdue-this-week payload for the given clusters."""
-    today = timezone.now().date()
+    today = church_today()
     current_year = today.year
     current_week = today.isocalendar()[1]
 
@@ -415,7 +417,7 @@ def _age_band(dob: date | None, today: date) -> str:
 
 
 def _month_periods(months: int, end: date | None = None) -> list[str]:
-    end = end or timezone.now().date()
+    end = end or church_today()
     year, month = end.year, end.month
     periods: list[str] = []
     for _ in range(months):
@@ -446,7 +448,7 @@ def build_people_summary(
     single_branch_view: bool = False,
 ):
     """Aggregate people demographics for a pre-scoped Person queryset."""
-    today = timezone.now().date()
+    today = church_today()
     people_qs = people_qs.distinct()
 
     total_people = people_qs.count()
@@ -633,7 +635,7 @@ def build_people_summary_csv(payload: dict) -> str:
 
 def _engagement_start_date(months: int, end: date | None = None) -> date:
     """First day of the calendar month ``months`` periods before ``end``."""
-    end = end or timezone.now().date()
+    end = end or church_today()
     year, month = end.year, end.month
     month -= months - 1
     while month <= 0:
@@ -643,7 +645,7 @@ def _engagement_start_date(months: int, end: date | None = None) -> date:
 
 
 def _filter_reports_by_window(reports_qs, months: int, today: date | None = None):
-    today = today or timezone.now().date()
+    today = today or church_today()
     start = _engagement_start_date(months, today)
     return reports_qs.filter(meeting_date__gte=start, meeting_date__lte=today)
 
@@ -777,7 +779,7 @@ def _build_weekly_report_section(
 
 def _build_service_section(service_attendance_qs, *, months: int, today: date | None = None):
     """Sunday Service headcount from pre-scoped PRESENT attendance records."""
-    today = today or timezone.now().date()
+    today = today or church_today()
     start = _engagement_start_date(months, today)
     qs = service_attendance_qs.filter(
         occurrence_date__gte=start,
@@ -837,7 +839,7 @@ def _build_engagement_by_branch(
     months: int,
     today: date | None = None,
 ) -> list[dict]:
-    today = today or timezone.now().date()
+    today = today or church_today()
     cluster_reports = _filter_reports_by_window(cluster_reports_qs, months, today)
     evangelism_reports = _filter_reports_by_window(
         evangelism_reports_qs, months, today
@@ -917,7 +919,7 @@ def build_engagement_summary(
     single_branch_view: bool = False,
 ):
     """Aggregate engagement & attendance for pre-scoped querysets."""
-    today = timezone.now().date()
+    today = church_today()
     cluster_window = _filter_reports_by_window(cluster_reports_qs, months, today)
     evangelism_window = _filter_reports_by_window(
         evangelism_reports_qs, months, today

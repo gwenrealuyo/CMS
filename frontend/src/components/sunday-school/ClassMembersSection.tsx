@@ -7,6 +7,7 @@ import Table from "@/src/components/ui/Table";
 import StatusBadge from "./StatusBadge";
 import BulkEnrollModal from "./BulkEnrollModal";
 import { SundaySchoolClass, SundaySchoolClassMember, ClassMemberRole } from "@/src/types/sundaySchool";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface ClassMembersSectionProps {
   classData: SundaySchoolClass;
@@ -82,7 +83,7 @@ export default function ClassMembersSection({
       accessor: "enrolled_date" as const,
       render: (value: string) => (
         <span className="text-sm text-gray-600">
-          {new Date(value).toLocaleDateString()}
+          {formatLocaleDate(value)}
         </span>
       ),
     },

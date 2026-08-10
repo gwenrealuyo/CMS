@@ -1,6 +1,7 @@
 import { ClusterWeeklyReport } from "@/src/types/cluster";
 import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface ClusterReportsTableProps {
   reports: ClusterWeeklyReport[];
@@ -50,7 +51,7 @@ export default function ClusterReportsTable({
               <div>
                 <span className="text-xs text-gray-500">Meeting Date</span>
                 <p className="text-sm text-gray-900">
-                  {new Date(report.meeting_date).toLocaleDateString()}
+                  {formatLocaleDate(report.meeting_date)}
                 </p>
               </div>
               <div>
@@ -139,7 +140,7 @@ export default function ClusterReportsTable({
                   {report.year} / Week {report.week_number}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {new Date(report.meeting_date).toLocaleDateString()}
+                  {formatLocaleDate(report.meeting_date)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {report.members_present}M / {report.visitors_present}V

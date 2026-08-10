@@ -3,6 +3,8 @@ Utility functions for person status management based on attendance patterns.
 """
 from datetime import timedelta
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 from django.db.models import Q
 from apps.events.models import Event
 from apps.attendance.models import AttendanceRecord
@@ -27,7 +29,7 @@ def calculate_person_attendance_status(person, reference_date=None):
         "ACTIVE", "SEMIACTIVE", "INACTIVE", or None (if insufficient data)
     """
     if reference_date is None:
-        reference_date = timezone.now().date()
+        reference_date = church_today()
     
     start_date = reference_date - timedelta(weeks=4)
     
@@ -149,7 +151,7 @@ def update_person_status(person, force=False):
         # Create Journey entry for status change (type: NOTE)
         # Only create if there was a previous status (not first assignment)
         if old_status:
-            today = timezone.now().date()
+            today = church_today()
             
             # Check if journey already exists for today (prevent duplicates)
             existing_journey = Journey.objects.filter(

@@ -9,6 +9,7 @@ import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheri
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import Button from "@/src/components/ui/Button";
+import { formatDisplayDate } from "@/src/lib/date";
 
 interface ViewEvangelismWeeklyReportModalProps {
   report: EvangelismWeeklyReport | null;
@@ -62,11 +63,7 @@ export default function ViewEvangelismWeeklyReportModal({
   const totalAttendance = memberCount + visitorCount;
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    return formatDisplayDate(dateString) || dateString;
   };
 
   const formatDateTime = (dateString: string) => {

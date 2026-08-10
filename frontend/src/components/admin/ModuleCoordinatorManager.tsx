@@ -18,6 +18,7 @@ import ResourceAssignmentMultiPicker from "@/src/components/admin/ResourceAssign
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import { formatPersonName } from "@/src/lib/name";
 import { groupModuleCoordinatorAssignments } from "@/src/lib/moduleCoordinatorDisplay";
+import { formatLocaleDate } from "@/src/lib/date";
 import {
   PencilIcon,
   TrashIcon,
@@ -727,7 +728,7 @@ export default function ModuleCoordinatorManager() {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "-";
-    return new Date(dateString).toLocaleDateString();
+    return formatLocaleDate(dateString) || dateString;
   };
 
   const getPersonName = (personId: number) => {

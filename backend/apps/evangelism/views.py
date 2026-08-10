@@ -16,6 +16,7 @@ from apps.events.models import Event
 from apps.people.models import Branch, ModuleCoordinator, Person
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.lessons.models import LessonSessionReport
+from core.datetime_utils import church_calendar_date, church_today
 from apps.authentication.permissions import (
     IsMemberOrAbove,
     IsAuthenticatedAndNotVisitor,
@@ -755,9 +756,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         if value is None:
             return None
         if isinstance(value, datetime):
-            if timezone.is_aware(value):
-                value = timezone.localtime(value)
-            return value.date()
+            return church_calendar_date(value)
         return value
 
     def _serialize_people_rows(
@@ -1589,7 +1588,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
         if not serializer.validated_data.get("date_first_invited"):
             prospect = serializer.save(
                 pipeline_stage=Prospect.PipelineStage.INVITED,
-                date_first_invited=timezone.now().date(),
+                date_first_invited=church_today(),
             )
         else:
             prospect = serializer.save(pipeline_stage=Prospect.PipelineStage.INVITED)
@@ -1631,13 +1630,13 @@ class ProspectViewSet(viewsets.ModelViewSet):
         if pipeline_stage == Prospect.PipelineStage.ATTENDED:
             return self.mark_attended(request, pk=pk)
 
-        activity_date = last_activity_date or timezone.now().date()
+        activity_date = last_activity_date or church_today()
         if pipeline_stage:
             prospect.pipeline_stage = pipeline_stage
         if last_activity_date:
             prospect.last_activity_date = last_activity_date
         else:
-            prospect.last_activity_date = timezone.now().date()
+            prospect.last_activity_date = church_today()
 
         prospect.save()
 
@@ -1695,7 +1694,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
             except ValueError:
                 activity_date = None
         if activity_date is None:
-            activity_date = timezone.now().date()
+            activity_date = church_today()
 
         try:
             prospect = mark_prospect_attended(
@@ -1741,7 +1740,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
         """Manually mark visitor as dropped off."""
         prospect = self.get_object()
         prospect.is_dropped_off = True
-        prospect.drop_off_date = timezone.now().date()
+        prospect.drop_off_date = church_today()
         prospect.drop_off_stage = prospect.pipeline_stage
         prospect.drop_off_reason = request.data.get("reason", "")
         prospect.save()
@@ -1765,16 +1764,16 @@ class ProspectViewSet(viewsets.ModelViewSet):
         """Recover a dropped off visitor."""
         prospect = self.get_object()
         prospect.is_dropped_off = False
-        prospect.last_activity_date = timezone.now().date()
+        prospect.last_activity_date = church_today()
         prospect.save()
 
         # Update DropOff record if exists
         if hasattr(prospect, "drop_off_record"):
             drop_off = prospect.drop_off_record
             drop_off.recovery_attempted = True
-            drop_off.recovery_date = timezone.now().date()
+            drop_off.recovery_date = church_today()
             drop_off.recovered = True
-            drop_off.recovered_date = timezone.now().date()
+            drop_off.recovered_date = church_today()
             drop_off.save()
 
         serializer = self.get_serializer(prospect)
@@ -1802,7 +1801,7 @@ class FollowUpTaskViewSet(viewsets.ModelViewSet):
         """Mark task as completed."""
         task = self.get_object()
         task.status = FollowUpTask.Status.COMPLETED
-        task.completed_date = timezone.now().date()
+        task.completed_date = church_today()
         task.save()
 
         serializer = self.get_serializer(task)
@@ -1811,7 +1810,7 @@ class FollowUpTaskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def overdue(self, request):
         """List overdue tasks."""
-        today = timezone.now().date()
+        today = church_today()
         overdue_tasks = self.queryset.filter(
             due_date__lt=today,
             status__in=[FollowUpTask.Status.PENDING, FollowUpTask.Status.IN_PROGRESS],
@@ -1839,13 +1838,13 @@ class DropOffViewSet(viewsets.ModelViewSet):
         """Attempt to recover a dropped off visitor."""
         drop_off = self.get_object()
         drop_off.recovery_attempted = True
-        drop_off.recovery_date = timezone.now().date()
+        drop_off.recovery_date = church_today()
         drop_off.save()
 
         # Update prospect
         prospect = drop_off.prospect
         prospect.is_dropped_off = False
-        prospect.last_activity_date = timezone.now().date()
+        prospect.last_activity_date = church_today()
         prospect.save()
 
         serializer = self.get_serializer(drop_off)
@@ -1927,7 +1926,7 @@ class ConversionViewSet(viewsets.ModelViewSet):
                 conversion.water_baptism_date
                 or conversion.spirit_baptism_date
                 or conversion.lesson_start_date
-                or timezone.now().date()
+                or church_today()
             )
             updates.append("conversion_date")
         if updates:

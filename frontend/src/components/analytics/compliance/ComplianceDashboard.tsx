@@ -30,6 +30,7 @@ import {
 import ComplianceHistoryChart from "./ComplianceHistoryChart";
 import ComplianceRiskPanels from "./ComplianceRiskPanels";
 import ComplianceNotes from "./ComplianceNotes";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface ComplianceDashboardProps {
   /** "" means all branches; otherwise a branch id string. */
@@ -353,7 +354,7 @@ export default function ComplianceDashboard({
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                     {item.last_report_date
-                      ? new Date(item.last_report_date).toLocaleDateString()
+                      ? formatLocaleDate(item.last_report_date)
                       : "Never"}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">

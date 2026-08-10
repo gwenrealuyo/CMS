@@ -5,6 +5,7 @@ import Button from "@/src/components/ui/Button";
 import Card from "@/src/components/ui/Card";
 import Table from "@/src/components/ui/Table";
 import { SundaySchoolClass, SundaySchoolSession } from "@/src/types/sundaySchool";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface ClassSessionsSectionProps {
   classData: SundaySchoolClass;
@@ -33,7 +34,7 @@ export default function ClassSessionsSection({
       accessor: "session_date" as const,
       render: (value: string) => (
         <span className="text-sm font-medium text-gray-900">
-          {new Date(value).toLocaleDateString()}
+          {formatLocaleDate(value)}
         </span>
       ),
     },

@@ -9,6 +9,7 @@ import PersonProfile from "@/src/components/people/PersonProfile";
 import { familiesApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import { formatDisplayDate } from "@/src/lib/date";
 
 interface ViewWeeklyReportModalProps {
   report: ClusterWeeklyReport;
@@ -107,11 +108,7 @@ export default function ViewWeeklyReportModal({
 
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    return formatDisplayDate(dateString) || dateString;
   };
 
   const formatDateTime = (dateString: string) => {

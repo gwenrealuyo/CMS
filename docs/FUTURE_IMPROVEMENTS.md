@@ -457,6 +457,34 @@ This document outlines planned improvements and feature recommendations for the 
 
 ---
 
+## 5b. Per-branch (and multi-region) church calendar timezones
+
+**Status**: Planned – not implemented  
+**Current behavior**: One global `CHURCH_TIME_ZONE` (env, default `Asia/Manila`) via `backend/core/datetime_utils.py`. Django `TIME_ZONE` remains `UTC` for storage. There is no `Branch.timezone` (or equivalent) yet.
+
+### Why this matters
+
+Milestone **DateFields** (lessons finished, journey dates, “today” stamps, tally chips derived from datetimes) must use a **church calendar day**, not bare UTC `.date()`. Today every branch shares one zone. Multi-branch / multi-country deployments will need the calendar day of the **branch where the activity happened**, not a single app-wide default and not the viewer’s browser TZ.
+
+### Intended design (when implemented)
+
+1. **Store timezone on Branch** (IANA name, e.g. `Asia/Manila`, `America/New_York`). Optional soft default from person/country at branch create time — **not** used as a live converter from `Person.country` on every request.
+2. **Resolve TZ in helpers** — extend `get_church_timezone()` / `church_calendar_date()` / `church_today()` to accept an optional branch (or person → branch). Fall back to `CHURCH_TIME_ZONE` when unset.
+3. **Keep the milestone vs timestamp split**:
+   - **DateField milestones** — stable calendar day (branch-local when deriving from datetimes; date-only values stay as entered). Same day for all viewers.
+   - **DateTimeField UI** — continue showing in the **logged-in user’s local** browser time unless product later asks for branch wall-clock display.
+4. **Align ORM month/year filters** that still use UTC on datetimes (e.g. evangelism tally `date_joined__year` / `__month`) with the same branch calendar when branching TZ ships.
+5. Prefer existing **session/meeting calendar dates** (`session_date`, `meeting_date`) over datetime→date when both exist (already done for lessons finished).
+
+### Do not
+
+- Drive live milestone math only from `Person.country` (multi-zone countries; person ≠ session location).
+- Convert milestone DateFields by viewer timezone (causes off-by-one across users).
+
+**Code entry points**: `backend/core/datetime_utils.py`, `CHURCH_TIME_ZONE` in `backend/core/settings.py`, frontend `frontend/src/lib/date.ts` (`formatDisplayDate` / `formatLocaleDate` for date-only strings).
+
+---
+
 ## 6. Notes
 
 - All planned improvements are documented in detail in their respective implementation documents
@@ -466,5 +494,5 @@ This document outlines planned improvements and feature recommendations for the 
 
 ---
 
-**Last Updated**: 2025-01-29  
+**Last Updated**: 2026-08-11  
 **Maintained By**: Development Team

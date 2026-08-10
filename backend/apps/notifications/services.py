@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional, Set
 from django.db.models import Q
 from django.utils import timezone
 
+from core.datetime_utils import church_today
+
 from apps.authentication.models import AccountLockout, PasswordResetRequest
 from apps.authentication.permissions import is_module_enabled
 from apps.clusters.models import Cluster, ClusterWeeklyReport
@@ -49,14 +51,14 @@ class NotificationItem:
 
 
 def current_iso_week() -> tuple[int, int]:
-    today = timezone.now().date()
+    today = church_today()
     iso = today.isocalendar()
     return iso[0], iso[1]
 
 
 def submission_severity() -> str:
     """info Mon–Wed, warning Thu–Sun."""
-    weekday = timezone.now().date().weekday()
+    weekday = church_today().weekday()
     return "warning" if weekday >= 3 else "info"
 
 
@@ -256,7 +258,7 @@ def _build_follow_up_alerts(user) -> List[NotificationItem]:
     if not is_module_enabled(ModuleCoordinator.ModuleType.EVANGELISM):
         return []
 
-    today = timezone.now().date()
+    today = church_today()
     items: List[NotificationItem] = []
 
     overdue = FollowUpTask.objects.filter(

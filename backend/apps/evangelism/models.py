@@ -2,6 +2,8 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
+from core.datetime_utils import church_today
+
 
 class EvangelismGroup(models.Model):
     name = models.CharField(max_length=200)
@@ -240,7 +242,7 @@ class Prospect(models.Model):
     def days_since_last_activity(self):
         if not self.last_activity_date:
             return None
-        return (timezone.now().date() - self.last_activity_date).days
+        return (church_today() - self.last_activity_date).days
 
     def __str__(self):
         return self.display_name

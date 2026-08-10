@@ -3,6 +3,8 @@ import json
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -55,7 +57,7 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Ensure join_date is set as a date (not datetime)
         if "join_date" not in validated_data:
-            validated_data["join_date"] = timezone.now().date()
+            validated_data["join_date"] = church_today()
         return super().create(validated_data)
 
 

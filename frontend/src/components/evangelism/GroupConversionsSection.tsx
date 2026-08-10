@@ -5,6 +5,7 @@ import Table from "@/src/components/ui/Table";
 import { Conversion } from "@/src/types/evangelism";
 
 import Button from "@/src/components/ui/Button";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface GroupConversionsSectionProps {
   conversions: Conversion[];
@@ -79,7 +80,7 @@ export default function GroupConversionsSection({
                     className={`text-sm ${row.is_complete ? "text-green-600 font-medium" : "text-gray-700"}`}
                   >
                     {value
-                      ? new Date(value as string).toLocaleDateString()
+                      ? formatLocaleDate(value as string)
                       : "N/A"}
                   </span>
                 ),
@@ -92,7 +93,7 @@ export default function GroupConversionsSection({
                     className={`text-sm ${row.is_complete ? "text-green-600 font-medium" : "text-gray-700"}`}
                   >
                     {value
-                      ? new Date(value as string).toLocaleDateString()
+                      ? formatLocaleDate(value as string)
                       : "N/A"}
                   </span>
                 ),

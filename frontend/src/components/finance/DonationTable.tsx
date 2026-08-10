@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import Card from "@/src/components/ui/Card";
 import { Donation } from "@/src/types/finance";
 import { ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface DonationTableProps {
   donations: Donation[];
@@ -210,7 +211,7 @@ export default function DonationTable({
                           className="group text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
                         >
                           <div className="font-medium text-primary group-hover:text-lighthouse-navy group-hover:underline transition-colors cursor-pointer">
-                            {new Date(donation.date).toLocaleDateString()}
+                            {formatLocaleDate(donation.date)}
                           </div>
                           {donation.receiptNumber && (
                             <div className="text-xs text-gray-500 mt-0.5">
@@ -221,7 +222,7 @@ export default function DonationTable({
                       ) : (
                         <>
                           <div className="font-medium text-foreground">
-                            {new Date(donation.date).toLocaleDateString()}
+                            {formatLocaleDate(donation.date)}
                           </div>
                           {donation.receiptNumber && (
                             <div className="text-xs text-gray-500">

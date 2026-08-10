@@ -2,6 +2,8 @@ import secrets
 
 from rest_framework import serializers
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting, PeopleAutomationSetting
 from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
 from apps.clusters.models import Cluster
@@ -587,7 +589,7 @@ class PersonSerializer(serializers.ModelSerializer):
         if attrs.get("first_activity_attended") == "":
             attrs["first_activity_attended"] = None
 
-        today = timezone.localdate()
+        today = church_today()
         person_date_fields = (
             "date_of_birth",
             "date_first_invited",
@@ -726,7 +728,7 @@ class PersonSerializer(serializers.ModelSerializer):
                 type="NOTE",
                 title="Visitor note",
                 description=note,
-                date=person.date_first_attended or timezone.now().date(),
+                date=person.date_first_attended or church_today(),
                 verified_by=None,
             )
 
@@ -781,7 +783,7 @@ class PersonSerializer(serializers.ModelSerializer):
                 type="BRANCH_TRANSFER",
                 title="Branch Transfer",
                 description=f"Transferred from {old_branch.name} to {new_branch.name}",
-                date=timezone.now().date(),
+                date=church_today(),
                 verified_by=None,
             )
 
@@ -1087,7 +1089,7 @@ class FamilySerializer(serializers.ModelSerializer):
     def _create_family_journeys(self, people, title: str, description: str) -> None:
         if not people:
             return
-        journey_date = timezone.now().date()
+        journey_date = church_today()
         Journey.objects.bulk_create(
             [
                 Journey(

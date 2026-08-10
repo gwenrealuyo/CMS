@@ -1,7 +1,13 @@
 """Church-local calendar helpers for milestone DateFields.
 
 Datetimes stay UTC in the DB (USE_TZ). When deriving a calendar day for people /
-journeys / tallies, use CHURCH_TIME_ZONE — not UTC `.date()`.
+journeys / tallies, use CHURCH_TIME_ZONE — not UTC ``.date()``.
+
+Today this is a **single global** zone (``settings.CHURCH_TIME_ZONE``, default
+``Asia/Manila``). Per-branch IANA timezones are planned; see
+``docs/FUTURE_IMPROVEMENTS.md`` § "Per-branch (and multi-region) church calendar
+timezones". When that lands, these helpers should accept an optional branch
+(or person→branch) and fall back to ``CHURCH_TIME_ZONE``.
 """
 
 from __future__ import annotations
@@ -38,3 +44,10 @@ def church_calendar_date(value: date | datetime | None) -> date | None:
     if isinstance(value, date):
         return value
     raise TypeError(f"Expected date or datetime, got {type(value)!r}")
+
+
+def church_today() -> date:
+    """Church calendar day for the current instant."""
+    today = church_calendar_date(timezone.now())
+    assert today is not None
+    return today

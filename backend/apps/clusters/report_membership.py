@@ -8,6 +8,8 @@ from typing import Iterable
 from django.db import transaction
 from django.utils import timezone
 
+from core.datetime_utils import church_today
+
 from apps.people.models import Journey, Person
 
 from .branch_membership import sync_member_branches_to_cluster
@@ -73,7 +75,7 @@ def sync_report_visitors_to_cluster_members(
         return
 
     cluster_display = _cluster_display_name(cluster)
-    today = timezone.now().date()
+    today = church_today()
     journeys = [
         Journey(
             user=person,

@@ -4,6 +4,7 @@ import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { useBranches } from "@/src/hooks/useBranches";
+import { formatLocaleDate } from "@/src/lib/date";
 import {
   CLUSTER_BRANCH_CHIP_CLASSNAME,
   getBranchOutlineBadgeStyle,
@@ -36,7 +37,7 @@ export default function MinistryView({
   const formatDate = (dateString: string) => {
     if (!dateString) return "—";
     try {
-      return new Date(dateString).toLocaleDateString();
+      return formatLocaleDate(dateString) || dateString;
     } catch {
       return dateString;
     }

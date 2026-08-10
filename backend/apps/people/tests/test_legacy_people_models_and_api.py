@@ -2,6 +2,8 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from datetime import date
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 from rest_framework.test import APIRequestFactory
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -507,7 +509,7 @@ class InvitedJourneySyncTest(TestCase):
             inviter=self.inviter1,
         )
         invited_journey = Journey.objects.get(user=person, type="NOTE", title="Invited")
-        self.assertEqual(invited_journey.date, timezone.now().date())
+        self.assertEqual(invited_journey.date, church_today())
 
     def test_model_save_path_updates_inviter_on_existing_invited_journey(self):
         invited_date = date(2026, 4, 22)

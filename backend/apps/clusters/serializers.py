@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.db import transaction
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 import logging
 
 from apps.people.models import Person, Family, Journey, ModuleCoordinator
@@ -362,7 +364,7 @@ class ClusterSerializer(serializers.ModelSerializer):
             previous_cluster_map = {}
 
         cluster_display = self._get_cluster_display_name(cluster)
-        today = timezone.now().date()
+        today = church_today()
         journeys_to_create = []
 
         # Find new members (added)
@@ -875,7 +877,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
                 continue
             mark_prospect_attended(
                 prospect,
-                activity_date=meeting_date or timezone.now().date(),
+                activity_date=meeting_date or church_today(),
             )
             prospect.refresh_from_db()
             if prospect.person_id:

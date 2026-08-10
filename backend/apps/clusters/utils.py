@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 from django.db.models import Q, Count, Avg
 from .models import Cluster, ClusterWeeklyReport
 from apps.people.models import Person
@@ -86,7 +88,7 @@ def calculate_cluster_compliance(cluster, start_date, end_date):
     # Calculate days since last report
     days_since_last_report = None
     if last_report_date:
-        days_since_last_report = (timezone.now().date() - last_report_date).days
+        days_since_last_report = (church_today() - last_report_date).days
 
     return {
         "status": status,

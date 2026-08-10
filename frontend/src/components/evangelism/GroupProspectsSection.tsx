@@ -4,6 +4,7 @@ import { useState } from "react";
 import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
 import { Prospect } from "@/src/types/evangelism";
+import { formatLocaleDate } from "@/src/lib/date";
 
 function prospectDisplayName(p: Prospect): string {
   if (p.display_name?.trim()) return p.display_name;
@@ -97,7 +98,7 @@ export default function GroupProspectsSection({
                 render: (value) => (
                   <span className="text-sm text-gray-700">
                     {value
-                      ? new Date(value as string).toLocaleDateString()
+                      ? formatLocaleDate(value as string)
                       : "N/A"}
                   </span>
                 ),

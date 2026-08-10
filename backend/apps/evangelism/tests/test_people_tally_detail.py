@@ -44,6 +44,20 @@ class PeopleTallyDetailTests(TestCase):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["event_date"], "2026-03-15")
 
+    def test_to_date_uses_church_calendar_for_datetimes(self):
+        from apps.evangelism.views import EvangelismWeeklyReportViewSet
+
+        # 16:30 UTC on Mar 15 → Mar 16 in Asia/Manila
+        joined = timezone.make_aware(datetime(2026, 3, 15, 16, 30, 0))
+        self.assertEqual(
+            EvangelismWeeklyReportViewSet._to_date(joined).isoformat(),
+            "2026-03-16",
+        )
+        self.assertEqual(
+            EvangelismWeeklyReportViewSet._to_date(joined.date()).isoformat(),
+            "2026-03-15",
+        )
+
     def test_baptized_drilldown_omits_lessons_finished_without_person_field(self):
         branch = Branch.objects.create(name="Tally Branch", code="TB")
         inviter = Person.objects.create_user(

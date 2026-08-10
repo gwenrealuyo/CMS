@@ -1,11 +1,11 @@
 from datetime import timedelta
 
 from django.test import TestCase
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.people.models import Branch, Person
+from core.datetime_utils import church_today
 
 
 class PersonFutureDateValidationTests(TestCase):
@@ -41,7 +41,7 @@ class PersonFutureDateValidationTests(TestCase):
         return payload
 
     def test_create_rejects_future_date_of_birth(self):
-        tomorrow = timezone.localdate() + timedelta(days=1)
+        tomorrow = church_today() + timedelta(days=1)
         response = self.client.post(
             "/api/people/people/",
             self._create_payload(date_of_birth=tomorrow.isoformat()),
@@ -56,7 +56,7 @@ class PersonFutureDateValidationTests(TestCase):
         )
 
     def test_create_allows_today_date_of_birth(self):
-        today = timezone.localdate()
+        today = church_today()
         response = self.client.post(
             "/api/people/people/",
             self._create_payload(date_of_birth=today.isoformat()),
@@ -66,7 +66,7 @@ class PersonFutureDateValidationTests(TestCase):
         self.assertEqual(response.data["date_of_birth"], today.isoformat())
 
     def test_create_rejects_future_date_first_attended(self):
-        tomorrow = timezone.localdate() + timedelta(days=1)
+        tomorrow = church_today() + timedelta(days=1)
         response = self.client.post(
             "/api/people/people/",
             self._create_payload(date_first_attended=tomorrow.isoformat()),

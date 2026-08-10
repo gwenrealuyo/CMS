@@ -18,6 +18,7 @@ import {
   analyticsChartColor,
 } from "@/src/lib/analyticsTheme";
 import type { EngagementServiceSection } from "@/src/types/reports";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface ServiceAttendanceChartProps {
   service: EngagementServiceSection | null;
@@ -94,7 +95,7 @@ export default function ServiceAttendanceChart({
                 {occurrences.map((row) => (
                   <tr key={`${row.event_id}-${row.occurrence_date}`}>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                      {new Date(row.occurrence_date).toLocaleDateString()}
+                      {formatLocaleDate(row.occurrence_date)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                       {row.event_title}

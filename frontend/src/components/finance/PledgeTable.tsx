@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import Card from "@/src/components/ui/Card";
 import { Pledge } from "@/src/types/finance";
 import { ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface PledgeTableProps {
   pledges: Pledge[];
@@ -217,7 +218,7 @@ export default function PledgeTable({
                         <div className="text-xs text-gray-500 mt-0.5">
                           Due{" "}
                           {pledge.targetDate
-                            ? new Date(pledge.targetDate).toLocaleDateString()
+                            ? formatLocaleDate(pledge.targetDate)
                             : "open-ended"}
                         </div>
                       </button>
@@ -229,7 +230,7 @@ export default function PledgeTable({
                         <div className="text-xs text-gray-500">
                           Due{" "}
                           {pledge.targetDate
-                            ? new Date(pledge.targetDate).toLocaleDateString()
+                            ? formatLocaleDate(pledge.targetDate)
                             : "open-ended"}
                         </div>
                       </>

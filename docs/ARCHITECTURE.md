@@ -33,3 +33,4 @@
 - Permissions are currently permissive (`AllowAny`); toggle to `IsAuthenticated` when auth is in place.
 - Access Control: See `docs/ACCESS_CONTROL.md` for complete access control matrix, role-based permissions, and module coordinator assignment rules.
 - In-app notifications: See `docs/NOTIFICATIONS.md` for the navbar bell feed (`apps.notifications`), computed alerts, and dismissal model.
+- **Dates / timezones**: Datetimes are stored in UTC. Milestone calendar days use global `CHURCH_TIME_ZONE` (`core.datetime_utils`). Per-branch church calendar TZ is planned — see `docs/FUTURE_IMPROVEMENTS.md` § "Per-branch (and multi-region) church calendar timezones".

@@ -8,6 +8,8 @@ from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import ClusterWeeklyReport
 from apps.people.utils import update_person_status
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 from apps.people.models import Person, Journey, Family
 import logging
 
@@ -349,7 +351,7 @@ def _handle_invited_journey(
     role_changed = original_role != person.role
     status_changed = original_status != person.status
     invited_date_changed = original_invited_date != person.date_first_invited
-    invited_journey_date = person.date_first_invited or timezone.now().date()
+    invited_journey_date = person.date_first_invited or church_today()
 
     journey = _get_invited_journey(person)
 
@@ -390,7 +392,7 @@ def create_family_member_journeys(sender, instance: Family, action, pk_set, **kw
         description = f"Added to family led by {leader_name}."
     else:
         description = "Added to family."
-    journey_date = timezone.now().date()
+    journey_date = church_today()
     Journey.objects.bulk_create(
         [
             Journey(

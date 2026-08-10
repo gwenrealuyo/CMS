@@ -20,6 +20,7 @@ from apps.authentication.permissions import (
     IsAdmin,
 )
 from apps.people.models import ModuleCoordinator
+from core.datetime_utils import church_calendar_date
 from .models import Event, EventType
 from .serializers import EventSerializer, EventTypeSerializer
 from .services.recurrence import clean_weekly_pattern
@@ -265,11 +266,11 @@ class EventViewSet(viewsets.ModelViewSet):
                 parsed_dt = timezone.make_aware(
                     parsed_dt, timezone.get_current_timezone()
                 )
-            target_date = parsed_dt.date()
+            target_date = church_calendar_date(parsed_dt)
         else:
             try:
                 parsed_date = datetime.fromisoformat(date_value)
-                target_date = parsed_date.date()
+                target_date = church_calendar_date(parsed_date)
             except ValueError:
                 try:
                     parsed_date = datetime.strptime(date_value, "%Y-%m-%d")
@@ -281,7 +282,7 @@ class EventViewSet(viewsets.ModelViewSet):
                     )
 
         pattern = clean_weekly_pattern(event.recurrence_pattern, event.start_date)
-        start_date = event.start_date.date()
+        start_date = church_calendar_date(event.start_date)
         through_date = datetime.fromisoformat(pattern["through"]).date()
 
         if target_date < start_date or target_date > through_date:

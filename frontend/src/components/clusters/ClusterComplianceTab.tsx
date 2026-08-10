@@ -7,6 +7,7 @@ import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
+import { formatLocaleDate } from "@/src/lib/date";
 
 export default function ClusterComplianceTab() {
   const [loading, setLoading] = useState(true);
@@ -269,7 +270,7 @@ export default function ClusterComplianceTab() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {item.last_report_date
-                      ? new Date(item.last_report_date).toLocaleDateString()
+                      ? formatLocaleDate(item.last_report_date)
                       : "Never"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

@@ -25,6 +25,7 @@ import {
   getPersonClusterChipClass,
   getPersonStatusColor,
 } from "@/src/lib/personStatus";
+import { getLocalTodayDateString, parseLocalYmd } from "@/src/lib/date";
 
 export interface LessonSessionReportFormProps {
   report?: LessonSessionReport | null;
@@ -61,11 +62,15 @@ interface FormState {
 
 function toLocalDateValue(value?: string | null): string {
   if (!value) return "";
-  const date = new Date(value);
+  const trimmed = value.trim();
+  if (parseLocalYmd(trimmed)) {
+    return trimmed;
+  }
+  const date = new Date(trimmed);
   if (Number.isNaN(date.getTime())) {
     return "";
   }
-  return date.toISOString().slice(0, 10);
+  return getLocalTodayDateString(date);
 }
 
 const NO_TEACHER_ASSIGNED_LABEL = "No teacher assigned";

@@ -2,6 +2,7 @@
 
 import Card from "@/src/components/ui/Card";
 import type { StewardshipOfferingWeeklyRow } from "@/src/types/reports";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface OfferingWeeklyPanelProps {
   offerings: StewardshipOfferingWeeklyRow[];
@@ -33,7 +34,7 @@ export default function OfferingWeeklyPanel({
                 <p className="text-sm font-semibold text-foreground">
                   Week of{" "}
                   {entry.week_start
-                    ? new Date(entry.week_start).toLocaleDateString()
+                    ? formatLocaleDate(entry.week_start)
                     : "Unknown"}
                 </p>
                 <p className="text-xs text-muted-foreground">

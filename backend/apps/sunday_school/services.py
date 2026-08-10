@@ -5,6 +5,8 @@ from typing import Dict, List, Optional
 from django.db.models import Q
 from django.utils import timezone
 
+from core.datetime_utils import church_today
+
 from apps.people.models import Person
 
 from .models import (
@@ -23,7 +25,7 @@ def calculate_age(date_of_birth: Optional[date]) -> Optional[int]:
     if date_of_birth is None:
         return None
 
-    today = timezone.now().date()
+    today = church_today()
     age = today.year - date_of_birth.year
     # Adjust if birthday hasn't occurred this year
     if (today.month, today.day) < (date_of_birth.month, date_of_birth.day):
@@ -42,7 +44,7 @@ def bulk_enroll_students(
     Returns the number of enrollments created.
     """
     if enrolled_date is None:
-        enrolled_date = timezone.now().date()
+        enrolled_date = church_today()
 
     created_count = 0
     for person_id in person_ids:

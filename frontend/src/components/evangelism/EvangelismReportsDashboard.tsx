@@ -41,6 +41,7 @@ import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { formatLocaleDate } from "@/src/lib/date";
 import {
   canChangeEvangelismBranchFilter,
   EVANGELISM_BRANCH_LOCKED_HINT,
@@ -481,7 +482,7 @@ export default function EvangelismReportsDashboard({
         Group: r.evangelism_group?.name ?? "",
         Week: `${r.year} W${r.week_number}`,
         "Meeting Date": r.meeting_date
-          ? new Date(r.meeting_date).toLocaleDateString()
+          ? formatLocaleDate(r.meeting_date)
           : "",
         "Gathering Type": r.gathering_type,
         Members: Array.isArray(r.members_attended)
@@ -510,7 +511,7 @@ export default function EvangelismReportsDashboard({
     const rows = sortedReports.map((r) => [
       r.evangelism_group?.name ?? "",
       `${r.year} W${r.week_number}`,
-      r.meeting_date ? new Date(r.meeting_date).toLocaleDateString() : "",
+      r.meeting_date ? formatLocaleDate(r.meeting_date) : "",
       r.gathering_type,
       String(Array.isArray(r.members_attended) ? r.members_attended.length : 0),
       String(Array.isArray(r.visitors_attended) ? r.visitors_attended.length : 0),
@@ -666,7 +667,7 @@ export default function EvangelismReportsDashboard({
         render: (val) =>
           val ? (
             <span className="text-sm">
-              {new Date(val as string).toLocaleDateString()}
+              {formatLocaleDate(val as string)}
             </span>
           ) : (
             <span>—</span>

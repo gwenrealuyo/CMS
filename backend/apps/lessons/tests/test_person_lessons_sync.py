@@ -196,3 +196,8 @@ class ChurchCalendarDateTests(TestCase):
 
     def test_plain_date_unchanged(self):
         self.assertEqual(church_calendar_date(date(2026, 7, 14)), date(2026, 7, 14))
+
+    def test_church_today_matches_calendar_date_of_now(self):
+        from core.datetime_utils import church_today
+
+        self.assertEqual(church_today(), church_calendar_date(timezone.now()))

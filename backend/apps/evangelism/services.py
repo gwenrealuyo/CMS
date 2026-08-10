@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.people.models import Person, Journey
 from apps.people.name_formatting import title_case_name
 from apps.clusters.models import Cluster
+from core.datetime_utils import church_today
 
 from .models import (
     EvangelismGroup,
@@ -50,7 +51,7 @@ def sync_prospect_invitation_journey_note(person: Person, prospect: Prospect) ->
     text = (prospect.notes or "").strip()
     if not text:
         return
-    invite_date = prospect.date_first_invited or timezone.now().date()
+    invite_date = prospect.date_first_invited or church_today()
     Journey.objects.update_or_create(
         user=person,
         type="NOTE",
@@ -74,7 +75,7 @@ def create_person_from_prospect(
     Sets Person.inviter = prospect.invited_by.
     Links the prospect to the created Person.
     """
-    date_first_attended = kwargs.pop("date_first_attended", timezone.now().date())
+    date_first_attended = kwargs.pop("date_first_attended", church_today())
 
     fn = title_case_name((first_name or "").strip() or prospect.first_name)
     ln = title_case_name((last_name or "").strip() or prospect.last_name)
@@ -192,7 +193,7 @@ def create_invited_prospect_for_cluster(
     if not invited_by:
         raise ValueError("invited_by is required")
 
-    invite_date = date_first_invited or timezone.now().date()
+    invite_date = date_first_invited or church_today()
     prospect = Prospect.objects.create(
         first_name=title_case_name(first_name),
         last_name=title_case_name(last_name),
@@ -233,7 +234,7 @@ def mark_prospect_attended(
     Shared by ProspectViewSet.mark_attended and cluster weekly report promotion.
     """
     if activity_date is None:
-        activity_date = timezone.now().date()
+        activity_date = church_today()
 
     if not prospect.person:
         fn = (first_name or "").strip() or prospect.first_name
@@ -301,7 +302,7 @@ def update_monthly_tracking(
     Creates or updates tracking record for the current month.
     """
     if tracking_date is None:
-        tracking_date = timezone.now().date()
+        tracking_date = church_today()
     
     if cluster is None:
         cluster = prospect.inviter_cluster or prospect.endorsed_cluster
@@ -532,7 +533,7 @@ def detect_drop_offs(inactivity_days: int = 30) -> List[Prospect]:
     Auto-detect drop-offs based on inactivity period (default 30 days).
     Returns list of prospects that should be marked as dropped off.
     """
-    cutoff_date = timezone.now().date() - timedelta(days=inactivity_days)
+    cutoff_date = church_today() - timedelta(days=inactivity_days)
     
     prospects = Prospect.objects.filter(
         is_dropped_off=False,
@@ -789,7 +790,7 @@ def sync_conversion_pipeline(
         activity_date = (
             get_latest_milestone_date(person)
             or conversion.conversion_date
-            or timezone.now().date()
+            or church_today()
         )
         prospect.last_activity_date = activity_date
         prospect.save(

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
 import { EvangelismSession } from "@/src/types/evangelism";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface GroupSessionsSectionProps {
   sessions: EvangelismSession[];
@@ -78,7 +79,7 @@ export default function GroupSessionsSection({
                 render: (value) => (
                   <span className="text-sm text-gray-700">
                     {value
-                      ? new Date(value as string).toLocaleDateString()
+                      ? formatLocaleDate(value as string)
                       : "N/A"}
                   </span>
                 ),

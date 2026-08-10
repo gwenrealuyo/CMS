@@ -3,6 +3,8 @@ Tests for automatic person status updates based on attendance patterns.
 """
 from django.test import TestCase
 from django.utils import timezone
+
+from core.datetime_utils import church_today
 from datetime import date, timedelta, datetime
 from apps.people.models import Person, Journey
 from apps.events.models import Event
@@ -30,7 +32,7 @@ class PersonStatusCalculationTest(TestCase):
         self.cluster = None  # Will be created if needed
         
         # Reference date for testing (4 weeks from now)
-        self.reference_date = timezone.now().date()
+        self.reference_date = church_today()
         self.start_date = self.reference_date - timedelta(weeks=4)
 
     def create_sunday_service(self, service_date):
@@ -356,7 +358,7 @@ class PersonStatusUpdateTest(TestCase):
         
         old_status = "ACTIVE"
         new_status = "SEMIACTIVE"
-        today = timezone.now().date()
+        today = church_today()
         
         # Simulate what update_person_status does
         Journey.objects.create(
@@ -407,7 +409,7 @@ class PersonStatusUpdateTest(TestCase):
         from django.utils import timezone
         from apps.people.models import Journey
         
-        today = timezone.now().date()
+        today = church_today()
         
         # Create initial journey
         journey = Journey.objects.create(
@@ -447,7 +449,7 @@ class ManualStatusProtectionTest(TestCase):
     """Manual pastoral statuses must not be overwritten by attendance auto-calc."""
 
     def setUp(self):
-        self.reference_date = timezone.now().date()
+        self.reference_date = church_today()
 
     def _create_person(self, status: str) -> Person:
         return Person.objects.create_user(

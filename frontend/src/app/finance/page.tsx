@@ -25,6 +25,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { Person } from "@/src/types/person";
+import { formatLocaleDate } from "@/src/lib/date";
 import {
   Donation,
   DonationStats as DonationStatsType,
@@ -58,16 +59,7 @@ const createEmptyContributionForm = () => ({
   note: "",
 });
 
-const formatDate = (value: string) => {
-  if (!value) {
-    return "—";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleDateString();
-};
+const formatDate = (value: string) => formatLocaleDate(value) || "—";
 
 export default function FinancePage() {
   const searchParams = useSearchParams();

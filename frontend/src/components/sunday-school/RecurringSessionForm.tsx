@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useState, useMemo } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { SundaySchoolClass, RecurringSessionData } from "@/src/types/sundaySchool";
+import { formatLocaleDate } from "@/src/lib/date";
 
 interface RecurringSessionFormProps {
   classData: SundaySchoolClass;
@@ -257,7 +258,7 @@ export default function RecurringSessionForm({
           <div className="space-y-1">
             {previewDates.map((date, idx) => (
               <p key={idx} className="text-xs text-gray-600">
-                {new Date(date).toLocaleDateString()}
+                {formatLocaleDate(date)}
               </p>
             ))}
           </div>

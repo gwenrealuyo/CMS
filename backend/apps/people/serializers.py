@@ -667,7 +667,15 @@ class PersonSerializer(serializers.ModelSerializer):
         return data
 
     def update(self, instance, validated_data):
-        """Update person and track branch transfers"""
+        """Update person and track branch transfers."""
+
+        # Get the current commitment status BEFORE making any changes.
+        enrollment = getattr(instance, "lesson_enrollment", None)
+        previous_commitment_signed = (
+            enrollment.commitment_signed if enrollment else False
+        )
+
+        # Get the new commitment value sent by the frontend.
         has_signed_commitment_form = validated_data.pop(
             "has_signed_commitment_form",
             None,
@@ -675,37 +683,47 @@ class PersonSerializer(serializers.ModelSerializer):
 
         previous_has_finished_lessons = instance.has_finished_lessons
         previous_lessons_finished_at = instance.lessons_finished_at
-        # Store old branch value before update
+
+        # Store old branch value before update.
         old_branch = instance.branch
 
         families = (
-            validated_data.pop("families") if "families" in validated_data else None
+            validated_data.pop("families")
+            if "families" in validated_data
+            else None
         )
         clusters = (
-            validated_data.pop("clusters") if "clusters" in validated_data else None
+            validated_data.pop("clusters")
+            if "clusters" in validated_data
+            else None
         )
 
         delete_person_photo_if_cleared(instance, validated_data)
 
-        # Perform the update
+        # Perform the Person update first.
         updated_instance = super().update(instance, validated_data)
+
+        # Handle commitment form changes.
         if has_signed_commitment_form is not None:
             enrollment = getattr(updated_instance, "lesson_enrollment", None)
 
             if enrollment:
-                enrollment.commitment_signed = has_signed_commitment_form
-                enrollment.commitment_signed_at = (
-                    timezone.now() if has_signed_commitment_form else None
-                )
-
                 request = self.context.get("request")
-                if has_signed_commitment_form and request:
+
+                if not previous_commitment_signed and has_signed_commitment_form:
+                    # FALSE → TRUE
+                    enrollment.commitment_signed = True
+                    enrollment.commitment_signed_at = timezone.now()
                     enrollment.commitment_signed_by = (
                         request.user
-                        if isinstance(request.user, Person)
+                        if request and request.user.is_authenticated
                         else None
                     )
-                else:
+
+                elif previous_commitment_signed and not has_signed_commitment_form:
+                    # TRUE → FALSE
+                    enrollment.commitment_signed = False
+                    enrollment.commitment_signed_at = None
                     enrollment.commitment_signed_by = None
 
                 enrollment.save(
@@ -715,9 +733,13 @@ class PersonSerializer(serializers.ModelSerializer):
                         "commitment_signed_by",
                     ]
                 )
+
         self._apply_memberships(
-            updated_instance, families=families, clusters=clusters
+            updated_instance,
+            families=families,
+            clusters=clusters,
         )
+
         self._trigger_legacy_lessons_backfill(
             person=updated_instance,
             previous_has_finished_lessons=previous_has_finished_lessons,
@@ -725,26 +747,30 @@ class PersonSerializer(serializers.ModelSerializer):
         )
 
         new_branch = updated_instance.branch
+
         if old_branch != new_branch:
             prune_person_from_mismatched_branch_clusters(updated_instance)
 
-        # Check if branch changed (named transfers logged as journeys)
+        # Check if branch changed and log the transfer.
         if (
             old_branch != new_branch
             and old_branch is not None
             and new_branch is not None
         ):
-            # Create Journey entry for branch transfer
             Journey.objects.create(
                 user=updated_instance,
                 type="BRANCH_TRANSFER",
                 title="Branch Transfer",
-                description=f"Transferred from {old_branch.name} to {new_branch.name}",
+                description=(
+                    f"Transferred from {old_branch.name} "
+                    f"to {new_branch.name}"
+                ),
                 date=timezone.now().date(),
                 verified_by=None,
             )
 
         return updated_instance
+
 
     def get_cluster_codes(self, obj: Person):
         from apps.clusters.models import Cluster

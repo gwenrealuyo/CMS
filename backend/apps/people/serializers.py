@@ -2,6 +2,7 @@ import secrets
 
 from rest_framework import serializers
 from django.utils import timezone
+from apps.lessons.models import LessonStudentEnrollment
 from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting
 from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
 from apps.clusters.models import Cluster
@@ -317,6 +318,10 @@ class PersonSerializer(serializers.ModelSerializer):
     module_coordinator_assignments = ModuleCoordinatorSerializer(
         many=True, read_only=True
     )
+    lesson_enrollment_id = serializers.SerializerMethodField()
+    has_signed_commitment_form = serializers.BooleanField(
+        required=False
+    )
     can_view_journey_timeline = serializers.SerializerMethodField()
     can_view_profile = serializers.SerializerMethodField()
     initial_password = serializers.CharField(
@@ -357,6 +362,8 @@ class PersonSerializer(serializers.ModelSerializer):
             "first_activity_attended",
             "water_baptism_date",
             "spirit_baptism_date",
+            "lesson_enrollment_id",
+            "has_signed_commitment_form",
             "has_finished_lessons",
             "lessons_finished_at",
             "inviter",
@@ -382,6 +389,14 @@ class PersonSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._temporary_password = None
+
+    def get_lesson_enrollment_id(self, obj):
+        enrollment = getattr(obj, "lesson_enrollment", None)
+        return enrollment.id if enrollment else None
+
+    def get_has_signed_commitment_form(self, obj):
+        enrollment = getattr(obj, "lesson_enrollment", None)
+        return enrollment.commitment_signed if enrollment else False
 
     def _apply_memberships(self, person, families=None, clusters=None):
         # Apply from the forward M2M side so family/cluster member signals
@@ -637,12 +652,27 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+
+        enrollment = getattr(instance, "lesson_enrollment", None)
+
+        data["has_signed_commitment_form"] = (
+            enrollment.commitment_signed
+            if enrollment
+            else False
+        )
+
         if self._temporary_password:
             data["temporary_password"] = self._temporary_password
+
         return data
 
     def update(self, instance, validated_data):
         """Update person and track branch transfers"""
+        has_signed_commitment_form = validated_data.pop(
+            "has_signed_commitment_form",
+            None,
+        )
+
         previous_has_finished_lessons = instance.has_finished_lessons
         previous_lessons_finished_at = instance.lessons_finished_at
         # Store old branch value before update
@@ -659,6 +689,32 @@ class PersonSerializer(serializers.ModelSerializer):
 
         # Perform the update
         updated_instance = super().update(instance, validated_data)
+        if has_signed_commitment_form is not None:
+            enrollment = getattr(updated_instance, "lesson_enrollment", None)
+
+            if enrollment:
+                enrollment.commitment_signed = has_signed_commitment_form
+                enrollment.commitment_signed_at = (
+                    timezone.now() if has_signed_commitment_form else None
+                )
+
+                request = self.context.get("request")
+                if has_signed_commitment_form and request:
+                    enrollment.commitment_signed_by = (
+                        request.user
+                        if isinstance(request.user, Person)
+                        else None
+                    )
+                else:
+                    enrollment.commitment_signed_by = None
+
+                enrollment.save(
+                    update_fields=[
+                        "commitment_signed",
+                        "commitment_signed_at",
+                        "commitment_signed_by",
+                    ]
+                )
         self._apply_memberships(
             updated_instance, families=families, clusters=clusters
         )

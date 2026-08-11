@@ -25,8 +25,11 @@ from apps.authentication.permissions import (
 
 
 class PersonViewSet(viewsets.ModelViewSet):
-    queryset = Person.objects.all().select_related("branch").prefetch_related(
-        "clusters", "families"
+    queryset = Person.objects.all().select_related(
+        "branch",
+        "lesson_enrollment").prefetch_related(
+        "clusters",
+        "families"
     )
     serializer_class = PersonSerializer
     permission_classes = [IsAuthenticatedAndNotVisitor]

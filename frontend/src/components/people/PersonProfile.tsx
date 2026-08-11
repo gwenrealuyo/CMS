@@ -822,6 +822,10 @@ export default function PersonProfile({
                             : "Not yet"
                         }
                       />
+                      <ProfileFieldRow
+                        label="Commitment Form Signed"
+                        value={person.has_signed_commitment_form ? "Yes" : "Not yet"}
+                      />
                     </dl>
                   </section>
 

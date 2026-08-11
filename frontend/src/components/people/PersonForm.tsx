@@ -1451,6 +1451,28 @@ export default function PersonForm({
                         </p>
                       )}
                   </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="has_signed_commitment_form"
+                      name="has_signed_commitment_form"
+                      checked={Boolean(formData.has_signed_commitment_form)}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          has_signed_commitment_form: e.target.checked,
+                        }));
+                        setHasUnsavedChanges(true);
+                      }}
+                      className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="has_signed_commitment_form"
+                      className="ml-2 block text-sm text-gray-900"
+                    >
+                      Has Commitment Form signed
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

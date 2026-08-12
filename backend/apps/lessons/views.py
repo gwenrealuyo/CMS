@@ -23,7 +23,7 @@ from apps.people.models import ModuleCoordinator
 from apps.ministries.models import MinistryMember, NCC_MINISTRY_CODE
 from apps.ministries.ncc import (
     ensure_ncc_ministry,
-    person_has_lessons_teacher_access,
+    lessons_teacher_access_person_ids,
 )
 from apps.lessons.branch_scope import can_pick_lessons_branch
 
@@ -93,10 +93,13 @@ def lesson_teacher_roster(request):
         raise ValidationError({"branch_id": "You can only view your own branch roster."})
 
     ministry = ensure_ncc_ministry(branch)
-    memberships = (
+    memberships = list(
         MinistryMember.objects.filter(ministry=ministry)
         .select_related("member")
         .order_by("member__last_name", "member__first_name")
+    )
+    access_ids = lessons_teacher_access_person_ids(
+        membership.member for membership in memberships
     )
     results = []
     for membership in memberships:
@@ -113,7 +116,7 @@ def lesson_teacher_roster(request):
                 "role": person.role,
                 "member_id": person.member_id,
                 "is_active": membership.is_active,
-                "has_lessons_teacher_access": person_has_lessons_teacher_access(person),
+                "has_lessons_teacher_access": person.id in access_ids,
             }
         )
     return Response(results)

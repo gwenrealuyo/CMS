@@ -108,17 +108,63 @@ def grant_lessons_teacher_access(person: Person) -> Optional[ModuleCoordinator]:
     )
 
 
+_LESSONS_ACCESS_LEVELS = (
+    ModuleCoordinator.CoordinatorLevel.TEACHER,
+    ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+    ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+)
+
+
+def _assignment_grants_lessons_teacher_access(assignment: ModuleCoordinator) -> bool:
+    return (
+        assignment.module == ModuleCoordinator.ModuleType.LESSONS
+        and assignment.level in _LESSONS_ACCESS_LEVELS
+    )
+
+
 def person_has_lessons_teacher_access(person: Person) -> bool:
     if getattr(person, "role", None) in ("ADMIN", "PASTOR"):
         return True
+    cache = getattr(person, "_prefetched_objects_cache", None) or {}
+    if "module_coordinator_assignments" in cache:
+        return any(
+            _assignment_grants_lessons_teacher_access(assignment)
+            for assignment in person.module_coordinator_assignments.all()
+        )
     return person.module_coordinator_assignments.filter(
         module=ModuleCoordinator.ModuleType.LESSONS,
-        level__in=(
-            ModuleCoordinator.CoordinatorLevel.TEACHER,
-            ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-        ),
+        level__in=_LESSONS_ACCESS_LEVELS,
     ).exists()
+
+
+def lessons_teacher_access_person_ids(people: Iterable[Person]) -> set[int]:
+    """
+    Return person IDs that have Lessons teacher-level access.
+
+    One ModuleCoordinator query for the batch, plus ADMIN/PASTOR roles from
+    the given person objects (no extra queries).
+    """
+    people_list = list(people)
+    if not people_list:
+        return set()
+
+    access_ids: set[int] = {
+        person.pk
+        for person in people_list
+        if getattr(person, "role", None) in ("ADMIN", "PASTOR")
+    }
+    remaining_ids = [
+        person.pk for person in people_list if person.pk not in access_ids
+    ]
+    if remaining_ids:
+        access_ids.update(
+            ModuleCoordinator.objects.filter(
+                person_id__in=remaining_ids,
+                module=ModuleCoordinator.ModuleType.LESSONS,
+                level__in=_LESSONS_ACCESS_LEVELS,
+            ).values_list("person_id", flat=True)
+        )
+    return access_ids
 
 
 def revoke_lessons_teacher_access(person: Person) -> int:

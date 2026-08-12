@@ -1,3 +1,4 @@
+from django.db.models import Prefetch
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -27,7 +28,21 @@ class MinistryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
         Ministry.objects.select_related("primary_coordinator", "branch")
-        .prefetch_related("support_coordinators", "memberships__member")
+        .prefetch_related(
+            "support_coordinators",
+            "memberships__member",
+            Prefetch(
+                "memberships__member__module_coordinator_assignments",
+                queryset=ModuleCoordinator.objects.filter(
+                    module=ModuleCoordinator.ModuleType.LESSONS,
+                    level__in=(
+                        ModuleCoordinator.CoordinatorLevel.TEACHER,
+                        ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                        ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+                    ),
+                ),
+            ),
+        )
         .all()
     )
     serializer_class = MinistrySerializer
@@ -130,7 +145,20 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     queryset = (
         MinistryMember.objects.select_related("ministry", "ministry__branch", "member")
-        .prefetch_related("ministry__support_coordinators")
+        .prefetch_related(
+            "ministry__support_coordinators",
+            Prefetch(
+                "member__module_coordinator_assignments",
+                queryset=ModuleCoordinator.objects.filter(
+                    module=ModuleCoordinator.ModuleType.LESSONS,
+                    level__in=(
+                        ModuleCoordinator.CoordinatorLevel.TEACHER,
+                        ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                        ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+                    ),
+                ),
+            ),
+        )
         .all()
     )
     serializer_class = MinistryMemberSerializer

@@ -72,6 +72,8 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
         validators = []
 
     def get_has_lessons_teacher_access(self, obj: MinistryMember) -> bool:
+        if not is_ncc_ministry(obj.ministry):
+            return False
         return person_has_lessons_teacher_access(obj.member)
 
     def validate(self, attrs):

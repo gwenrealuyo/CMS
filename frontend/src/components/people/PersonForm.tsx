@@ -303,13 +303,22 @@ export default function PersonForm({
     );
   }, [isCreating, clusterAuthCtx, formData.cluster_ids, clusterOptions]);
 
+  const hasLessonEnrollment = Boolean(
+    formData.has_lesson_enrollment ?? initialData?.has_lesson_enrollment,
+  );
+
+  const needsTeacherPicker =
+    Boolean(formData.has_finished_lessons) &&
+    !hasLessonEnrollment &&
+    canEditVitalDates;
+
   const [teacherRoster, setTeacherRoster] = useState<
     LessonTeacherRosterEntry[]
   >([]);
 
   useEffect(() => {
     const branchId = formData.branch;
-    if (branchId == null) {
+    if (!needsTeacherPicker || branchId == null) {
       setTeacherRoster([]);
       return;
     }
@@ -325,7 +334,7 @@ export default function PersonForm({
     return () => {
       cancelled = true;
     };
-  }, [formData.branch]);
+  }, [needsTeacherPicker, formData.branch]);
 
   const teacherSelectOptions = useMemo(
     () =>
@@ -339,10 +348,6 @@ export default function PersonForm({
           }`,
         })),
     [teacherRoster, initialData?.id],
-  );
-
-  const hasLessonEnrollment = Boolean(
-    formData.has_lesson_enrollment ?? initialData?.has_lesson_enrollment,
   );
 
   // Invite/attend + first activity: writable when creating a visitor (API accepts on create)

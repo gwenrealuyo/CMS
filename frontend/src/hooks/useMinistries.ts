@@ -15,6 +15,8 @@ export interface MinistryFilters {
   activity_cadence?: MinistryCadence | "all";
   category?: MinistryCategory | "all";
   scope?: MinistryScope | "all";
+  /** `null` while waiting for auth/branch default to resolve. */
+  branch?: number | "all" | null;
   is_active?: boolean | "all";
 }
 
@@ -25,12 +27,16 @@ export const useMinistries = () => {
     activity_cadence: "all",
     category: "all",
     scope: "all",
+    branch: null,
     is_active: true,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchMinistries = useCallback(async () => {
+    if (filters.branch === null) {
+      return;
+    }
     try {
       setLoading(true);
       const params: Record<string, unknown> = {};
@@ -43,6 +49,9 @@ export const useMinistries = () => {
       }
       if (filters.scope && filters.scope !== "all") {
         params.scope = filters.scope;
+      }
+      if (filters.branch !== "all") {
+        params.branch = filters.branch;
       }
       if (filters.is_active !== "all") {
         params.is_active = filters.is_active ?? undefined;
@@ -151,15 +160,15 @@ export const useMinistries = () => {
     fetchMinistries();
   }, [fetchMinistries]);
 
-  const setFilter = <K extends keyof MinistryFilters>(
-    key: K,
-    value: MinistryFilters[K]
-  ) => {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
+  const setFilter = useCallback(
+    <K extends keyof MinistryFilters>(key: K, value: MinistryFilters[K]) => {
+      setFilters((prev) => ({
+        ...prev,
+        [key]: value,
+      }));
+    },
+    [],
+  );
 
   const cadenceOptions = useMemo(
     () => [

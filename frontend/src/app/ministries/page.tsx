@@ -23,8 +23,8 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import {
-  getBranchChipStyle,
-  getBranchDisplayCode,
+  CLUSTER_BRANCH_CHIP_CLASSNAME,
+  getBranchOutlineBadgeStyle,
 } from "@/src/lib/branchChipColor";
 import { formatPersonName } from "@/src/lib/name";
 
@@ -51,7 +51,32 @@ export default function MinistriesPage() {
     () => new Map(branches.map((branch) => [Number(branch.id), branch])),
     [branches],
   );
+  const branchFilterOptions = useMemo(
+    () =>
+      [...branches]
+        .filter((branch) => branch.is_active)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [branches],
+  );
   const { user } = useAuth();
+  const defaultBranchFilter = useMemo((): number | "all" => {
+    if (!user) return "all";
+    if (user.can_see_all_branches) return "all";
+    if (user.branch != null) return Number(user.branch);
+    return "all";
+  }, [user]);
+  const branchFilterUserIdRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!user) {
+      branchFilterUserIdRef.current = undefined;
+      return;
+    }
+    if (branchFilterUserIdRef.current === user.id) return;
+    branchFilterUserIdRef.current = user.id;
+    setFilter("branch", defaultBranchFilter);
+  }, [user, defaultBranchFilter, setFilter]);
+
   const userCanHardDelete = canHardDelete(user);
   const [searchQuery, setSearchQuery] = useState(filters.search ?? "");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -151,6 +176,7 @@ export default function MinistriesPage() {
     setFilter("activity_cadence", "all");
     setFilter("category", "all");
     setFilter("scope", "all");
+    setFilter("branch", defaultBranchFilter);
     setFilter("is_active", true);
   };
 
@@ -400,6 +426,38 @@ export default function MinistriesPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Branch
+                </label>
+                <select
+                  value={
+                    filters.branch === undefined ||
+                    filters.branch === null ||
+                    filters.branch === "all"
+                      ? "all"
+                      : String(filters.branch)
+                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setFilter(
+                      "branch",
+                      value === "all" ? "all" : Number(value),
+                    );
+                  }}
+                  disabled={filters.branch === null}
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-50 disabled:text-gray-500"
+                >
+                  <option value="all">All branches</option>
+                  {branchFilterOptions.map((branch) => (
+                    <option key={branch.id} value={String(branch.id)}>
+                      {branch.name}
+                      {branch.is_headquarters ? " (HQ)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Status
                 </label>
                 <select
@@ -439,7 +497,7 @@ export default function MinistriesPage() {
           </Card>
 
           <Card className="!p-0">
-            {loading ? (
+            {loading || filters.branch === null ? (
               <div className="py-12 flex justify-center">
                 <LoadingSpinner />
               </div>
@@ -500,17 +558,18 @@ export default function MinistriesPage() {
                       if (!ministryBranch) {
                         return <span className="text-gray-700">—</span>;
                       }
+                      const branchName = ministryBranch.name?.trim() || "—";
                       return (
                         <span
-                          className="font-medium"
-                          style={{
-                            color: getBranchChipStyle(
-                              ministryBranch.id,
-                              ministryBranch.is_headquarters,
-                            ).color,
-                          }}
+                          className={`${CLUSTER_BRANCH_CHIP_CLASSNAME} text-xs`}
+                          style={getBranchOutlineBadgeStyle(
+                            ministryBranch.id,
+                            ministryBranch.is_headquarters,
+                          )}
                         >
-                          {getBranchDisplayCode(ministryBranch)}
+                          {ministryBranch.is_headquarters
+                            ? `${branchName} (HQ)`
+                            : branchName}
                         </span>
                       );
                     },

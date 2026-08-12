@@ -118,8 +118,10 @@ def login_view(request):
             refresh.set_exp(lifetime=timedelta(days=7))
 
         # Serialize user data (prefetch coordinator assignments for /auth/me parity)
-        user = User.objects.prefetch_related("module_coordinator_assignments").get(
-            pk=user.pk
+        user = (
+            User.objects.select_related("branch")
+            .prefetch_related("module_coordinator_assignments")
+            .get(pk=user.pk)
         )
         user_serializer = UserSerializer(user)
         user_data = user_serializer.data
@@ -271,8 +273,10 @@ def current_user_view(request):
     PATCH: Updates user profile (name, email, photo) - does NOT log in audit
     """
     if request.method == "GET":
-        user = User.objects.prefetch_related("module_coordinator_assignments").get(
-            pk=request.user.pk
+        user = (
+            User.objects.select_related("branch")
+            .prefetch_related("module_coordinator_assignments")
+            .get(pk=request.user.pk)
         )
         serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -283,8 +287,10 @@ def current_user_view(request):
         if serializer.is_valid():
             serializer.save()
             # Note: Profile updates are NOT logged in audit log per requirements
-            user = User.objects.prefetch_related("module_coordinator_assignments").get(
-                pk=request.user.pk
+            user = (
+                User.objects.select_related("branch")
+                .prefetch_related("module_coordinator_assignments")
+                .get(pk=request.user.pk)
             )
             user_serializer = UserSerializer(user)
             return Response(user_serializer.data, status=status.HTTP_200_OK)

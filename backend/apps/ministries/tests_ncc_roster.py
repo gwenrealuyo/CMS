@@ -110,6 +110,7 @@ class NccMinistryRosterTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertFalse(response.data["has_lessons_teacher_access"])
         self.assertFalse(
             ModuleCoordinator.objects.filter(
                 person=self.teacher,
@@ -117,6 +118,64 @@ class NccMinistryRosterTests(TestCase):
                 level=ModuleCoordinator.CoordinatorLevel.TEACHER,
             ).exists()
         )
+        teachers = self.client.get(
+            "/api/lessons/teachers/",
+            {"branch_id": self.branch.id},
+        )
+        self.assertEqual(teachers.status_code, status.HTTP_200_OK)
+        row = next(r for r in teachers.data if r["id"] == self.teacher.id)
+        self.assertFalse(row["has_lessons_teacher_access"])
+
+    def test_teachers_endpoint_access_flag_matches_grant(self):
+        ministry = ensure_ncc_ministry(self.branch)
+        granted = Person.objects.create_user(
+            username="ncc_granted",
+            email="ncc_granted@test.com",
+            password="testpass123",
+            first_name="Granted",
+            last_name="Teacher",
+            role="MEMBER",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        roster_only = Person.objects.create_user(
+            username="ncc_roster_only",
+            email="ncc_roster_only@test.com",
+            password="testpass123",
+            first_name="Roster",
+            last_name="Only",
+            role="MEMBER",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": ministry.id,
+                "member_id": granted.id,
+                "role": "team_member",
+                "grant_lessons_teacher_access": True,
+            },
+            format="json",
+        )
+        self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": ministry.id,
+                "member_id": roster_only.id,
+                "role": "team_member",
+                "grant_lessons_teacher_access": False,
+            },
+            format="json",
+        )
+        teachers = self.client.get(
+            "/api/lessons/teachers/",
+            {"branch_id": self.branch.id},
+        )
+        self.assertEqual(teachers.status_code, status.HTTP_200_OK)
+        by_id = {row["id"]: row for row in teachers.data}
+        self.assertTrue(by_id[granted.id]["has_lessons_teacher_access"])
+        self.assertFalse(by_id[roster_only.id]["has_lessons_teacher_access"])
 
     def test_mark_inactive_revokes_teacher_access(self):
         ministry = ensure_ncc_ministry(self.branch)
@@ -153,6 +212,7 @@ class NccMinistryRosterTests(TestCase):
         self.assertIn(self.teacher.id, ids)
         inactive = next(row for row in teachers.data if row["id"] == self.teacher.id)
         self.assertFalse(inactive["is_active"])
+        self.assertFalse(inactive["has_lessons_teacher_access"])
 
     def test_lessons_coordinator_can_manage_own_branch_ncc(self):
         ministry = ensure_ncc_ministry(self.branch)

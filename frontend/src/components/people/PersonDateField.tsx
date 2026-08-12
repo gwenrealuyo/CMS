@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import {
   MONTH_NAMES,
   daysInMonth,
-  formatAgeYears,
   formatLocalYmd,
   getLocalTodayDateString,
   getYearBounds,
@@ -19,20 +18,25 @@ export const ESTIMATE_HELP =
 const inputClassName =
   "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed";
 
+function isMdUpViewport(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(min-width: 768px)").matches
+  );
+}
+
 type PersonDateFieldProps = {
   value?: string | null;
   onChange: (next: string) => void;
   disabled?: boolean;
   id?: string;
-  /** Show computed age under the control (DOB). */
-  showAge?: boolean;
   className?: string;
 };
 
 type Draft = {
   year: string;
   month: string; // "" | "1"…"12"
-  day: string; // "" | "1"…"31"
+  day: string; // "" | "1"…"31" (may be "0" while typing on md+)
   dayUnknown: boolean;
 };
 
@@ -49,12 +53,18 @@ function draftFromValue(value?: string | null): Draft {
   };
 }
 
+function clampDayDigits(digits: string, maxDay: number): string {
+  if (!digits) return "";
+  const n = Number(digits);
+  if (!Number.isInteger(n) || n < 1) return "";
+  return String(Math.min(n, maxDay));
+}
+
 export default function PersonDateField({
   value,
   onChange,
   disabled = false,
   id,
-  showAge = false,
   className = "",
 }: PersonDateFieldProps) {
   const todayYmd = getLocalTodayDateString();
@@ -62,6 +72,11 @@ export default function PersonDateField({
 
   const [draft, setDraft] = useState<Draft>(() => draftFromValue(value));
   const [error, setError] = useState<string | null>(null);
+
+  const monthSelectRef = useRef<HTMLSelectElement>(null);
+  const dayInputRef = useRef<HTMLInputElement>(null);
+  /** Latest year digits for blur validation (avoids stale draft on auto-advance). */
+  const yearDigitsRef = useRef(draft.year);
 
   // Sync from parent when value changes externally (e.g. load person / clear elsewhere).
   useEffect(() => {
@@ -79,11 +94,14 @@ export default function PersonDateField({
         if (prev.year || prev.month || prev.day || prev.dayUnknown) {
           if (tryCommit(prev) === "") return prev;
         }
+        yearDigitsRef.current = "";
         return draftFromValue(null);
       }
 
       // External load/update: do not infer dayUnknown from …-01 (Jan 1 can be real).
-      return draftFromValue(external);
+      const next = draftFromValue(external);
+      yearDigitsRef.current = next.year;
+      return next;
     });
   }, [value]);
 
@@ -91,7 +109,10 @@ export default function PersonDateField({
   const monthNum = draft.month ? Number(draft.month) : NaN;
 
   const maxDay =
-    Number.isInteger(yearNum) && Number.isInteger(monthNum)
+    Number.isInteger(yearNum) &&
+    Number.isInteger(monthNum) &&
+    monthNum >= 1 &&
+    monthNum <= 12
       ? daysInMonth(yearNum, monthNum)
       : 31;
 
@@ -104,8 +125,6 @@ export default function PersonDateField({
     draft.year || draft.month || draft.day || draft.dayUnknown || value,
   );
 
-  const age = showAge ? formatAgeYears(value || null) : null;
-
   const applyDraft = useCallback(
     (next: Draft) => {
       let normalized = { ...next };
@@ -115,7 +134,14 @@ export default function PersonDateField({
         const y = Number(normalized.year);
         const m = Number(normalized.month);
         const d = Number(normalized.day);
-        if (Number.isInteger(y) && Number.isInteger(m) && Number.isInteger(d)) {
+        if (
+          Number.isInteger(y) &&
+          Number.isInteger(m) &&
+          m >= 1 &&
+          m <= 12 &&
+          Number.isInteger(d) &&
+          d >= 1
+        ) {
           const max = daysInMonth(y, m);
           if (d > max) normalized = { ...normalized, day: String(max) };
         }
@@ -169,32 +195,73 @@ export default function PersonDateField({
 
   const handleYearChange = (raw: string) => {
     const digits = raw.replace(/\D/g, "").slice(0, 4);
+    yearDigitsRef.current = digits;
     applyDraft({ ...draft, year: digits });
+    if (digits.length === 4 && isMdUpViewport()) {
+      requestAnimationFrame(() => monthSelectRef.current?.focus());
+    }
   };
 
   const handleYearBlur = () => {
-    if (!draft.year) return;
-    const y = Number(draft.year);
+    const yearDigits = yearDigitsRef.current;
+    // Incomplete year (e.g. auto-advance blur while draft still shows 3 digits).
+    if (!yearDigits || yearDigits.length < 4) return;
+    const y = Number(yearDigits);
     if (!Number.isInteger(y) || y < minYear || y > maxYear) {
       setError(`Year must be between ${minYear} and ${maxYear}.`);
     }
   };
 
+  const handleMonthChange = (month: string) => {
+    applyDraft({ ...draft, month });
+    if (month && isMdUpViewport() && !draft.dayUnknown) {
+      requestAnimationFrame(() => dayInputRef.current?.focus());
+    }
+  };
+
+  const handleDayInputChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 2);
+    if (digits === "") {
+      applyDraft({ ...draft, day: "" });
+      return;
+    }
+    if (digits.length === 1) {
+      applyDraft({ ...draft, day: digits });
+      return;
+    }
+    const clamped = clampDayDigits(digits, maxDay);
+    applyDraft({ ...draft, day: clamped });
+  };
+
+  const handleDayInputBlur = () => {
+    if (!draft.day || draft.dayUnknown) return;
+    const clamped = clampDayDigits(draft.day, maxDay);
+    if (clamped !== draft.day) {
+      applyDraft({ ...draft, day: clamped });
+    }
+  };
+
   const handleClear = () => {
+    yearDigitsRef.current = "";
     setDraft({ year: "", month: "", day: "", dayUnknown: false });
     setError(null);
     if (value) onChange("");
   };
 
+  const yearId = id ? `${id}-year` : undefined;
+  const monthSelectId = id ? `${id}-month` : undefined;
+  const daySelectId = id ? `${id}-day` : undefined;
+  const dayInputId = id ? `${id}-day-md` : undefined;
+
   return (
     <div className={className}>
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label htmlFor={id ? `${id}-year` : undefined} className="sr-only">
+          <label htmlFor={yearId} className="sr-only">
             Year
           </label>
           <input
-            id={id ? `${id}-year` : undefined}
+            id={yearId}
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
@@ -208,14 +275,16 @@ export default function PersonDateField({
             aria-invalid={Boolean(error)}
           />
         </div>
+
         <div>
-          <label htmlFor={id ? `${id}-month` : undefined} className="sr-only">
+          <label htmlFor={monthSelectId} className="sr-only">
             Month
           </label>
           <select
-            id={id ? `${id}-month` : undefined}
+            ref={monthSelectRef}
+            id={monthSelectId}
             value={draft.month}
-            onChange={(e) => applyDraft({ ...draft, month: e.target.value })}
+            onChange={(e) => handleMonthChange(e.target.value)}
             disabled={disabled}
             className={inputClassName}
           >
@@ -227,16 +296,17 @@ export default function PersonDateField({
             ))}
           </select>
         </div>
+
         <div>
-          <label htmlFor={id ? `${id}-day` : undefined} className="sr-only">
+          <label htmlFor={daySelectId} className="sr-only">
             Day
           </label>
           <select
-            id={id ? `${id}-day` : undefined}
-            value={draft.dayUnknown ? "1" : draft.day}
+            id={daySelectId}
+            value={draft.dayUnknown ? "1" : draft.day === "0" ? "" : draft.day}
             onChange={(e) => applyDraft({ ...draft, day: e.target.value })}
             disabled={disabled || draft.dayUnknown}
-            className={inputClassName}
+            className={`${inputClassName} md:hidden`}
           >
             <option value="">Day</option>
             {dayOptions.map((d) => (
@@ -245,6 +315,23 @@ export default function PersonDateField({
               </option>
             ))}
           </select>
+          <label htmlFor={dayInputId} className="sr-only">
+            Day
+          </label>
+          <input
+            ref={dayInputRef}
+            id={dayInputId}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="DD"
+            value={draft.dayUnknown ? "1" : draft.day}
+            onChange={(e) => handleDayInputChange(e.target.value)}
+            onBlur={handleDayInputBlur}
+            disabled={disabled || draft.dayUnknown}
+            maxLength={2}
+            className={`${inputClassName} hidden md:block`}
+          />
         </div>
       </div>
 
@@ -283,10 +370,6 @@ export default function PersonDateField({
       </div>
 
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-
-      {showAge && age != null && (
-        <p className="mt-1 text-sm font-medium text-gray-700">Age {age}</p>
-      )}
     </div>
   );
 }
@@ -295,8 +378,10 @@ function tryCommit(draft: Draft): string {
   if (!draft.year || !draft.month) return "";
   const year = Number(draft.year);
   const month = Number(draft.month);
+  if (!Number.isInteger(month) || month < 1 || month > 12) return "";
   const day = draft.dayUnknown ? 1 : Number(draft.day);
   if (!draft.dayUnknown && !draft.day) return "";
+  if (!draft.dayUnknown && (!Number.isInteger(day) || day < 1)) return "";
   if (!isValidLocalYmd(year, month, day)) return "";
   return formatLocalYmd(year, month, day);
 }

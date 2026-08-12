@@ -50,7 +50,7 @@ import {
   PERSON_PHOTO_HELPER_TEXT,
   validatePersonPhoto,
 } from "@/src/lib/personPhoto";
-import { getLocalTodayDateString } from "@/src/lib/date";
+import { formatAgeYears, getLocalTodayDateString } from "@/src/lib/date";
 import PersonDateField, {
   ESTIMATE_HELP,
 } from "@/src/components/people/PersonDateField";
@@ -1624,9 +1624,7 @@ export default function PersonForm({
                             setFormData((prev) => ({
                               ...prev,
                               has_finished_lessons: checked,
-                              ...(checked
-                                ? {}
-                                : { lessons_finished_at: "" }),
+                              ...(checked ? {} : { lessons_finished_at: "" }),
                             }));
                             setHasUnsavedChanges(true);
                           }}
@@ -1896,8 +1894,18 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">{ESTIMATE_HELP}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Date of Birth
+                    <label className="mb-2 flex flex-wrap items-baseline gap-x-2 text-sm font-medium text-gray-700">
+                      <span>Date of Birth</span>
+                      {(() => {
+                        const age = formatAgeYears(
+                          formData.date_of_birth || null,
+                        );
+                        return age != null ? (
+                          <span className="text-xs font-normal text-gray-500">
+                            (Age {age})
+                          </span>
+                        ) : null;
+                      })()}
                     </label>
                     <PersonDateField
                       id="date_of_birth"
@@ -1905,7 +1913,6 @@ export default function PersonForm({
                       onChange={(next) =>
                         handleDateFieldChange("date_of_birth", next)
                       }
-                      showAge
                     />
                   </div>
                   <div>

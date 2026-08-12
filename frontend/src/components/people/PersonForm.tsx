@@ -331,9 +331,7 @@ export default function PersonForm({
     () =>
       teacherRoster
         .filter((person) => String(person.id) !== String(initialData?.id ?? ""))
-        .sort((a, b) =>
-          formatPersonName(a).localeCompare(formatPersonName(b)),
-        )
+        .sort((a, b) => formatPersonName(a).localeCompare(formatPersonName(b)))
         .map((person) => ({
           value: String(person.id),
           label: `${formatPersonName(person)}${
@@ -555,6 +553,9 @@ export default function PersonForm({
       let next = { ...prev, [name]: value } as Partial<Person>;
       if (name === "water_baptism_date") {
         next = applyWaterBaptismRoleRules(next, value);
+      }
+      if (name === "lessons_finished_at" && value) {
+        next = { ...next, has_finished_lessons: true };
       }
       return next;
     });
@@ -1075,9 +1076,7 @@ export default function PersonForm({
         const first = (formData.historical_teacher_first_name || "").trim();
         const last = (formData.historical_teacher_last_name || "").trim();
         if (!first || !last) {
-          toast.error(
-            "Enter former/unknown teacher first and last name.",
-          );
+          toast.error("Enter former/unknown teacher first and last name.");
           return;
         }
       }
@@ -1545,7 +1544,8 @@ export default function PersonForm({
                       />
                     </LockedField>
                     <p className="text-xs text-gray-500 mt-1">
-                      Must be unique when set
+                      Unique ID. Inquire with your cluster coordinator if
+                      unsure.
                     </p>
                   </div>
                   <div>
@@ -1620,9 +1620,13 @@ export default function PersonForm({
                           }
                           disabled={!canEditVitalDates}
                           onChange={(e) => {
+                            const checked = e.target.checked;
                             setFormData((prev) => ({
                               ...prev,
-                              has_finished_lessons: e.target.checked,
+                              has_finished_lessons: checked,
+                              ...(checked
+                                ? {}
+                                : { lessons_finished_at: "" }),
                             }));
                             setHasUnsavedChanges(true);
                           }}
@@ -1779,7 +1783,8 @@ export default function PersonForm({
                                 onChange={(e) => {
                                   setFormData((prev) => ({
                                     ...prev,
-                                    historical_teacher_last_name: e.target.value,
+                                    historical_teacher_last_name:
+                                      e.target.value,
                                   }));
                                   setHasUnsavedChanges(true);
                                 }}

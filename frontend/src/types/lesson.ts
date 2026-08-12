@@ -135,7 +135,10 @@ export interface PersonProgressSummary {
 export interface LessonStudentEnrollment {
   id: number;
   student: LessonPersonSummary;
-  teacher: LessonPersonSummary;
+  teacher: LessonPersonSummary | null;
+  teacher_display_name?: string;
+  historical_teacher_first_name?: string;
+  historical_teacher_last_name?: string;
   commitment_signed: boolean;
   commitment_signed_at: string | null;
   commitment_signed_by: number | null;
@@ -147,7 +150,7 @@ export interface LessonStudentEnrollment {
 export interface LessonTeacherTransfer {
   id: number;
   from_teacher: LessonPersonSummary | null;
-  to_teacher: LessonPersonSummary;
+  to_teacher: LessonPersonSummary | null;
   transferred_by: LessonPersonSummary | null;
   note: string;
   created_at: string;

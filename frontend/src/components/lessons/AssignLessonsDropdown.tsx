@@ -9,8 +9,11 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { Lesson, LessonStudentEnrollment } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  enrollmentTeacherLabel,
+  LessonPersonLike,
+} from "@/src/lib/lessonsUtils";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
-import { LessonPersonLike } from "@/src/lib/lessonsUtils";
 import {
   formatPersonClusterLabel,
   formatPersonStatusLabel,
@@ -331,7 +334,11 @@ export default function AssignLessonsDropdown({
               </label>
               {existingEnrollment ? (
                 <p className="text-sm text-gray-600 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-                  {formatPersonName(existingEnrollment.teacher)} (assigned)
+                  {enrollmentTeacherLabel(
+                    existingEnrollment,
+                    formatPersonName,
+                  )}{" "}
+                  (assigned)
                 </p>
               ) : (
                 <ScalableSelect

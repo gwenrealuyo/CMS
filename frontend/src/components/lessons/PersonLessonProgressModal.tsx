@@ -15,7 +15,7 @@ import {
 import { lessonsApi } from "@/src/lib/api";
 import { formatPersonName } from "@/src/lib/name";
 import { formatDisplayDate } from "@/src/lib/date";
-import { extractErrorMessage, LessonPersonLike } from "@/src/lib/lessonsUtils";
+import { extractErrorMessage, LessonPersonLike, enrollmentTeacherLabel } from "@/src/lib/lessonsUtils";
 
 interface PersonLessonProgressModalProps {
   isOpen: boolean;
@@ -198,9 +198,9 @@ export default function PersonLessonProgressModal({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-gray-700">
                 <span className="font-semibold text-gray-900">Teacher:</span>{" "}
-                {teacher ? (
+                {enrollment ? (
                   <span className="font-semibold text-primary">
-                    {formatPersonName(teacher)}
+                    {enrollmentTeacherLabel(enrollment, formatPersonName)}
                   </span>
                 ) : (
                   <span className="text-gray-500">No teacher</span>
@@ -250,7 +250,11 @@ export default function PersonLessonProgressModal({
                               {transfer.from_teacher
                                 ? formatPersonName(transfer.from_teacher)
                                 : "—"}{" "}
-                              → {formatPersonName(transfer.to_teacher)}
+                              →{" "}
+                              {transfer.to_teacher
+                                ? formatPersonName(transfer.to_teacher)
+                                : transfer.note?.trim() ||
+                                  "Former / unknown teacher"}
                             </p>
                             {transfer.transferred_by && (
                               <p className="text-xs text-gray-500">

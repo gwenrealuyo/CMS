@@ -333,12 +333,13 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
         source="student",
         write_only=True,
     )
-    teacher = PersonNestedSerializer(read_only=True)
+    teacher = PersonNestedSerializer(read_only=True, allow_null=True)
     teacher_id = serializers.PrimaryKeyRelatedField(
         queryset=Person.objects.exclude(role="VISITOR").exclude(role="ADMIN"),
         source="teacher",
         write_only=True,
     )
+    teacher_display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = LessonStudentEnrollment
@@ -348,6 +349,9 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
             "student_id",
             "teacher",
             "teacher_id",
+            "teacher_display_name",
+            "historical_teacher_first_name",
+            "historical_teacher_last_name",
             "commitment_signed",
             "commitment_signed_at",
             "commitment_signed_by",
@@ -356,12 +360,17 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = [
+            "historical_teacher_first_name",
+            "historical_teacher_last_name",
             "commitment_signed",
             "commitment_signed_at",
             "commitment_signed_by",
             "assigned_at",
             "updated_at",
         ]
+
+    def get_teacher_display_name(self, obj: LessonStudentEnrollment) -> str:
+        return obj.teacher_display_name()
 
     def create(self, validated_data: Dict[str, Any]) -> LessonStudentEnrollment:
         request = self.context.get("request")
@@ -458,9 +467,9 @@ class EnrollmentCommitmentSerializer(serializers.Serializer):
 
 
 class LessonTeacherTransferSerializer(serializers.ModelSerializer):
-    from_teacher = PersonNestedSerializer(read_only=True)
-    to_teacher = PersonNestedSerializer(read_only=True)
-    transferred_by = PersonNestedSerializer(read_only=True)
+    from_teacher = PersonNestedSerializer(read_only=True, allow_null=True)
+    to_teacher = PersonNestedSerializer(read_only=True, allow_null=True)
+    transferred_by = PersonNestedSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = LessonTeacherTransfer

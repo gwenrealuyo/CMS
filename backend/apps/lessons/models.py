@@ -160,10 +160,14 @@ class LessonStudentEnrollment(models.Model):
     )
     teacher = models.ForeignKey(
         Person,
+        null=True,
+        blank=True,
         on_delete=models.PROTECT,
         related_name="lesson_students",
         limit_choices_to=~Q(role="VISITOR"),
     )
+    historical_teacher_first_name = models.CharField(max_length=150, blank=True)
+    historical_teacher_last_name = models.CharField(max_length=150, blank=True)
     assigned_by = models.ForeignKey(
         Person,
         null=True,
@@ -187,10 +191,22 @@ class LessonStudentEnrollment(models.Model):
     class Meta:
         ordering = ["student__last_name", "student__first_name"]
 
+    def teacher_display_name(self) -> str:
+        if self.teacher_id:
+            return self.teacher.get_full_name() or self.teacher.username
+        name = " ".join(
+            part
+            for part in (
+                self.historical_teacher_first_name,
+                self.historical_teacher_last_name,
+            )
+            if part
+        ).strip()
+        return name or "Former / unknown teacher"
+
     def __str__(self) -> str:
         student_name = self.student.get_full_name() or self.student.username
-        teacher_name = self.teacher.get_full_name() or self.teacher.username
-        return f"{student_name} — {teacher_name}"
+        return f"{student_name} — {self.teacher_display_name()}"
 
 
 class LessonTeacherTransfer(models.Model):
@@ -211,6 +227,8 @@ class LessonTeacherTransfer(models.Model):
     )
     to_teacher = models.ForeignKey(
         Person,
+        null=True,
+        blank=True,
         on_delete=models.PROTECT,
         related_name="lesson_transfers_to",
         limit_choices_to=~Q(role="VISITOR"),

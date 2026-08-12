@@ -217,6 +217,40 @@ export function buildStudentTeacherMapFromEnrollments(
   return map;
 }
 
+/** Label for enrollment teacher, including former/unknown historical names. */
+export function enrollmentTeacherLabel(
+  enrollment:
+    | Pick<
+        LessonStudentEnrollment,
+        | "teacher"
+        | "teacher_display_name"
+        | "historical_teacher_first_name"
+        | "historical_teacher_last_name"
+      >
+    | null
+    | undefined,
+  formatName: (person: LessonPersonSummary) => string = (p) =>
+    [p.first_name, p.last_name].filter(Boolean).join(" ").trim() ||
+    p.username ||
+    "Teacher",
+): string {
+  if (!enrollment) return "No teacher";
+  if (enrollment.teacher) {
+    return formatName(enrollment.teacher);
+  }
+  if (enrollment.teacher_display_name?.trim()) {
+    return enrollment.teacher_display_name.trim();
+  }
+  const historical = [
+    enrollment.historical_teacher_first_name,
+    enrollment.historical_teacher_last_name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return historical || "Former / unknown teacher";
+}
+
 export function enrollmentByStudentId(
   enrollments: LessonStudentEnrollment[],
 ): Map<number, LessonStudentEnrollment> {

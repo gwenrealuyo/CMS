@@ -67,9 +67,15 @@ export interface Person {
   has_finished_lessons?: boolean;
   lessons_started_at?: string; // ISO date string
   lessons_finished_at?: string; // ISO date string
-  /** Derived from LessonStudentEnrollment; read-only on person profile */
+  /** Derived from LessonStudentEnrollment; writable on person form (write-through) */
   commitment_form_signed?: boolean;
-  commitment_signed_at?: string | null; // ISO datetime
+  commitment_signed_at?: string | null; // ISO date or datetime
+  has_lesson_enrollment?: boolean;
+  lesson_teacher_display_name?: string | null;
+  /** Write-only: assign teacher when creating enrollment via person form */
+  lesson_teacher_id?: number | string | null;
+  historical_teacher_first_name?: string;
+  historical_teacher_last_name?: string;
   first_activity_attended?: string;
   inviter?: string; // ID of another Person
   /** Branch ID; may be absent/null on legacy records created before branch was enforced */

@@ -354,8 +354,24 @@ class PersonSerializer(serializers.ModelSerializer):
     )
     can_view_journey_timeline = serializers.SerializerMethodField()
     can_view_profile = serializers.SerializerMethodField()
-    commitment_form_signed = serializers.SerializerMethodField()
-    commitment_signed_at = serializers.SerializerMethodField()
+    # Writable on create/update (write-through to LessonStudentEnrollment).
+    # Representation is overwritten from enrollment in to_representation.
+    commitment_form_signed = serializers.BooleanField(required=False)
+    commitment_signed_at = serializers.DateField(required=False, allow_null=True)
+    lesson_teacher_id = serializers.PrimaryKeyRelatedField(
+        queryset=Person.objects.exclude(role="VISITOR").exclude(role="ADMIN"),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    historical_teacher_first_name = serializers.CharField(
+        required=False, allow_blank=True, write_only=True, max_length=150
+    )
+    historical_teacher_last_name = serializers.CharField(
+        required=False, allow_blank=True, write_only=True, max_length=150
+    )
+    has_lesson_enrollment = serializers.SerializerMethodField()
+    lesson_teacher_display_name = serializers.SerializerMethodField()
     initial_password = serializers.CharField(
         write_only=True, required=False, allow_blank=True
     )
@@ -400,6 +416,11 @@ class PersonSerializer(serializers.ModelSerializer):
             "lessons_finished_at",
             "commitment_form_signed",
             "commitment_signed_at",
+            "lesson_teacher_id",
+            "historical_teacher_first_name",
+            "historical_teacher_last_name",
+            "has_lesson_enrollment",
+            "lesson_teacher_display_name",
             "inviter",
             "branch",
             "branch_code",
@@ -566,6 +587,62 @@ class PersonSerializer(serializers.ModelSerializer):
                     }
                 )
 
+        commitment_in_payload = "commitment_form_signed" in attrs
+        if commitment_in_payload:
+            commitment_signed = bool(attrs.get("commitment_form_signed"))
+            commitment_signed_at = attrs.get("commitment_signed_at")
+            if commitment_signed:
+                if not has_finished_lessons or not lessons_finished_at:
+                    raise serializers.ValidationError(
+                        {
+                            "commitment_form_signed": (
+                                "Mark lessons finished (with a finished date) before "
+                                "recording commitment form signed."
+                            )
+                        }
+                    )
+                if not commitment_signed_at:
+                    raise serializers.ValidationError(
+                        {
+                            "commitment_signed_at": (
+                                "Set commitment signed date when marking the form as signed."
+                            )
+                        }
+                    )
+                existing_enrollment = None
+                if instance is not None:
+                    existing_enrollment = getattr(instance, "lesson_enrollment", None)
+                if existing_enrollment is None:
+                    teacher = attrs.get("lesson_teacher_id")
+                    hist_first = (attrs.get("historical_teacher_first_name") or "").strip()
+                    hist_last = (attrs.get("historical_teacher_last_name") or "").strip()
+                    if teacher is None and not (hist_first and hist_last):
+                        raise serializers.ValidationError(
+                            {
+                                "lesson_teacher_id": (
+                                    "Select a lessons teacher, or enter former/unknown "
+                                    "teacher first and last name."
+                                )
+                            }
+                        )
+                    if teacher is not None and (hist_first or hist_last):
+                        raise serializers.ValidationError(
+                            {
+                                "historical_teacher_first_name": (
+                                    "Provide either a lessons teacher or historical "
+                                    "teacher names, not both."
+                                )
+                            }
+                        )
+            elif commitment_signed_at is not None:
+                raise serializers.ValidationError(
+                    {
+                        "commitment_signed_at": (
+                            "Clear commitment signed date when the form is not signed."
+                        )
+                    }
+                )
+
         if not instance and request and request.user.role == "ADMIN":
             role = attrs.get("role", "MEMBER")
             if role != "VISITOR":
@@ -598,6 +675,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "spirit_baptism_date",
             "lessons_started_at",
             "lessons_finished_at",
+            "commitment_signed_at",
         )
         future_date_errors = {}
         for field_name in person_date_fields:
@@ -648,6 +726,81 @@ class PersonSerializer(serializers.ModelSerializer):
             completed_by=completed_by,
         )
 
+    @staticmethod
+    def _pop_commitment_write_fields(validated_data: dict) -> dict:
+        return {
+            "commitment_form_signed": validated_data.pop(
+                "commitment_form_signed", serializers.empty
+            ),
+            "commitment_signed_at": validated_data.pop(
+                "commitment_signed_at", serializers.empty
+            ),
+            "lesson_teacher_id": validated_data.pop(
+                "lesson_teacher_id", serializers.empty
+            ),
+            "historical_teacher_first_name": validated_data.pop(
+                "historical_teacher_first_name", serializers.empty
+            ),
+            "historical_teacher_last_name": validated_data.pop(
+                "historical_teacher_last_name", serializers.empty
+            ),
+        }
+
+    def _apply_commitment_write(self, person: Person, write_fields: dict) -> None:
+        commitment_value = write_fields.get("commitment_form_signed")
+        if commitment_value is serializers.empty:
+            return
+
+        from apps.lessons.services import (
+            _as_aware_datetime,
+            clear_enrollment_commitment_signed,
+            ensure_lesson_enrollment,
+            set_enrollment_commitment_signed,
+        )
+
+        request = self.context.get("request")
+        actor = request.user if request and isinstance(request.user, Person) else None
+
+        if not commitment_value:
+            enrollment = getattr(person, "lesson_enrollment", None)
+            if enrollment and enrollment.commitment_signed:
+                clear_enrollment_commitment_signed(enrollment)
+            return
+
+        enrollment = getattr(person, "lesson_enrollment", None)
+        if enrollment is None:
+            teacher = write_fields.get("lesson_teacher_id")
+            if teacher is serializers.empty:
+                teacher = None
+            hist_first = write_fields.get("historical_teacher_first_name")
+            hist_last = write_fields.get("historical_teacher_last_name")
+            if hist_first is serializers.empty:
+                hist_first = ""
+            if hist_last is serializers.empty:
+                hist_last = ""
+            enrollment = ensure_lesson_enrollment(
+                person,
+                teacher,
+                assigned_by=actor,
+                historical_teacher_first_name=hist_first or "",
+                historical_teacher_last_name=hist_last or "",
+            )
+
+        signed_at = write_fields.get("commitment_signed_at")
+        if signed_at is serializers.empty or signed_at is None:
+            raise serializers.ValidationError(
+                {
+                    "commitment_signed_at": (
+                        "Set commitment signed date when marking the form as signed."
+                    )
+                }
+            )
+        set_enrollment_commitment_signed(
+            enrollment,
+            signed_by=actor,
+            signed_at=_as_aware_datetime(signed_at),
+        )
+
     def create(self, validated_data):
         request = self.context.get("request")
         is_plain_member = bool(
@@ -660,6 +813,8 @@ class PersonSerializer(serializers.ModelSerializer):
             validated_data["role"] = "VISITOR"
             validated_data["inviter"] = request.user
             validated_data["branch"] = request.user.branch
+
+        commitment_write = self._pop_commitment_write_fields(validated_data)
 
         note = validated_data.pop("note", "").strip() if "note" in validated_data else ""
         initial_password = (validated_data.pop("initial_password", None) or "").strip()
@@ -721,6 +876,7 @@ class PersonSerializer(serializers.ModelSerializer):
             previous_has_finished_lessons=False,
             previous_lessons_finished_at=None,
         )
+        self._apply_commitment_write(person, commitment_write)
 
         if note:
             Journey.objects.create(
@@ -738,6 +894,19 @@ class PersonSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         if self._temporary_password:
             data["temporary_password"] = self._temporary_password
+        enrollment = self._lesson_enrollment(instance)
+        data["commitment_form_signed"] = bool(
+            enrollment and enrollment.commitment_signed
+        )
+        data["commitment_signed_at"] = (
+            enrollment.commitment_signed_at
+            if enrollment and enrollment.commitment_signed
+            else None
+        )
+        data["has_lesson_enrollment"] = enrollment is not None
+        data["lesson_teacher_display_name"] = (
+            enrollment.teacher_display_name() if enrollment else None
+        )
         return data
 
     def update(self, instance, validated_data):
@@ -746,6 +915,8 @@ class PersonSerializer(serializers.ModelSerializer):
         previous_lessons_finished_at = instance.lessons_finished_at
         # Store old branch value before update
         old_branch = instance.branch
+
+        commitment_write = self._pop_commitment_write_fields(validated_data)
 
         families = (
             validated_data.pop("families") if "families" in validated_data else None
@@ -766,6 +937,8 @@ class PersonSerializer(serializers.ModelSerializer):
             previous_has_finished_lessons=previous_has_finished_lessons,
             previous_lessons_finished_at=previous_lessons_finished_at,
         )
+        self._apply_commitment_write(updated_instance, commitment_write)
+        updated_instance.refresh_from_db()
 
         new_branch = updated_instance.branch
         if old_branch != new_branch:
@@ -807,15 +980,14 @@ class PersonSerializer(serializers.ModelSerializer):
         # with default yields None when the person has no enrollment.
         return getattr(obj, "lesson_enrollment", None)
 
-    def get_commitment_form_signed(self, obj: Person) -> bool:
-        enrollment = self._lesson_enrollment(obj)
-        return bool(enrollment and enrollment.commitment_signed)
+    def get_has_lesson_enrollment(self, obj: Person) -> bool:
+        return self._lesson_enrollment(obj) is not None
 
-    def get_commitment_signed_at(self, obj: Person):
+    def get_lesson_teacher_display_name(self, obj: Person):
         enrollment = self._lesson_enrollment(obj)
-        if not enrollment or not enrollment.commitment_signed:
+        if not enrollment:
             return None
-        return enrollment.commitment_signed_at
+        return enrollment.teacher_display_name()
 
     def get_can_view_journey_timeline(self, obj: Person):
         """

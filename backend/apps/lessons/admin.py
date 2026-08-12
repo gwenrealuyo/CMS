@@ -62,6 +62,8 @@ class LessonStudentEnrollmentAdmin(admin.ModelAdmin):
     list_display = (
         "student",
         "teacher",
+        "historical_teacher_first_name",
+        "historical_teacher_last_name",
         "commitment_signed",
         "commitment_signed_at",
         "is_active",
@@ -75,6 +77,8 @@ class LessonStudentEnrollmentAdmin(admin.ModelAdmin):
         "teacher__first_name",
         "teacher__last_name",
         "teacher__username",
+        "historical_teacher_first_name",
+        "historical_teacher_last_name",
     )
     autocomplete_fields = ("student", "teacher", "assigned_by", "commitment_signed_by")
     ordering = ("student__last_name", "student__first_name")

@@ -26,6 +26,7 @@ import {
 } from "@/src/lib/clusterPermissions";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import {
   CLUSTER_BRANCH_CHIP_CLASSNAME,
@@ -44,6 +45,7 @@ import {
   findPossibleNameDuplicates,
 } from "@/src/lib/personDuplicates";
 import { formatPersonName } from "@/src/lib/name";
+import { isLessonTeacherCandidate } from "@/src/lib/lessonsUtils";
 import {
   PERSON_PHOTO_ACCEPT,
   PERSON_PHOTO_HELPER_TEXT,
@@ -72,6 +74,11 @@ const formatJourneyTypeLabel = (type: JourneyType) =>
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+
+const toDateOnly = (value?: string | null): string => {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+};
 
 interface PersonFormProps {
   onSubmit: (data: Partial<Person> | FormData) => Promise<Person | void>;
@@ -120,6 +127,7 @@ const PERSON_DATE_FIELDS: { key: keyof Person; label: string }[] = [
   { key: "spirit_baptism_date", label: "Spirit Baptism Date" },
   { key: "lessons_started_at", label: "Lessons Started Date" },
   { key: "lessons_finished_at", label: "Lessons Finished Date" },
+  { key: "commitment_signed_at", label: "Commitment Signed Date" },
 ];
 
 function EntityBranchChip({
@@ -240,7 +248,15 @@ export default function PersonForm({
     branch: isCreating
       ? (initialData?.branch ?? user?.branch ?? undefined)
       : initialData?.branch,
+    commitment_form_signed: Boolean(initialData?.commitment_form_signed),
+    commitment_signed_at: toDateOnly(initialData?.commitment_signed_at),
+    lesson_teacher_id: undefined,
+    historical_teacher_first_name: "",
+    historical_teacher_last_name: "",
   });
+  const [teacherMode, setTeacherMode] = useState<"select" | "historical">(
+    "select",
+  );
 
   const [familySearch, setFamilySearch] = useState("");
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
@@ -286,6 +302,25 @@ export default function PersonForm({
       clusterAuthCtx,
     );
   }, [isCreating, clusterAuthCtx, formData.cluster_ids, clusterOptions]);
+
+  const teacherSelectOptions = useMemo(
+    () =>
+      peopleOptions
+        .filter((person) => isLessonTeacherCandidate(person))
+        .filter((person) => String(person.id) !== String(initialData?.id ?? ""))
+        .sort((a, b) =>
+          formatPersonName(a).localeCompare(formatPersonName(b)),
+        )
+        .map((person) => ({
+          value: String(person.id),
+          label: formatPersonName(person),
+        })),
+    [peopleOptions, initialData?.id],
+  );
+
+  const hasLessonEnrollment = Boolean(
+    formData.has_lesson_enrollment ?? initialData?.has_lesson_enrollment,
+  );
 
   // Invite/attend + first activity: writable when creating a visitor (API accepts on create)
   const canEditInviteAttendDates =
@@ -855,11 +890,44 @@ export default function PersonForm({
   const performSave = useCallback(async () => {
     // Extract journeys from formData before submitting person
     const journeys = formData.journeys || [];
-    const personData = { ...formData };
+    const personData: Partial<Person> = { ...formData };
     delete personData.journeys;
     delete personData.photo;
     personData.family_ids = normalizeIdList(formData.family_ids);
     personData.cluster_ids = normalizeIdList(formData.cluster_ids);
+
+    // Commitment write-through: only send teacher fields when creating enrollment
+    if (!personData.commitment_form_signed) {
+      personData.commitment_signed_at = null;
+      delete personData.lesson_teacher_id;
+      delete personData.historical_teacher_first_name;
+      delete personData.historical_teacher_last_name;
+    } else {
+      personData.commitment_signed_at = toDateOnly(
+        personData.commitment_signed_at,
+      );
+      if (hasLessonEnrollment) {
+        delete personData.lesson_teacher_id;
+        delete personData.historical_teacher_first_name;
+        delete personData.historical_teacher_last_name;
+      } else if (teacherMode === "select") {
+        delete personData.historical_teacher_first_name;
+        delete personData.historical_teacher_last_name;
+      } else {
+        delete personData.lesson_teacher_id;
+        personData.historical_teacher_first_name = (
+          personData.historical_teacher_first_name || ""
+        ).trim();
+        personData.historical_teacher_last_name = (
+          personData.historical_teacher_last_name || ""
+        ).trim();
+      }
+    }
+    delete (personData as Partial<Person> & { has_lesson_enrollment?: boolean })
+      .has_lesson_enrollment;
+    delete (
+      personData as Partial<Person> & { lesson_teacher_display_name?: string }
+    ).lesson_teacher_display_name;
 
     if (showLoginAccess) {
       if (autoGeneratePassword) {
@@ -952,6 +1020,8 @@ export default function PersonForm({
     initialData?.id,
     initialData?.journeys,
     onSubmit,
+    teacherMode,
+    hasLessonEnrollment,
   ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -970,6 +1040,39 @@ export default function PersonForm({
         "Set Lessons Finished Date when marking this person as finished in NC lessons.",
       );
       return;
+    }
+
+    if (formData.commitment_form_signed) {
+      if (!formData.has_finished_lessons || !formData.lessons_finished_at) {
+        toast.error(
+          "Mark Has Finished NC Lessons (with a finished date) before recording commitment form signed.",
+        );
+        return;
+      }
+      if (!formData.commitment_signed_at) {
+        toast.error(
+          "Set Commitment Signed Date when marking the commitment form as signed.",
+        );
+        return;
+      }
+      if (!hasLessonEnrollment) {
+        if (teacherMode === "select" && !formData.lesson_teacher_id) {
+          toast.error(
+            "Select a lessons teacher, or switch to Former / not in system.",
+          );
+          return;
+        }
+        if (teacherMode === "historical") {
+          const first = (formData.historical_teacher_first_name || "").trim();
+          const last = (formData.historical_teacher_last_name || "").trim();
+          if (!first || !last) {
+            toast.error(
+              "Enter former/unknown teacher first and last name.",
+            );
+            return;
+          }
+        }
+      }
     }
 
     for (const { key, label } of PERSON_DATE_FIELDS) {
@@ -1511,12 +1614,165 @@ export default function PersonForm({
                       </div>
                     </LockedField>
                   </div>
+                  <div className="flex items-center">
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          name="commitment_form_signed"
+                          id="commitment_form_signed"
+                          checked={Boolean(formData.commitment_form_signed)}
+                          disabled={!canEditVitalDates}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setFormData((prev) => ({
+                              ...prev,
+                              commitment_form_signed: checked,
+                              commitment_signed_at: checked
+                                ? prev.commitment_signed_at ||
+                                  prev.lessons_finished_at ||
+                                  ""
+                                : "",
+                            }));
+                            setHasUnsavedChanges(true);
+                          }}
+                          className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
+                        />
+                        <label
+                          htmlFor="commitment_form_signed"
+                          className="ml-2 block text-sm font-medium text-gray-700"
+                        >
+                          Commitment Form Signed
+                        </label>
+                      </div>
+                    </LockedField>
+                  </div>
                   {formData.has_finished_lessons && (
                     <div className="md:col-span-2">
                       <p className="text-xs text-gray-500">
                         Saving this with a lessons finished date auto-creates
                         missing completed lesson progress records for active
-                        lessons.
+                        lessons. Commitment form signed is separate — leave it
+                        unchecked if they finished lessons but never signed.
+                      </p>
+                    </div>
+                  )}
+                  {formData.commitment_form_signed &&
+                    !hasLessonEnrollment &&
+                    canEditVitalDates && (
+                      <div className="md:col-span-2 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        <p className="text-xs text-gray-600">
+                          No lessons enrollment yet. Choose their teacher, or
+                          enter a former / unknown teacher name.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <label className="inline-flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="teacher_mode"
+                              checked={teacherMode === "select"}
+                              onChange={() => setTeacherMode("select")}
+                              className="text-primary border-gray-300 focus:ring-ring"
+                            />
+                            <span className="text-sm text-gray-700">
+                              Select teacher
+                            </span>
+                          </label>
+                          <label className="inline-flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="teacher_mode"
+                              checked={teacherMode === "historical"}
+                              onChange={() => setTeacherMode("historical")}
+                              className="text-primary border-gray-300 focus:ring-ring"
+                            />
+                            <span className="text-sm text-gray-700">
+                              Former / not in system
+                            </span>
+                          </label>
+                        </div>
+                        {teacherMode === "select" ? (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Lessons teacher
+                              <span className="text-red-500 ml-1">*</span>
+                            </label>
+                            <ScalableSelect
+                              options={teacherSelectOptions}
+                              value={
+                                formData.lesson_teacher_id != null
+                                  ? String(formData.lesson_teacher_id)
+                                  : ""
+                              }
+                              onChange={(value) => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  lesson_teacher_id: value || undefined,
+                                }));
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Select teacher..."
+                              searchPlaceholder="Search teacher..."
+                              emptyMessage="No teachers found"
+                            />
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Teacher first name
+                                <span className="text-red-500 ml-1">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={
+                                  formData.historical_teacher_first_name || ""
+                                }
+                                onChange={(e) => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    historical_teacher_first_name:
+                                      e.target.value,
+                                  }));
+                                  setHasUnsavedChanges(true);
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Teacher last name
+                                <span className="text-red-500 ml-1">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={
+                                  formData.historical_teacher_last_name || ""
+                                }
+                                onChange={(e) => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    historical_teacher_last_name: e.target.value,
+                                  }));
+                                  setHasUnsavedChanges(true);
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  {formData.commitment_form_signed && hasLessonEnrollment && (
+                    <div className="md:col-span-2">
+                      <p className="text-xs text-gray-500">
+                        Lessons teacher:{" "}
+                        {formData.lesson_teacher_display_name ||
+                          initialData?.lesson_teacher_display_name ||
+                          "Assigned"}
                       </p>
                     </div>
                   )}
@@ -1737,6 +1993,31 @@ export default function PersonForm({
                         </p>
                       )}
                   </div>
+                  {formData.commitment_form_signed && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Commitment Signed Date
+                      </label>
+                      <LockedField
+                        locked={!canEditVitalDates}
+                        hint={VITAL_DATE_HINT}
+                      >
+                        <PersonDateField
+                          id="commitment_signed_at"
+                          value={toDateOnly(formData.commitment_signed_at)}
+                          onChange={(next) =>
+                            handleDateFieldChange("commitment_signed_at", next)
+                          }
+                          disabled={!canEditVitalDates}
+                        />
+                      </LockedField>
+                      {!formData.commitment_signed_at && (
+                        <p className="mt-1 text-xs text-red-600">
+                          Required when Commitment Form Signed is enabled.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

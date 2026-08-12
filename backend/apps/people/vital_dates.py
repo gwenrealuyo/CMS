@@ -13,6 +13,12 @@ VITAL_DATE_ATTRS = (
     "lessons_started_at",
     "lessons_finished_at",
     "has_finished_lessons",
+    # Legacy commitment write-through (not Person columns; stripped with vital dates)
+    "commitment_form_signed",
+    "commitment_signed_at",
+    "lesson_teacher_id",
+    "historical_teacher_first_name",
+    "historical_teacher_last_name",
 )
 
 

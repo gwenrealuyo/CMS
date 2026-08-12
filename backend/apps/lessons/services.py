@@ -311,14 +311,19 @@ def revert_progress_completion(
 @transaction.atomic
 def ensure_lesson_enrollment(
     student: Person,
-    teacher: Person,
+    teacher: Optional[Person] = None,
     *,
     assigned_by: Optional[Person] = None,
     note: str = "",
+    historical_teacher_first_name: str = "",
+    historical_teacher_last_name: str = "",
 ) -> LessonStudentEnrollment:
     """
     Create enrollment and initial transfer record if the student has none.
     Does not change teacher when enrollment already exists.
+
+    Provide either a live ``teacher`` Person or both historical name parts
+    (former / unknown teacher for legacy records).
     """
     existing = (
         LessonStudentEnrollment.objects.filter(student=student)
@@ -328,17 +333,32 @@ def ensure_lesson_enrollment(
     if existing:
         return existing
 
+    hist_first = (historical_teacher_first_name or "").strip()
+    hist_last = (historical_teacher_last_name or "").strip()
+    if teacher is None and not (hist_first and hist_last):
+        raise ValueError(
+            "Lesson enrollment requires a teacher or historical teacher first and last name."
+        )
+
     enrollment = LessonStudentEnrollment.objects.create(
         student=student,
         teacher=teacher,
+        historical_teacher_first_name="" if teacher else hist_first,
+        historical_teacher_last_name="" if teacher else hist_last,
         assigned_by=assigned_by,
     )
+    if teacher is not None:
+        transfer_note = note or "Initial teacher assignment."
+    else:
+        transfer_note = note or (
+            f"Initial historical teacher: {hist_first} {hist_last}."
+        )
     LessonTeacherTransfer.objects.create(
         enrollment=enrollment,
         from_teacher=None,
         to_teacher=teacher,
         transferred_by=assigned_by,
-        note=note or "Initial teacher assignment.",
+        note=transfer_note,
     )
     return enrollment
 
@@ -359,7 +379,16 @@ def transfer_lesson_teacher(
         note=note,
     )
     enrollment.teacher = new_teacher
-    enrollment.save(update_fields=["teacher", "updated_at"])
+    enrollment.historical_teacher_first_name = ""
+    enrollment.historical_teacher_last_name = ""
+    enrollment.save(
+        update_fields=[
+            "teacher",
+            "historical_teacher_first_name",
+            "historical_teacher_last_name",
+            "updated_at",
+        ]
+    )
     return transfer
 
 

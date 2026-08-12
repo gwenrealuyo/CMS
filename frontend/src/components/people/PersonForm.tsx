@@ -921,32 +921,29 @@ export default function PersonForm({
     personData.family_ids = normalizeIdList(formData.family_ids);
     personData.cluster_ids = normalizeIdList(formData.cluster_ids);
 
-    // Commitment write-through: only send teacher fields when creating enrollment
+    // Teacher fields create enrollment when finished (unsigned until commitment signed).
     if (!personData.commitment_form_signed) {
       personData.commitment_signed_at = null;
-      delete personData.lesson_teacher_id;
-      delete personData.historical_teacher_first_name;
-      delete personData.historical_teacher_last_name;
     } else {
       personData.commitment_signed_at = toDateOnly(
         personData.commitment_signed_at,
       );
-      if (hasLessonEnrollment) {
-        delete personData.lesson_teacher_id;
-        delete personData.historical_teacher_first_name;
-        delete personData.historical_teacher_last_name;
-      } else if (teacherMode === "select") {
-        delete personData.historical_teacher_first_name;
-        delete personData.historical_teacher_last_name;
-      } else {
-        delete personData.lesson_teacher_id;
-        personData.historical_teacher_first_name = (
-          personData.historical_teacher_first_name || ""
-        ).trim();
-        personData.historical_teacher_last_name = (
-          personData.historical_teacher_last_name || ""
-        ).trim();
-      }
+    }
+    if (hasLessonEnrollment || !personData.has_finished_lessons) {
+      delete personData.lesson_teacher_id;
+      delete personData.historical_teacher_first_name;
+      delete personData.historical_teacher_last_name;
+    } else if (teacherMode === "select") {
+      delete personData.historical_teacher_first_name;
+      delete personData.historical_teacher_last_name;
+    } else {
+      delete personData.lesson_teacher_id;
+      personData.historical_teacher_first_name = (
+        personData.historical_teacher_first_name || ""
+      ).trim();
+      personData.historical_teacher_last_name = (
+        personData.historical_teacher_last_name || ""
+      ).trim();
     }
     delete (personData as Partial<Person> & { has_lesson_enrollment?: boolean })
       .has_lesson_enrollment;
@@ -1067,6 +1064,25 @@ export default function PersonForm({
       return;
     }
 
+    if (formData.has_finished_lessons && !hasLessonEnrollment) {
+      if (teacherMode === "select" && !formData.lesson_teacher_id) {
+        toast.error(
+          "Select a lessons teacher, or switch to Former / not in system.",
+        );
+        return;
+      }
+      if (teacherMode === "historical") {
+        const first = (formData.historical_teacher_first_name || "").trim();
+        const last = (formData.historical_teacher_last_name || "").trim();
+        if (!first || !last) {
+          toast.error(
+            "Enter former/unknown teacher first and last name.",
+          );
+          return;
+        }
+      }
+    }
+
     if (formData.commitment_form_signed) {
       if (!formData.has_finished_lessons || !formData.lessons_finished_at) {
         toast.error(
@@ -1079,24 +1095,6 @@ export default function PersonForm({
           "Set Commitment Signed Date when marking the commitment form as signed.",
         );
         return;
-      }
-      if (!hasLessonEnrollment) {
-        if (teacherMode === "select" && !formData.lesson_teacher_id) {
-          toast.error(
-            "Select a lessons teacher, or switch to Former / not in system.",
-          );
-          return;
-        }
-        if (teacherMode === "historical") {
-          const first = (formData.historical_teacher_first_name || "").trim();
-          const last = (formData.historical_teacher_last_name || "").trim();
-          if (!first || !last) {
-            toast.error(
-              "Enter former/unknown teacher first and last name.",
-            );
-            return;
-          }
-        }
       }
     }
 
@@ -1678,14 +1676,15 @@ export default function PersonForm({
                   {formData.has_finished_lessons && (
                     <div className="md:col-span-2">
                       <p className="text-xs text-gray-500">
-                        Saving this with a lessons finished date auto-creates
-                        missing completed lesson progress records for active
-                        lessons. Commitment form signed is separate — leave it
-                        unchecked if they finished lessons but never signed.
+                        Saving with a finished date creates completed lesson
+                        progress and a lessons enrollment with their teacher
+                        (unsigned until Commitment Form Signed is checked).
+                        Leave commitment unchecked if they finished but never
+                        signed.
                       </p>
                     </div>
                   )}
-                  {formData.commitment_form_signed &&
+                  {formData.has_finished_lessons &&
                     !hasLessonEnrollment &&
                     canEditVitalDates && (
                       <div className="md:col-span-2 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
@@ -1791,7 +1790,7 @@ export default function PersonForm({
                         )}
                       </div>
                     )}
-                  {formData.commitment_form_signed && hasLessonEnrollment && (
+                  {formData.has_finished_lessons && hasLessonEnrollment && (
                     <div className="md:col-span-2">
                       <p className="text-xs text-gray-500">
                         Lessons teacher:{" "}

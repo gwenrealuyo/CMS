@@ -171,7 +171,7 @@ class PersonCommitmentFormApiTests(TestCase):
         self.assertEqual(enrollment.historical_teacher_last_name, "Teacher")
         self.assertTrue(enrollment.commitment_signed)
 
-    def test_patch_finished_lessons_alone_does_not_sign_commitment(self):
+    def test_patch_finished_lessons_without_teacher_fails(self):
         student = self._create_student("cmt_finish_only")
         response = self.client.patch(
             f"/api/people/people/{student.id}/",
@@ -181,11 +181,78 @@ class PersonCommitmentFormApiTests(TestCase):
             },
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertFalse(response.data["commitment_form_signed"])
-        self.assertFalse(
-            LessonStudentEnrollment.objects.filter(student=student).exists()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details") or response.data
+        self.assertIn("lesson_teacher_id", details)
+
+    def test_patch_finished_with_teacher_creates_unsigned_enrollment(self):
+        student = self._create_student("cmt_finish_teacher")
+        response = self.client.patch(
+            f"/api/people/people/{student.id}/",
+            {
+                "has_finished_lessons": True,
+                "lessons_finished_at": "2024-05-01",
+                "lesson_teacher_id": self.teacher.id,
+            },
+            format="json",
         )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(response.data["has_finished_lessons"])
+        self.assertTrue(response.data["has_lesson_enrollment"])
+        self.assertFalse(response.data["commitment_form_signed"])
+
+        enrollment = LessonStudentEnrollment.objects.get(student=student)
+        self.assertFalse(enrollment.commitment_signed)
+        self.assertEqual(enrollment.teacher_id, self.teacher.id)
+
+    def test_patch_finished_with_historical_names_creates_unsigned_enrollment(self):
+        student = self._create_student("cmt_finish_hist")
+        response = self.client.patch(
+            f"/api/people/people/{student.id}/",
+            {
+                "has_finished_lessons": True,
+                "lessons_finished_at": "2024-05-01",
+                "historical_teacher_first_name": "Former",
+                "historical_teacher_last_name": "Mentor",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(response.data["has_lesson_enrollment"])
+        self.assertFalse(response.data["commitment_form_signed"])
+        self.assertEqual(response.data["lesson_teacher_display_name"], "Former Mentor")
+
+        enrollment = LessonStudentEnrollment.objects.get(student=student)
+        self.assertFalse(enrollment.commitment_signed)
+        self.assertIsNone(enrollment.teacher_id)
+        self.assertEqual(enrollment.historical_teacher_first_name, "Former")
+        self.assertEqual(enrollment.historical_teacher_last_name, "Mentor")
+
+    def test_patch_sign_after_unsigned_enrollment(self):
+        student = self._create_student(
+            "cmt_sign_later",
+            has_finished_lessons=True,
+            lessons_finished_at=date(2024, 5, 1),
+        )
+        LessonStudentEnrollment.objects.create(
+            student=student,
+            teacher=self.teacher,
+            assigned_by=self.admin,
+            commitment_signed=False,
+        )
+        response = self.client.patch(
+            f"/api/people/people/{student.id}/",
+            {
+                "commitment_form_signed": True,
+                "commitment_signed_at": "2024-06-15",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(response.data["commitment_form_signed"])
+        enrollment = LessonStudentEnrollment.objects.get(student=student)
+        self.assertTrue(enrollment.commitment_signed)
+        self.assertEqual(enrollment.teacher_id, self.teacher.id)
 
     def test_patch_uncheck_clears_commitment(self):
         student = self._create_student(

@@ -6,6 +6,7 @@ from .views import (
     LessonStudentEnrollmentViewSet,
     LessonViewSet,
     PersonLessonProgressViewSet,
+    lesson_teacher_roster,
 )
 
 app_name = "lessons"
@@ -25,5 +26,6 @@ router.register(
 )
 
 urlpatterns = [
+    path("teachers/", lesson_teacher_roster, name="lesson-teachers"),
     path("", include(router.urls)),
 ]

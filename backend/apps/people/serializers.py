@@ -634,6 +634,35 @@ class PersonSerializer(serializers.ModelSerializer):
                                 )
                             }
                         )
+                    if teacher is not None:
+                        from apps.ministries.ncc import (
+                            ensure_ncc_ministry,
+                            person_on_ncc_roster,
+                        )
+
+                        branch = attrs.get(
+                            "branch",
+                            instance.branch if instance else None,
+                        )
+                        if branch is None:
+                            raise serializers.ValidationError(
+                                {
+                                    "lesson_teacher_id": (
+                                        "Person must have a branch before assigning "
+                                        "a lessons teacher."
+                                    )
+                                }
+                            )
+                        ensure_ncc_ministry(branch)
+                        if not person_on_ncc_roster(teacher, branch):
+                            raise serializers.ValidationError(
+                                {
+                                    "lesson_teacher_id": (
+                                        "Select a teacher from this branch's NCC / "
+                                        "Lessons roster."
+                                    )
+                                }
+                            )
             elif commitment_signed_at is not None:
                 raise serializers.ValidationError(
                     {

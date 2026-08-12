@@ -42,9 +42,10 @@ class MinistrySerializerTests(TestCase):
 
         serializer = MinistrySerializer(data=payload)
         self.assertTrue(serializer.is_valid(), serializer.errors)
+        before = Ministry.objects.count()
         ministry = serializer.save()
 
-        self.assertEqual(Ministry.objects.count(), 1)
+        self.assertEqual(Ministry.objects.count(), before + 1)
         self.assertEqual(ministry.name, payload["name"])
         self.assertEqual(ministry.primary_coordinator, self.primary)
         self.assertEqual(ministry.category, "worship")

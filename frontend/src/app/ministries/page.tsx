@@ -191,6 +191,10 @@ export default function MinistriesPage() {
   };
 
   const handleHardDelete = (ministry: Ministry) => {
+    if (ministry.is_system || (ministry.code || "").toUpperCase() === "NCC") {
+      toast.error("System ministries (NCC roster) cannot be deleted.");
+      return;
+    }
     setDeleteConfirmation({
       isOpen: true,
       ministry,
@@ -628,7 +632,9 @@ export default function MinistriesPage() {
                             />
                           </svg>
                         </button>
-                        {userCanHardDelete && (
+                        {userCanHardDelete &&
+                          !(row as Ministry).is_system &&
+                          (row as Ministry).code?.toUpperCase() !== "NCC" && (
                           <button
                             type="button"
                             onClick={() => handleHardDelete(row as Ministry)}
@@ -790,6 +796,9 @@ export default function MinistriesPage() {
                           role: member.role,
                           skills: member.skills || "",
                           notes: member.notes || "",
+                          is_active: member.is_active !== false,
+                          grant_lessons_teacher_access:
+                            member.grant_lessons_teacher_access !== false,
                         } as Partial<MinistryMember>),
                       ),
                     );
@@ -990,6 +999,9 @@ export default function MinistriesPage() {
                           role: member.role,
                           skills: member.skills || "",
                           notes: member.notes || "",
+                          is_active: member.is_active !== false,
+                          grant_lessons_teacher_access:
+                            member.grant_lessons_teacher_access !== false,
                         } as Partial<MinistryMember>);
                       } else {
                         // Existing member - check if any fields changed
@@ -998,13 +1010,20 @@ export default function MinistriesPage() {
                           (existingMembership.skills || "") !==
                             (member.skills || "") ||
                           (existingMembership.notes || "") !==
-                            (member.notes || "");
+                            (member.notes || "") ||
+                          existingMembership.is_active !==
+                            (member.is_active !== false) ||
+                          Boolean(existingMembership.has_lessons_teacher_access) !==
+                            (member.grant_lessons_teacher_access !== false);
 
                         if (needsUpdate) {
                           await updateMember(existingMembership.id, {
                             role: member.role,
                             skills: member.skills || "",
                             notes: member.notes || "",
+                            is_active: member.is_active !== false,
+                            grant_lessons_teacher_access:
+                              member.grant_lessons_teacher_access !== false,
                           });
                         }
                       }

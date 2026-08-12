@@ -39,6 +39,20 @@ export interface LessonPersonSummary {
   cluster_codes?: string[] | null;
 }
 
+export interface LessonTeacherRosterEntry {
+  id: number;
+  username: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  suffix?: string;
+  nickname?: string;
+  role?: string;
+  member_id?: string | null;
+  is_active: boolean;
+  has_lessons_teacher_access: boolean;
+}
+
 export interface PersonLessonProgress {
   id: number;
   person: LessonPersonSummary | null;

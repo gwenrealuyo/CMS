@@ -819,6 +819,7 @@ export default function LessonsPageView({
           onSubmit={onSessionFormSubmit}
           onCancel={onCloseSessionModal}
           people={people}
+          teacherChoices={teacherChoices}
           lessons={lessons}
           defaultLessonId={
             sessionFormDefaults.lessonId ?? selectedLessonId ?? undefined

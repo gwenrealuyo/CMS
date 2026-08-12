@@ -123,6 +123,9 @@ export default function MinistryView({
 
   const activeMembersCount = sortedMembers.filter((m) => m.is_active).length;
   const inactiveMembersCount = sortedMembers.filter((m) => !m.is_active).length;
+  const isNccRoster =
+    Boolean(ministry.is_system) ||
+    (ministry.code || "").toUpperCase() === "NCC";
 
   return (
     <div className="flex flex-col h-full space-y-0">
@@ -528,15 +531,30 @@ export default function MinistryView({
                         </div>
                       </div>
                     </div>
-                    <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ml-2 ${
-                        membership.is_active
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-200 text-gray-600"
-                      }`}
-                    >
-                      {membership.is_active ? "Active" : "Inactive"}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 ml-2 shrink-0">
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          membership.is_active
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {membership.is_active ? "Active" : "Inactive"}
+                      </span>
+                      {isNccRoster && (
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            membership.has_lessons_teacher_access
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-amber-50 text-amber-800"
+                          }`}
+                        >
+                          {membership.has_lessons_teacher_access
+                            ? "Lessons access"
+                            : "Roster only"}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

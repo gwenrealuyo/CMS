@@ -38,10 +38,13 @@ import {
   groupProgressByPerson,
   buildStudentTeacherMapFromEnrollments,
   enrollmentByStudentId,
-  isLessonTeacherCandidate,
 } from "@/src/lib/lessonsUtils";
 import { formatSessionTopicLabel } from "@/src/lib/sessionTopic";
-import { PersonProgressSummary, LessonPersonSummary } from "@/src/types/lesson";
+import {
+  PersonProgressSummary,
+  LessonPersonSummary,
+  LessonTeacherRosterEntry,
+} from "@/src/types/lesson";
 import { LessonFormValues } from "@/src/components/lessons/LessonForm";
 import { LessonContentTab } from "@/src/components/lessons/LessonContentTabs";
 import LessonsPageView from "./LessonsPageView";
@@ -326,13 +329,6 @@ export default function LessonsPageContainer() {
     );
   }, [people, selectedBranchId]);
 
-  const sessionLoggedInTeacherId = useMemo(() => {
-    if (!user?.id || !isLessonTeacherCandidate(user)) {
-      return null;
-    }
-    return String(user.id);
-  }, [user]);
-
   const selectedLesson = useMemo(
     () => lessons.find((lesson) => lesson.id === selectedLessonId) ?? null,
     [lessons, selectedLessonId]
@@ -370,13 +366,55 @@ export default function LessonsPageContainer() {
     return date.toLocaleString();
   };
 
+  const [teacherRoster, setTeacherRoster] = useState<LessonTeacherRosterEntry[]>(
+    [],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTeachers = async () => {
+      if (!branchApiParams) {
+        if (!cancelled) {
+          setTeacherRoster([]);
+        }
+        return;
+      }
+      try {
+        const params =
+          "branch_id" in branchApiParams && branchApiParams.branch_id != null
+            ? { branch_id: branchApiParams.branch_id }
+            : undefined;
+        const response = await lessonsApi.listTeachers(params);
+        if (!cancelled) {
+          setTeacherRoster(response.data || []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load lesson teachers", error);
+          setTeacherRoster([]);
+        }
+      }
+    };
+    loadTeachers();
+    return () => {
+      cancelled = true;
+    };
+  }, [branchApiParams]);
+
   const teacherChoices = useMemo(() => {
-    return [...peopleInBranchScope]
-      .filter((person) => isLessonTeacherCandidate(person))
-      .sort((first, second) =>
-        formatPersonName(first).localeCompare(formatPersonName(second))
-      );
-  }, [peopleInBranchScope]);
+    return [...teacherRoster].sort((first, second) =>
+      formatPersonName(first).localeCompare(formatPersonName(second)),
+    );
+  }, [teacherRoster]);
+
+  const sessionLoggedInTeacherId = useMemo(() => {
+    if (!user?.id) {
+      return null;
+    }
+    const userId = String(user.id);
+    const onRoster = teacherRoster.some((entry) => String(entry.id) === userId);
+    return onRoster ? userId : null;
+  }, [user, teacherRoster]);
 
   const studentChoices = useMemo(() => {
     return [...peopleInBranchScope]

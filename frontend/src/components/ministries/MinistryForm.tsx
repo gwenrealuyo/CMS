@@ -30,6 +30,9 @@ export interface PendingMember {
   role: MinistryRole;
   skills?: string;
   notes?: string;
+  is_active?: boolean;
+  grant_lessons_teacher_access?: boolean;
+  membership_id?: number;
 }
 
 export interface MinistryFormValues {
@@ -136,7 +139,7 @@ export default function MinistryForm({
 
     // Extract support coordinator IDs
     const supportCoordinatorIds = initialData.support_coordinators.map(
-      (coordinator) => String(coordinator.id)
+      (coordinator) => String(coordinator.id),
     );
 
     // Extract existing members
@@ -147,6 +150,10 @@ export default function MinistryForm({
       role: membership.role,
       skills: membership.skills || "",
       notes: membership.notes || "",
+      is_active: membership.is_active,
+      grant_lessons_teacher_access:
+        membership.has_lessons_teacher_access ?? true,
+      membership_id: membership.id,
     }));
 
     return {
@@ -175,7 +182,9 @@ export default function MinistryForm({
 
   const { branches } = useBranches();
   const { user, isSeniorCoordinator } = useAuth();
-  const userBranch = branches.find((b) => Number(b.id) === Number(user?.branch));
+  const userBranch = branches.find(
+    (b) => Number(b.id) === Number(user?.branch),
+  );
   const canChooseNational =
     user?.role === "ADMIN" ||
     isSeniorCoordinator("MINISTRIES") ||
@@ -203,7 +212,7 @@ export default function MinistryForm({
       const scheduleWindow = meetingSchedule?.window ?? "";
       const scheduleNotes = meetingSchedule?.notes ?? "";
       const supportCoordinatorIds = initialData.support_coordinators.map(
-        (coordinator) => String(coordinator.id)
+        (coordinator) => String(coordinator.id),
       );
 
       // Extract existing members
@@ -214,6 +223,10 @@ export default function MinistryForm({
         role: membership.role,
         skills: membership.skills || "",
         notes: membership.notes || "",
+        is_active: membership.is_active,
+        grant_lessons_teacher_access:
+          membership.has_lessons_teacher_access ?? true,
+        membership_id: membership.id,
       }));
 
       setValues({
@@ -222,7 +235,8 @@ export default function MinistryForm({
         description: initialData.description ?? "",
         category: (initialData.category as MinistryCategory) ?? "",
         activity_cadence: initialData.activity_cadence ?? "weekly",
-        scope: initialData.scope ?? (initialData.branch ? "BRANCH" : "NATIONAL"),
+        scope:
+          initialData.scope ?? (initialData.branch ? "BRANCH" : "NATIONAL"),
         primary_coordinator_id: initialData.primary_coordinator
           ? String(initialData.primary_coordinator.id)
           : "",
@@ -274,7 +288,7 @@ export default function MinistryForm({
         .filter(isSelectablePerson)
         .map(personToSelectOption)
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [people, showBranchCodeInPickers]
+    [people, showBranchCodeInPickers],
   );
 
   const supportOptions = useMemo(
@@ -289,7 +303,7 @@ export default function MinistryForm({
       coordinatorOptions,
       values.primary_coordinator_id,
       values.support_coordinator_ids,
-    ]
+    ],
   );
 
   // Filter available people for member selection (exclude admins and already added members)
@@ -301,7 +315,7 @@ export default function MinistryForm({
             isSelectablePerson(person) &&
             !values.members.some((m) => m.member_id === String(person.id)) &&
             values.primary_coordinator_id !== String(person.id) &&
-            !values.support_coordinator_ids.includes(String(person.id))
+            !values.support_coordinator_ids.includes(String(person.id)),
         )
         .sort((a, b) => {
           const nameA = formatPersonName(a).toLowerCase();
@@ -313,7 +327,7 @@ export default function MinistryForm({
       values.members,
       values.primary_coordinator_id,
       values.support_coordinator_ids,
-    ]
+    ],
   );
 
   const filteredMembers = useMemo(() => {
@@ -332,6 +346,10 @@ export default function MinistryForm({
     });
   }, [availablePeopleForMembers, memberSearch]);
 
+  const isNccRoster =
+    Boolean(initialData?.is_system) ||
+    (initialData?.code || "").toUpperCase() === "NCC";
+
   const addMember = (person: Person) => {
     const memberId = String(person.id);
     if (!values.members.some((m) => m.member_id === memberId)) {
@@ -344,6 +362,8 @@ export default function MinistryForm({
             role: selectedMemberRole,
             skills: "",
             notes: "",
+            is_active: true,
+            grant_lessons_teacher_access: isNccRoster ? true : undefined,
           },
         ],
       });
@@ -362,7 +382,7 @@ export default function MinistryForm({
         ? values.removed_member_ids.concat(
             initialData.memberships
               ?.filter((m: MinistryMember) => String(m.member.id) === memberId)
-              .map((m: MinistryMember) => m.id) || []
+              .map((m: MinistryMember) => m.id) || [],
           )
         : values.removed_member_ids,
     });
@@ -372,7 +392,7 @@ export default function MinistryForm({
     setValues({
       ...values,
       members: values.members.map((m) =>
-        m.member_id === memberId ? { ...m, role } : m
+        m.member_id === memberId ? { ...m, role } : m,
       ),
     });
   };
@@ -381,7 +401,7 @@ export default function MinistryForm({
     setValues({
       ...values,
       members: values.members.map((m) =>
-        m.member_id === memberId ? { ...m, skills } : m
+        m.member_id === memberId ? { ...m, skills } : m,
       ),
     });
   };
@@ -390,7 +410,44 @@ export default function MinistryForm({
     setValues({
       ...values,
       members: values.members.map((m) =>
-        m.member_id === memberId ? { ...m, notes } : m
+        m.member_id === memberId ? { ...m, notes } : m,
+      ),
+    });
+  };
+
+  const updateMemberGrantAccess = (memberId: string, grant: boolean) => {
+    setValues({
+      ...values,
+      members: values.members.map((m) =>
+        m.member_id === memberId
+          ? { ...m, grant_lessons_teacher_access: grant }
+          : m,
+      ),
+    });
+  };
+
+  const updateMemberActive = (memberId: string, active: boolean) => {
+    if (
+      !active &&
+      isNccRoster &&
+      !window.confirm(
+        "Mark this teacher inactive? Lessons teacher access will be revoked, but they stay selectable for enrollments.",
+      )
+    ) {
+      return;
+    }
+    setValues({
+      ...values,
+      members: values.members.map((m) =>
+        m.member_id === memberId
+          ? {
+              ...m,
+              is_active: active,
+              grant_lessons_teacher_access: active
+                ? (m.grant_lessons_teacher_access ?? true)
+                : false,
+            }
+          : m,
       ),
     });
   };
@@ -399,7 +456,7 @@ export default function MinistryForm({
     return values.members
       .map((pendingMember) => {
         const person = people.find(
-          (p) => String(p.id) === pendingMember.member_id
+          (p) => String(p.id) === pendingMember.member_id,
         );
         return person
           ? {
@@ -408,19 +465,24 @@ export default function MinistryForm({
               member_id: pendingMember.member_id,
               skills: pendingMember.skills || "",
               notes: pendingMember.notes || "",
+              is_active: pendingMember.is_active !== false,
+              grant_lessons_teacher_access:
+                pendingMember.grant_lessons_teacher_access !== false,
             }
           : null;
       })
       .filter(
         (
-          item
+          item,
         ): item is {
           person: Person;
           role: MinistryRole;
           member_id: string;
           skills: string;
           notes: string;
-        } => item !== null
+          is_active: boolean;
+          grant_lessons_teacher_access: boolean;
+        } => item !== null,
       );
   };
 
@@ -433,7 +495,7 @@ export default function MinistryForm({
         return {
           ...prev,
           support_coordinator_ids: prev.support_coordinator_ids.filter(
-            (id) => id !== prev.primary_coordinator_id
+            (id) => id !== prev.primary_coordinator_id,
           ),
         };
       }
@@ -446,7 +508,7 @@ export default function MinistryForm({
     (
       event: ChangeEvent<
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-      >
+      >,
     ) => {
       const value =
         event.target.type === "checkbox"
@@ -463,7 +525,7 @@ export default function MinistryForm({
     setValues((prev) => ({
       ...prev,
       support_coordinator_ids: Array.from(
-        new Set([...prev.support_coordinator_ids, supportSelectorValue])
+        new Set([...prev.support_coordinator_ids, supportSelectorValue]),
       ),
     }));
     setSupportSelectorValue("");
@@ -473,7 +535,7 @@ export default function MinistryForm({
     setValues((prev) => ({
       ...prev,
       support_coordinator_ids: prev.support_coordinator_ids.filter(
-        (item) => item !== id
+        (item) => item !== id,
       ),
     }));
   };
@@ -523,6 +585,7 @@ export default function MinistryForm({
             type="text"
             required
             value={values.code}
+            disabled={isNccRoster}
             onChange={(event) =>
               setValues((prev) => ({
                 ...prev,
@@ -530,10 +593,12 @@ export default function MinistryForm({
               }))
             }
             placeholder="e.g. WORSHIP"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm uppercase focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm uppercase focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100 disabled:text-gray-500"
           />
           <p className="mt-1 text-xs text-gray-500">
-            Shortcut name shown in tables and pickers.
+            {isNccRoster
+              ? "NCC / Lessons roster code is system-managed and cannot be changed."
+              : "Shortcut name shown in tables and pickers."}
           </p>
         </div>
 
@@ -614,8 +679,8 @@ export default function MinistryForm({
           </select>
           {!canChooseNational && (
             <p className="mt-1 text-xs text-gray-500">
-              National ministries can be created by admins, HQ pastors, or senior
-              ministries coordinators.
+              National ministries can be created by admins, HQ pastors, or
+              senior ministries coordinators.
             </p>
           )}
         </div>
@@ -643,7 +708,7 @@ export default function MinistryForm({
           </div>
         )}
 
-        <div>
+        <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Primary Coordinator
           </label>
@@ -810,21 +875,23 @@ export default function MinistryForm({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            id="is_active"
-            type="checkbox"
-            checked={values.is_active}
-            onChange={handleChange("is_active")}
-            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
-          />
-          <label
-            htmlFor="is_active"
-            className="text-sm font-medium text-gray-700"
-          >
-            Ministry is active
-          </label>
-        </div>
+        {!isNccRoster && (
+          <div className="flex items-center gap-2">
+            <input
+              id="is_active"
+              type="checkbox"
+              checked={values.is_active}
+              onChange={handleChange("is_active")}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+            />
+            <label
+              htmlFor="is_active"
+              className="text-sm font-medium text-gray-700"
+            >
+              Ministry is active
+            </label>
+          </div>
+        )}
 
         {/* Members Section */}
         <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -873,7 +940,7 @@ export default function MinistryForm({
                 ) : (
                   filteredMembers.map((person) => {
                     const clusterCodes = (person.cluster_codes ?? []).filter(
-                      Boolean
+                      Boolean,
                     );
                     const clusterLabel =
                       clusterCodes.length > 0
@@ -897,7 +964,7 @@ export default function MinistryForm({
                             </p>
                             <span
                               className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(
-                                person.status
+                                person.status,
                               )}`}
                             >
                               {formatPersonStatusLabel(person.status)}
@@ -929,17 +996,38 @@ export default function MinistryForm({
           {values.members.length > 0 ? (
             <div className="space-y-3">
               {getSelectedMembersData().map(
-                ({ person, role, member_id, skills, notes }) => (
+                ({
+                  person,
+                  role,
+                  member_id,
+                  skills,
+                  notes,
+                  is_active,
+                  grant_lessons_teacher_access,
+                }) => (
                   <div
                     key={member_id}
-                    className="bg-white border border-gray-200 rounded-lg p-3"
+                    className={`bg-white border rounded-lg p-3 ${
+                      is_active
+                        ? "border-gray-200"
+                        : "border-gray-200 opacity-75"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <PersonAvatar person={person} size="sm" className="flex-shrink-0" />
+                        <PersonAvatar
+                          person={person}
+                          size="sm"
+                          className="flex-shrink-0"
+                        />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {formatPersonName(person)}
+                            {!is_active && (
+                              <span className="ml-2 text-xs font-semibold text-gray-500">
+                                Inactive
+                              </span>
+                            )}
                           </p>
                           <div className="flex flex-col gap-2 mt-2">
                             <select
@@ -947,7 +1035,7 @@ export default function MinistryForm({
                               onChange={(e) =>
                                 updateMemberRole(
                                   member_id,
-                                  e.target.value as MinistryRole
+                                  e.target.value as MinistryRole,
                                 )
                               }
                               className="text-xs rounded border border-gray-300 px-2 py-1 focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring w-full"
@@ -959,6 +1047,53 @@ export default function MinistryForm({
                                 </option>
                               ))}
                             </select>
+                            {isNccRoster && (
+                              <>
+                                <label className="inline-flex items-start gap-2 text-xs text-gray-700 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5 rounded border-gray-300 text-primary focus:ring-ring"
+                                    checked={
+                                      grant_lessons_teacher_access && is_active
+                                    }
+                                    disabled={!is_active}
+                                    onChange={(e) =>
+                                      updateMemberGrantAccess(
+                                        member_id,
+                                        e.target.checked,
+                                      )
+                                    }
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <span>
+                                    <span className="font-medium">
+                                      Grant Lessons teacher access
+                                    </span>
+                                    <span className="block text-gray-500 mt-0.5">
+                                      Lets them open Lessons, be assigned
+                                      students, and submit session reports.
+                                      Uncheck for roster-only (no module
+                                      access).
+                                    </span>
+                                  </span>
+                                </label>
+                                <label className="inline-flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="rounded border-gray-300 text-primary focus:ring-ring"
+                                    checked={is_active}
+                                    onChange={(e) =>
+                                      updateMemberActive(
+                                        member_id,
+                                        e.target.checked,
+                                      )
+                                    }
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  Active on roster
+                                </label>
+                              </>
+                            )}
                             <input
                               type="text"
                               value={skills}
@@ -1004,7 +1139,7 @@ export default function MinistryForm({
                       </button>
                     </div>
                   </div>
-                )
+                ),
               )}
             </div>
           ) : (

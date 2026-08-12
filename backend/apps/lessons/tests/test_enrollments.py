@@ -17,6 +17,8 @@ from apps.people.models import (
     ModuleSetting,
     Person,
 )
+from apps.ministries.models import MinistryMember
+from apps.ministries.ncc import ensure_ncc_ministry
 
 
 class LessonEnrollmentAPITests(TestCase):
@@ -26,6 +28,11 @@ class LessonEnrollmentAPITests(TestCase):
             module=ModuleCoordinator.ModuleType.LESSONS,
             defaults={"is_enabled": True},
         )
+        self.branch = Branch.objects.create(
+            name="Lessons Branch",
+            code="LSBR",
+            is_active=True,
+        )
 
         self.admin = Person.objects.create_user(
             username="lessonsadmin",
@@ -34,6 +41,7 @@ class LessonEnrollmentAPITests(TestCase):
             last_name="Admin",
             role="ADMIN",
             status="ACTIVE",
+            branch=self.branch,
         )
         self.teacher_a = Person.objects.create_user(
             username="teachera",
@@ -42,6 +50,7 @@ class LessonEnrollmentAPITests(TestCase):
             last_name="A",
             role="MEMBER",
             status="ACTIVE",
+            branch=self.branch,
         )
         self.teacher_b = Person.objects.create_user(
             username="teacherb",
@@ -50,6 +59,7 @@ class LessonEnrollmentAPITests(TestCase):
             last_name="B",
             role="MEMBER",
             status="ACTIVE",
+            branch=self.branch,
         )
         self.student = Person.objects.create_user(
             username="student1",
@@ -58,6 +68,7 @@ class LessonEnrollmentAPITests(TestCase):
             last_name="One",
             role="MEMBER",
             status="ACTIVE",
+            branch=self.branch,
         )
         self.other_student = Person.objects.create_user(
             username="student2",
@@ -66,6 +77,7 @@ class LessonEnrollmentAPITests(TestCase):
             last_name="Two",
             role="MEMBER",
             status="ACTIVE",
+            branch=self.branch,
         )
 
         ModuleCoordinator.objects.create(
@@ -73,6 +85,13 @@ class LessonEnrollmentAPITests(TestCase):
             module=ModuleCoordinator.ModuleType.LESSONS,
             level=ModuleCoordinator.CoordinatorLevel.TEACHER,
         )
+        ncc = ensure_ncc_ministry(self.branch)
+        for teacher in (self.teacher_a, self.teacher_b):
+            MinistryMember.objects.get_or_create(
+                ministry=ncc,
+                member=teacher,
+                defaults={"role": "team_member", "is_active": True},
+            )
 
         self.lesson = Lesson.objects.filter(is_latest=True, is_active=True).first()
         if self.lesson is None:

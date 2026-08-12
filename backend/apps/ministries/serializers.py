@@ -11,6 +11,11 @@ from rest_framework.exceptions import ValidationError
 from apps.people.models import Branch
 
 from .models import Ministry, MinistryMember, MinistryRole, MinistryScope
+from .ncc import (
+    is_ncc_ministry,
+    person_has_lessons_teacher_access,
+    sync_ncc_member_access,
+)
 from .utils import sync_coordinators_to_members, user_can_set_national_ministry_scope
 
 User = get_user_model()
@@ -36,7 +41,14 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
         source="member",
         queryset=User.objects.exclude(role="ADMIN"),
         write_only=True,
+        required=False,
     )
+    grant_lessons_teacher_access = serializers.BooleanField(
+        required=False,
+        write_only=True,
+        default=True,
+    )
+    has_lessons_teacher_access = serializers.SerializerMethodField()
 
     class Meta:
         model = MinistryMember
@@ -51,14 +63,84 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
             "availability",
             "skills",
             "notes",
+            "grant_lessons_teacher_access",
+            "has_lessons_teacher_access",
         )
         read_only_fields = ("join_date",)
+        # UniqueTogetherValidator requires ministry+member on every write;
+        # enforce uniqueness in validate() so PATCH (e.g. is_active) works.
+        validators = []
 
+    def get_has_lessons_teacher_access(self, obj: MinistryMember) -> bool:
+        return person_has_lessons_teacher_access(obj.member)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is None and "member" not in attrs:
+            raise serializers.ValidationError(
+                {"member_id": "This field is required."}
+            )
+        if self.instance is None and "ministry" not in attrs:
+            raise serializers.ValidationError(
+                {"ministry": "This field is required."}
+            )
+
+        ministry = attrs.get(
+            "ministry", getattr(self.instance, "ministry", None)
+        )
+        member = attrs.get("member", getattr(self.instance, "member", None))
+        if ministry is not None and member is not None:
+            qs = MinistryMember.objects.filter(ministry=ministry, member=member)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {
+                        "member_id": (
+                            "This person is already a member of this ministry."
+                        )
+                    }
+                )
+        return attrs
+
+    @transaction.atomic
     def create(self, validated_data):
-        # Ensure join_date is set as a date (not datetime)
+        grant_flag = validated_data.pop("grant_lessons_teacher_access", True)
         if "join_date" not in validated_data:
             validated_data["join_date"] = church_today()
-        return super().create(validated_data)
+        membership = super().create(validated_data)
+        if is_ncc_ministry(membership.ministry):
+            sync_ncc_member_access(
+                membership,
+                grant_lessons_teacher_access_flag=bool(grant_flag),
+            )
+        return membership
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        grant_flag = validated_data.pop("grant_lessons_teacher_access", serializers.empty)
+        previous_active = instance.is_active
+        membership = super().update(instance, validated_data)
+        if not is_ncc_ministry(membership.ministry):
+            return membership
+
+        if not membership.is_active:
+            sync_ncc_member_access(
+                membership,
+                grant_lessons_teacher_access_flag=False,
+            )
+        elif grant_flag is not serializers.empty:
+            sync_ncc_member_access(
+                membership,
+                grant_lessons_teacher_access_flag=bool(grant_flag),
+            )
+        elif not previous_active and membership.is_active:
+            # Reactivated without explicit flag → default grant access
+            sync_ncc_member_access(
+                membership,
+                grant_lessons_teacher_access_flag=True,
+            )
+        return membership
 
 
 class MinistrySerializer(serializers.ModelSerializer):
@@ -104,11 +186,15 @@ class MinistrySerializer(serializers.ModelSerializer):
             "meeting_schedule",
             "communication_channel",
             "is_active",
+            "is_system",
             "created_at",
             "updated_at",
             "memberships",
         )
-        read_only_fields = ("created_at", "updated_at")
+        read_only_fields = ("created_at", "updated_at", "is_system")
+        # UniqueConstraint(code, branch) auto-adds UniqueTogetherValidator which
+        # always requires branch on create; enforce uniqueness in validate().
+        validators = []
 
     def validate_meeting_schedule(self, value):
         if value in (None, "", {}):
@@ -170,18 +256,23 @@ class MinistrySerializer(serializers.ModelSerializer):
             attrs["support_coordinators"] = unique
 
         instance = self.instance
-        scope_in_attrs = "scope" in attrs
-        branch_in_attrs = "branch" in attrs
+        initial = self.initial_data
+        if not isinstance(initial, dict):
+            initial = {}
+        # Prefer request payload over model-field defaults injected into attrs
+        # (scope defaults to BRANCH on the model, which would skip create defaults).
+        scope_in_input = "scope" in initial
+        branch_in_input = "branch" in initial
 
-        scope = attrs["scope"] if scope_in_attrs else (
+        scope = attrs["scope"] if scope_in_input else (
             instance.scope if instance is not None else None
         )
-        branch = attrs["branch"] if branch_in_attrs else (
+        branch = attrs["branch"] if branch_in_input else (
             instance.branch if instance is not None else None
         )
 
-        # Create defaults when scope was omitted
-        if instance is None and not scope_in_attrs:
+        # Create defaults when scope was omitted in the request
+        if instance is None and not scope_in_input:
             if branch is not None:
                 scope = MinistryScope.BRANCH
             elif authenticated and getattr(user, "branch_id", None):
@@ -232,6 +323,40 @@ class MinistrySerializer(serializers.ModelSerializer):
             attrs["branch"] = branch
         else:
             raise ValidationError({"scope": "Invalid ministry scope."})
+
+        if instance is not None and instance.is_system:
+            if "code" in attrs and attrs["code"] != instance.code:
+                raise ValidationError(
+                    {"code": "System ministry codes cannot be changed."}
+                )
+            if "scope" in attrs and attrs["scope"] != instance.scope:
+                raise ValidationError(
+                    {"scope": "System ministry scope cannot be changed."}
+                )
+            if "branch" in attrs and attrs["branch"] != instance.branch:
+                raise ValidationError(
+                    {"branch": "System ministry branch cannot be changed."}
+                )
+
+        code = attrs.get("code", instance.code if instance is not None else None)
+        branch = attrs.get("branch", instance.branch if instance is not None else None)
+        if code:
+            qs = Ministry.objects.filter(code=code)
+            if branch is not None:
+                qs = qs.filter(branch=branch)
+            else:
+                qs = qs.filter(branch__isnull=True)
+            if instance is not None:
+                qs = qs.exclude(pk=instance.pk)
+            if qs.exists():
+                raise ValidationError(
+                    {
+                        "code": (
+                            "A ministry with this code already exists for this "
+                            "branch (or nationally if branch is empty)."
+                        )
+                    }
+                )
 
         return attrs
 

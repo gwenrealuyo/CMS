@@ -27,6 +27,31 @@ from .services import (
 )
 
 
+def _validate_teacher_on_ncc_roster(teacher: Person, student: Person) -> None:
+    """Require teacher to be on the student's branch NCC roster (active or inactive)."""
+    from apps.ministries.ncc import ensure_ncc_ministry, person_on_ncc_roster
+
+    branch = getattr(student, "branch", None)
+    if branch is None:
+        raise serializers.ValidationError(
+            {
+                "teacher_id": (
+                    "Student must have a branch before assigning a lessons teacher."
+                )
+            }
+        )
+    ensure_ncc_ministry(branch)
+    if not person_on_ncc_roster(teacher, branch):
+        raise serializers.ValidationError(
+            {
+                "teacher_id": (
+                    "Select a teacher from this branch's NCC / Lessons roster "
+                    "(Ministries). Inactive teachers remain selectable."
+                )
+            }
+        )
+
+
 class LessonJourneySerializer(serializers.ModelSerializer):
     class Meta:
         model = LessonJourney
@@ -383,6 +408,7 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"student_id": "This student already has a lessons teacher assigned."}
             )
+        _validate_teacher_on_ncc_roster(teacher, student)
         return ensure_lesson_enrollment(
             student,
             teacher,
@@ -498,6 +524,8 @@ class LessonTeacherTransferRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"teacher_id": "This student is already assigned to that teacher."}
             )
+        if teacher:
+            _validate_teacher_on_ncc_roster(teacher, enrollment.student)
         return attrs
 
     def create(self, validated_data: Dict[str, Any]) -> LessonTeacherTransfer:

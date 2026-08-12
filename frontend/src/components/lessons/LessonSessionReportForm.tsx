@@ -10,7 +10,7 @@ import {
 } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
-import { isLessonTeacherCandidate } from "@/src/lib/lessonsUtils";
+import { LessonPersonLike } from "@/src/lib/lessonsUtils";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import {
   DEFAULT_SESSION_TOPIC,
@@ -36,6 +36,7 @@ export interface LessonSessionReportFormProps {
   ) => void;
   onCancel: () => void;
   people: Person[];
+  teacherChoices?: LessonPersonLike[];
   lessons: Lesson[];
   defaultLessonId?: number | string | null;
   defaultTeacherId?: number | string | null;
@@ -113,6 +114,7 @@ export default function LessonSessionReportForm({
   onSubmit,
   onCancel,
   people,
+  teacherChoices,
   lessons,
   defaultLessonId,
   defaultTeacherId,
@@ -126,8 +128,11 @@ export default function LessonSessionReportForm({
   error,
 }: LessonSessionReportFormProps) {
   const teacherOptions = useMemo(
-    () => people.filter((person) => isLessonTeacherCandidate(person)),
-    [people],
+    () =>
+      teacherChoices && teacherChoices.length > 0
+        ? teacherChoices
+        : people,
+    [teacherChoices, people],
   );
 
   const studentOptions = useMemo(() => {

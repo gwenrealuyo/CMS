@@ -7,9 +7,10 @@ from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import ValidationError
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
 from apps.people.models import Person
 from apps.authentication.permissions import (
@@ -19,6 +20,12 @@ from apps.authentication.permissions import (
     IsAdmin,
 )
 from apps.people.models import ModuleCoordinator
+from apps.ministries.models import MinistryMember, NCC_MINISTRY_CODE
+from apps.ministries.ncc import (
+    ensure_ncc_ministry,
+    person_has_lessons_teacher_access,
+)
+from apps.lessons.branch_scope import can_pick_lessons_branch
 
 from .models import (
     Lesson,
@@ -46,6 +53,70 @@ from .services import (
     mark_progress_completed,
     reconcile_student_progress_from_reports,
 )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticatedAndNotVisitor, IsMemberOrAbove])
+def lesson_teacher_roster(request):
+    """
+    Teachers on the branch NCC / Lessons ministry roster (active + inactive).
+    Query: branch_id (optional; defaults to request.user.branch).
+    """
+    user = request.user
+    branch_param = request.query_params.get("branch_id") or request.query_params.get(
+        "branch"
+    )
+    branch_id = None
+    if branch_param:
+        try:
+            branch_id = int(branch_param)
+        except (TypeError, ValueError):
+            raise ValidationError({"branch_id": "Invalid branch id."})
+
+    if can_pick_lessons_branch(user):
+        if branch_id is None:
+            branch_id = user.branch_id
+    else:
+        branch_id = user.branch_id
+
+    if not branch_id:
+        return Response([])
+
+    from apps.people.models import Branch
+
+    try:
+        branch = Branch.objects.get(pk=branch_id)
+    except Branch.DoesNotExist:
+        raise ValidationError({"branch_id": "Branch not found."})
+
+    if not can_pick_lessons_branch(user) and user.branch_id != branch_id:
+        raise ValidationError({"branch_id": "You can only view your own branch roster."})
+
+    ministry = ensure_ncc_ministry(branch)
+    memberships = (
+        MinistryMember.objects.filter(ministry=ministry)
+        .select_related("member")
+        .order_by("member__last_name", "member__first_name")
+    )
+    results = []
+    for membership in memberships:
+        person = membership.member
+        results.append(
+            {
+                "id": person.id,
+                "username": person.username,
+                "first_name": person.first_name,
+                "middle_name": person.middle_name,
+                "last_name": person.last_name,
+                "suffix": person.suffix,
+                "nickname": getattr(person, "nickname", "") or "",
+                "role": person.role,
+                "member_id": person.member_id,
+                "is_active": membership.is_active,
+                "has_lessons_teacher_access": person_has_lessons_teacher_access(person),
+            }
+        )
+    return Response(results)
 
 
 class LessonViewSet(viewsets.ModelViewSet):

@@ -6,6 +6,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.lessons.models import LessonStudentEnrollment
+from apps.ministries.models import MinistryMember
+from apps.ministries.ncc import ensure_ncc_ministry
 from apps.people.models import Branch, Journey, Person
 
 
@@ -37,6 +39,12 @@ class PersonCommitmentFormApiTests(TestCase):
             role="MEMBER",
             branch=self.branch,
             status="ACTIVE",
+        )
+        ncc = ensure_ncc_ministry(self.branch)
+        MinistryMember.objects.get_or_create(
+            ministry=ncc,
+            member=self.teacher,
+            defaults={"role": "team_member", "is_active": True},
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.admin)
@@ -288,6 +296,12 @@ class PersonCommitmentFormApiTests(TestCase):
             role="MEMBER",
             branch=self.branch,
             status="ACTIVE",
+        )
+        ncc = ensure_ncc_ministry(self.branch)
+        MinistryMember.objects.get_or_create(
+            ministry=ncc,
+            member=other_teacher,
+            defaults={"role": "team_member", "is_active": True},
         )
         LessonStudentEnrollment.objects.create(
             student=student,

@@ -1,8 +1,13 @@
 from django.db import models
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 from core.datetime_utils import church_today
+
+# Reserved code for per-branch NCC / Lessons teacher roster ministries.
+NCC_MINISTRY_CODE = "NCC"
+NCC_MINISTRY_NAME = "NCC / Lessons"
 
 
 def today():
@@ -36,10 +41,10 @@ class Ministry(models.Model):
     name = models.CharField(max_length=100)
     code = models.CharField(
         max_length=50,
-        unique=True,
         null=True,
         blank=True,
-        help_text="Short shortcut name for the ministry (e.g. WORSHIP).",
+        help_text="Short shortcut name for the ministry (e.g. WORSHIP). "
+        "NCC is reserved for the per-branch Lessons teacher roster.",
     )
     description = models.TextField(blank=True)
     category = models.CharField(
@@ -81,6 +86,10 @@ class Ministry(models.Model):
     meeting_schedule = models.JSONField(blank=True, null=True)
     communication_channel = models.URLField(blank=True)
     is_active = models.BooleanField(default=True)
+    is_system = models.BooleanField(
+        default=False,
+        help_text="System ministries (e.g. NCC roster) are protected from normal delete/code edits.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -95,10 +104,29 @@ class Ministry(models.Model):
                 ),
                 name="ministries_scope_branch_consistency",
             ),
+            # Same code allowed once per branch (e.g. NCC per branch).
+            models.UniqueConstraint(
+                fields=["code", "branch"],
+                condition=Q(code__isnull=False, branch__isnull=False),
+                name="ministries_code_branch_uniq",
+            ),
+            # National ministries: code unique when branch is null.
+            models.UniqueConstraint(
+                fields=["code"],
+                condition=Q(code__isnull=False, branch__isnull=True),
+                name="ministries_code_national_uniq",
+            ),
         ]
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def is_ncc_roster(self) -> bool:
+        return (
+            self.is_system
+            or (self.code or "").upper() == NCC_MINISTRY_CODE
+        )
 
 
 class MinistryRole(models.TextChoices):

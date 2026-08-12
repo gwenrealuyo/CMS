@@ -43,6 +43,8 @@ export interface MinistryMember {
   availability: Record<string, unknown>;
   skills: string;
   notes: string;
+  grant_lessons_teacher_access?: boolean;
+  has_lessons_teacher_access?: boolean;
 }
 
 export interface Ministry {
@@ -60,6 +62,7 @@ export interface Ministry {
   meeting_schedule: Record<string, unknown> | null;
   communication_channel: string;
   is_active: boolean;
+  is_system?: boolean;
   created_at: string;
   updated_at: string;
   memberships: MinistryMember[];

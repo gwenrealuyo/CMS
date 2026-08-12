@@ -10,7 +10,7 @@ import { Person, JourneyType, Family } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
-import { journeysApi, personDataToFormData } from "@/src/lib/api";
+import { journeysApi, personDataToFormData, lessonsApi } from "@/src/lib/api";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
@@ -45,7 +45,6 @@ import {
   findPossibleNameDuplicates,
 } from "@/src/lib/personDuplicates";
 import { formatPersonName } from "@/src/lib/name";
-import { isLessonTeacherCandidate } from "@/src/lib/lessonsUtils";
 import {
   PERSON_PHOTO_ACCEPT,
   PERSON_PHOTO_HELPER_TEXT,
@@ -55,6 +54,7 @@ import { getLocalTodayDateString } from "@/src/lib/date";
 import PersonDateField, {
   ESTIMATE_HELP,
 } from "@/src/components/people/PersonDateField";
+import { LessonTeacherRosterEntry } from "@/src/types/lesson";
 
 const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
   "BAPTISM",
@@ -303,19 +303,44 @@ export default function PersonForm({
     );
   }, [isCreating, clusterAuthCtx, formData.cluster_ids, clusterOptions]);
 
+  const [teacherRoster, setTeacherRoster] = useState<
+    LessonTeacherRosterEntry[]
+  >([]);
+
+  useEffect(() => {
+    const branchId = formData.branch;
+    if (branchId == null) {
+      setTeacherRoster([]);
+      return;
+    }
+    let cancelled = false;
+    lessonsApi
+      .listTeachers({ branch_id: branchId })
+      .then((response) => {
+        if (!cancelled) setTeacherRoster(response.data || []);
+      })
+      .catch(() => {
+        if (!cancelled) setTeacherRoster([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.branch]);
+
   const teacherSelectOptions = useMemo(
     () =>
-      peopleOptions
-        .filter((person) => isLessonTeacherCandidate(person))
+      teacherRoster
         .filter((person) => String(person.id) !== String(initialData?.id ?? ""))
         .sort((a, b) =>
           formatPersonName(a).localeCompare(formatPersonName(b)),
         )
         .map((person) => ({
           value: String(person.id),
-          label: formatPersonName(person),
+          label: `${formatPersonName(person)}${
+            person.is_active === false ? " (Inactive)" : ""
+          }`,
         })),
-    [peopleOptions, initialData?.id],
+    [teacherRoster, initialData?.id],
   );
 
   const hasLessonEnrollment = Boolean(

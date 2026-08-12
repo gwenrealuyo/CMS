@@ -8,6 +8,8 @@ records even when Ministry is updated outside the serializer (e.g., admin panel,
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 
+from apps.people.models import Branch
+
 from .models import Ministry
 from .utils import sync_coordinators_to_members
 
@@ -33,3 +35,14 @@ def sync_support_coordinators(sender, instance, action, **kwargs):
     # (post_clear happens when all are removed)
     if action in ("post_add", "post_remove", "post_clear"):
         sync_coordinators_to_members(instance)
+
+
+@receiver(post_save, sender=Branch)
+def ensure_ncc_ministry_for_branch(sender, instance, created, **kwargs):
+    if kwargs.get("raw", False):
+        return
+    if not created or not instance.is_active:
+        return
+    from .ncc import ensure_ncc_ministry
+
+    ensure_ncc_ministry(instance)

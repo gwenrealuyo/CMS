@@ -20,6 +20,7 @@ import {
   LessonSessionReportInput,
   LessonStudentEnrollment,
   LessonTeacherTransfer,
+  LessonTeacherRosterEntry,
   PersonLessonProgress,
 } from "@/src/types/lesson";
 import {
@@ -950,6 +951,8 @@ export const lessonsApi = {
     ),
   listEnrollmentTransfers: (id: number | string) =>
     api.get<LessonTeacherTransfer[]>(`/lessons/enrollments/${id}/transfers/`),
+  listTeachers: (params?: { branch_id?: string | number }) =>
+    api.get<LessonTeacherRosterEntry[]>("/lessons/teachers/", { params }),
   complete: (
     id: number | string,
     payload: {

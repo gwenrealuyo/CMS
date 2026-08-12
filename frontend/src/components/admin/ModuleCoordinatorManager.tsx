@@ -58,7 +58,7 @@ const ALL_LEVEL_OPTIONS: {
 
 // Get available levels based on module
 const getAvailableLevels = (
-  module: ModuleCoordinator["module"] | ""
+  module: ModuleCoordinator["module"] | "",
 ): typeof ALL_LEVEL_OPTIONS => {
   if (!module) return ALL_LEVEL_OPTIONS;
 
@@ -68,7 +68,7 @@ const getAvailableLevels = (
     case "MINISTRIES":
       return ALL_LEVEL_OPTIONS.filter(
         (opt) =>
-          opt.value === "COORDINATOR" || opt.value === "SENIOR_COORDINATOR"
+          opt.value === "COORDINATOR" || opt.value === "SENIOR_COORDINATOR",
       );
 
     case "CLUSTER":
@@ -76,7 +76,7 @@ const getAvailableLevels = (
         (opt) =>
           opt.value === "COORDINATOR" ||
           opt.value === "SENIOR_COORDINATOR" ||
-          opt.value === "REPORTER"
+          opt.value === "REPORTER",
       );
 
     case "EVANGELISM":
@@ -126,15 +126,11 @@ const emptyBulkRow = (): BulkAssignmentRow => ({
 });
 
 const moduleSupportsResourceMultiSelect = (
-  module: ModuleCoordinator["module"] | ""
+  module: ModuleCoordinator["module"] | "",
 ): boolean =>
-  module === "CLUSTER" ||
-  module === "EVANGELISM" ||
-  module === "SUNDAY_SCHOOL";
+  module === "CLUSTER" || module === "EVANGELISM" || module === "SUNDAY_SCHOOL";
 
-const resourceTypeForModule = (
-  module: ModuleCoordinator["module"]
-): string => {
+const resourceTypeForModule = (module: ModuleCoordinator["module"]): string => {
   switch (module) {
     case "CLUSTER":
       return "Cluster";
@@ -153,14 +149,14 @@ const bulkModuleShowsScopeUi = (module: string | "") =>
 /** CLUSTER / EVANGELISM / SUNDAY_SCHOOL coordinators and CLUSTER reporters must pick a resource. */
 const coordinatorRequiresSpecificResource = (
   module: ModuleCoordinator["module"] | "",
-  level: ModuleCoordinator["level"] | ""
+  level: ModuleCoordinator["level"] | "",
 ): boolean =>
   (level === "COORDINATOR" && moduleSupportsResourceMultiSelect(module)) ||
   (level === "REPORTER" && module === "CLUSTER");
 
 async function fetchCoordinatorResourcesForModule(
   module: ModuleCoordinator["module"],
-  branchId?: number | null
+  branchId?: number | null,
 ): Promise<CoordinatorResourceOption[]> {
   const branchParams =
     branchId != null && !Number.isNaN(branchId)
@@ -174,7 +170,7 @@ async function fetchCoordinatorResourcesForModule(
     }
     case "EVANGELISM": {
       const groups = await evangelismApi.listGroups(
-        branchId != null ? { branch: branchId } : undefined
+        branchId != null ? { branch: branchId } : undefined,
       );
       return groups.data.map((g) => ({
         id: Number(g.id),
@@ -334,7 +330,7 @@ export default function ModuleCoordinatorManager() {
   const bulkAssigneeBranchId = useMemo(() => {
     if (!bulkSimple.person) return null;
     const person = people.find(
-      (p) => Number(p.id) === Number(bulkSimple.person)
+      (p) => Number(p.id) === Number(bulkSimple.person),
     );
     const branch = person?.branch;
     if (branch == null) return null;
@@ -345,7 +341,7 @@ export default function ModuleCoordinatorManager() {
   const bulkAssigneeBranchLabel = useMemo(() => {
     if (!bulkAssigneeBranchId) return null;
     const person = people.find(
-      (p) => Number(p.id) === Number(bulkSimple.person)
+      (p) => Number(p.id) === Number(bulkSimple.person),
     );
     return person?.branch_name?.trim() || `Branch #${bulkAssigneeBranchId}`;
   }, [bulkAssigneeBranchId, bulkSimple.person, people]);
@@ -367,7 +363,7 @@ export default function ModuleCoordinatorManager() {
       try {
         const resources = await fetchCoordinatorResourcesForModule(
           formData.module as ModuleCoordinator["module"],
-          assigneeBranchId
+          assigneeBranchId,
         );
         setAvailableResources(resources);
       } catch (err) {
@@ -381,52 +377,54 @@ export default function ModuleCoordinatorManager() {
     fetchResources();
   }, [formData.module, assignmentType, assigneeBranchId]);
 
-  useEffect(() => {
-    if (!isBulkModalOpen || bulkAdvancedOpen) {
-      setBulkAvailableResources([]);
-      setBulkLoadingResources(false);
-      return;
-    }
-    const { module: bulkModule, assignmentType: bulkScope } = bulkSimple;
-    if (
-      !bulkModule ||
-      bulkScope !== "resource-specific" ||
-      !moduleSupportsResourceMultiSelect(bulkModule)
-    ) {
-      setBulkAvailableResources([]);
-      setBulkLoadingResources(false);
-      return;
-    }
-
-    let cancelled = false;
-    setBulkLoadingResources(true);
-    (async () => {
-      try {
-        const resources = await fetchCoordinatorResourcesForModule(
-          bulkModule as ModuleCoordinator["module"],
-          bulkAssigneeBranchId
-        );
-        if (!cancelled) setBulkAvailableResources(resources);
-      } catch (err) {
-        console.error("Failed to fetch bulk resources:", err);
-        if (!cancelled) setBulkAvailableResources([]);
-      } finally {
-        if (!cancelled) setBulkLoadingResources(false);
+  useEffect(
+    () => {
+      if (!isBulkModalOpen || bulkAdvancedOpen) {
+        setBulkAvailableResources([]);
+        setBulkLoadingResources(false);
+        return;
       }
-    })();
+      const { module: bulkModule, assignmentType: bulkScope } = bulkSimple;
+      if (
+        !bulkModule ||
+        bulkScope !== "resource-specific" ||
+        !moduleSupportsResourceMultiSelect(bulkModule)
+      ) {
+        setBulkAvailableResources([]);
+        setBulkLoadingResources(false);
+        return;
+      }
 
-    return () => {
-      cancelled = true;
-    };
-  },
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only module + scope trigger fetch; full bulkSimple would over-fetch
-  [
-    isBulkModalOpen,
-    bulkAdvancedOpen,
-    bulkSimple.module,
-    bulkSimple.assignmentType,
-    bulkAssigneeBranchId,
-  ]);
+      let cancelled = false;
+      setBulkLoadingResources(true);
+      (async () => {
+        try {
+          const resources = await fetchCoordinatorResourcesForModule(
+            bulkModule as ModuleCoordinator["module"],
+            bulkAssigneeBranchId,
+          );
+          if (!cancelled) setBulkAvailableResources(resources);
+        } catch (err) {
+          console.error("Failed to fetch bulk resources:", err);
+          if (!cancelled) setBulkAvailableResources([]);
+        } finally {
+          if (!cancelled) setBulkLoadingResources(false);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only module + scope trigger fetch; full bulkSimple would over-fetch
+    [
+      isBulkModalOpen,
+      bulkAdvancedOpen,
+      bulkSimple.module,
+      bulkSimple.assignmentType,
+      bulkAssigneeBranchId,
+    ],
+  );
 
   const fetchData = async () => {
     setLoading(true);
@@ -444,7 +442,7 @@ export default function ModuleCoordinatorManager() {
       setPeople(peopleRes.data);
     } catch (err: any) {
       setError(
-        err.response?.data?.message || err.message || "Failed to load data."
+        err.response?.data?.message || err.message || "Failed to load data.",
       );
     } finally {
       setLoading(false);
@@ -453,7 +451,7 @@ export default function ModuleCoordinatorManager() {
 
   // Handle assignment type change
   const handleAssignmentTypeChange = (
-    type: "module-wide" | "resource-specific"
+    type: "module-wide" | "resource-specific",
   ) => {
     setAssignmentType(type);
     if (type === "module-wide") {
@@ -530,7 +528,7 @@ export default function ModuleCoordinatorManager() {
       alert(
         err.response?.data?.message ||
           err.message ||
-          "Failed to delete assignment."
+          "Failed to delete assignment.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, loading: false }));
     }
@@ -578,9 +576,7 @@ export default function ModuleCoordinatorManager() {
       if (multi) {
         const allowed = new Set(availableResources.map((r) => r.id));
         ids = Array.from(
-          new Set(
-            formResourceSelectedIds.filter((id) => allowed.has(id))
-          )
+          new Set(formResourceSelectedIds.filter((id) => allowed.has(id))),
         ).sort((a, b) => a - b);
       } else {
         ids =
@@ -614,7 +610,7 @@ export default function ModuleCoordinatorManager() {
               level,
               resource_id,
               resource_type: resourceType,
-            }))
+            })),
           );
         }
         setIsModalOpen(false);
@@ -664,7 +660,7 @@ export default function ModuleCoordinatorManager() {
 
       const filterNew = (candidates: number[]) =>
         candidates.filter(
-          (rid) => !existingKeys.has(`${assignmentModule}-${rid}`)
+          (rid) => !existingKeys.has(`${assignmentModule}-${rid}`),
         );
 
       if (original !== null && ids.includes(original)) {
@@ -684,7 +680,7 @@ export default function ModuleCoordinatorManager() {
               level,
               resource_id,
               resource_type: resourceType,
-            }))
+            })),
           );
         }
       } else {
@@ -705,7 +701,7 @@ export default function ModuleCoordinatorManager() {
               level,
               resource_id,
               resource_type: resourceType,
-            }))
+            })),
           );
         }
       }
@@ -747,7 +743,7 @@ export default function ModuleCoordinatorManager() {
   };
 
   const handleBulkSimpleModuleChange = (
-    module: ModuleCoordinator["module"] | ""
+    module: ModuleCoordinator["module"] | "",
   ) => {
     setBulkSimple((prev) => {
       let assignmentType = prev.assignmentType;
@@ -770,7 +766,7 @@ export default function ModuleCoordinatorManager() {
   };
 
   const handleBulkSimpleLevelChange = (
-    level: ModuleCoordinator["level"] | ""
+    level: ModuleCoordinator["level"] | "",
   ) => {
     setBulkSimple((prev) => {
       let assignmentType = prev.assignmentType;
@@ -793,7 +789,7 @@ export default function ModuleCoordinatorManager() {
   };
 
   const handleBulkSimpleAssignmentTypeChange = (
-    t: "module-wide" | "resource-specific"
+    t: "module-wide" | "resource-specific",
   ) => {
     setBulkSimple((prev) => ({
       ...prev,
@@ -816,7 +812,7 @@ export default function ModuleCoordinatorManager() {
   const handleBulkAssignmentChange = (
     index: number,
     field: string,
-    value: any
+    value: any,
   ) => {
     const updated = [...bulkAssignments];
     updated[index] = { ...updated[index], [field]: value };
@@ -849,16 +845,18 @@ export default function ModuleCoordinatorManager() {
     setBulkAssignments(updated);
   };
 
-  const buildValidatedBulkAssignments = (): {
-    ok: true;
-    assignments: Array<{
-      person: number;
-      module: ModuleCoordinator["module"];
-      level: ModuleCoordinator["level"];
-      resource_id: number | null;
-      resource_type: string;
-    }>;
-  } | { ok: false; error: string } => {
+  const buildValidatedBulkAssignments = ():
+    | {
+        ok: true;
+        assignments: Array<{
+          person: number;
+          module: ModuleCoordinator["module"];
+          level: ModuleCoordinator["level"];
+          resource_id: number | null;
+          resource_type: string;
+        }>;
+      }
+    | { ok: false; error: string } => {
     const person = bulkSimple.person;
     if (!person) return { ok: false, error: "Please select a person." };
 
@@ -955,7 +953,7 @@ export default function ModuleCoordinatorManager() {
     const rt = resourceTypeForModule(module);
     const allowedIds = new Set(bulkAvailableResources.map((r) => r.id));
     const ids = bulkSimple.selectedResourceIds.filter((id) =>
-      allowedIds.has(id)
+      allowedIds.has(id),
     );
 
     if (ids.length === 0) {
@@ -997,7 +995,7 @@ export default function ModuleCoordinatorManager() {
         const key = `${assignment.module}-${assignment.resource_id}`;
         if (seen.has(key)) {
           setBulkError(
-            `Duplicate assignment detected: ${assignment.module} with resource_id ${assignment.resource_id}`
+            `Duplicate assignment detected: ${assignment.module} with resource_id ${assignment.resource_id}`,
           );
           setBulkSubmitting(false);
           return;
@@ -1005,9 +1003,8 @@ export default function ModuleCoordinatorManager() {
         seen.add(key);
       }
 
-      const response = await moduleCoordinatorsApi.bulkCreate(
-        validatedAssignments
-      );
+      const response =
+        await moduleCoordinatorsApi.bulkCreate(validatedAssignments);
 
       const savedPersonId = Number(bulkSimple.person);
       setIsBulkModalOpen(false);
@@ -1015,7 +1012,7 @@ export default function ModuleCoordinatorManager() {
       await fetchData();
 
       alert(
-        `Successfully created ${response.data.created.length} assignment(s) for ${getPersonName(savedPersonId)}.`
+        `Successfully created ${response.data.created.length} assignment(s) for ${getPersonName(savedPersonId)}.`,
       );
     } catch (err: any) {
       const errorMessage =
@@ -1037,7 +1034,7 @@ export default function ModuleCoordinatorManager() {
   const personOptions = useMemo(() => {
     return people
       .filter(
-        (person) => person.role !== "ADMIN" && person.username !== "admin"
+        (person) => person.role !== "ADMIN" && person.username !== "admin",
       )
       .map((person) => {
         const name = `${person.first_name ?? ""} ${
@@ -1079,8 +1076,8 @@ export default function ModuleCoordinatorManager() {
       level === "SENIOR_COORDINATOR"
         ? "module-wide"
         : assignmentType === "module-wide"
-        ? "module-wide"
-        : "resource-specific";
+          ? "module-wide"
+          : "resource-specific";
     if (scope === "module-wide") return 1;
     return selectedResourceIds.length;
   }, [bulkAdvancedOpen, bulkAssignments, bulkSimple]);
@@ -1145,10 +1142,10 @@ export default function ModuleCoordinatorManager() {
           </Button>
         </div>
         <p className="text-xs text-gray-500 max-w-3xl">
-          Use <strong>Bulk assign</strong> to pick one person, one module and level, then
-          multi-select clusters, evangelism groups, or Sunday School classes—everything saves
-          in a single request. For mixed modules in one submit, open{" "}
-          <strong>Advanced</strong> inside the modal.
+          Use <strong>Bulk assign</strong> to pick one person, one module and
+          level, then multi-select clusters, evangelism groups, or Sunday School
+          classes—everything saves in a single request. For mixed modules in one
+          submit, open <strong>Advanced</strong> inside the modal.
         </p>
       </div>
 
@@ -1166,7 +1163,9 @@ export default function ModuleCoordinatorManager() {
               }
               className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">All Modules</option>
+              <option value="" disabled hidden>
+                All Modules
+              </option>
               {MODULE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -1236,77 +1235,79 @@ export default function ModuleCoordinatorManager() {
               {groupedRows.map((row) => {
                 const assignment = row.representative;
                 return (
-                <div
-                  key={row.key}
-                  className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
-                >
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 gap-2">
-                      <div className="flex items-start justify-between">
-                        <span className="text-xs text-gray-500">Person</span>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900 break-words">
-                            {getPersonName(assignment.person)}
+                  <div
+                    key={row.key}
+                    className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                  >
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 gap-2">
+                        <div className="flex items-start justify-between">
+                          <span className="text-xs text-gray-500">Person</span>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900 break-words">
+                              {getPersonName(assignment.person)}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              ID: {assignment.person}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Module</span>
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getModuleBadgeColor(
+                              assignment.module,
+                            )}`}
+                          >
+                            {assignment.module_display || assignment.module}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Level</span>
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getLevelBadgeColor(
+                              assignment.level,
+                            )}`}
+                          >
+                            {assignment.level_display || assignment.level}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            Resource
+                          </span>
+                          <p className="text-sm text-gray-900 text-right break-words max-w-[60%]">
+                            {row.resourceLabel}
                           </p>
-                          <p className="text-xs text-gray-500">
-                            ID: {assignment.person}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            Created At
+                          </span>
+                          <p className="text-sm text-gray-900 text-right">
+                            {formatDate(row.createdAt)}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Module</span>
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getModuleBadgeColor(
-                            assignment.module
-                          )}`}
+                      <div className="pt-2 border-t border-gray-200 flex flex-col gap-2">
+                        <button
+                          onClick={() => handleEdit(row.assignments)}
+                          className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
                         >
-                          {assignment.module_display || assignment.module}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Level</span>
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getLevelBadgeColor(
-                            assignment.level
-                          )}`}
+                          <PencilIcon className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(row.assignments)}
+                          className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
                         >
-                          {assignment.level_display || assignment.level}
-                        </span>
+                          <TrashIcon className="w-4 h-4" />
+                          Delete
+                        </button>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Resource</span>
-                        <p className="text-sm text-gray-900 text-right break-words max-w-[60%]">
-                          {row.resourceLabel}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">
-                          Created At
-                        </span>
-                        <p className="text-sm text-gray-900 text-right">
-                          {formatDate(row.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="pt-2 border-t border-gray-200 flex flex-col gap-2">
-                      <button
-                        onClick={() => handleEdit(row.assignments)}
-                        className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(row.assignments)}
-                        className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                        Delete
-                      </button>
                     </div>
                   </div>
-                </div>
-              );
+                );
               })}
             </div>
           )}
@@ -1345,61 +1346,61 @@ export default function ModuleCoordinatorManager() {
                   {groupedRows.map((row) => {
                     const assignment = row.representative;
                     return (
-                    <tr key={row.key}>
-                      <td className="px-3 py-4 md:px-6 md:py-4">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-900 break-words">
-                            {getPersonName(assignment.person)}
+                      <tr key={row.key}>
+                        <td className="px-3 py-4 md:px-6 md:py-4">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900 break-words">
+                              {getPersonName(assignment.person)}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              ID: {assignment.person}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            ID: {assignment.person}
+                        </td>
+                        <td className="px-3 py-4 md:px-6 md:py-4">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getModuleBadgeColor(
+                              assignment.module,
+                            )}`}
+                          >
+                            {assignment.module_display || assignment.module}
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 md:px-6 md:py-4">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getLevelBadgeColor(
+                              assignment.level,
+                            )}`}
+                          >
+                            {assignment.level_display || assignment.level}
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
+                          {row.resourceLabel}
+                        </td>
+                        <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
+                          {formatDate(row.createdAt)}
+                        </td>
+                        <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                              onClick={() => handleEdit(row.assignments)}
+                              className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(row.assignments)}
+                              className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                              Delete
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-4 md:px-6 md:py-4">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getModuleBadgeColor(
-                            assignment.module
-                          )}`}
-                        >
-                          {assignment.module_display || assignment.module}
-                        </span>
-                      </td>
-                      <td className="px-3 py-4 md:px-6 md:py-4">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getLevelBadgeColor(
-                            assignment.level
-                          )}`}
-                        >
-                          {assignment.level_display || assignment.level}
-                        </span>
-                      </td>
-                      <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500 break-words">
-                        {row.resourceLabel}
-                      </td>
-                      <td className="px-3 py-4 md:px-6 md:py-4 text-sm text-gray-500">
-                        {formatDate(row.createdAt)}
-                      </td>
-                      <td className="px-3 py-4 md:px-6 md:py-4 text-sm font-medium">
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <button
-                            onClick={() => handleEdit(row.assignments)}
-                            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(row.assignments)}
-                            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-red-500 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
+                        </td>
+                      </tr>
+                    );
                   })}
                 </tbody>
               </table>
@@ -1462,7 +1463,7 @@ export default function ModuleCoordinatorManager() {
 
                 // Check if current level is valid for new module
                 const isCurrentLevelValid = availableLevels.some(
-                  (opt) => opt.value === currentLevel
+                  (opt) => opt.value === currentLevel,
                 );
 
                 setFormData({
@@ -1560,17 +1561,19 @@ export default function ModuleCoordinatorManager() {
               {formData.level === "SENIOR_COORDINATOR"
                 ? "Senior Coordinators automatically have module-wide access"
                 : formData.level === "COORDINATOR"
-                ? moduleSupportsResourceMultiSelect(formData.module)
-                  ? "Coordinators must be assigned to a specific resource in the assignee's branch"
-                  : "Coordinators can be assigned module-wide or to a specific resource"
-                : formData.level === "REPORTER"
-                ? "Reporters submit weekly reports for assigned clusters only; they cannot manage cluster members"
-                : formData.level === "TEACHER" ||
-                  formData.level === "BIBLE_SHARER"
-                ? `${
-                    formData.level === "TEACHER" ? "Teachers" : "Bible Sharers"
-                  } must be assigned to a specific resource`
-                : ""}
+                  ? moduleSupportsResourceMultiSelect(formData.module)
+                    ? "Coordinators must be assigned to a specific resource in the assignee's branch"
+                    : "Coordinators can be assigned module-wide or to a specific resource"
+                  : formData.level === "REPORTER"
+                    ? "Reporters submit weekly reports for assigned clusters only; they cannot manage cluster members"
+                    : formData.level === "TEACHER" ||
+                        formData.level === "BIBLE_SHARER"
+                      ? `${
+                          formData.level === "TEACHER"
+                            ? "Teachers"
+                            : "Bible Sharers"
+                        } must be assigned to a specific resource`
+                      : ""}
             </p>
           </div>
 
@@ -1599,7 +1602,7 @@ export default function ModuleCoordinatorManager() {
                         formData.level === "BIBLE_SHARER" ||
                         coordinatorRequiresSpecificResource(
                           formData.module,
-                          formData.level
+                          formData.level,
                         )
                       }
                       className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1612,7 +1615,7 @@ export default function ModuleCoordinatorManager() {
                           formData.level === "BIBLE_SHARER" ||
                           coordinatorRequiresSpecificResource(
                             formData.module,
-                            formData.level
+                            formData.level,
                           )
                             ? "text-gray-400"
                             : "text-gray-900"
@@ -1682,7 +1685,7 @@ export default function ModuleCoordinatorManager() {
                 )}
                 {coordinatorRequiresSpecificResource(
                   formData.module,
-                  formData.level
+                  formData.level,
                 ) && (
                   <p className="mt-2 text-xs text-amber-600">
                     Coordinators for this module must be assigned to specific
@@ -1711,7 +1714,7 @@ export default function ModuleCoordinatorManager() {
                   </p>
                 </div>
               ) : moduleSupportsResourceMultiSelect(
-                  formData.module as ModuleCoordinator["module"]
+                  formData.module as ModuleCoordinator["module"],
                 ) ? (
                 <>
                   <p
@@ -1734,8 +1737,9 @@ export default function ModuleCoordinatorManager() {
                     editingAssignment.resource_id != null && (
                       <p className="text-xs text-gray-600 mb-3">
                         Additional checked resources create new assignments for
-                        the same person and module. Uncheck the original resource
-                        to move this assignment to a different primary resource.
+                        the same person and module. Uncheck the original
+                        resource to move this assignment to a different primary
+                        resource.
                       </p>
                     )}
                   <ResourceAssignmentMultiPicker
@@ -1744,7 +1748,7 @@ export default function ModuleCoordinatorManager() {
                         id,
                         name,
                         trailingLabel,
-                      })
+                      }),
                     )}
                     selectedIds={formResourceSelectedIds}
                     onSelectedIdsChange={(ids) => {
@@ -1833,8 +1837,8 @@ export default function ModuleCoordinatorManager() {
               {submitting
                 ? "Saving..."
                 : editingAssignment
-                ? "Update Assignment"
-                : "Create Assignment"}
+                  ? "Update Assignment"
+                  : "Create Assignment"}
             </Button>
           </div>
         </form>
@@ -1923,7 +1927,7 @@ export default function ModuleCoordinatorManager() {
                     value={bulkSimple.module}
                     onChange={(e) =>
                       handleBulkSimpleModuleChange(
-                        e.target.value as ModuleCoordinator["module"] | ""
+                        e.target.value as ModuleCoordinator["module"] | "",
                       )
                     }
                     className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -1944,7 +1948,7 @@ export default function ModuleCoordinatorManager() {
                     value={bulkSimple.level}
                     onChange={(e) =>
                       handleBulkSimpleLevelChange(
-                        e.target.value as ModuleCoordinator["level"] | ""
+                        e.target.value as ModuleCoordinator["level"] | "",
                       )
                     }
                     disabled={!bulkSimple.module}
@@ -1990,7 +1994,7 @@ export default function ModuleCoordinatorManager() {
                           bulkSimple.level === "BIBLE_SHARER" ||
                           coordinatorRequiresSpecificResource(
                             bulkSimple.module,
-                            bulkSimple.level
+                            bulkSimple.level,
                           )
                         }
                         className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2002,7 +2006,7 @@ export default function ModuleCoordinatorManager() {
                           bulkSimple.level === "BIBLE_SHARER" ||
                           coordinatorRequiresSpecificResource(
                             bulkSimple.module,
-                            bulkSimple.level
+                            bulkSimple.level,
                           )
                             ? "text-gray-400"
                             : "text-gray-900"
@@ -2026,7 +2030,7 @@ export default function ModuleCoordinatorManager() {
                         }
                         onChange={() =>
                           handleBulkSimpleAssignmentTypeChange(
-                            "resource-specific"
+                            "resource-specific",
                           )
                         }
                         disabled={
@@ -2068,7 +2072,7 @@ export default function ModuleCoordinatorManager() {
                   )}
                   {coordinatorRequiresSpecificResource(
                     bulkSimple.module,
-                    bulkSimple.level
+                    bulkSimple.level,
                   ) && (
                     <p className="text-xs text-amber-600">
                       Coordinators must pick specific resources in the
@@ -2103,7 +2107,7 @@ export default function ModuleCoordinatorManager() {
                         id,
                         name,
                         trailingLabel,
-                      })
+                      }),
                     )}
                     selectedIds={bulkSimple.selectedResourceIds}
                     onSelectedIdsChange={(ids) =>
@@ -2198,7 +2202,7 @@ export default function ModuleCoordinatorManager() {
                             handleBulkAssignmentChange(
                               index,
                               "module",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           required
@@ -2223,7 +2227,7 @@ export default function ModuleCoordinatorManager() {
                             handleBulkAssignmentChange(
                               index,
                               "level",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           required
@@ -2245,7 +2249,7 @@ export default function ModuleCoordinatorManager() {
 
                       {assignment.module &&
                         !["FINANCE", "MINISTRIES"].includes(
-                          assignment.module
+                          assignment.module,
                         ) && (
                           <div className="border-t border-gray-200 pt-3">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2270,7 +2274,7 @@ export default function ModuleCoordinatorManager() {
                                     handleBulkAssignmentChange(
                                       index,
                                       "assignmentType",
-                                      "module-wide"
+                                      "module-wide",
                                     )
                                   }
                                   disabled={
@@ -2279,7 +2283,7 @@ export default function ModuleCoordinatorManager() {
                                     assignment.level === "BIBLE_SHARER" ||
                                     coordinatorRequiresSpecificResource(
                                       assignment.module,
-                                      assignment.level
+                                      assignment.level,
                                     )
                                   }
                                   className="mr-2 text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2291,7 +2295,7 @@ export default function ModuleCoordinatorManager() {
                                     assignment.level === "BIBLE_SHARER" ||
                                     coordinatorRequiresSpecificResource(
                                       assignment.module,
-                                      assignment.level
+                                      assignment.level,
                                     )
                                       ? "text-gray-400"
                                       : "text-gray-900"
@@ -2319,7 +2323,7 @@ export default function ModuleCoordinatorManager() {
                                     handleBulkAssignmentChange(
                                       index,
                                       "assignmentType",
-                                      "resource-specific"
+                                      "resource-specific",
                                     )
                                   }
                                   disabled={
@@ -2372,17 +2376,17 @@ export default function ModuleCoordinatorManager() {
                                     ? Number(e.target.value)
                                     : null;
                                   const resource = bulkAvailableResources.find(
-                                    (r) => r.id === resourceId
+                                    (r) => r.id === resourceId,
                                   );
                                   handleBulkAssignmentChange(
                                     index,
                                     "resource_id",
-                                    resourceId
+                                    resourceId,
                                   );
                                   handleBulkAssignmentChange(
                                     index,
                                     "resource_type",
-                                    resource?.type || ""
+                                    resource?.type || "",
                                   );
                                 }}
                                 required={
@@ -2396,13 +2400,13 @@ export default function ModuleCoordinatorManager() {
                                     const resources =
                                       await fetchCoordinatorResourcesForModule(
                                         assignment.module as ModuleCoordinator["module"],
-                                        bulkAssigneeBranchId
+                                        bulkAssigneeBranchId,
                                       );
                                     setBulkAvailableResources(resources);
                                   } catch (err) {
                                     console.error(
                                       "Failed to fetch resources:",
-                                      err
+                                      err,
                                     );
                                     setBulkAvailableResources([]);
                                   } finally {

@@ -112,7 +112,7 @@ export default function SessionForm({
           onChange={handleChange("session_time")}
           className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         >
-          <option value="">Select time</option>
+          <option value="" disabled hidden>Select time</option>
           {generateTimeOptions().map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}

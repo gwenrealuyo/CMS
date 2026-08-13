@@ -222,7 +222,7 @@ export default function FamilyForm({
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
             required
           >
-            <option value="">Select a family leader</option>
+            <option value="" disabled hidden>Select a family leader</option>
             {getSelectedMembers().map((member) => (
               <option key={member.id} value={member.id}>
                 {formatPersonName(member)}

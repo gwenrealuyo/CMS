@@ -202,7 +202,7 @@ export default function PledgeForm({
                   className="w-full min-h-[44px] rounded-lg border border-emerald-100 bg-white py-2 px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   required={!isCreatingNew}
                 >
-                  <option value="">
+                  <option value="" disabled hidden>
                     Select existing pledge or create new...
                   </option>
                   {existingPledges.map((pledge) => (

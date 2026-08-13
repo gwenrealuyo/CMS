@@ -772,7 +772,7 @@ export default function Each1Reach1Dashboard({
               className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
               disabled={clustersLoading}
             >
-              <option value="">Select a cluster</option>
+              <option value="" disabled hidden>Select a cluster</option>
               {clusters.map((cluster) => (
                 <option key={cluster.id} value={cluster.id}>
                   {cluster.name || `Cluster ${cluster.id}`}

@@ -288,7 +288,7 @@ export default function PersonDateField({
             disabled={disabled}
             className={inputClassName}
           >
-            <option value="">Month</option>
+            <option value="" disabled hidden>Month</option>
             {MONTH_NAMES.map((name, index) => (
               <option key={name} value={String(index + 1)}>
                 {name}
@@ -308,7 +308,7 @@ export default function PersonDateField({
             disabled={disabled || draft.dayUnknown}
             className={`${inputClassName} md:hidden`}
           >
-            <option value="">Day</option>
+            <option value="" disabled hidden>Day</option>
             {dayOptions.map((d) => (
               <option key={d} value={String(d)}>
                 {d}

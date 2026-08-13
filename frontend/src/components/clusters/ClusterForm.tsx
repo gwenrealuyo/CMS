@@ -486,7 +486,7 @@ export default function ClusterForm({
             !canEditBranch ? "bg-gray-100 cursor-not-allowed" : ""
           }`}
         >
-          <option value="">No branch</option>
+          <option value="" disabled hidden>No branch</option>
           {branches
             .filter((b) => b.is_active)
             .map((branch) => (
@@ -998,7 +998,7 @@ export default function ClusterForm({
               className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-base md:text-sm min-h-[44px] md:min-h-0"
             >
               {CLUSTER_MEETING_DAY_OPTIONS.map((option) => (
-                <option key={option.value || "none"} value={option.value}>
+                <option key={option.value || "none"} value={option.value} disabled={option.value === ""} hidden={option.value === ""}>
                   {option.label}
                 </option>
               ))}

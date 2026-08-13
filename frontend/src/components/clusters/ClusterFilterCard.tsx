@@ -72,8 +72,13 @@ export default function ClusterFilterCard({
 
   useEffect(() => {
     if (isOpen) {
-      // Reset form when opening
-      setOperator("contains");
+      // Set to "between" for numbers/ranges/dates, otherwise default to "contains"
+      const defaultOperator = 
+        field.type === "range" || field.type === "number" || field.type === "date" 
+          ? "between" 
+          : "contains";
+
+      setOperator(defaultOperator);
       setValue("");
       setValue2("");
       setSelectedOption("");
@@ -82,7 +87,7 @@ export default function ClusterFilterCard({
         firstInputRef.current?.focus();
       }, 0);
     }
-  }, [isOpen]);
+  }, [isOpen, field.type]);
 
   // Handle click outside to close the filter card
   useEffect(() => {
@@ -255,7 +260,7 @@ export default function ClusterFilterCard({
               onKeyPress={handleKeyPress}
               className="w-full px-3 py-2.5 md:py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent min-h-[44px] md:min-h-0"
             >
-              <option value="">Select {field.label}</option>
+              <option value="" disabled hidden>Select {field.label}</option>
               {field.options?.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}

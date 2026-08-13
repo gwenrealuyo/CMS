@@ -1483,7 +1483,7 @@ export default function ModuleCoordinatorManager() {
               required
               className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">Select a module...</option>
+              <option value="" disabled hidden>Select a module...</option>
               {MODULE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -1546,7 +1546,7 @@ export default function ModuleCoordinatorManager() {
               disabled={!formData.module}
               className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="">
+              <option value="" disabled hidden>
                 {formData.module
                   ? "Select a level..."
                   : "Select a module first"}
@@ -1932,7 +1932,7 @@ export default function ModuleCoordinatorManager() {
                     }
                     className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    <option value="">Select a module...</option>
+                    <option value="" disabled hidden>Select a module...</option>
                     {MODULE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
@@ -1954,7 +1954,7 @@ export default function ModuleCoordinatorManager() {
                     disabled={!bulkSimple.module}
                     className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
-                    <option value="">
+                    <option value="" disabled hidden>
                       {bulkSimple.module
                         ? "Select a level..."
                         : "Select a module first"}
@@ -2208,7 +2208,7 @@ export default function ModuleCoordinatorManager() {
                           required
                           className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         >
-                          <option value="">Select a module...</option>
+                          <option value="" disabled hidden>Select a module...</option>
                           {MODULE_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
@@ -2234,7 +2234,7 @@ export default function ModuleCoordinatorManager() {
                           disabled={!assignment.module}
                           className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
                         >
-                          <option value="">
+                          <option value="" disabled hidden>
                             {assignment.module
                               ? "Select a level..."
                               : "Select a module first"}
@@ -2414,7 +2414,7 @@ export default function ModuleCoordinatorManager() {
                                   }
                                 }}
                               >
-                                <option value="">Select a resource...</option>
+                                <option value="" disabled hidden>Select a resource...</option>
                                 {bulkAvailableResources.map((resource) => (
                                   <option key={resource.id} value={resource.id}>
                                     {resource.type === "Cluster" &&

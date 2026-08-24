@@ -1199,17 +1199,11 @@ export default function PeoplePage() {
   // };
 
   const handleCreatePerson = async (personData: Partial<Person> | FormData) => {
-    try {
-      const result = await createPerson(personData);
-      if (!isDesktop) {
-        setIsModalOpen(false);
-      }
-      return result; // Return the created person for journey handling
-    } catch (err) {
-      console.error(err);
-      alert("Failed to save person.");
-      throw err;
+    const result = await createPerson(personData);
+    if (!isDesktop) {
+      setIsModalOpen(false);
     }
+    return result; // Return the created person for journey handling
   };
 
   const handleCreateFamily = async (familyData: Partial<Family>) => {

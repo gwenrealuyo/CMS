@@ -29,32 +29,20 @@ export const usePeople = (enabled: boolean = true) => {
   }, [enabled]);
 
   const createPerson = async (personData: Partial<Person> | FormData) => {
-    try {
-      const response = await peopleApi.create(personData);
-      setPeople((prev) => [...prev, response.data]);
-      return response.data;
-    } catch (err) {
-      throw new Error("Failed to create person");
-    }
+    const response = await peopleApi.create(personData);
+    setPeople((prev) => [...prev, response.data]);
+    return response.data;
   };
 
   const updatePerson = async (id: string, personData: Partial<Person> | FormData) => {
-    try {
-      const response = await peopleApi.update(id, personData);
-      setPeople((prev) => prev.map((p) => (p.id === id ? response.data : p)));
-      return response.data;
-    } catch (err) {
-      throw new Error("Failed to update person");
-    }
+    const response = await peopleApi.update(id, personData);
+    setPeople((prev) => prev.map((p) => (p.id === id ? response.data : p)));
+    return response.data;
   };
 
   const deletePerson = async (id: string) => {
-    try {
-      await peopleApi.delete(id);
-      setPeople((prev) => prev.filter((p) => p.id !== id));
-    } catch (err) {
-      throw new Error("Failed to delete person");
-    }
+    await peopleApi.delete(id);
+    setPeople((prev) => prev.filter((p) => p.id !== id));
   };
 
   useEffect(() => {

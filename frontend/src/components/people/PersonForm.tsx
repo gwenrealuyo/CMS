@@ -49,6 +49,7 @@ import {
   findPossibleNameDuplicates,
 } from "@/src/lib/personDuplicates";
 import { formatPersonName } from "@/src/lib/name";
+import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import {
   PERSON_PHOTO_ACCEPT,
   PERSON_PHOTO_HELPER_TEXT,
@@ -1042,15 +1043,13 @@ export default function PersonForm({
       setPhotoRemoved(false);
     } catch (error: any) {
       console.error("Failed to save person:", error);
-      const apiMessage =
-        error?.response?.data?.message ||
-        error?.response?.data?.detail ||
-        error?.message;
       toast.error(
-        apiMessage ||
-          (initialData?.id
+        formatApiErrorMessage(
+          error,
+          initialData?.id
             ? "Failed to update person. Please try again."
-            : "Failed to create person. Please try again."),
+            : "Failed to create person. Please try again.",
+        ),
       );
       throw error; // Re-throw to let parent handle if needed
     } finally {

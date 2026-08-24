@@ -1,4 +1,5 @@
 import { Person, PersonRole, PersonStatus } from "@/src/types/person";
+import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 
 export type PeopleExportFormat = "excel" | "pdf" | "csv";
 
@@ -224,24 +225,5 @@ export function getPeopleImportTemplateCsv(options?: {
 }
 
 export function formatPeopleImportApiError(error: unknown): string {
-  const data = (error as { response?: { data?: unknown } })?.response?.data;
-  if (!data) {
-    return error instanceof Error ? error.message : "Unknown error";
-  }
-  if (typeof data === "string") return data;
-  if (typeof data === "object" && data !== null) {
-    const entries = Object.entries(data as Record<string, unknown>);
-    if (entries.length === 0) return "Request failed";
-    return entries
-      .map(([key, value]) => {
-        const msg = Array.isArray(value)
-          ? value.join(" ")
-          : typeof value === "string"
-            ? value
-            : JSON.stringify(value);
-        return `${key}: ${msg}`;
-      })
-      .join("; ");
-  }
-  return "Request failed";
+  return formatApiErrorMessage(error, "Unknown error");
 }

@@ -353,14 +353,14 @@ export default function Sidebar() {
             <AppLogo
               href="/dashboard"
               className="justify-center"
-              imageClassName="h-8 w-8 object-contain"
+              imageClassName="h-8 w-auto object-contain"
             />
           ) : (
             <AppLogo
               href="/dashboard"
               showWordmark
               className="flex-1"
-              imageClassName="h-8 w-8 object-contain"
+              imageClassName="h-8 w-auto object-contain"
               wordmarkClassName="text-lg font-bold leading-tight text-primary whitespace-nowrap"
             />
           )}

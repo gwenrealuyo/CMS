@@ -43,16 +43,16 @@ export default function LoginPage() {
           const lockedDate = new Date(lockedUntil);
           const now = new Date();
           const minutes = Math.ceil(
-            (lockedDate.getTime() - now.getTime()) / 60000
+            (lockedDate.getTime() - now.getTime()) / 60000,
           );
           setError(
             err.response?.data?.message ||
-              `Account is locked. Please try again in ${minutes} minute(s) or contact an administrator.`
+              `Account is locked. Please try again in ${minutes} minute(s) or contact an administrator.`,
           );
         } else {
           setError(
             err.response?.data?.message ||
-              "Account is locked. Please contact an administrator."
+              "Account is locked. Please contact an administrator.",
           );
         }
       } else {
@@ -80,7 +80,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md p-6 md:p-8 bg-white rounded-lg shadow-md">
         <div className="mb-6 md:mb-8 text-center">
           <div className="flex justify-center mb-4">
-            <AppLogo imageClassName="h-16 w-auto object-contain" />
+            <AppLogo imageClassName="h-24 w-auto object-contain" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-primary mb-1">
             The Lighthouse

@@ -13,6 +13,7 @@ interface CommitmentFormSectionProps {
   commitmentLoading: boolean;
   commitmentError: string | null;
   onOpenModal: () => void;
+  canManageCommitmentForm?: boolean;
 }
 
 const secondaryLinkClassName =
@@ -23,6 +24,7 @@ export default function CommitmentFormSection({
   commitmentLoading,
   commitmentError,
   onOpenModal,
+  canManageCommitmentForm = false,
 }: CommitmentFormSectionProps) {
   const [downloading, setDownloading] = useState(false);
   const commitmentUrl = resolveCommitmentFormUrl(
@@ -108,12 +110,14 @@ export default function CommitmentFormSection({
                   >
                     {downloading ? "Downloading…" : "Download Form"}
                   </Button>
-                  <Button
-                    onClick={onOpenModal}
-                    className="w-full sm:w-auto min-h-[44px] text-sm"
-                  >
-                    Replace Commitment Form
-                  </Button>
+                  {canManageCommitmentForm && (
+                    <Button
+                      onClick={onOpenModal}
+                      className="w-full sm:w-auto min-h-[44px] text-sm"
+                    >
+                      Replace Commitment Form
+                    </Button>
+                  )}
                 </div>
               </>
             ) : (
@@ -121,12 +125,14 @@ export default function CommitmentFormSection({
                 <span className="text-sm text-gray-500">
                   No commitment form uploaded yet.
                 </span>
-                <Button
-                  onClick={onOpenModal}
-                  className="w-full sm:w-auto min-h-[44px] text-sm"
-                >
-                  Upload Commitment Form
-                </Button>
+                {canManageCommitmentForm && (
+                  <Button
+                    onClick={onOpenModal}
+                    className="w-full sm:w-auto min-h-[44px] text-sm"
+                  >
+                    Upload Commitment Form
+                  </Button>
+                )}
               </div>
             )}
           </div>

@@ -56,6 +56,7 @@ interface MemberProgressSectionProps {
   peopleError: string | null;
   assigning: boolean;
   assignError: string | null;
+  canAssignLessons: boolean;
   onAssignLessons: (
     personIds: string[],
     lessonIds: number[],
@@ -97,6 +98,7 @@ export default function MemberProgressSection({
   peopleError,
   assigning,
   assignError,
+  canAssignLessons,
   onAssignLessons,
   enrollmentByStudent,
   assignedStudentIds,
@@ -174,21 +176,23 @@ export default function MemberProgressSection({
               <option value="SKIPPED">Skipped</option>
             </select>
 
-            <div className="w-full md:w-auto md:shrink-0">
-              <AssignLessonsDropdown
-                allLessons={activeLatestLessons}
-                people={people}
-                peopleLoading={peopleLoading}
-                peopleError={peopleError}
-                assigning={assigning}
-                assignError={assignError}
-                onAssignLessons={onAssignLessons}
-                enrollmentByStudent={enrollmentByStudent}
-                assignedStudentIds={assignedStudentIds}
-                defaultTeacherId={defaultTeacherId}
-                teacherChoices={teacherChoices}
-              />
-            </div>
+            {canAssignLessons && (
+              <div className="w-full md:w-auto md:shrink-0">
+                <AssignLessonsDropdown
+                  allLessons={activeLatestLessons}
+                  people={people}
+                  peopleLoading={peopleLoading}
+                  peopleError={peopleError}
+                  assigning={assigning}
+                  assignError={assignError}
+                  onAssignLessons={onAssignLessons}
+                  enrollmentByStudent={enrollmentByStudent}
+                  assignedStudentIds={assignedStudentIds}
+                  defaultTeacherId={defaultTeacherId}
+                  teacherChoices={teacherChoices}
+                />
+              </div>
+            )}
           </div>
         </div>
 

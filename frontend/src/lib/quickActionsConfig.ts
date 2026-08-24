@@ -9,6 +9,7 @@ import {
 import type { User } from "@/src/lib/api";
 import type { ModuleCoordinator } from "@/src/types/person";
 import type { ModuleType } from "@/src/types/moduleSettings";
+import { canWriteLessons } from "@/src/lib/lessons/lessonsPermissions";
 
 type CoordinatorLevel = ModuleCoordinator["level"];
 
@@ -108,15 +109,10 @@ function canViewEvents(ctx: QuickActionsContext): boolean {
 }
 
 function canLogLessonSession(ctx: QuickActionsContext): boolean {
-  const { user, isModuleCoordinator, isSeniorCoordinator } = ctx;
-  if (!user) return false;
-  if (!isModuleEnabledForQuickAction("LESSONS", ctx)) return false;
-  return (
-    user.role === "PASTOR" ||
-    user.role === "ADMIN" ||
-    isModuleCoordinator("LESSONS") ||
-    isSeniorCoordinator("LESSONS")
-  );
+  return canWriteLessons({
+    user: ctx.user,
+    moduleEnabled: ctx.moduleEnabled,
+  });
 }
 
 function canSubmitClusterReport(ctx: QuickActionsContext): boolean {

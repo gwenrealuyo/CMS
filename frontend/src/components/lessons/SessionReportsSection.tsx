@@ -239,7 +239,10 @@ interface SessionReportsSectionProps {
   onRequestDelete?: (report: LessonSessionReport) => void;
   formatDateOnly: (value?: string | null) => string;
   formatDateTime: (value?: string | null) => string;
+  /** When false, the Log Session button is hidden (no Lessons write access). */
   canLogSession: boolean;
+  /** When false, Log Session is shown but disabled (e.g. no lessons in catalog). */
+  logSessionEnabled?: boolean;
   canExport: boolean;
 }
 
@@ -270,6 +273,7 @@ export default function SessionReportsSection({
   formatDateOnly,
   formatDateTime,
   canLogSession,
+  logSessionEnabled = true,
   canExport,
 }: SessionReportsSectionProps) {
   const monthOptions = useMemo(
@@ -540,14 +544,16 @@ export default function SessionReportsSection({
               >
                 Download CSV
               </Button>
-              <Button
-                variant="primary"
-                onClick={onOpenSessionModal}
-                disabled={!canLogSession}
-                className="w-full sm:w-auto min-h-[44px] text-sm"
-              >
-                Log Session
-              </Button>
+              {canLogSession && (
+                <Button
+                  variant="primary"
+                  onClick={onOpenSessionModal}
+                  disabled={!logSessionEnabled}
+                  className="w-full sm:w-auto min-h-[44px] text-sm"
+                >
+                  Log Session
+                </Button>
+              )}
             </div>
           </div>
         </div>

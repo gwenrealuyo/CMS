@@ -6,24 +6,29 @@ interface LessonListProps {
   lessons: Lesson[];
   selectedLessonId: number | null;
   onSelect: (lesson: Lesson) => void;
-  onEdit: (lesson: Lesson) => void;
-  onCreateNew: () => void;
+  onEdit?: (lesson: Lesson) => void;
+  onCreateNew?: () => void;
 }
 
 export default function LessonList({
   lessons,
   selectedLessonId,
   onSelect,
-  onEdit,
+  onEdit: _onEdit,
   onCreateNew,
 }: LessonListProps) {
   return (
     <Card
       title="Lesson Catalog"
       headerAction={
-        <Button onClick={onCreateNew} className="w-full sm:w-auto min-h-[44px] text-sm">
-          Add Lesson
-        </Button>
+        onCreateNew ? (
+          <Button
+            onClick={onCreateNew}
+            className="w-full sm:w-auto min-h-[44px] text-sm"
+          >
+            Add Lesson
+          </Button>
+        ) : undefined
       }
     >
       {lessons.length === 0 ? (

@@ -167,7 +167,8 @@ Coordinators and pastors should **mark records inactive** or update status inste
 
 **Lessons**
 
-- **Teachers** see and log sessions for their students.
+- **Lesson catalog** (create / edit / deactivate) and **commitment form upload** are limited to **Admin** (any branch), or **HQ Pastor** / **HQ Lessons Coordinator** / **HQ Senior Coordinator**. Teachers cannot manage catalog content.
+- **Teachers** see and log sessions for their students; they can also assign lessons when they have Lessons write access.
 - **Coordinators** assign lessons and see broader student lists.
 - Branch filter on Lessons is editable for Admin, Pastor, and senior Lessons coordinators.
 

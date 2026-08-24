@@ -393,3 +393,44 @@ class HasModuleAccess(permissions.BasePermission):
                 return True
 
         return True
+
+
+class CanManageLessonCatalog(permissions.BasePermission):
+    """
+    Lesson catalog create/update and commitment-form upload.
+
+    Allowed:
+    - ADMIN (any branch; bypasses module disabled)
+    - PASTOR on an HQ branch (module enabled)
+    - Lessons COORDINATOR or SENIOR_COORDINATOR on an HQ branch (module enabled)
+
+    Teachers, Bible Sharers, plain Members, and non-HQ pastors/coordinators
+    are denied.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        user = request.user
+
+        if getattr(user, "role", None) == "ADMIN":
+            return True
+
+        if not is_module_enabled(ModuleCoordinator.ModuleType.LESSONS):
+            return False
+
+        branch = getattr(user, "branch", None)
+        if not branch or not getattr(branch, "is_headquarters", False):
+            return False
+
+        if getattr(user, "role", None) == "PASTOR":
+            return True
+
+        return user.module_coordinator_assignments.filter(
+            module=ModuleCoordinator.ModuleType.LESSONS,
+            level__in=(
+                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+            ),
+        ).exists()

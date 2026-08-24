@@ -1759,6 +1759,7 @@ export interface User {
   photo?: string;
   branch?: number | null;
   branch_name?: string | null;
+  branch_is_headquarters?: boolean;
   can_see_all_branches?: boolean;
   must_change_password?: boolean;
   first_login?: boolean;

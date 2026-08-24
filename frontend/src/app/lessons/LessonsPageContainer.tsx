@@ -28,6 +28,11 @@ import { formatDisplayDate } from "@/src/lib/date";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+import { useModuleSettings } from "@/src/hooks/useModuleSettings";
+import {
+  canWriteLessons,
+  canManageLessonCatalog,
+} from "@/src/lib/lessons/lessonsPermissions";
 import {
   createDefaultSessionFilters,
   extractErrorMessage,
@@ -196,7 +201,16 @@ export default function LessonsPageContainer() {
 
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
   const { user, isSeniorCoordinator } = useAuth();
+  const { moduleEnabled } = useModuleSettings();
   const userCanHardDelete = canHardDelete(user);
+  const canWriteLessonsAccess = useMemo(
+    () => canWriteLessons({ user, moduleEnabled }),
+    [user, moduleEnabled],
+  );
+  const canManageLessonCatalogAccess = useMemo(
+    () => canManageLessonCatalog({ user, moduleEnabled }),
+    [user, moduleEnabled],
+  );
 
   const lessonsBranchCanChangeFilter = useMemo(
     () => canChangeLessonsBranchFilterForUser(user, isSeniorCoordinator),
@@ -611,11 +625,13 @@ export default function LessonsPageContainer() {
 
   useEffect(() => {
     if (action === "log-session") {
-      setActiveContentTab("sessions");
-      setAutoOpenSessionReport(true);
+      if (canWriteLessonsAccess) {
+        setActiveContentTab("sessions");
+        setAutoOpenSessionReport(true);
+      }
       router.replace(pathname);
     }
-  }, [action, pathname, router]);
+  }, [action, canWriteLessonsAccess, pathname, router]);
 
   useEffect(() => {
     if (selectedLessonId) {
@@ -848,18 +864,27 @@ export default function LessonsPageContainer() {
   };
 
   const openCreateLesson = () => {
+    if (!canManageLessonCatalogAccess) {
+      return;
+    }
     setEditingLesson(null);
     setLessonFormError(null);
     setLessonFormOpen(true);
   };
 
   const openEditLesson = (lesson: Lesson) => {
+    if (!canManageLessonCatalogAccess) {
+      return;
+    }
     setEditingLesson(lesson);
     setLessonFormError(null);
     setLessonFormOpen(true);
   };
 
   const requestDeleteLesson = (lesson: Lesson) => {
+    if (!canManageLessonCatalogAccess) {
+      return;
+    }
     setLessonDeleteTarget(lesson);
     setLessonDeleteError(null);
   };
@@ -871,6 +896,12 @@ export default function LessonsPageContainer() {
 
   const confirmDeleteLesson = async () => {
     if (!lessonDeleteTarget) {
+      return;
+    }
+    if (!canManageLessonCatalogAccess) {
+      setLessonDeleteError(
+        "You do not have permission to deactivate lessons.",
+      );
       return;
     }
     try {
@@ -921,6 +952,10 @@ export default function LessonsPageContainer() {
   };
 
   const handleLessonFormSubmit = async (values: LessonFormValues) => {
+    if (!canManageLessonCatalogAccess) {
+      setLessonFormError("You do not have permission to manage lesson content.");
+      return;
+    }
     try {
       setLessonFormSubmitting(true);
       setLessonFormError(null);
@@ -1036,6 +1071,12 @@ export default function LessonsPageContainer() {
   };
 
   const handleCommitmentUpload = async () => {
+    if (!canManageLessonCatalogAccess) {
+      setCommitmentUploadError(
+        "You do not have permission to upload the commitment form.",
+      );
+      return;
+    }
     if (!commitmentFile) {
       setCommitmentUploadError("Please choose a PDF to upload.");
       return;
@@ -1065,6 +1106,10 @@ export default function LessonsPageContainer() {
     lessonIds: number[],
     teacherId: string
   ) => {
+    if (!canWriteLessonsAccess) {
+      setAssignError("You do not have permission to assign lessons.");
+      return;
+    }
     if (personIds.length === 0) {
       setAssignError("Choose at least one person to assign.");
       return;
@@ -1245,6 +1290,9 @@ export default function LessonsPageContainer() {
     studentId?: string | number | null;
     progressId?: string | number | null;
   }) => {
+    if (!canWriteLessonsAccess) {
+      return;
+    }
     const studentNumericId =
       defaults?.studentId != null ? Number(defaults.studentId) : null;
     const enrollmentTeacherId =
@@ -1268,7 +1316,13 @@ export default function LessonsPageContainer() {
       progressId: defaults?.progressId ?? null,
     });
     setSessionModalOpen(true);
-  }, [sessionLoggedInTeacherId, enrollmentByStudent, selectedLessonId, nextLessonIdByStudent]);
+  }, [
+    canWriteLessonsAccess,
+    sessionLoggedInTeacherId,
+    enrollmentByStudent,
+    selectedLessonId,
+    nextLessonIdByStudent,
+  ]);
 
   useEffect(() => {
     if (!autoOpenSessionReport) {
@@ -1576,7 +1630,12 @@ export default function LessonsPageContainer() {
       onUpdateStatus={handleUpdateStatus}
       onRequestCommitmentToggle={requestCommitmentToggle}
       onConfirmCommitmentToggle={confirmCommitmentToggle}
-      onOpenCommitmentModal={() => setCommitmentModalOpen(true)}
+      onOpenCommitmentModal={() => {
+        if (!canManageLessonCatalogAccess) {
+          return;
+        }
+        setCommitmentModalOpen(true);
+      }}
       onCloseCommitmentModal={() => {
         setCommitmentModalOpen(false);
         setCommitmentFile(null);

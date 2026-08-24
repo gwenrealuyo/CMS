@@ -89,6 +89,7 @@ class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     branch = serializers.IntegerField(source="branch_id", read_only=True, allow_null=True)
     branch_name = serializers.SerializerMethodField()
+    branch_is_headquarters = serializers.SerializerMethodField()
     can_see_all_branches = serializers.SerializerMethodField()
     module_coordinator_assignments = ModuleCoordinatorSerializer(
         many=True, read_only=True
@@ -110,6 +111,7 @@ class UserSerializer(serializers.ModelSerializer):
             "first_login",
             "branch",
             "branch_name",
+            "branch_is_headquarters",
             "can_see_all_branches",
             "module_coordinator_assignments",
         )
@@ -122,6 +124,7 @@ class UserSerializer(serializers.ModelSerializer):
             "first_login",
             "branch",
             "branch_name",
+            "branch_is_headquarters",
             "can_see_all_branches",
             "module_coordinator_assignments",
         )
@@ -133,6 +136,11 @@ class UserSerializer(serializers.ModelSerializer):
         if obj.branch_id and getattr(obj, "branch", None):
             return obj.branch.name
         return None
+
+    def get_branch_is_headquarters(self, obj):
+        if obj.branch_id and getattr(obj, "branch", None):
+            return bool(obj.branch.is_headquarters)
+        return False
 
     def get_can_see_all_branches(self, obj):
         return obj.can_see_all_branches()

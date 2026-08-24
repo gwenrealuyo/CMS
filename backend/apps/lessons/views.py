@@ -14,10 +14,11 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.people.models import Person
 from apps.authentication.permissions import (
-    IsMemberOrAbove, 
+    IsMemberOrAbove,
     IsAuthenticatedAndNotVisitor,
     HasModuleAccess,
     IsAdmin,
+    CanManageLessonCatalog,
 )
 from apps.people.models import ModuleCoordinator
 from apps.ministries.models import MinistryMember, NCC_MINISTRY_CODE
@@ -129,14 +130,18 @@ class LessonViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Override to set permissions based on action.
+        Catalog create/update and commitment POST: HQ Admin/Pastor/Coordinator only.
         """
-        if self.action in ["list", "retrieve", "commitment_form"]:
-            # Read operations: All authenticated non-visitors
+        if self.action in ["list", "retrieve"]:
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action == "commitment_form":
+            if self.request.method == "GET":
+                return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+            return [IsAuthenticatedAndNotVisitor(), CanManageLessonCatalog()]
         if self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
-        # Write operations: ADMIN, PASTOR, or Lessons Coordinator
-        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('LESSONS', 'write')]
+        # create / update / partial_update
+        return [IsAuthenticatedAndNotVisitor(), CanManageLessonCatalog()]
 
     def get_queryset(self):
         queryset = (

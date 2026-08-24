@@ -30,6 +30,8 @@ import Card from "@/src/components/ui/Card";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import NoteInputModal from "@/src/components/ui/NoteInputModal";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useModuleSettings } from "@/src/hooks/useModuleSettings";
+import { canWriteLessons, canManageLessonCatalog } from "@/src/lib/lessons/lessonsPermissions";
 import {
   Lesson,
   LessonCommitmentSettings,
@@ -381,6 +383,12 @@ export default function LessonsPageView({
   onSetLessonHardDeleteError,
 }: LessonsPageViewProps) {
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  const { moduleEnabled } = useModuleSettings();
+  const canWriteLessonsAccess = canWriteLessons({ user, moduleEnabled });
+  const canManageLessonCatalogAccess = canManageLessonCatalog({
+    user,
+    moduleEnabled,
+  });
   const canTransferLessonTeacher = Boolean(
     user &&
       (user.role === "ADMIN" ||
@@ -481,14 +489,16 @@ export default function LessonsPageView({
               across the conversion journey.
             </p>
           </div>
-          <Button
-            variant="primary"
-            onClick={onOpenSessionReportModal}
-            disabled={lessons.length === 0}
-            className="w-full sm:w-auto min-h-[44px] self-start md:self-auto"
-          >
-            Log Session
-          </Button>
+          {canWriteLessonsAccess && (
+            <Button
+              variant="primary"
+              onClick={onOpenSessionReportModal}
+              disabled={lessons.length === 0}
+              className="w-full sm:w-auto min-h-[44px] self-start md:self-auto"
+            >
+              Log Session
+            </Button>
+          )}
         </div>
 
         {lessonsError && <ErrorMessage message={lessonsError} />}
@@ -525,8 +535,16 @@ export default function LessonsPageView({
                       lessons={lessons}
                       selectedLessonId={selectedLessonId}
                       onSelect={onSelectLesson}
-                      onEdit={onOpenEditLesson}
-                      onCreateNew={onOpenCreateLesson}
+                      onEdit={
+                        canManageLessonCatalogAccess
+                          ? onOpenEditLesson
+                          : undefined
+                      }
+                      onCreateNew={
+                        canManageLessonCatalogAccess
+                          ? onOpenCreateLesson
+                          : undefined
+                      }
                     />
                   </div>
                 )}
@@ -534,7 +552,11 @@ export default function LessonsPageView({
               <div className="lg:col-span-2">
                 <LessonDetailPanel
                   lesson={selectedLesson}
-                  onEdit={onOpenEditLesson}
+                  onEdit={
+                    canManageLessonCatalogAccess
+                      ? onOpenEditLesson
+                      : undefined
+                  }
                 />
               </div>
             </div>
@@ -564,6 +586,7 @@ export default function LessonsPageView({
               peopleError={peopleError}
               assigning={assigning}
               assignError={assignError}
+              canAssignLessons={canWriteLessonsAccess}
               onAssignLessons={onAssignLessons}
               enrollmentByStudent={enrollmentByStudentForAssign}
               assignedStudentIds={assignedStudentIds}
@@ -599,7 +622,8 @@ export default function LessonsPageView({
               }
               formatDateOnly={formatDateOnly}
               formatDateTime={formatDateTime}
-              canLogSession={lessons.length > 0}
+              canLogSession={canWriteLessonsAccess}
+              logSessionEnabled={lessons.length > 0}
               canExport={sessionReports.length > 0}
             />
           </div>
@@ -614,6 +638,7 @@ export default function LessonsPageView({
               commitmentLoading={commitmentLoading}
               commitmentError={commitmentError}
               onOpenModal={onOpenCommitmentModal}
+              canManageCommitmentForm={canManageLessonCatalogAccess}
             />
           </div>
         </div>

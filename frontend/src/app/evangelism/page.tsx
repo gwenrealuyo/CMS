@@ -1586,24 +1586,25 @@ export default function EvangelismPage() {
                 </div>
               </Card>
             ) : (
-              <Card
-                title="Evangelism Groups"
-                headerAction={
-                  canWriteEvangelismAccess ? (
-                    <Button
-                      onClick={() => setIsCreateOpen(true)}
-                      className="text-sm w-full sm:w-auto min-h-[44px]"
-                    >
-                      Add Group
-                    </Button>
-                  ) : undefined
-                }
-              >
+              <Card title="Evangelism Groups">
                 {filteredGroups.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-gray-200 py-16 text-center text-gray-500">
-                    {hasGroupListFilters
-                      ? "No groups found matching your search or filters."
-                      : "No groups available yet. Create the first one to get started."}
+                    {hasGroupListFilters ? (
+                      <p>No groups found matching your search or filters.</p>
+                    ) : (
+                      <div className="flex flex-col items-center gap-4">
+                        <p>No groups available yet. Create the first one to get started.</p>
+                        {canWriteEvangelismAccess && (
+                          <Button
+                            variant="primary"
+                            onClick={() => setIsCreateOpen(true)}
+                            className="min-h-[44px]"
+                          >
+                            Create Group
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>

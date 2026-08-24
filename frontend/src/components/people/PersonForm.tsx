@@ -37,7 +37,11 @@ import {
   ALL_COUNTRIES,
   COUNTRY_META,
   DEFAULT_COUNTRY,
+  UNIQUE_DIAL_CODES,
+  findCountryForDialCode,
   getCountryDialCode,
+  getCountryLocalMax,
+  getKnownDialCodes,
 } from "@/src/lib/countries";
 import {
   describeDuplicatePerson,
@@ -433,10 +437,16 @@ export default function PersonForm({
     initialJourneyKeysRef.current = initialKeys;
   }, [initialData]);
 
-  // Phone management: country code and local number
-  const initialCode = (() => {
-    const c = (initialData?.country || DEFAULT_COUNTRY) as string;
-    return getCountryDialCode(c);
+  // Phone management: dial-country (editable) and local number
+  const initialPhoneDialCountry = (() => {
+    const country = (initialData?.country || DEFAULT_COUNTRY) as string;
+    const phoneVal = (initialData?.phone || "") as string;
+    if (!phoneVal) return country;
+    const digits = phoneVal.replace(/[^0-9+]/g, "");
+    if (!digits.startsWith("+")) return country;
+    const match = getKnownDialCodes().find((code) => digits.startsWith(code));
+    if (!match) return country;
+    return findCountryForDialCode(match, country);
   })();
   const initialLocal = (() => {
     const phoneVal = (initialData?.phone || "") as string;
@@ -444,23 +454,31 @@ export default function PersonForm({
     // naive parse: remove non-digits, then strip possible country code digits
     const digits = phoneVal.replace(/[^0-9+]/g, "");
     if (digits.startsWith("+")) {
-      // try match by known codes (longest first so +1 does not steal +1868-style codes)
-      const knownCodes = Object.values(COUNTRY_META)
-        .map((m) => m.code)
-        .sort((a, b) => b.length - a.length);
-      const match = knownCodes.find((code) => digits.startsWith(code));
+      const match = getKnownDialCodes().find((code) => digits.startsWith(code));
       if (match) return digits.slice(match.length);
       return digits.replace(/^\+\d{1,3}/, "");
     }
     return digits;
   })();
 
-  const [phoneCountryCode, setPhoneCountryCode] = useState<string>(initialCode);
+  const [phoneDialCountry, setPhoneDialCountry] = useState<string>(
+    initialPhoneDialCountry,
+  );
   const [phoneLocal, setPhoneLocal] = useState<string>(initialLocal);
+  const phoneCountryCode = getCountryDialCode(phoneDialCountry);
 
   const syncPhoneToForm = (code: string, local: string) => {
     setFormData((prev) => ({ ...prev, phone: `${code}${local}` }));
     // Note: hasUnsavedChanges is set in the onChange handler that calls this function
+  };
+
+  const applyPhoneDialCountry = (countryName: string, local: string) => {
+    const code = getCountryDialCode(countryName);
+    const max = getCountryLocalMax(countryName);
+    const nextLocal = local.slice(0, max);
+    setPhoneDialCountry(countryName);
+    setPhoneLocal(nextLocal);
+    syncPhoneToForm(code, nextLocal);
   };
 
   const handleTabSwitch = (targetTab: "basic" | "timeline") => {
@@ -1355,9 +1373,29 @@ export default function PersonForm({
                       Phone Number
                     </label>
                     <div className="flex gap-2 items-stretch">
-                      <span className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 select-none flex items-center shrink-0">
-                        {phoneCountryCode}
-                      </span>
+                      <select
+                        aria-label="Phone country code"
+                        value={
+                          UNIQUE_DIAL_CODES.includes(phoneCountryCode)
+                            ? phoneCountryCode
+                            : getCountryDialCode(DEFAULT_COUNTRY)
+                        }
+                        onChange={(e) => {
+                          const nextCountry = findCountryForDialCode(
+                            e.target.value,
+                            phoneDialCountry,
+                          );
+                          applyPhoneDialCountry(nextCountry, phoneLocal);
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="w-[7.5rem] shrink-0 px-2 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-ring focus:border-transparent"
+                      >
+                        {UNIQUE_DIAL_CODES.map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </select>
                       <input
                         type="tel"
                         inputMode="numeric"
@@ -1365,12 +1403,7 @@ export default function PersonForm({
                         value={phoneLocal}
                         onChange={(e) => {
                           const digitsOnly = e.target.value.replace(/\D/g, "");
-                          const selectedCountry = Object.entries(
-                            COUNTRY_META,
-                          ).find(
-                            ([, meta]) => meta.code === phoneCountryCode,
-                          )?.[1];
-                          const max = selectedCountry?.localMax ?? 10;
+                          const max = getCountryLocalMax(phoneDialCountry);
                           const next = digitsOnly.slice(0, max);
                           setPhoneLocal(next);
                           syncPhoneToForm(phoneCountryCode, next);
@@ -1395,12 +1428,8 @@ export default function PersonForm({
                           country: newCountry,
                         }));
                         setHasUnsavedChanges(true);
-                        const meta = COUNTRY_META[newCountry];
-                        if (meta) {
-                          setPhoneCountryCode(meta.code);
-                          const nextLocal = phoneLocal.slice(0, meta.localMax);
-                          setPhoneLocal(nextLocal);
-                          syncPhoneToForm(meta.code, nextLocal);
+                        if (COUNTRY_META[newCountry]) {
+                          applyPhoneDialCountry(newCountry, phoneLocal);
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"

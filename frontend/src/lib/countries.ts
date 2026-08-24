@@ -235,3 +235,32 @@ export function getCountryLocalMax(country: string | null | undefined): number {
   if (!country) return COUNTRY_META[DEFAULT_COUNTRY].localMax;
   return COUNTRY_META[country]?.localMax ?? DEFAULT_LOCAL_MAX;
 }
+
+/** Longest-first dial codes so +1 does not steal +1868-style prefixes. */
+export function getKnownDialCodes(): string[] {
+  return Object.values(COUNTRY_META)
+    .map((m) => m.code)
+    .sort((a, b) => b.length - a.length);
+}
+
+/** Unique dial codes for phone-prefix selects (sorted numerically). */
+export const UNIQUE_DIAL_CODES: string[] = Array.from(
+  new Set(Object.values(COUNTRY_META).map((m) => m.code)),
+).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+/**
+ * Resolve which country option owns a dial code.
+ * Prefers `preferred` when its dial code matches.
+ */
+export function findCountryForDialCode(
+  dialCode: string,
+  preferred?: string | null,
+): string {
+  if (preferred && COUNTRY_META[preferred]?.code === dialCode) {
+    return preferred;
+  }
+  const match = Object.entries(COUNTRY_META).find(
+    ([, meta]) => meta.code === dialCode,
+  );
+  return match?.[0] ?? preferred ?? DEFAULT_COUNTRY;
+}

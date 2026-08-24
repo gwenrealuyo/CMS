@@ -13,8 +13,8 @@ import {
 
 interface MinistryViewProps {
   ministry: Ministry;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   onHardDelete?: () => void;
   onClose: () => void;
   onViewPerson?: (person: UserSummary) => void;
@@ -576,76 +576,82 @@ export default function MinistryView({
       </div>
 
       {/* Footer */}
-      <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto p-3 md:p-4 border-t border-gray-200 bg-gray-50">
-        <div className="flex flex-nowrap items-center gap-2 shrink-0">
-          <Button
-            onClick={onDelete}
-            variant="secondary"
-            className="!text-gray-700 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 shrink-0"
-            aria-label="Mark ministry inactive"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>Mark Inactive</span>
-          </Button>
-          {onHardDelete && (
-            <Button
-              onClick={onHardDelete}
-              variant="secondary"
-              className="!text-red-600 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center shrink-0"
-              aria-label="Delete ministry permanently"
-              title="Delete ministry permanently"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+      {(onDelete || onHardDelete || onEdit) && (
+        <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto p-3 md:p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex flex-nowrap items-center gap-2 shrink-0">
+            {onDelete && (
+              <Button
+                onClick={onDelete}
+                variant="secondary"
+                className="!text-gray-700 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center space-x-2 shrink-0"
+                aria-label="Mark ministry inactive"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </Button>
-          )}
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>Mark Inactive</span>
+              </Button>
+            )}
+            {onHardDelete && (
+              <Button
+                onClick={onHardDelete}
+                variant="secondary"
+                className="!text-red-600 h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center shrink-0"
+                aria-label="Delete ministry permanently"
+                title="Delete ministry permanently"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
+            {onEdit && (
+              <Button
+                onClick={onEdit}
+                variant="secondary"
+                className="!text-primary h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 shrink-0"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                <span>Edit</span>
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex flex-nowrap items-center gap-2 shrink-0 ml-auto">
-          <Button
-            onClick={onEdit}
-            variant="secondary"
-            className="!text-primary h-10 min-h-[44px] px-4 text-sm font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 shrink-0"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-            <span>Edit</span>
-          </Button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

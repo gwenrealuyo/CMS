@@ -20,7 +20,9 @@ import { usePeople } from "@/src/hooks/usePeople";
 import { useBranches } from "@/src/hooks/useBranches";
 import { Ministry, MinistryMember } from "@/src/types/ministry";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
+import { canWriteMinistries } from "@/src/lib/ministries/ministryPermissions";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import {
   CLUSTER_BRANCH_CHIP_CLASSNAME,
@@ -59,6 +61,11 @@ export default function MinistriesPage() {
     [branches],
   );
   const { user } = useAuth();
+  const { moduleEnabled } = useModuleSettings();
+  const canWriteMinistriesAccess = useMemo(
+    () => canWriteMinistries({ user, moduleEnabled }),
+    [user, moduleEnabled],
+  );
   const defaultBranchFilter = useMemo((): number | "all" => {
     if (!user) return "all";
     if (user.can_see_all_branches) return "all";
@@ -306,15 +313,17 @@ export default function MinistriesPage() {
                 ministry.
               </p>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Button
-                variant="primary"
-                onClick={() => setIsCreateOpen(true)}
-                className="w-full sm:w-auto min-h-[44px]"
-              >
-                Add Ministry
-              </Button>
-            </div>
+            {canWriteMinistriesAccess && (
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button
+                  variant="primary"
+                  onClick={() => setIsCreateOpen(true)}
+                  className="w-full sm:w-auto min-h-[44px]"
+                >
+                  Add Ministry
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -649,48 +658,52 @@ export default function MinistriesPage() {
                             />
                           </svg>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(row as Ministry)}
-                          className="flex items-center justify-center p-2 min-h-[44px] min-w-[44px] text-primary hover:bg-primary/10 rounded-md transition-colors"
-                          title="Edit Ministry"
-                          aria-label="Edit Ministry"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        {canWriteMinistriesAccess && (
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(row as Ministry)}
+                            className="flex items-center justify-center p-2 min-h-[44px] min-w-[44px] text-primary hover:bg-primary/10 rounded-md transition-colors"
+                            title="Edit Ministry"
+                            aria-label="Edit Ministry"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleMarkInactive(row as Ministry)}
-                          className="flex items-center justify-center p-2 min-h-[44px] min-w-[44px] text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
-                          title="Mark Inactive"
-                          aria-label="Mark Inactive"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                        {canWriteMinistriesAccess && (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkInactive(row as Ministry)}
+                            className="flex items-center justify-center p-2 min-h-[44px] min-w-[44px] text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                            title="Mark Inactive"
+                            aria-label="Mark Inactive"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                        </button>
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                          </button>
+                        )}
                         {userCanHardDelete &&
                           !(row as Ministry).is_system &&
                           (row as Ministry).code?.toUpperCase() !== "NCC" && (
@@ -738,17 +751,25 @@ export default function MinistriesPage() {
         {viewMinistry && (
           <MinistryView
             ministry={viewMinistry}
-            onEdit={() => {
-              setIsViewOpen(false);
-              setEditMinistry(viewMinistry);
-              setIsEditOpen(true);
-              setViewMinistry(null);
-            }}
-            onDelete={() => {
-              setIsViewOpen(false);
-              handleMarkInactive(viewMinistry);
-              setViewMinistry(null);
-            }}
+            onEdit={
+              canWriteMinistriesAccess
+                ? () => {
+                    setIsViewOpen(false);
+                    setEditMinistry(viewMinistry);
+                    setIsEditOpen(true);
+                    setViewMinistry(null);
+                  }
+                : undefined
+            }
+            onDelete={
+              canWriteMinistriesAccess
+                ? () => {
+                    setIsViewOpen(false);
+                    handleMarkInactive(viewMinistry);
+                    setViewMinistry(null);
+                  }
+                : undefined
+            }
             onHardDelete={
               userCanHardDelete
                 ? () => {

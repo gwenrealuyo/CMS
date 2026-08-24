@@ -35,7 +35,7 @@ export default function Home() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6">
       <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-lg shadow-md text-center">
         <div className="flex justify-center mb-4">
-          <AppLogo imageClassName="h-16 w-auto object-contain" />
+          <AppLogo imageClassName="h-24 w-auto object-contain" />
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-1 leading-tight break-words">
           The Lighthouse

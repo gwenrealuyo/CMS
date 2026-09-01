@@ -107,9 +107,6 @@ export default function DataTable({
     dateOfBirth: p.date_of_birth,
   });
 
-  const defaultExportBranchId =
-    defaultBranchId != null ? String(defaultBranchId) : "";
-
   const fetchExportAllPeople = async (branch: string): Promise<DisplayPerson[]> => {
     if (!onExportAll) return [];
     const all = await onExportAll({
@@ -946,12 +943,9 @@ export default function DataTable({
                 {wrapWhenSelected(
                   <button
                     type="button"
-                    onClick={async () => {
+                    onClick={() => {
                       if (onExportAll) {
-                        const all = await fetchExportAllPeople(
-                          defaultExportBranchId
-                        );
-                        openExportModal(all);
+                        openExportModal([]);
                         return;
                       }
                       openExportModal(sortedPeople);

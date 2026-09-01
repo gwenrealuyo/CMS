@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Person } from "@/src/types/person";
 import { Branch } from "@/src/types/branch";
@@ -87,6 +87,8 @@ export default function ExportPreviewModal({
 }: ExportPreviewModalProps) {
   const [branchId, setBranchId] = useState(normalizeBranchId(defaultBranchId));
   const [branchLoading, setBranchLoading] = useState(false);
+  const onExportBranchChangeRef = useRef(onExportBranchChange);
+  onExportBranchChangeRef.current = onExportBranchChange;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -98,11 +100,28 @@ export default function ExportPreviewModal({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      setBranchId(normalizeBranchId(defaultBranchId));
+    if (!isOpen) return;
+
+    const initialBranch = normalizeBranchId(defaultBranchId);
+    setBranchId(initialBranch);
+
+    if (isBulkExport || !onExportBranchChangeRef.current) {
       setBranchLoading(false);
+      return;
     }
-  }, [isOpen, defaultBranchId]);
+
+    let cancelled = false;
+    setBranchLoading(true);
+    void Promise.resolve(onExportBranchChangeRef.current(initialBranch)).finally(
+      () => {
+        if (!cancelled) setBranchLoading(false);
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isBulkExport, defaultBranchId]);
 
   const branchOptions = useMemo(
     () => branches.map((b) => ({ value: String(b.id), label: b.name })),
@@ -124,10 +143,10 @@ export default function ExportPreviewModal({
 
   const handleBranchChange = async (next: string) => {
     setBranchId(next);
-    if (isBulkExport || !onExportBranchChange) return;
+    if (isBulkExport || !onExportBranchChangeRef.current) return;
     setBranchLoading(true);
     try {
-      await onExportBranchChange(next);
+      await onExportBranchChangeRef.current(next);
     } finally {
       setBranchLoading(false);
     }
@@ -278,7 +297,7 @@ export default function ExportPreviewModal({
                 onClick={() =>
                   onExport(button.format, getSelectedFields(), peopleForExport)
                 }
-                disabled={branchLoading}
+                disabled={branchLoading || peopleForExport.length === 0}
                 className={`${button.className} disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {button.label}

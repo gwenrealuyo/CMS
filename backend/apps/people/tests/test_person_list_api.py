@@ -105,6 +105,7 @@ class PersonListPaginationAndFilterTests(TestCase):
         self.assertNotIn("module_coordinator_assignments", row)
         self.assertIn("cluster_codes", row)
         self.assertIn("cluster_labels", row)
+        self.assertNotIn("cluster_memberships", row)
         self.assertIn("can_view_profile", row)
         self.assertIn(self.cluster.code, row["cluster_codes"])
         self.assertIn(
@@ -122,6 +123,15 @@ class PersonListPaginationAndFilterTests(TestCase):
         self.assertIn(
             f"({self.cluster.code}) {self.cluster.name}",
             response.data["cluster_labels"],
+        )
+        self.assertIn("cluster_memberships", response.data)
+        self.assertIn(
+            {
+                "id": self.cluster.id,
+                "name": self.cluster.name,
+                "code": self.cluster.code,
+            },
+            response.data["cluster_memberships"],
         )
 
     def test_filter_by_role(self):

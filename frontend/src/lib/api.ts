@@ -97,6 +97,7 @@ const PERSON_FORM_DATA_SKIP_FIELDS = new Set([
   "username",
   "cluster_codes",
   "cluster_labels",
+  "cluster_memberships",
   "family_names",
   "module_coordinator_assignments",
   "can_view_journey_timeline",

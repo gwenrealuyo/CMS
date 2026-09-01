@@ -53,6 +53,18 @@ def cluster_export_labels(person) -> list[str]:
     return labels
 
 
+def cluster_membership_payloads(person) -> list[dict]:
+    # Use .all() so prefetched clusters are reused (avoids N+1).
+    return [
+        {
+            "id": cluster.id,
+            "name": (cluster.name or "").strip(),
+            "code": (cluster.code or "").strip() or None,
+        }
+        for cluster in person.clusters.all()
+    ]
+
+
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
     module_display = serializers.CharField(source="get_module_display", read_only=True)
     level_display = serializers.CharField(source="get_level_display", read_only=True)
@@ -356,6 +368,7 @@ class PersonSerializer(serializers.ModelSerializer):
     journeys = JourneySerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()
     cluster_labels = serializers.SerializerMethodField()
+    cluster_memberships = serializers.SerializerMethodField()
     branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     family_ids = serializers.PrimaryKeyRelatedField(
@@ -451,6 +464,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "journeys",
             "cluster_codes",
             "cluster_labels",
+            "cluster_memberships",
             "family_names",
             "family_ids",
             "cluster_ids",
@@ -1039,6 +1053,9 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def get_cluster_labels(self, obj: Person):
         return cluster_export_labels(obj)
+
+    def get_cluster_memberships(self, obj: Person):
+        return cluster_membership_payloads(obj)
 
     def get_branch_code(self, obj: Person):
         branch = getattr(obj, "branch", None)

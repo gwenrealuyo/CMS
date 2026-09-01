@@ -1,4 +1,4 @@
-import { Person, Journey, Family, JourneyType } from "@/src/types/person";
+import { Person, Journey, Family, JourneyType, ClusterMembership } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
@@ -31,6 +31,21 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
       />
     </svg>
   );
+}
+
+function clusterStubFromMembership(membership: ClusterMembership): Cluster {
+  return {
+    id: membership.id,
+    name: membership.name,
+    code: membership.code,
+    coordinator: null,
+  };
+}
+
+function clusterQuickFactLabel(c: Pick<Cluster, "name" | "code">) {
+  const name = (c.name || "").trim() || "Unnamed cluster";
+  const code = (c.code || "").trim();
+  return code ? `${name} (${code})` : name;
 }
 
 function DeletePersonButton({
@@ -231,18 +246,19 @@ export default function PersonProfile({
     return out;
   }, [clusters, person.id, person.cluster_ids]);
 
+  const linkedClusters = useMemo(() => {
+    if (person.cluster_memberships != null) {
+      return person.cluster_memberships.map(clusterStubFromMembership);
+    }
+    return personClusters;
+  }, [person.cluster_memberships, personClusters]);
+
   const personFamilies = useMemo(() => {
     if (!families?.length) return [];
     return families.filter((f) =>
       f.members?.some((memberId) => String(memberId) === String(person.id)),
     );
   }, [families, person.id]);
-
-  const clusterQuickFactLabel = (c: Cluster) => {
-    const name = (c.name || "").trim() || "Unnamed cluster";
-    const code = (c.code || "").trim();
-    return code ? `${name} (${code})` : name;
-  };
 
   const handleQuickFactsViewFamily = () => {
     const primary = personFamilies[0];
@@ -254,7 +270,7 @@ export default function PersonProfile({
   };
 
   const handleQuickFactsViewCluster = () => {
-    const primary = personClusters[0];
+    const primary = linkedClusters[0];
     if (primary && onViewCluster) {
       onViewCluster(primary);
       return;
@@ -694,8 +710,8 @@ export default function PersonProfile({
                       <ProfileFieldRow
                         label="Cluster"
                         value={
-                          personClusters.length > 0
-                            ? personClusters
+                          linkedClusters.length > 0
+                            ? linkedClusters
                                 .map((c) => clusterQuickFactLabel(c))
                                 .join(", ")
                             : person.cluster_codes?.length
@@ -703,9 +719,9 @@ export default function PersonProfile({
                               : null
                         }
                         valueNode={
-                          personClusters.length > 0 ? (
+                          linkedClusters.length > 0 ? (
                             <span className="inline-flex flex-wrap items-center justify-start md:justify-end gap-x-0 text-sm text-left md:text-right">
-                              {personClusters.map((cl, idx) => (
+                              {linkedClusters.map((cl, idx) => (
                                 <span
                                   key={cl.id}
                                   className="inline-flex items-center max-w-full"
@@ -873,7 +889,7 @@ export default function PersonProfile({
                         onClick={handleQuickFactsViewCluster}
                         className="w-full text-sm"
                       >
-                        {personClusters.length > 0 ||
+                        {linkedClusters.length > 0 ||
                         (person.cluster_codes?.length ?? 0) > 0
                           ? "View Cluster"
                           : "Assign Cluster"}

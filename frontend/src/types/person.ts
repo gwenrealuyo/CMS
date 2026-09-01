@@ -41,6 +41,13 @@ export interface Journey {
   created_at?: string; // ISO datetime
 }
 
+/** Retrieve-only cluster row used for profile Quick Facts links. */
+export interface ClusterMembership {
+  id: number;
+  name: string;
+  code: string | null;
+}
+
 export interface Person {
   id: string;
   username: string;
@@ -90,6 +97,8 @@ export interface Person {
   cluster_codes?: string[];
   /** Formatted cluster membership for export: "(CODE) Name" */
   cluster_labels?: string[];
+  /** Retrieve-only memberships for profile links; omitted from list payloads */
+  cluster_memberships?: ClusterMembership[];
   family_names?: string[];
   /** Writable membership IDs (create/update); also returned on read for form prefill */
   family_ids?: string[];

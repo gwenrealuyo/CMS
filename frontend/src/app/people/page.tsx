@@ -671,23 +671,17 @@ export default function PeoplePage() {
     }
   };
 
-  // Ensure clusters are available for person create/edit membership fields
+  // Ensure clusters are available for person membership fields and View Cluster
   useEffect(() => {
-    const personFormVisible =
-      (isModalOpen && modalType === "person") ||
-      (personPanelOpen &&
-        (personPanelMode === "create" ||
-          personPanelMode === "edit" ||
-          (personPanelMode === "view" && viewMode === "edit")));
-    if (personFormVisible && clusters.length === 0 && !clustersLoading) {
+    const needsClusters =
+      (isModalOpen && modalType === "person") || personPanelOpen;
+    if (needsClusters && clusters.length === 0 && !clustersLoading) {
       void fetchClusters();
     }
   }, [
     isModalOpen,
     modalType,
     personPanelOpen,
-    personPanelMode,
-    viewMode,
     clusters.length,
     clustersLoading,
   ]);

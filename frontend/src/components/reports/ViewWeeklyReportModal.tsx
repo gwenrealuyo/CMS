@@ -9,7 +9,15 @@ import PersonProfile from "@/src/components/people/PersonProfile";
 import { familiesApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import {
+  formatPersonStatusLabel,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
 import { formatDisplayDate } from "@/src/lib/date";
+
+type AttendeePerson = NonNullable<
+  ClusterWeeklyReport["members_attended_details"]
+>[number];
 
 interface ViewWeeklyReportModalProps {
   report: ClusterWeeklyReport;
@@ -35,7 +43,7 @@ export default function ViewWeeklyReportModal({
   const [showPersonModal, setShowPersonModal] = useState(false);
   const [families, setFamilies] = useState<Family[]>([]);
 
-  // Show 6 items initially (2 rows on lg screens with 3 columns)
+  // Show 6 items initially (3 rows with 2 columns)
   const INITIAL_DISPLAY_COUNT = 6;
 
   // Reset expanded states when report changes (e.g., after editing)
@@ -74,6 +82,51 @@ export default function ViewWeeklyReportModal({
     setShowPersonModal(true);
   };
 
+  const peopleGridClass = "grid gap-2 grid-cols-1 sm:grid-cols-2";
+
+  const renderAttendeeCard = (person: AttendeePerson) => {
+    const personName = formatPersonName(person);
+    const isLongWrappedName = personName.length > 20;
+    return (
+      <div
+        key={person.id}
+        onClick={() => handlePersonClick(person as PersonUI)}
+        className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
+      >
+        <PersonAvatar person={person} size="sm" />
+        <div className="flex-1 min-w-0">
+          <p
+            className={`font-medium text-gray-900 break-words ${
+              isLongWrappedName ? "text-xs leading-5" : "text-sm leading-5"
+            }`}
+          >
+            <span className="min-w-0 break-words">{personName}</span>
+          </p>
+          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+            {person.status && (
+              <span
+                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonStatusColor(
+                  person.status,
+                )}`}
+              >
+                {formatPersonStatusLabel(person.status)}
+              </span>
+            )}
+            {person.role && (
+              <span
+                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonRoleColor(
+                  person.role,
+                )}`}
+              >
+                {person.role}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const handlePersonModalCancel = () => {
     setShowPersonModal(false);
     setSelectedPerson(null);
@@ -86,26 +139,6 @@ export default function ViewWeeklyReportModal({
     typeof report.offerings === "string"
       ? parseFloat(report.offerings)
       : report.offerings;
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "bg-green-100 text-green-800";
-      case "SEMIACTIVE":
-        return "bg-yellow-100 text-yellow-800";
-      case "INACTIVE":
-        return "bg-gray-100 text-gray-800";
-      case "DORMANT":
-        return "bg-orange-100 text-orange-800";
-      case "FALLAWAY":
-        return "bg-violet-100 text-violet-800";
-      case "DECEASED":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
 
   const formatDate = (dateString: string) => {
     return formatDisplayDate(dateString) || dateString;
@@ -316,54 +349,14 @@ export default function ViewWeeklyReportModal({
                           </button>
                         )}
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      <div className={peopleGridClass}>
                         {(membersExpanded
                           ? report.members_attended_details
                           : report.members_attended_details.slice(
                               0,
                               INITIAL_DISPLAY_COUNT
                             )
-                        ).map((member) => (
-                          <div
-                            key={member.id}
-                            onClick={() => handlePersonClick(member as any)}
-                            className="flex items-center space-x-2 p-2 bg-gray-50 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
-                          >
-                            <PersonAvatar person={member} size="sm" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 truncate text-sm">
-                                {formatPersonName(member)}
-                              </p>
-                              {(member as any).email && (
-                                <p className="text-xs text-gray-600 truncate">
-                                  {(member as any).email}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {(member as any).role && (
-                                <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPersonRoleColor(
-                                    (member as any).role
-                                  )}`}
-                                >
-                                  {(member as any).role?.toLowerCase() ||
-                                    "unknown"}
-                                </span>
-                              )}
-                              {(member as any).status && (
-                                <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                    (member as any).status
-                                  )}`}
-                                >
-                                  {(member as any).status?.toLowerCase() ||
-                                    "unknown"}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                        ).map((member) => renderAttendeeCard(member))}
                       </div>
                     </div>
                   )}
@@ -421,54 +414,14 @@ export default function ViewWeeklyReportModal({
                           </button>
                         )}
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      <div className={peopleGridClass}>
                         {(visitorsExpanded
                           ? report.visitors_attended_details
                           : report.visitors_attended_details.slice(
                               0,
                               INITIAL_DISPLAY_COUNT
                             )
-                        ).map((visitor) => (
-                          <div
-                            key={visitor.id}
-                            onClick={() => handlePersonClick(visitor as any)}
-                            className="flex items-center space-x-2 p-2 bg-gray-50 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
-                          >
-                            <PersonAvatar person={visitor} size="sm" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 truncate text-sm">
-                                {formatPersonName(visitor)}
-                              </p>
-                              {(visitor as any).email && (
-                                <p className="text-xs text-gray-600 truncate">
-                                  {(visitor as any).email}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {(visitor as any).role && (
-                                <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPersonRoleColor(
-                                    (visitor as any).role
-                                  )}`}
-                                >
-                                  {(visitor as any).role?.toLowerCase() ||
-                                    "unknown"}
-                                </span>
-                              )}
-                              {(visitor as any).status && (
-                                <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                                    (visitor as any).status
-                                  )}`}
-                                >
-                                  {(visitor as any).status?.toLowerCase() ||
-                                    "unknown"}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                        ).map((visitor) => renderAttendeeCard(visitor))}
                       </div>
                     </div>
                   )}
@@ -485,7 +438,7 @@ export default function ViewWeeklyReportModal({
                   <p className="text-xs text-gray-500 mb-3">
                     Invited visitors only — not yet attended.
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <div className={peopleGridClass}>
                     {report.prospects_invited_details.map((prospect) => {
                       const inviter = prospect.invited_by;
                       const inviterName = inviter
@@ -493,29 +446,40 @@ export default function ViewWeeklyReportModal({
                             inviter.last_name ?? ""
                           }`.trim() || inviter.username
                         : null;
+                      const prospectName =
+                        prospect.display_name ||
+                        `${prospect.first_name} ${prospect.last_name}`.trim();
+                      const isLongWrappedName = prospectName.length > 20;
                       return (
                         <div
                           key={prospect.id}
-                          className="flex items-center space-x-2 p-2 bg-amber-50/50 border border-amber-100 rounded-md"
+                          className="flex items-start gap-3 p-3 bg-amber-50/50 border border-amber-100 rounded-md"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate text-sm">
-                              {prospect.display_name ||
-                                `${prospect.first_name} ${prospect.last_name}`.trim()}
+                            <p
+                              className={`font-medium text-gray-900 break-words ${
+                                isLongWrappedName
+                                  ? "text-xs leading-5"
+                                  : "text-sm leading-5"
+                              }`}
+                            >
+                              <span className="min-w-0 break-words">
+                                {prospectName}
+                              </span>
                             </p>
                             {inviterName && (
-                              <p className="text-xs text-gray-600 truncate">
+                              <p className="text-xs text-gray-600 break-words mt-0.5">
                                 Invited by {inviterName}
                               </p>
                             )}
+                            <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                              <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium bg-amber-100 text-amber-800">
+                                {prospect.pipeline_stage_display ||
+                                  prospect.pipeline_stage ||
+                                  "Invited"}
+                              </span>
+                            </div>
                           </div>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
-                            {(
-                              prospect.pipeline_stage_display ||
-                              prospect.pipeline_stage ||
-                              "Invited"
-                            ).toLowerCase()}
-                          </span>
                         </div>
                       );
                     })}

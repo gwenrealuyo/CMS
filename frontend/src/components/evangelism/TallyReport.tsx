@@ -293,7 +293,6 @@ export default function TallyReport({ year, clusterId }: TallyReportProps) {
             onSubmitReport={() => {}}
             showSubmitReportButton={false}
             canManageCluster={false}
-            stackMemberCards
           />
         </Modal>
       )}

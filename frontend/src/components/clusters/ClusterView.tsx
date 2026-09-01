@@ -121,11 +121,6 @@ interface ClusterViewProps {
   showSubmitReportButton?: boolean;
   /** When false, hides Edit, Delete, and Assign Members actions. */
   canManageCluster?: boolean;
-  /**
-   * Use stacked member cards (name wraps, badges under name).
-   * Prefer for read-only surfaces with narrow grid cells (e.g. evangelism tally).
-   */
-  stackMemberCards?: boolean;
 }
 
 export default function ClusterView({
@@ -144,7 +139,6 @@ export default function ClusterView({
   showTopHeader = true,
   showSubmitReportButton = true,
   canManageCluster = true,
-  stackMemberCards = false,
 }: ClusterViewProps) {
   const { branches } = useBranches();
   const [sortBy, setSortBy] = useState<SortField>("last_name");
@@ -333,10 +327,7 @@ export default function ClusterView({
 
   const roleBadgeClass = (role: string) => getPersonRoleColor(role);
 
-  const peopleGridClass =
-    isPanelMode
-      ? "grid gap-2 grid-cols-1 sm:grid-cols-2"
-      : "grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+  const peopleGridClass = "grid gap-2 grid-cols-1 sm:grid-cols-2";
 
   const isClusterCoordinator = (member: ClusterRosterPerson) =>
     Boolean(
@@ -380,83 +371,12 @@ export default function ClusterView({
     const cardClass = canOpen
       ? "cursor-pointer hover:bg-gray-50"
       : "cursor-default";
-    if (isPanelMode || stackMemberCards) {
-      const memberName = formatFullName(member);
-      const isLongWrappedName = memberName.length > 20;
-      return (
-        <div
-          key={member.id}
-          className={`flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md ${cardClass}${roleBadgeHighlightClass(
-            isCoordinator,
-            isReporter,
-          )}`}
-          onClick={() => canOpen && onViewPerson?.(member)}
-        >
-          <PersonAvatar person={member} size="sm" />
-          <div className="flex-1 min-w-0">
-            <p
-              className={`font-medium text-gray-900 break-words flex items-start gap-1 ${
-                isLongWrappedName ? "text-xs leading-5" : "text-sm leading-5"
-              }`}
-            >
-              <span className="min-w-0 break-words">{memberName}</span>
-              {isCoordinator && (
-                <span
-                  className="inline-flex items-center text-primary flex-shrink-0 mt-0.5"
-                  title="Cluster coordinator"
-                  aria-label="Cluster coordinator"
-                >
-                  <CoordinatorIcon />
-                </span>
-              )}
-              {isReporter && (
-                <span
-                  className="inline-flex items-center text-amber-700 flex-shrink-0 mt-0.5"
-                  title="Cluster reporter"
-                  aria-label="Cluster reporter"
-                >
-                  <ReporterIcon />
-                </span>
-              )}
-            </p>
-            <div className="flex items-center gap-1 flex-wrap mt-0.5">
-              {member.status && (
-                <span
-                  className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonStatusColor(
-                    member.status,
-                  )}`}
-                >
-                  {formatPersonStatusLabel(member.status)}
-                </span>
-              )}
-              {!isCoordinator && (
-                <span
-                  className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
-                >
-                  {member.role}
-                </span>
-              )}
-              {isCoordinator && (
-                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary">
-                  <CoordinatorIcon className="w-2.5 h-2.5" />
-                  Coordinator
-                </span>
-              )}
-              {isReporter && (
-                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-yellow-sm">
-                  <ReporterIcon className="w-2.5 h-2.5" />
-                  Reporter
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
+    const memberName = formatFullName(member);
+    const isLongWrappedName = memberName.length > 20;
     return (
       <div
         key={member.id}
-        className={`p-2.5 bg-white border border-gray-200 rounded-md flex items-center space-x-2 ${cardClass}${roleBadgeHighlightClass(
+        className={`flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-md ${cardClass}${roleBadgeHighlightClass(
           isCoordinator,
           isReporter,
         )}`}
@@ -464,11 +384,15 @@ export default function ClusterView({
       >
         <PersonAvatar person={member} size="sm" />
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900 truncate text-sm flex items-center gap-1">
-            <span className="truncate">{formatFullName(member)}</span>
+          <p
+            className={`font-medium text-gray-900 break-words flex items-start gap-1 ${
+              isLongWrappedName ? "text-xs leading-5" : "text-sm leading-5"
+            }`}
+          >
+            <span className="min-w-0 break-words">{memberName}</span>
             {isCoordinator && (
               <span
-                className="inline-flex items-center text-primary flex-shrink-0"
+                className="inline-flex items-center text-primary flex-shrink-0 mt-0.5"
                 title="Cluster coordinator"
                 aria-label="Cluster coordinator"
               >
@@ -477,7 +401,7 @@ export default function ClusterView({
             )}
             {isReporter && (
               <span
-                className="inline-flex items-center text-amber-700 flex-shrink-0"
+                className="inline-flex items-center text-amber-700 flex-shrink-0 mt-0.5"
                 title="Cluster reporter"
                 aria-label="Cluster reporter"
               >
@@ -485,45 +409,36 @@ export default function ClusterView({
               </span>
             )}
           </p>
-          {canOpen && member.email ? (
-            <p className="text-xs text-gray-600 truncate">{member.email}</p>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
-          {member.status && (
-            <span
-              className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonStatusColor(
-                member.status,
-              )}`}
-            >
-              {formatPersonStatusLabel(member.status)}
-            </span>
-          )}
-          {!isCoordinator && (
-            <span
-              className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
-            >
-              {member.role}
-            </span>
-          )}
-          {isCoordinator && (
-            <span
-              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary"
-              title="Cluster coordinator"
-            >
-              <CoordinatorIcon className="w-2.5 h-2.5" />
-              Coordinator
-            </span>
-          )}
-          {isReporter && (
-            <span
-              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-yellow-sm"
-              title="Cluster reporter"
-            >
-              <ReporterIcon className="w-2.5 h-2.5" />
-              Reporter
-            </span>
-          )}
+          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+            {member.status && (
+              <span
+                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getPersonStatusColor(
+                  member.status,
+                )}`}
+              >
+                {formatPersonStatusLabel(member.status)}
+              </span>
+            )}
+            {!isCoordinator && (
+              <span
+                className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${roleBadgeClass(member.role)}`}
+              >
+                {member.role}
+              </span>
+            )}
+            {isCoordinator && (
+              <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-primary">
+                <CoordinatorIcon className="w-2.5 h-2.5" />
+                Coordinator
+              </span>
+            )}
+            {isReporter && (
+              <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-medium chip-yellow-sm">
+                <ReporterIcon className="w-2.5 h-2.5" />
+                Reporter
+              </span>
+            )}
+          </div>
         </div>
       </div>
     );

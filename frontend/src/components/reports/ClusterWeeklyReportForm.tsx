@@ -985,10 +985,21 @@ export default function ClusterWeeklyReportForm({
       });
       await onSubmit(payload);
       const weekLabel = `week ${payload.week_number}`;
+      const toastCluster =
+        selectedCluster ||
+        (cluster && Number(cluster.id) === Number(payload.cluster)
+          ? cluster
+          : null);
+      const clusterLabel = toastCluster
+        ? toastCluster.code
+          ? `${toastCluster.code} - ${toastCluster.name}`
+          : toastCluster.name?.trim() || ""
+        : "";
+      const prefix = clusterLabel ? `${clusterLabel}: ` : "";
       toast.success(
         initialData?.id
-          ? `Weekly report for ${weekLabel} updated successfully.`
-          : `Weekly report for ${weekLabel} submitted successfully.`
+          ? `${prefix}Weekly report for ${weekLabel} updated successfully.`
+          : `${prefix}Weekly report for ${weekLabel} submitted successfully.`
       );
       onClose();
     } catch (error: any) {

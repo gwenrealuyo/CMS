@@ -39,6 +39,10 @@ function clusterStubFromMembership(membership: ClusterMembership): Cluster {
     name: membership.name,
     code: membership.code,
     coordinator: null,
+    location: "",
+    meeting_schedule: "",
+    description: "",
+    created_at: "",
   };
 }
 

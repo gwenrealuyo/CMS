@@ -3,8 +3,6 @@ import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 
 export type PeopleExportFormat = "excel" | "pdf" | "csv";
 
-export type PeopleExportFormat = "excel" | "pdf" | "csv";
-
 export const PEOPLE_IMPORT_FIELDS: { key: string; label: string }[] = [
   { key: "first_name", label: "First Name" },
   { key: "middle_name", label: "Middle Name" },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { PersonUI, Person, Family } from "@/src/types/person";
+import { PersonUI, Family } from "@/src/types/person";
 import { ClusterWeeklyReport } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
@@ -18,6 +18,19 @@ import { formatDisplayDate } from "@/src/lib/date";
 type AttendeePerson = NonNullable<
   ClusterWeeklyReport["members_attended_details"]
 >[number];
+
+function attendeeToPersonUI(person: AttendeePerson): PersonUI {
+  return {
+    id: String(person.id),
+    name: formatPersonName(person),
+    first_name: person.first_name,
+    last_name: person.last_name,
+    username: person.username,
+    email: "",
+    role: (person.role ?? "MEMBER") as PersonUI["role"],
+    status: (person.status ?? "ACTIVE") as PersonUI["status"],
+  };
+}
 
 interface ViewWeeklyReportModalProps {
   report: ClusterWeeklyReport;
@@ -90,7 +103,7 @@ export default function ViewWeeklyReportModal({
     return (
       <div
         key={person.id}
-        onClick={() => handlePersonClick(person as PersonUI)}
+        onClick={() => handlePersonClick(attendeeToPersonUI(person))}
         className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
       >
         <PersonAvatar person={person} size="sm" />
@@ -642,7 +655,7 @@ export default function ViewWeeklyReportModal({
         >
           <div className="flex h-full max-h-[95vh] flex-col overflow-hidden rounded-none bg-white shadow-xl sm:rounded-lg sm:h-auto">
             <PersonProfile
-              person={selectedPerson as Person}
+              person={selectedPerson}
               families={families}
               onEdit={() => {}}
               onDelete={() => {}}

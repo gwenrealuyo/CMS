@@ -33,6 +33,26 @@ def delete_person_photo_if_cleared(instance, validated_data):
         instance.photo.delete(save=False)
 
 
+def format_cluster_export_label(cluster) -> str:
+    code = (getattr(cluster, "code", None) or "").strip()
+    name = (getattr(cluster, "name", None) or "").strip()
+    if code and name:
+        return f"({code}) {name}"
+    if code:
+        return f"({code})"
+    return name
+
+
+def cluster_export_labels(person) -> list[str]:
+    # Use .all() so prefetched clusters are reused (avoids N+1 on list).
+    labels = []
+    for cluster in person.clusters.all():
+        label = format_cluster_export_label(cluster)
+        if label:
+            labels.append(label)
+    return labels
+
+
 class ModuleCoordinatorSerializer(serializers.ModelSerializer):
     module_display = serializers.CharField(source="get_module_display", read_only=True)
     level_display = serializers.CharField(source="get_level_display", read_only=True)
@@ -335,6 +355,7 @@ class PersonSerializer(serializers.ModelSerializer):
     note = serializers.CharField(write_only=True, required=False, allow_blank=True)
     journeys = JourneySerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()
+    cluster_labels = serializers.SerializerMethodField()
     branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     family_ids = serializers.PrimaryKeyRelatedField(
@@ -429,6 +450,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "note",
             "journeys",
             "cluster_codes",
+            "cluster_labels",
             "family_names",
             "family_ids",
             "cluster_ids",
@@ -1015,6 +1037,9 @@ class PersonSerializer(serializers.ModelSerializer):
         # Use .all() so prefetched clusters are reused (avoids N+1 on list).
         return [c.code for c in obj.clusters.all() if c.code]
 
+    def get_cluster_labels(self, obj: Person):
+        return cluster_export_labels(obj)
+
     def get_branch_code(self, obj: Person):
         branch = getattr(obj, "branch", None)
         if branch and branch.code:
@@ -1124,6 +1149,7 @@ class PersonListSerializer(serializers.ModelSerializer):
     """Slim read-only serializer for paginated directory / search list responses."""
 
     cluster_codes = serializers.SerializerMethodField()
+    cluster_labels = serializers.SerializerMethodField()
     branch_code = serializers.SerializerMethodField()
     family_names = serializers.SerializerMethodField()
     can_view_profile = serializers.SerializerMethodField()
@@ -1163,6 +1189,7 @@ class PersonListSerializer(serializers.ModelSerializer):
             "spirit_baptism_date",
             "first_activity_attended",
             "cluster_codes",
+            "cluster_labels",
             "cluster_ids",
             "family_names",
             "can_view_profile",
@@ -1170,6 +1197,9 @@ class PersonListSerializer(serializers.ModelSerializer):
 
     def get_cluster_codes(self, obj: Person):
         return [c.code for c in obj.clusters.all() if c.code]
+
+    def get_cluster_labels(self, obj: Person):
+        return cluster_export_labels(obj)
 
     def get_branch_code(self, obj: Person):
         branch = getattr(obj, "branch", None)

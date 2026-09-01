@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
-  PEOPLE_EXPORT_FIELDS,
+  PEOPLE_IMPORT_FIELDS,
   buildImportHeaderMap,
   getPeopleImportTemplateCsv,
   normalizeImportHeader,
@@ -156,7 +156,7 @@ export default function ImportModal({
 
   const headers = rows[0] ? Object.keys(rows[0]) : [];
   const expectedHeaders = [
-    ...PEOPLE_EXPORT_FIELDS.map((f) => f.key),
+    ...PEOPLE_IMPORT_FIELDS.map((f) => f.key),
     "branch",
   ].join(", ");
 

@@ -1889,17 +1889,27 @@ export default function PeoplePage() {
                   onBulkDelete={userCanHardDelete ? handleBulkDelete : undefined}
                   onBulkExport={handleBulkExport}
                   onImport={handleImportPeople}
-                  onExportAll={() =>
-                    peopleApi.getAllMatching({
-                      ...directoryFilterParams,
+                  onExportAll={(opts) => {
+                    const params = { ...directoryFilterParams };
+                    delete params.branch;
+                    delete params.branch__in;
+                    delete params.branch_ne;
+                    delete params.branch_ne__in;
+                    if (opts?.branch != null && opts.branch !== "") {
+                      params.branch = opts.branch;
+                    }
+                    return peopleApi.getAllMatching({
+                      ...params,
                       search: searchQuery.trim() || undefined,
                       ordering: directoryOrdering,
                       has_name: true,
                       exclude_username: "admin",
-                    })
-                  }
+                    });
+                  }}
                   defaultBranchId={userBranchId}
                   defaultBranchCode={userBranchCode}
+                  branches={visibleBranches}
+                  canChangeBranchFilter={canChangeBranchFilter}
                   sidePanelOpen={personPanelOpen}
                   page={directoryPage}
                   pageSize={directoryPageSize}

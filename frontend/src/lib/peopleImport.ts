@@ -3,7 +3,9 @@ import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 
 export type PeopleExportFormat = "excel" | "pdf" | "csv";
 
-export const PEOPLE_EXPORT_FIELDS: { key: string; label: string }[] = [
+export type PeopleExportFormat = "excel" | "pdf" | "csv";
+
+export const PEOPLE_IMPORT_FIELDS: { key: string; label: string }[] = [
   { key: "first_name", label: "First Name" },
   { key: "middle_name", label: "Middle Name" },
   { key: "last_name", label: "Last Name" },
@@ -20,6 +22,11 @@ export const PEOPLE_EXPORT_FIELDS: { key: string; label: string }[] = [
   { key: "water_baptism_date", label: "Water Baptism" },
   { key: "spirit_baptism_date", label: "Spirit Baptism" },
   { key: "member_id", label: "LAMP ID" },
+];
+
+export const PEOPLE_EXPORT_FIELDS: { key: string; label: string }[] = [
+  ...PEOPLE_IMPORT_FIELDS,
+  { key: "cluster", label: "Cluster" },
 ];
 
 const ROLE_VALUES = new Set<string>(["MEMBER", "VISITOR", "PASTOR", "ADMIN"]);
@@ -50,7 +57,7 @@ export function buildImportHeaderMap(): Record<string, string> {
     "join date": "date_first_attended",
     "lamp id": "member_id",
   };
-  for (const field of PEOPLE_EXPORT_FIELDS) {
+  for (const field of PEOPLE_IMPORT_FIELDS) {
     map[field.key] = field.key;
     map[field.label.toLowerCase()] = field.key;
     map[field.label.toLowerCase().replace(/\s+/g, "_")] = field.key;
@@ -89,6 +96,22 @@ export function formatExportDate(raw: string): string {
   const m = String(parsed.getMonth() + 1).padStart(2, "0");
   const d = String(parsed.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/** Cluster export cell: "(CODE) Name", comma-separated for multiple clusters. */
+export function formatPersonClusterExportValue(person: {
+  cluster?: string | null;
+  cluster_labels?: string[] | null;
+  cluster_codes?: string[] | null;
+}): string {
+  const labels = (person.cluster_labels ?? []).filter(Boolean);
+  if (labels.length > 0) return labels.join(", ");
+  const codes = (person.cluster_codes ?? []).filter(Boolean);
+  if (codes.length > 0) return codes.map((code) => `(${code})`).join(", ");
+  if (typeof person.cluster === "string" && person.cluster.trim()) {
+    return person.cluster.trim();
+  }
+  return "";
 }
 
 export function parseImportDate(value: string): string | undefined {
@@ -195,7 +218,7 @@ export function getPeopleImportTemplateCsv(options?: {
   branchId?: number | null;
 }): string {
   const headers = [
-    ...PEOPLE_EXPORT_FIELDS.map((f) => f.key),
+    ...PEOPLE_IMPORT_FIELDS.map((f) => f.key),
     "branch",
   ];
   const sample = {

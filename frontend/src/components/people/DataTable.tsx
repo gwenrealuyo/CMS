@@ -12,8 +12,10 @@ import { formatPersonStatusLabel } from "@/src/lib/personStatus";
 import {
   PEOPLE_EXPORT_FIELDS,
   formatExportDate,
+  formatPersonClusterExportValue,
   type PeopleExportFormat,
 } from "@/src/lib/peopleImport";
+import { Branch } from "@/src/types/branch";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
@@ -39,10 +41,14 @@ interface DataTableProps {
   onBulkDelete?: (people: Person[]) => void;
   onBulkExport?: (people: Person[], format: PeopleExportFormat) => void;
   /** Export all matching (server-filtered) people; when set, Export All uses this instead of the current page. */
-  onExportAll?: () => Promise<Person[]> | Person[];
+  onExportAll?: (opts?: {
+    branch?: number | string | null;
+  }) => Promise<Person[]> | Person[];
   onImport?: (rows: Record<string, string>[]) => Promise<void> | void;
   defaultBranchId?: number | null;
   defaultBranchCode?: string | null;
+  branches?: Branch[];
+  canChangeBranchFilter?: boolean;
   /** Shrinks the double-click hint when the people side panel is open. */
   sidePanelOpen?: boolean;
   /** Server-driven pagination (when totalCount is provided). */
@@ -69,6 +75,8 @@ export default function DataTable({
   onImport,
   defaultBranchId = null,
   defaultBranchCode = null,
+  branches = [],
+  canChangeBranchFilter = true,
   page: controlledPage,
   pageSize: controlledPageSize,
   totalCount,
@@ -88,6 +96,28 @@ export default function DataTable({
     dateOfBirth?: string;
   };
 
+  const toDisplayPerson = (p: Person): DisplayPerson => ({
+    ...p,
+    name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+    dateFirstAttended: p.date_first_attended,
+    waterBaptismDate: (p as Person & { water_baptism_date?: string })
+      .water_baptism_date,
+    spiritBaptismDate: (p as Person & { spirit_baptism_date?: string })
+      .spirit_baptism_date,
+    dateOfBirth: p.date_of_birth,
+  });
+
+  const defaultExportBranchId =
+    defaultBranchId != null ? String(defaultBranchId) : "";
+
+  const fetchExportAllPeople = async (branch: string): Promise<DisplayPerson[]> => {
+    if (!onExportAll) return [];
+    const all = await onExportAll({
+      branch: branch === "" ? null : branch,
+    });
+    return all.map(toDisplayPerson);
+  };
+
   // Normalize backend fields and hide admin/blank-name entries from the table
   const displayPeople: DisplayPerson[] = people
     .filter(
@@ -96,14 +126,7 @@ export default function DataTable({
         p.username !== "admin" && // Keep the username check as backup
         ((p.first_name ?? "") !== "" || (p.last_name ?? "") !== "")
     )
-    .map((p) => ({
-      ...p,
-      name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-      dateFirstAttended: p.date_first_attended,
-      waterBaptismDate: (p as any).water_baptism_date,
-      spiritBaptismDate: (p as any).spirit_baptism_date,
-      dateOfBirth: p.date_of_birth,
-    }));
+    .map(toDisplayPerson);
 
   const isServerPaged = typeof totalCount === "number";
   const [internalSortField, setInternalSortField] =
@@ -290,6 +313,9 @@ export default function DataTable({
   };
 
   const getExportCellValue = (person: any, key: string) => {
+    if (key === "cluster") {
+      return formatPersonClusterExportValue(person);
+    }
     const raw =
       person[key] ??
       (key === "date_first_attended"
@@ -385,7 +411,8 @@ export default function DataTable({
 
   const handleExport = (
     format: PeopleExportFormat,
-    fields?: string[]
+    fields?: string[],
+    peopleToExport?: Person[]
   ) => {
     const wasBulkExport = exportLockedFormat != null;
     closeExportModal();
@@ -409,9 +436,11 @@ export default function DataTable({
       "water_baptism_date",
       "spirit_baptism_date",
       "member_id",
+      "cluster",
     ];
     const sourcePeople =
-      exportModalPeople.length > 0 ? exportModalPeople : displayPeople;
+      peopleToExport ??
+      (exportModalPeople.length > 0 ? exportModalPeople : displayPeople);
     const project = (list: DisplayPerson[]) =>
       list.map((p) => {
         const row: Record<string, any> = {};
@@ -437,6 +466,9 @@ export default function DataTable({
             case "spirit_baptism_date":
               add(key, source.spiritBaptismDate);
               break;
+            case "cluster":
+              add(key, formatPersonClusterExportValue(source));
+              break;
             default:
               add(key, source[key]);
           }
@@ -445,7 +477,7 @@ export default function DataTable({
       });
 
     const exportFormat = exportLockedFormat ?? format;
-    const rows = project(sourcePeople);
+    const rows = project(sourcePeople as DisplayPerson[]);
     switch (exportFormat) {
       case "excel":
         exportToExcel(rows, wanted);
@@ -916,17 +948,10 @@ export default function DataTable({
                     type="button"
                     onClick={async () => {
                       if (onExportAll) {
-                        const all = await onExportAll();
-                        openExportModal(
-                          all.map((p) => ({
-                            ...p,
-                            name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-                            dateFirstAttended: p.date_first_attended,
-                            waterBaptismDate: (p as any).water_baptism_date,
-                            spiritBaptismDate: (p as any).spirit_baptism_date,
-                            dateOfBirth: p.date_of_birth,
-                          }))
+                        const all = await fetchExportAllPeople(
+                          defaultExportBranchId
                         );
+                        openExportModal(all);
                         return;
                       }
                       openExportModal(sortedPeople);
@@ -1652,11 +1677,20 @@ export default function DataTable({
       </div>
 
       <ExportPreviewModal
-        key={`${exportLockedFormat ?? "all"}-${exportModalPeople.length}`}
+        key={`export-${showExportModal}-${exportLockedFormat ?? "all"}`}
         isOpen={showExportModal}
         onClose={closeExportModal}
         data={exportModalPeople}
         lockedFormat={exportLockedFormat}
+        branches={branches}
+        canChangeBranchFilter={canChangeBranchFilter}
+        defaultBranchId={defaultBranchId}
+        isBulkExport={exportLockedFormat != null}
+        onExportBranchChange={async (branchId) => {
+          if (!onExportAll) return;
+          const all = await fetchExportAllPeople(branchId);
+          setExportModalPeople(all);
+        }}
         onExport={handleExport}
       />
       <ImportModal

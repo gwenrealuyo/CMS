@@ -88,6 +88,8 @@ export interface Person {
   groups?: string[]; // Group IDs
   user_permissions?: string[]; // Permission IDs
   cluster_codes?: string[];
+  /** Formatted cluster membership for export: "(CODE) Name" */
+  cluster_labels?: string[];
   family_names?: string[];
   /** Writable membership IDs (create/update); also returned on read for form prefill */
   family_ids?: string[];

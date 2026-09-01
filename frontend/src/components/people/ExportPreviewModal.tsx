@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Person } from "@/src/types/person";
+import { Branch } from "@/src/types/branch";
 import {
   PEOPLE_EXPORT_FIELDS,
   type PeopleExportFormat,
 } from "@/src/lib/peopleImport";
+import {
+  PEOPLE_BRANCH_LOCKED_HINT,
+  personMatchesExportBranch,
+} from "@/src/lib/peopleBranchFilter";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
+import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 
 export { PEOPLE_EXPORT_FIELDS };
 export type { PeopleExportFormat };
@@ -40,9 +47,19 @@ interface ExportPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: Person[];
-  onExport: (format: PeopleExportFormat, fields: string[]) => void;
+  onExport: (
+    format: PeopleExportFormat,
+    fields: string[],
+    people: Person[]
+  ) => void;
   /** When set (e.g. from Bulk Actions), only show that format's export button. */
   lockedFormat?: PeopleExportFormat | null;
+  branches?: Branch[];
+  canChangeBranchFilter?: boolean;
+  defaultBranchId?: number | string | null;
+  /** Export All: refetch matching people for the selected branch. */
+  onExportBranchChange?: (branchId: string) => Promise<void> | void;
+  isBulkExport?: boolean;
 }
 
 function getSelectedFields(): string[] {
@@ -51,13 +68,26 @@ function getSelectedFields(): string[] {
   ).map((el) => el.getAttribute("data-field") || "");
 }
 
+function normalizeBranchId(value?: number | string | null): string {
+  if (value == null || value === "") return "";
+  return String(value);
+}
+
 export default function ExportPreviewModal({
   isOpen,
   onClose,
   data,
   onExport,
   lockedFormat = null,
+  branches = [],
+  canChangeBranchFilter = true,
+  defaultBranchId = null,
+  onExportBranchChange,
+  isBulkExport = false,
 }: ExportPreviewModalProps) {
+  const [branchId, setBranchId] = useState(normalizeBranchId(defaultBranchId));
+  const [branchLoading, setBranchLoading] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -66,6 +96,42 @@ export default function ExportPreviewModal({
       document.body.style.overflow = previousOverflow;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setBranchId(normalizeBranchId(defaultBranchId));
+      setBranchLoading(false);
+    }
+  }, [isOpen, defaultBranchId]);
+
+  const branchOptions = useMemo(
+    () => branches.map((b) => ({ value: String(b.id), label: b.name })),
+    [branches]
+  );
+
+  const lockedBranchLabel = useMemo(() => {
+    const id = normalizeBranchId(defaultBranchId);
+    if (!id) return "No branch assigned";
+    return (
+      branchOptions.find((opt) => opt.value === id)?.label ?? "Your branch"
+    );
+  }, [branchOptions, defaultBranchId]);
+
+  const peopleForExport = useMemo(() => {
+    if (!isBulkExport) return data;
+    return data.filter((person) => personMatchesExportBranch(person, branchId));
+  }, [data, isBulkExport, branchId]);
+
+  const handleBranchChange = async (next: string) => {
+    setBranchId(next);
+    if (isBulkExport || !onExportBranchChange) return;
+    setBranchLoading(true);
+    try {
+      await onExportBranchChange(next);
+    } finally {
+      setBranchLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -76,6 +142,44 @@ export default function ExportPreviewModal({
   const buttons = lockedFormat
     ? FORMAT_BUTTONS.filter((b) => b.format === lockedFormat)
     : FORMAT_BUTTONS;
+
+  const branchSelect = canChangeBranchFilter ? (
+    <div className="w-full sm:w-64">
+      <ScalableSelect
+        options={[
+          { value: "", label: "All branches" },
+          ...branchOptions,
+        ]}
+        value={branchId}
+        onChange={(next) => {
+          void handleBranchChange(next);
+        }}
+        placeholder="All branches"
+        searchPlaceholder="Search branches..."
+        showSearch={branchOptions.length > 8}
+        loading={branchLoading}
+        disabled={branchLoading}
+      />
+    </div>
+  ) : (
+    <LockedControlTooltip
+      label={PEOPLE_BRANCH_LOCKED_HINT}
+      wrapperClassName="inline-block w-full sm:w-64 shrink-0 align-middle cursor-default"
+    >
+      <ScalableSelect
+        options={
+          branchId
+            ? [{ value: branchId, label: lockedBranchLabel }]
+            : [{ value: "", label: lockedBranchLabel }]
+        }
+        value={branchId}
+        onChange={() => {}}
+        placeholder={lockedBranchLabel}
+        interactionBlocked
+        showSearch={false}
+      />
+    </LockedControlTooltip>
+  );
 
   return createPortal(
     <div
@@ -112,6 +216,11 @@ export default function ExportPreviewModal({
             </button>
           </div>
 
+          <div className="mb-4">
+            <h3 className="mb-2 text-sm font-medium text-gray-700">Branch</h3>
+            {branchSelect}
+          </div>
+
           {/* Field selection */}
           <div className="mb-4">
             <h3 className="mb-2 text-sm font-medium text-gray-700">
@@ -143,15 +252,21 @@ export default function ExportPreviewModal({
             </table>
           </div>
 
-          {data.length > 5 && (
+          {branchLoading ? (
+            <p className="mt-4 text-sm text-gray-500">Loading people…</p>
+          ) : peopleForExport.length > 5 ? (
             <p className="mt-4 text-sm text-gray-500">
-              Showing preview of first 5 records out of {data.length} total
-              records
+              Showing preview of first 5 records out of {peopleForExport.length}{" "}
+              total records
             </p>
-          )}
-          {data.length > 0 && data.length <= 5 && (
+          ) : peopleForExport.length > 0 ? (
             <p className="mt-4 text-sm text-gray-500">
-              Exporting {data.length} record{data.length === 1 ? "" : "s"}
+              Exporting {peopleForExport.length} record
+              {peopleForExport.length === 1 ? "" : "s"}
+            </p>
+          ) : (
+            <p className="mt-4 text-sm text-gray-500">
+              No records match the selected branch.
             </p>
           )}
 
@@ -160,8 +275,11 @@ export default function ExportPreviewModal({
               <button
                 key={button.format}
                 type="button"
-                onClick={() => onExport(button.format, getSelectedFields())}
-                className={button.className}
+                onClick={() =>
+                  onExport(button.format, getSelectedFields(), peopleForExport)
+                }
+                disabled={branchLoading}
+                className={`${button.className} disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {button.label}
               </button>

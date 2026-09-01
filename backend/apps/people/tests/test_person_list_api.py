@@ -104,8 +104,13 @@ class PersonListPaginationAndFilterTests(TestCase):
         self.assertNotIn("journeys", row)
         self.assertNotIn("module_coordinator_assignments", row)
         self.assertIn("cluster_codes", row)
+        self.assertIn("cluster_labels", row)
         self.assertIn("can_view_profile", row)
         self.assertIn(self.cluster.code, row["cluster_codes"])
+        self.assertIn(
+            f"({self.cluster.code}) {self.cluster.name}",
+            row["cluster_labels"],
+        )
 
     def test_retrieve_still_includes_journeys(self):
         response = self.client.get(f"/api/people/people/{self.member_a.id}/")
@@ -113,6 +118,11 @@ class PersonListPaginationAndFilterTests(TestCase):
         self.assertIn("journeys", response.data)
         self.assertGreaterEqual(len(response.data["journeys"]), 1)
         self.assertIn("module_coordinator_assignments", response.data)
+        self.assertIn("cluster_labels", response.data)
+        self.assertIn(
+            f"({self.cluster.code}) {self.cluster.name}",
+            response.data["cluster_labels"],
+        )
 
     def test_filter_by_role(self):
         response = self.client.get(

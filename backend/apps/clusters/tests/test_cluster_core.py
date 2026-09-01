@@ -878,6 +878,108 @@ class ClusterWeeklyReportAPITests(TestCase):
         report = ClusterWeeklyReport.objects.first()
         self.assertIn(self.coordinator.id, report.members_attended.values_list("id", flat=True))
 
+    def test_create_report_allows_pastor_coordinator_in_members_attended(self):
+        today = date.today()
+        pastor = Person.objects.create_user(
+            username="pastorcoord",
+            email="pastorcoord@example.com",
+            password="password123",
+            first_name="Pastor",
+            last_name="Coord",
+            role="PASTOR",
+        )
+        self.cluster.coordinator = pastor
+        self.cluster.save(update_fields=["coordinator"])
+        self.cluster.members.add(pastor)
+
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [pastor.id],
+                "visitors_attended": [],
+                "offerings": "1000.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        report = ClusterWeeklyReport.objects.get(id=response.data["id"])
+        self.assertIn(pastor.id, report.members_attended.values_list("id", flat=True))
+
+    def test_create_report_allows_pastor_member_in_members_attended(self):
+        today = date.today()
+        pastor = Person.objects.create_user(
+            username="pastormember",
+            email="pastormember@example.com",
+            password="password123",
+            first_name="Pastor",
+            last_name="Member",
+            role="PASTOR",
+        )
+        self.cluster.members.add(pastor)
+
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [pastor.id],
+                "visitors_attended": [],
+                "offerings": "1000.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        report = ClusterWeeklyReport.objects.get(id=response.data["id"])
+        self.assertIn(pastor.id, report.members_attended.values_list("id", flat=True))
+
+    def test_create_report_blank_offerings_defaults_to_zero(self):
+        today = date.today()
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [],
+                "visitors_attended": [],
+                "offerings": "",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        report = ClusterWeeklyReport.objects.get(id=response.data["id"])
+        self.assertEqual(report.offerings, Decimal("0.00"))
+
+    def test_create_report_null_offerings_defaults_to_zero(self):
+        today = date.today()
+        response = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster.id,
+                "year": today.year,
+                "week_number": today.isocalendar()[1],
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [],
+                "visitors_attended": [],
+                "offerings": None,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        report = ClusterWeeklyReport.objects.get(id=response.data["id"])
+        self.assertEqual(report.offerings, Decimal("0.00"))
+
     def test_analytics_endpoint(self):
         today = date.today()
         report = ClusterWeeklyReport.objects.create(

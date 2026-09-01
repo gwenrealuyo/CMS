@@ -575,8 +575,14 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     )
     members_attended = serializers.PrimaryKeyRelatedField(
         many=True,
-        queryset=Person.objects.filter(role__in=["MEMBER"]).exclude(role="ADMIN"),
+        queryset=Person.objects.filter(role__in=["MEMBER", "PASTOR"]),
         required=False,
+    )
+    offerings = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
     )
     visitors_attended = serializers.PrimaryKeyRelatedField(
         many=True,
@@ -677,6 +683,28 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             }
             for person in obj.members_attended.exclude(role="ADMIN")
         ]
+
+    @staticmethod
+    def _coerce_blank_offerings(data):
+        """Treat missing/blank offerings as 0 so an empty form field is valid."""
+        if not hasattr(data, "get") or "offerings" not in data:
+            return data
+        raw = data.get("offerings")
+        if raw is None or (isinstance(raw, str) and raw.strip() == ""):
+            if hasattr(data, "copy"):
+                data = data.copy()
+            else:
+                data = dict(data)
+            data["offerings"] = "0"
+        return data
+
+    def to_internal_value(self, data):
+        return super().to_internal_value(self._coerce_blank_offerings(data))
+
+    def validate_offerings(self, value):
+        if value is None:
+            return 0
+        return value
 
     def get_visitors_attended_details(self, obj):
         return [

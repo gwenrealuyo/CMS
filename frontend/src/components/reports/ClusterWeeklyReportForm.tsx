@@ -30,6 +30,7 @@ import {
   prospectIdFromAttendanceId,
 } from "@/src/lib/clusterWeeklyReportSubmit";
 import { useAuth } from "@/src/contexts/AuthContext";
+import toast from "react-hot-toast";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import AttendanceSelector from "./AttendanceSelector";
@@ -983,6 +984,12 @@ export default function ClusterWeeklyReportForm({
         pending_new_visitors: pendingNewVisitors,
       });
       await onSubmit(payload);
+      const weekLabel = `week ${payload.week_number}`;
+      toast.success(
+        initialData?.id
+          ? `Weekly report for ${weekLabel} updated successfully.`
+          : `Weekly report for ${weekLabel} submitted successfully.`
+      );
       onClose();
     } catch (error: any) {
       console.error("Error submitting report:", error);

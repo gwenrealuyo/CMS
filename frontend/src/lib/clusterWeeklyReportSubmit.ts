@@ -49,6 +49,15 @@ function toNumberId(id: string | number): number | null {
   return Number.isFinite(n) && !Number.isNaN(n) ? n : null;
 }
 
+/** Blank / invalid offerings submit as 0 (API DecimalField rejects ""). */
+export function toOfferingsAmount(
+  value: string | number | null | undefined
+): string {
+  if (value === "" || value == null) return "0";
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? String(value) : "0";
+}
+
 /**
  * Builds API payload for cluster weekly report create/update.
  * Promotes `prospect:{id}` visitor selections via `prospects_attended`
@@ -128,7 +137,7 @@ export function buildClusterWeeklyReportPayloadFromFormValues(
     activities_held: values.activities_held || "",
     prayer_requests: values.prayer_requests || "",
     testimonies: values.testimonies || "",
-    offerings: String(values.offerings ?? 0),
+    offerings: toOfferingsAmount(values.offerings),
     highlights: values.highlights || "",
     lowlights: values.lowlights || "",
     submitted_by: values.submitted_by ?? undefined,

@@ -55,7 +55,7 @@ class ClusterWeeklyReport(models.Model):
         "people.Person",
         blank=True,
         related_name="cluster_reports_as_member",
-        limit_choices_to={"role__in": ["MEMBER"]},
+        limit_choices_to={"role__in": ["MEMBER", "PASTOR"]},
     )
     visitors_attended = models.ManyToManyField(
         "people.Person",

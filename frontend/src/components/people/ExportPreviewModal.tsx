@@ -212,7 +212,7 @@ export default function ExportPreviewModal({
       <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="overflow-y-auto p-4 sm:p-6">
           <div className="mb-4 flex items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold">Export Preview</h2>
+            <h2 className="text-xl font-semibold">Export</h2>
             <button
               type="button"
               onClick={onClose}
@@ -260,32 +260,17 @@ export default function ExportPreviewModal({
             </div>
           </div>
 
-          {/* Lightweight preview of first 5 rows, showing selected fields */}
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50" id="export-head"></thead>
-              <tbody
-                className="divide-y divide-gray-200 bg-white"
-                id="export-body"
-              ></tbody>
-            </table>
-          </div>
-
           {branchLoading ? (
-            <p className="mt-4 text-sm text-gray-500">Loading people…</p>
-          ) : peopleForExport.length > 5 ? (
-            <p className="mt-4 text-sm text-gray-500">
-              Showing preview of first 5 records out of {peopleForExport.length}{" "}
-              total records
-            </p>
+            <p className="text-sm text-gray-500">Loading people…</p>
           ) : peopleForExport.length > 0 ? (
-            <p className="mt-4 text-sm text-gray-500">
-              Exporting {peopleForExport.length} record
-              {peopleForExport.length === 1 ? "" : "s"}
+            <p className="text-sm text-gray-500">
+              {peopleForExport.length}{" "}
+              {peopleForExport.length === 1 ? "person" : "people"} will be
+              exported
             </p>
           ) : (
-            <p className="mt-4 text-sm text-gray-500">
-              No records match the selected branch.
+            <p className="text-sm text-gray-500">
+              No people match the selected branch.
             </p>
           )}
 

@@ -798,6 +798,71 @@ class ClusterWeeklyReportAPITests(TestCase):
             self.user.username,
         )
 
+    def test_create_report_duplicate_week_returns_409(self):
+        today = date.today()
+        year = today.year
+        week = today.isocalendar()[1]
+        payload = {
+            "cluster": self.cluster.id,
+            "year": year,
+            "week_number": week,
+            "meeting_date": today.isoformat(),
+            "gathering_type": "PHYSICAL",
+            "members_attended": [],
+            "visitors_attended": [],
+            "offerings": "0.00",
+        }
+        first = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            payload,
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201)
+
+        second = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {**payload, "gathering_type": "ONLINE"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(second.data["error"], "duplicate_week_report")
+        self.assertIn("already exists", second.data["message"])
+        self.assertIn(str(week), second.data["message"])
+        self.assertIn(str(year), second.data["message"])
+        self.assertIn("CLU-001", second.data["message"])
+        self.assertEqual(ClusterWeeklyReport.objects.count(), 1)
+
+    def test_update_report_same_week_still_succeeds(self):
+        today = date.today()
+        year = today.year
+        week = today.isocalendar()[1]
+        create = self.client.post(
+            "/api/clusters/cluster-weekly-reports/",
+            {
+                "cluster": self.cluster.id,
+                "year": year,
+                "week_number": week,
+                "meeting_date": today.isoformat(),
+                "gathering_type": "PHYSICAL",
+                "members_attended": [],
+                "visitors_attended": [],
+                "offerings": "0.00",
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201)
+        report_id = create.data["id"]
+
+        response = self.client.patch(
+            f"/api/clusters/cluster-weekly-reports/{report_id}/",
+            {"offerings": "250.00", "week_number": week, "year": year},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        report = ClusterWeeklyReport.objects.get(id=report_id)
+        self.assertEqual(report.offerings, Decimal("250.00"))
+        self.assertEqual(report.week_number, week)
+
     def test_create_report_adds_visitors_to_cluster_members(self):
         today = date.today()
         visitor = Person.objects.create_user(

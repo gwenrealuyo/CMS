@@ -29,6 +29,9 @@ def custom_exception_handler(exc, context):
                 elif response.status_code == status.HTTP_400_BAD_REQUEST:
                     error_code = "bad_request"
                     message = "Invalid request"
+                elif response.status_code == status.HTTP_409_CONFLICT:
+                    error_code = getattr(exc, "default_code", None) or "conflict"
+                    message = "Conflict"
 
                 # Extract message from detail if available
                 if "detail" in response.data:

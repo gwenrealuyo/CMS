@@ -29,10 +29,12 @@ import {
   toProspectAttendanceId,
   prospectIdFromAttendanceId,
 } from "@/src/lib/clusterWeeklyReportSubmit";
+import { formatApiErrorMessage, isDuplicateWeekReportError } from "@/src/lib/apiErrors";
 import { useAuth } from "@/src/contexts/AuthContext";
 import toast from "react-hot-toast";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import AttendanceSelector from "./AttendanceSelector";
 import AddVisitorModal from "./AddVisitorModal";
 import ProspectForm, {
@@ -253,6 +255,8 @@ export default function ClusterWeeklyReportForm({
   const [rosterCluster, setRosterCluster] = useState<Cluster | null>(null);
   const [loadingRoster, setLoadingRoster] = useState(false);
   const rosterCacheRef = useRef<Record<number, Cluster>>({});
+  const [weekTaken, setWeekTaken] = useState(false);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
 
   // Fetch people data
   useEffect(() => {
@@ -397,6 +401,52 @@ export default function ClusterWeeklyReportForm({
       ? `${selectedCluster.code} - ${selectedCluster.name}`
       : selectedCluster.name
     : "";
+
+  useEffect(() => {
+    const clusterId = Number(formData.cluster);
+    const year = Number(formData.year);
+    const week = Number(formData.week_number);
+    if (!clusterId || !year || !week) {
+      setWeekTaken(false);
+      return;
+    }
+
+    let cancelled = false;
+    const checkWeekTaken = async () => {
+      try {
+        const response = await clusterReportsApi.getAll({
+          cluster: String(clusterId),
+          year,
+          week_number: week,
+          page_size: 5,
+        });
+        const editingId = initialData?.id != null ? String(initialData.id) : "";
+        const taken = (response.data.results || []).some((report) => {
+          if (editingId && String(report.id) === editingId) return false;
+          return (
+            Number(report.cluster) === clusterId &&
+            Number(report.year) === year &&
+            Number(report.week_number) === week
+          );
+        });
+        if (!cancelled) setWeekTaken(taken);
+      } catch {
+        if (!cancelled) setWeekTaken(false);
+      }
+    };
+    checkWeekTaken();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    formData.cluster,
+    formData.year,
+    formData.week_number,
+    initialData?.id,
+  ]);
+
+  const weekTakenMessage =
+    "A report for this cluster and week already exists. Choose a different week.";
 
   // Lazy-load full roster for the selected cluster (list API omits members).
   useEffect(() => {
@@ -965,6 +1015,10 @@ export default function ClusterWeeklyReportForm({
     setLoading(true);
     setFormError(null);
     try {
+      if (weekTaken) {
+        setDuplicateDialogOpen(true);
+        return;
+      }
       const payload = buildClusterWeeklyReportPayloadFromFormValues({
         cluster: formData.cluster,
         year: formData.year,
@@ -1002,15 +1056,16 @@ export default function ClusterWeeklyReportForm({
           : `${prefix}Weekly report for ${weekLabel} submitted successfully.`
       );
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error submitting report:", error);
-      const details = error?.response?.data?.details || error?.response?.data;
-      const message =
-        error?.message ||
-        details?.non_field_errors?.[0] ||
-        details?.prospects_attended?.[0] ||
-        "Failed to submit report";
-      setFormError(typeof message === "string" ? message : "Failed to submit report");
+      if (isDuplicateWeekReportError(error)) {
+        setWeekTaken(true);
+        setDuplicateDialogOpen(true);
+        return;
+      }
+      setFormError(
+        formatApiErrorMessage(error, "Failed to submit report")
+      );
     } finally {
       setLoading(false);
     }
@@ -1018,12 +1073,17 @@ export default function ClusterWeeklyReportForm({
 
   if (!isOpen) return null;
 
+  const duplicateDialogMessage = selectedClusterDisplay
+    ? `${selectedClusterDisplay}, week ${formData.week_number} (${formData.year})`
+    : `week ${formData.week_number} (${formData.year})`;
+
   return (
+    <>
     <form
       onSubmit={handleSubmit}
       onKeyDown={(e) => {
         // Prevent Enter key from submitting form when modal is open
-        if (e.key === "Enter" && (showAddVisitorModal || showAddProspectModal)) {
+        if (e.key === "Enter" && (showAddVisitorModal || showAddProspectModal || duplicateDialogOpen)) {
           e.preventDefault();
           e.stopPropagation();
         }
@@ -1121,9 +1181,16 @@ export default function ClusterWeeklyReportForm({
             }
             min="1"
             max="53"
-            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+            className={`w-full px-3 py-2 min-h-[44px] border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+              weekTaken
+                ? "border-amber-400"
+                : "border-gray-300"
+            }`}
             required
           />
+          {weekTaken && (
+            <p className="mt-1 text-xs text-amber-700">{weekTakenMessage}</p>
+          )}
         </div>
 
         <div>
@@ -1134,9 +1201,16 @@ export default function ClusterWeeklyReportForm({
             type="date"
             value={formData.meeting_date || ""}
             onChange={(e) => handleMeetingDateChange(e.target.value)}
-            className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+            className={`w-full px-3 py-2 min-h-[44px] border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+              weekTaken
+                ? "border-amber-400"
+                : "border-gray-300"
+            }`}
             required
           />
+          {weekTaken && (
+            <p className="mt-1 text-xs text-amber-700">{weekTakenMessage}</p>
+          )}
         </div>
 
         <div>
@@ -1406,5 +1480,17 @@ export default function ClusterWeeklyReportForm({
         </Button>
       </div>
     </form>
+    <ConfirmationModal
+      isOpen={duplicateDialogOpen}
+      onClose={() => setDuplicateDialogOpen(false)}
+      onConfirm={() => setDuplicateDialogOpen(false)}
+      title="Report already submitted"
+      message={`A weekly report for ${duplicateDialogMessage} already exists. Choose a different week.`}
+      confirmText="OK"
+      cancelText="Go back"
+      variant="warning"
+      zIndex={80}
+    />
+    </>
   );
 }

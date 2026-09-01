@@ -31,6 +31,7 @@ from apps.clusters.coordinator_assignments import (
     prune_cluster_reporter_assignments_to_members,
     sync_cluster_reporter_assignments,
 )
+from .exceptions import DuplicateWeekReport
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
 logger = logging.getLogger(__name__)
@@ -661,6 +662,10 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
             "member_attendance_rate",
         ]
 
+    def get_unique_together_validators(self):
+        # Duplicate cluster/year/week is a 409 from validate(), not DRF's unique-set 400.
+        return []
+
     def get_submitted_by_details(self, obj):
         if obj.submitted_by:
             return {
@@ -751,9 +756,35 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         cluster = attrs.get("cluster") or getattr(self.instance, "cluster", None)
+        year = attrs.get("year")
+        if year is None:
+            year = getattr(self.instance, "year", None)
+        week_number = attrs.get("week_number")
+        if week_number is None:
+            week_number = getattr(self.instance, "week_number", None)
         meeting_date = attrs.get("meeting_date") or getattr(
             self.instance, "meeting_date", None
         )
+
+        if cluster is not None and year is not None and week_number is not None:
+            existing = ClusterWeeklyReport.objects.filter(
+                cluster=cluster, year=year, week_number=week_number
+            )
+            if self.instance is not None:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                code = (getattr(cluster, "code", None) or "").strip()
+                name = (getattr(cluster, "name", None) or "").strip()
+                if code and name:
+                    cluster_label = f"{code} - {name}"
+                else:
+                    cluster_label = code or name or "this cluster"
+                raise DuplicateWeekReport(
+                    detail=(
+                        f"A weekly report for {cluster_label}, week {week_number} "
+                        f"({year}) already exists. Choose a different week."
+                    )
+                )
         new_prospects = attrs.get("new_prospects") or []
         prospects_attended = attrs.get("prospects_attended") or []
         prospects_invited = attrs.get("prospects_invited", serializers.empty)

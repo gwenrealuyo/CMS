@@ -92,6 +92,20 @@ const GENERIC_MESSAGES = new Set([
   "Failed to update person",
 ]);
 
+function isGenericErrorMessage(message: string): boolean {
+  if (GENERIC_MESSAGES.has(message)) return true;
+  return /^Request failed with status code \d+$/.test(message);
+}
+
+/** Cluster weekly report unique cluster/year/week (API 409). */
+export function isDuplicateWeekReportError(error: unknown): boolean {
+  const err = error as {
+    response?: { status?: number; data?: { error?: string } };
+  };
+  if (err.response?.status === 409) return true;
+  return err.response?.data?.error === "duplicate_week_report";
+}
+
 /**
  * Prefer field-level `details` so users know what to fix; fall back to message.
  */
@@ -116,7 +130,7 @@ export function formatApiErrorMessage(
     }
 
     const message = responseData.message;
-    if (typeof message === "string" && message && !GENERIC_MESSAGES.has(message)) {
+    if (typeof message === "string" && message && !isGenericErrorMessage(message)) {
       return message;
     }
 
@@ -124,7 +138,11 @@ export function formatApiErrorMessage(
     if (typeof detail === "string" && detail) return detail;
   }
 
-  if (error instanceof Error && error.message && !GENERIC_MESSAGES.has(error.message)) {
+  if (
+    error instanceof Error &&
+    error.message &&
+    !isGenericErrorMessage(error.message)
+  ) {
     return error.message;
   }
 

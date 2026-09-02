@@ -37,15 +37,6 @@ def bulk_enroll_members(evangelism_group: EvangelismGroup, person_ids: List[int]
     return len(ids_to_add)
 
 
-def get_inviter_cluster(inviter: Person) -> Optional[Cluster]:
-    """
-    Get the cluster of the inviter for prospect tracking.
-    Returns the first cluster the inviter belongs to, or None.
-    """
-    clusters = inviter.clusters.all()
-    return clusters.first() if clusters.exists() else None
-
-
 def sync_prospect_invitation_journey_note(person: Person, prospect: Prospect) -> None:
     """Copy invitation-time notes to a Journey NOTE dated by first invitation."""
     text = (prospect.notes or "").strip()

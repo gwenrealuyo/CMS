@@ -60,7 +60,6 @@ from .serializers import (
 )
 from .services import (
     bulk_enroll_members,
-    get_inviter_cluster,
     create_person_from_prospect,
     sync_prospect_invitation_journey_note,
     mark_prospect_attended,
@@ -1578,19 +1577,11 @@ class ProspectViewSet(viewsets.ModelViewSet):
         return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVANGELISM", "write")]
 
     def perform_create(self, serializer):
-        """Auto-set inviter_cluster based on inviter's cluster membership."""
+        """Create an invited prospect. Do not copy the inviter's cluster."""
+        extra = {"pipeline_stage": Prospect.PipelineStage.INVITED}
         if not serializer.validated_data.get("date_first_invited"):
-            prospect = serializer.save(
-                pipeline_stage=Prospect.PipelineStage.INVITED,
-                date_first_invited=church_today(),
-            )
-        else:
-            prospect = serializer.save(pipeline_stage=Prospect.PipelineStage.INVITED)
-        if not prospect.inviter_cluster:
-            cluster = get_inviter_cluster(prospect.invited_by)
-            if cluster:
-                prospect.inviter_cluster = cluster
-                prospect.save(update_fields=["inviter_cluster"])
+            extra["date_first_invited"] = church_today()
+        serializer.save(**extra)
 
     @action(detail=True, methods=["post"])
     def endorse_to_cluster(self, request, pk=None):

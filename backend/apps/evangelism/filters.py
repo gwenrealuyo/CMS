@@ -31,6 +31,7 @@ class ProspectFilter(django_filters.FilterSet):
         ).distinct()
 
     def filter_source(self, queryset, name, value):
+        """Cluster source is explicit attribution, not the inviter's own cluster."""
         has_cluster = Q(inviter_cluster_id__isnull=False) | Q(
             endorsed_cluster_id__isnull=False
         )

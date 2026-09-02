@@ -343,19 +343,11 @@ class Command(BaseCommand):
 
             # Select random inviter
             inviter = random.choice(people)
-            # Try to get inviter's cluster from their cluster memberships
-            inviter_cluster = None
-            if clusters:
-                # Check if person is a member of any cluster
-                person_clusters = Cluster.objects.filter(members=inviter)
-                if person_clusters.exists():
-                    inviter_cluster = person_clusters.first()
-                else:
-                    # If not found, assign a random cluster
-                    inviter_cluster = random.choice(clusters)
-
-            # Select random group
             group = random.choice(groups) if groups else None
+            # Cluster attribution is for cluster-report origin, not inviter membership.
+            inviter_cluster = None
+            if clusters and (group is None or random.random() < 0.2):
+                inviter_cluster = random.choice(clusters)
 
             # Determine pipeline stage (weighted towards earlier stages)
             stage = random.choices(pipeline_stages, weights=stage_weights)[0]

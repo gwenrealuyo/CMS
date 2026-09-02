@@ -185,6 +185,10 @@ class Prospect(models.Model):
         null=True,
         blank=True,
         related_name="prospects_by_inviter",
+        help_text=(
+            "Cluster this visitor was recorded against (cluster weekly report). "
+            "Not copied from the inviter's cluster membership."
+        ),
     )
     evangelism_group = models.ForeignKey(
         EvangelismGroup,

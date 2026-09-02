@@ -55,12 +55,17 @@ export default function ProspectProgressForm({
       onSuccess();
     } catch (err: unknown) {
       const detail =
-        err &&
         typeof err === "object" &&
-        "response" in err &&
-        (err as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail;
-      setError(detail || "Failed to update progress");
+        err !== null &&
+        "response" in err
+          ? (err as { response?: { data?: { detail?: unknown } } }).response
+              ?.data?.detail
+          : undefined;
+      setError(
+        typeof detail === "string" && detail.trim()
+          ? detail
+          : "Failed to update progress",
+      );
     } finally {
       setLoading(false);
     }

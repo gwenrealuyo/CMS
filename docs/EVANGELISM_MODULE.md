@@ -96,7 +96,7 @@ Key features include:
   - `gender` (CharField, choices: MALE, FEMALE, blank) – optional; matches `Person`
   - `contact_info` (string, max 200 chars, blank) – phone/email
   - `invited_by` (ForeignKey to `people.Person`) – member who invited them
-  - `inviter_cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster of the inviter (for tracking)
+  - `inviter_cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster this visitor was recorded against (cluster weekly report). **Not** copied from the inviter’s cluster membership
   - `evangelism_group` (ForeignKey to EvangelismGroup, nullable) – associated bible study group
   - `endorsed_cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster this visitor is endorsed to (if different from inviter's cluster; UI no longer exposes endorse)
   - `person` (ForeignKey to `people.Person`, nullable) – linked Person record (created when they first attend, or linked if already exists as VISITOR)
@@ -121,7 +121,7 @@ Key features include:
   - When prospect first attends: auto-create Person record (or link if Person with VISITOR role exists) using name, gender, facebook, and `date_first_invited` where applicable
   - Set `Person.inviter = prospect.invited_by` when Person is created
   - Auto-update `last_activity_date` on attendance or status change
-  - Auto-set `inviter_cluster` based on inviter's cluster membership (direct Prospect API); cluster weekly reports force `inviter_cluster` to the **report’s cluster**
+  - Cluster weekly reports force `inviter_cluster` to the **report’s cluster**. Direct Prospect API create (`POST /api/evangelism/prospects/`, including evangelism-group invited visitors) does **not** copy the inviter’s cluster
   - If prospect has `facebook_name` and Person does not, Person is updated
   - Prospect `notes`: when a linked `Person` is created or when an existing visitor is marked attended without a prior sync, notes are written to a Journey `NOTE` titled **Invitation note** dated `date_first_invited` (or today if unset)
 - **Cluster weekly report integration**:
@@ -333,13 +333,13 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?inviter_cluster={cluster_id}` – filter by inviter's cluster
     - Query params: `?cluster={cluster_id}` – inviter cluster **or** endorsed cluster
     - Query params: `?branch={branch_id}` – prospects tied to that branch via inviter/endorsed cluster or linked Person
-    - Query params: `?source=cluster|evangelism|both` – cluster-only (no group), evangelism group, or both
+    - Query params: `?source=cluster|evangelism|both` – cluster-attributed with no group, has evangelism group, or both (cluster attribution is weekly report / endorse, not the inviter’s cluster)
     - Query params: `?group={group_id}` – filter by group (`evangelism_group`)
     - Query params: `?pipeline_stage={stage}` – filter by pipeline stage
     - Query params: `?endorsed_cluster={cluster_id}` – filter by endorsed cluster
     - Query params: `?is_dropped_off=true` – filter by drop-off status
   - `POST` – Create a new prospect (requires `first_name`, `last_name`, `invited_by_id`; optional `middle_name`, `suffix`, `gender`, `contact_info`, `evangelism_group_id`, `facebook_name`, `notes`, `date_first_invited`)
-    - Auto-set `inviter_cluster` based on inviter's cluster membership
+    - Does **not** set `inviter_cluster` from the inviter’s cluster membership; cluster attribution comes from cluster weekly reports
     - No automatic name/contact dedupe on this endpoint (cluster report nested create does soft dedupe)
   - `GET /{id}/` – Retrieve a specific prospect
   - `PUT /{id}/` – Update a prospect (full update)
@@ -535,7 +535,7 @@ The Evangelism hub lives at `frontend/src/app/evangelism/page.tsx` and provides 
 The main page includes tabs for different views:
 
 - **Groups Tab**: Manage evangelism groups (see [Groups tab listing](#groups-tab-listing) below)
-- **Prospects Tab**: Browse invited visitors (senior cluster/evangelism coordinators, pastors, admins). Default filter is Invited / not dropped off. Filters: branch, cluster, stage, source (cluster vs evangelism group). Rows show pipeline chips and a People profile link after attendance. Global search uses `?tab=prospects&open={id}`.
+- **Prospects Tab**: Browse invited visitors (senior cluster/evangelism coordinators, pastors, admins). Default filter is Invited / not dropped off. Filters: branch, cluster, stage, source (**Cluster** = recorded on a cluster weekly report or endorsed; **Evangelism** = linked to an evangelism group; not copied from the inviter’s cluster). Rows show pipeline chips and a People profile link after attendance. Global search uses `?tab=prospects&open={id}`.
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
 - **Tally Tab**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC) with year filter; click a count to open the drill-down modal
 - **Reports Tab**: Weekly unified tally (evangelism + cluster weekly reports)

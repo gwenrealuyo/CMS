@@ -63,6 +63,15 @@ class ProspectListFilterTests(TestCase):
             date_first_invited=date(2026, 1, 11),
             is_dropped_off=False,
         )
+        self.group_only = Prospect.objects.create(
+            first_name="Invited",
+            last_name="GroupOnly",
+            invited_by=self.inviter,
+            evangelism_group=self.group,
+            pipeline_stage=Prospect.PipelineStage.INVITED,
+            date_first_invited=date(2026, 1, 11),
+            is_dropped_off=False,
+        )
         self.endorsed = Prospect.objects.create(
             first_name="Invited",
             last_name="Endorsed",
@@ -133,6 +142,18 @@ class ProspectListFilterTests(TestCase):
         self.assertIn(self.endorsed.id, ids)
         self.assertIn(self.attended.id, ids)
         self.assertNotIn(self.group_linked.id, ids)
+        self.assertNotIn(self.group_only.id, ids)
+
+    def test_filter_by_source_evangelism(self):
+        response = self.client.get(
+            "/api/evangelism/prospects/",
+            {"source": "evangelism"},
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = self._ids(response)
+        self.assertIn(self.group_only.id, ids)
+        self.assertIn(self.group_linked.id, ids)
+        self.assertNotIn(self.cluster_only.id, ids)
 
     def test_filter_by_source_both(self):
         response = self.client.get(
@@ -159,3 +180,68 @@ class ProspectListFilterTests(TestCase):
         self.assertEqual(str(attended_row["date_first_attended"]), "2026-02-01")
         self.assertEqual(str(attended_row["water_baptism_date"]), "2026-03-01")
         self.assertIsNone(attended_row["reached_date"])
+
+
+class ProspectCreateAttributionTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.branch = Branch.objects.create(name="Branch A", code="BRA")
+        self.admin = Person.objects.create_user(
+            username="admin_create_prospect",
+            password="pw",
+            role="ADMIN",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.inviter = Person.objects.create_user(
+            username="inviter_create_prospect",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.cluster = Cluster.objects.create(
+            code="CA",
+            name="Cluster A",
+            branch=self.branch,
+            coordinator=self.inviter,
+        )
+        self.cluster.members.add(self.inviter)
+        self.group = EvangelismGroup.objects.create(
+            name="Group A",
+            cluster=self.cluster,
+            coordinator=self.inviter,
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_group_create_does_not_inherit_inviter_cluster(self):
+        response = self.client.post(
+            "/api/evangelism/prospects/",
+            {
+                "first_name": "Noe",
+                "last_name": "Grouponly",
+                "invited_by_id": self.inviter.id,
+                "evangelism_group_id": self.group.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        prospect = Prospect.objects.get(pk=response.data["id"])
+        self.assertIsNone(prospect.inviter_cluster_id)
+        self.assertEqual(prospect.evangelism_group_id, self.group.id)
+        self.assertIsNone(response.data.get("inviter_cluster"))
+
+    def test_direct_create_does_not_inherit_inviter_cluster(self):
+        response = self.client.post(
+            "/api/evangelism/prospects/",
+            {
+                "first_name": "Noe",
+                "last_name": "Direct",
+                "invited_by_id": self.inviter.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        prospect = Prospect.objects.get(pk=response.data["id"])
+        self.assertIsNone(prospect.inviter_cluster_id)
+        self.assertIsNone(prospect.evangelism_group_id)

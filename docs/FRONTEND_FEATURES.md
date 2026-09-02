@@ -10,7 +10,8 @@
   - Create person via `PersonForm` (uses `usePeople` hook → backend)
   - Person form fields include optional `maiden_name`; visitor status options are Ongoing / No Response / Deceased (member statuses unchanged)
   - **Families tab:** `FamilyManagementDashboard` with stacked mobile toolbar (search, branch, Table/Cards, Sort, Filter), filter chips in toolbar card, responsive unassigned-members grid
-- `src/app/clusters/page.tsx`: Clusters hub via `ClustersPageView` — same stacked list toolbar on the Clusters tab (search, branch, Table/Cards, Select, Bulk, Sort, Filter)
+- `src/app/evangelism/page.tsx`: Evangelism hub — Groups, Prospects (senior coordinators+), Each 1 Reach 1, Tally, Reports, Bible Sharers
+- `src/app/clusters/page.tsx`: Clusters hub via `ClustersPageView` — same stacked list toolbar on the Clusters tab (search, branch, Table/Cards, Select, Bulk, Sort, Filter). Cluster detail includes a Prospects section (invited visitors for that cluster).
 - `src/app/finance/page.tsx`: Finance hub for donations, offerings, and pledges
 - `src/app/members/page.tsx`: Members listing placeholder
 

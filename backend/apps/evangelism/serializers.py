@@ -400,6 +400,11 @@ class ProspectSerializer(serializers.ModelSerializer):
     )
     days_since_last_activity = serializers.IntegerField(read_only=True)
     display_name = serializers.ReadOnlyField()
+    date_first_attended = serializers.SerializerMethodField()
+    lessons_finished_at = serializers.SerializerMethodField()
+    water_baptism_date = serializers.SerializerMethodField()
+    spirit_baptism_date = serializers.SerializerMethodField()
+    reached_date = serializers.SerializerMethodField()
 
     class Meta:
         model = Prospect
@@ -424,6 +429,11 @@ class ProspectSerializer(serializers.ModelSerializer):
             "pipeline_stage",
             "pipeline_stage_display",
             "date_first_invited",
+            "date_first_attended",
+            "lessons_finished_at",
+            "water_baptism_date",
+            "spirit_baptism_date",
+            "reached_date",
             "last_activity_date",
             "is_attending_cluster",
             "is_dropped_off",
@@ -442,7 +452,38 @@ class ProspectSerializer(serializers.ModelSerializer):
             "updated_at",
             "days_since_last_activity",
             "display_name",
+            "date_first_attended",
+            "lessons_finished_at",
+            "water_baptism_date",
+            "spirit_baptism_date",
+            "reached_date",
         )
+
+    def _person_date(self, obj, attr):
+        person = obj.person
+        if not person:
+            return None
+        return getattr(person, attr, None)
+
+    def get_date_first_attended(self, obj):
+        return self._person_date(obj, "date_first_attended")
+
+    def get_lessons_finished_at(self, obj):
+        return self._person_date(obj, "lessons_finished_at")
+
+    def get_water_baptism_date(self, obj):
+        return self._person_date(obj, "water_baptism_date")
+
+    def get_spirit_baptism_date(self, obj):
+        return self._person_date(obj, "spirit_baptism_date")
+
+    def get_reached_date(self, obj):
+        person = obj.person
+        if not person:
+            return None
+        if person.water_baptism_date and person.spirit_baptism_date:
+            return max(person.water_baptism_date, person.spirit_baptism_date)
+        return None
 
     def validate(self, attrs):
         apply_title_case_name_fields(attrs, PROSPECT_NAME_FIELDS)

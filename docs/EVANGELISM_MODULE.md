@@ -331,7 +331,10 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `GET` – List all prospects
     - Query params: `?invited_by={person_id}` – filter by inviter
     - Query params: `?inviter_cluster={cluster_id}` – filter by inviter's cluster
-    - Query params: `?group={group_id}` – filter by group
+    - Query params: `?cluster={cluster_id}` – inviter cluster **or** endorsed cluster
+    - Query params: `?branch={branch_id}` – prospects tied to that branch via inviter/endorsed cluster or linked Person
+    - Query params: `?source=cluster|evangelism|both` – cluster-only (no group), evangelism group, or both
+    - Query params: `?group={group_id}` – filter by group (`evangelism_group`)
     - Query params: `?pipeline_stage={stage}` – filter by pipeline stage
     - Query params: `?endorsed_cluster={cluster_id}` – filter by endorsed cluster
     - Query params: `?is_dropped_off=true` – filter by drop-off status
@@ -532,6 +535,7 @@ The Evangelism hub lives at `frontend/src/app/evangelism/page.tsx` and provides 
 The main page includes tabs for different views:
 
 - **Groups Tab**: Manage evangelism groups (see [Groups tab listing](#groups-tab-listing) below)
+- **Prospects Tab**: Browse invited visitors (senior cluster/evangelism coordinators, pastors, admins). Default filter is Invited / not dropped off. Filters: branch, cluster, stage, source (cluster vs evangelism group). Rows show pipeline chips and a People profile link after attendance. Global search uses `?tab=prospects&open={id}`.
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
 - **Tally Tab**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC) with year filter; click a count to open the drill-down modal
 - **Reports Tab**: Weekly unified tally (evangelism + cluster weekly reports)

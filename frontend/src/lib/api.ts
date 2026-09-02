@@ -1579,6 +1579,9 @@ export const evangelismApi = {
     pipeline_stage?: string;
     endorsed_cluster?: number | string;
     is_dropped_off?: boolean;
+    branch?: number | string;
+    cluster?: number | string;
+    source?: string;
     search?: string;
     page?: number;
     page_size?: number;

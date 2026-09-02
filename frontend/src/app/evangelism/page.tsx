@@ -95,7 +95,8 @@ import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
-import { canWriteEvangelism } from "@/src/lib/evangelism/evangelismPermissions";
+import { canBrowseProspects, canWriteEvangelism } from "@/src/lib/evangelism/evangelismPermissions";
+import ProspectsBrowse from "@/src/components/evangelism/ProspectsBrowse";
 import {
   canChangeEvangelismBranchFilter,
   EVANGELISM_BRANCH_LOCKED_HINT,
@@ -104,6 +105,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const EVANGELISM_PAGE_TABS = [
   "groups",
+  "prospects",
   "each1reach1",
   "tally",
   "reports",
@@ -129,6 +131,10 @@ export default function EvangelismPage() {
   const canWriteEvangelismAccess = useMemo(
     () => canWriteEvangelism({ user, moduleEnabled }),
     [user, moduleEnabled],
+  );
+  const canBrowseProspectsTab = useMemo(
+    () => canBrowseProspects({ user, isSeniorCoordinator }),
+    [user, isSeniorCoordinator],
   );
   const canChangeEvangelismBranch = useMemo(
     () => canChangeEvangelismBranchFilter(user, isSeniorCoordinator),
@@ -379,12 +385,16 @@ export default function EvangelismPage() {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
+    if (tabParam === "prospects" && !canBrowseProspectsTab) {
+      setActiveTab("groups");
+      return;
+    }
     if (isEvangelismPageTab(tabParam)) {
       setActiveTab(tabParam);
     } else {
       setActiveTab("groups");
     }
-  }, [searchParams]);
+  }, [searchParams, canBrowseProspectsTab]);
 
   const action = searchParams.get("action");
 
@@ -1164,6 +1174,18 @@ export default function EvangelismPage() {
               >
                 Groups
               </button>
+              {canBrowseProspectsTab && (
+                <button
+                  onClick={() => selectTab("prospects")}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[80px] ${
+                    activeTab === "prospects"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  Prospects
+                </button>
+              )}
               <button
                 onClick={() => selectTab("each1reach1")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap min-w-[100px] ${
@@ -1696,6 +1718,15 @@ export default function EvangelismPage() {
               </Card>
             )}
           </div>
+        )}
+
+        {activeTab === "prospects" && canBrowseProspectsTab && (
+          <ProspectsBrowse
+            branches={branches}
+            clusters={clusters}
+            highlightProspectId={searchParams.get("open")}
+            initialClusterId={searchParams.get("cluster")}
+          />
         )}
 
         {/* Each 1 Reach 1 Tab */}

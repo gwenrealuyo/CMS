@@ -158,6 +158,11 @@ export interface Prospect {
   pipeline_stage: PipelineStage;
   pipeline_stage_display: string;
   date_first_invited?: string;
+  date_first_attended?: string | null;
+  lessons_finished_at?: string | null;
+  water_baptism_date?: string | null;
+  spirit_baptism_date?: string | null;
+  reached_date?: string | null;
   last_activity_date?: string;
   is_attending_cluster: boolean;
   is_dropped_off: boolean;

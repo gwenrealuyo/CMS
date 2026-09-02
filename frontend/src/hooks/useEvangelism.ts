@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { evangelismApi } from "@/src/lib/api";
+import { unwrapList } from "@/src/lib/globalSearchUtils";
 import {
   canChangeEvangelismBranchFilter,
   defaultEvangelismListBranch,
@@ -362,9 +363,14 @@ export const useEvangelismWeeklyReports = (groupId: number | string | null) => {
 export const useProspects = (filters?: {
   invited_by?: number | string;
   inviter_cluster?: number | string;
+  endorsed_cluster?: number | string;
   evangelism_group?: number | string;
   pipeline_stage?: string;
   is_dropped_off?: boolean;
+  branch?: number | string;
+  cluster?: number | string;
+  source?: string;
+  search?: string;
 }) => {
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(false);
@@ -374,17 +380,37 @@ export const useProspects = (filters?: {
   // This prevents the callback from being recreated when the filters object reference changes
   const invited_by = filters?.invited_by;
   const inviter_cluster = filters?.inviter_cluster;
+  const endorsed_cluster = filters?.endorsed_cluster;
   const evangelism_group = filters?.evangelism_group;
   const pipeline_stage = filters?.pipeline_stage;
   const is_dropped_off = filters?.is_dropped_off;
+  const branch = filters?.branch;
+  const cluster = filters?.cluster;
+  const source = filters?.source;
+  const search = filters?.search;
 
   const fetchProspects = useCallback(async () => {
     try {
       setLoading(true);
-      // Reconstruct filters object from individual values
-      const apiFilters = { invited_by, inviter_cluster, evangelism_group, pipeline_stage, is_dropped_off };
+      const rawFilters = {
+        invited_by,
+        inviter_cluster,
+        endorsed_cluster,
+        evangelism_group,
+        pipeline_stage,
+        is_dropped_off,
+        branch,
+        cluster,
+        source,
+        search,
+      };
+      const apiFilters = Object.fromEntries(
+        Object.entries(rawFilters).filter(
+          ([, value]) => value !== undefined && value !== "" && value !== "all",
+        ),
+      );
       const response = await evangelismApi.listProspects(apiFilters);
-      setProspects(response.data);
+      setProspects(unwrapList(response.data));
       setError(null);
     } catch (err) {
       console.error(err);
@@ -392,7 +418,18 @@ export const useProspects = (filters?: {
     } finally {
       setLoading(false);
     }
-  }, [invited_by, inviter_cluster, evangelism_group, pipeline_stage, is_dropped_off]);
+  }, [
+    invited_by,
+    inviter_cluster,
+    endorsed_cluster,
+    evangelism_group,
+    pipeline_stage,
+    is_dropped_off,
+    branch,
+    cluster,
+    source,
+    search,
+  ]);
 
   useEffect(() => {
     fetchProspects();

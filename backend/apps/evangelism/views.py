@@ -27,6 +27,7 @@ from apps.authentication.permissions import (
 )
 from apps.people.coordinator_scope import coordinator_assigned_resource_ids_when_all_scoped
 
+from .filters import ProspectFilter
 from .models import (
     EvangelismGroup,
     EvangelismSession,
@@ -1564,14 +1565,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter,
     )
-    filterset_fields = (
-        "invited_by",
-        "inviter_cluster",
-        "evangelism_group",
-        "pipeline_stage",
-        "endorsed_cluster",
-        "is_dropped_off",
-    )
+    filterset_class = ProspectFilter
     search_fields = ("first_name", "middle_name", "last_name", "contact_info", "notes")
     ordering_fields = ("last_activity_date", "created_at", "first_name", "last_name")
     ordering = ("-last_activity_date", "last_name", "first_name")

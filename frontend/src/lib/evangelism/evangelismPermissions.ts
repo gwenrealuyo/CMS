@@ -1,6 +1,7 @@
 import { User } from "@/src/lib/api";
 import { ModuleCoordinator } from "@/src/types/person";
 import { ModuleType } from "@/src/types/moduleSettings";
+import { isAdminPerson } from "@/src/lib/peopleSelectors";
 
 const EVANGELISM_WRITE_LEVELS: ModuleCoordinator["level"][] = [
   "COORDINATOR",
@@ -34,5 +35,20 @@ export function canWriteEvangelism({
 
   return assignments.some((assignment) =>
     EVANGELISM_WRITE_LEVELS.includes(assignment.level)
+  );
+}
+
+/** Branch-wide Prospects tab: admins, pastors, and cluster/evangelism senior coordinators. */
+export function canBrowseProspects({
+  user,
+  isSeniorCoordinator,
+}: {
+  user: User | null;
+  isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean;
+}): boolean {
+  if (!user) return false;
+  if (isAdminPerson(user) || user.role === "PASTOR") return true;
+  return (
+    isSeniorCoordinator("CLUSTER") || isSeniorCoordinator("EVANGELISM")
   );
 }

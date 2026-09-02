@@ -21,6 +21,7 @@ import type {
   ClusterRosterFamily,
   ClusterRosterPerson,
 } from "@/src/lib/clusterRoster";
+import ClusterProspectsSection from "@/src/components/clusters/ClusterProspectsSection";
 
 type SortField =
   | "first_name"
@@ -868,6 +869,12 @@ export default function ClusterView({
               )}
             </div>
           )}
+
+          <ClusterProspectsSection
+            clusterId={cluster.id}
+            compact={isPanelMode}
+            onViewPerson={onViewPerson}
+          />
 
           {/* Families */}
           {clusterFamilies.length > 0 && (

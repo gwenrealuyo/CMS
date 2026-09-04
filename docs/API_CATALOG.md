@@ -43,7 +43,7 @@ id, name, code?, address?, phone?, email?, is_headquarters, is_active, created_a
 ### Person
 
 - List: `GET /api/people/`
-  - Query: `search` (username, email, first_name, last_name, nickname, maiden_name, member_id), `role`, `cluster` (membership on `Person.clusters`)
+  - Query: `search` (username, email, first_name, last_name, nickname, maiden_name, member_id), `role`, `cluster` (membership on `Person.clusters`), `cluster__in` (comma-separated cluster PKs)
   - Access: Based on role and module coordinator assignments. See `docs/ACCESS_CONTROL.md` for details.
 - Retrieve: `GET /api/people/{id}/`
   - Access: Based on role and module coordinator assignments. See `docs/ACCESS_CONTROL.md` for details.

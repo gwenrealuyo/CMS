@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useRef } from "react";
 import { Branch } from "@/src/types/branch";
 import { Cluster } from "@/src/types/cluster";
-import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import FilterDropdown, { FilterField } from "./FilterDropdown";
 import FilterCard, { FilterCardField } from "./FilterCard";
 
@@ -105,6 +104,19 @@ function FilterChipText({
   );
 }
 
+function clusterDisplayName(cluster: Cluster): string {
+  const name = (cluster.name || "").trim() || "Untitled Cluster";
+  const code = (cluster.code || "").trim();
+  return code ? `${name} (${code})` : name;
+}
+
+function clusterChipParts(names: string[]): { prefix: string; value: string } {
+  if (names.length <= 1) {
+    return { prefix: "Cluster is", value: names[0] ?? "" };
+  }
+  return { prefix: "Clusters are", value: names.join(", ") };
+}
+
 interface FilterBarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -119,11 +131,10 @@ interface FilterBarProps {
   canChangeBranchFilter?: boolean;
   /** Filter chip ids that cannot be removed (e.g. locked default branch). */
   lockedFilterIds?: string[];
-  /** Cluster membership picker (standalone, beside Filter). */
+  /** Cluster membership options for Filter → Cluster. */
   clusters?: Cluster[];
-  clusterFilter?: string;
-  onClusterFilterChange?: (value: string) => void;
-  clustersLoading?: boolean;
+  clusterFilter?: string[];
+  onClusterFilterChange?: (ids: string[]) => void;
 }
 
 export default function FilterBar({
@@ -139,9 +150,8 @@ export default function FilterBar({
   canChangeBranchFilter = true,
   lockedFilterIds = [],
   clusters = [],
-  clusterFilter = "all",
+  clusterFilter = [],
   onClusterFilterChange,
-  clustersLoading = false,
 }: FilterBarProps) {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showFilterCard, setShowFilterCard] = useState(false);
@@ -155,6 +165,8 @@ export default function FilterBar({
         return "bg-green-100 text-green-800 border-green-200";
       case "role":
         return "bg-blue-100 text-blue-800 border-blue-200";
+      case "cluster":
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
       case "date_first_attended":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "email":
@@ -231,23 +243,20 @@ export default function FilterBar({
 
   const isFilterLocked = (filterId: string) => lockedFilterIds.includes(filterId);
 
-  const hasClusterFilter = clusterFilter !== "all" && clusterFilter !== "";
-  const showClearAll = activeFilters.length > 0 || hasClusterFilter;
-  const showClusterPicker = typeof onClusterFilterChange === "function";
-
-  const clusterOptions = useMemo(
-    () => [
-      { value: "all", label: "All clusters" },
-      ...clusters.map((cluster) => ({
-        value: String(cluster.id),
-        label: cluster.name || "Untitled Cluster",
-        clusterCode: cluster.code || undefined,
-        clusterBranchId:
-          cluster.branch != null ? Number(cluster.branch) : null,
-      })),
-    ],
-    [clusters],
+  const selectedClusterIds = useMemo(
+    () => clusterFilter.map(String).filter(Boolean),
+    [clusterFilter],
   );
+  const hasClusterFilter = selectedClusterIds.length > 0;
+  const showClearAll = activeFilters.length > 0 || hasClusterFilter;
+  const selectedClusterChip = useMemo(() => {
+    if (!hasClusterFilter) return { prefix: "Cluster is", value: "" };
+    const names = selectedClusterIds.map((id) => {
+      const cluster = clusters.find((c) => String(c.id) === id);
+      return cluster ? clusterDisplayName(cluster) : "Cluster";
+    });
+    return clusterChipParts(names);
+  }, [clusters, hasClusterFilter, selectedClusterIds]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6 mb-6">
@@ -331,12 +340,46 @@ export default function FilterBar({
             Filters:
           </span>
 
-          {activeFilters.length === 0 ? (
+          {activeFilters.length === 0 && !hasClusterFilter ? (
             <span className="text-sm text-gray-500 italic">
               No filters applied
             </span>
           ) : (
             <div className="flex flex-wrap gap-2">
+              {hasClusterFilter && (
+                <div
+                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border min-h-[32px] ${getFilterChipColor(
+                    "cluster",
+                  )}`}
+                >
+                  <span className="mr-1 break-words">
+                    <FilterChipText
+                      prefix={selectedClusterChip.prefix}
+                      value={selectedClusterChip.value}
+                    />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onClusterFilterChange?.([])}
+                    className="ml-1 hover:opacity-75 transition-opacity min-w-[20px] min-h-[20px] flex items-center justify-center"
+                    aria-label="Remove cluster filter"
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
               {nonBranchFilters.map((filter) => (
                 <div
                   key={filter.id}
@@ -462,29 +505,9 @@ export default function FilterBar({
             </button>
           )}
 
-          {showClusterPicker && (
-            <div className="min-w-0 flex-[2] h-11 tablet:w-56 tablet:flex-none">
-              <ScalableSelect
-                options={clusterOptions}
-                value={clusterFilter || "all"}
-                onChange={(value) =>
-                  onClusterFilterChange?.(value || "all")
-                }
-                placeholder="All clusters"
-                searchPlaceholder="Search clusters..."
-                className="block h-11 w-full min-w-0 [&_button]:h-11 [&_button]:rounded-lg [&_button]:shadow-none"
-                showSearch
-                maxHeight={220}
-                emptyMessage="No clusters found"
-                loading={clustersLoading}
-                virtualizeThreshold={50}
-              />
-            </div>
-          )}
-
           <div
             className={`relative min-w-0 h-11 ${
-              showClearAll || showClusterPicker ? "flex-none" : "w-full"
+              showClearAll ? "flex-1" : "w-full"
             } tablet:w-auto tablet:flex-none`}
           >
             <button
@@ -532,11 +555,13 @@ export default function FilterBar({
                 setShowFilterCard(true);
               }}
               branches={branches}
+              clusters={clusters}
               canChangeBranchFilter={canChangeBranchFilter}
             />
 
             {selectedField && (
               <FilterCard
+                key={selectedField.key}
                 field={selectedField}
                 isOpen={showFilterCard}
                 onClose={() => {
@@ -544,10 +569,20 @@ export default function FilterBar({
                   setSelectedField(null);
                 }}
                 onApplyFilter={(filter) => {
-                  onApplyFilter(filter);
+                  if (filter.field === "cluster") {
+                    const ids = Array.isArray(filter.value)
+                      ? filter.value.map(String).filter(Boolean)
+                      : filter.value
+                        ? [String(filter.value)]
+                        : [];
+                    onClusterFilterChange?.(ids);
+                  } else {
+                    onApplyFilter(filter);
+                  }
                   setShowFilterCard(false);
                   setSelectedField(null);
                 }}
+                initialClusterIds={selectedClusterIds}
               />
             )}
           </div>

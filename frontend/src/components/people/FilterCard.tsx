@@ -13,6 +13,7 @@ interface FilterCardProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyFilter: (filter: FilterCondition) => void;
+  initialClusterIds?: string[];
 }
 
 const OPERATORS = {
@@ -48,6 +49,7 @@ const OPERATORS = {
 };
 
 function defaultOperatorForField(field: FilterCardField): string {
+  if (field.key === "cluster") return "is";
   if (field.key === "branch" || field.type === "branch") return "is";
   if (field.type === "select") return "is";
   if (field.type === "date" || field.type === "number") return "is";
@@ -55,6 +57,9 @@ function defaultOperatorForField(field: FilterCardField): string {
 }
 
 function operatorsForField(field: FilterCardField) {
+  if (field.key === "cluster") {
+    return [{ value: "is", label: "Is" }];
+  }
   if (field.key === "branch" || field.type === "branch") {
     return OPERATORS.branch;
   }
@@ -66,18 +71,25 @@ export default function FilterCard({
   isOpen,
   onClose,
   onApplyFilter,
+  initialClusterIds = [],
 }: FilterCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [operator, setOperator] = useState("contains");
   const [value, setValue] = useState("");
   const [value2, setValue2] = useState("");
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+  const [selectedClusterIds, setSelectedClusterIds] = useState<string[]>(() =>
+    field.key === "cluster" ? [...initialClusterIds] : [],
+  );
+  const [clusterQuery, setClusterQuery] = useState("");
   const [isBetween, setIsBetween] = useState(false);
   const firstInputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(
     null,
   );
+  const wasOpenRef = useRef(false);
 
   const isBranchField = field.key === "branch" || field.type === "branch";
+  const isClusterField = field.key === "cluster";
   const branchMultiMode =
     isBranchField && (operator === "is" || operator === "is_not");
 
@@ -90,16 +102,21 @@ export default function FilterCard({
   }, [operator]);
 
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        firstInputRef.current?.focus();
-      }, 0);
-      setOperator(defaultOperatorForField(field));
-      setValue("");
-      setValue2("");
-      setSelectedBranchIds([]);
-    }
-  }, [isOpen, field]);
+    const justOpened = isOpen && !wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+    if (!justOpened) return;
+    setTimeout(() => {
+      firstInputRef.current?.focus();
+    }, 0);
+    setOperator(defaultOperatorForField(field));
+    setValue("");
+    setValue2("");
+    setSelectedBranchIds([]);
+    setSelectedClusterIds(
+      field.key === "cluster" ? [...initialClusterIds] : [],
+    );
+    setClusterQuery("");
+  }, [isOpen, field, initialClusterIds]);
 
   useEffect(() => {
     if (!isOpen || !isBranchField) return;
@@ -144,10 +161,19 @@ export default function FilterCard({
     );
   };
 
+  const toggleClusterId = (id: string) => {
+    setSelectedClusterIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
   const handleApply = () => {
     let filterValue: FilterConditionValue;
 
-    if (branchMultiMode) {
+    if (isClusterField) {
+      if (selectedClusterIds.length === 0) return;
+      filterValue = [...selectedClusterIds];
+    } else if (branchMultiMode) {
       if (selectedBranchIds.length === 0) return;
       filterValue = [...selectedBranchIds].sort(
         (a, b) => Number(a) - Number(b),
@@ -172,6 +198,7 @@ export default function FilterCard({
     setValue("");
     setValue2("");
     setSelectedBranchIds([]);
+    setSelectedClusterIds([]);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -181,6 +208,55 @@ export default function FilterCard({
   };
 
   const renderInput = () => {
+    if (isClusterField && field.options) {
+      const query = clusterQuery.trim().toLowerCase();
+      const options = query
+        ? field.options.filter(
+            (option) =>
+              option.label.toLowerCase().includes(query) ||
+              option.value.toLowerCase().includes(query),
+          )
+        : field.options;
+      return (
+        <div className="space-y-2">
+          <input
+            type="search"
+            value={clusterQuery}
+            onChange={(e) => setClusterQuery(e.target.value)}
+            placeholder="Search clusters..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+            aria-label="Search clusters"
+          />
+          <div
+            className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-1"
+            role="group"
+            aria-label="Select clusters"
+          >
+            {options.length === 0 ? (
+              <p className="px-2 py-2 text-sm text-gray-500">
+                No clusters found
+              </p>
+            ) : (
+              options.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer py-1 px-1 rounded hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedClusterIds.includes(option.value)}
+                    onChange={() => toggleClusterId(option.value)}
+                    className="rounded border-gray-300 text-primary focus:ring-ring"
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
     if (branchMultiMode && field.options) {
       return (
         <div
@@ -273,7 +349,7 @@ export default function FilterCard({
   return (
     <div
       ref={cardRef}
-      className="absolute right-0 top-full mt-1.5 z-50 w-full tablet:w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+      className="absolute right-0 top-full mt-1.5 z-50 w-80 tablet:w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 p-4"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-gray-900">
@@ -297,6 +373,7 @@ export default function FilterCard({
       </div>
 
       <div className="space-y-4">
+        {opList.length > 1 && (
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Condition
@@ -313,6 +390,7 @@ export default function FilterCard({
             ))}
           </select>
         </div>
+        )}
 
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -367,7 +445,9 @@ export default function FilterCard({
           disabled={
             branchMultiMode
               ? selectedBranchIds.length === 0
-              : !value.trim() || (isBetween && !value2.trim())
+              : isClusterField
+                ? selectedClusterIds.length === 0
+                : !value.trim() || (isBetween && !value2.trim())
           }
           className="px-3 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-lg hover:bg-lighthouse-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
         >

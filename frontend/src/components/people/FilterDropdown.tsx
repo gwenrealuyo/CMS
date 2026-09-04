@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { Branch } from "@/src/types/branch";
+import { Cluster } from "@/src/types/cluster";
 
 export interface FilterField {
   key: string;
@@ -14,6 +15,7 @@ interface FilterDropdownProps {
   onSelectField: (field: FilterField) => void;
   branches?: Branch[];
   canChangeBranchFilter?: boolean;
+  clusters?: Cluster[];
 }
 
 const FILTER_FIELDS: FilterField[] = [
@@ -67,6 +69,12 @@ const FILTER_FIELDS: FilterField[] = [
     options: [],
   },
   {
+    key: "cluster",
+    label: "Cluster",
+    type: "select",
+    options: [],
+  },
+  {
     key: "date_first_attended",
     label: "Join Date",
     type: "date",
@@ -84,11 +92,11 @@ export default function FilterDropdown({
   onSelectField,
   branches = [],
   canChangeBranchFilter = true,
+  clusters = [],
 }: FilterDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Update branch filter options dynamically
-  const filterFieldsWithBranches = FILTER_FIELDS.map((field) => {
+  const filterFieldsWithOptions = FILTER_FIELDS.map((field) => {
     if (field.key === "branch") {
       return {
         ...field,
@@ -98,6 +106,20 @@ export default function FilterDropdown({
             value: b.id.toString(),
             label: b.name + (b.is_headquarters ? " (HQ)" : ""),
           })),
+      };
+    }
+    if (field.key === "cluster") {
+      return {
+        ...field,
+        options: clusters.map((cluster) => {
+          const name =
+            (cluster.name || "").trim() || "Untitled Cluster";
+          const code = (cluster.code || "").trim();
+          return {
+            value: String(cluster.id),
+            label: code ? `${name} (${code})` : name,
+          };
+        }),
       };
     }
     return field;
@@ -141,14 +163,14 @@ export default function FilterDropdown({
   return (
     <div
       ref={dropdownRef}
-      className="absolute right-0 top-full mt-1.5 z-50 w-full tablet:w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
+      className="absolute right-0 top-full mt-1.5 z-50 w-80 tablet:w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 py-2"
     >
       <div className="px-3 py-2 border-b border-gray-100">
         <h3 className="text-sm font-medium text-gray-900">Filter by Field</h3>
       </div>
 
       <div className="tablet:max-h-64 tablet:overflow-y-auto">
-        {filterFieldsWithBranches
+        {filterFieldsWithOptions
           .filter(
             (field) => canChangeBranchFilter || field.key !== "branch",
           )

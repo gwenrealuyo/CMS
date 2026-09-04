@@ -296,6 +296,7 @@ export type PeopleListParams = {
   branch_ne?: number | string;
   branch_ne__in?: string;
   cluster?: number | string;
+  cluster__in?: string;
   first_name?: string;
   first_name__icontains?: string;
   first_name__istartswith?: string;

@@ -311,8 +311,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                 )
             )
         # M2M filters (cluster) can duplicate rows; distinct keeps pagination stable.
-        if getattr(self, "action", None) == "list" and self.request.query_params.get(
-            "cluster"
+        if getattr(self, "action", None) == "list" and (
+            self.request.query_params.get("cluster")
+            or self.request.query_params.get("cluster__in")
         ):
             return qs.distinct()
         return qs

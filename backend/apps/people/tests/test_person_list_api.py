@@ -170,6 +170,26 @@ class PersonListPaginationAndFilterTests(TestCase):
         ids = {r["id"] for r in self._results(response)}
         self.assertEqual(ids, {self.member_a.id, self.member_c.id})
 
+    def test_filter_by_cluster_in(self):
+        cluster_b = Cluster.objects.create(
+            code="LIST-CL-B",
+            name="List Cluster B",
+            branch=self.branch_b,
+        )
+        cluster_b.members.add(self.member_b)
+        response = self.client.get(
+            "/api/people/people/",
+            {
+                "cluster__in": f"{self.cluster.id},{cluster_b.id}",
+                "page_size": 50,
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {r["id"] for r in self._results(response)}
+        self.assertEqual(
+            ids, {self.member_a.id, self.member_b.id, self.member_c.id}
+        )
+
     def test_filter_combined_with_search(self):
         response = self.client.get(
             "/api/people/people/",

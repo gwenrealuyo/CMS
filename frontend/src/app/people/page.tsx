@@ -340,7 +340,7 @@ export default function PeoplePage() {
   // const [people, setPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<FilterCondition[]>([]);
-  const [clusterFilter, setClusterFilter] = useState("all");
+  const [clusterFilter, setClusterFilter] = useState<string[]>([]);
   const [directoryPage, setDirectoryPage] = useState(1);
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
   const [directorySortBy, setDirectorySortBy] = useState("last_name");
@@ -444,8 +444,10 @@ export default function PeoplePage() {
     ) {
       params.branch = user.branch;
     }
-    if (clusterFilter && clusterFilter !== "all") {
-      params.cluster = clusterFilter;
+    if (clusterFilter.length === 1) {
+      params.cluster = clusterFilter[0];
+    } else if (clusterFilter.length > 1) {
+      params.cluster__in = clusterFilter.join(",");
     }
     return params;
   }, [activeFilters, canChangeBranchFilter, user?.branch, clusterFilter]);
@@ -481,12 +483,12 @@ export default function PeoplePage() {
     if (!user) {
       peopleBranchFilterUserIdRef.current = undefined;
       setActiveFilters([]);
-      setClusterFilter("all");
+      setClusterFilter([]);
       return;
     }
     if (peopleBranchFilterUserIdRef.current !== user.id) {
       peopleBranchFilterUserIdRef.current = user.id;
-      setClusterFilter("all");
+      setClusterFilter([]);
       if (!canChangePeopleBranchFilter(user, isSeniorCoordinator)) {
         const f = buildDefaultBranchFilter(user, []);
         setActiveFilters(f ? [f] : []);
@@ -593,12 +595,13 @@ export default function PeoplePage() {
   ]);
 
   useEffect(() => {
-    if (!clusterFilter || clusterFilter === "all") return;
-    const stillVisible = directoryClusterOptions.some(
-      (c) => String(c.id) === String(clusterFilter),
+    if (clusterFilter.length === 0) return;
+    const allowed = new Set(
+      directoryClusterOptions.map((c) => String(c.id)),
     );
-    if (!stillVisible) {
-      setClusterFilter("all");
+    const next = clusterFilter.filter((id) => allowed.has(String(id)));
+    if (next.length !== clusterFilter.length) {
+      setClusterFilter(next);
     }
   }, [clusterFilter, directoryClusterOptions]);
   const [clusterSearchQuery, setClusterSearchQuery] = useState<string>("");
@@ -1512,7 +1515,7 @@ export default function PeoplePage() {
   );
 
   const handleClearAllFilters = () => {
-    setClusterFilter("all");
+    setClusterFilter([]);
     if (!canChangeBranchFilter && user) {
       const f = buildDefaultBranchFilter(user, branches);
       setActiveFilters(f ? [f] : []);
@@ -1525,7 +1528,7 @@ export default function PeoplePage() {
 
   const hasActiveSearchOrFilters = useMemo(() => {
     if (searchQuery.trim()) return true;
-    if (clusterFilter && clusterFilter !== "all") return true;
+    if (clusterFilter.length > 0) return true;
     const nonDefaultFilters = activeFilters.filter(
       (f) => f.id !== DEFAULT_PEOPLE_BRANCH_FILTER_ID,
     );
@@ -1824,11 +1827,10 @@ export default function PeoplePage() {
                 lockedFilterIds={lockedBranchFilterIds}
                 clusters={directoryClusterOptions}
                 clusterFilter={clusterFilter}
-                onClusterFilterChange={(value) => {
-                  setClusterFilter(value || "all");
+                onClusterFilterChange={(ids) => {
+                  setClusterFilter(ids);
                   setDirectoryPage(1);
                 }}
-                clustersLoading={clustersLoading}
               />
 
               {!canChangeBranchFilter &&
@@ -1894,7 +1896,7 @@ export default function PeoplePage() {
 
               {(searchQuery ||
                 activeFilters.length > 0 ||
-                (clusterFilter && clusterFilter !== "all")) && (
+                clusterFilter.length > 0) && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-gray-600">
                   <div className="flex flex-wrap items-center gap-2">
                     <span>

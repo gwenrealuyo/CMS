@@ -26,8 +26,8 @@ interface SelectOption {
 
 interface ScalableSelectProps {
   options: SelectOption[];
-  value: string;
-  onChange: (value: string) => void;
+  value?: string;
+  onChange?: (value: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   className?: string;
@@ -41,11 +41,15 @@ interface ScalableSelectProps {
   interactionBlocked?: boolean;
   /** Called when user commits a choice (click option, or Enter with one enabled match). */
   onConfirm?: (value: string) => void;
+  /** Keep the menu open and toggle several values instead of picking one. */
+  multiple?: boolean;
+  values?: string[];
+  onValuesChange?: (values: string[]) => void;
 }
 
 export default function ScalableSelect({
   options,
-  value,
+  value = "",
   onChange,
   placeholder = "Select an option",
   searchPlaceholder = "Search...",
@@ -58,6 +62,9 @@ export default function ScalableSelect({
   virtualizeThreshold = 100,
   interactionBlocked = false,
   onConfirm,
+  multiple = false,
+  values = [],
+  onValuesChange,
 }: ScalableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,10 +96,34 @@ export default function ScalableSelect({
   // Determine if we should use virtualization
   const shouldVirtualize = filteredOptions.length > virtualizeThreshold;
 
-  // Get selected option
-  const selectedOption = options.find(
-    (option) => String(option.value) === String(value)
+  const selectedValues = useMemo(
+    () => (multiple ? values.map(String) : []),
+    [multiple, values]
   );
+
+  const selectedOption = multiple
+    ? undefined
+    : options.find((option) => String(option.value) === String(value));
+
+  const selectedOptions = useMemo(() => {
+    if (!multiple) return [];
+    const selected = new Set(selectedValues);
+    return options.filter((option) => selected.has(String(option.value)));
+  }, [multiple, options, selectedValues]);
+
+  const triggerLabel = multiple
+    ? selectedOptions.length === 0
+      ? placeholder
+      : selectedOptions.length === 1
+        ? selectedOptions[0].label
+        : `${selectedOptions.length} selected`
+    : selectedOption
+      ? selectedOption.label
+      : placeholder;
+
+  const hasSelection = multiple
+    ? selectedValues.length > 0
+    : Boolean(value);
 
   // Handle click outside
   useEffect(() => {
@@ -150,16 +181,23 @@ export default function ScalableSelect({
     }
   }, [isOpen, showSearch]);
 
-  // Handle option selection
   const handleOptionClick = (optionValue: string) => {
-    onChange(optionValue);
+    if (multiple) {
+      const next = selectedValues.includes(optionValue)
+        ? selectedValues.filter((item) => item !== optionValue)
+        : [...selectedValues, optionValue];
+      onValuesChange?.(next);
+      return;
+    }
+    onChange?.(optionValue);
     setIsOpen(false);
     setSearchQuery("");
     onConfirm?.(optionValue);
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter" || !onConfirm) return;
+    if (e.key !== "Enter") return;
+    if (!multiple && !onConfirm) return;
 
     const enabledMatches = filteredOptions.filter((option) => !option.disabled);
     if (enabledMatches.length !== 1) return;
@@ -168,10 +206,13 @@ export default function ScalableSelect({
     handleOptionClick(enabledMatches[0].value);
   };
 
-  // Handle clear selection
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onChange("");
+    if (multiple) {
+      onValuesChange?.([]);
+    } else {
+      onChange?.("");
+    }
     setIsOpen(false);
     setSearchQuery("");
   };
@@ -186,13 +227,17 @@ export default function ScalableSelect({
   };
 
   const renderOptionRow = (option: SelectOption) => {
-    const isSelected = String(option.value) === String(value);
+    const isSelected = multiple
+      ? selectedValues.includes(String(option.value))
+      : String(option.value) === String(value);
     return (
       <button
         key={option.value}
         type="button"
         onClick={() => handleOptionClick(option.value)}
         disabled={option.disabled}
+        role={multiple ? "option" : undefined}
+        aria-selected={isSelected}
         className={`
           w-full px-3 py-1.5 text-left text-sm transition-colors
           ${
@@ -205,6 +250,26 @@ export default function ScalableSelect({
       >
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 flex-1 items-center gap-2">
+            {multiple && (
+              <span
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                  isSelected
+                    ? "border-primary bg-primary text-white"
+                    : "border-gray-300 bg-white"
+                }`}
+                aria-hidden
+              >
+                {isSelected ? (
+                  <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                ) : null}
+              </span>
+            )}
             <span className="truncate">{option.label}</span>
             {option.statusLabel && (
               <span
@@ -243,7 +308,7 @@ export default function ScalableSelect({
                 {option.branchCode}
               </span>
             )}
-            {isSelected && (
+            {isSelected && !multiple && (
               <svg
                 className="h-4 w-4 text-primary"
                 fill="currentColor"
@@ -405,13 +470,13 @@ export default function ScalableSelect({
         <div className="flex w-full min-w-0 items-center justify-between gap-2">
           <span
             className={`block min-w-0 flex-1 truncate ${
-              !selectedOption ? "text-gray-500" : "text-gray-900"
+              hasSelection ? "text-gray-900" : "text-gray-500"
             }`}
           >
-            {selectedOption ? selectedOption.label : placeholder}
+            {triggerLabel}
           </span>
           <div className="flex shrink-0 items-center space-x-1">
-            {value && !disabled && !interactionBlocked && (
+            {hasSelection && !disabled && !interactionBlocked && (
               <button
                 type="button"
                 onClick={handleClear}

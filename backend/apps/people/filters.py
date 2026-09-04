@@ -38,6 +38,7 @@ class PersonFilter(django_filters.FilterSet):
     )
 
     cluster = django_filters.NumberFilter(field_name="clusters__id")
+    cluster__in = NumberInFilter(field_name="clusters__id", lookup_expr="in")
 
     first_name = django_filters.CharFilter(field_name="first_name", lookup_expr="iexact")
     first_name__icontains = django_filters.CharFilter(

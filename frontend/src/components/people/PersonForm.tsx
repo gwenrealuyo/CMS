@@ -1925,7 +1925,7 @@ export default function PersonForm({
                     : ""}
                 </p>
                 <p className="text-xs text-gray-500 mb-4">{ESTIMATE_HELP}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
                   <div>
                     <label className="mb-2 flex flex-wrap items-baseline gap-x-2 text-sm font-medium text-gray-700">
                       <span>Date of Birth</span>

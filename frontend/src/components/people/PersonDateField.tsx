@@ -18,10 +18,20 @@ export const ESTIMATE_HELP =
 const inputClassName =
   "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed";
 
+const dayInputClassName =
+  "w-full px-1 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed";
+
 function isMdUpViewport(): boolean {
   return (
     typeof window !== "undefined" &&
     window.matchMedia("(min-width: 768px)").matches
+  );
+}
+
+function isLgUpViewport(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(min-width: 1024px)").matches
   );
 }
 
@@ -214,7 +224,7 @@ export default function PersonDateField({
 
   const handleMonthChange = (month: string) => {
     applyDraft({ ...draft, month });
-    if (month && isMdUpViewport() && !draft.dayUnknown) {
+    if (month && isLgUpViewport() && !draft.dayUnknown) {
       requestAnimationFrame(() => dayInputRef.current?.focus());
     }
   };
@@ -255,8 +265,8 @@ export default function PersonDateField({
 
   return (
     <div className={className}>
-      <div className="grid grid-cols-3 gap-2">
-        <div>
+      <div className="grid grid-cols-3 gap-2 md:gap-2.5 lg:grid-cols-[4.25rem_minmax(0,1fr)_2.5rem] lg:gap-2">
+        <div className="min-w-0">
           <label htmlFor={yearId} className="sr-only">
             Year
           </label>
@@ -276,7 +286,7 @@ export default function PersonDateField({
           />
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label htmlFor={monthSelectId} className="sr-only">
             Month
           </label>
@@ -286,7 +296,7 @@ export default function PersonDateField({
             value={draft.month}
             onChange={(e) => handleMonthChange(e.target.value)}
             disabled={disabled}
-            className={inputClassName}
+            className={`${inputClassName} lg:px-2`}
           >
             <option value="">Month</option>
             {MONTH_NAMES.map((name, index) => (
@@ -297,7 +307,7 @@ export default function PersonDateField({
           </select>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label htmlFor={daySelectId} className="sr-only">
             Day
           </label>
@@ -306,7 +316,7 @@ export default function PersonDateField({
             value={draft.dayUnknown ? "1" : draft.day === "0" ? "" : draft.day}
             onChange={(e) => applyDraft({ ...draft, day: e.target.value })}
             disabled={disabled || draft.dayUnknown}
-            className={`${inputClassName} md:hidden`}
+            className={`${inputClassName} lg:hidden`}
           >
             <option value="">Day</option>
             {dayOptions.map((d) => (
@@ -330,7 +340,7 @@ export default function PersonDateField({
             onBlur={handleDayInputBlur}
             disabled={disabled || draft.dayUnknown}
             maxLength={2}
-            className={`${inputClassName} hidden md:block`}
+            className={`${dayInputClassName} hidden lg:block`}
           />
         </div>
       </div>

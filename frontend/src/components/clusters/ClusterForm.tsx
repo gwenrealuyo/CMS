@@ -20,6 +20,7 @@ import {
 } from "@/src/lib/clusterMeetingSchedule";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import {
   describeDuplicateCluster,
@@ -119,7 +120,11 @@ export default function ClusterForm({
   );
   const { families: hookedFamilies, loading: familiesLoadingHook } =
     useFamilies(familiesProp === undefined);
-  const people = peopleProp ?? hookedPeople;
+  const catalogPeople = peopleProp ?? hookedPeople;
+  const people = useMemo(
+    () => catalogPeople.filter(isSelectablePerson),
+    [catalogPeople],
+  );
   const families = familiesProp ?? hookedFamilies;
   const peopleLoading = peopleProp !== undefined ? peopleProp.length === 0 : peopleLoadingHook;
   const familiesLoading =
@@ -431,6 +436,9 @@ export default function ClusterForm({
   }, [people, memberSearch]);
 
   const addMember = (member: Person | PersonUI) => {
+    if (!isSelectablePerson(member)) {
+      return;
+    }
     const memberIdStr = member.id.toString();
     if (!memberIds.includes(memberIdStr)) {
       setMemberIds([...memberIds, memberIdStr]);

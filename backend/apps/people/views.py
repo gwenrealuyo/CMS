@@ -108,12 +108,13 @@ class PersonViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
 
-        # ADMIN users: Can see all people (including other ADMINs)
+        # ADMIN role accounts are system users and never appear in people
+        # list/search, including when the requester is ADMIN.
+        queryset = queryset.exclude(role="ADMIN")
+
+        # ADMIN users: Can see all non-admin people
         if user.role == "ADMIN":
             return queryset
-
-        # Non-ADMIN users: Exclude ADMIN users (they're invisible to non-admins)
-        queryset = queryset.exclude(role="ADMIN")
 
         # Apply branch filtering helper function
         def apply_branch_filter(qs):

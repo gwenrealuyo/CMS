@@ -226,3 +226,42 @@ class PersonListPaginationAndFilterTests(TestCase):
         self.assertIn("journeys", response.data)
         self.assertIsInstance(response.data["journeys"], list)
         self.assertIn("module_coordinator_assignments", response.data)
+
+    def test_list_excludes_admin_role_even_for_admin_requester(self):
+        other_admin = Person.objects.create_user(
+            username="other_admin",
+            email="other_admin@test.com",
+            password="testpass123",
+            first_name="Other",
+            last_name="Admin",
+            role="ADMIN",
+            branch=self.branch_a,
+            status="ACTIVE",
+        )
+        response = self.client.get(
+            "/api/people/people/",
+            {"search": "admin", "page_size": 50},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {r["id"] for r in self._results(response)}
+        self.assertNotIn(self.admin.id, ids)
+        self.assertNotIn(other_admin.id, ids)
+
+        list_response = self.client.get(
+            "/api/people/people/", {"page_size": 50}
+        )
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        list_ids = {r["id"] for r in self._results(list_response)}
+        self.assertNotIn(self.admin.id, list_ids)
+        self.assertNotIn(other_admin.id, list_ids)
+
+        role_response = self.client.get(
+            "/api/people/people/", {"role": "ADMIN", "page_size": 50}
+        )
+        self.assertEqual(role_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._results(role_response), [])
+
+    def test_admin_can_still_retrieve_own_profile(self):
+        response = self.client.get(f"/api/people/people/{self.admin.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.admin.id)

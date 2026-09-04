@@ -3,6 +3,7 @@ import { Family, PersonUI } from "@/src/types/person";
 import Button from "../ui/Button";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { formatPersonName } from "@/src/lib/name";
+import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -62,16 +63,21 @@ export default function FamilyForm({
     setShowMemberDropdown(false);
   }, [getInitialFormData]);
 
+  const selectableMembers = useMemo(
+    () => availableMembers.filter(isSelectablePerson),
+    [availableMembers]
+  );
+
   const filteredMembers = useMemo(() => {
-    if (!memberSearch.trim()) return availableMembers;
+    if (!memberSearch.trim()) return selectableMembers;
     const searchLower = memberSearch.toLowerCase();
-    return availableMembers.filter(
+    return selectableMembers.filter(
       (member) =>
         formatPersonName(member).toLowerCase().includes(searchLower) ||
         member.role.toLowerCase().includes(searchLower) ||
         member.status.toLowerCase().includes(searchLower)
     );
-  }, [availableMembers, memberSearch]);
+  }, [selectableMembers, memberSearch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +109,9 @@ export default function FamilyForm({
   };
 
   const addMember = (member: PersonUI) => {
+    if (!isSelectablePerson(member)) {
+      return;
+    }
     if (!formData.members.includes(member.id)) {
       setFormData({
         ...formData,
@@ -142,7 +151,7 @@ export default function FamilyForm({
 
 
   const getSelectedMembers = () => {
-    return availableMembers.filter((member) =>
+    return selectableMembers.filter((member) =>
       formData.members.includes(member.id)
     );
   };

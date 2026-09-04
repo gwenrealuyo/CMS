@@ -61,7 +61,7 @@ The dashboard shows key numbers for your church — active members, visitors, ba
 
 Use **People** in the sidebar to browse the church directory.
 
-- **Search and filter** by name (including nickname / maiden name), branch, role, or status (members: Active, Semi-active, Inactive, Dormant, Fall Away, Deceased; visitors: Ongoing, No Response, Deceased).
+- **Search and filter** by name (including nickname / maiden name), cluster, branch, role, or status (members: Active, Semi-active, Inactive, Dormant, Fall Away, Deceased; visitors: Ongoing, No Response, Deceased). Use the cluster dropdown beside **Filter** to show people who belong to a cluster.
 - **Open a profile** to see contact details, role, branch, family links, inviter, and the **Journey** timeline (baptism, cluster attendance, lessons, events, notes, and more).
 - **Table / Cards** toggle changes how the list is displayed.
 

@@ -12,6 +12,7 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import FamilyView from "@/src/components/families/FamilyView";
 import FilterBar, {
   FilterCondition,
+  flattenBranchFilterIds,
 } from "@/src/components/people/FilterBar";
 import Pagination from "@/src/components/ui/Pagination";
 import DataTable from "@/src/components/people/DataTable";
@@ -339,6 +340,7 @@ export default function PeoplePage() {
   // const [people, setPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<FilterCondition[]>([]);
+  const [clusterFilter, setClusterFilter] = useState("all");
   const [directoryPage, setDirectoryPage] = useState(1);
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
   const [directorySortBy, setDirectorySortBy] = useState("last_name");
@@ -442,8 +444,11 @@ export default function PeoplePage() {
     ) {
       params.branch = user.branch;
     }
+    if (clusterFilter && clusterFilter !== "all") {
+      params.cluster = clusterFilter;
+    }
     return params;
-  }, [activeFilters, canChangeBranchFilter, user?.branch]);
+  }, [activeFilters, canChangeBranchFilter, user?.branch, clusterFilter]);
 
   const directoryOrdering = useMemo(
     () => sortFieldToOrdering(directorySortBy, directorySortDir),
@@ -476,10 +481,12 @@ export default function PeoplePage() {
     if (!user) {
       peopleBranchFilterUserIdRef.current = undefined;
       setActiveFilters([]);
+      setClusterFilter("all");
       return;
     }
     if (peopleBranchFilterUserIdRef.current !== user.id) {
       peopleBranchFilterUserIdRef.current = user.id;
+      setClusterFilter("all");
       if (!canChangePeopleBranchFilter(user, isSeniorCoordinator)) {
         const f = buildDefaultBranchFilter(user, []);
         setActiveFilters(f ? [f] : []);
@@ -552,6 +559,48 @@ export default function PeoplePage() {
     null,
   );
   const [clustersLoading, setClustersLoading] = useState<boolean>(false);
+  const directoryClusterOptions = useMemo(() => {
+    let list = allClusters.filter((c) => c.is_active !== false);
+    const branchIsIds = flattenBranchFilterIds(
+      activeFilters.filter((f) => f.field === "branch" && f.operator === "is"),
+    );
+    const branchIsNotIds = flattenBranchFilterIds(
+      activeFilters.filter(
+        (f) => f.field === "branch" && f.operator === "is_not",
+      ),
+    );
+    if (!canChangeBranchFilter && user?.branch != null) {
+      list = list.filter(
+        (c) => Number(c.branch) === Number(user.branch),
+      );
+    } else if (branchIsIds.length > 0) {
+      const allowed = new Set(branchIsIds);
+      list = list.filter(
+        (c) => c.branch != null && allowed.has(String(c.branch)),
+      );
+    } else if (branchIsNotIds.length > 0) {
+      const excluded = new Set(branchIsNotIds);
+      list = list.filter(
+        (c) => c.branch == null || !excluded.has(String(c.branch)),
+      );
+    }
+    return list;
+  }, [
+    allClusters,
+    activeFilters,
+    canChangeBranchFilter,
+    user?.branch,
+  ]);
+
+  useEffect(() => {
+    if (!clusterFilter || clusterFilter === "all") return;
+    const stillVisible = directoryClusterOptions.some(
+      (c) => String(c.id) === String(clusterFilter),
+    );
+    if (!stillVisible) {
+      setClusterFilter("all");
+    }
+  }, [clusterFilter, directoryClusterOptions]);
   const [clusterSearchQuery, setClusterSearchQuery] = useState<string>("");
   const [clusterActiveFilters, setClusterActiveFilters] = useState<
     FilterCondition[]
@@ -671,9 +720,10 @@ export default function PeoplePage() {
     }
   };
 
-  // Ensure clusters are available for person create/edit membership fields
+  // Ensure clusters are available for the directory picker and person membership fields
   useEffect(() => {
     const needsClusters =
+      activeTab === "people" ||
       (isModalOpen &&
         modalType === "person" &&
         (viewEditPerson == null || viewMode === "edit")) ||
@@ -682,6 +732,7 @@ export default function PeoplePage() {
       void fetchClusters();
     }
   }, [
+    activeTab,
     isModalOpen,
     modalType,
     viewEditPerson,
@@ -1461,6 +1512,7 @@ export default function PeoplePage() {
   );
 
   const handleClearAllFilters = () => {
+    setClusterFilter("all");
     if (!canChangeBranchFilter && user) {
       const f = buildDefaultBranchFilter(user, branches);
       setActiveFilters(f ? [f] : []);
@@ -1473,11 +1525,12 @@ export default function PeoplePage() {
 
   const hasActiveSearchOrFilters = useMemo(() => {
     if (searchQuery.trim()) return true;
+    if (clusterFilter && clusterFilter !== "all") return true;
     const nonDefaultFilters = activeFilters.filter(
       (f) => f.id !== DEFAULT_PEOPLE_BRANCH_FILTER_ID,
     );
     return nonDefaultFilters.length > 0;
-  }, [searchQuery, activeFilters]);
+  }, [searchQuery, activeFilters, clusterFilter]);
 
   const personPanelTitle =
     personPanelMode === "create"
@@ -1769,6 +1822,13 @@ export default function PeoplePage() {
                 branches={visibleBranches}
                 canChangeBranchFilter={canChangeBranchFilter}
                 lockedFilterIds={lockedBranchFilterIds}
+                clusters={directoryClusterOptions}
+                clusterFilter={clusterFilter}
+                onClusterFilterChange={(value) => {
+                  setClusterFilter(value || "all");
+                  setDirectoryPage(1);
+                }}
+                clustersLoading={clustersLoading}
               />
 
               {!canChangeBranchFilter &&
@@ -1832,7 +1892,9 @@ export default function PeoplePage() {
                 </div>
               )}
 
-              {(searchQuery || activeFilters.length > 0) && (
+              {(searchQuery ||
+                activeFilters.length > 0 ||
+                (clusterFilter && clusterFilter !== "all")) && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-gray-600">
                   <div className="flex flex-wrap items-center gap-2">
                     <span>

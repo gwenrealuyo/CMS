@@ -115,15 +115,16 @@ export default function GroupProspectsSection({
               {
                 header: "Actions",
                 accessor: "id" as keyof Prospect,
-                render: (_value, row) => (
-                  <Button
-                    variant="secondary"
-                    onClick={() => onUpdateProgress(row)}
-                    className="!text-amber-600 bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 text-xs py-1 px-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
-                  >
-                    Update
-                  </Button>
-                ),
+                render: (_value, row) =>
+                  row.pipeline_stage === "INVITED" && !row.is_dropped_off ? (
+                    <Button
+                      variant="secondary"
+                      onClick={() => onUpdateProgress(row)}
+                      className="!text-amber-600 bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 text-xs py-1 px-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
+                    >
+                      Update
+                    </Button>
+                  ) : null,
               },
             ]}
             data={displayedProspects}

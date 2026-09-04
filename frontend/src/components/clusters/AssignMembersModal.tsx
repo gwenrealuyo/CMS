@@ -337,14 +337,14 @@ export default function AssignMembersModal({
                     <button
                       key={person.id}
                       onClick={() => addMember(person)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center space-x-3"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-start gap-3"
                     >
                       <PersonAvatar person={person} size="sm" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">
+                        <p className="font-medium text-gray-900 break-words">
                           {formatPersonName(person)}
                         </p>
-                        <p className="text-xs text-gray-600 truncate">
+                        <p className="text-xs text-gray-600 break-words">
                           {[
                             person.branch_code ||
                               (person.branch == null
@@ -355,22 +355,22 @@ export default function AssignMembersModal({
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                            person.status
-                          )}`}
-                        >
-                          {person.status}
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
-                            person.role
-                          )}`}
-                        >
-                          {person.role}
-                        </span>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                              person.status
+                            )}`}
+                          >
+                            {person.status}
+                          </span>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
+                              person.role
+                            )}`}
+                          >
+                            {person.role}
+                          </span>
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -406,37 +406,39 @@ export default function AssignMembersModal({
                 {selectedMemberPeople.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-lg"
+                    className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg"
                   >
                     <PersonAvatar person={member} size="md" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">
+                      <p className="font-medium text-gray-900 break-words">
                         {formatPersonName(member)}
                       </p>
-                      <p className="text-sm text-gray-600 truncate">
-                        {member.email}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          member.status
-                        )}`}
-                      >
-                        {member.status}
-                      </span>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
-                          member.role
-                        )}`}
-                      >
-                        {member.role}
-                      </span>
+                      {(member.email || member.username) && (
+                        <p className="text-sm text-gray-600 break-all">
+                          {member.email || member.username}
+                        </p>
+                      )}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                            member.status
+                          )}`}
+                        >
+                          {member.status}
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPersonRoleColor(
+                            member.role
+                          )}`}
+                        >
+                          {member.role}
+                        </span>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => requestRemoveMember(member)}
-                      className="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50 transition-colors"
+                      className="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50 transition-colors shrink-0 min-w-[32px] min-h-[32px] flex items-center justify-center"
                       aria-label={`Remove ${formatPersonName(member)}`}
                     >
                       <svg

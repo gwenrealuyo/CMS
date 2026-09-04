@@ -823,6 +823,11 @@ export default function PersonProfile({
                         value={formatDisplayDate(person.date_of_birth)}
                       />
                       <ProfileFieldRow
+                        label="Inviter"
+                        value={person.inviter_display_name}
+                        fallback="No inviter"
+                      />
+                      <ProfileFieldRow
                         label="First attended"
                         value={formatDisplayDate(person.date_first_attended)}
                       />

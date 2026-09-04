@@ -349,9 +349,13 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Payload: `{ "cluster_id": 1 }`
   - `POST /{id}/update_progress/` – Update visitor's pipeline stage and last activity
     - Payload: `{ "pipeline_stage": "ATTENDED", "last_activity_date": "2024-03-15" }`
-    - UI restricts stages to INVITED and ATTENDED (**Prospect** `pipeline_stage`, not Person status)
+    - UI no longer uses this for the Prospects **Update** button (that path is attend-only via `mark_attended`)
     - When set to ATTENDED, the system creates/links a Person, sets `Person.status=ONGOING`, and updates `date_first_attended`
   - `POST /{id}/mark_attended/` – Mark prospect as attended (auto-creates/links Person, updates monthly tracking); shared service `mark_prospect_attended`
+    - Optional payload: `{ "last_activity_date": "2024-03-15", "first_activity_attended": "SUNDAY_SERVICE" }`
+    - `first_activity_attended` is an EventType code stored on the linked Person
+    - Codes `CLUSTERING`, `BIBLE_STUDY`, and `BS/CLUSTER_EVANGELISM` are rejected (400); record those on a cluster or evangelism weekly report instead
+    - Weekly report promotion may still call this without `first_activity_attended`
   - `POST /{id}/create_person/` – Manual action to create Person record from prospect
     - Payload: `{ "first_name": "John", "last_name": "Doe", ... }` (similar to cluster report attendance form)
   - `POST /{id}/mark_dropped_off/` – Manually mark visitor as dropped off
@@ -535,7 +539,7 @@ The Evangelism hub lives at `frontend/src/app/evangelism/page.tsx` and provides 
 The main page includes tabs for different views:
 
 - **Groups Tab**: Manage evangelism groups (see [Groups tab listing](#groups-tab-listing) below)
-- **Prospects Tab**: Browse invited visitors (senior cluster/evangelism coordinators, pastors, admins). Default filter is Invited / not dropped off. Filters: branch, cluster, stage, source (**Cluster** = recorded on a cluster weekly report or endorsed; **Evangelism** = linked to an evangelism group; not copied from the inviter’s cluster). Rows show pipeline chips and a People profile link after attendance. Global search uses `?tab=prospects&open={id}`.
+- **Prospects Tab**: Browse invited visitors (senior cluster/evangelism coordinators, pastors, admins). Default filter is Invited / not dropped off. Filters: branch, cluster, stage, source (**Cluster** = recorded on a cluster weekly report or endorsed; **Evangelism** = linked to an evangelism group; not copied from the inviter’s cluster). **Update** on Invited rows opens a **Mark attended** modal (activity date + first activity). Clustering / Bible Study / BS-Cluster Evangelism must be recorded on the matching weekly report instead. Rows show pipeline chips and a People profile link after attendance. Global search uses `?tab=prospects&open={id}`.
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
 - **Tally Tab**: Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC) with year filter; click a count to open the drill-down modal
 - **Reports Tab**: Weekly unified tally (evangelism + cluster weekly reports)
@@ -607,7 +611,7 @@ The Groups tab toolbar mirrors the clusters page layout:
 - **`GroupProspectsSection`**: Section displaying and managing prospects (Visitors)
   - Table of visitors with pipeline stage, last activity, cluster
   - Add visitor button
-  - Update progress button (INVITED/ATTENDED only)
+  - Update (INVITED only) opens Mark attended: activity date + first activity; Clustering / evangelism-group activities must go through the weekly report
 - **`GroupConversionsSection`**: Section displaying conversions
   - Table of conversions with dates, converter, verification status
 

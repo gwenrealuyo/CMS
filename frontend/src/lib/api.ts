@@ -1608,7 +1608,12 @@ export const evangelismApi = {
     api.post<Prospect>(`/evangelism/prospects/${id}/update_progress/`, payload),
   markAttended: (
     id: number | string,
-    payload?: { first_name?: string; last_name?: string; last_activity_date?: string }
+    payload?: {
+      first_name?: string;
+      last_name?: string;
+      last_activity_date?: string;
+      first_activity_attended?: string;
+    }
   ) =>
     api.post<Prospect>(
       `/evangelism/prospects/${id}/mark_attended/`,

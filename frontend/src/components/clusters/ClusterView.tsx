@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { Cluster } from "@/src/types/cluster";
 import { Person, Family } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
@@ -28,6 +34,33 @@ type SortField =
   | "last_name"
   | "date_first_attended"
   | "water_baptism_date";
+
+function getSortDropdownStyle(
+  button: HTMLButtonElement | null,
+  align: "left" | "right",
+): CSSProperties {
+  const margin = 16;
+  const menuWidth = 224;
+  if (!button) {
+    return align === "left"
+      ? { top: 0, left: margin }
+      : { top: 0, right: margin };
+  }
+  const rect = button.getBoundingClientRect();
+  const top = rect.bottom + 4;
+  if (align === "left") {
+    const maxWidth = Math.min(menuWidth, window.innerWidth - margin * 2);
+    const left = Math.min(
+      Math.max(rect.left, margin),
+      Math.max(margin, window.innerWidth - margin - maxWidth),
+    );
+    return { top, left };
+  }
+  return {
+    top,
+    right: Math.max(margin, window.innerWidth - rect.right),
+  };
+}
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -234,6 +267,7 @@ export default function ClusterView({
 
   const formatFullName = (person: Person) => formatPersonName(person);
   const isPanelMode = !showTopHeader;
+  const stackMemberActions = canManageCluster && showSubmitReportButton;
 
   const sortedDisplayMembers = useMemo(() => {
     const getAttendanceDate = (person: Person) => {
@@ -669,19 +703,33 @@ export default function ClusterView({
 
           {/* Members & visitors */}
           {(sortedCoreMembers.length > 0 || sortedVisitors.length > 0) && (
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                <h3 className="text-base md:text-lg font-semibold text-gray-900">
+            <div className="w-full min-w-0">
+              <div
+                className={
+                  stackMemberActions
+                    ? "mb-4 flex w-full flex-col gap-3"
+                    : "mb-4 flex items-center justify-between gap-3"
+                }
+              >
+                <h3 className="text-base md:text-lg font-semibold text-gray-900 shrink-0">
                   {sortedCoreMembers.length > 0
                     ? `Members (${memberCount})`
                     : `Visitors (${visitorCount})`}
                 </h3>
                 <div
-                  className={`flex ${
-                    isPanelMode ? "flex-row" : "flex-col sm:flex-row"
-                  } gap-2 w-full sm:w-auto`}
+                  className={
+                    stackMemberActions
+                      ? "grid w-full grid-cols-3 items-stretch gap-1.5 sm:gap-2"
+                      : "flex shrink-0 flex-nowrap items-center gap-2"
+                  }
                 >
-                  <div className="relative">
+                  <div
+                    className={
+                      stackMemberActions
+                        ? "relative min-w-0"
+                        : "relative shrink-0"
+                    }
+                  >
                     <button
                       ref={sortButtonRef}
                       type="button"
@@ -689,10 +737,14 @@ export default function ClusterView({
                         e.stopPropagation();
                         setShowSortDropdown(!showSortDropdown);
                       }}
-                      className="inline-flex items-center justify-center px-3 py-2.5 md:py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0 w-full sm:w-auto"
+                      className={`inline-flex h-10 items-center justify-center py-2.5 md:py-2 border border-gray-300 shadow-sm leading-4 font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-colors min-h-[44px] md:min-h-0 whitespace-nowrap ${
+                        stackMemberActions
+                          ? "w-full min-w-0 px-1.5 sm:px-3 text-xs sm:text-sm"
+                          : "w-auto shrink-0 px-3 text-sm"
+                      }`}
                     >
                       <svg
-                        className="w-4 h-4 mr-1.5"
+                        className="w-4 h-4 mr-1.5 shrink-0"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -711,22 +763,10 @@ export default function ClusterView({
                       <div
                         ref={sortDropdownRef}
                         className="fixed w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 max-w-[calc(100vw-2rem)]"
-                        style={{
-                          top: sortButtonRef.current
-                            ? `${
-                                sortButtonRef.current.getBoundingClientRect()
-                                  .bottom + 4
-                              }px`
-                            : "0",
-                          right: sortButtonRef.current
-                            ? Math.max(
-                                16,
-                                window.innerWidth -
-                                  sortButtonRef.current.getBoundingClientRect()
-                                    .right,
-                              )
-                            : "16",
-                        }}
+                        style={getSortDropdownStyle(
+                          sortButtonRef.current,
+                          stackMemberActions ? "left" : "right",
+                        )}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="py-1">
@@ -806,10 +846,14 @@ export default function ClusterView({
                     <Button
                       onClick={onAssignMembers}
                       variant="secondary"
-                      className="!text-white !py-2.5 md:!py-2 !px-3 text-sm leading-4 !font-medium bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 flex items-center justify-center space-x-2 !min-h-[44px] md:!min-h-0 !rounded-lg w-full sm:w-auto"
+                      className={`!text-white h-10 !py-2.5 md:!py-2 leading-4 !font-medium bg-green-600 border border-green-600 hover:bg-green-700 hover:border-green-700 inline-flex items-center justify-center !min-h-[44px] md:!min-h-0 !rounded-lg whitespace-nowrap ${
+                        stackMemberActions
+                          ? "!w-full min-w-0 !px-1.5 sm:!px-3 text-xs sm:text-sm gap-1 sm:gap-2"
+                          : "w-auto shrink-0 !px-3 text-sm gap-2"
+                      }`}
                     >
                       <svg
-                        className="w-4 h-4"
+                        className="w-4 h-4 shrink-0"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -828,10 +872,14 @@ export default function ClusterView({
                     <Button
                       onClick={onSubmitReport}
                       variant="secondary"
-                      className="!text-primary !py-2.5 md:!py-2 !px-3 text-sm leading-4 !font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 !min-h-[44px] md:!min-h-0 !rounded-lg w-full sm:w-auto"
+                      className={`!text-primary h-10 !py-2.5 md:!py-2 leading-4 !font-medium bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 inline-flex items-center justify-center !min-h-[44px] md:!min-h-0 !rounded-lg whitespace-nowrap ${
+                        stackMemberActions
+                          ? "!w-full min-w-0 !px-1.5 sm:!px-3 text-xs sm:text-sm gap-1 sm:gap-2"
+                          : "w-auto shrink-0 !px-3 text-sm gap-2"
+                      }`}
                     >
                       <svg
-                        className="w-4 h-4"
+                        className="w-4 h-4 shrink-0"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"

@@ -245,3 +245,71 @@ class ProspectCreateAttributionTests(TestCase):
         prospect = Prospect.objects.get(pk=response.data["id"])
         self.assertIsNone(prospect.inviter_cluster_id)
         self.assertIsNone(prospect.evangelism_group_id)
+
+
+class ProspectMarkAttendedActivityTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.branch = Branch.objects.create(name="Branch A", code="BRA")
+        self.admin = Person.objects.create_user(
+            username="admin_mark_attended",
+            password="pw",
+            role="ADMIN",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.inviter = Person.objects.create_user(
+            username="inviter_mark_attended",
+            password="pw",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=self.branch,
+        )
+        self.prospect = Prospect.objects.create(
+            first_name="Noe",
+            last_name="Visitor",
+            invited_by=self.inviter,
+            pipeline_stage=Prospect.PipelineStage.INVITED,
+            date_first_invited=date(2026, 1, 10),
+            is_dropped_off=False,
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_mark_attended_sets_first_activity(self):
+        response = self.client.post(
+            f"/api/evangelism/prospects/{self.prospect.id}/mark_attended/",
+            {
+                "last_activity_date": "2026-02-01",
+                "first_activity_attended": "SUNDAY_SERVICE",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.prospect.refresh_from_db()
+        self.assertEqual(
+            self.prospect.pipeline_stage, Prospect.PipelineStage.ATTENDED
+        )
+        self.assertIsNotNone(self.prospect.person_id)
+        self.assertEqual(
+            self.prospect.person.first_activity_attended_id, "SUNDAY_SERVICE"
+        )
+        self.assertEqual(
+            str(self.prospect.person.date_first_attended), "2026-02-01"
+        )
+
+    def test_mark_attended_rejects_clustering_activity(self):
+        response = self.client.post(
+            f"/api/evangelism/prospects/{self.prospect.id}/mark_attended/",
+            {
+                "last_activity_date": "2026-02-01",
+                "first_activity_attended": "CLUSTERING",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("cluster weekly report", response.data.get("detail", ""))
+        self.prospect.refresh_from_db()
+        self.assertEqual(
+            self.prospect.pipeline_stage, Prospect.PipelineStage.INVITED
+        )
+        self.assertIsNone(self.prospect.person_id)

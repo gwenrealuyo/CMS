@@ -20,6 +20,7 @@ from apps.people.vital_dates import (
 from apps.people.name_formatting import (
     PERSON_NAME_FIELDS,
     apply_title_case_name_fields,
+    format_person_display_name,
 )
 from apps.people.photo_validators import validate_person_photo
 
@@ -354,6 +355,7 @@ class PersonSerializer(serializers.ModelSerializer):
     inviter = serializers.PrimaryKeyRelatedField(
         queryset=Person.objects.all(), allow_null=True, required=False
     )
+    inviter_display_name = serializers.SerializerMethodField()
     branch = serializers.PrimaryKeyRelatedField(
         queryset=Branch.objects.filter(is_active=True),
         allow_null=True,
@@ -456,6 +458,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "has_lesson_enrollment",
             "lesson_teacher_display_name",
             "inviter",
+            "inviter_display_name",
             "branch",
             "branch_code",
             "member_id",
@@ -1079,6 +1082,12 @@ class PersonSerializer(serializers.ModelSerializer):
         if not enrollment:
             return None
         return enrollment.teacher_display_name()
+
+    def get_inviter_display_name(self, obj: Person):
+        inviter = getattr(obj, "inviter", None)
+        if not inviter:
+            return None
+        return format_person_display_name(inviter) or None
 
     def get_can_view_journey_timeline(self, obj: Person):
         """

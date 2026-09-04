@@ -180,15 +180,16 @@ export default function ProspectsTable({
                 header: "Actions",
                 desktopHeader: "",
                 accessor: "updated_at" as keyof Prospect,
-                render: (_value: unknown, row: Prospect) => (
-                  <Button
-                    variant="primary"
-                    className="min-h-[40px] px-3 text-xs"
-                    onClick={() => onUpdateProgress(row)}
-                  >
-                    Update
-                  </Button>
-                ),
+                render: (_value: unknown, row: Prospect) =>
+                  row.pipeline_stage === "INVITED" && !row.is_dropped_off ? (
+                    <Button
+                      variant="primary"
+                      className="min-h-[40px] px-3 text-xs"
+                      onClick={() => onUpdateProgress(row)}
+                    >
+                      Update
+                    </Button>
+                  ) : null,
               },
             ]
           : []),

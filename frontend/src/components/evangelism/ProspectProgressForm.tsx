@@ -1,19 +1,18 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import { evangelismApi } from "@/src/lib/api";
+import { getLocalTodayDateString } from "@/src/lib/date";
+import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
+import {
+  isClusterReportFirstActivity,
+  isEvangelismReportFirstActivity,
+  isReportBackedFirstActivity,
+} from "@/src/lib/prospectAttendActivity";
 import { Prospect } from "@/src/types/evangelism";
-
-const PIPELINE_STAGES = [
-  { value: "INVITED", label: "Invited" },
-  { value: "ATTENDED", label: "Attended" },
-  { value: "TAKEN_NCC", label: "NCC" },
-  { value: "BAPTIZED", label: "Baptized" },
-  { value: "RECEIVED_HG", label: "Received HG" },
-  { value: "REACHED", label: "Reached" },
-];
 
 export default function ProspectProgressForm({
   prospect,
@@ -24,47 +23,59 @@ export default function ProspectProgressForm({
   onSuccess: () => void;
   onCancel: () => void;
 }) {
-  const [selectedStage, setSelectedStage] = useState<string>(
-    prospect.pipeline_stage === "INVITED" ? "ATTENDED" : prospect.pipeline_stage,
-  );
+  const todayDateMax = getLocalTodayDateString();
+  const { eventTypes, loading: eventTypesLoading } = useEventTypeOptions();
+  const [activityCode, setActivityCode] = useState("");
   const [activityDate, setActivityDate] = useState<string>(
-    prospect.last_activity_date || new Date().toISOString().split("T")[0],
+    prospect.last_activity_date || todayDateMax,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const clusterId =
+    prospect.inviter_cluster?.id ?? prospect.endorsed_cluster?.id ?? null;
+  const clusterHref = clusterId
+    ? `/clusters?open=${clusterId}`
+    : "/clusters";
+  const groupId = prospect.evangelism_group?.id;
+  const evangelismHref = groupId
+    ? `/evangelism?group=${groupId}`
+    : "/evangelism";
+
+  const blocksSubmit = isReportBackedFirstActivity(activityCode);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedStage) {
-      setError("Please select a pipeline stage.");
+    if (!activityCode) {
+      setError("Please select the activity they attended.");
+      return;
+    }
+    if (blocksSubmit) {
+      return;
+    }
+    if (activityDate > todayDateMax) {
+      setError("Activity date cannot be in the future.");
       return;
     }
     try {
       setLoading(true);
       setError(null);
-      if (selectedStage === "ATTENDED") {
-        await evangelismApi.markAttended(prospect.id, {
-          last_activity_date: activityDate,
-        });
-      } else {
-        await evangelismApi.updateProgress(prospect.id, {
-          pipeline_stage: selectedStage,
-          last_activity_date: activityDate,
-        });
-      }
+      await evangelismApi.markAttended(prospect.id, {
+        last_activity_date: activityDate,
+        first_activity_attended: activityCode,
+      });
       onSuccess();
     } catch (err: unknown) {
-      const detail =
-        typeof err === "object" &&
-        err !== null &&
-        "response" in err
-          ? (err as { response?: { data?: { detail?: unknown } } }).response
-              ?.data?.detail
+      const payload =
+        typeof err === "object" && err !== null && "response" in err
+          ? (err as { response?: { data?: { detail?: unknown; error?: unknown } } })
+              .response?.data
           : undefined;
+      const detail = payload?.detail ?? payload?.error;
       setError(
         typeof detail === "string" && detail.trim()
           ? detail
-          : "Failed to update progress",
+          : "Failed to mark attended",
       );
     } finally {
       setLoading(false);
@@ -76,29 +87,66 @@ export default function ProspectProgressForm({
       {error && <ErrorMessage message={error} />}
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">
-          Pipeline Stage <span className="text-red-500">*</span>
+          Activity attended <span className="text-red-500">*</span>
         </label>
         <select
-          value={selectedStage}
-          onChange={(e) => setSelectedStage(e.target.value)}
+          aria-label="Activity attended"
+          value={activityCode}
+          onChange={(e) => {
+            setActivityCode(e.target.value);
+            setError(null);
+          }}
           className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
-          disabled={loading}
+          disabled={loading || eventTypesLoading}
+          required
         >
-          {PIPELINE_STAGES.map((stage) => (
-            <option key={stage.value} value={stage.value}>
-              {stage.label}
+          <option value="">
+            {eventTypesLoading ? "Loading activities…" : "Select activity"}
+          </option>
+          {eventTypes.map((type) => (
+            <option key={type.code} value={type.code}>
+              {type.label}
             </option>
           ))}
         </select>
       </div>
+      {isClusterReportFirstActivity(activityCode) && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          role="status"
+        >
+          Record this attendance on a{" "}
+          <Link href={clusterHref} className="font-medium text-primary underline">
+            cluster weekly report
+          </Link>{" "}
+          instead of marking them attended here.
+        </div>
+      )}
+      {isEvangelismReportFirstActivity(activityCode) && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          role="status"
+        >
+          Record this attendance on an{" "}
+          <Link
+            href={evangelismHref}
+            className="font-medium text-primary underline"
+          >
+            evangelism weekly report
+          </Link>{" "}
+          instead of marking them attended here.
+        </div>
+      )}
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">
-          Activity Date <span className="text-red-500">*</span>
+          Activity date <span className="text-red-500">*</span>
         </label>
         <input
           type="date"
+          aria-label="Activity date"
           value={activityDate}
           onChange={(e) => setActivityDate(e.target.value)}
+          max={todayDateMax}
           className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
           disabled={loading}
           required
@@ -113,8 +161,12 @@ export default function ProspectProgressForm({
         >
           Cancel
         </Button>
-        <Button className="min-h-[44px] flex-1" disabled={loading} type="submit">
-          {loading ? "Updating..." : "Update Progress"}
+        <Button
+          className="min-h-[44px] flex-1"
+          disabled={loading || blocksSubmit || !activityCode}
+          type="submit"
+        >
+          {loading ? "Saving…" : "Mark attended"}
         </Button>
       </div>
     </form>

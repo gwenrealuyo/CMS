@@ -2,19 +2,22 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import Modal from "@/src/components/ui/Modal";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import ProspectsTable from "@/src/components/evangelism/ProspectsTable";
-import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
+import { useIsMdUp } from "@/src/lib/listViewMode";
 import ProspectProgressForm from "@/src/components/evangelism/ProspectProgressForm";
 import { useProspects } from "@/src/hooks/useEvangelism";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
-import { canBrowseProspects, canWriteEvangelism } from "@/src/lib/evangelism/evangelismPermissions";
+import {
+  canBrowseProspects,
+  canWriteEvangelism,
+} from "@/src/lib/evangelism/evangelismPermissions";
 import { Prospect } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
-import { TOOLBAR_BRANCH_SELECT_CLASS } from "@/src/lib/toolbarStyles";
 
 export default function ClusterProspectsSection({
   clusterId,
@@ -29,25 +32,20 @@ export default function ClusterProspectsSection({
   const { moduleEnabled } = useModuleSettings();
   const canWrite = canWriteEvangelism({ user, moduleEnabled });
   const showEvangelismLink = canBrowseProspects({ user, isSeniorCoordinator });
-  const [stageFilter, setStageFilter] = useState<"INVITED" | "all_active">(
-    "INVITED",
-  );
   const [progressProspect, setProgressProspect] = useState<Prospect | null>(
     null,
   );
-  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
-    getInitialListViewMode("cards"),
-  );
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const isMdUp = useIsMdUp();
   const effectiveViewMode: "table" | "cards" = isMdUp ? "table" : viewMode;
 
   const filters = useMemo(
     () => ({
       cluster: clusterId,
-      pipeline_stage: stageFilter === "INVITED" ? "INVITED" : undefined,
+      pipeline_stage: "INVITED" as const,
       is_dropped_off: false,
     }),
-    [clusterId, stageFilter],
+    [clusterId],
   );
   const { prospects, loading, fetchProspects } = useProspects(filters);
 
@@ -58,27 +56,21 @@ export default function ClusterProspectsSection({
           <h3 className="text-base font-semibold text-gray-900 md:text-lg">
             Prospects ({prospects.length})
           </h3>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <select
-              aria-label="Prospect stage"
-              value={stageFilter}
-              onChange={(e) =>
-                setStageFilter(e.target.value as "INVITED" | "all_active")
-              }
-              className={TOOLBAR_BRANCH_SELECT_CLASS}
+          {showEvangelismLink && (
+            <Link
+              href={`/evangelism?tab=prospects&cluster=${clusterId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View prospects on Evangelism (opens in a new tab)"
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
             >
-              <option value="INVITED">Invited</option>
-              <option value="all_active">All active</option>
-            </select>
-            {showEvangelismLink && (
-              <Link
-                href={`/evangelism?tab=prospects&cluster=${clusterId}`}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-primary/20 bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
-              >
-                View in Evangelism
-              </Link>
-            )}
-          </div>
+              View
+              <ArrowTopRightOnSquareIcon
+                className="h-4 w-4 shrink-0"
+                aria-hidden
+              />
+            </Link>
+          )}
         </div>
         <div className="md:hidden">
           <ViewModeToggle
@@ -99,9 +91,8 @@ export default function ClusterProspectsSection({
         </div>
       ) : prospects.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-500">
-          {stageFilter === "INVITED"
-            ? "No invited prospects for this cluster."
-            : "No active prospects for this cluster."}
+          No invited visitors for this cluster. You can record them on a cluster
+          or evangelism group weekly report.
         </p>
       ) : (
         <ProspectsTable
@@ -125,7 +116,7 @@ export default function ClusterProspectsSection({
       {progressProspect && (
         <Modal
           isOpen
-          title="Update progress"
+          title="Mark attended"
           onClose={() => setProgressProspect(null)}
         >
           <ProspectProgressForm

@@ -41,6 +41,7 @@ import EvangelismGroupView from "@/src/components/evangelism/EvangelismGroupView
 import ProspectForm, {
   ProspectFormValues,
 } from "@/src/components/evangelism/ProspectForm";
+import ProspectProgressForm from "@/src/components/evangelism/ProspectProgressForm";
 import ConversionForm, {
   ConversionFormValues,
   personIdFromConversion,
@@ -2048,9 +2049,9 @@ export default function EvangelismPage() {
               setSelectedProspect(null);
               setFormError(null);
             }}
-            title="Update Progress"
+            title="Mark attended"
           >
-            <UpdateProgressModalContent
+            <ProspectProgressForm
               prospect={selectedProspect}
               onSuccess={async () => {
                 setIsUpdateProgressModalOpen(false);
@@ -2601,114 +2602,6 @@ function BulkEnrollModalContent({
             : `Enroll ${selectedPersonIds.length} Member${
                 selectedPersonIds.length !== 1 ? "s" : ""
               }`}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-// Update Progress Modal Content Component
-function UpdateProgressModalContent({
-  prospect,
-  onSuccess,
-  onCancel,
-}: {
-  prospect: Prospect;
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
-  const [selectedStage, setSelectedStage] = useState<string>("ATTENDED");
-  const [activityDate, setActivityDate] = useState<string>(
-    prospect.last_activity_date || new Date().toISOString().split("T")[0]
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const pipelineStages: { value: string; label: string }[] = [
-    { value: "INVITED", label: "Invited" },
-    { value: "ATTENDED", label: "Attended" },
-    { value: "TAKEN_NCC", label: "NCC" },
-    { value: "BAPTIZED", label: "Baptized" },
-    { value: "RECEIVED_HG", label: "Received HG" },
-    { value: "REACHED", label: "Reached" },
-  ];
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedStage) {
-      setError("Please select a pipeline stage.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      if (selectedStage === "ATTENDED") {
-        await evangelismApi.markAttended(prospect.id, {
-          last_activity_date: activityDate,
-        });
-      } else {
-        await evangelismApi.updateProgress(prospect.id, {
-          pipeline_stage: selectedStage,
-          last_activity_date: activityDate,
-        });
-      }
-      onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to update progress");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <ErrorMessage message={error} />}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Pipeline Stage <span className="text-red-500">*</span>
-        </label>
-        <select
-          value={selectedStage}
-          onChange={(e) => setSelectedStage(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-          disabled={loading}
-        >
-          {pipelineStages.map((stage) => (
-            <option key={stage.value} value={stage.value}>
-              {stage.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Activity Date <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="date"
-          value={activityDate}
-          onChange={(e) => setActivityDate(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-          disabled={loading}
-          required
-        />
-      </div>
-      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
-        <Button
-          variant="tertiary"
-          className="flex-1 min-h-[44px]"
-          onClick={onCancel}
-          disabled={loading}
-        >
-          Cancel
-        </Button>
-        <Button
-          className="flex-1 min-h-[44px]"
-          disabled={loading}
-          type="submit"
-        >
-          {loading ? "Updating..." : "Update Progress"}
         </Button>
       </div>
     </form>

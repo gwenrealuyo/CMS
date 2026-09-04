@@ -12,7 +12,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from apps.attendance.models import AttendanceRecord
-from apps.events.models import Event
+from apps.events.models import Event, EventType
 from apps.people.models import Branch, ModuleCoordinator, Person
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.lessons.models import LessonSessionReport
@@ -63,6 +63,7 @@ from .services import (
     create_person_from_prospect,
     sync_prospect_invitation_journey_note,
     mark_prospect_attended,
+    REPORT_BACKED_FIRST_ACTIVITIES,
     update_monthly_tracking,
     calculate_monthly_statistics,
     person_ids_with_ncc_sessions_for_month,
@@ -1681,12 +1682,38 @@ class ProspectViewSet(viewsets.ModelViewSet):
         if activity_date is None:
             activity_date = church_today()
 
+        activity_code = request.data.get("first_activity_attended") or None
+        first_activity = None
+        if activity_code:
+            if activity_code in REPORT_BACKED_FIRST_ACTIVITIES:
+                if activity_code == "CLUSTERING":
+                    message = (
+                        "Record cluster attendance on a cluster weekly report instead."
+                    )
+                else:
+                    message = (
+                        "Record evangelism group attendance on an evangelism "
+                        "weekly report instead."
+                    )
+                return Response(
+                    {"detail": message},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                first_activity = EventType.objects.get(pk=activity_code)
+            except EventType.DoesNotExist:
+                return Response(
+                    {"detail": "Invalid first_activity_attended."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         try:
             prospect = mark_prospect_attended(
                 prospect,
                 activity_date=activity_date,
                 first_name=request.data.get("first_name"),
                 last_name=request.data.get("last_name"),
+                first_activity_attended=first_activity,
             )
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

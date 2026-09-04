@@ -320,7 +320,7 @@ export default function ProspectsBrowse({
       {progressProspect && (
         <Modal
           isOpen
-          title="Update progress"
+          title="Mark attended"
           onClose={() => setProgressProspect(null)}
         >
           <ProspectProgressForm

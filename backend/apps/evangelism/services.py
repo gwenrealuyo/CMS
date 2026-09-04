@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.people.models import Person, Journey
 from apps.people.name_formatting import title_case_name
 from apps.clusters.models import Cluster
+from apps.events.models import EventType
 from core.datetime_utils import church_today
 
 from .models import (
@@ -18,6 +19,10 @@ from .models import (
     Each1Reach1Goal,
     FollowUpTask,
     DropOff,
+)
+
+REPORT_BACKED_FIRST_ACTIVITIES = frozenset(
+    {"CLUSTERING", "BS/CLUSTER_EVANGELISM", "BIBLE_STUDY"}
 )
 
 
@@ -219,6 +224,7 @@ def mark_prospect_attended(
     activity_date: Optional[date] = None,
     first_name: Optional[str] = None,
     last_name: Optional[str] = None,
+    first_activity_attended: Optional[EventType] = None,
 ) -> Prospect:
     """
     Mark a prospect as ATTENDED: create/link Person, update stage and monthly tracking.
@@ -232,11 +238,16 @@ def mark_prospect_attended(
         ln = (last_name or "").strip() or prospect.last_name
         if not fn or not ln:
             raise ValueError("first_name and last_name are required to create Person")
+        create_kwargs = {
+            "date_first_attended": activity_date,
+        }
+        if first_activity_attended is not None:
+            create_kwargs["first_activity_attended"] = first_activity_attended
         create_person_from_prospect(
             prospect,
             fn,
             ln,
-            date_first_attended=activity_date,
+            **create_kwargs,
         )
     else:
         person = prospect.person
@@ -248,6 +259,9 @@ def mark_prospect_attended(
             if not person.date_first_attended:
                 person.date_first_attended = activity_date
                 updates.append("date_first_attended")
+            if first_activity_attended is not None and not person.first_activity_attended_id:
+                person.first_activity_attended = first_activity_attended
+                updates.append("first_activity_attended")
             if prospect.facebook_name and not person.facebook_name:
                 person.facebook_name = prospect.facebook_name
                 updates.append("facebook_name")
@@ -966,7 +980,7 @@ def create_recurring_sessions(
     Create multiple sessions based on recurrence pattern.
     Returns list of created sessions.
     """
-    from apps.events.models import Event
+    from apps.events.models import Event, EventType
 
     sessions = []
     current_date = start_date

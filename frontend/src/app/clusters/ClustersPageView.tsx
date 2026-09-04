@@ -507,7 +507,14 @@ export default function ClustersPageView({
     return clusterBranchSelectInteractive ? (
       selectEl
     ) : (
-      <LockedControlTooltip label={clusterBranchHoverHint}>
+      <LockedControlTooltip
+        label={clusterBranchHoverHint}
+        wrapperClassName={
+          fullWidth
+            ? "block w-full min-w-0 cursor-default"
+            : undefined
+        }
+      >
         {selectEl}
       </LockedControlTooltip>
     );
@@ -909,19 +916,22 @@ export default function ClustersPageView({
                 />
 
                 <div className={TOOLBAR_STACKED_CONTROLS_CLASS}>
-                  {renderClusterBranchSelect(true)}
-
-                  <label className="flex items-center gap-2 text-sm text-gray-600">
-                    <input
-                      type="checkbox"
-                      checked={showInactiveClusters}
-                      onChange={(e) =>
-                        onShowInactiveClustersChange(e.target.checked)
-                      }
-                      className="rounded border-gray-300 text-primary focus:ring-ring"
-                    />
-                    Show inactive
-                  </label>
+                  <div className="flex w-full items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      {renderClusterBranchSelect(true)}
+                    </div>
+                    <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={showInactiveClusters}
+                        onChange={(e) =>
+                          onShowInactiveClustersChange(e.target.checked)
+                        }
+                        className="rounded border-gray-300 text-primary focus:ring-ring"
+                      />
+                      Show inactive
+                    </label>
+                  </div>
 
                   <ViewModeToggle
                     fullWidth
@@ -931,7 +941,13 @@ export default function ClustersPageView({
                 </div>
 
                 <div className="relative">
-                  <div className={TOOLBAR_STACKED_ACTIONS_ROW_CLASS}>
+                  <div
+                    className={
+                      hasClusterModuleWideAccess
+                        ? TOOLBAR_STACKED_ACTIONS_ROW_CLASS
+                        : "grid grid-cols-2 gap-2"
+                    }
+                  >
                     {hasClusterModuleWideAccess && (
                       <button
                         type="button"

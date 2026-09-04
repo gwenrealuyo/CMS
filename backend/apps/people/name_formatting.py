@@ -142,3 +142,36 @@ def title_cased_name_kwargs(data: Mapping, fields: Iterable[str]) -> dict:
         if field in data:
             out[field] = title_case_name(data.get(field))
     return out
+
+
+def format_person_display_name(person) -> str:
+    """
+    Format a person name like the UI: first, nickname in quotes,
+    middle initial, last name, suffix. Falls back to username.
+    """
+    pieces: list[str] = []
+
+    first = (getattr(person, "first_name", None) or "").strip()
+    if first:
+        pieces.append(first)
+
+    nickname = (getattr(person, "nickname", None) or "").strip()
+    if nickname:
+        pieces.append(f'"{nickname}"')
+
+    middle = (getattr(person, "middle_name", None) or "").strip()
+    if middle:
+        pieces.append(f"{middle[0].upper()}.")
+
+    last = (getattr(person, "last_name", None) or "").strip()
+    if last:
+        pieces.append(last)
+
+    suffix = (getattr(person, "suffix", None) or "").strip()
+    if suffix:
+        pieces.append(suffix)
+
+    name = " ".join(pieces).strip()
+    if name:
+        return name
+    return (getattr(person, "username", None) or "").strip()

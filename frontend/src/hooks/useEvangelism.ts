@@ -454,7 +454,15 @@ export const useProspects = (filters?: {
     setProspects((prev) => prev.filter((prospect) => prospect.id !== String(id)));
   };
 
-  const markAttended = async (id: number | string, data?: { first_name?: string; last_name?: string }) => {
+  const markAttended = async (
+    id: number | string,
+    data?: {
+      first_name?: string;
+      last_name?: string;
+      last_activity_date?: string;
+      first_activity_attended?: string;
+    },
+  ) => {
     const response = await evangelismApi.markAttended(id, data);
     setProspects((prev) =>
       prev.map((prospect) => (prospect.id === response.data.id ? response.data : prospect))

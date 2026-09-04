@@ -85,6 +85,8 @@ export interface Person {
   historical_teacher_last_name?: string;
   first_activity_attended?: string;
   inviter?: string; // ID of another Person
+  /** Read-only display name of the inviter (retrieve/detail) */
+  inviter_display_name?: string | null;
   /** Branch ID; may be absent/null on legacy records created before branch was enforced */
   branch?: number | null;
   branch_name?: string; // Branch name (if nested data included)

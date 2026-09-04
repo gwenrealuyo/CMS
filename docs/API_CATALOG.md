@@ -63,12 +63,13 @@ Person fields (serializer)
 ```
 id, username (read-only), first_name, last_name, middle_name?, suffix?, nickname?, maiden_name?, gender?,
 facebook_name?, photo?, role, phone?, address?, country?, date_of_birth?,
-date_first_attended?, inviter (Person id)?, branch (Branch id)?, member_id?,
+date_first_attended?, inviter (Person id)?, inviter_display_name? (read-only), branch (Branch id)?, member_id?,
 status? (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE)
 ```
 
 Notes:
 - `maiden_name` is optional metadata (searchable); not part of display `full_name` / username generation.
+- `inviter_display_name` (read-only) uses the usual display format: first name, nickname in quotes, middle initial, last name, suffix.
 - Name fields (`first_name`, `last_name`, `middle_name`, `suffix`, `nickname`, `maiden_name`) are normalized on write: mixed-case is preserved; all-lower/all-upper is title-cased (particles, Mc/Mac, Roman numerals).
 - Status by role (UI): members/pastors/admins use ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED; visitors use ONGOING|NO_RESPONSE|DECEASED. Prospect pipeline stages INVITED/ATTENDED are separate from `Person.status`.
 - When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.

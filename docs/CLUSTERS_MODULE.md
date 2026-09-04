@@ -323,7 +323,7 @@ The page uses tabs similar to the Lessons page:
   - **Manual Member Control**: Users can manually add or remove individual members regardless of family assignments
   - **Search Functionality**: Searchable inputs for families and members with dropdown suggestions
   - **Visual Feedback**: Selected families and members are displayed as chips/cards with remove buttons
-- **`ClusterView`**: Cluster detail includes members/visitors, families, and a **Prospects** section (`ClusterProspectsSection`) listing invited visitors for that cluster (inviter or endorsed). Default is Invited / not dropped off. **View in Evangelism** appears for senior coordinators, pastors, and admins.
+- **`ClusterView`**: Cluster detail includes members/visitors, families, and a **Prospects** section (`ClusterProspectsSection`) listing **invited** (not yet attended) visitors for that cluster (inviter or endorsed). **Update** opens **Mark attended**. **View** (opens Evangelism Prospects in a new tab) appears for senior coordinators, pastors, and admins.
 - **Reports Tab**:
   - Non-senior cluster coordinators see **managed clusters only** in filters, analytics, and the report form (API enforces the same scope).
   - Helper copy: browse all branch clusters on the Clusters tab; weekly reports are limited to coordinated clusters.

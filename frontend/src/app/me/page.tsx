@@ -10,7 +10,7 @@ import PersonProfile from "@/src/components/people/PersonProfile";
 import PersonForm from "@/src/components/people/PersonForm";
 import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
-import { clustersApi, journeysApi, peopleApi } from "@/src/lib/api";
+import { clustersApi, peopleApi } from "@/src/lib/api";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
 
@@ -32,6 +32,8 @@ function MePageContent() {
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
   const [startOnTimelineTab, setStartOnTimelineTab] = useState(false);
+  const [profileStartOnTimelineTab, setProfileStartOnTimelineTab] =
+    useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,14 +50,15 @@ function MePageContent() {
     setError(null);
     try {
       const personId = String(user.id);
-      const [personRes, journeysRes, clustersRes] = await Promise.all([
+      const [personRes, clustersRes] = await Promise.all([
         peopleApi.getById(personId),
-        journeysApi.getByUser(personId),
         clustersApi.getAll(),
       ]);
       setPerson({
         ...personRes.data,
-        journeys: journeysRes.data,
+        journeys: Array.isArray(personRes.data.journeys)
+          ? personRes.data.journeys
+          : [],
       });
       setClusters(clustersRes.data as unknown as Cluster[]);
     } catch {
@@ -71,15 +74,25 @@ function MePageContent() {
     loadData();
   }, [user?.id, user?.role, loadData]);
 
-  const refreshPersonJourneys = async (personId: string) => {
+  const refreshPersonJourneys = async (
+    personId: string,
+    nextJourneys?: Person["journeys"],
+  ) => {
+    const id = String(personId);
+    if (nextJourneys) {
+      setPerson((current) =>
+        current && String(current.id) === id
+          ? { ...current, journeys: nextJourneys }
+          : current,
+      );
+    }
     try {
-      const [personResponse, journeysResponse] = await Promise.all([
-        peopleApi.getById(personId),
-        journeysApi.getByUser(personId),
-      ]);
+      const personResponse = await peopleApi.getById(id);
       setPerson({
         ...personResponse.data,
-        journeys: journeysResponse.data,
+        journeys: Array.isArray(personResponse.data.journeys)
+          ? personResponse.data.journeys
+          : nextJourneys ?? [],
       });
     } catch (e) {
       console.error("Failed to refresh person data:", e);
@@ -147,6 +160,9 @@ function MePageContent() {
               person={person}
               clusters={clusters}
               families={families}
+              initialTab={
+                profileStartOnTimelineTab ? "timeline" : "overview"
+              }
               hideDeleteButton
               showTopHeader={false}
               onViewFamily={() => router.push("/people/families")}
@@ -159,11 +175,13 @@ function MePageContent() {
               }
               onEdit={() => {
                 setStartOnTimelineTab(false);
+                setProfileStartOnTimelineTab(false);
                 setViewMode("edit");
               }}
               onDelete={() => {}}
               onAddTimeline={() => {
                 setStartOnTimelineTab(true);
+                setProfileStartOnTimelineTab(false);
                 setViewMode("edit");
               }}
               onClose={() => router.push("/dashboard")}
@@ -180,19 +198,24 @@ function MePageContent() {
               peopleOptions={people}
               familyOptions={families}
               clusterOptions={clusters}
-              onJourneySaved={(personId) => refreshPersonJourneys(personId)}
+              onJourneySaved={(personId, nextJourneys) =>
+                refreshPersonJourneys(personId, nextJourneys)
+              }
               onClose={() => {
                 setViewMode("view");
                 setStartOnTimelineTab(false);
+                setProfileStartOnTimelineTab(false);
               }}
-              onBackToProfile={() => {
+              onBackToProfile={(opts) => {
                 setViewMode("view");
                 setStartOnTimelineTab(false);
+                setProfileStartOnTimelineTab(Boolean(opts?.startOnTimeline));
               }}
               onSubmit={async (data) => {
                 const result = await updatePerson(person.id, data);
                 setViewMode("view");
                 setStartOnTimelineTab(false);
+                setProfileStartOnTimelineTab(false);
                 await refreshPersonJourneys(String(person.id));
                 const [clustersRes] = await Promise.all([
                   clustersApi.getAll(),

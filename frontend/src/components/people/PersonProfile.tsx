@@ -3,7 +3,7 @@ import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
 import { useEffect, useState, useMemo } from "react";
-import { journeysApi, branchesApi } from "@/src/lib/api";
+import { branchesApi } from "@/src/lib/api";
 import { compareJourneysNewestFirst } from "@/src/lib/journeySort";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
@@ -91,6 +91,11 @@ interface PersonProfileProps {
   hideEditButton?: boolean;
   hideDeleteButton?: boolean;
   showTopHeader?: boolean;
+  initialTab?: "overview" | "timeline";
+}
+
+function journeysFromPerson(person: Person): Journey[] {
+  return Array.isArray(person.journeys) ? person.journeys.slice() : [];
 }
 
 export default function PersonProfile({
@@ -108,18 +113,21 @@ export default function PersonProfile({
   hideEditButton = false,
   hideDeleteButton = false,
   showTopHeader = true,
+  initialTab = "overview",
 }: PersonProfileProps) {
   const { user } = useAuth();
   const { getLabel: getEventTypeLabel } = useEventTypeOptions();
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const canResetPassword =
     user?.role === "ADMIN" && person.role !== "VISITOR";
-  const [activeTab, setActiveTab] = useState<"overview" | "timeline">(
-    "overview"
+  const [activeTab, setActiveTab] = useState<"overview" | "timeline">(() =>
+    initialTab === "timeline" && person.can_view_journey_timeline !== false
+      ? "timeline"
+      : "overview"
   );
 
-  const [journeys, setJourneys] = useState<Journey[]>(
-    (person.journeys as Journey[]) || []
+  const [journeys, setJourneys] = useState<Journey[]>(() =>
+    journeysFromPerson(person)
   );
   const [journeySearch, setJourneySearch] = useState("");
   const [journeyFilter, setJourneyFilter] = useState<JourneyType | "ALL">(
@@ -128,7 +136,7 @@ export default function PersonProfile({
   const [branch, setBranch] = useState<Branch | null>(null);
 
   useEffect(() => {
-    setJourneys(((person.journeys as Journey[]) || []).slice());
+    setJourneys(journeysFromPerson(person));
   }, [person.id, person.journeys]);
 
   // Fetch branch information if branch ID exists

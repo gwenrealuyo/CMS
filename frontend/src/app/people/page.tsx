@@ -23,7 +23,7 @@ import { usePeople } from "@/src/hooks/usePeople";
 import { usePeopleDirectory } from "@/src/hooks/usePeopleDirectory";
 import { useFamilies } from "@/src/hooks/useFamilies";
 import { useBranches } from "@/src/hooks/useBranches";
-import { clustersApi, peopleApi, familiesApi, journeysApi, eventTypesApi, eventsApi, User } from "@/src/lib/api";
+import { clustersApi, peopleApi, familiesApi, eventTypesApi, eventsApi, User } from "@/src/lib/api";
 import {
   resolveClusterRosterFamilies,
   resolveClusterRosterPeople,
@@ -120,6 +120,8 @@ export default function PeoplePage() {
   }, [viewEditPerson]);
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
   const [startOnTimelineTab, setStartOnTimelineTab] = useState(false);
+  const [profileStartOnTimelineTab, setProfileStartOnTimelineTab] =
+    useState(false);
   const [editFamily, setEditFamily] = useState<Family | null>(null);
   const [viewFamily, setViewFamily] = useState<Family | null>(null);
   const [familyViewMode, setFamilyViewMode] = useState<"view" | "edit">("view");
@@ -158,6 +160,7 @@ export default function PeoplePage() {
     setPersonPanelPerson(null);
     setPersonPanelInitialData(undefined);
     setStartOnTimelineTab(false);
+    setProfileStartOnTimelineTab(false);
     setIsModalOpen(true);
   }, []);
 
@@ -209,6 +212,7 @@ export default function PeoplePage() {
         setPersonPanelPerson(resolved || null);
         setPersonPanelInitialData(undefined);
         setStartOnTimelineTab(false);
+        setProfileStartOnTimelineTab(false);
       } else {
         setModalType("person");
         setIsModalOpen(true);
@@ -267,6 +271,7 @@ export default function PeoplePage() {
     setPersonPanelPerson(null);
     setPersonPanelInitialData(undefined);
     setStartOnTimelineTab(false);
+    setProfileStartOnTimelineTab(false);
     setViewMode("view");
     setViewEditPerson(null);
   }, []);
@@ -1544,25 +1549,50 @@ export default function PeoplePage() {
           ? "Profile"
           : "Person Details";
 
-  const refreshPersonJourneyData = async (personId: string) => {
-    try {
-      const [personResponse, journeysResponse] = await Promise.all([
-        peopleApi.getById(personId),
-        journeysApi.getByUser(personId),
-      ]);
-      const refreshedPerson: Person = {
-        ...personResponse.data,
-        journeys: journeysResponse.data,
-      };
+  const applyPersonToOpenViews = (personId: string, nextPerson: Person) => {
+    const id = String(personId);
+    setViewEditPerson((current) =>
+      current && String(current.id) === id ? nextPerson : current,
+    );
+    setPersonPanelPerson((current) =>
+      current && String(current.id) === id ? nextPerson : current,
+    );
+    setPersonOverCluster((current) =>
+      current && String(current.id) === id ? nextPerson : current,
+    );
+  };
+
+  const refreshPersonJourneyData = async (
+    personId: string,
+    nextJourneys?: Journey[],
+  ) => {
+    const id = String(personId);
+    if (nextJourneys) {
       setViewEditPerson((current) =>
-        current && String(current.id) === personId ? refreshedPerson : current,
+        current && String(current.id) === id
+          ? { ...current, journeys: nextJourneys }
+          : current,
       );
       setPersonPanelPerson((current) =>
-        current && String(current.id) === personId ? refreshedPerson : current,
+        current && String(current.id) === id
+          ? { ...current, journeys: nextJourneys }
+          : current,
       );
       setPersonOverCluster((current) =>
-        current && String(current.id) === personId ? refreshedPerson : current,
+        current && String(current.id) === id
+          ? { ...current, journeys: nextJourneys }
+          : current,
       );
+    }
+    try {
+      const personResponse = await peopleApi.getById(id);
+      const journeys = Array.isArray(personResponse.data.journeys)
+        ? personResponse.data.journeys
+        : nextJourneys ?? [];
+      applyPersonToOpenViews(id, {
+        ...personResponse.data,
+        journeys,
+      });
     } catch (error) {
       console.error("Failed to refresh person journey data:", error);
     }
@@ -1576,6 +1606,9 @@ export default function PeoplePage() {
             person={viewEditPerson}
             clusters={clusters}
             families={families}
+            initialTab={
+              profileStartOnTimelineTab ? "timeline" : "overview"
+            }
             showTopHeader={!isPanel}
             hideDeleteButton={!userCanHardDelete}
             hideEditButton={
@@ -1597,6 +1630,7 @@ export default function PeoplePage() {
             }}
             onEdit={() => {
               setViewMode("edit");
+              setProfileStartOnTimelineTab(false);
               if (isPanel) setPersonPanelMode("edit");
             }}
             onDelete={() => {
@@ -1617,6 +1651,7 @@ export default function PeoplePage() {
               } else {
                 setIsModalOpen(false);
                 setViewEditPerson(null);
+                setProfileStartOnTimelineTab(false);
               }
             }}
           />
@@ -1640,6 +1675,7 @@ export default function PeoplePage() {
             setPersonPanelPerson(result);
             setPersonPanelMode("view");
             setStartOnTimelineTab(false);
+            setProfileStartOnTimelineTab(false);
             // updatePerson already patches the catalog when loaded; avoid full getAll.
             await Promise.all([
               refetchDirectory(),
@@ -1655,12 +1691,14 @@ export default function PeoplePage() {
               setIsModalOpen(false);
               setViewEditPerson(null);
               setStartOnTimelineTab(false);
+              setProfileStartOnTimelineTab(false);
             }
           }}
-          onBackToProfile={() => {
+          onBackToProfile={(opts) => {
             setViewMode("view");
             setPersonPanelMode("view");
             setStartOnTimelineTab(false);
+            setProfileStartOnTimelineTab(Boolean(opts?.startOnTimeline));
           }}
         />
       );
@@ -2433,6 +2471,7 @@ export default function PeoplePage() {
           setViewFamily(null);
           setFamilyViewMode("view");
           setStartOnTimelineTab(false);
+          setProfileStartOnTimelineTab(false);
           setViewCluster(null);
           setEditCluster(null);
           setClusterViewMode("view");
@@ -3160,19 +3199,18 @@ export default function PeoplePage() {
                           await refreshFamilies();
                           await refetchDirectory();
                           let latestPerson: Person | null = null;
-                          let updatedJourneys: Journey[] = [];
                           try {
-                            const [personResponse, journeysResponse] =
-                              await Promise.all([
-                                peopleApi.getById(
-                                  String(selectFamilyModal.person!.id),
-                                ),
-                                journeysApi.getByUser(
-                                  String(selectFamilyModal.person!.id),
-                                ),
-                              ]);
-                            latestPerson = personResponse.data;
-                            updatedJourneys = journeysResponse.data;
+                            const personResponse = await peopleApi.getById(
+                              String(selectFamilyModal.person!.id),
+                            );
+                            latestPerson = {
+                              ...personResponse.data,
+                              journeys: Array.isArray(
+                                personResponse.data.journeys,
+                              )
+                                ? personResponse.data.journeys
+                                : [],
+                            };
                           } catch (error) {
                             console.error(
                               "Failed to refresh person details after family update:",
@@ -3181,27 +3219,10 @@ export default function PeoplePage() {
                           }
 
                           if (latestPerson) {
-                            const nextPerson: Person = {
-                              ...latestPerson,
-                              journeys: updatedJourneys.length
-                                ? updatedJourneys
-                                : latestPerson.journeys,
-                            };
-
-                            setViewEditPerson((current) =>
-                              current && current.id === nextPerson.id
-                                ? nextPerson
-                                : current,
-                            );
-                            setPersonPanelPerson((current) =>
-                              current && current.id === nextPerson.id
-                                ? nextPerson
-                                : current,
-                            );
-                            setPersonOverCluster((current) =>
-                              current && current.id === nextPerson.id
-                                ? nextPerson
-                                : current,
+                            const nextPerson = latestPerson;
+                            applyPersonToOpenViews(
+                              String(nextPerson.id),
+                              nextPerson,
                             );
                           }
                           setSelectFamilyModal({ isOpen: false, person: null });

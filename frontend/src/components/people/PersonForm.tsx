@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { Person, JourneyType, Family } from "@/src/types/person";
+import { Person, Journey, JourneyType, Family } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
@@ -89,8 +89,11 @@ const toDateOnly = (value?: string | null): string => {
 interface PersonFormProps {
   onSubmit: (data: Partial<Person> | FormData) => Promise<Person | void>;
   onClose: () => void;
-  onBackToProfile?: () => void;
-  onJourneySaved?: (personId: string) => Promise<void> | void;
+  onBackToProfile?: (opts?: { startOnTimeline?: boolean }) => void;
+  onJourneySaved?: (
+    personId: string,
+    nextJourneys?: Journey[],
+  ) => Promise<void> | void;
   initialData?: Partial<Person>;
   isEditingFromProfile?: boolean;
   startOnTimelineTab?: boolean;
@@ -689,22 +692,21 @@ export default function PersonForm({
             description: newJourney.description,
             verified_by: newJourney.verified_by || undefined,
           });
-          await finishJourneyMutation(existingUserId);
-          if (!(isEditingFromProfile && onBackToProfile)) {
-            // optimistic append so it shows instantly
-            const createdId = (created?.data as any)?.id || crypto.randomUUID();
-            setFormData((prev) => ({
-              ...prev,
-              journeys: [
-                ...(prev.journeys || []),
-                {
-                  id: createdId,
-                  user: existingUserId,
-                  ...newJourney,
-                } as any,
-              ],
-            }));
-          }
+          const createdJourney = {
+            user: existingUserId,
+            ...newJourney,
+            ...(created?.data || {}),
+            id: created?.data?.id || crypto.randomUUID(),
+          } as Journey;
+          const nextJourneys = [
+            ...(formData.journeys || []),
+            createdJourney,
+          ];
+          setFormData((prev) => ({
+            ...prev,
+            journeys: [...(prev.journeys || []), createdJourney],
+          }));
+          await finishJourneyMutation(existingUserId, nextJourneys);
           toast.success("Journey event added successfully.");
         } catch (e: any) {
           console.error("Failed to create journey immediately:", e);
@@ -781,7 +783,7 @@ export default function PersonForm({
     if (existingUserId && journeyToUpdate?.id) {
       (async () => {
         try {
-          await journeysApi.update(journeyToUpdate.id, {
+          const updated = await journeysApi.update(journeyToUpdate.id, {
             user: existingUserId,
             title: newJourney.title,
             date: newJourney.date,
@@ -789,22 +791,28 @@ export default function PersonForm({
             description: newJourney.description,
             verified_by: newJourney.verified_by || undefined,
           });
-          await finishJourneyMutation(existingUserId);
-
-          if (!(isEditingFromProfile && onBackToProfile)) {
-            // Update the journey in the form data
-            setFormData((prev) => {
-              const updatedJourneys = [...(prev.journeys || [])];
-              updatedJourneys[editingJourneyIndex] = {
-                ...updatedJourneys[editingJourneyIndex],
-                ...newJourney,
-              } as any;
-              return {
-                ...prev,
-                journeys: updatedJourneys,
-              };
-            });
-          }
+          const nextJourneys = (formData.journeys || []).map((journey, index) =>
+            index === editingJourneyIndex
+              ? ({
+                  ...journey,
+                  ...newJourney,
+                  ...(updated?.data || {}),
+                } as Journey)
+              : journey,
+          );
+          setFormData((prev) => ({
+            ...prev,
+            journeys: (prev.journeys || []).map((journey, index) =>
+              index === editingJourneyIndex
+                ? ({
+                    ...journey,
+                    ...newJourney,
+                    ...(updated?.data || {}),
+                  } as Journey)
+                : journey,
+            ),
+          }));
+          await finishJourneyMutation(existingUserId, nextJourneys);
 
           toast.success("Journey event updated successfully.");
           handleCancelEdit();
@@ -848,10 +856,13 @@ export default function PersonForm({
     });
   };
 
-  const finishJourneyMutation = async (personId: string) => {
-    await onJourneySaved?.(personId);
+  const finishJourneyMutation = async (
+    personId: string,
+    nextJourneys?: Journey[],
+  ) => {
+    await onJourneySaved?.(personId, nextJourneys);
     if (isEditingFromProfile && onBackToProfile) {
-      onBackToProfile();
+      onBackToProfile({ startOnTimeline: true });
     }
   };
 
@@ -918,18 +929,23 @@ export default function PersonForm({
   const confirmJourneyDelete = async () => {
     if (journeyDeleteConfirm.index === null) return;
     const idx = journeyDeleteConfirm.index;
-    const current = formData.journeys || [];
-    const toDelete = current[idx] as any;
+    const toDelete = (formData.journeys || [])[idx] as Journey | undefined;
     const existingUserId = (initialData?.id || (formData as any).id) as
       | string
       | undefined;
     try {
       setJourneyDeleteConfirm((p) => ({ ...p, loading: true }));
+      const nextJourneys = (formData.journeys || []).filter(
+        (_, i) => i !== idx,
+      );
       if (toDelete?.id && existingUserId) {
         await journeysApi.delete(toDelete.id);
-        await finishJourneyMutation(existingUserId);
-      }
-      if (!(isEditingFromProfile && onBackToProfile)) {
+        setFormData((prev) => ({
+          ...prev,
+          journeys: (prev.journeys || []).filter((_, i) => i !== idx),
+        }));
+        await finishJourneyMutation(existingUserId, nextJourneys);
+      } else {
         setFormData((prev) => ({
           ...prev,
           journeys: (prev.journeys || []).filter((_, i) => i !== idx),
@@ -1029,6 +1045,7 @@ export default function PersonForm({
                 verified_by: journey.verified_by || undefined,
               });
             }
+            await onJourneySaved?.(String((result as { id: string }).id));
           } catch (error) {
             console.error("Failed to save journeys:", error);
             toast.error(
@@ -1070,6 +1087,7 @@ export default function PersonForm({
     initialData?.id,
     initialData?.journeys,
     onSubmit,
+    onJourneySaved,
     teacherMode,
     hasLessonEnrollment,
   ]);
@@ -2584,7 +2602,7 @@ export default function PersonForm({
                 className="w-full sm:flex-1 min-h-[44px]"
                 onClick={
                   isEditingFromProfile && onBackToProfile
-                    ? onBackToProfile
+                    ? () => onBackToProfile()
                     : onClose
                 }
                 disabled={loading}

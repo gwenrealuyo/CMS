@@ -28,6 +28,7 @@ import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import PasswordInput from "@/src/components/ui/PasswordInput";
+import ExpandableText from "@/src/components/ui/ExpandableText";
 import {
   CLUSTER_BRANCH_CHIP_CLASSNAME,
   getBranchDisplayCode,
@@ -884,6 +885,10 @@ export default function PersonForm({
     estimateSize: () => 100, // Estimated height per journey item
     overscan: 5, // Render 5 extra items outside viewport for smooth scrolling
   });
+
+  const remeasureJourneyList = useCallback(() => {
+    virtualizer.measure();
+  }, [virtualizer]);
 
   // Map original index to filtered index for edit/delete operations
   const getOriginalJourneyIndex = (filteredIndex: number): number => {
@@ -2799,9 +2804,10 @@ export default function PersonForm({
                             {journey.date} • {journey.type}
                           </div>
                           {journey.description && (
-                            <div className="text-sm text-gray-700 mt-1 line-clamp-2">
-                              {journey.description}
-                            </div>
+                            <ExpandableText
+                              text={journey.description}
+                              className="text-sm text-gray-700 mt-1"
+                            />
                           )}
                         </div>
                         {isAdmin && (
@@ -2861,18 +2867,19 @@ export default function PersonForm({
                       return (
                         <div
                           key={virtualRow.key}
+                          data-index={virtualRow.index}
+                          ref={virtualizer.measureElement}
                           style={{
                             position: "absolute",
                             top: 0,
                             left: 0,
                             width: "100%",
-                            height: `${virtualRow.size}px`,
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
                         >
                           <div
                             onClick={() => handleEditJourney(originalIndex)}
-                            className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all h-full ${
+                            className={`mx-2 my-1 flex justify-between items-start bg-gray-50 p-3 rounded cursor-pointer transition-all ${
                               isEditing
                                 ? "border-2 border-primary shadow-md"
                                 : "border border-transparent hover:border-gray-300 hover:shadow-sm"
@@ -2886,9 +2893,11 @@ export default function PersonForm({
                                 {journey.date} • {journey.type}
                               </div>
                               {journey.description && (
-                                <div className="text-sm text-gray-700 mt-1 line-clamp-2">
-                                  {journey.description}
-                                </div>
+                                <ExpandableText
+                                  text={journey.description}
+                                  className="text-sm text-gray-700 mt-1"
+                                  onToggle={remeasureJourneyList}
+                                />
                               )}
                             </div>
                             {isAdmin && (

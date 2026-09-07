@@ -10,6 +10,7 @@ import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import AdminResetPasswordModal from "@/src/components/people/AdminResetPasswordModal";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import DetailFieldRow from "@/src/components/ui/DetailFieldRow";
+import ExpandableText from "@/src/components/ui/ExpandableText";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { formatPersonStatusLabel } from "@/src/lib/personStatus";
 import { formatDisplayDate as formatApiDate } from "@/src/lib/date";
@@ -1027,9 +1028,10 @@ export default function PersonProfile({
                                 {formatDisplayDate(journey.date) || journey.date}
                               </div>
                               {journey.description && (
-                                <div className="text-sm text-gray-700 mt-1.5 line-clamp-2">
-                                  {journey.description}
-                                </div>
+                                <ExpandableText
+                                  text={journey.description}
+                                  className="text-sm text-gray-700 mt-1.5"
+                                />
                               )}
                             </div>
                           </div>

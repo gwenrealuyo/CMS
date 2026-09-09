@@ -1,4 +1,10 @@
-import { Person, Journey, Family, JourneyType, ClusterMembership } from "@/src/types/person";
+import {
+  Person,
+  Journey,
+  Family,
+  JourneyType,
+  ClusterMembership,
+} from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
@@ -118,20 +124,19 @@ export default function PersonProfile({
   const { user } = useAuth();
   const { getLabel: getEventTypeLabel } = useEventTypeOptions();
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
-  const canResetPassword =
-    user?.role === "ADMIN" && person.role !== "VISITOR";
+  const canResetPassword = user?.role === "ADMIN" && person.role !== "VISITOR";
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">(() =>
     initialTab === "timeline" && person.can_view_journey_timeline !== false
       ? "timeline"
-      : "overview"
+      : "overview",
   );
 
   const [journeys, setJourneys] = useState<Journey[]>(() =>
-    journeysFromPerson(person)
+    journeysFromPerson(person),
   );
   const [journeySearch, setJourneySearch] = useState("");
   const [journeyFilter, setJourneyFilter] = useState<JourneyType | "ALL">(
-    "ALL"
+    "ALL",
   );
   const [branch, setBranch] = useState<Branch | null>(null);
 
@@ -222,7 +227,7 @@ export default function PersonProfile({
         (j) =>
           j.title?.toLowerCase().includes(searchLower) ||
           j.description?.toLowerCase().includes(searchLower) ||
-          j.type?.toLowerCase().includes(searchLower)
+          j.type?.toLowerCase().includes(searchLower),
       );
     }
 
@@ -578,14 +583,14 @@ export default function PersonProfile({
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 mt-2">
                   <span
                     className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${getPersonRoleColor(
-                      person.role
+                      person.role,
                     )}`}
                   >
                     {person.role}
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusColor(
-                      person.status
+                      person.status,
                     )}`}
                   >
                     {person.status}
@@ -843,16 +848,20 @@ export default function PersonProfile({
                       <ProfileFieldRow
                         label="First activity"
                         value={prettifyFirstActivity(
-                          (person as any).first_activity_attended
+                          (person as any).first_activity_attended,
                         )}
                       />
                       <ProfileFieldRow
                         label="Water baptism"
-                        value={formatDisplayDate((person as any).water_baptism_date)}
+                        value={formatDisplayDate(
+                          (person as any).water_baptism_date,
+                        )}
                       />
                       <ProfileFieldRow
                         label="Spirit baptism"
-                        value={formatDisplayDate((person as any).spirit_baptism_date)}
+                        value={formatDisplayDate(
+                          (person as any).spirit_baptism_date,
+                        )}
                       />
                       <ProfileFieldRow
                         label="Nickname"
@@ -870,9 +879,8 @@ export default function PersonProfile({
                         label="Lessons finished"
                         value={
                           person.has_finished_lessons
-                            ? formatDisplayDate(
-                                person.lessons_finished_at
-                              ) || "Yes"
+                            ? formatDisplayDate(person.lessons_finished_at) ||
+                              "Yes"
                             : "Not yet"
                         }
                       />
@@ -969,7 +977,7 @@ export default function PersonProfile({
                             value={journeyFilter}
                             onChange={(e) =>
                               setJourneyFilter(
-                                e.target.value as JourneyType | "ALL"
+                                e.target.value as JourneyType | "ALL",
                               )
                             }
                             className="w-full px-3 py-2 min-h-[38px] text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"
@@ -1012,7 +1020,10 @@ export default function PersonProfile({
                         <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
                         {filteredAndSortedJourneys.map((journey, index) => (
                           <div
-                            key={journey.id || `${journey.date}-${journey.title}-${index}`}
+                            key={
+                              journey.id ||
+                              `${journey.date}-${journey.title}-${index}`
+                            }
                             className="relative group py-2"
                           >
                             <div className="absolute left-1.5 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
@@ -1025,7 +1036,7 @@ export default function PersonProfile({
                                 </div>
                                 <span
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getJourneyBadgeClasses(
-                                    journey.type
+                                    journey.type,
                                   )}`}
                                 >
                                   {journey.type_display ||
@@ -1033,7 +1044,8 @@ export default function PersonProfile({
                                 </span>
                               </div>
                               <div className="text-xs text-gray-500 mt-1">
-                                {formatDisplayDate(journey.date) || journey.date}
+                                {formatDisplayDate(journey.date) ||
+                                  journey.date}
                               </div>
                               {journey.description && (
                                 <ExpandableText
@@ -1096,7 +1108,9 @@ export default function PersonProfile({
       {/* Footer */}
       <div
         className={`border-t border-gray-200 ${
-          isPanelMode ? "bg-white p-3" : `bg-gray-50 ${activeTab === "timeline" ? "p-3 md:p-4" : "p-3 md:p-4 lg:p-6"}`
+          isPanelMode
+            ? "bg-white p-3"
+            : `bg-gray-50 ${activeTab === "timeline" ? "p-3 md:p-4" : "p-3 md:p-4 lg:p-6"}`
         }`}
       >
         {activeTab === "overview" ? (
@@ -1146,9 +1160,11 @@ export default function PersonProfile({
         ) : (
           <Button
             onClick={onAddTimeline}
-            variant="secondary"
-            className={`!text-gray-700 w-full bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center space-x-2 ${
-              isPanelMode ? "h-10 px-4 text-sm font-medium" : "py-3 px-4 text-sm font-medium min-h-[44px]"
+            variant="primary"
+            className={`w-full flex items-center justify-center space-x-2 ${
+              isPanelMode
+                ? "h-10 px-4 text-sm font-medium"
+                : "py-3 px-4 text-sm font-medium min-h-[44px]"
             }`}
           >
             <svg

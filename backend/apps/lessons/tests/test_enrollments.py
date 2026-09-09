@@ -251,6 +251,83 @@ class LessonEnrollmentAPITests(TestCase):
         enrollment = LessonStudentEnrollment.objects.get(student=self.student)
         self.assertEqual(enrollment.teacher_id, self.teacher_a.id)
 
+    def test_assign_rejects_person_as_own_teacher(self):
+        self.client.force_authenticate(user=self.admin)
+        url = reverse("lessons:lesson-progress-assign")
+        response = self.client.post(
+            url,
+            {
+                "lesson_id": self.lesson.id,
+                "person_ids": [self.teacher_a.id],
+                "teacher_id": self.teacher_a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details", response.data)
+        self.assertIn("teacher_id", details)
+        self.assertFalse(
+            LessonStudentEnrollment.objects.filter(student=self.teacher_a).exists()
+        )
+        self.assertFalse(
+            PersonLessonProgress.objects.filter(person=self.teacher_a).exists()
+        )
+
+    def test_assign_allows_teacher_as_student_of_another_teacher(self):
+        self.client.force_authenticate(user=self.admin)
+        url = reverse("lessons:lesson-progress-assign")
+        response = self.client.post(
+            url,
+            {
+                "lesson_id": self.lesson.id,
+                "person_ids": [self.teacher_a.id],
+                "teacher_id": self.teacher_b.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        enrollment = LessonStudentEnrollment.objects.get(student=self.teacher_a)
+        self.assertEqual(enrollment.teacher_id, self.teacher_b.id)
+
+    def test_enrollment_create_rejects_person_as_own_teacher(self):
+        self.client.force_authenticate(user=self.admin)
+        url = reverse("lessons:lesson-enrollment-list")
+        response = self.client.post(
+            url,
+            {
+                "student_id": self.teacher_a.id,
+                "teacher_id": self.teacher_a.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details", response.data)
+        self.assertIn("teacher_id", details)
+        self.assertFalse(
+            LessonStudentEnrollment.objects.filter(student=self.teacher_a).exists()
+        )
+
+    def test_transfer_rejects_person_as_own_teacher(self):
+        enrollment = LessonStudentEnrollment.objects.create(
+            student=self.teacher_a,
+            teacher=self.teacher_b,
+        )
+        self.client.force_authenticate(user=self.admin)
+        url = reverse(
+            "lessons:lesson-enrollment-transfer",
+            kwargs={"pk": enrollment.pk},
+        )
+        response = self.client.post(
+            url,
+            {"teacher_id": self.teacher_a.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details", response.data)
+        self.assertIn("teacher_id", details)
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.teacher_id, self.teacher_b.id)
+
     def test_transfer_updates_teacher_and_creates_history(self):
         enrollment = LessonStudentEnrollment.objects.create(
             student=self.student,

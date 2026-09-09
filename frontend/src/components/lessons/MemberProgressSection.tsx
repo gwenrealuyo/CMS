@@ -66,6 +66,7 @@ interface MemberProgressSectionProps {
   assignedStudentIds: Set<number>;
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
+  currentUserId?: string | number | null;
   onPersonClick: (person: {
     id: number;
     first_name?: string;
@@ -104,6 +105,7 @@ export default function MemberProgressSection({
   assignedStudentIds,
   defaultTeacherId,
   teacherChoices,
+  currentUserId,
   onPersonClick,
 }: MemberProgressSectionProps) {
   const activeLatestLessons = allLessons.filter(
@@ -190,6 +192,7 @@ export default function MemberProgressSection({
                   assignedStudentIds={assignedStudentIds}
                   defaultTeacherId={defaultTeacherId}
                   teacherChoices={teacherChoices}
+                  currentUserId={currentUserId}
                 />
               </div>
             )}

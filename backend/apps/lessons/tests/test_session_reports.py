@@ -100,6 +100,22 @@ class LessonSessionReportAPITests(TestCase):
         self.assertIsNotNone(progress)
         self.assertEqual(progress.status, PersonLessonProgress.Status.COMPLETED)
 
+    def test_cannot_log_session_with_self_as_student(self):
+        response = self.client.post(
+            self.url,
+            {
+                "student_id": self.admin.id,
+                "session_type": LessonSessionReport.SessionType.PRE_LESSON,
+                "pre_lesson_kind": LessonSessionReport.PreLessonKind.INTRODUCTION,
+                "session_date": "2025-06-01",
+                "session_start": self.session_start,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details", response.data)
+        self.assertIn("teacher_id", details)
+
     def test_pre_lesson_other_requires_remarks(self):
         response = self.client.post(
             self.url,

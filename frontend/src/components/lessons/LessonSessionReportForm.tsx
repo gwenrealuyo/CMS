@@ -161,6 +161,25 @@ export default function LessonSessionReportForm({
         if (!isSelectablePerson(person)) {
           return false;
         }
+        if (
+          loggedInTeacherIdProp != null &&
+          String(person.id) === String(loggedInTeacherIdProp)
+        ) {
+          const isExistingReportStudent =
+            reportStudentId != null &&
+            String(reportStudentId) === String(person.id);
+          if (!isExistingReportStudent) {
+            const enrolledTeacherId = enrollmentTeacherByStudentId?.get(
+              Number(person.id),
+            );
+            if (
+              enrolledTeacherId == null ||
+              String(enrolledTeacherId) === String(person.id)
+            ) {
+              return false;
+            }
+          }
+        }
         if (!enrollmentTeacherByStudentId) {
           return true;
         }
@@ -174,6 +193,7 @@ export default function LessonSessionReportForm({
   }, [
     people,
     enrollmentTeacherByStudentId,
+    loggedInTeacherIdProp,
     report?.student?.id,
     defaultStudentId,
   ]);
@@ -317,8 +337,10 @@ export default function LessonSessionReportForm({
           value: person.id?.toString() ?? "",
           label: formatPersonName(person),
         }))
-        .filter((option) => option.value),
-    [teacherOptions],
+        .filter(
+          (option) => option.value && option.value !== formState.studentId,
+        ),
+    [formState.studentId, teacherOptions],
   );
 
   const lockedTeacherLabel = useMemo(() => {
@@ -454,7 +476,10 @@ export default function LessonSessionReportForm({
       errors.studentId = "Select a student for this session.";
     }
 
-    if (!report && studentId && !teacherId) {
+    if (studentId && teacherId && studentId === teacherId) {
+      errors.teacherId =
+        "A person cannot be assigned as their own lessons teacher.";
+    } else if (!report && studentId && !teacherId) {
       errors.teacherId =
         "This student has no lessons teacher assigned. Assign one in Student Progress first.";
     } else if (!report && !teacherId) {

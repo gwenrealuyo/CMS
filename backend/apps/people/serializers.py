@@ -682,6 +682,18 @@ class PersonSerializer(serializers.ModelSerializer):
                             )
                         }
                     )
+                if instance is not None:
+                    from apps.lessons.services import (
+                        student_cannot_be_own_teacher_error,
+                    )
+
+                    reason = student_cannot_be_own_teacher_error(
+                        instance, teacher
+                    )
+                    if reason:
+                        raise serializers.ValidationError(
+                            {"lesson_teacher_id": reason}
+                        )
 
         commitment_in_payload = "commitment_form_signed" in attrs
         if commitment_in_payload:

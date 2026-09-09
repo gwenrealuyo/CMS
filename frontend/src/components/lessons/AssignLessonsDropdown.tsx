@@ -38,6 +38,7 @@ interface AssignLessonsDropdownProps {
   assignedStudentIds: Set<number>;
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
+  currentUserId?: string | number | null;
 }
 
 export default function AssignLessonsDropdown({
@@ -52,6 +53,7 @@ export default function AssignLessonsDropdown({
   assignedStudentIds,
   defaultTeacherId,
   teacherChoices,
+  currentUserId,
 }: AssignLessonsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,13 +70,19 @@ export default function AssignLessonsDropdown({
       if (!isSelectablePerson(person) || person.has_finished_lessons) {
         return false;
       }
+      if (
+        currentUserId != null &&
+        String(person.id) === String(currentUserId)
+      ) {
+        return false;
+      }
       const personId = Number(person.id);
       if (Number.isNaN(personId)) {
         return true;
       }
       return !assignedStudentIds.has(personId);
     });
-  }, [assignedStudentIds, people]);
+  }, [assignedStudentIds, currentUserId, people]);
 
   const emptyEligibleMessage = useMemo(() => {
     const selectable = people.filter(isSelectablePerson);
@@ -111,11 +119,13 @@ export default function AssignLessonsDropdown({
 
   const teacherSelectOptions = useMemo(
     () =>
-      teacherChoices.map((person) => ({
-        value: person.id?.toString() ?? "",
-        label: formatPersonName(person),
-      })),
-    [teacherChoices]
+      teacherChoices
+        .filter((person) => person.id?.toString() !== selectedPersonId)
+        .map((person) => ({
+          value: person.id?.toString() ?? "",
+          label: formatPersonName(person),
+        })),
+    [selectedPersonId, teacherChoices]
   );
 
   const selectedPersonNumericId = selectedPersonId
@@ -141,7 +151,10 @@ export default function AssignLessonsDropdown({
       if (existingEnrollment?.teacher?.id) {
         setSelectedTeacherId(existingEnrollment.teacher.id.toString());
       } else {
-        setSelectedTeacherId(defaultTeacherId ?? "");
+        const nextTeacherId = defaultTeacherId ?? "";
+        setSelectedTeacherId(
+          nextTeacherId === selectedPersonId ? "" : nextTeacherId
+        );
       }
     }
   }, [

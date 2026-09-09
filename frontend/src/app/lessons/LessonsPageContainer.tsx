@@ -1126,6 +1126,16 @@ export default function LessonsPageContainer() {
       setAssignError("Select a teacher for students without one assigned.");
       return;
     }
+    if (
+      needsTeacher &&
+      !Number.isNaN(numericTeacherId) &&
+      personIds.some((personId) => Number(personId) === numericTeacherId)
+    ) {
+      setAssignError(
+        "A person cannot be assigned as their own lessons teacher."
+      );
+      return;
+    }
 
     try {
       setAssigning(true);
@@ -1555,6 +1565,7 @@ export default function LessonsPageContainer() {
       studentTeacherById={studentTeacherById}
       enrollmentByStudent={enrollmentByStudent}
       teacherChoices={teacherChoices}
+      currentUserId={user?.id ?? null}
       onTransferTeacher={async (enrollmentId, teacherId, note) => {
         await lessonsApi.transferEnrollment(enrollmentId, {
           teacher_id: teacherId,

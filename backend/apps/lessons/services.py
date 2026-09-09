@@ -333,6 +333,11 @@ def ensure_lesson_enrollment(
     if existing:
         return existing
 
+    if teacher is not None:
+        reason = student_cannot_be_own_teacher_error(student, teacher)
+        if reason:
+            raise ValueError(reason)
+
     hist_first = (historical_teacher_first_name or "").strip()
     hist_last = (historical_teacher_last_name or "").strip()
     if teacher is None and not (hist_first and hist_last):
@@ -371,6 +376,10 @@ def transfer_lesson_teacher(
     transferred_by: Optional[Person] = None,
     note: str = "",
 ) -> LessonTeacherTransfer:
+    reason = student_cannot_be_own_teacher_error(enrollment.student, new_teacher)
+    if reason:
+        raise ValueError(reason)
+
     transfer = LessonTeacherTransfer.objects.create(
         enrollment=enrollment,
         from_teacher=enrollment.teacher,
@@ -390,6 +399,23 @@ def transfer_lesson_teacher(
         ]
     )
     return transfer
+
+
+STUDENT_CANNOT_BE_OWN_TEACHER_MESSAGE = (
+    "A person cannot be assigned as their own lessons teacher."
+)
+
+
+def student_cannot_be_own_teacher_error(
+    student: Person,
+    teacher: Optional[Person],
+) -> str | None:
+    """Return an error message when student and teacher are the same person."""
+    if teacher is None or student.pk is None or teacher.pk is None:
+        return None
+    if student.pk == teacher.pk:
+        return STUDENT_CANNOT_BE_OWN_TEACHER_MESSAGE
+    return None
 
 
 def person_assignment_eligibility_error(

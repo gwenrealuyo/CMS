@@ -53,6 +53,7 @@ from .services import (
     build_lesson_progress_summary,
     mark_progress_completed,
     reconcile_student_progress_from_reports,
+    student_cannot_be_own_teacher_error,
 )
 
 
@@ -433,6 +434,10 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
 
         if teacher is None:
             raise ValidationError({"teacher": "Teacher is required."})
+
+        reason = student_cannot_be_own_teacher_error(student, teacher)
+        if reason:
+            raise ValidationError({"teacher_id": reason})
 
         report = serializer.save(
             teacher=teacher,

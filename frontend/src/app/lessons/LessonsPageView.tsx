@@ -170,6 +170,7 @@ interface LessonsPageViewProps {
   teacherChoices: LessonPersonLike[];
   studentChoices: LessonPersonLike[];
   currentTeacherId: string | null;
+  currentUserId: string | number | null;
   nextLessonIdByStudent: Map<number, number>;
   // Format functions
   formatDateOnly: (value?: string | null) => string;
@@ -318,6 +319,7 @@ export default function LessonsPageView({
   teacherChoices,
   studentChoices,
   currentTeacherId,
+  currentUserId,
   nextLessonIdByStudent,
   formatDateOnly,
   formatDateTime,
@@ -592,6 +594,7 @@ export default function LessonsPageView({
               assignedStudentIds={assignedStudentIds}
               defaultTeacherId={defaultAssignTeacherId}
               teacherChoices={teacherChoices}
+              currentUserId={currentUserId}
               onPersonClick={onOpenPersonProgressModal}
             />
           </div>

@@ -205,6 +205,23 @@ class PersonCommitmentFormApiTests(TestCase):
         self.assertFalse(enrollment.commitment_signed)
         self.assertEqual(enrollment.teacher_id, self.teacher.id)
 
+    def test_patch_finished_cannot_assign_self_as_teacher(self):
+        response = self.client.patch(
+            f"/api/people/people/{self.teacher.id}/",
+            {
+                "has_finished_lessons": True,
+                "lessons_finished_at": "2024-05-01",
+                "lesson_teacher_id": self.teacher.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details") or response.data
+        self.assertIn("lesson_teacher_id", details)
+        self.assertFalse(
+            LessonStudentEnrollment.objects.filter(student=self.teacher).exists()
+        )
+
     def test_patch_finished_with_historical_names_creates_unsigned_enrollment(self):
         student = self._create_student("cmt_finish_hist")
         response = self.client.patch(

@@ -78,12 +78,18 @@ export default function PersonLessonProgressModal({
   const teacherSelectOptions = useMemo(
     () =>
       teacherChoices
-        .filter((choice) => choice.id?.toString() !== teacher?.id?.toString())
+        .filter((choice) => {
+          const choiceId = choice.id?.toString();
+          return (
+            choiceId !== teacher?.id?.toString() &&
+            choiceId !== person?.id?.toString()
+          );
+        })
         .map((choice) => ({
           value: choice.id?.toString() ?? "",
           label: formatPersonName(choice),
         })),
-    [teacher?.id, teacherChoices]
+    [person?.id, teacher?.id, teacherChoices]
   );
 
   useEffect(() => {

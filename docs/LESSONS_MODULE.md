@@ -55,8 +55,11 @@ Bulk assign (`POST /api/lessons/progress/assign/`) and the frontend **Assign Les
 
 - Do **not** have `has_finished_lessons=True`
 - Do **not** already have any `PersonLessonProgress` row
+- Are **not** the logged-in user (the Assign Lessons picker hides them so a teacher cannot pick themselves)
 
-Validation is enforced in `LessonBulkAssignSerializer` via `person_assignment_eligibility_error()` in `apps.lessons.services`. The UI also hides students who already appear in the global progress list.
+A person cannot be their own lessons teacher (`student_id != teacher_id`). A lessons teacher may still be assigned as a student of a **different** teacher. This is enforced on bulk assign, enrollment create, teacher transfer, session reports, and person-profile `lesson_teacher_id`.
+
+Validation is enforced in `LessonBulkAssignSerializer` via `person_assignment_eligibility_error()` and `student_cannot_be_own_teacher_error()` in `apps.lessons.services`. The UI also hides students who already appear in the global progress list.
 
 ## Branch Scoping
 

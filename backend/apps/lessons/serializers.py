@@ -23,8 +23,22 @@ from .services import (
     set_enrollment_commitment_signed,
     mark_progress_completed,
     revert_progress_completion,
+    student_cannot_be_own_teacher_error,
     transfer_lesson_teacher,
 )
+
+
+def _reject_student_as_own_teacher(
+    student: Person | None,
+    teacher: Person | None,
+    *,
+    field: str = "teacher_id",
+) -> None:
+    if student is None:
+        return
+    reason = student_cannot_be_own_teacher_error(student, teacher)
+    if reason:
+        raise serializers.ValidationError({field: reason})
 
 
 def _validate_teacher_on_ncc_roster(teacher: Person, student: Person) -> None:
@@ -305,6 +319,10 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
                     }
                 )
 
+        student = attrs.get("student", instance.student if instance else None)
+        teacher = attrs.get("teacher", instance.teacher if instance else None)
+        _reject_student_as_own_teacher(student, teacher)
+
         return attrs
 
 
@@ -396,6 +414,17 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
 
     def get_teacher_display_name(self, obj: LessonStudentEnrollment) -> str:
         return obj.teacher_display_name()
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        student = attrs.get("student")
+        teacher = attrs.get("teacher")
+        if self.instance is not None:
+            if student is None:
+                student = self.instance.student
+            if teacher is None:
+                teacher = self.instance.teacher
+        _reject_student_as_own_teacher(student, teacher)
+        return attrs
 
     def create(self, validated_data: Dict[str, Any]) -> LessonStudentEnrollment:
         request = self.context.get("request")
@@ -525,6 +554,7 @@ class LessonTeacherTransferRequestSerializer(serializers.Serializer):
                 {"teacher_id": "This student is already assigned to that teacher."}
             )
         if teacher:
+            _reject_student_as_own_teacher(enrollment.student, teacher)
             _validate_teacher_on_ncc_roster(teacher, enrollment.student)
         return attrs
 
@@ -591,4 +621,7 @@ class LessonBulkAssignSerializer(serializers.Serializer):
                     )
                 }
             )
+        if teacher:
+            for person in needs_teacher:
+                _reject_student_as_own_teacher(person, teacher)
         return attrs

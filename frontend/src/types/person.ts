@@ -73,7 +73,7 @@ export interface Person {
   spirit_baptism_date?: string; // ISO date string
   has_finished_lessons?: boolean;
   lessons_started_at?: string; // ISO date string
-  lessons_finished_at?: string; // ISO date string
+  lessons_finished_at?: string | null; // ISO date string
   /** Derived from LessonStudentEnrollment; writable on person form (write-through) */
   commitment_form_signed?: boolean;
   commitment_signed_at?: string | null; // ISO date or datetime

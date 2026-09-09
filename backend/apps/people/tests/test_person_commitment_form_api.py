@@ -406,3 +406,45 @@ class PersonCommitmentFormApiTests(TestCase):
         enrollment = LessonStudentEnrollment.objects.get(student=student)
         self.assertTrue(enrollment.commitment_signed)
         self.assertEqual(enrollment.teacher_id, self.teacher.id)
+
+    def test_create_unchecked_finished_lessons_with_empty_date_succeeds(self):
+        response = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "New",
+                "last_name": "Visitor",
+                "email": "new.visitor.emptydate@test.com",
+                "role": "VISITOR",
+                "status": "ONGOING",
+                "branch": self.branch.id,
+                "has_finished_lessons": False,
+                "lessons_finished_at": "",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertFalse(response.data["has_finished_lessons"])
+        self.assertIsNone(response.data["lessons_finished_at"])
+        person = Person.objects.get(id=response.data["id"])
+        self.assertFalse(person.has_finished_lessons)
+        self.assertIsNone(person.lessons_finished_at)
+
+    def test_create_finished_lessons_without_date_fails(self):
+        response = self.client.post(
+            "/api/people/people/",
+            {
+                "first_name": "Finished",
+                "last_name": "NoDate",
+                "email": "finished.nodate@test.com",
+                "role": "VISITOR",
+                "status": "ONGOING",
+                "branch": self.branch.id,
+                "has_finished_lessons": True,
+                "lesson_teacher_id": self.teacher.id,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        details = response.data.get("details") or response.data
+        self.assertIn("lessons_finished_at", details)
+

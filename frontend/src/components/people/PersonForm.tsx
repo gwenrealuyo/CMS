@@ -975,6 +975,14 @@ export default function PersonForm({
         personData.commitment_signed_at,
       );
     }
+    if (!personData.has_finished_lessons) {
+      personData.lessons_finished_at = null;
+    }
+    for (const { key } of PERSON_DATE_FIELDS) {
+      if (personData[key] === "") {
+        (personData as Record<string, unknown>)[key] = null;
+      }
+    }
     if (hasLessonEnrollment || !personData.has_finished_lessons) {
       delete personData.lesson_teacher_id;
       delete personData.historical_teacher_first_name;
@@ -1680,7 +1688,7 @@ export default function PersonForm({
                             setFormData((prev) => ({
                               ...prev,
                               has_finished_lessons: checked,
-                              ...(checked ? {} : { lessons_finished_at: "" }),
+                              ...(checked ? {} : { lessons_finished_at: null }),
                             }));
                             setHasUnsavedChanges(true);
                           }}
@@ -2070,6 +2078,7 @@ export default function PersonForm({
                       hint={VITAL_DATE_HINT}
                     >
                       <PersonDateField
+                        key={String(Boolean(formData.has_finished_lessons))}
                         id="lessons_finished_at"
                         value={(formData as any).lessons_finished_at || ""}
                         onChange={(next) =>

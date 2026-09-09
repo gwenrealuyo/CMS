@@ -480,9 +480,31 @@ class PersonSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["username"]
 
+    _BLANKABLE_DATE_FIELDS = (
+        "date_of_birth",
+        "date_first_invited",
+        "date_first_attended",
+        "water_baptism_date",
+        "spirit_baptism_date",
+        "lessons_started_at",
+        "lessons_finished_at",
+        "commitment_signed_at",
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._temporary_password = None
+
+    def to_internal_value(self, data):
+        # JSON payloads may send "" for cleared dates. DRF DateField accepts
+        # null but not blank strings. Skip QueryDict (multipart) so many=True
+        # fields like family_ids keep getlist().
+        if isinstance(data, dict) and not hasattr(data, "getlist"):
+            data = dict(data)
+            for field_name in self._BLANKABLE_DATE_FIELDS:
+                if data.get(field_name) == "":
+                    data[field_name] = None
+        return super().to_internal_value(data)
 
     def _apply_memberships(self, person, families=None, clusters=None):
         # Apply from the forward M2M side so family/cluster member signals

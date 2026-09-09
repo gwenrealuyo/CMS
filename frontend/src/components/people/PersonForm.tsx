@@ -693,9 +693,9 @@ export default function PersonForm({
             verified_by: newJourney.verified_by || undefined,
           });
           const createdJourney = {
-            user: existingUserId,
             ...newJourney,
             ...(created?.data || {}),
+            user: created?.data?.user ?? existingUserId,
             id: created?.data?.id || crypto.randomUUID(),
           } as Journey;
           const nextJourneys = [

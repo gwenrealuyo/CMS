@@ -1,8 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Ministry, MinistryMember, UserSummary } from "@/src/types/ministry";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import { useBranches } from "@/src/hooks/useBranches";
 import { formatLocaleDate } from "@/src/lib/date";
 import {
@@ -28,6 +29,7 @@ export default function MinistryView({
   onClose,
   onViewPerson,
 }: MinistryViewProps) {
+  const [memberSearch, setMemberSearch] = useState("");
   const { branches } = useBranches();
   const ministryBranch =
     ministry.branch != null
@@ -120,6 +122,19 @@ export default function MinistryView({
       return nameA.localeCompare(nameB);
     });
   }, [ministry.memberships]);
+
+  const filteredMembers = useMemo(() => {
+    const term = memberSearch.trim().toLowerCase();
+    if (!term) {
+      return sortedMembers;
+    }
+    return sortedMembers.filter((membership) => {
+      const name = formatPersonName(membership.member).toLowerCase();
+      const role = getRoleLabel(membership.role).toLowerCase();
+      const skills = (membership.skills || "").toLowerCase();
+      return name.includes(term) || role.includes(term) || skills.includes(term);
+    });
+  }, [sortedMembers, memberSearch]);
 
   const activeMembersCount = sortedMembers.filter((m) => m.is_active).length;
   const inactiveMembersCount = sortedMembers.filter((m) => !m.is_active).length;
@@ -473,8 +488,26 @@ export default function MinistryView({
               <h3 className="text-sm font-semibold text-gray-900 mb-3">
                 Members ({sortedMembers.length})
               </h3>
-              <div className="space-y-2">
-                {sortedMembers.map((membership: MinistryMember) => (
+              <ToolbarSearch
+                value={memberSearch}
+                onChange={setMemberSearch}
+                placeholder="Search members…"
+                ariaLabel="Search members"
+                fullWidth
+                className="mb-2"
+              />
+              {memberSearch.trim() && (
+                <p className="mb-2 text-xs text-gray-500">
+                  Showing {filteredMembers.length} of {sortedMembers.length}
+                </p>
+              )}
+              {filteredMembers.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">
+                  No members match your search
+                </p>
+              ) : (
+                <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                {filteredMembers.map((membership: MinistryMember) => (
                   <div
                     key={membership.id}
                     className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
@@ -557,7 +590,8 @@ export default function MinistryView({
                     </div>
                   </div>
                 ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 

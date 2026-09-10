@@ -31,13 +31,14 @@ Key features include:
   - `meeting_time` (TimeField, nullable) – regular meeting time
   - `meeting_day` (CharField, choices: MONDAY-SUNDAY, blank) – day of week
   - `is_active` (BooleanField, default True) – whether the group is active
-  - `is_bible_sharers_group` (BooleanField, default False) – marks this as a "Bible Sharers" group. Bible Sharers are capable of facilitating bible studies and can step in when a cluster doesn't have someone to facilitate. Ideally, each cluster should have at least one Bible Sharer.
+  - `is_bible_sharers_group` (BooleanField, default False) – unused for coverage; kept for compatibility. Bible Sharers are **people** with an `EVANGELISM` + `BIBLE_SHARER` assignment.
   - `members` (ManyToManyField to `people.Person`, blank) – people enrolled in the group; reverse accessor on Person is `person.evangelism_groups`
   - `created_at`, `updated_at` (DateTimeFields)
 - **Event Type Logic**: When sessions are created, event type is:
   - `CLUSTER_BS_EVANGELISM` if `cluster` is not null
   - `BIBLE_STUDY` if `cluster` is null
-- **Bible Sharers**: The "Bible Sharers" group is a special group that is monitored closely. These are people who are capable of doing bible studies and can step in when a cluster doesn't have someone to facilitate. The system provides coverage monitoring to track which clusters have Bible Sharers and which don't.
+- **Bible Sharers**: People assigned as Bible Sharers on one or more evangelism groups. They can facilitate studies and submit weekly reports for those groups. Coverage monitoring counts unique assigned people per cluster (not a group flag). Ideally each cluster should have at least one Bible Sharer.
+- **Evangelism Reporters**: Members who can submit weekly reports for assigned groups without managing the group. Coordinator on a group replaces Bible Sharer and Reporter for that person.
 
 ### Evangelism group membership (`members`)
 
@@ -260,10 +261,10 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `GET /{id}/visitors/` – List visitors associated with this group's cluster
   - `GET /{id}/summary/` – Group statistics
   - `GET /bible_sharers_coverage/` – Get Bible Sharers coverage across clusters
-    - Returns which clusters have Bible Sharers and which don't
+    - Counts unique people with `BIBLE_SHARER` assignments on groups linked to the cluster
     - Response includes:
-      - `coverage`: Array of cluster coverage items with Bible Sharers groups and counts
-      - `summary`: Overall statistics (total clusters, clusters with/without Bible Sharers, etc.)
+      - `coverage`: cluster items with `bible_sharers` (people and groups), group list, unique counts
+      - `summary`: total clusters, clusters with/without Bible Sharers, groups that have assigned sharers
 
 ### Group membership (API)
 
@@ -598,7 +599,7 @@ The Groups tab toolbar mirrors the clusters page layout:
   - Leader selection
   - Cluster selection (optional)
   - Location, meeting time, meeting day inputs
-  - "Bible Sharers Group" checkbox to mark groups as Bible Sharers groups
+  - Bible Sharer and Reporter pickers (must be members; coordinator cannot hold those roles)
 - **`GroupMembersSection`**: Section displaying and managing group members
   - Table of enrolled members with role, join date, status
   - Add member button
@@ -744,7 +745,7 @@ The Groups tab toolbar mirrors the clusters page layout:
 - **`BibleSharersCoverage`**: Bible Sharers coverage monitoring
   - Summary cards showing total clusters, clusters with/without Bible Sharers, coverage percentage
   - Alert for clusters without Bible Sharers
-  - Detailed table showing each cluster's Bible Sharers status, groups, and member counts
+  - Detailed table showing each cluster's Bible Sharers (people names) and groups
   - Helps identify which clusters need Bible Sharers assigned
 
 ### Group Detail Modal

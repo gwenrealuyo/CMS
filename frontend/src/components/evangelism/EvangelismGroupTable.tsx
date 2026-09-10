@@ -136,7 +136,7 @@ const EvangelismGroupTable = memo(
                       >
                         {group.name}
                       </button>
-                      {group.is_bible_sharers_group && (
+                      {((group.bible_sharer_ids?.length ?? 0) > 0) && (
                         <span
                           className={STATUS_CHIP_CLASSNAME}
                           style={getStatusChipStyle("primary")}

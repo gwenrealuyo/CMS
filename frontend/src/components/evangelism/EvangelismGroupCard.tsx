@@ -96,7 +96,7 @@ const EvangelismGroupCard = memo(
               <h4 className="truncate text-base font-semibold text-primary md:text-lg">
                 {group.name}
               </h4>
-              {group.is_bible_sharers_group && (
+              {((group.bible_sharer_ids?.length ?? 0) > 0) && (
                 <span
                   className={STATUS_CHIP_CLASSNAME}
                   style={getStatusChipStyle("primary")}

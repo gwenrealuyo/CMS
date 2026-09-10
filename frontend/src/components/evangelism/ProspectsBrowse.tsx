@@ -14,7 +14,7 @@ import ProspectsTable from "@/src/components/evangelism/ProspectsTable";
 import ProspectProgressForm from "@/src/components/evangelism/ProspectProgressForm";
 import { useProspects } from "@/src/hooks/useEvangelism";
 import { useAuth } from "@/src/contexts/AuthContext";
-import { canWriteEvangelism } from "@/src/lib/evangelism/evangelismPermissions";
+import { canWriteEvangelismRecords } from "@/src/lib/evangelism/evangelismPermissions";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import {
   canChangeProspectsBranchFilter,
@@ -57,7 +57,7 @@ export default function ProspectsBrowse({
 }: ProspectsBrowseProps) {
   const { user, isSeniorCoordinator } = useAuth();
   const { moduleEnabled } = useModuleSettings();
-  const canWrite = canWriteEvangelism({ user, moduleEnabled });
+  const canWrite = canWriteEvangelismRecords({ user, moduleEnabled });
   const canChangeBranch = canChangeProspectsBranchFilter(
     user,
     isSeniorCoordinator,

@@ -14,7 +14,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import {
   canBrowseProspects,
-  canWriteEvangelism,
+  canWriteEvangelismRecords,
 } from "@/src/lib/evangelism/evangelismPermissions";
 import { Prospect } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
@@ -30,7 +30,7 @@ export default function ClusterProspectsSection({
 }) {
   const { user, isSeniorCoordinator } = useAuth();
   const { moduleEnabled } = useModuleSettings();
-  const canWrite = canWriteEvangelism({ user, moduleEnabled });
+  const canWrite = canWriteEvangelismRecords({ user, moduleEnabled });
   const showEvangelismLink = canBrowseProspects({ user, isSeniorCoordinator });
   const [progressProspect, setProgressProspect] = useState<Prospect | null>(
     null,

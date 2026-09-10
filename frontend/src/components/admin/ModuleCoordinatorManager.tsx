@@ -80,8 +80,13 @@ const getAvailableLevels = (
       );
 
     case "EVANGELISM":
-      // Coordinator, Senior Coordinator, and Bible Sharer
-      return ALL_LEVEL_OPTIONS.filter((opt) => opt.value !== "TEACHER");
+      return ALL_LEVEL_OPTIONS.filter(
+        (opt) =>
+          opt.value === "COORDINATOR" ||
+          opt.value === "SENIOR_COORDINATOR" ||
+          opt.value === "REPORTER" ||
+          opt.value === "BIBLE_SHARER",
+      );
 
     case "LESSONS":
     case "SUNDAY_SCHOOL":
@@ -146,13 +151,14 @@ const resourceTypeForModule = (module: ModuleCoordinator["module"]): string => {
 const bulkModuleShowsScopeUi = (module: string | "") =>
   Boolean(module && !["FINANCE", "MINISTRIES"].includes(module));
 
-/** CLUSTER / EVANGELISM / SUNDAY_SCHOOL coordinators and CLUSTER reporters must pick a resource. */
+/** CLUSTER / EVANGELISM / SUNDAY_SCHOOL coordinators and reporters must pick a resource. */
 const coordinatorRequiresSpecificResource = (
   module: ModuleCoordinator["module"] | "",
   level: ModuleCoordinator["level"] | "",
 ): boolean =>
   (level === "COORDINATOR" && moduleSupportsResourceMultiSelect(module)) ||
-  (level === "REPORTER" && module === "CLUSTER");
+  (level === "REPORTER" &&
+    (module === "CLUSTER" || module === "EVANGELISM"));
 
 async function fetchCoordinatorResourcesForModule(
   module: ModuleCoordinator["module"],
@@ -1565,7 +1571,9 @@ export default function ModuleCoordinatorManager() {
                     ? "Coordinators must be assigned to a specific resource in the assignee's branch"
                     : "Coordinators can be assigned module-wide or to a specific resource"
                   : formData.level === "REPORTER"
-                    ? "Reporters submit weekly reports for assigned clusters only; they cannot manage cluster members"
+                    ? formData.module === "EVANGELISM"
+                      ? "Reporters submit weekly reports for assigned evangelism groups only; they cannot manage group members"
+                      : "Reporters submit weekly reports for assigned clusters only; they cannot manage cluster members"
                     : formData.level === "TEACHER" ||
                         formData.level === "BIBLE_SHARER"
                       ? `${

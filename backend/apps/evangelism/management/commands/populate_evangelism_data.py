@@ -149,17 +149,12 @@ class Command(BaseCommand):
             
             # Create ModuleCoordinator assignment for evangelism group coordinator
             if coordinator:
-                level = (
-                    ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
-                    if is_bible_sharers
-                    else ModuleCoordinator.CoordinatorLevel.COORDINATOR
-                )
                 ModuleCoordinator.objects.get_or_create(
                     person=coordinator,
                     module=ModuleCoordinator.ModuleType.EVANGELISM,
                     resource_id=group.id,
                     defaults={
-                        "level": level,
+                        "level": ModuleCoordinator.CoordinatorLevel.COORDINATOR,
                         "resource_type": "EvangelismGroup",
                     }
                 )
@@ -178,6 +173,31 @@ class Command(BaseCommand):
 
             if members:
                 group.members.add(*members)
+            if coordinator:
+                group.members.add(coordinator)
+
+            if is_bible_sharers and members:
+                sharer = random.choice(members)
+                ModuleCoordinator.objects.update_or_create(
+                    person=sharer,
+                    module=ModuleCoordinator.ModuleType.EVANGELISM,
+                    resource_id=group.id,
+                    defaults={
+                        "level": ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+                        "resource_type": "EvangelismGroup",
+                    },
+                )
+            elif members and random.random() > 0.6:
+                reporter = random.choice(members)
+                ModuleCoordinator.objects.get_or_create(
+                    person=reporter,
+                    module=ModuleCoordinator.ModuleType.EVANGELISM,
+                    resource_id=group.id,
+                    defaults={
+                        "level": ModuleCoordinator.CoordinatorLevel.REPORTER,
+                        "resource_type": "EvangelismGroup",
+                    },
+                )
 
             groups.append(group)
             if is_bible_sharers:

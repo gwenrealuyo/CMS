@@ -6,18 +6,26 @@ import { Person } from "@/src/types/person";
 
 interface GroupMembersSectionProps {
   members: Person[];
+  coordinatorId?: number | string | null;
+  reporterIds?: number[];
+  bibleSharerIds?: number[];
   onAddMember: () => void;
   onBulkEnroll: () => void;
   onRemoveMember: (person: Person) => void;
   loading?: boolean;
+  canManage?: boolean;
 }
 
 export default function GroupMembersSection({
   members,
+  coordinatorId,
+  reporterIds = [],
+  bibleSharerIds = [],
   onAddMember,
   onBulkEnroll,
   onRemoveMember,
   loading = false,
+  canManage = true,
 }: GroupMembersSectionProps) {
   const [showMembers, setShowMembers] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -35,6 +43,7 @@ export default function GroupMembersSection({
             ({members.length})
           </span>
         </h3>
+        {canManage && (
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             variant="secondary"
@@ -50,6 +59,7 @@ export default function GroupMembersSection({
             Add Member
           </Button>
         </div>
+        )}
       </div>
 
       <div className="flex justify-center">
@@ -84,7 +94,25 @@ export default function GroupMembersSection({
                 >
                   <span className="text-sm font-medium text-gray-900 sm:min-w-0 sm:flex-1 sm:truncate">
                     {row.full_name || row.username || "N/A"}
+                    {String(row.id) === String(coordinatorId) && (
+                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
+                        Coordinator
+                      </span>
+                    )}
+                    {String(row.id) !== String(coordinatorId) &&
+                      bibleSharerIds.some((id) => String(id) === String(row.id)) && (
+                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-800">
+                        Bible Sharer
+                      </span>
+                    )}
+                    {String(row.id) !== String(coordinatorId) &&
+                      reporterIds.some((id) => String(id) === String(row.id)) && (
+                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
+                        Reporter
+                      </span>
+                    )}
                   </span>
+                  {canManage && (
                   <div className="flex shrink-0 sm:justify-end">
                     <Button
                       variant="secondary"
@@ -94,6 +122,7 @@ export default function GroupMembersSection({
                       Remove
                     </Button>
                   </div>
+                  )}
                 </div>
               ))}
             </div>

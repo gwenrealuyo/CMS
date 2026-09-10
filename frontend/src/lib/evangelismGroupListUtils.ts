@@ -116,7 +116,7 @@ function groupMatchesFilter(
       return wantsActive ? isActive : !isActive;
     }
     case "bible_sharers": {
-      const isBibleSharers = Boolean(group.is_bible_sharers_group);
+      const isBibleSharers = (group.bible_sharer_ids?.length ?? 0) > 0;
       const wantsYes = filterValue === "yes";
       if (filter.operator === "is_not") {
         return wantsYes ? !isBibleSharers : isBibleSharers;

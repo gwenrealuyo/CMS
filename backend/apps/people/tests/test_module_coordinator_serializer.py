@@ -176,17 +176,53 @@ class ModuleCoordinatorAssignmentValidationTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("resource_id", serializer.errors)
 
-    def test_reporter_on_non_cluster_module_rejected(self):
+    def test_reporter_on_lessons_module_rejected(self):
         serializer = ModuleCoordinatorSerializer(
             data={
                 "person": self.person_a.id,
-                "module": ModuleCoordinator.ModuleType.EVANGELISM,
+                "module": ModuleCoordinator.ModuleType.LESSONS,
                 "level": ModuleCoordinator.CoordinatorLevel.REPORTER,
                 "resource_id": 1,
             }
         )
         self.assertFalse(serializer.is_valid())
         self.assertIn("level", serializer.errors)
+
+    def test_reporter_on_evangelism_group_same_branch_allowed(self):
+        from apps.evangelism.models import EvangelismGroup
+
+        cluster_a = Cluster.objects.create(
+            code="CLU-EV",
+            name="Cluster Ev",
+            branch=self.branch_a,
+        )
+        group = EvangelismGroup.objects.create(
+            name="North Study",
+            cluster=cluster_a,
+            is_active=True,
+        )
+        serializer = ModuleCoordinatorSerializer(
+            data={
+                "person": self.person_a.id,
+                "module": ModuleCoordinator.ModuleType.EVANGELISM,
+                "level": ModuleCoordinator.CoordinatorLevel.REPORTER,
+                "resource_id": group.id,
+                "resource_type": "EvangelismGroup",
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_bible_sharer_without_resource_rejected(self):
+        serializer = ModuleCoordinatorSerializer(
+            data={
+                "person": self.person_a.id,
+                "module": ModuleCoordinator.ModuleType.EVANGELISM,
+                "level": ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+                "resource_id": None,
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("resource_id", serializer.errors)
 
     def test_reporter_valid_assignment(self):
         cluster_a = Cluster.objects.create(

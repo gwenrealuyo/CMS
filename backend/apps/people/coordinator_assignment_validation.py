@@ -62,11 +62,17 @@ def validate_module_coordinator_assignment(
     errors = {}
 
     if level == ModuleCoordinator.CoordinatorLevel.REPORTER:
-        if module != ModuleCoordinator.ModuleType.CLUSTER:
-            errors["level"] = "Reporter assignments are only available for the Cluster module."
+        if module not in (
+            ModuleCoordinator.ModuleType.CLUSTER,
+            ModuleCoordinator.ModuleType.EVANGELISM,
+        ):
+            errors["level"] = (
+                "Reporter assignments are only available for the Cluster "
+                "and Evangelism modules."
+            )
         elif resource_id is None:
             errors["resource_id"] = (
-                "Reporters must be assigned to at least one specific cluster."
+                "Reporters must be assigned to at least one specific resource."
             )
         elif not person.branch_id:
             errors["person"] = (
@@ -75,10 +81,32 @@ def validate_module_coordinator_assignment(
         else:
             resource_branch = resource_branch_id(module, int(resource_id))
             if resource_branch is None:
-                errors["resource_id"] = "Selected cluster was not found."
+                errors["resource_id"] = "Selected resource was not found."
             elif resource_branch != person.branch_id:
                 errors["resource_id"] = (
-                    "Cluster must belong to the assignee's church branch."
+                    "Resource must belong to the assignee's church branch."
+                )
+
+    if level == ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER:
+        if module != ModuleCoordinator.ModuleType.EVANGELISM:
+            errors["level"] = (
+                "Bible Sharer assignments are only available for the Evangelism module."
+            )
+        elif resource_id is None:
+            errors["resource_id"] = (
+                "Bible Sharers must be assigned to at least one specific evangelism group."
+            )
+        elif not person.branch_id:
+            errors["person"] = (
+                "Assignee must have a branch before receiving a resource-specific assignment."
+            )
+        else:
+            resource_branch = resource_branch_id(module, int(resource_id))
+            if resource_branch is None:
+                errors["resource_id"] = "Selected evangelism group was not found."
+            elif resource_branch != person.branch_id:
+                errors["resource_id"] = (
+                    "Evangelism group must belong to the assignee's church branch."
                 )
 
     if level == ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR:
@@ -119,7 +147,7 @@ def validate_module_coordinator_assignment(
 
 
 def user_is_reporter_only(person: Person) -> bool:
-    """True when every module assignment is CLUSTER Reporter (people-write excluded)."""
+    """True when every module assignment is Reporter (people-write excluded)."""
     qs = person.module_coordinator_assignments.all()
     if not qs.exists():
         return False

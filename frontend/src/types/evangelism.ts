@@ -14,6 +14,8 @@ export interface EvangelismGroup {
   meeting_day?: string;
   is_active: boolean;
   is_bible_sharers_group?: boolean;
+  reporter_ids?: number[];
+  bible_sharer_ids?: number[];
   created_at: string;
   updated_at: string;
   members?: Person[];
@@ -357,21 +359,30 @@ export interface EvangelismGroupFormValues {
   meeting_time: string;
   meeting_day: string;
   is_active: boolean;
-  is_bible_sharers_group?: boolean;
   /** Person IDs to add on create (optional) */
   initial_member_ids?: string[];
+  reporter_ids?: string[];
+  bible_sharer_ids?: string[];
 }
 
 export interface BibleSharersGroupInfo {
   id: string;
   name: string;
   coordinator: string | null;
-  members_count: number;
+  bible_sharers_count?: number;
+  members_count?: number;
+}
+
+export interface BibleSharerCoveragePerson {
+  id: number;
+  name: string;
+  groups: string[];
 }
 
 export interface BibleSharersCoverageItem {
   cluster: Cluster;
   has_bible_sharers: boolean;
+  bible_sharers?: BibleSharerCoveragePerson[];
   bible_sharers_groups: BibleSharersGroupInfo[];
   bible_sharers_count: number;
 }

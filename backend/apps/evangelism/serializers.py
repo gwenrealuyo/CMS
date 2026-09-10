@@ -3,13 +3,19 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from apps.people.models import Person
+from apps.people.models import ModuleCoordinator, Person
 from apps.people.name_formatting import (
     PROSPECT_NAME_FIELDS,
     apply_title_case_name_fields,
 )
 from apps.clusters.models import Cluster
 
+from .coordinator_assignments import (
+    prune_evangelism_role_assignments_to_members,
+    sync_evangelism_bible_sharer_assignments,
+    sync_evangelism_coordinator_module_assignment,
+    sync_evangelism_reporter_assignments,
+)
 from .models import (
     EvangelismGroup,
     EvangelismSession,
@@ -112,6 +118,8 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
     members_count = serializers.SerializerMethodField()
     visitors_count = serializers.SerializerMethodField()
     conversions_count = serializers.SerializerMethodField()
+    reporter_ids = serializers.SerializerMethodField()
+    bible_sharer_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = EvangelismGroup
@@ -134,13 +142,172 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
             "members_count",
             "visitors_count",
             "conversions_count",
+            "reporter_ids",
+            "bible_sharer_ids",
         )
-        read_only_fields = ("created_at", "updated_at")
+        read_only_fields = (
+            "created_at",
+            "updated_at",
+            "reporter_ids",
+            "bible_sharer_ids",
+        )
 
     def validate_meeting_time(self, value):
         if value in ("", None):
             return None
         return value
+
+    def _assignment_ids_from_map(self, context_key, level, obj):
+        assignment_map = self.context.get(context_key)
+        if assignment_map is not None:
+            return assignment_map.get(obj.id, [])
+        return list(
+            ModuleCoordinator.objects.filter(
+                module=ModuleCoordinator.ModuleType.EVANGELISM,
+                level=level,
+                resource_id=obj.id,
+            ).values_list("person_id", flat=True)
+        )
+
+    def get_reporter_ids(self, obj):
+        return self._assignment_ids_from_map(
+            "evangelism_reporter_ids_map",
+            ModuleCoordinator.CoordinatorLevel.REPORTER,
+            obj,
+        )
+
+    def get_bible_sharer_ids(self, obj):
+        return self._assignment_ids_from_map(
+            "evangelism_bible_sharer_ids_map",
+            ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            obj,
+        )
+
+    def _parse_person_id_list(self, field_name: str):
+        if field_name not in self.initial_data:
+            return None
+        raw = self.initial_data.get(field_name)
+        if raw is None:
+            raw = []
+        if not isinstance(raw, list):
+            raise serializers.ValidationError(
+                {field_name: "Expected a list of person IDs."}
+            )
+        parsed: list[int] = []
+        for item in raw:
+            try:
+                parsed.append(int(item))
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(
+                    {field_name: "Each ID must be an integer."}
+                )
+        if len(parsed) != len(set(parsed)):
+            raise serializers.ValidationError(
+                {field_name: "Duplicate IDs are not allowed."}
+            )
+        return parsed
+
+    def _resolved_coordinator_id(self, attrs):
+        coordinator = attrs.get("coordinator", serializers.empty)
+        if coordinator is serializers.empty:
+            return self.instance.coordinator_id if self.instance else None
+        return coordinator.id if coordinator else None
+
+    def _resolved_member_ids(self, attrs, coordinator_id):
+        members = attrs.get("members", serializers.empty)
+        if members is serializers.empty:
+            member_ids = (
+                set(self.instance.members.values_list("id", flat=True))
+                if self.instance
+                else set()
+            )
+        else:
+            member_ids = {m.id for m in members}
+        if coordinator_id is not None:
+            member_ids.add(coordinator_id)
+        return member_ids
+
+    def _validate_role_ids(self, field_name, role_ids, coordinator_id, member_ids, role_label):
+        if coordinator_id is not None and coordinator_id in role_ids:
+            raise serializers.ValidationError(
+                {
+                    field_name: (
+                        f"The group coordinator cannot also be a {role_label}."
+                    )
+                }
+            )
+        invalid = [rid for rid in role_ids if rid not in member_ids]
+        if invalid:
+            raise serializers.ValidationError(
+                {
+                    field_name: (
+                        f"{role_label.title()}s must be group members. "
+                        f"Invalid IDs: {invalid}"
+                    )
+                }
+            )
+        existing_ids = set(
+            Person.objects.filter(id__in=role_ids)
+            .exclude(role__in=["ADMIN", "VISITOR"])
+            .values_list("id", flat=True)
+        )
+        missing = [rid for rid in role_ids if rid not in existing_ids]
+        if missing:
+            raise serializers.ValidationError(
+                {field_name: f"Unknown person IDs: {missing}"}
+            )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        coordinator_id = self._resolved_coordinator_id(attrs)
+        member_ids = self._resolved_member_ids(attrs, coordinator_id)
+
+        reporter_ids = self._parse_person_id_list("reporter_ids")
+        if reporter_ids is not None:
+            self._validate_role_ids(
+                "reporter_ids",
+                reporter_ids,
+                coordinator_id,
+                member_ids,
+                "reporter",
+            )
+            attrs["_reporter_ids"] = reporter_ids
+
+        bible_sharer_ids = self._parse_person_id_list("bible_sharer_ids")
+        if bible_sharer_ids is not None:
+            self._validate_role_ids(
+                "bible_sharer_ids",
+                bible_sharer_ids,
+                coordinator_id,
+                member_ids,
+                "Bible Sharer",
+            )
+            attrs["_bible_sharer_ids"] = bible_sharer_ids
+
+        return attrs
+
+    def _sync_group_assignments(
+        self,
+        instance,
+        previous_coordinator_id,
+        members,
+        reporter_ids,
+        bible_sharer_ids,
+    ):
+        if members is not None:
+            instance.members.set(members)
+        if instance.coordinator_id:
+            instance.members.add(instance.coordinator_id)
+        sync_evangelism_coordinator_module_assignment(
+            instance, previous_coordinator_id
+        )
+        if bible_sharer_ids is not serializers.empty:
+            sync_evangelism_bible_sharer_assignments(instance, bible_sharer_ids)
+        if reporter_ids is not serializers.empty:
+            sync_evangelism_reporter_assignments(instance, reporter_ids)
+        final_member_ids = instance.members.values_list("id", flat=True)
+        prune_evangelism_role_assignments_to_members(instance, final_member_ids)
+        return instance
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -150,17 +317,26 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         members = validated_data.pop("members", None)
+        reporter_ids = validated_data.pop("_reporter_ids", serializers.empty)
+        bible_sharer_ids = validated_data.pop("_bible_sharer_ids", serializers.empty)
         instance = EvangelismGroup.objects.create(**validated_data)
-        if members is not None:
-            instance.members.set(members)
-        return instance
+        return self._sync_group_assignments(
+            instance, None, members, reporter_ids, bible_sharer_ids
+        )
 
     def update(self, instance, validated_data):
+        previous_coordinator_id = instance.coordinator_id
         members = validated_data.pop("members", None)
+        reporter_ids = validated_data.pop("_reporter_ids", serializers.empty)
+        bible_sharer_ids = validated_data.pop("_bible_sharer_ids", serializers.empty)
         instance = super().update(instance, validated_data)
-        if members is not None:
-            instance.members.set(members)
-        return instance
+        return self._sync_group_assignments(
+            instance,
+            previous_coordinator_id,
+            members,
+            reporter_ids,
+            bible_sharer_ids,
+        )
 
     def get_members_count(self, obj):
         return obj.members.exclude(role__in=["ADMIN", "VISITOR"]).count()

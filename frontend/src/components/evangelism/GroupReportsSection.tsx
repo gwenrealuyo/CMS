@@ -13,6 +13,7 @@ interface GroupReportsSectionProps {
   onViewReport: (report: EvangelismWeeklyReport) => void;
   onEditReport: (report: EvangelismWeeklyReport) => void;
   loading?: boolean;
+  canSubmit?: boolean;
 }
 
 export default function GroupReportsSection({
@@ -21,6 +22,7 @@ export default function GroupReportsSection({
   onViewReport,
   onEditReport,
   loading = false,
+  canSubmit = true,
 }: GroupReportsSectionProps) {
   const [showAll, setShowAll] = useState(false);
   const DEFAULT_LIMIT = 5;
@@ -34,12 +36,14 @@ export default function GroupReportsSection({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h3 className="text-lg font-semibold text-gray-900">Reports</h3>
+        {canSubmit && (
         <Button
           onClick={onAddReport}
           className="bg-primary hover:bg-lighthouse-navy w-full sm:w-auto min-h-[44px]"
         >
           Submit Report
         </Button>
+        )}
       </div>
 
       {loading ? (

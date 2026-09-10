@@ -16,9 +16,9 @@ from apps.authentication.permissions import is_module_enabled
 from apps.clusters.models import Cluster, ClusterWeeklyReport
 from apps.clusters.permissions import managed_cluster_ids_for_reports
 from apps.evangelism.models import EvangelismGroup, EvangelismWeeklyReport, FollowUpTask
+from apps.evangelism.permissions import managed_group_ids_for_reports
 from apps.notifications.scoping import (
     clusters_oversight_queryset_for_user,
-    managed_evangelism_group_ids_for_coordinator,
 )
 from apps.people.models import ModuleCoordinator
 
@@ -176,7 +176,7 @@ def _build_evangelism_report_due(user) -> List[NotificationItem]:
     if not is_module_enabled(ModuleCoordinator.ModuleType.EVANGELISM):
         return []
 
-    managed = managed_evangelism_group_ids_for_coordinator(user)
+    managed = managed_group_ids_for_reports(user)
     if not managed:
         return []
 

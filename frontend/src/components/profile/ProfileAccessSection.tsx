@@ -36,6 +36,14 @@ function isClusterReporterAssignment(a: ModuleCoordinator): boolean {
   return a.module === "CLUSTER" && a.level === "REPORTER";
 }
 
+function isEvangelismReporterAssignment(a: ModuleCoordinator): boolean {
+  return a.module === "EVANGELISM" && a.level === "REPORTER";
+}
+
+function isEvangelismBibleSharerAssignment(a: ModuleCoordinator): boolean {
+  return a.module === "EVANGELISM" && a.level === "BIBLE_SHARER";
+}
+
 type AccessTableRow = {
   key: string;
   moduleLabel: string;
@@ -71,6 +79,20 @@ function buildMergedClusterReporterRow(
   };
 }
 
+function buildMergedLevelRow(
+  rows: ModuleCoordinator[],
+  key: string,
+): AccessTableRow | null {
+  if (rows.length === 0) return null;
+  const first = rows[0];
+  return {
+    key,
+    moduleLabel: first.module_display || first.module,
+    levelLabel: first.level_display || first.level,
+    scope: formatGroupedResourceScope(rows),
+  };
+}
+
 function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
   const merged = buildMergedClusterCoordinatorRow(
     sorted.filter(isClusterCoordinatorAssignment),
@@ -78,8 +100,18 @@ function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
   const mergedReporter = buildMergedClusterReporterRow(
     sorted.filter(isClusterReporterAssignment),
   );
+  const mergedEvReporter = buildMergedLevelRow(
+    sorted.filter(isEvangelismReporterAssignment),
+    "merged-evangelism-reporter",
+  );
+  const mergedSharer = buildMergedLevelRow(
+    sorted.filter(isEvangelismBibleSharerAssignment),
+    "merged-evangelism-bible-sharer",
+  );
   const firstClusterCoordIndex = sorted.findIndex(isClusterCoordinatorAssignment);
   const firstClusterReporterIndex = sorted.findIndex(isClusterReporterAssignment);
+  const firstEvReporterIndex = sorted.findIndex(isEvangelismReporterAssignment);
+  const firstSharerIndex = sorted.findIndex(isEvangelismBibleSharerAssignment);
   const rows: AccessTableRow[] = [];
 
   for (let i = 0; i < sorted.length; i++) {
@@ -93,6 +125,18 @@ function buildAccessTableRows(sorted: ModuleCoordinator[]): AccessTableRow[] {
     if (isClusterReporterAssignment(a)) {
       if (mergedReporter && i === firstClusterReporterIndex) {
         rows.push(mergedReporter);
+      }
+      continue;
+    }
+    if (isEvangelismReporterAssignment(a)) {
+      if (mergedEvReporter && i === firstEvReporterIndex) {
+        rows.push(mergedEvReporter);
+      }
+      continue;
+    }
+    if (isEvangelismBibleSharerAssignment(a)) {
+      if (mergedSharer && i === firstSharerIndex) {
+        rows.push(mergedSharer);
       }
       continue;
     }

@@ -48,6 +48,8 @@ interface EvangelismGroupViewProps {
   onDelete: () => void;
   onHardDelete?: () => void;
   onClose: () => void;
+  canManageGroup?: boolean;
+  canSubmitReport?: boolean;
 }
 
 function InfoField({
@@ -98,6 +100,8 @@ export default function EvangelismGroupView({
   onHardDelete,
   onClose,
   onEdit,
+  canManageGroup = true,
+  canSubmitReport = true,
 }: EvangelismGroupViewProps) {
   const displayGroup = groupData ?? group;
   const { clusterBranch } = resolveEvangelismGroupClusterMeta(
@@ -116,12 +120,12 @@ export default function EvangelismGroupView({
             {group.name || "Untitled Group"}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {displayGroup.is_bible_sharers_group && (
+            {(displayGroup.bible_sharer_ids?.length ?? 0) > 0 && (
               <span
                 className={STATUS_CHIP_CLASSNAME}
                 style={getStatusChipStyle("primary")}
               >
-                Bible Sharers
+                Has Bible Sharers
               </span>
             )}
             {!displayGroup.is_active && (
@@ -294,10 +298,14 @@ export default function EvangelismGroupView({
 
             <GroupMembersSection
               members={groupData?.members || []}
+              coordinatorId={displayGroup.coordinator?.id}
+              reporterIds={displayGroup.reporter_ids}
+              bibleSharerIds={displayGroup.bible_sharer_ids}
               onAddMember={onAddMember}
               onBulkEnroll={onBulkEnroll}
               onRemoveMember={onRemoveMember}
               loading={groupLoading}
+              canManage={canManageGroup}
             />
 
             <GroupReportsSection
@@ -306,6 +314,7 @@ export default function EvangelismGroupView({
               onViewReport={onViewReport}
               onEditReport={onEditReport}
               loading={reportsLoading}
+              canSubmit={canSubmitReport}
             />
 
             <GroupProspectsSection
@@ -325,6 +334,7 @@ export default function EvangelismGroupView({
         )}
       </div>
 
+      {canManageGroup && (
       <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-3 md:px-4">
         <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
           <div className="flex flex-nowrap items-center gap-2 shrink-0">
@@ -398,6 +408,7 @@ export default function EvangelismGroupView({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -25,9 +25,16 @@ from apps.authentication.permissions import (
     CanEditAssignedResource,
     IsAdmin,
 )
-from apps.people.coordinator_scope import coordinator_assigned_resource_ids_when_all_scoped
 
 from .filters import ProspectFilter
+from .permissions import (
+    HasEvangelismGroupWrite,
+    HasEvangelismReportWrite,
+    accessible_evangelism_group_ids,
+    ensure_user_can_submit_evangelism_report_or_privileged,
+    ensure_user_manages_evangelism_group_or_privileged,
+    filter_weekly_reports_for_user,
+)
 from .models import (
     EvangelismGroup,
     EvangelismSession,
@@ -101,56 +108,68 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter,
     )
-    filterset_fields = ("cluster", "is_active", "is_bible_sharers_group")
+    filterset_fields = ("cluster", "is_active")
     search_fields = ("name", "description", "location")
     ordering_fields = ("name", "created_at")
     ordering = ("name",)
-    
+
+    @staticmethod
+    def _assignment_ids_map(group_ids, level):
+        from collections import defaultdict
+
+        mapping = defaultdict(list)
+        if not group_ids:
+            return mapping
+        rows = ModuleCoordinator.objects.filter(
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=level,
+            resource_id__in=group_ids,
+        ).values_list("resource_id", "person_id")
+        for resource_id, person_id in rows:
+            if resource_id is not None:
+                mapping[resource_id].append(person_id)
+        return mapping
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs.setdefault("context", self.get_serializer_context())
+        instance = args[0] if args else kwargs.get("instance")
+        if (
+            instance is not None
+            and kwargs.get("data") is None
+            and "evangelism_reporter_ids_map" not in kwargs["context"]
+            and self.get_serializer_class() is EvangelismGroupSerializer
+        ):
+            if kwargs.get("many"):
+                group_ids = [g.id for g in instance]
+            else:
+                group_ids = [instance.id]
+            kwargs["context"]["evangelism_reporter_ids_map"] = (
+                self._assignment_ids_map(
+                    group_ids, ModuleCoordinator.CoordinatorLevel.REPORTER
+                )
+            )
+            kwargs["context"]["evangelism_bible_sharer_ids_map"] = (
+                self._assignment_ids_map(
+                    group_ids, ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+                )
+            )
+        return super().get_serializer(*args, **kwargs)
+
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
         branch_id = self.request.query_params.get("branch")
         if branch_id:
             queryset = queryset.filter(cluster__branch=branch_id)
-        
-        # ADMIN/PASTOR: All groups
-        if user.role in ["ADMIN", "PASTOR"]:
+
+        accessible = accessible_evangelism_group_ids(user)
+        if accessible is None:
             return queryset
-        
-        # Evangelism Coordinator (EVANGELISM, COORDINATOR)
-        if user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.EVANGELISM,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-        ):
-            if user.is_senior_coordinator(ModuleCoordinator.ModuleType.EVANGELISM):
-                return queryset
-            scoped_ids = coordinator_assigned_resource_ids_when_all_scoped(
-                user,
-                ModuleCoordinator.ModuleType.EVANGELISM,
-                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            )
-            if scoped_ids is not None:
-                return queryset.filter(id__in=scoped_ids)
-            return queryset
-        
-        # Bible Sharer (EVANGELISM, BIBLE_SHARER): All groups (filtering happens in permissions)
-        if user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.EVANGELISM,
-            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
-        ):
-            return queryset
-        
-        # MEMBER: Only groups they're members of
-        if user.role == "MEMBER":
-            return queryset.filter(members=user).distinct()
-        
-        # Default: empty queryset for safety
-        return queryset.none()
-    
+        if not accessible:
+            return queryset.none()
+        return queryset.filter(id__in=accessible).distinct()
+
     def get_permissions(self):
-        """
-        Override to set permissions based on action.
-        """
         if self.action in [
             "list",
             "retrieve",
@@ -159,58 +178,21 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
             "visitors",
             "summary",
             "dashboard_stats",
+            "bible_sharers_coverage",
         ]:
-            # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action in ["create", "update", "partial_update", "enroll"]:
-            # Write operations: ADMIN, PASTOR, Evangelism Coordinator, or Bible Sharer (with restrictions)
-            return [IsAuthenticatedAndNotVisitor(), HasModuleAccess('EVANGELISM', 'write')]
+            return [IsAuthenticatedAndNotVisitor(), HasEvangelismGroupWrite()]
         elif self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-    
+
     def get_object(self):
         obj = super().get_object()
-        user = self.request.user
-
-        scoped_ids = None
-        if (
-            user.is_module_coordinator(
-                ModuleCoordinator.ModuleType.EVANGELISM,
-                level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+        if self.action in ["update", "partial_update", "enroll"]:
+            ensure_user_manages_evangelism_group_or_privileged(
+                self.request.user, obj
             )
-            and not user.is_senior_coordinator(
-                ModuleCoordinator.ModuleType.EVANGELISM
-            )
-        ):
-            scoped_ids = coordinator_assigned_resource_ids_when_all_scoped(
-                user,
-                ModuleCoordinator.ModuleType.EVANGELISM,
-                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            )
-
-        if scoped_ids is not None and obj.id not in scoped_ids:
-            from rest_framework.exceptions import PermissionDenied
-
-            raise PermissionDenied(
-                "You do not have access to this evangelism group.",
-            )
-
-        # Bible Sharer can only edit/delete groups they're members of
-        if (
-            self.action in ["update", "partial_update", "destroy"]
-            and user.is_module_coordinator(
-                ModuleCoordinator.ModuleType.EVANGELISM,
-                level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
-            )
-        ):
-            if not obj.members.filter(pk=user.pk).exists():
-                from rest_framework.exceptions import PermissionDenied
-
-                raise PermissionDenied(
-                    "You can only edit groups you are a member of.",
-                )
-
         return obj
 
     @action(detail=True, methods=["post"])
@@ -293,83 +275,111 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticatedAndNotVisitor, IsMemberOrAbove])
     def bible_sharers_coverage(self, request):
-        """Get Bible Sharers coverage across clusters.
+        """Bible Sharers coverage: unique people with BIBLE_SHARER assignments per cluster."""
+        from collections import defaultdict
 
-        Returns which clusters have Bible Sharers and which don't.
-        Stats are visible to all authenticated users.
-        """
         from apps.clusters.models import Cluster
         from .serializers import ClusterSummarySerializer
 
-        # Get all active Bible Sharers groups (use base queryset, not filtered)
-        bible_sharers_groups = EvangelismGroup.objects.filter(
-            is_bible_sharers_group=True, is_active=True
-        ).select_related("cluster")
+        assignments = ModuleCoordinator.objects.filter(
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id__isnull=False,
+        ).select_related("person")
 
-        # Get clusters that have Bible Sharers
-        clusters_with_bible_sharers = set()
-        bible_sharers_by_cluster = {}
+        group_ids = {a.resource_id for a in assignments if a.resource_id}
+        groups_by_id = {
+            g.id: g
+            for g in EvangelismGroup.objects.filter(
+                id__in=group_ids, is_active=True
+            ).select_related("cluster", "coordinator")
+        }
 
-        for group in bible_sharers_groups:
-            if group.cluster:
-                clusters_with_bible_sharers.add(group.cluster.id)
-                if group.cluster.id not in bible_sharers_by_cluster:
-                    bible_sharers_by_cluster[group.cluster.id] = {
-                        "cluster": group.cluster,
-                        "groups": [],
-                    }
-                bible_sharers_by_cluster[group.cluster.id]["groups"].append(group)
+        people_by_cluster = defaultdict(dict)
+        groups_by_cluster = defaultdict(dict)
 
-        # Get all clusters
+        for assignment in assignments:
+            group = groups_by_id.get(assignment.resource_id)
+            if not group or not group.cluster_id:
+                continue
+            cluster_id = group.cluster_id
+            person = assignment.person
+            person_entry = people_by_cluster[cluster_id].setdefault(
+                person.id,
+                {
+                    "id": person.id,
+                    "name": person.get_full_name() or person.username,
+                    "group_ids": [],
+                },
+            )
+            if group.id not in person_entry["group_ids"]:
+                person_entry["group_ids"].append(group.id)
+            groups_by_cluster[cluster_id].setdefault(
+                group.id,
+                {
+                    "id": group.id,
+                    "name": group.name,
+                    "coordinator": (
+                        group.coordinator.get_full_name()
+                        if group.coordinator
+                        else None
+                    ),
+                    "bible_sharers_count": 0,
+                },
+            )
+
+        for cluster_id, people in people_by_cluster.items():
+            for person_entry in people.values():
+                for gid in person_entry["group_ids"]:
+                    groups_by_cluster[cluster_id][gid]["bible_sharers_count"] += 1
+
         all_clusters = Cluster.objects.all().order_by("name")
-
-        # Build coverage report
         coverage = []
         clusters_without = []
+        total_sharer_groups = set()
 
         for cluster in all_clusters:
-            cluster_data = {
-                "cluster": ClusterSummarySerializer(cluster).data,
-                "has_bible_sharers": cluster.id in clusters_with_bible_sharers,
-                "bible_sharers_groups": [],
-                "bible_sharers_count": 0,
-            }
-
-            if cluster.id in bible_sharers_by_cluster:
-                groups_data = []
-                total_members = 0
-                for group in bible_sharers_by_cluster[cluster.id]["groups"]:
-                    members_count = group.members.exclude(role="ADMIN").count()
-                    total_members += members_count
-                    groups_data.append(
-                        {
-                            "id": group.id,
-                            "name": group.name,
-                            "coordinator": (
-                                group.coordinator.get_full_name()
-                                if group.coordinator
-                                else None
-                            ),
-                            "members_count": members_count,
-                        }
-                    )
-
-                cluster_data["bible_sharers_groups"] = groups_data
-                cluster_data["bible_sharers_count"] = total_members
+            people = list(people_by_cluster.get(cluster.id, {}).values())
+            groups_data = list(groups_by_cluster.get(cluster.id, {}).values())
+            has_sharers = len(people) > 0
+            if has_sharers:
+                for g in groups_data:
+                    total_sharer_groups.add(g["id"])
             else:
                 clusters_without.append(cluster.name)
 
-            coverage.append(cluster_data)
+            coverage.append(
+                {
+                    "cluster": ClusterSummarySerializer(cluster).data,
+                    "has_bible_sharers": has_sharers,
+                    "bible_sharers": [
+                        {
+                            "id": p["id"],
+                            "name": p["name"],
+                            "groups": [
+                                groups_by_cluster[cluster.id][gid]["name"]
+                                for gid in p["group_ids"]
+                                if gid in groups_by_cluster[cluster.id]
+                            ],
+                        }
+                        for p in people
+                    ],
+                    "bible_sharers_groups": groups_data,
+                    "bible_sharers_count": len(people),
+                }
+            )
 
         return Response(
             {
                 "coverage": coverage,
                 "summary": {
                     "total_clusters": all_clusters.count(),
-                    "clusters_with_bible_sharers": len(clusters_with_bible_sharers),
+                    "clusters_with_bible_sharers": sum(
+                        1 for item in coverage if item["has_bible_sharers"]
+                    ),
                     "clusters_without_bible_sharers": len(clusters_without),
                     "clusters_without_names": clusters_without,
-                    "total_bible_sharers_groups": bible_sharers_groups.count(),
+                    "total_bible_sharers_groups": len(total_sharer_groups),
                 },
             }
         )
@@ -585,10 +595,11 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         if self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
-        return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVANGELISM", "write")]
+        return [IsAuthenticatedAndNotVisitor(), HasEvangelismReportWrite()]
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        queryset = filter_weekly_reports_for_user(self.request.user, queryset)
 
         month = self.request.query_params.get("month")
         if month:
@@ -619,6 +630,22 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    def perform_create(self, serializer):
+        group = serializer.validated_data.get("evangelism_group")
+        ensure_user_can_submit_evangelism_report_or_privileged(
+            self.request.user, group
+        )
+        serializer.save(submitted_by=self.request.user)
+
+    def perform_update(self, serializer):
+        group = serializer.validated_data.get(
+            "evangelism_group", serializer.instance.evangelism_group
+        )
+        ensure_user_can_submit_evangelism_report_or_privileged(
+            self.request.user, group
+        )
+        serializer.save()
+
     @action(detail=False, methods=["get"], url_path="distinct_years")
     def distinct_years(self, request):
         """
@@ -628,7 +655,9 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         Ignores year, month, and week_number so the Year dropdown can list all years
         that have matching reports (same pattern as cluster weekly distinct_years).
         """
-        queryset = EvangelismWeeklyReport.objects.all()
+        queryset = filter_weekly_reports_for_user(
+            request.user, EvangelismWeeklyReport.objects.all()
+        )
 
         branch = request.query_params.get("branch")
         if branch:

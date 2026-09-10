@@ -96,7 +96,7 @@ import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
-import { canBrowseProspects, canWriteEvangelism } from "@/src/lib/evangelism/evangelismPermissions";
+import { canBrowseProspects, canWriteEvangelism, canSubmitEvangelismReport, assignedEvangelismGroupIds } from "@/src/lib/evangelism/evangelismPermissions";
 import ProspectsBrowse from "@/src/components/evangelism/ProspectsBrowse";
 import {
   canChangeEvangelismBranchFilter,
@@ -132,6 +132,16 @@ export default function EvangelismPage() {
   const canWriteEvangelismAccess = useMemo(
     () => canWriteEvangelism({ user, moduleEnabled }),
     [user, moduleEnabled],
+  );
+  const canSubmitEvangelismReportAccess = useMemo(
+    () => canSubmitEvangelismReport({ user, moduleEnabled }),
+    [user, moduleEnabled],
+  );
+  const evangelismPrivileged = Boolean(
+    user &&
+      (user.role === "ADMIN" ||
+        user.role === "PASTOR" ||
+        isSeniorCoordinator("EVANGELISM")),
   );
   const canBrowseProspectsTab = useMemo(
     () => canBrowseProspects({ user, isSeniorCoordinator }),
@@ -541,10 +551,9 @@ export default function EvangelismPage() {
           : { meeting_time: null }),
         ...(values.meeting_day ? { meeting_day: values.meeting_day } : {}),
         is_active: values.is_active,
-        ...(values.is_bible_sharers_group !== undefined
-          ? { is_bible_sharers_group: values.is_bible_sharers_group }
-          : {}),
         ...(memberIds.length > 0 ? { members: memberIds } : {}),
+        reporter_ids: (values.reporter_ids || []).map(Number),
+        bible_sharer_ids: (values.bible_sharer_ids || []).map(Number),
       });
       setSuccessMessage(`Group "${values.name}" has been created.`);
       setIsCreateOpen(false);
@@ -580,9 +589,8 @@ export default function EvangelismPage() {
           : { meeting_time: null }),
         ...(values.meeting_day ? { meeting_day: values.meeting_day } : {}),
         is_active: values.is_active,
-        ...(values.is_bible_sharers_group !== undefined
-          ? { is_bible_sharers_group: values.is_bible_sharers_group }
-          : {}),
+        reporter_ids: (values.reporter_ids || []).map(Number),
+        bible_sharer_ids: (values.bible_sharer_ids || []).map(Number),
       });
       setSuccessMessage(`Group "${values.name}" has been updated.`);
       setViewEditGroup(null);
@@ -940,7 +948,8 @@ export default function EvangelismPage() {
           Members: getEvangelismGroupMemberCount(group),
           Visitors: group.visitors_count ?? 0,
           Status: group.is_active ? "Active" : "Inactive",
-          "Bible Sharers": group.is_bible_sharers_group ? "Yes" : "No",
+          "Bible Sharers":
+            (group.bible_sharer_ids?.length ?? 0) > 0 ? "Yes" : "No",
           Location: group.location || "",
           Schedule: formatEvangelismGroupSchedule(group),
           Description: group.description || "",
@@ -1126,7 +1135,7 @@ export default function EvangelismPage() {
               >
                 Create Group
               </Button>
-            ) : activeTab === "reports" ? (
+            ) : activeTab === "reports" && canSubmitEvangelismReportAccess ? (
               <Button
                 variant="primary"
                 onClick={() => setReportsSubmitNonce((n) => n + 1)}
@@ -1891,6 +1900,22 @@ export default function EvangelismPage() {
                   setIsConversionModalOpen(true);
                 }}
                 onEdit={() => setViewMode("edit")}
+                canManageGroup={
+                  canWriteEvangelismAccess &&
+                  (evangelismPrivileged ||
+                    Number(viewEditGroup.coordinator?.id) === Number(user?.id) ||
+                    assignedEvangelismGroupIds(user, [
+                      "COORDINATOR",
+                    ]).includes(Number(viewEditGroup.id)))
+                }
+                canSubmitReport={
+                  canSubmitEvangelismReportAccess &&
+                  (evangelismPrivileged ||
+                    Number(viewEditGroup.coordinator?.id) === Number(user?.id) ||
+                    assignedEvangelismGroupIds(user).includes(
+                      Number(viewEditGroup.id),
+                    ))
+                }
                 onDelete={() =>
                   setDeleteConfirmation({
                     isOpen: true,

@@ -47,7 +47,8 @@ Branch filtering applies to:
 | **Cluster Reporter**      | No expanded People list (visitors only via plain member rules) | No expanded Families list | **Assigned cluster(s) only** (read-only); weekly reports on assigned clusters | CLUSTER module only; resource-specific; no cluster management. |
 | **Sunday School Teacher** | Students in classes where they are teacher/assistant                                           | Families of those students                                                                     | N/A                      | Limited to their classes                          |
 | **Lessons Teacher**       | Students in their lesson sessions                                                              | Families of those students                                                                     | N/A                      | Limited to their students                         |
-| **Bible Sharer**          | Members of assigned evangelism groups                                                          | Families of those members                                                                      | N/A                      | Limited to assigned groups                        |
+| **Bible Sharer**          | Members of assigned evangelism groups                                                          | Families of those members                                                                      | N/A                      | Limited to assigned groups; can submit weekly reports |
+| **Evangelism Reporter**   | No expanded People list (visitors only via plain member rules) | No expanded Families list | N/A | Weekly reports for assigned evangelism groups only |
 
 ## Frontend Module Access
 

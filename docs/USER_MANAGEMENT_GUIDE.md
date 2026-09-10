@@ -162,7 +162,7 @@ Module assignments grant coordinator, teacher, and bible-sharer access within a 
 |--------|------------------|--------------------|
 | Cluster | Coordinator, Senior Coordinator, **Reporter** | Coordinator/Reporter: select cluster(s) in assignee's branch (Senior = module-wide) |
 | Finance | Coordinator, Senior Coordinator | Module-wide only |
-| Evangelism | Coordinator, Senior Coordinator, Bible Sharer | Yes — evangelism group(s) |
+| Evangelism | Coordinator, Senior Coordinator, Bible Sharer, Reporter | Yes — evangelism group(s) |
 | Sunday School | Coordinator, Senior Coordinator, Teacher | Yes — class(es) |
 | Lessons | Coordinator, Senior Coordinator, Teacher | Module-wide only |
 | Events | Coordinator, Senior Coordinator | Module-wide only |
@@ -173,7 +173,8 @@ Module assignments grant coordinator, teacher, and bible-sharer access within a 
 - **Senior Coordinator** — Broad module access (branch-scoped unless HQ); usually module-wide.
 - **Coordinator** — Module or resource-scoped leadership (e.g. specific clusters).
 - **Teacher** — Sunday School or Lessons instruction access.
-- **Bible Sharer** — Evangelism group facilitation access.
+- **Bible Sharer** — Evangelism group facilitation and weekly reports for assigned groups.
+- **Reporter** — Weekly reports only (Cluster or Evangelism).
 
 ### Common examples
 

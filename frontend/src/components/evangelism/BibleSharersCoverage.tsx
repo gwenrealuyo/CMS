@@ -108,10 +108,13 @@ export default function BibleSharersCoverageComponent() {
         <Card>
           <div className="p-4">
             <h3 className="text-sm font-medium text-gray-500">
-              Bible Sharers Groups
+              Bible Sharers
             </h3>
             <p className="text-2xl font-bold text-primary mt-1">
               {summary?.total_bible_sharers_groups || 0}
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Groups with assigned sharers
             </p>
           </div>
         </Card>
@@ -130,8 +133,8 @@ export default function BibleSharersCoverageComponent() {
                 : "No cluster names available"}
             </p>
             <p className="text-xs text-yellow-600 mt-2">
-              Ideally, each cluster should have at least one Bible Sharer who can
-              facilitate bible studies when needed.
+              Ideally, each cluster should have at least one assigned Bible
+              Sharer who can facilitate bible studies when needed.
             </p>
           </div>
         </Card>
@@ -169,38 +172,33 @@ export default function BibleSharersCoverageComponent() {
                   ),
                 },
                 {
-                  header: "Bible Sharers Groups",
+                  header: "Groups with Sharers",
                   accessor: "bible_sharers_groups" as any,
                   render: (value, item) => item.bible_sharers_groups.length,
                 },
                 {
-                  header: "Total Bible Sharers",
+                  header: "Bible Sharers",
                   accessor: "bible_sharers_count" as any,
                   render: (value) => value,
                 },
                 {
-                  header: "Groups",
-                  accessor: "bible_sharers_groups" as any,
+                  header: "People",
+                  accessor: "bible_sharers" as any,
                   render: (value, item) => {
-                    if (item.bible_sharers_groups.length === 0) {
+                    const people = item.bible_sharers || [];
+                    if (people.length === 0) {
                       return <span className="text-gray-400">None</span>;
                     }
                     return (
                       <div className="space-y-1">
-                        {item.bible_sharers_groups.map((group) => (
-                          <div
-                            key={group.id}
-                            className="text-sm text-gray-700"
-                          >
-                            <span className="font-medium">{group.name}</span>
-                            {group.coordinator && (
-                              <span className="text-gray-500 ml-2">
-                                (Coordinator: {group.coordinator})
+                        {people.map((person) => (
+                          <div key={person.id} className="text-sm text-gray-700">
+                            <span className="font-medium">{person.name}</span>
+                            {person.groups?.length > 0 && (
+                              <span className="text-gray-400 ml-2">
+                                ({person.groups.join(", ")})
                               </span>
                             )}
-                            <span className="text-gray-400 ml-2">
-                              ({group.members_count} members)
-                            </span>
                           </div>
                         ))}
                       </div>

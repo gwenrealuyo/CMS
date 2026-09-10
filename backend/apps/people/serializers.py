@@ -114,19 +114,27 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
 
         if obj.resource_id is None:
             return None
-        if obj.module != ModuleCoordinator.ModuleType.CLUSTER:
-            return None
-        try:
-            from apps.clusters.models import Cluster
+        if obj.module == ModuleCoordinator.ModuleType.CLUSTER:
+            try:
+                from apps.clusters.models import Cluster
 
-            c = Cluster.objects.only("code", "name").get(pk=obj.resource_id)
-            if c.code:
-                return c.code.strip()
-            if c.name:
-                return c.name.strip()
-            return f"Cluster {c.id}"
-        except Cluster.DoesNotExist:
-            return None
+                c = Cluster.objects.only("code", "name").get(pk=obj.resource_id)
+                if c.code:
+                    return c.code.strip()
+                if c.name:
+                    return c.name.strip()
+                return f"Cluster {c.id}"
+            except Cluster.DoesNotExist:
+                return None
+        if obj.module == ModuleCoordinator.ModuleType.EVANGELISM:
+            try:
+                from apps.evangelism.models import EvangelismGroup
+
+                g = EvangelismGroup.objects.only("name").get(pk=obj.resource_id)
+                return (g.name or "").strip() or f"Group {g.id}"
+            except EvangelismGroup.DoesNotExist:
+                return None
+        return None
 
     def validate(self, attrs):
         person = attrs.get("person") or getattr(self.instance, "person", None)

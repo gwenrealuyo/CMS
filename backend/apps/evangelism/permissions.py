@@ -1,0 +1,185 @@
+"""Evangelism-specific permission helpers and classes."""
+
+from __future__ import annotations
+
+from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied
+
+from apps.authentication.permissions import is_module_enabled
+from apps.evangelism.models import EvangelismGroup
+from apps.people.models import ModuleCoordinator
+
+EVANGELISM = ModuleCoordinator.ModuleType.EVANGELISM
+COORDINATOR = ModuleCoordinator.CoordinatorLevel.COORDINATOR
+SENIOR = ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR
+REPORTER = ModuleCoordinator.CoordinatorLevel.REPORTER
+BIBLE_SHARER = ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+
+
+def _assignment_resource_ids(user, level: str) -> list[int]:
+    if not getattr(user, "is_authenticated", False):
+        return []
+    return list(
+        user.module_coordinator_assignments.filter(
+            module=EVANGELISM,
+            level=level,
+            resource_id__isnull=False,
+        ).values_list("resource_id", flat=True)
+    )
+
+
+def managed_group_ids_for_coordinator(user) -> list[int]:
+    if not getattr(user, "is_authenticated", False):
+        return []
+    fk_ids = list(
+        EvangelismGroup.objects.filter(coordinator=user).values_list("id", flat=True)
+    )
+    return list(set(fk_ids + _assignment_resource_ids(user, COORDINATOR)))
+
+
+def managed_group_ids_for_reporter(user) -> list[int]:
+    return _assignment_resource_ids(user, REPORTER)
+
+
+def managed_group_ids_for_bible_sharer(user) -> list[int]:
+    return _assignment_resource_ids(user, BIBLE_SHARER)
+
+
+def managed_group_ids_for_reports(user) -> list[int]:
+    return list(
+        set(
+            managed_group_ids_for_coordinator(user)
+            + managed_group_ids_for_reporter(user)
+            + managed_group_ids_for_bible_sharer(user)
+        )
+    )
+
+
+def accessible_evangelism_group_ids(user) -> list[int] | None:
+    """
+    Group PKs the user may list/retrieve, or None for unrestricted
+    (admin, pastor, senior evangelism coordinator).
+    """
+    if not getattr(user, "is_authenticated", False):
+        return []
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return None
+    if user.is_senior_coordinator(EVANGELISM):
+        return None
+
+    ids = set(managed_group_ids_for_reports(user))
+    member_ids = EvangelismGroup.objects.filter(members=user).values_list(
+        "id", flat=True
+    )
+    ids.update(member_ids)
+    return list(ids)
+
+
+def is_evangelism_senior_or_privileged(user) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    return user.is_senior_coordinator(EVANGELISM)
+
+
+def user_manages_evangelism_group(user, group) -> bool:
+    if group is None:
+        return False
+    if getattr(group, "coordinator_id", None) == user.id:
+        return True
+    group_id = getattr(group, "id", group)
+    return user.module_coordinator_assignments.filter(
+        module=EVANGELISM,
+        level=COORDINATOR,
+        resource_id=group_id,
+    ).exists()
+
+
+def user_can_submit_evangelism_report(user, group) -> bool:
+    if group is None:
+        return False
+    if is_evangelism_senior_or_privileged(user):
+        return True
+    if user_manages_evangelism_group(user, group):
+        return True
+    group_id = getattr(group, "id", group)
+    return user.module_coordinator_assignments.filter(
+        module=EVANGELISM,
+        level__in=(REPORTER, BIBLE_SHARER),
+        resource_id=group_id,
+    ).exists()
+
+
+def allows_evangelism_group_mutation_attempt(user) -> bool:
+    """Who may attempt evangelism group create/update/enroll."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if not is_module_enabled(EVANGELISM):
+        return False
+    if user.is_senior_coordinator(EVANGELISM):
+        return True
+    if user.module_coordinator_assignments.filter(
+        module=EVANGELISM,
+        level=COORDINATOR,
+    ).exists():
+        return True
+    return EvangelismGroup.objects.filter(coordinator=user).exists()
+
+
+def allows_evangelism_report_mutation_attempt(user) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if not is_module_enabled(EVANGELISM):
+        return False
+    if user.is_senior_coordinator(EVANGELISM):
+        return True
+    if user.module_coordinator_assignments.filter(
+        module=EVANGELISM,
+        level__in=(COORDINATOR, SENIOR, REPORTER, BIBLE_SHARER),
+    ).exists():
+        return True
+    return EvangelismGroup.objects.filter(coordinator=user).exists()
+
+
+def filter_weekly_reports_for_user(user, queryset):
+    if is_evangelism_senior_or_privileged(user):
+        return queryset
+    ids = set(managed_group_ids_for_reports(user))
+    member_ids = EvangelismGroup.objects.filter(members=user).values_list(
+        "id", flat=True
+    )
+    ids.update(member_ids)
+    if not ids:
+        return queryset.none()
+    return queryset.filter(evangelism_group_id__in=ids)
+
+
+def ensure_user_can_submit_evangelism_report_or_privileged(user, group) -> None:
+    if user_can_submit_evangelism_report(user, group):
+        return
+    raise PermissionDenied(
+        "You do not have permission to submit reports for this evangelism group."
+    )
+
+
+def ensure_user_manages_evangelism_group_or_privileged(user, group) -> None:
+    if is_evangelism_senior_or_privileged(user):
+        return
+    if user_manages_evangelism_group(user, group):
+        return
+    raise PermissionDenied("You do not have access to manage this evangelism group.")
+
+
+class HasEvangelismGroupWrite(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return allows_evangelism_group_mutation_attempt(request.user)
+
+
+class HasEvangelismReportWrite(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return allows_evangelism_report_mutation_attempt(request.user)

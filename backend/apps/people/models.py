@@ -258,7 +258,7 @@ class ModuleCoordinator(models.Model):
         )  # Full module access
         TEACHER = "TEACHER", "Teacher"  # For Sunday School/Lessons
         BIBLE_SHARER = "BIBLE_SHARER", "Bible Sharer"  # For Evangelism
-        REPORTER = "REPORTER", "Reporter"  # Cluster weekly reports only
+        REPORTER = "REPORTER", "Reporter"  # Cluster / Evangelism weekly reports only
 
     person = models.ForeignKey(
         Person, on_delete=models.CASCADE, related_name="module_coordinator_assignments"

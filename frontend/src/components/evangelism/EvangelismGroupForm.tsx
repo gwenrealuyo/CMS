@@ -34,8 +34,9 @@ const DEFAULT_VALUES: EvangelismGroupFormValues = {
   meeting_time: "",
   meeting_day: "",
   is_active: true,
-  is_bible_sharers_group: false,
   initial_member_ids: [],
+  reporter_ids: [],
+  bible_sharer_ids: [],
 };
 
 /** HTML time input expects HH:mm; API may return HH:MM:SS — strip seconds for the input. */
@@ -71,7 +72,8 @@ export default function EvangelismGroupForm({
           meeting_time: toTimeInputValue(initialData.meeting_time),
           meeting_day: initialData.meeting_day || "",
           is_active: initialData.is_active,
-          is_bible_sharers_group: initialData.is_bible_sharers_group || false,
+          reporter_ids: (initialData.reporter_ids || []).map(String),
+          bible_sharer_ids: (initialData.bible_sharer_ids || []).map(String),
         }
       : DEFAULT_VALUES,
   );
@@ -183,6 +185,56 @@ export default function EvangelismGroupForm({
     [clusters],
   );
 
+  const roleCandidateIds = useMemo(() => {
+    if (isCreate) {
+      return new Set(values.initial_member_ids || []);
+    }
+    return new Set((initialData?.members || []).map((p) => String(p.id)));
+  }, [isCreate, values.initial_member_ids, initialData?.members]);
+
+  const roleCandidateOptions = useMemo(() => {
+    return memberPool
+      .filter((person) => {
+        const id = String(person.id);
+        if (!roleCandidateIds.has(id)) return false;
+        if (id === values.coordinator_id) return false;
+        return true;
+      })
+      .map((person) => ({
+        label: formatPersonName(person),
+        value: String(person.id),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [memberPool, roleCandidateIds, values.coordinator_id]);
+
+  const addRoleId = (field: "reporter_ids" | "bible_sharer_ids", id: string) => {
+    if (!id) return;
+    setValues((prev) => {
+      const current = prev[field] || [];
+      if (current.includes(id) || id === prev.coordinator_id) return prev;
+      const next = { ...prev, [field]: [...current, id] };
+      if (field === "bible_sharer_ids") {
+        next.reporter_ids = (prev.reporter_ids || []).filter((x) => x !== id);
+      }
+      if (field === "reporter_ids" && (prev.bible_sharer_ids || []).includes(id)) {
+        return prev;
+      }
+      return next;
+    });
+  };
+
+  const removeRoleId = (field: "reporter_ids" | "bible_sharer_ids", id: string) => {
+    setValues((prev) => ({
+      ...prev,
+      [field]: (prev[field] || []).filter((x) => x !== id),
+    }));
+  };
+
+  const personLabel = (id: string) => {
+    const personObj = memberPool.find((p) => String(p.id) === id);
+    return personObj ? formatPersonName(personObj) : id;
+  };
+
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       {error && <ErrorMessage message={error} />}
@@ -226,6 +278,10 @@ export default function EvangelismGroupForm({
               setValues((prev) => ({
                 ...prev,
                 coordinator_id: value,
+                reporter_ids: (prev.reporter_ids || []).filter((id) => id !== value),
+                bible_sharer_ids: (prev.bible_sharer_ids || []).filter(
+                  (id) => id !== value,
+                ),
               }))
             }
             placeholder="Select coordinator"
@@ -376,27 +432,86 @@ export default function EvangelismGroupForm({
             Active
           </label>
         </div>
+      </div>
 
-        <div className="flex items-start">
-          <input
-            type="checkbox"
-            id="is_bible_sharers_group"
-            checked={values.is_bible_sharers_group || false}
-            onChange={handleChange("is_bible_sharers_group")}
-            className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded mt-0.5"
-          />
-          <label
-            htmlFor="is_bible_sharers_group"
-            className="ml-2 block text-sm text-gray-700 cursor-pointer"
-          >
-            Bible Sharers Group
-            <span className="ml-2 text-xs text-gray-500 font-normal">
-              (Mark this group as a Bible Sharers group. Bible Sharers are
-              capable of facilitating bible studies and can step in when a
-              cluster doesn&rsquo;t have someone to facilitate.)
-            </span>
-          </label>
-        </div>
+      <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
+        <p className="text-sm font-medium text-gray-800">
+          Group roles
+        </p>
+        <p className="text-xs text-gray-500">
+          Bible Sharers and reporters must already be members
+          {isCreate ? " (add them above first)" : ""}. The coordinator
+          cannot hold either role on this group.
+        </p>
+        {(
+          [
+            {
+              field: "bible_sharer_ids" as const,
+              label: "Bible Sharers",
+              hint: "Can facilitate and submit weekly reports",
+              chipClass: "bg-rose-50 text-rose-800 border-rose-200",
+            },
+            {
+              field: "reporter_ids" as const,
+              label: "Reporters",
+              hint: "Can submit weekly reports only",
+              chipClass: "bg-amber-50 text-amber-800 border-amber-200",
+            },
+          ] as const
+        ).map((role) => {
+          const selected = values[role.field] || [];
+          const options = roleCandidateOptions.filter(
+            (opt) =>
+              !selected.includes(opt.value) &&
+              (role.field !== "reporter_ids" ||
+                !(values.bible_sharer_ids || []).includes(opt.value)),
+          );
+          return (
+            <div key={role.field} className="space-y-2">
+              <p className="text-sm text-gray-700">
+                {role.label}{" "}
+                <span className="text-xs font-normal text-gray-500">
+                  ({selected.length} selected) — {role.hint}
+                </span>
+              </p>
+              <ScalableSelect
+                options={[
+                  { label: `Add ${role.label.toLowerCase()}`, value: "" },
+                  ...options,
+                ]}
+                value=""
+                onChange={(value) => addRoleId(role.field, value)}
+                placeholder={
+                  roleCandidateIds.size === 0
+                    ? "Add members first"
+                    : `Add ${role.label.toLowerCase()}`
+                }
+                className="w-full"
+                showSearch
+              />
+              {selected.length > 0 && (
+                <ul className="flex flex-wrap gap-2">
+                  {selected.map((id) => (
+                    <li key={id}>
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm border ${role.chipClass}`}
+                      >
+                        {personLabel(id)}
+                        <button
+                          type="button"
+                          onClick={() => removeRoleId(role.field, id)}
+                          aria-label={`Remove ${personLabel(id)}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">

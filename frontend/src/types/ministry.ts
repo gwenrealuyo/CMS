@@ -26,6 +26,7 @@ export interface UserSummary {
   id: number;
   username: string;
   first_name: string;
+  nickname?: string;
   middle_name?: string;
   last_name: string;
   suffix?: string;

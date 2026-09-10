@@ -640,6 +640,9 @@ class MinistryListPayloadAPITests(TestCase):
             password="testpass123",
             role="MEMBER",
             branch=self.branch,
+            first_name="Active",
+            last_name="Member",
+            nickname="Ace",
         )
         self.inactive_member = self.User.objects.create_user(
             username="min_list_inactive",
@@ -691,5 +694,11 @@ class MinistryListPayloadAPITests(TestCase):
         self.assertIn("memberships", response.data)
         self.assertEqual(len(response.data["memberships"]), 2)
         self.assertNotIn("member_count", response.data)
+        nicknames_by_id = {
+            row["member"]["id"]: row["member"].get("nickname")
+            for row in response.data["memberships"]
+        }
+        self.assertEqual(nicknames_by_id[self.active_member.id], "Ace")
+        self.assertIn("nickname", response.data["memberships"][0]["member"])
 
 

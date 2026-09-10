@@ -45,6 +45,7 @@ class UserSummarySerializer(serializers.ModelSerializer):
             "id",
             "username",
             "first_name",
+            "nickname",
             "middle_name",
             "last_name",
             "suffix",

@@ -24,6 +24,7 @@ import {
 } from "@/src/lib/personStatus";
 import { getClusterCodeBadgeStyle } from "@/src/lib/branchChipColor";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 
 export interface PendingMember {
   member_id: string;
@@ -98,6 +99,13 @@ const ROLE_OPTIONS: Array<{ label: string; value: MinistryRole }> = [
   { label: "Team Member", value: "team_member" },
   { label: "Guest Helper", value: "guest_helper" },
 ];
+
+function getMinistryRoleLabel(role: MinistryRole): string {
+  return (
+    ROLE_OPTIONS.find((option) => option.value === role)?.label ??
+    role.replace(/_/g, " ")
+  );
+}
 
 const DAYS_OF_WEEK = [
   { label: "Not set", value: "" },
@@ -199,6 +207,11 @@ export default function MinistryForm({
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [selectedMemberRole, setSelectedMemberRole] =
     useState<MinistryRole>("team_member");
+  const [removeMemberConfirmation, setRemoveMemberConfirmation] = useState<{
+    isOpen: boolean;
+    memberId: string | null;
+    memberName: string | null;
+  }>({ isOpen: false, memberId: null, memberName: null });
 
   // Reset form when initialData changes
   useEffect(() => {
@@ -373,6 +386,22 @@ export default function MinistryForm({
     setSelectedMemberRole("team_member");
   };
 
+  const closeRemoveMemberConfirmation = () => {
+    setRemoveMemberConfirmation({
+      isOpen: false,
+      memberId: null,
+      memberName: null,
+    });
+  };
+
+  const requestRemoveMember = (memberId: string, memberName: string) => {
+    setRemoveMemberConfirmation({
+      isOpen: true,
+      memberId,
+      memberName,
+    });
+  };
+
   const removeMember = (memberId: string) => {
     const member = values.members.find((m) => m.member_id === memberId);
     setValues({
@@ -386,6 +415,13 @@ export default function MinistryForm({
           )
         : values.removed_member_ids,
     });
+  };
+
+  const confirmRemoveMember = () => {
+    const memberId = removeMemberConfirmation.memberId;
+    if (!memberId) return;
+    removeMember(memberId);
+    closeRemoveMemberConfirmation();
   };
 
   const updateMemberRole = (memberId: string, role: MinistryRole) => {
@@ -452,7 +488,7 @@ export default function MinistryForm({
     });
   };
 
-  const getSelectedMembersData = () => {
+  const selectedMembersData = useMemo(() => {
     return values.members
       .map((pendingMember) => {
         const person = people.find(
@@ -484,7 +520,27 @@ export default function MinistryForm({
           grant_lessons_teacher_access: boolean;
         } => item !== null,
       );
-  };
+  }, [values.members, people]);
+
+  const filteredAssignedMembers = useMemo(() => {
+    const term = memberSearch.trim().toLowerCase();
+    if (!term) {
+      return selectedMembersData;
+    }
+    return selectedMembersData.filter((row) => {
+      const name = formatPersonName(row.person).toLowerCase();
+      const roleLabel = getMinistryRoleLabel(row.role).toLowerCase();
+      const skills = row.skills.toLowerCase();
+      const notes = row.notes.toLowerCase();
+      return (
+        name.includes(term) ||
+        roleLabel.includes(term) ||
+        row.role.toLowerCase().includes(term) ||
+        skills.includes(term) ||
+        notes.includes(term)
+      );
+    });
+  }, [selectedMembersData, memberSearch]);
 
   useEffect(() => {
     setValues((prev) => {
@@ -559,6 +615,7 @@ export default function MinistryForm({
     values.activity_cadence === undefined;
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && <ErrorMessage message={error} />}
 
@@ -912,7 +969,7 @@ export default function MinistryForm({
                   }}
                   onFocus={() => setShowMemberDropdown(true)}
                   className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Search members by name, email, or role..."
+                  placeholder="Search to add or filter members…"
                 />
               </div>
               <select
@@ -994,8 +1051,20 @@ export default function MinistryForm({
 
           {/* Selected Members Display */}
           {values.members.length > 0 ? (
-            <div className="space-y-3">
-              {getSelectedMembersData().map(
+            <>
+              {memberSearch.trim() && (
+                <p className="mb-2 text-xs text-gray-500">
+                  Showing {filteredAssignedMembers.length} of{" "}
+                  {values.members.length}
+                </p>
+              )}
+              {filteredAssignedMembers.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">
+                  No members match your search
+                </p>
+              ) : (
+            <div className="max-h-80 overflow-y-auto space-y-3 pr-1">
+              {filteredAssignedMembers.map(
                 ({
                   person,
                   role,
@@ -1119,7 +1188,12 @@ export default function MinistryForm({
                       </div>
                       <button
                         type="button"
-                        onClick={() => removeMember(member_id)}
+                        onClick={() =>
+                          requestRemoveMember(
+                            member_id,
+                            formatPersonName(person),
+                          )
+                        }
                         className="text-gray-400 hover:text-red-500 flex-shrink-0 mt-1"
                         aria-label={`Remove ${formatPersonName(person)}`}
                       >
@@ -1142,6 +1216,8 @@ export default function MinistryForm({
                 ),
               )}
             </div>
+              )}
+            </>
           ) : (
             <p className="text-xs text-gray-500 italic">
               No members added yet. Use the search above to add members to this
@@ -1187,5 +1263,25 @@ export default function MinistryForm({
         </Button>
       </div>
     </form>
+    <ConfirmationModal
+      isOpen={removeMemberConfirmation.isOpen}
+      onClose={closeRemoveMemberConfirmation}
+      onConfirm={confirmRemoveMember}
+      title="Remove Member"
+      message={
+        <>
+          Are you sure you want to remove{" "}
+          <strong className="font-semibold text-gray-900">
+            &quot;{removeMemberConfirmation.memberName ?? ""}&quot;
+          </strong>{" "}
+          from this ministry? They will be removed when you save.
+        </>
+      }
+      confirmText="Remove"
+      cancelText="Cancel"
+      variant="warning"
+      zIndex={80}
+    />
+    </>
   );
 }

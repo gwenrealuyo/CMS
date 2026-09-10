@@ -910,7 +910,6 @@ export default function LessonsPageView({
             ? enrollmentByStudent.get(personProgressModal.person.id) ?? null
             : null
         }
-        teacherChoices={teacherChoices}
         canTransferTeacher={canTransferLessonTeacher}
         onTransferTeacher={onTransferTeacher}
         onRequestCommitmentToggle={onRequestCommitmentToggle}

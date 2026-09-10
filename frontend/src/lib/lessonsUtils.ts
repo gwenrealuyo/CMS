@@ -15,7 +15,25 @@ export type LessonPersonLike = {
   suffix?: string;
   username: string;
   role?: string | null;
+  branch?: number | string | null;
+  branch_id?: number | string | null;
 };
+
+export const NCC_TEACHER_ROSTER_EMPTY_MESSAGE =
+  "No other teachers on this branch's NCC / Lessons roster. Add them under Ministries.";
+
+export function personBranchId(
+  person: { branch?: number | string | null; branch_id?: number | string | null } | null | undefined,
+): string | null {
+  if (person == null) {
+    return null;
+  }
+  const value = person.branch ?? person.branch_id;
+  if (value == null || value === "") {
+    return null;
+  }
+  return String(value);
+}
 
 /** Matches lesson session / enrollment teacher pickers (excludes VISITOR and ADMIN). */
 export function isLessonTeacherCandidate(

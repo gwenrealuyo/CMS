@@ -319,3 +319,126 @@ class NccMinistryRosterTests(TestCase):
         response = self.client.delete(f"/api/ministries/{ministry.id}/")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(Ministry.objects.filter(pk=ministry.id).exists())
+
+    def test_teachers_endpoint_includes_branch_id(self):
+        ministry = ensure_ncc_ministry(self.branch)
+        MinistryMember.objects.create(
+            ministry=ministry,
+            member=self.teacher,
+            role="team_member",
+            is_active=True,
+        )
+        teachers = self.client.get(
+            "/api/lessons/teachers/",
+            {"branch_id": self.branch.id},
+        )
+        self.assertEqual(teachers.status_code, status.HTTP_200_OK)
+        row = next(r for r in teachers.data if r["id"] == self.teacher.id)
+        self.assertEqual(row["branch"], self.branch.id)
+        self.assertEqual(row["branch_id"], self.branch.id)
+
+    def test_hq_admin_without_branch_lists_all_branch_rosters(self):
+        hq_admin = Person.objects.create_user(
+            username="ncc_hq_admin",
+            email="ncc_hq_admin@test.com",
+            password="testpass123",
+            first_name="Hq",
+            last_name="Admin",
+            role="ADMIN",
+            branch=None,
+            status="ACTIVE",
+        )
+        other_teacher = Person.objects.create_user(
+            username="ncc_other_teacher",
+            email="ncc_other_teacher@test.com",
+            password="testpass123",
+            first_name="Other",
+            last_name="Teacher",
+            role="MEMBER",
+            branch=self.other_branch,
+            status="ACTIVE",
+        )
+        MinistryMember.objects.create(
+            ministry=ensure_ncc_ministry(self.branch),
+            member=self.teacher,
+            role="team_member",
+            is_active=True,
+        )
+        MinistryMember.objects.create(
+            ministry=ensure_ncc_ministry(self.other_branch),
+            member=other_teacher,
+            role="team_member",
+            is_active=True,
+        )
+        self.client.force_authenticate(user=hq_admin)
+        teachers = self.client.get("/api/lessons/teachers/")
+        self.assertEqual(teachers.status_code, status.HTTP_200_OK)
+        by_id = {row["id"]: row for row in teachers.data}
+        self.assertEqual(by_id[self.teacher.id]["branch_id"], self.branch.id)
+        self.assertEqual(by_id[other_teacher.id]["branch_id"], self.other_branch.id)
+
+        scoped = self.client.get(
+            "/api/lessons/teachers/",
+            {"branch_id": self.other_branch.id},
+        )
+        self.assertEqual(scoped.status_code, status.HTTP_200_OK)
+        scoped_ids = [row["id"] for row in scoped.data]
+        self.assertEqual(scoped_ids, [other_teacher.id])
+
+    def test_non_privileged_without_branch_gets_empty_roster(self):
+        member = Person.objects.create_user(
+            username="ncc_no_branch_member",
+            email="ncc_no_branch_member@test.com",
+            password="testpass123",
+            first_name="No",
+            last_name="Branch",
+            role="MEMBER",
+            branch=None,
+            status="ACTIVE",
+        )
+        self.client.force_authenticate(user=member)
+        teachers = self.client.get("/api/lessons/teachers/")
+        self.assertEqual(teachers.status_code, status.HTTP_200_OK)
+        self.assertEqual(teachers.data, [])
+
+    def test_backfill_adds_coordinators_and_enrollment_teachers(self):
+        from apps.ministries.ncc import backfill_ncc_roster_from_lessons_teachers
+
+        ModuleCoordinator.objects.create(
+            person=self.teacher,
+            module=ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER,
+        )
+        other_teacher = Person.objects.create_user(
+            username="ncc_enroll_teacher",
+            email="ncc_enroll_teacher@test.com",
+            password="testpass123",
+            first_name="Enroll",
+            last_name="Teacher",
+            role="MEMBER",
+            branch=self.other_branch,
+            status="ACTIVE",
+        )
+        student = Person.objects.create_user(
+            username="ncc_backfill_student",
+            email="ncc_backfill_student@test.com",
+            password="testpass123",
+            first_name="Backfill",
+            last_name="Student",
+            role="MEMBER",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        LessonStudentEnrollment.objects.create(
+            student=student,
+            teacher=other_teacher,
+        )
+        created = backfill_ncc_roster_from_lessons_teachers()
+        self.assertGreaterEqual(created, 2)
+        self.assertTrue(person_on_ncc_roster(self.teacher, self.branch))
+        self.assertTrue(person_on_ncc_roster(self.lessons_coord, self.branch))
+        self.assertTrue(person_on_ncc_roster(other_teacher, self.branch))
+        self.assertEqual(
+            backfill_ncc_roster_from_lessons_teachers(),
+            0,
+        )

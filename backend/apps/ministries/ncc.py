@@ -16,6 +16,7 @@ from .models import (
     MinistryCategory,
     MinistryCadence,
     MinistryMember,
+    MinistryRole,
     MinistryScope,
 )
 
@@ -253,3 +254,57 @@ def person_on_ncc_roster(person: Person, branch: Optional[Branch] = None) -> boo
         ministry__branch=branch,
         member=person,
     ).exists()
+
+
+def _ensure_ncc_membership(person: Person, branch: Branch) -> bool:
+    """Create an NCC roster row if missing. Returns True when a row was created."""
+    if person is None or branch is None:
+        return False
+    ministry = ensure_ncc_ministry(branch)
+    _, created = MinistryMember.objects.get_or_create(
+        ministry=ministry,
+        member=person,
+        defaults={"role": MinistryRole.TEAM_MEMBER, "is_active": True},
+    )
+    return created
+
+
+def backfill_ncc_roster_from_lessons_teachers() -> int:
+    """
+    Add existing Lessons teachers onto per-branch NCC rosters.
+
+    Sources:
+    - ModuleCoordinator LESSONS at TEACHER / COORDINATOR / SENIOR (person.branch)
+    - Current LessonStudentEnrollment.teacher (student.branch)
+
+    Does not create extra LESSONS TEACHER coordinator rows.
+    Returns the number of memberships created.
+    """
+    from apps.lessons.models import LessonStudentEnrollment
+
+    created = 0
+    coordinator_people = (
+        Person.objects.filter(
+            branch__isnull=False,
+            module_coordinator_assignments__module=ModuleCoordinator.ModuleType.LESSONS,
+            module_coordinator_assignments__level__in=_LESSONS_ACCESS_LEVELS,
+        )
+        .select_related("branch")
+        .distinct()
+    )
+    for person in coordinator_people.iterator():
+        if _ensure_ncc_membership(person, person.branch):
+            created += 1
+
+    enrollments = (
+        LessonStudentEnrollment.objects.filter(teacher__isnull=False)
+        .select_related("teacher", "student__branch")
+        .iterator()
+    )
+    for enrollment in enrollments:
+        student_branch = getattr(enrollment.student, "branch", None)
+        if student_branch is None:
+            continue
+        if _ensure_ncc_membership(enrollment.teacher, student_branch):
+            created += 1
+    return created

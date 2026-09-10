@@ -9,13 +9,19 @@ import {
   Lesson,
   LessonPersonSummary,
   LessonStudentEnrollment,
+  LessonTeacherRosterEntry,
   LessonTeacherTransfer,
   PersonLessonProgress,
 } from "@/src/types/lesson";
 import { lessonsApi } from "@/src/lib/api";
 import { formatPersonName } from "@/src/lib/name";
 import { formatDisplayDate } from "@/src/lib/date";
-import { extractErrorMessage, LessonPersonLike, enrollmentTeacherLabel } from "@/src/lib/lessonsUtils";
+import {
+  extractErrorMessage,
+  enrollmentTeacherLabel,
+  NCC_TEACHER_ROSTER_EMPTY_MESSAGE,
+  personBranchId,
+} from "@/src/lib/lessonsUtils";
 
 interface PersonLessonProgressModalProps {
   isOpen: boolean;
@@ -23,7 +29,6 @@ interface PersonLessonProgressModalProps {
   allProgress: PersonLessonProgress[];
   allLessons: Lesson[];
   enrollment: LessonStudentEnrollment | null;
-  teacherChoices: LessonPersonLike[];
   canTransferTeacher: boolean;
   onTransferTeacher: (
     enrollmentId: number,
@@ -57,7 +62,6 @@ export default function PersonLessonProgressModal({
   allProgress,
   allLessons,
   enrollment,
-  teacherChoices,
   canTransferTeacher,
   onTransferTeacher,
   onRequestCommitmentToggle,
@@ -72,12 +76,21 @@ export default function PersonLessonProgressModal({
   const [transfers, setTransfers] = useState<LessonTeacherTransfer[]>([]);
   const [transfersLoading, setTransfersLoading] = useState(false);
   const [showTransferHistory, setShowTransferHistory] = useState(false);
+  const [transferRoster, setTransferRoster] = useState<
+    LessonTeacherRosterEntry[]
+  >([]);
+  const [transferRosterLoading, setTransferRosterLoading] = useState(false);
+  const [transferRosterError, setTransferRosterError] = useState<string | null>(
+    null
+  );
 
   const teacher = enrollment?.teacher ?? null;
+  const studentBranchId =
+    personBranchId(person) ?? personBranchId(enrollment?.student);
 
   const teacherSelectOptions = useMemo(
     () =>
-      teacherChoices
+      transferRoster
         .filter((choice) => {
           const choiceId = choice.id?.toString();
           return (
@@ -89,7 +102,7 @@ export default function PersonLessonProgressModal({
           value: choice.id?.toString() ?? "",
           label: formatPersonName(choice),
         })),
-    [person?.id, teacher?.id, teacherChoices]
+    [person?.id, teacher?.id, transferRoster]
   );
 
   useEffect(() => {
@@ -100,9 +113,57 @@ export default function PersonLessonProgressModal({
       setTransferError(null);
       setShowTransferHistory(false);
       setTransfers([]);
+      setTransferRoster([]);
+      setTransferRosterError(null);
       return;
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isTransferOpen) {
+      setTransferRoster([]);
+      setTransferRosterLoading(false);
+      setTransferRosterError(null);
+      return;
+    }
+
+    if (studentBranchId == null) {
+      setTransferRoster([]);
+      setTransferRosterLoading(false);
+      setTransferRosterError(
+        "Student must have a branch before assigning a lessons teacher."
+      );
+      return;
+    }
+
+    let cancelled = false;
+    setTransferRosterLoading(true);
+    setTransferRosterError(null);
+    lessonsApi
+      .listTeachers({ branch_id: studentBranchId })
+      .then((response) => {
+        if (!cancelled) {
+          setTransferRoster(response.data || []);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setTransferRoster([]);
+          setTransferRosterError(
+            extractErrorMessage(error, "Failed to load lesson teachers.")
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setTransferRosterLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isTransferOpen, studentBranchId]);
 
   useEffect(() => {
     if (!isOpen || !enrollment?.id) {
@@ -423,7 +484,20 @@ export default function PersonLessonProgressModal({
               onChange={setTransferTeacherId}
               placeholder="Select teacher..."
               searchPlaceholder="Search teacher..."
+              loading={transferRosterLoading}
+              emptyMessage={NCC_TEACHER_ROSTER_EMPTY_MESSAGE}
+              disabled={transferRosterLoading || Boolean(transferRosterError)}
             />
+            {transferRosterError && (
+              <ErrorMessage message={transferRosterError} />
+            )}
+            {!transferRosterLoading &&
+              !transferRosterError &&
+              teacherSelectOptions.length === 0 && (
+                <p className="text-sm text-gray-500">
+                  {NCC_TEACHER_ROSTER_EMPTY_MESSAGE}
+                </p>
+              )}
           </div>
           <div className="space-y-2">
             <label

@@ -344,6 +344,8 @@ class LessonEnrollmentAPITests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["student"]["branch"], self.branch.id)
+        self.assertEqual(response.data["teacher"]["branch"], self.branch.id)
         enrollment.refresh_from_db()
         self.assertEqual(enrollment.teacher_id, self.teacher_b.id)
         transfer = LessonTeacherTransfer.objects.filter(enrollment=enrollment).latest(

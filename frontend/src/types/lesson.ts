@@ -37,6 +37,7 @@ export interface LessonPersonSummary {
   member_id?: string;
   status?: string | null;
   cluster_codes?: string[] | null;
+  branch?: number | null;
 }
 
 export interface LessonTeacherRosterEntry {
@@ -51,6 +52,8 @@ export interface LessonTeacherRosterEntry {
   member_id?: string | null;
   is_active: boolean;
   has_lessons_teacher_access: boolean;
+  branch?: number | null;
+  branch_id?: number | null;
 }
 
 export interface PersonLessonProgress {

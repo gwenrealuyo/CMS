@@ -12,6 +12,8 @@ import { formatPersonName } from "@/src/lib/name";
 import {
   enrollmentTeacherLabel,
   LessonPersonLike,
+  NCC_TEACHER_ROSTER_EMPTY_MESSAGE,
+  personBranchId,
 } from "@/src/lib/lessonsUtils";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import {
@@ -117,15 +119,33 @@ export default function AssignLessonsDropdown({
     });
   }, [eligiblePeople, searchQuery]);
 
+  const selectedPerson = selectedPersonId
+    ? people.find((person) => String(person.id) === String(selectedPersonId)) ??
+      null
+    : null;
+  const studentBranchId = personBranchId(selectedPerson);
+
   const teacherSelectOptions = useMemo(
     () =>
       teacherChoices
-        .filter((person) => person.id?.toString() !== selectedPersonId)
+        .filter((person) => {
+          if (person.id?.toString() === selectedPersonId) {
+            return false;
+          }
+          if (studentBranchId == null) {
+            return false;
+          }
+          const choiceBranch = personBranchId(person);
+          if (choiceBranch == null) {
+            return true;
+          }
+          return choiceBranch === studentBranchId;
+        })
         .map((person) => ({
           value: person.id?.toString() ?? "",
           label: formatPersonName(person),
         })),
-    [selectedPersonId, teacherChoices]
+    [selectedPersonId, studentBranchId, teacherChoices]
   );
 
   const selectedPersonNumericId = selectedPersonId
@@ -163,6 +183,18 @@ export default function AssignLessonsDropdown({
     existingEnrollment?.teacher?.id,
     defaultTeacherId,
   ]);
+
+  useEffect(() => {
+    if (!selectedTeacherId) {
+      return;
+    }
+    const stillValid = teacherSelectOptions.some(
+      (option) => option.value === selectedTeacherId,
+    );
+    if (!stillValid) {
+      setSelectedTeacherId("");
+    }
+  }, [selectedTeacherId, teacherSelectOptions]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -233,10 +265,6 @@ export default function AssignLessonsDropdown({
     setSelectedLessonIds(new Set());
     setSelectedTeacherId("");
   };
-
-  const selectedPerson = selectedPersonId
-    ? eligiblePeople.find((p) => p.id === selectedPersonId)
-    : null;
 
   const sortedLessons = useMemo(() => {
     return [...allLessons]
@@ -360,7 +388,11 @@ export default function AssignLessonsDropdown({
                   onChange={setSelectedTeacherId}
                   placeholder="Select teacher..."
                   searchPlaceholder="Search teacher..."
-                  emptyMessage="No teachers found"
+                  emptyMessage={
+                    studentBranchId == null
+                      ? "Student must have a branch before assigning a lessons teacher."
+                      : NCC_TEACHER_ROSTER_EMPTY_MESSAGE
+                  }
                 />
               )}
             </div>

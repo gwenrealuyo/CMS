@@ -128,6 +128,7 @@ class PersonNestedSerializer(serializers.ModelSerializer):
             "member_id",
             "status",
             "cluster_codes",
+            "branch",
         ]
 
 

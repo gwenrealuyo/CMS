@@ -99,14 +99,20 @@ export const useMinistries = () => {
   const addMember = async (payload: Partial<MinistryMember>) => {
     const response = await ministryMembersApi.create(payload);
     setMinistries((prev) =>
-      prev.map((ministry) =>
-        ministry.id === response.data.ministry
-          ? {
-              ...ministry,
-              memberships: [...ministry.memberships, response.data],
-            }
-          : ministry
-      )
+      prev.map((ministry) => {
+        if (ministry.id !== response.data.ministry) {
+          return ministry;
+        }
+        const memberships = ministry.memberships;
+        return {
+          ...ministry,
+          memberships: memberships
+            ? [...memberships, response.data]
+            : memberships,
+          member_count:
+            (ministry.member_count ?? memberships?.length ?? 0) + 1,
+        };
+      })
     );
     return response.data;
   };
@@ -117,43 +123,45 @@ export const useMinistries = () => {
   ) => {
     const response = await ministryMembersApi.update(id, payload);
     setMinistries((prev) =>
-      prev.map((ministry) =>
-        ministry.id === response.data.ministry
-          ? {
-              ...ministry,
-              memberships: ministry.memberships.map((member) =>
+      prev.map((ministry) => {
+        if (ministry.id !== response.data.ministry) {
+          return ministry;
+        }
+        const memberships = ministry.memberships;
+        return {
+          ...ministry,
+          memberships: memberships
+            ? memberships.map((member) =>
                 member.id === response.data.id ? response.data : member
-              ),
-            }
-          : ministry
-      )
+              )
+            : memberships,
+        };
+      })
     );
     return response.data;
   };
 
   const removeMember = async (id: number | string) => {
-    const existing = ministries
-      .flatMap((ministry) =>
-        ministry.memberships.map((member) => ({ ministry, member }))
-      )
-      .find(({ member }) => member.id === Number(id));
-
     await ministryMembersApi.delete(id);
-
-    if (existing) {
-      setMinistries((prev) =>
-        prev.map((ministry) =>
-          ministry.id === existing.ministry.id
-            ? {
-                ...ministry,
-                memberships: ministry.memberships.filter(
-                  (member) => member.id !== existing.member.id
-                ),
-              }
-            : ministry
-        )
-      );
-    }
+    const membershipId = Number(id);
+    setMinistries((prev) =>
+      prev.map((ministry) => {
+        const memberships = ministry.memberships;
+        if (!memberships?.some((member) => member.id === membershipId)) {
+          return ministry;
+        }
+        return {
+          ...ministry,
+          memberships: memberships.filter(
+            (member) => member.id !== membershipId
+          ),
+          member_count: Math.max(
+            0,
+            (ministry.member_count ?? memberships.length) - 1
+          ),
+        };
+      })
+    );
   };
 
   useEffect(() => {

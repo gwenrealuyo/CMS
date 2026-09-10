@@ -89,13 +89,13 @@ All routes live under `/api/ministries/`:
     - `is_active` - Filter by active status (true/false)
     - `search` - Search in name, description, and coordinator names
     - `ordering` - Order by `name`, `activity_cadence`, or `created_at`
-  - **Response**: Array of ministry objects with nested `memberships`, `primary_coordinator`, and `support_coordinators`
+  - **Response**: Array of slim ministry objects with `primary_coordinator` and annotated `member_count` (no nested `memberships` or `support_coordinators`)
   - **Access**: All authenticated non-visitor users (read-only for MEMBER role)
 
 #### Retrieve Ministry
 
 - **GET** `/api/ministries/{id}/`
-  - **Response**: Single ministry object with full details
+  - **Response**: Single ministry object with full details, including nested `memberships` and `support_coordinators`
   - **Access**: All authenticated non-visitor users (read-only for MEMBER role)
 
 #### Create Ministry

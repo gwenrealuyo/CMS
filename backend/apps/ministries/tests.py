@@ -613,3 +613,82 @@ class MinistryScopeVisibilityAPITests(TestCase):
         self.assertEqual(response.status_code, 201, response.data)
         self.assertIsNone(response.data["branch"])
 
+
+class MinistryListPayloadAPITests(TestCase):
+    """List returns member_count without nested memberships; retrieve keeps them."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        from apps.people.models import Branch
+
+        self.client = APIClient()
+        self.User = get_user_model()
+        self.branch = Branch.objects.create(
+            name="List Branch", code="MIN_LIST", is_active=True
+        )
+        self.admin = self.User.objects.create_user(
+            username="min_list_admin",
+            email="min_list_admin@test.com",
+            password="testpass123",
+            role="ADMIN",
+            branch=self.branch,
+        )
+        self.active_member = self.User.objects.create_user(
+            username="min_list_active",
+            email="min_list_active@test.com",
+            password="testpass123",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.inactive_member = self.User.objects.create_user(
+            username="min_list_inactive",
+            email="min_list_inactive@test.com",
+            password="testpass123",
+            role="MEMBER",
+            branch=self.branch,
+        )
+        self.ministry = Ministry.objects.create(
+            name="Choir",
+            code="CHOIR-LIST",
+            scope="BRANCH",
+            branch=self.branch,
+            activity_cadence="weekly",
+        )
+        MinistryMember.objects.create(
+            ministry=self.ministry,
+            member=self.active_member,
+            role=MinistryRole.TEAM_MEMBER,
+            is_active=True,
+        )
+        MinistryMember.objects.create(
+            ministry=self.ministry,
+            member=self.inactive_member,
+            role=MinistryRole.TEAM_MEMBER,
+            is_active=False,
+        )
+
+    def _list_rows(self, response):
+        data = response.data
+        return data["results"] if isinstance(data, dict) and "results" in data else data
+
+    def test_list_includes_member_count_omits_memberships(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/ministries/")
+        self.assertEqual(response.status_code, 200)
+        row = next(
+            item for item in self._list_rows(response) if item["id"] == self.ministry.id
+        )
+        self.assertEqual(row["member_count"], 2)
+        self.assertNotIn("memberships", row)
+        self.assertNotIn("support_coordinators", row)
+
+    def test_retrieve_includes_nested_memberships(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f"/api/ministries/{self.ministry.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("memberships", response.data)
+        self.assertEqual(len(response.data["memberships"]), 2)
+        self.assertNotIn("member_count", response.data)
+
+

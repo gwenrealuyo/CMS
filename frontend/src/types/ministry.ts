@@ -51,21 +51,26 @@ export interface Ministry {
   id: number;
   name: string;
   code?: string | null;
-  description: string;
+  /** Present on retrieve/write payloads; omitted from slim directory list. */
+  description?: string;
   category: MinistryCategory;
   scope: MinistryScope;
   branch?: number | null;
   activity_cadence: MinistryCadence;
   primary_coordinator: UserSummary | null;
-  support_coordinators: UserSummary[];
+  /** Present on retrieve/write payloads; omitted from slim directory list. */
+  support_coordinators?: UserSummary[];
   meeting_location: string;
   meeting_schedule: Record<string, unknown> | null;
-  communication_channel: string;
+  communication_channel?: string;
   is_active: boolean;
   is_system?: boolean;
-  created_at: string;
-  updated_at: string;
-  memberships: MinistryMember[];
+  created_at?: string;
+  updated_at?: string;
+  /** Present on retrieve/write payloads; omitted from slim directory list. */
+  memberships?: MinistryMember[];
+  /** Annotated count on slim directory list rows. */
+  member_count?: number;
 }
 
 export interface MinistryCreateInput {

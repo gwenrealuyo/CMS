@@ -18,6 +18,7 @@ import MinistryView from "@/src/components/ministries/MinistryView";
 import { useMinistries } from "@/src/hooks/useMinistries";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useBranches } from "@/src/hooks/useBranches";
+import { ministriesApi } from "@/src/lib/api";
 import { Ministry, MinistryMember } from "@/src/types/ministry";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
@@ -47,7 +48,9 @@ export default function MinistriesPage() {
     updateMember,
     removeMember,
   } = useMinistries();
-  const { people, loading: peopleLoading, error: peopleError } = usePeople();
+  const [needPeopleCatalog, setNeedPeopleCatalog] = useState(false);
+  const { people, loading: peopleLoading, error: peopleError } =
+    usePeople(needPeopleCatalog);
   const { branches } = useBranches();
   const branchById = useMemo(
     () => new Map(branches.map((branch) => [Number(branch.id), branch])),
@@ -113,6 +116,7 @@ export default function MinistriesPage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const cadenceOptionsForForm = useMemo(
     () => cadenceOptions.filter((option) => option.value !== "all"),
@@ -204,15 +208,38 @@ export default function MinistriesPage() {
     other: "Other",
   };
 
-  const handleView = (ministry: Ministry) => {
-    setViewMinistry(ministry);
+  const handleView = async (ministry: Ministry) => {
     setIsViewOpen(true);
+    setViewMinistry(null);
+    setDetailLoading(true);
+    try {
+      const response = await ministriesApi.retrieve(ministry.id);
+      setViewMinistry(response.data);
+    } catch (error) {
+      console.error("Failed to load ministry detail", error);
+      toast.error("Failed to load ministry details. Please try again.");
+      setIsViewOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
-  const handleEdit = (ministry: Ministry) => {
-    setEditMinistry(ministry);
+  const handleEdit = async (ministry: Ministry) => {
+    setNeedPeopleCatalog(true);
     setIsEditOpen(true);
+    setEditMinistry(null);
     setFormError(null);
+    setDetailLoading(true);
+    try {
+      const response = await ministriesApi.retrieve(ministry.id);
+      setEditMinistry(response.data);
+    } catch (error) {
+      console.error("Failed to load ministry detail", error);
+      toast.error("Failed to load ministry details. Please try again.");
+      setIsEditOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleMarkInactive = (ministry: Ministry) => {
@@ -317,7 +344,10 @@ export default function MinistriesPage() {
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   variant="primary"
-                  onClick={() => setIsCreateOpen(true)}
+                  onClick={() => {
+                    setNeedPeopleCatalog(true);
+                    setIsCreateOpen(true);
+                  }}
                   className="w-full sm:w-auto min-h-[44px]"
                 >
                   Add Ministry
@@ -526,7 +556,8 @@ export default function MinistriesPage() {
               <Table
                 data={ministries.map((ministry) => ({
                   ...ministry,
-                  membersCount: ministry.memberships.length,
+                  membersCount:
+                    ministry.member_count ?? ministry.memberships?.length ?? 0,
                 }))}
                 columns={[
                   {
@@ -748,12 +779,17 @@ export default function MinistriesPage() {
         title=""
         hideHeader={true}
       >
-        {viewMinistry && (
+        {detailLoading && !viewMinistry ? (
+          <div className="py-12 flex justify-center">
+            <LoadingSpinner />
+          </div>
+        ) : viewMinistry ? (
           <MinistryView
             ministry={viewMinistry}
             onEdit={
               canWriteMinistriesAccess
                 ? () => {
+                    setNeedPeopleCatalog(true);
                     setIsViewOpen(false);
                     setEditMinistry(viewMinistry);
                     setIsEditOpen(true);
@@ -784,7 +820,7 @@ export default function MinistriesPage() {
               setViewMinistry(null);
             }}
           />
-        )}
+        ) : null}
       </Modal>
 
       <Modal
@@ -983,11 +1019,11 @@ export default function MinistriesPage() {
         closeOnOutsideClick={false}
       >
         {peopleError && <ErrorMessage message={peopleError} />}
-        {peopleLoading ? (
+        {peopleLoading || detailLoading || !editMinistry ? (
           <div className="py-12 flex justify-center">
             <LoadingSpinner />
           </div>
-        ) : editMinistry ? (
+        ) : (
           <MinistryForm
             people={people}
             cadenceOptions={cadenceOptionsForForm}
@@ -1171,7 +1207,7 @@ export default function MinistriesPage() {
             error={formError}
             submitLabel="Update Ministry"
           />
-        ) : null}
+        )}
       </Modal>
     </>
   );

@@ -145,6 +145,33 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
         return membership
 
 
+class MinistryListSerializer(serializers.ModelSerializer):
+    """Slim read-only serializer for the ministries directory table."""
+
+    primary_coordinator = UserSummarySerializer(read_only=True)
+    member_count = serializers.IntegerField(read_only=True, default=0)
+    branch = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Ministry
+        fields = (
+            "id",
+            "name",
+            "code",
+            "category",
+            "activity_cadence",
+            "scope",
+            "branch",
+            "primary_coordinator",
+            "meeting_location",
+            "meeting_schedule",
+            "is_active",
+            "is_system",
+            "member_count",
+        )
+        read_only_fields = fields
+
+
 class MinistrySerializer(serializers.ModelSerializer):
     primary_coordinator = UserSummarySerializer(read_only=True)
     primary_coordinator_id = serializers.PrimaryKeyRelatedField(

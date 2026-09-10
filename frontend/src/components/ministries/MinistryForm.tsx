@@ -146,7 +146,7 @@ export default function MinistryForm({
     const scheduleNotes = meetingSchedule?.notes ?? "";
 
     // Extract support coordinator IDs
-    const supportCoordinatorIds = initialData.support_coordinators.map(
+    const supportCoordinatorIds = (initialData.support_coordinators ?? []).map(
       (coordinator) => String(coordinator.id),
     );
 
@@ -224,7 +224,7 @@ export default function MinistryForm({
       const scheduleTime = meetingSchedule?.time ?? "";
       const scheduleWindow = meetingSchedule?.window ?? "";
       const scheduleNotes = meetingSchedule?.notes ?? "";
-      const supportCoordinatorIds = initialData.support_coordinators.map(
+      const supportCoordinatorIds = (initialData.support_coordinators ?? []).map(
         (coordinator) => String(coordinator.id),
       );
 

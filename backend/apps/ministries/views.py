@@ -1,8 +1,7 @@
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.response import Response
 
 from apps.authentication.permissions import (
     IsMemberOrAbove,
@@ -20,31 +19,29 @@ from .ncc import (
     user_is_lessons_roster_manager,
 )
 from .permissions import CanWriteMinistryOrNccRoster
-from .serializers import MinistryMemberSerializer, MinistrySerializer
+from .serializers import (
+    MinistryListSerializer,
+    MinistryMemberSerializer,
+    MinistrySerializer,
+)
 from .utils import apply_ministry_branch_visibility
+
+_LESSONS_ASSIGNMENT_PREFETCH = Prefetch(
+    "memberships__member__module_coordinator_assignments",
+    queryset=ModuleCoordinator.objects.filter(
+        module=ModuleCoordinator.ModuleType.LESSONS,
+        level__in=(
+            ModuleCoordinator.CoordinatorLevel.TEACHER,
+            ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+        ),
+    ),
+)
 
 
 class MinistryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
-    queryset = (
-        Ministry.objects.select_related("primary_coordinator", "branch")
-        .prefetch_related(
-            "support_coordinators",
-            "memberships__member",
-            Prefetch(
-                "memberships__member__module_coordinator_assignments",
-                queryset=ModuleCoordinator.objects.filter(
-                    module=ModuleCoordinator.ModuleType.LESSONS,
-                    level__in=(
-                        ModuleCoordinator.CoordinatorLevel.TEACHER,
-                        ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-                        ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-                    ),
-                ),
-            ),
-        )
-        .all()
-    )
+    queryset = Ministry.objects.select_related("primary_coordinator", "branch").all()
     serializer_class = MinistrySerializer
     filter_backends = (
         DjangoFilterBackend,
@@ -70,13 +67,30 @@ class MinistryViewSet(viewsets.ModelViewSet):
     ordering_fields = ("name", "activity_cadence", "created_at")
     ordering = ("name",)
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return MinistryListSerializer
+        return MinistrySerializer
+
+    def _optimize_queryset(self, queryset):
+        queryset = queryset.select_related("primary_coordinator", "branch")
+        if getattr(self, "action", None) == "list":
+            return queryset.annotate(
+                member_count=Count("memberships", distinct=True)
+            )
+        return queryset.prefetch_related(
+            "support_coordinators",
+            "memberships__member",
+            _LESSONS_ASSIGNMENT_PREFETCH,
+        )
+
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
 
         # Admin and HQ pastors: all ministries
         if user.role == "ADMIN" or user.can_see_all_branches():
-            return queryset
+            return self._optimize_queryset(queryset)
 
         # Lessons roster managers: include NCC ministries in visible branches
         ncc_extra = Ministry.objects.none()
@@ -108,16 +122,16 @@ class MinistryViewSet(viewsets.ModelViewSet):
                     primary_coordinator_ministries | support_coordinator_ministries
                 ).distinct()
             scoped = apply_ministry_branch_visibility(scoped, user)
-            return (scoped | ncc_extra).distinct()
+            return self._optimize_queryset((scoped | ncc_extra).distinct())
 
         # Member / branch pastor: own branch + national (+ NCC for lessons managers)
         if user.role in ("MEMBER", "PASTOR"):
             scoped = apply_ministry_branch_visibility(queryset, user)
-            return (scoped | ncc_extra).distinct()
+            return self._optimize_queryset((scoped | ncc_extra).distinct())
 
         if ncc_extra.exists():
-            return ncc_extra
-        return queryset.none()
+            return self._optimize_queryset(ncc_extra)
+        return self._optimize_queryset(queryset.none())
 
     def get_permissions(self):
         """

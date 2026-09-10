@@ -49,7 +49,7 @@ id, name, code?, address?, phone?, email?, is_headquarters, is_active, created_a
   - Access: Based on role and module coordinator assignments. See `docs/ACCESS_CONTROL.md` for details.
 - Create: `POST /api/people/`
   - Required: `first_name`, `last_name`, `role`
-  - Auto: `username` generated from first two letters of first name + last name; uniqueness enforced by suffixing a counter
+  - Auto: `username` generated from first two letters of first name + last name (lowercase; punctuation stripped); uniqueness enforced by suffixing a counter. Client `username` is ignored. PATCH/PUT: ADMIN may change `username`.
   - Access: ADMIN, PASTOR, or Senior Coordinator
 - Update: `PUT /api/people/{id}/`
   - Access: ADMIN, PASTOR, or Senior Coordinator
@@ -61,7 +61,7 @@ id, name, code?, address?, phone?, email?, is_headquarters, is_active, created_a
 Person fields (serializer)
 
 ```
-id, username (read-only), first_name, last_name, middle_name?, suffix?, nickname?, maiden_name?, gender?,
+id, username (generated on create; writable on update for ADMIN only), first_name, last_name, middle_name?, suffix?, nickname?, maiden_name?, gender?,
 facebook_name?, photo?, role, phone?, address?, country?, date_of_birth?,
 date_first_attended?, inviter (Person id)?, inviter_display_name? (read-only), branch (Branch id)?, member_id?,
 status? (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE)
@@ -69,6 +69,7 @@ status? (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONS
 
 Notes:
 - `maiden_name` is optional metadata (searchable); not part of display `full_name` / username generation.
+- `username` is generated on create from first two letters of first name + last name (lowercase; letters, digits, and `@ . + - _` only). Client-supplied `username` is ignored on create. On update, only ADMIN may change it (unique, non-blank, not reserved `admin`). Non-admin payloads drop `username`.
 - `inviter_display_name` (read-only) uses the usual display format: first name, nickname in quotes, middle initial, last name, suffix.
 - Name fields (`first_name`, `last_name`, `middle_name`, `suffix`, `nickname`, `maiden_name`) are normalized on write: mixed-case is preserved; all-lower/all-upper is title-cased (particles, Mc/Mac, Roman numerals).
 - Status by role (UI): members/pastors/admins use ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED; visitors use ONGOING|NO_RESPONSE|DECEASED. Prospect pipeline stages INVITED/ATTENDED are separate from `Person.status`.

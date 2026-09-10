@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.people.models import Person, Journey
 from apps.people.name_formatting import title_case_name
+from apps.people.usernames import generate_unique_username
 from apps.clusters.models import Cluster
 from apps.events.models import EventType
 from core.datetime_utils import church_today
@@ -76,16 +77,11 @@ def create_person_from_prospect(
     fn = title_case_name((first_name or "").strip() or prospect.first_name)
     ln = title_case_name((last_name or "").strip() or prospect.last_name)
 
-    # Generate username from first two letters of first name + last name
-    first_two_letters = fn[:2].lower() if fn else ""
-    username = f"{first_two_letters}{ln.lower()}" if ln else f"user{prospect.pk}"
-
-    # Ensure username is unique
-    original_username = username
-    counter = 1
-    while Person.objects.filter(username=username).exists():
-        username = f"{original_username}{counter}"
-        counter += 1
+    username = generate_unique_username(
+        fn,
+        ln,
+        fallback=f"user{prospect.pk}" if prospect.pk else "user",
+    )
 
     middle_name = title_case_name(
         kwargs.pop("middle_name", prospect.middle_name) or ""

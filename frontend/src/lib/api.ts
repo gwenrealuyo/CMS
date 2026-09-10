@@ -94,7 +94,6 @@ const PERSON_FORM_DATA_SKIP_FIELDS = new Set([
   "photo",
   "journeys",
   "id",
-  "username",
   "cluster_codes",
   "cluster_labels",
   "cluster_memberships",

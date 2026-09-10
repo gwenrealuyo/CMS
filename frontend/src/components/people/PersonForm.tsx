@@ -20,6 +20,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import { getCreatableRoles } from "@/src/lib/personRolePermissions";
+import { isValidUsername, suggestedUsername } from "@/src/lib/usernames";
 import {
   userCanEditVitalDates,
   userCanEditVitalDatesOnCreate,
@@ -1017,6 +1018,10 @@ export default function PersonForm({
       personData as Partial<Person> & { lesson_teacher_display_name?: string }
     ).lesson_teacher_display_name;
 
+    if (isCreating || !isAdmin) {
+      delete personData.username;
+    }
+
     if (showLoginAccess) {
       if (autoGeneratePassword) {
         personData.generate_temporary_password = true;
@@ -1110,6 +1115,8 @@ export default function PersonForm({
     onJourneySaved,
     teacherMode,
     hasLessonEnrollment,
+    isAdmin,
+    isCreating,
   ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1121,6 +1128,20 @@ export default function PersonForm({
     if (!skipBranchRequirement && formData.branch == null) {
       toast.error("Please select a branch.");
       return;
+    }
+
+    if (!isCreating && isAdmin) {
+      const username = (formData.username || "").trim();
+      if (!username) {
+        toast.error("Username cannot be blank.");
+        return;
+      }
+      if (!isValidUsername(username)) {
+        toast.error(
+          "Username must use letters, digits, and @ . + - _ only, and cannot be reserved.",
+        );
+        return;
+      }
     }
 
     if (formData.has_finished_lessons && !formData.lessons_finished_at) {
@@ -1325,6 +1346,72 @@ export default function PersonForm({
                       />
                     </div>
                   </div>
+
+                  {isCreating ? (
+                    <p className="text-xs text-gray-500">
+                      Username is generated from the first two letters of the
+                      first name plus last name. Punctuation is removed.
+                      Example: Jane Doe → jadoe.
+                    </p>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Username
+                        {isAdmin ? (
+                          <span className="text-red-500"> *</span>
+                        ) : null}
+                      </label>
+                      {isAdmin ? (
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="text"
+                            name="username"
+                            required
+                            autoComplete="off"
+                            value={formData.username || ""}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                          />
+                          <Button
+                            type="button"
+                            variant="tertiary"
+                            className="shrink-0"
+                            onClick={() => {
+                              const suggested = suggestedUsername(
+                                formData.first_name || "",
+                                formData.last_name || "",
+                              );
+                              if (!suggested) {
+                                toast.error(
+                                  "Enter a first and last name to suggest a username.",
+                                );
+                                return;
+                              }
+                              setFormData((prev) => ({
+                                ...prev,
+                                username: suggested,
+                              }));
+                              setHasUnsavedChanges(true);
+                            }}
+                          >
+                            Use suggested
+                          </Button>
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={formData.username || ""}
+                          disabled
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                        />
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        {isAdmin
+                          ? "Unique. Letters, digits, and @ . + - _ only. This is the login name for members."
+                          : "Usernames can only be changed by an administrator."}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Nickname (narrow) / Maiden (wider) / Gender (narrow) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.8fr)_minmax(0,0.9fr)] gap-4">

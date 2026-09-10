@@ -50,7 +50,7 @@ On the **Basic Info** tab, complete at minimum:
 | Phone, address, etc. | Optional | As needed for your records |
 | Branch | Yes | Required for admins creating users |
 
-**Username rule:** The system auto-generates the username from the name (first two letters of first name + last name, lowercase). Example: John Smith → `josmith`. If that username exists, a number is appended (`josmith1`, etc.). Usernames cannot be changed from the main app after creation.
+**Username rule:** The system auto-generates the username from the name (first two letters of first name + last name, lowercase, with punctuation removed). Example: John Smith → `josmith`; Dominic `(Angono)` → `doangono`. If that username exists, a number is appended (`josmith1`, etc.). After create, only an **ADMIN** can change the username from the People edit form (letters, digits, and `@ . + - _` only). Other users see it as read-only. The self-service `/profile` page cannot change it.
 
 ### Step 4: Set role and status
 

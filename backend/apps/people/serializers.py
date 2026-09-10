@@ -1,6 +1,7 @@
 import secrets
 
 from rest_framework import serializers
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 
 from core.datetime_utils import church_today
@@ -23,6 +24,10 @@ from apps.people.name_formatting import (
     format_person_display_name,
 )
 from apps.people.photo_validators import validate_person_photo
+from apps.people.usernames import (
+    generate_unique_username,
+    normalize_and_validate_username,
+)
 
 
 def delete_person_photo_if_cleared(instance, validated_data):
@@ -493,7 +498,9 @@ class PersonSerializer(serializers.ModelSerializer):
             "generate_temporary_password",
             "temporary_password",
         ]
-        read_only_fields = ["username"]
+        extra_kwargs = {
+            "username": {"required": False, "allow_blank": True},
+        }
 
     _BLANKABLE_DATE_FIELDS = (
         "date_of_birth",
@@ -514,11 +521,28 @@ class PersonSerializer(serializers.ModelSerializer):
         # JSON payloads may send "" for cleared dates. DRF DateField accepts
         # null but not blank strings. Skip QueryDict (multipart) so many=True
         # fields like family_ids keep getlist().
-        if isinstance(data, dict) and not hasattr(data, "getlist"):
-            data = dict(data)
-            for field_name in self._BLANKABLE_DATE_FIELDS:
-                if data.get(field_name) == "":
-                    data[field_name] = None
+        request = self.context.get("request")
+        instance = getattr(self, "instance", None)
+        is_admin = bool(
+            request
+            and getattr(request, "user", None)
+            and request.user.is_authenticated
+            and request.user.role == "ADMIN"
+        )
+        if isinstance(data, dict):
+            if hasattr(data, "getlist"):
+                data = data.copy()
+            else:
+                data = dict(data)
+            # Username is generated on create and ADMIN-only on update.
+            # Drop it before field validators so non-admins can save people
+            # whose existing username would fail UnicodeUsernameValidator.
+            if not instance or not is_admin:
+                data.pop("username", None)
+            if not hasattr(data, "getlist"):
+                for field_name in self._BLANKABLE_DATE_FIELDS:
+                    if data.get(field_name) == "":
+                        data[field_name] = None
         return super().to_internal_value(data)
 
     def _apply_memberships(self, person, families=None, clusters=None):
@@ -816,6 +840,28 @@ class PersonSerializer(serializers.ModelSerializer):
         if gender == "MALE":
             attrs["maiden_name"] = ""
 
+        if not instance:
+            attrs.pop("username", None)
+        elif "username" in attrs:
+            is_admin = bool(
+                request
+                and request.user
+                and request.user.is_authenticated
+                and request.user.role == "ADMIN"
+            )
+            if not is_admin:
+                attrs.pop("username", None)
+            else:
+                try:
+                    attrs["username"] = normalize_and_validate_username(
+                        attrs.get("username"),
+                        exclude_pk=instance.pk,
+                    )
+                except DjangoValidationError as exc:
+                    raise serializers.ValidationError(
+                        {"username": list(exc.messages)}
+                    )
+
         return attrs
 
     def _trigger_legacy_lessons_backfill(
@@ -968,23 +1014,15 @@ class PersonSerializer(serializers.ModelSerializer):
         first_name = validated_data.get("first_name", "")
         last_name = validated_data.get("last_name", "")
 
-        if first_name and last_name:
-            # Get first two letters of first_name (or the whole first_name if shorter)
-            first_two_letters = first_name[:2].lower()
-            username = f"{first_two_letters}{last_name.lower()}"
-        else:
+        if not first_name or not last_name:
             raise serializers.ValidationError(
                 "Both first name and last name are required to generate username."
             )
 
-        # Ensure username is unique
-        original_username = username
-        counter = 1
-        while Person.objects.filter(username=username).exists():
-            username = f"{original_username}{counter}"
-            counter += 1
-
-        validated_data["username"] = username
+        validated_data.pop("username", None)
+        validated_data["username"] = generate_unique_username(
+            first_name, last_name
+        )
         person = super().create(validated_data)
         self._apply_memberships(person, families=families, clusters=clusters)
 

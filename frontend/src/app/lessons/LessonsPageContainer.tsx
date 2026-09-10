@@ -1465,8 +1465,9 @@ export default function LessonsPageContainer() {
         await lessonsApi.createSessionReport(payload);
       }
 
+      const wasEditing = Boolean(editingSessionReport);
       if (
-        !editingSessionReport &&
+        !wasEditing &&
         options?.markCommitmentSigned &&
         payload.student_id != null
       ) {
@@ -1479,7 +1480,18 @@ export default function LessonsPageContainer() {
         }
       }
 
+      const student =
+        peopleInBranchScope.find(
+          (person) => Number(person.id) === Number(payload.student_id),
+        ) ?? editingSessionReport?.student;
+      const studentName = formatPersonName(student);
       closeSessionModal();
+      toast.success(
+        wasEditing
+          ? `Session report for ${studentName} updated.`
+          : `Session report logged for ${studentName}.`,
+        { duration: 4000 },
+      );
       await fetchLatestSessionActivity();
       if (activeContentTab === "sessions") {
         await fetchSessionReports(sessionFilters);
@@ -1529,6 +1541,11 @@ export default function LessonsPageContainer() {
       setSessionDeleteLoading(true);
       setSessionDeleteError(null);
       await lessonsApi.deleteSessionReport(sessionDeleteTarget.id);
+      const studentName = formatPersonName(sessionDeleteTarget.student);
+      setSessionDeleteTarget(null);
+      toast.success(`Session report for ${studentName} deleted.`, {
+        duration: 4000,
+      });
       await fetchLatestSessionActivity();
       if (activeContentTab === "sessions") {
         await fetchSessionReports(sessionFilters);
@@ -1538,7 +1555,6 @@ export default function LessonsPageContainer() {
       }
       await fetchAllProgress();
       fetchSummary();
-      setSessionDeleteTarget(null);
     } catch (error) {
       setSessionDeleteError(
         extractErrorMessage(error, "Failed to delete the session report.")

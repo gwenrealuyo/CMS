@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/src/contexts/AuthContext";
-import { Toaster } from "react-hot-toast";
+import AppToaster from "@/src/components/ui/AppToaster";
 
 export const metadata: Metadata = {
   title: {
@@ -33,7 +33,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>{children}</AuthProvider>
-        <Toaster position="top-right" />
+        <AppToaster />
       </body>
     </html>
   );

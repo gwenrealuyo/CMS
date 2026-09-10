@@ -10,7 +10,10 @@ from .models import (
     LessonTeacherTransfer,
     PersonLessonProgress,
 )
-from .services import reconcile_student_progress_from_reports
+from .services import (
+    clear_pre_lesson_session_journey,
+    reconcile_student_progress_from_reports,
+)
 
 
 @admin.register(Lesson)
@@ -146,12 +149,16 @@ class LessonSessionReportAdmin(admin.ModelAdmin):
 
     def delete_model(self, request, obj):
         student = obj.student
+        clear_pre_lesson_session_journey(obj)
         super().delete_model(request, obj)
         if student:
             reconcile_student_progress_from_reports(student, force_report_rules=True)
 
     def delete_queryset(self, request, queryset):
         student_ids = list(queryset.values_list("student_id", flat=True).distinct())
+        reports = list(queryset)
+        for report in reports:
+            clear_pre_lesson_session_journey(report)
         super().delete_queryset(request, queryset)
         for student_id in student_ids:
             if not student_id:

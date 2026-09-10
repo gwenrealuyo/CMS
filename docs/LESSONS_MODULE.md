@@ -29,8 +29,9 @@ This drops all `lessons_*` tables and re-migrates (clears lesson progress, enrol
 
 - `apps.lessons.services.mark_progress_completed` generates the `LESSON` journey when a progress record transitions to `COMPLETED`. Rolling a lesson back triggers `revert_progress_completion`.
 - Commitment form signatures are tracked on `LessonStudentEnrollment` and create a `NOTE`-type journey titled “Commitment Form Signed”. Clearing the signature removes that journey entry.
-- **LESSON session reports** call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` does not exist it is created, then completion is applied via `mark_progress_completed`. **PRE_LESSON** reports do not complete catalog progress.
-- **Deleting a session report** (API or Django admin) calls `reconcile_student_progress_from_reports(student, force_report_rules=True)`, which realigns progress with remaining LESSON-type reports. Students with zero LESSON reports keep legacy completion via `has_finished_lessons` / `lessons_finished_at` when applicable.
+- **LESSON session reports** call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` does not exist it is created, then completion is applied via `mark_progress_completed`.
+- **PRE_LESSON session reports** (Introduction and Other) do not complete catalog progress. They upsert a `LESSON` journey on the student via `sync_pre_lesson_session_journey`: title is the pre-lesson kind label (`Introduction` / `Other`), description is the session remarks, and date is `session_date`. The report stores a OneToOne link on `LessonSessionReport.journey`.
+- **Deleting a session report** (API or Django admin) first clears any linked pre-lesson journey, then calls `reconcile_student_progress_from_reports(student, force_report_rules=True)`, which realigns progress with remaining LESSON-type reports. Students with zero LESSON reports keep legacy completion via `has_finished_lessons` / `lessons_finished_at` when applicable.
 
 ### Person profile sync
 
@@ -103,7 +104,8 @@ Applied to:
 - **Frontend Session Reports tab:**
   - Loads **all** reports when the tab is opened (not tied to the sidebar lesson picker).
   - Default date filters: **current month** and **current year** (`createDefaultSessionFilters` in `lessonsUtils.ts`).
-  - Optional filters: lesson (catalog lesson only—pre-lessons appear when lesson filter is “All lessons”), teacher, student, month, year.
+  - Lessons teachers (TEACHER assignment, not Admin/Pastor/Coordinator): teacher filter **defaults to and is locked on** the logged-in user; student picker and log-session student list are limited to their assigned students.
+  - Optional filters: lesson (catalog lesson only—pre-lessons appear when lesson filter is “All lessons”), teacher (coordinators/admins/pastors), student, month, year.
   - **Cards** and **table** views; table groups rows by student with expand/collapse; table includes a **Session** column (lesson title or pre-lesson label).
   - CSV export uses `formatSessionTopicLabel` for the lesson column (`session-reports.csv`).
 - Deep link: `/lessons?action=log-session` switches to the Session Reports tab and opens the log modal (no sidebar lesson required).
@@ -158,7 +160,7 @@ Automated tests live under `apps.lessons.tests`:
 
 | Module | Coverage |
 |--------|----------|
-| `test_session_reports.py` | PRE_LESSON vs LESSON progress, remarks validation, delete + reconcile |
+| `test_session_reports.py` | PRE_LESSON vs LESSON progress, remarks validation, pre-lesson LESSON journeys, delete + reconcile |
 | `test_enrollments.py` | Assign eligibility, commitment, transfers |
 | `test_catalog_permissions.py` | Catalog CRUD, commitment PDF, NCC booklet upload permissions |
 

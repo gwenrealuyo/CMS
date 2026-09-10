@@ -234,6 +234,8 @@ interface SessionReportsSectionProps {
   sessionYearOptions: string[];
   teacherChoices: LessonPersonLike[];
   studentChoices: LessonPersonLike[];
+  /** When set, the teacher filter is locked to this id (lessons teachers). */
+  lockedTeacherId?: string | null;
   onFilterChange: (field: keyof SessionFilterValues, value: string) => void;
   onResetFilters: () => void;
   onExport: () => void;
@@ -249,9 +251,15 @@ interface SessionReportsSectionProps {
   canExport: boolean;
 }
 
-function hasActiveSessionFilters(filters: SessionFilterValues): boolean {
+function hasActiveSessionFilters(
+  filters: SessionFilterValues,
+  lockedTeacherId?: string | null,
+): boolean {
+  const teacherIsCustom =
+    Boolean(filters.teacherId) &&
+    (!lockedTeacherId || filters.teacherId !== lockedTeacherId);
   return Boolean(
-    filters.teacherId ||
+    teacherIsCustom ||
       filters.studentId ||
       filters.lessonId ||
       hasNonDefaultSessionDateFilters(filters),
@@ -267,6 +275,7 @@ export default function SessionReportsSection({
   sessionYearOptions,
   teacherChoices,
   studentChoices,
+  lockedTeacherId = null,
   onFilterChange,
   onResetFilters,
   onExport,
@@ -531,8 +540,9 @@ export default function SessionReportsSection({
       <div className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <p className="text-sm text-gray-500 sm:max-w-lg">
-            View and log all lesson and pre-lesson sessions across the catalog.
-            Use the filters below to narrow by teacher, student, lesson, or date.
+            {lockedTeacherId
+              ? "View and log lesson and pre-lesson sessions for your assigned students. Use the filters below to narrow by student, lesson, or date."
+              : "View and log all lesson and pre-lesson sessions across the catalog. Use the filters below to narrow by teacher, student, lesson, or date."}
           </p>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
@@ -580,6 +590,8 @@ export default function SessionReportsSection({
                 label="Teacher"
                 emptyOptionLabel="All teachers"
                 emptyMessage="No teachers found"
+                showEmptyOption={!lockedTeacherId}
+                disabled={Boolean(lockedTeacherId)}
                 controlClassName="h-10"
               />
               <SearchableSelect
@@ -650,7 +662,7 @@ export default function SessionReportsSection({
           </div>
         ) : sessionReports.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-gray-500">
-            {hasActiveSessionFilters(sessionFilterDraft)
+            {hasActiveSessionFilters(sessionFilterDraft, lockedTeacherId)
               ? "No session reports match the current filters."
               : "No session reports recorded yet."}
           </div>

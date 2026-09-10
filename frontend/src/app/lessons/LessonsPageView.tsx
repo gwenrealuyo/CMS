@@ -166,8 +166,11 @@ interface LessonsPageViewProps {
   lessonHardDeleteError?: string | null;
   // People data
   people: Person[];
+  sessionFormPeople?: Person[];
   teacherChoices: LessonPersonLike[];
+  sessionTeacherChoices?: LessonPersonLike[];
   studentChoices: LessonPersonLike[];
+  lockedSessionTeacherId?: string | null;
   currentTeacherId: string | null;
   currentUserId: string | number | null;
   nextLessonIdByStudent: Map<number, number>;
@@ -328,8 +331,11 @@ export default function LessonsPageView({
   lessonHardDeleteError,
   userCanHardDelete = false,
   people,
+  sessionFormPeople,
   teacherChoices,
+  sessionTeacherChoices,
   studentChoices,
+  lockedSessionTeacherId = null,
   currentTeacherId,
   currentUserId,
   nextLessonIdByStudent,
@@ -630,8 +636,9 @@ export default function LessonsPageView({
               sessionReportsError={sessionReportsError}
               sessionFilterDraft={sessionFilterDraft}
               sessionYearOptions={sessionYearOptions}
-              teacherChoices={teacherChoices}
+              teacherChoices={sessionTeacherChoices ?? teacherChoices}
               studentChoices={studentChoices}
+              lockedTeacherId={lockedSessionTeacherId}
               onFilterChange={onUpdateSessionFilterDraft}
               onResetFilters={onResetSessionFilters}
               onExport={onExportSessionReports}
@@ -910,7 +917,7 @@ export default function LessonsPageView({
           submitting={sessionFormSubmitting}
           onSubmit={onSessionFormSubmit}
           onCancel={onCloseSessionModal}
-          people={people}
+          people={sessionFormPeople ?? people}
           teacherChoices={teacherChoices}
           lessons={lessons}
           defaultLessonId={

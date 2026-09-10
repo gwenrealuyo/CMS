@@ -14,6 +14,34 @@ const LESSONS_CATALOG_LEVELS: ModuleCoordinator["level"][] = [
   "SENIOR_COORDINATOR",
 ];
 
+function lessonsAssignments(user: User | null): ModuleCoordinator[] {
+  return (
+    user?.module_coordinator_assignments?.filter(
+      (assignment) => assignment.module === "LESSONS",
+    ) ?? []
+  );
+}
+
+/** Admin, pastor, and Lessons coordinators can browse every student/teacher. */
+export function canBrowseAllLessonStudents(user: User | null): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+  return lessonsAssignments(user).some((assignment) =>
+    LESSONS_CATALOG_LEVELS.includes(assignment.level),
+  );
+}
+
+/**
+ * Lessons TEACHER without coordinator/admin/pastor access.
+ * Session Reports is limited to this user's students and defaults the teacher filter to them.
+ */
+export function isLessonsTeacherScoped(user: User | null): boolean {
+  if (!user || canBrowseAllLessonStudents(user)) return false;
+  return lessonsAssignments(user).some(
+    (assignment) => assignment.level === "TEACHER",
+  );
+}
+
 export type CanWriteLessonsContext = {
   user: User | null;
   moduleEnabled?: Partial<Record<ModuleType, boolean>>;
@@ -32,12 +60,7 @@ export function canWriteLessons({
 
   if (user.role === "PASTOR") return true;
 
-  const assignments =
-    user.module_coordinator_assignments?.filter(
-      (assignment) => assignment.module === "LESSONS",
-    ) ?? [];
-
-  return assignments.some((assignment) =>
+  return lessonsAssignments(user).some((assignment) =>
     LESSONS_WRITE_LEVELS.includes(assignment.level),
   );
 }
@@ -60,12 +83,7 @@ export function canManageLessonCatalog({
 
   if (user.role === "PASTOR") return true;
 
-  const assignments =
-    user.module_coordinator_assignments?.filter(
-      (assignment) => assignment.module === "LESSONS",
-    ) ?? [];
-
-  return assignments.some((assignment) =>
+  return lessonsAssignments(user).some((assignment) =>
     LESSONS_CATALOG_LEVELS.includes(assignment.level),
   );
 }

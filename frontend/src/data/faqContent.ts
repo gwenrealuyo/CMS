@@ -146,7 +146,7 @@ export const faqCategories: FaqCategory[] = [
         id: "assign-and-log",
         question: "How do I assign lessons and log a session?",
         answer:
-          "On Student Progress, select students and click Assign Lessons. To log a session, go to Session Reports or use + → Log Lesson Session, then record the date, lesson, student, and notes. Teachers see and log sessions for their assigned students.",
+          "On Student Progress, select students and click Assign Lessons. To log a session, go to Session Reports or use + → Log Lesson Session, then record the date, lesson, student, and notes. Teachers only see their assigned students; the teacher filter defaults to themselves.",
       },
       {
         id: "cannot-edit-catalog",

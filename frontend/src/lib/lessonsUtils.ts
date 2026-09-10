@@ -60,16 +60,43 @@ export function getDefaultSessionMonthYear(): { month: string; year: string } {
   };
 }
 
-export const createDefaultSessionFilters = (): SessionFilterValues => {
+export const createDefaultSessionFilters = (
+  teacherId = "",
+): SessionFilterValues => {
   const { month, year } = getDefaultSessionMonthYear();
   return {
-    teacherId: "",
+    teacherId,
     studentId: "",
     lessonId: "",
     month,
     year,
   };
 };
+
+/** Active enrollment students assigned to a specific lessons teacher. */
+export function studentsAssignedToTeacher(
+  enrollments: LessonStudentEnrollment[],
+  teacherId: string | number,
+): LessonPersonLike[] {
+  const teacherKey = String(teacherId);
+  const seen = new Set<string>();
+  const students: LessonPersonLike[] = [];
+  for (const enrollment of enrollments) {
+    if (!enrollment.is_active || !enrollment.student?.id) {
+      continue;
+    }
+    if (String(enrollment.teacher?.id) !== teacherKey) {
+      continue;
+    }
+    const id = String(enrollment.student.id);
+    if (seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    students.push(enrollment.student);
+  }
+  return students;
+}
 
 /** @deprecated Use createDefaultSessionFilters */
 export const createEmptySessionFilters = createDefaultSessionFilters;

@@ -280,6 +280,78 @@ def clear_enrollment_commitment_signed(enrollment: LessonStudentEnrollment) -> N
     ).delete()
 
 
+def _pre_lesson_journey_title(kind: Optional[str]) -> str:
+    if not kind:
+        return LessonSessionReport.PreLessonKind.OTHER.label
+    try:
+        return LessonSessionReport.PreLessonKind(kind).label
+    except ValueError:
+        return LessonSessionReport.PreLessonKind.OTHER.label
+
+
+@transaction.atomic
+def sync_pre_lesson_session_journey(report: LessonSessionReport) -> Optional[Journey]:
+    """
+    Upserts a LESSON journey for a PRE_LESSON session report.
+
+    Title comes from the pre-lesson kind label (Introduction / Other).
+    Description is the session remarks. Catalog progress is not completed.
+    """
+    if (
+        report.session_type != LessonSessionReport.SessionType.PRE_LESSON
+        or not report.pre_lesson_kind
+        or not report.student_id
+    ):
+        clear_pre_lesson_session_journey(report)
+        return None
+
+    title = _pre_lesson_journey_title(report.pre_lesson_kind)
+    description = report.remarks or ""
+    verified_by = report.teacher or report.submitted_by
+
+    if report.journey_id:
+        journey = report.journey
+        journey.user = report.student
+        journey.type = "LESSON"
+        journey.title = title
+        journey.description = description
+        journey.date = report.session_date
+        journey.verified_by = verified_by
+        journey.save(
+            update_fields=["user", "type", "title", "description", "date", "verified_by"]
+        )
+        return journey
+
+    journey = Journey.objects.create(
+        user=report.student,
+        type="LESSON",
+        title=title,
+        description=description,
+        date=report.session_date,
+        verified_by=verified_by,
+    )
+    report.journey = journey
+    report.save(update_fields=["journey", "updated_at"])
+    return journey
+
+
+@transaction.atomic
+def clear_pre_lesson_session_journey(report: LessonSessionReport) -> None:
+    """Unlink and delete the LESSON journey owned by a pre-lesson session report."""
+    journey_id = report.journey_id
+    if not journey_id:
+        return
+
+    journey = report.journey
+    report.journey = None
+    if report.pk:
+        report.save(update_fields=["journey", "updated_at"])
+    if journey is not None:
+        journey.delete()
+    else:
+        Journey.objects.filter(pk=journey_id).delete()
+
+
 @transaction.atomic
 def revert_progress_completion(
     progress: PersonLessonProgress,

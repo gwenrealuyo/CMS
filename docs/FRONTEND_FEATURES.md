@@ -74,7 +74,7 @@ Record Donation is intentionally not included (finance `?action=add-donation` ca
 - **Tabs:** Lesson Content (catalog) | Student Progress | Session Reports | Files — full-width segmented control on mobile; branch filter stacks below (`LessonContentTabs` + `TOOLBAR_BRANCH_SELECT_*`).
 - **Branch filter** (below tab row on mobile): scopes progress, enrollments, session reports, and summary stats; lesson catalog and commitment PDF stay global. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
 - **Student Progress:** shared toolbar (`ToolbarSearch`, `ViewModeToggle`, `toolbarStyles`); cards on mobile by default; table coerced to cards below `md` via `listViewMode.ts`.
-- **Session Reports:** Table/Cards toggle; table coerced to cards below `md` when selected on a narrow viewport.
+- **Session Reports:** Table/Cards toggle; table coerced to cards below `md` when selected on a narrow viewport. Lessons teachers are locked to themselves in the teacher filter and only see their assigned students.
 - **Assign Lessons:** full-screen modal on mobile; dropdown popover on desktop (`AssignLessonsDropdown`).
 - Deep link `?action=log-session` opens Session Reports and the log-session modal.
 

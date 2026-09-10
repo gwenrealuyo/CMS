@@ -51,9 +51,11 @@ from .branch_scope import apply_branch_to_person_queryset, apply_lessons_branch_
 from .services import (
     bulk_assign_lessons,
     build_lesson_progress_summary,
+    clear_pre_lesson_session_journey,
     mark_progress_completed,
     reconcile_student_progress_from_reports,
     student_cannot_be_own_teacher_error,
+    sync_pre_lesson_session_journey,
 )
 
 
@@ -494,7 +496,7 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
             teacher=teacher,
             submitted_by=request.user if isinstance(request.user, Person) else None,
         )
-        self._sync_progress(report)
+        self._sync_report_side_effects(report)
 
     def perform_update(self, serializer):
         report = serializer.save(
@@ -502,13 +504,21 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
             if isinstance(self.request.user, Person)
             else None
         )
-        self._sync_progress(report)
+        self._sync_report_side_effects(report)
 
     def perform_destroy(self, instance):
         student = instance.student
+        clear_pre_lesson_session_journey(instance)
         super().perform_destroy(instance)
         if student:
             reconcile_student_progress_from_reports(student, force_report_rules=True)
+
+    def _sync_report_side_effects(self, report: LessonSessionReport) -> None:
+        if report.session_type == LessonSessionReport.SessionType.PRE_LESSON:
+            sync_pre_lesson_session_journey(report)
+            return
+        clear_pre_lesson_session_journey(report)
+        self._sync_progress(report)
 
     def _sync_progress(self, report: LessonSessionReport) -> None:
         if report.session_type != LessonSessionReport.SessionType.LESSON:

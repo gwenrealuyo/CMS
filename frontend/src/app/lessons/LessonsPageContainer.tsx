@@ -32,6 +32,7 @@ import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import {
   canWriteLessons,
   canManageLessonCatalog,
+  isLessonsTeacherScoped,
 } from "@/src/lib/lessons/lessonsPermissions";
 import {
   createDefaultSessionFilters,
@@ -39,13 +40,13 @@ import {
   sanitizeNumericValue,
   escapeCsvValue,
   SessionFilterValues,
-  LessonPersonLike,
   groupProgressByPerson,
   buildStudentTeacherMapFromEnrollments,
   enrollmentByStudentId,
   buildLatestSessionAtByStudent,
   getPersonLastActivityIso,
   parseTimestampMs,
+  studentsAssignedToTeacher,
 } from "@/src/lib/lessonsUtils";
 import {
   compareSessionReportsByStartThenLessonOrder,
@@ -220,6 +221,16 @@ export default function LessonsPageContainer() {
     () => canManageLessonCatalog({ user, moduleEnabled }),
     [user, moduleEnabled],
   );
+  const isTeacherScopedSessionView = useMemo(
+    () => isLessonsTeacherScoped(user),
+    [user],
+  );
+  const defaultSessionTeacherId = useMemo(() => {
+    if (!isTeacherScopedSessionView || user?.id == null) {
+      return "";
+    }
+    return String(user.id);
+  }, [isTeacherScopedSessionView, user?.id]);
 
   const lessonsBranchCanChangeFilter = useMemo(
     () => canChangeLessonsBranchFilterForUser(user, isSeniorCoordinator),
@@ -439,13 +450,50 @@ export default function LessonsPageContainer() {
     return onRoster ? userId : null;
   }, [user, teacherRoster]);
 
+  const sessionTeacherChoices = useMemo(() => {
+    if (!defaultSessionTeacherId) {
+      return teacherChoices;
+    }
+    const self = teacherChoices.find(
+      (entry) => String(entry.id) === defaultSessionTeacherId,
+    );
+    if (self) {
+      return [self];
+    }
+    if (!user) {
+      return [];
+    }
+    return [
+      {
+        id: user.id,
+        username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        middle_name: user.middle_name,
+      },
+    ];
+  }, [defaultSessionTeacherId, teacherChoices, user]);
+
   const studentChoices = useMemo(() => {
-    return [...peopleInBranchScope]
-      .filter(isSelectablePerson)
-      .sort((first, second) =>
-      formatPersonName(first).localeCompare(formatPersonName(second))
-      );
-  }, [peopleInBranchScope]);
+    const source = defaultSessionTeacherId
+      ? studentsAssignedToTeacher(enrollments, defaultSessionTeacherId)
+      : [...peopleInBranchScope].filter(isSelectablePerson);
+    return [...source].sort((first, second) =>
+      formatPersonName(first).localeCompare(formatPersonName(second)),
+    );
+  }, [defaultSessionTeacherId, enrollments, peopleInBranchScope]);
+
+  const sessionFormPeople = useMemo(() => {
+    if (!defaultSessionTeacherId) {
+      return peopleInBranchScope;
+    }
+    const allowedIds = new Set(
+      studentChoices.map((student) => String(student.id)),
+    );
+    return peopleInBranchScope.filter((person) =>
+      allowedIds.has(String(person.id)),
+    );
+  }, [defaultSessionTeacherId, peopleInBranchScope, studentChoices]);
 
   // Get active latest lessons for grouping
   const activeLatestLessons = useMemo(() => {
@@ -664,6 +712,20 @@ export default function LessonsPageContainer() {
       router.replace(pathname);
     }
   }, [action, canWriteLessonsAccess, pathname, router]);
+
+  useEffect(() => {
+    if (!defaultSessionTeacherId) {
+      return;
+    }
+    setSessionFilterDraft((previous) => {
+      if (previous.teacherId === defaultSessionTeacherId) {
+        return previous;
+      }
+      const next = { ...previous, teacherId: defaultSessionTeacherId };
+      setSessionFilters(next);
+      return next;
+    });
+  }, [defaultSessionTeacherId]);
 
   useEffect(() => {
     if (selectedLessonId) {
@@ -1307,6 +1369,9 @@ export default function LessonsPageContainer() {
     field: keyof SessionFilterValues,
     value: string
   ) => {
+    if (field === "teacherId" && defaultSessionTeacherId) {
+      return;
+    }
     setSessionFilterDraft((previous) => {
       const next = { ...previous, [field]: value };
       setSessionFilters(next);
@@ -1315,7 +1380,7 @@ export default function LessonsPageContainer() {
   };
 
   const resetSessionFilters = () => {
-    const defaults = createDefaultSessionFilters();
+    const defaults = createDefaultSessionFilters(defaultSessionTeacherId);
     setSessionFilterDraft(defaults);
     setSessionFilters(defaults);
   };
@@ -1725,7 +1790,10 @@ export default function LessonsPageContainer() {
       lessonsBranchesLoading={branchesLoading}
       // People data
       people={peopleInBranchScope}
+      sessionFormPeople={sessionFormPeople}
       studentChoices={studentChoices}
+      sessionTeacherChoices={sessionTeacherChoices}
+      lockedSessionTeacherId={defaultSessionTeacherId || null}
       enrollmentByStudentForAssign={enrollmentByStudent}
       defaultAssignTeacherId={sessionLoggedInTeacherId}
       currentTeacherId={sessionLoggedInTeacherId}

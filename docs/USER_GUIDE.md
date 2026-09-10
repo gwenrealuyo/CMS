@@ -158,7 +158,7 @@ Open **Lessons** for the seven-lesson New Converts Course and student progress.
 ### Typical workflow for teachers / coordinators
 
 1. **Assign lessons** — Student Progress → select students → **Assign Lessons**.
-2. **Log a session** — Session Reports → record date, lesson, student, and notes.
+2. **Log a session** — Session Reports → record date, lesson, student, and notes. Teachers only see their assigned students, and the teacher filter defaults to themselves.
 3. **Download files** — Files tab has the NCC booklet and commitment form PDFs. Mark signatures from a student's progress modal.
 
 Progress moves through: **Assigned → In Progress → Completed**.

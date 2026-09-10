@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 
 from apps.lessons.models import Lesson, LessonSessionReport, PersonLessonProgress
 from apps.lessons.services import reconcile_student_progress_from_reports
-from apps.people.models import ModuleCoordinator, ModuleSetting, Person
+from apps.people.models import Branch, Journey, ModuleCoordinator, ModuleSetting, Person
 
 
 class LessonSessionReportAPITests(TestCase):
@@ -131,6 +131,145 @@ class LessonSessionReportAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         details = response.data.get("details", response.data)
         self.assertIn("remarks", details)
+
+    def test_pre_lesson_introduction_creates_note_journey(self):
+        response = self.client.post(
+            self.url,
+            {
+                "student_id": self.student.id,
+                "session_type": LessonSessionReport.SessionType.PRE_LESSON,
+                "pre_lesson_kind": LessonSessionReport.PreLessonKind.INTRODUCTION,
+                "session_date": "2025-06-01",
+                "session_start": self.session_start,
+                "remarks": "Welcome talk",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        report = LessonSessionReport.objects.get(pk=response.data["id"])
+        self.assertIsNotNone(report.journey)
+        self.assertEqual(report.journey.user_id, self.student.id)
+        self.assertEqual(report.journey.type, "LESSON")
+        self.assertEqual(report.journey.title, "Introduction")
+        self.assertEqual(report.journey.description, "Welcome talk")
+        self.assertEqual(str(report.journey.date), "2025-06-01")
+        self.assertEqual(report.journey.verified_by_id, self.admin.id)
+
+        self.assertFalse(
+            PersonLessonProgress.objects.filter(
+                person=self.student,
+                status=PersonLessonProgress.Status.COMPLETED,
+            ).exists()
+        )
+
+    def test_pre_lesson_introduction_blank_remarks_creates_empty_description(self):
+        response = self.client.post(
+            self.url,
+            {
+                "student_id": self.student.id,
+                "session_type": LessonSessionReport.SessionType.PRE_LESSON,
+                "pre_lesson_kind": LessonSessionReport.PreLessonKind.INTRODUCTION,
+                "session_date": "2025-06-01",
+                "session_start": self.session_start,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        report = LessonSessionReport.objects.get(pk=response.data["id"])
+        self.assertIsNotNone(report.journey)
+        self.assertEqual(report.journey.title, "Introduction")
+        self.assertEqual(report.journey.description, "")
+
+    def test_pre_lesson_other_creates_note_journey_from_remarks(self):
+        response = self.client.post(
+            self.url,
+            {
+                "student_id": self.student.id,
+                "session_type": LessonSessionReport.SessionType.PRE_LESSON,
+                "pre_lesson_kind": LessonSessionReport.PreLessonKind.OTHER,
+                "session_date": "2025-06-01",
+                "session_start": self.session_start,
+                "remarks": "Follow-up visit",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        report = LessonSessionReport.objects.get(pk=response.data["id"])
+        self.assertIsNotNone(report.journey)
+        self.assertEqual(report.journey.type, "LESSON")
+        self.assertEqual(report.journey.title, "Other")
+        self.assertEqual(report.journey.description, "Follow-up visit")
+        self.assertEqual(str(report.journey.date), "2025-06-01")
+
+    def test_pre_lesson_update_syncs_same_journey(self):
+        create_response = self.client.post(
+            self.url,
+            {
+                "student_id": self.student.id,
+                "session_type": LessonSessionReport.SessionType.PRE_LESSON,
+                "pre_lesson_kind": LessonSessionReport.PreLessonKind.OTHER,
+                "session_date": "2025-06-01",
+                "session_start": self.session_start,
+                "remarks": "Initial notes",
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        report = LessonSessionReport.objects.get(pk=create_response.data["id"])
+        journey_id = report.journey_id
+        self.assertIsNotNone(journey_id)
+
+        detail_url = reverse(
+            "lessons:lesson-session-report-detail",
+            kwargs={"pk": report.id},
+        )
+        update_response = self.client.patch(
+            detail_url,
+            {
+                "remarks": "Updated notes",
+                "session_date": "2025-06-10",
+            },
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+
+        report.refresh_from_db()
+        self.assertEqual(report.journey_id, journey_id)
+        self.assertEqual(report.journey.description, "Updated notes")
+        self.assertEqual(str(report.journey.date), "2025-06-10")
+        self.assertEqual(report.journey.title, "Other")
+        self.assertEqual(report.journey.type, "LESSON")
+
+    def test_delete_pre_lesson_report_deletes_journey(self):
+        create_response = self.client.post(
+            self.url,
+            {
+                "student_id": self.student.id,
+                "session_type": LessonSessionReport.SessionType.PRE_LESSON,
+                "pre_lesson_kind": LessonSessionReport.PreLessonKind.INTRODUCTION,
+                "session_date": "2025-06-01",
+                "session_start": self.session_start,
+                "remarks": "Intro session",
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        report = LessonSessionReport.objects.get(pk=create_response.data["id"])
+        journey_id = report.journey_id
+        self.assertTrue(Journey.objects.filter(pk=journey_id).exists())
+
+        delete_url = reverse(
+            "lessons:lesson-session-report-detail",
+            kwargs={"pk": report.id},
+        )
+        delete_response = self.client.delete(delete_url)
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Journey.objects.filter(pk=journey_id).exists())
 
     def test_delete_lesson_report_reverts_completed_status(self):
         create_response = self.client.post(
@@ -263,3 +402,59 @@ class LessonSessionReportAPITests(TestCase):
 
         progress.refresh_from_db()
         self.assertEqual(progress.status, PersonLessonProgress.Status.COMPLETED)
+
+    def test_teacher_lists_only_own_session_reports(self):
+        branch = Branch.objects.create(name="Session Branch", code="SESSBR")
+        teacher = Person.objects.create_user(
+            username="sessionteacher",
+            password="password",
+            first_name="Session",
+            last_name="Teacher",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=branch,
+        )
+        other_teacher = Person.objects.create_user(
+            username="sessionotherteacher",
+            password="password",
+            first_name="Other",
+            last_name="Teacher",
+            role="MEMBER",
+            status="ACTIVE",
+            branch=branch,
+        )
+        self.student.branch = branch
+        self.student.save(update_fields=["branch"])
+        ModuleCoordinator.objects.create(
+            person=teacher,
+            module=ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER,
+        )
+        ModuleCoordinator.objects.create(
+            person=other_teacher,
+            module=ModuleCoordinator.ModuleType.LESSONS,
+            level=ModuleCoordinator.CoordinatorLevel.TEACHER,
+        )
+        own_report = LessonSessionReport.objects.create(
+            student=self.student,
+            teacher=teacher,
+            session_type=LessonSessionReport.SessionType.PRE_LESSON,
+            pre_lesson_kind=LessonSessionReport.PreLessonKind.INTRODUCTION,
+            session_date=timezone.now().date(),
+            session_start=timezone.now(),
+        )
+        other_report = LessonSessionReport.objects.create(
+            student=self.student,
+            teacher=other_teacher,
+            session_type=LessonSessionReport.SessionType.PRE_LESSON,
+            pre_lesson_kind=LessonSessionReport.PreLessonKind.INTRODUCTION,
+            session_date=timezone.now().date(),
+            session_start=timezone.now(),
+        )
+
+        self.client.force_authenticate(user=teacher)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        report_ids = {row["id"] for row in response.data}
+        self.assertIn(own_report.id, report_ids)
+        self.assertNotIn(other_report.id, report_ids)

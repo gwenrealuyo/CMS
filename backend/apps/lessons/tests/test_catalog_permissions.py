@@ -105,6 +105,7 @@ class LessonCatalogPermissionTests(TestCase):
 
         self.lesson_list_url = reverse("lessons:lesson-list")
         self.commitment_url = reverse("lessons:lesson-commitment-form")
+        self.ncc_lessons_pdf_url = reverse("lessons:lesson-ncc-lessons-pdf")
         self.session_url = reverse("lessons:lesson-session-report-list")
         self.assign_url = reverse("lessons:lesson-progress-assign")
 
@@ -169,34 +170,82 @@ class LessonCatalogPermissionTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def _assert_can_post_ncc_lessons_pdf(self, user):
+        self.client.force_authenticate(user=user)
+        pdf = SimpleUploadedFile(
+            "ncc-lessons.pdf", b"%PDF-1.4 test", content_type="application/pdf"
+        )
+        response = self.client.post(
+            self.ncc_lessons_pdf_url, {"ncc_lessons_pdf": pdf}, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return response
+
+    def _assert_cannot_post_ncc_lessons_pdf(self, user):
+        self.client.force_authenticate(user=user)
+        pdf = SimpleUploadedFile(
+            "ncc-lessons.pdf", b"%PDF-1.4 test", content_type="application/pdf"
+        )
+        response = self.client.post(
+            self.ncc_lessons_pdf_url, {"ncc_lessons_pdf": pdf}, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_hq_admin_can_create_lesson_and_post_commitment(self):
         self._assert_can_create_lesson(self.admin)
         self._assert_can_post_commitment(self.admin)
+        self._assert_can_post_ncc_lessons_pdf(self.admin)
 
     def test_hq_pastor_can_create_lesson_and_post_commitment(self):
         self._assert_can_create_lesson(self.hq_pastor)
         self._assert_can_post_commitment(self.hq_pastor)
+        self._assert_can_post_ncc_lessons_pdf(self.hq_pastor)
 
     def test_hq_coordinator_can_create_lesson_and_post_commitment(self):
         self._assert_can_create_lesson(self.hq_coordinator)
         self._assert_can_post_commitment(self.hq_coordinator)
+        self._assert_can_post_ncc_lessons_pdf(self.hq_coordinator)
 
     def test_non_hq_pastor_cannot_create_or_post_commitment(self):
         self._assert_cannot_create_lesson(self.non_hq_pastor)
         self._assert_cannot_post_commitment(self.non_hq_pastor)
+        self._assert_cannot_post_ncc_lessons_pdf(self.non_hq_pastor)
 
     def test_hq_teacher_cannot_create_or_post_commitment(self):
         self._assert_cannot_create_lesson(self.hq_teacher)
         self._assert_cannot_post_commitment(self.hq_teacher)
+        self._assert_cannot_post_ncc_lessons_pdf(self.hq_teacher)
 
     def test_plain_member_cannot_create_or_post_commitment(self):
         self._assert_cannot_create_lesson(self.plain_member)
         self._assert_cannot_post_commitment(self.plain_member)
+        self._assert_cannot_post_ncc_lessons_pdf(self.plain_member)
 
     def test_commitment_get_allowed_for_member(self):
         self.client.force_authenticate(user=self.plain_member)
         response = self.client.get(self.commitment_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_commitment_get_includes_ncc_lessons_pdf_url_after_upload(self):
+        self._assert_can_post_ncc_lessons_pdf(self.admin)
+        self.client.force_authenticate(user=self.plain_member)
+        response = self.client.get(self.commitment_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data.get("ncc_lessons_pdf_url"))
+        self.assertIn("ncc_lessons_pdf_updated_at", response.data)
+
+    def test_ncc_lessons_pdf_upload_does_not_overwrite_commitment_form(self):
+        self._assert_can_post_commitment(self.admin)
+        self.client.force_authenticate(user=self.admin)
+        before = self.client.get(self.commitment_url)
+        self.assertTrue(before.data.get("commitment_form_url"))
+        commitment_updated_at = before.data.get("updated_at")
+
+        self._assert_can_post_ncc_lessons_pdf(self.admin)
+        after = self.client.get(self.commitment_url)
+        self.assertEqual(after.data.get("updated_at"), commitment_updated_at)
+        self.assertTrue(after.data.get("commitment_form_url"))
+        self.assertTrue(after.data.get("ncc_lessons_pdf_url"))
 
     def test_hq_teacher_can_log_session(self):
         self.client.force_authenticate(user=self.hq_teacher)

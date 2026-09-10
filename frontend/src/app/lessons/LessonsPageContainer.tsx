@@ -110,6 +110,12 @@ export default function LessonsPageContainer() {
   const [commitmentUploadError, setCommitmentUploadError] = useState<
     string | null
   >(null);
+  const [isNccLessonsPdfModalOpen, setNccLessonsPdfModalOpen] = useState(false);
+  const [nccLessonsPdfFile, setNccLessonsPdfFile] = useState<File | null>(null);
+  const [nccLessonsPdfUploading, setNccLessonsPdfUploading] = useState(false);
+  const [nccLessonsPdfUploadError, setNccLessonsPdfUploadError] = useState<
+    string | null
+  >(null);
   const [commitmentConfirm, setCommitmentConfirm] = useState<{
     enrollment: LessonStudentEnrollment;
     person: LessonPersonSummary | null;
@@ -834,7 +840,7 @@ export default function LessonsPageContainer() {
       setCommitmentError(null);
     } catch (error) {
       setCommitmentError(
-        extractErrorMessage(error, "Failed to load commitment form.")
+        extractErrorMessage(error, "Failed to load lesson resources.")
       );
     } finally {
       setCommitmentLoading(false);
@@ -1132,6 +1138,37 @@ export default function LessonsPageContainer() {
       );
     } finally {
       setCommitmentUploading(false);
+    }
+  };
+
+  const handleNccLessonsPdfUpload = async () => {
+    if (!canManageLessonCatalogAccess) {
+      setNccLessonsPdfUploadError(
+        "You do not have permission to upload the NCC lessons PDF.",
+      );
+      return;
+    }
+    if (!nccLessonsPdfFile) {
+      setNccLessonsPdfUploadError("Please choose a PDF to upload.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("ncc_lessons_pdf", nccLessonsPdfFile);
+
+    try {
+      setNccLessonsPdfUploading(true);
+      setNccLessonsPdfUploadError(null);
+      const response = await lessonsApi.uploadNccLessonsPdf(formData);
+      setCommitmentSettings(response.data);
+      setNccLessonsPdfModalOpen(false);
+      setNccLessonsPdfFile(null);
+    } catch (error) {
+      setNccLessonsPdfUploadError(
+        extractErrorMessage(error, "Failed to upload the NCC lessons PDF.")
+      );
+    } finally {
+      setNccLessonsPdfUploading(false);
     }
   };
 
@@ -1602,6 +1639,10 @@ export default function LessonsPageContainer() {
       commitmentFile={commitmentFile}
       commitmentUploading={commitmentUploading}
       commitmentUploadError={commitmentUploadError}
+      isNccLessonsPdfModalOpen={isNccLessonsPdfModalOpen}
+      nccLessonsPdfFile={nccLessonsPdfFile}
+      nccLessonsPdfUploading={nccLessonsPdfUploading}
+      nccLessonsPdfUploadError={nccLessonsPdfUploadError}
       commitmentConfirm={commitmentConfirm}
       // Note input modal
       noteInputModal={noteInputModal}
@@ -1723,6 +1764,19 @@ export default function LessonsPageContainer() {
       }}
       onCommitmentUpload={handleCommitmentUpload}
       onSetCommitmentFile={(file) => setCommitmentFile(file)}
+      onOpenNccLessonsPdfModal={() => {
+        if (!canManageLessonCatalogAccess) {
+          return;
+        }
+        setNccLessonsPdfModalOpen(true);
+      }}
+      onCloseNccLessonsPdfModal={() => {
+        setNccLessonsPdfModalOpen(false);
+        setNccLessonsPdfFile(null);
+        setNccLessonsPdfUploadError(null);
+      }}
+      onNccLessonsPdfUpload={handleNccLessonsPdfUpload}
+      onSetNccLessonsPdfFile={(file) => setNccLessonsPdfFile(file)}
       onCloseNoteInputModal={() =>
         setNoteInputModal({ isOpen: false, record: null })
       }

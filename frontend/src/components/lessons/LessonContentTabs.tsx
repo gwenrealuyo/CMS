@@ -60,10 +60,10 @@ export default function LessonContentTabs({
     },
     {
       id: "commitment",
-      label: "Commitment Forms",
-      mobileLabel: "Commitment",
+      label: "Files",
+      mobileLabel: "Files",
       disabled: Boolean(disableCommitment),
-      minWidthClass: "min-w-[80px] md:min-w-[130px]",
+      minWidthClass: "min-w-[52px] md:min-w-[64px]",
     },
   ];
 

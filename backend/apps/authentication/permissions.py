@@ -399,7 +399,7 @@ class HasModuleAccess(permissions.BasePermission):
 
 class CanManageLessonCatalog(permissions.BasePermission):
     """
-    Lesson catalog create/update and commitment-form upload.
+    Lesson catalog create/update, commitment-form upload, and NCC lessons PDF upload.
 
     Allowed:
     - ADMIN (any branch; bypasses module disabled)

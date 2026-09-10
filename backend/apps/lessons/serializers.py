@@ -329,6 +329,7 @@ class LessonSessionReportSerializer(serializers.ModelSerializer):
 
 class LessonSettingsSerializer(serializers.ModelSerializer):
     commitment_form_url = serializers.SerializerMethodField()
+    ncc_lessons_pdf_url = serializers.SerializerMethodField()
 
     class Meta:
         model = LessonSettings
@@ -338,22 +339,53 @@ class LessonSettingsSerializer(serializers.ModelSerializer):
             "commitment_form_url",
             "uploaded_by",
             "updated_at",
+            "ncc_lessons_pdf",
+            "ncc_lessons_pdf_url",
+            "ncc_lessons_pdf_uploaded_by",
+            "ncc_lessons_pdf_updated_at",
         ]
-        read_only_fields = ["id", "commitment_form_url", "uploaded_by", "updated_at"]
+        read_only_fields = [
+            "id",
+            "commitment_form_url",
+            "uploaded_by",
+            "updated_at",
+            "ncc_lessons_pdf_url",
+            "ncc_lessons_pdf_uploaded_by",
+            "ncc_lessons_pdf_updated_at",
+        ]
+
+    def _absolute_file_url(self, file_field) -> str | None:
+        if not file_field:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(file_field.url)
+        return file_field.url
 
     def get_commitment_form_url(self, obj: LessonSettings) -> str | None:
-        request = self.context.get("request")
-        if obj.commitment_form and request:
-            return request.build_absolute_uri(obj.commitment_form.url)
-        if obj.commitment_form:
-            return obj.commitment_form.url
-        return None
+        return self._absolute_file_url(obj.commitment_form)
+
+    def get_ncc_lessons_pdf_url(self, obj: LessonSettings) -> str | None:
+        return self._absolute_file_url(obj.ncc_lessons_pdf)
 
     def update(self, instance: LessonSettings, validated_data: Dict[str, Any]):
         request = self.context.get("request")
         uploaded_by = (
             request.user if request and isinstance(request.user, Person) else None
         )
+        if "ncc_lessons_pdf" in validated_data:
+            instance.ncc_lessons_pdf = validated_data["ncc_lessons_pdf"]
+            instance.ncc_lessons_pdf_uploaded_by = uploaded_by
+            instance.ncc_lessons_pdf_updated_at = timezone.now()
+            instance.save(
+                update_fields=[
+                    "ncc_lessons_pdf",
+                    "ncc_lessons_pdf_uploaded_by",
+                    "ncc_lessons_pdf_updated_at",
+                ]
+            )
+            return instance
+
         instance.commitment_form = validated_data.get(
             "commitment_form", instance.commitment_form
         )

@@ -87,6 +87,10 @@ export interface LessonCommitmentSettings {
   commitment_form_url: string | null;
   uploaded_by: number | null;
   updated_at: string;
+  ncc_lessons_pdf: string | null;
+  ncc_lessons_pdf_url: string | null;
+  ncc_lessons_pdf_uploaded_by: number | null;
+  ncc_lessons_pdf_updated_at: string | null;
 }
 
 export interface LessonProgressSummaryByLesson {

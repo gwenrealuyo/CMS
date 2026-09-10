@@ -281,10 +281,10 @@ export default function AssignLessonsDropdown({
     const isModal = layout === "modal";
     const personListClass = isModal
       ? "min-h-0 flex-1 overflow-y-auto border rounded-lg divide-y divide-gray-200"
-      : "max-h-48 overflow-y-auto border rounded-lg divide-y divide-gray-200";
+      : "max-h-80 overflow-y-auto border rounded-lg divide-y divide-gray-200";
     const lessonListClass = isModal
       ? "min-h-0 flex-1 overflow-y-auto border rounded-lg divide-y divide-gray-200"
-      : "max-h-64 overflow-y-auto border rounded-lg divide-y divide-gray-200";
+      : "max-h-80 overflow-y-auto border rounded-lg divide-y divide-gray-200";
 
     return (
       <>
@@ -292,7 +292,7 @@ export default function AssignLessonsDropdown({
           className={
             isModal
               ? "flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4"
-              : "flex-1 overflow-y-auto p-4 space-y-4 sm:max-h-[60vh]"
+              : "flex-1 overflow-y-auto p-4 space-y-4 sm:max-h-[75vh]"
           }
         >
           {!selectedPersonId ? (
@@ -458,16 +458,8 @@ export default function AssignLessonsDropdown({
           )}
         </div>
 
-        <div className="shrink-0 p-4 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3">
-          <Button
-            variant="tertiary"
-            onClick={handleCancel}
-            disabled={assigning}
-            className="w-full sm:w-auto min-h-[44px]"
-          >
-            Cancel
-          </Button>
-          {canSubmit && (
+        {canSubmit && (
+          <div className="shrink-0 p-4 border-t border-gray-200 flex justify-end">
             <Button
               onClick={handleSubmit}
               disabled={assigning}
@@ -475,8 +467,8 @@ export default function AssignLessonsDropdown({
             >
               {assigning ? "Assigning..." : "Assign Selected Lessons"}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </>
     );
   };
@@ -503,11 +495,31 @@ export default function AssignLessonsDropdown({
       )}
 
       {isOpen && isMdUp && (
-        <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-[600px] flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
+        <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-[80vh] flex flex-col">
+          <div className="flex items-center justify-between gap-2 pl-4 pr-1 py-1 border-b border-gray-200">
+            <h3 className="text-base font-semibold text-gray-900">
               Assign Lessons
             </h3>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
+              aria-label="Close"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
           </div>
           {renderPanelBody("popover")}
         </div>

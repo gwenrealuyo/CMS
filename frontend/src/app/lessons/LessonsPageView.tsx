@@ -22,6 +22,7 @@ import SessionReportsSection, {
 } from "@/src/components/lessons/SessionReportsSection";
 import { SessionFilterValues } from "@/src/lib/lessonsUtils";
 import CommitmentFormSection from "@/src/components/lessons/CommitmentFormSection";
+import NccLessonsPdfSection from "@/src/components/lessons/NccLessonsPdfSection";
 import Modal from "@/src/components/ui/Modal";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
@@ -79,6 +80,10 @@ interface LessonsPageViewProps {
   commitmentFile: File | null;
   commitmentUploading: boolean;
   commitmentUploadError: string | null;
+  isNccLessonsPdfModalOpen: boolean;
+  nccLessonsPdfFile: File | null;
+  nccLessonsPdfUploading: boolean;
+  nccLessonsPdfUploadError: string | null;
   commitmentConfirm: {
     enrollment: LessonStudentEnrollment;
     person: LessonPersonSummary | null;
@@ -194,6 +199,10 @@ interface LessonsPageViewProps {
   onCloseCommitmentModal: () => void;
   onCommitmentUpload: () => void;
   onSetCommitmentFile: (file: File | null) => void;
+  onOpenNccLessonsPdfModal: () => void;
+  onCloseNccLessonsPdfModal: () => void;
+  onNccLessonsPdfUpload: () => void;
+  onSetNccLessonsPdfFile: (file: File | null) => void;
   onCloseNoteInputModal: () => void;
   onCloseAlertModal: () => void;
   onSetCommitmentConfirm: (
@@ -275,6 +284,10 @@ export default function LessonsPageView({
   commitmentFile,
   commitmentUploading,
   commitmentUploadError,
+  isNccLessonsPdfModalOpen,
+  nccLessonsPdfFile,
+  nccLessonsPdfUploading,
+  nccLessonsPdfUploadError,
   commitmentConfirm,
   noteInputModal,
   alertModal,
@@ -338,6 +351,10 @@ export default function LessonsPageView({
   onOpenCommitmentModal,
   onCloseCommitmentModal,
   onCommitmentUpload,
+  onOpenNccLessonsPdfModal,
+  onCloseNccLessonsPdfModal,
+  onNccLessonsPdfUpload,
+  onSetNccLessonsPdfFile,
   onSetCommitmentFile,
   onCloseNoteInputModal,
   onCloseAlertModal,
@@ -636,10 +653,17 @@ export default function LessonsPageView({
               activeContentTab === "commitment" ? "space-y-6" : "hidden"
             }
           >
-            <CommitmentFormSection
+            <NccLessonsPdfSection
               commitmentSettings={commitmentSettings}
               commitmentLoading={commitmentLoading}
               commitmentError={commitmentError}
+              onOpenModal={onOpenNccLessonsPdfModal}
+              canManageNccLessonsPdf={canManageLessonCatalogAccess}
+            />
+            <CommitmentFormSection
+              commitmentSettings={commitmentSettings}
+              commitmentLoading={commitmentLoading}
+              commitmentError={null}
               onOpenModal={onOpenCommitmentModal}
               canManageCommitmentForm={canManageLessonCatalogAccess}
             />
@@ -786,6 +810,46 @@ export default function LessonsPageView({
               className="w-full sm:flex-1 min-h-[44px]"
             >
               {commitmentUploading ? "Uploading..." : "Upload PDF"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isNccLessonsPdfModalOpen}
+        onClose={onCloseNccLessonsPdfModal}
+        title="Upload NCC Lessons PDF"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Upload a PDF copy of the New Converts Course booklet for teachers
+            to view and download.
+          </p>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(event) =>
+              onSetNccLessonsPdfFile(event.target.files?.[0] ?? null)
+            }
+            className="block w-full text-sm text-gray-700"
+          />
+          {nccLessonsPdfUploadError && (
+            <ErrorMessage message={nccLessonsPdfUploadError} />
+          )}
+          <div className="flex flex-col-reverse sm:flex-row gap-4 pt-2">
+            <Button
+              variant="tertiary"
+              onClick={onCloseNccLessonsPdfModal}
+              className="w-full sm:flex-1 min-h-[44px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={onNccLessonsPdfUpload}
+              disabled={nccLessonsPdfUploading || !nccLessonsPdfFile}
+              className="w-full sm:flex-1 min-h-[44px]"
+            >
+              {nccLessonsPdfUploading ? "Uploading..." : "Upload PDF"}
             </Button>
           </div>
         </div>

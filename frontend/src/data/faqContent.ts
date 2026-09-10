@@ -140,7 +140,7 @@ export const faqCategories: FaqCategory[] = [
         id: "lessons-tabs",
         question: "What are the Lessons tabs for?",
         answer:
-          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Session Reports is for one-on-one teaching sessions. Commitment Forms tracks signed commitment PDFs per student.",
+          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Session Reports is for one-on-one teaching sessions. Files has the downloadable NCC lessons booklet and the commitment form PDF.",
       },
       {
         id: "assign-and-log",
@@ -152,7 +152,7 @@ export const faqCategories: FaqCategory[] = [
         id: "cannot-edit-catalog",
         question: "Why can’t I edit lesson content or upload the commitment form?",
         answer:
-          "Lesson catalog (create, edit, or deactivate lessons) and the global commitment-form upload are limited to Admins, HQ Pastors, HQ Lessons Coordinators, and HQ Senior Coordinators. Teachers cannot manage catalog content.",
+          "Lesson catalog (create, edit, or deactivate lessons) and the global commitment-form and NCC lessons booklet uploads are limited to Admins, HQ Pastors, HQ Lessons Coordinators, and HQ Senior Coordinators. Teachers cannot manage catalog content.",
       },
     ],
   },

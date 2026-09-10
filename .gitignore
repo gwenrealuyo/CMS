@@ -57,6 +57,8 @@ backend/media/profiles/*
 !backend/media/profiles/.gitkeep
 backend/media/lessons/commitment_forms/*
 !backend/media/lessons/commitment_forms/.gitkeep
+backend/media/lessons/ncc_lessons/*
+!backend/media/lessons/ncc_lessons/.gitkeep
 
 # Python
 __pycache__/

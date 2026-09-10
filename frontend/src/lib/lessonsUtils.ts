@@ -335,11 +335,11 @@ export function getPersonLastActivityIso(
 }
 
 /**
- * Build a browser-reachable media URL for the commitment PDF.
+ * Build a browser-reachable media URL for lesson PDFs (commitment form, NCC booklet).
  * Prefers the API origin from NEXT_PUBLIC_API_URL so view/download still work
  * when Django's build_absolute_uri() returns an internal or wrong host.
  */
-export function resolveCommitmentFormUrl(
+export function resolveLessonMediaUrl(
   url: string | null | undefined,
 ): string {
   if (!url) return "";
@@ -358,5 +358,37 @@ export function resolveCommitmentFormUrl(
     return parsed.href;
   } catch {
     return url;
+  }
+}
+
+/** @deprecated Use resolveLessonMediaUrl */
+export function resolveCommitmentFormUrl(
+  url: string | null | undefined,
+): string {
+  return resolveLessonMediaUrl(url);
+}
+
+export async function downloadLessonMediaFile(
+  url: string,
+  fileName: string,
+): Promise<void> {
+  try {
+    // HTML download= is ignored for cross-origin URLs (frontend ≠ API host).
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Download failed (${response.status})`);
+    }
+    const blob = await response.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(objectUrl);
+  } catch {
+    // Fallback: open the PDF if blob download is blocked (e.g. CORS).
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 }

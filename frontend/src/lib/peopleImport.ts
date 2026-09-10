@@ -23,7 +23,23 @@ export const PEOPLE_IMPORT_FIELDS: { key: string; label: string }[] = [
 ];
 
 export const PEOPLE_EXPORT_FIELDS: { key: string; label: string }[] = [
-  ...PEOPLE_IMPORT_FIELDS,
+  { key: "first_name", label: "First Name" },
+  { key: "middle_name", label: "Middle Name" },
+  { key: "last_name", label: "Last Name" },
+  { key: "maiden_name", label: "Maiden Name" },
+  { key: "username", label: "Username" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Phone" },
+  { key: "role", label: "Role" },
+  { key: "status", label: "Status" },
+  { key: "country", label: "Country" },
+  { key: "address", label: "Address" },
+  { key: "date_of_birth", label: "Birth Date" },
+  { key: "date_first_attended", label: "First Attended" },
+  { key: "first_activity_attended", label: "First Activity Attended" },
+  { key: "water_baptism_date", label: "Water Baptism" },
+  { key: "spirit_baptism_date", label: "Spirit Baptism" },
+  { key: "member_id", label: "LAMP ID" },
   { key: "cluster", label: "Cluster" },
 ];
 

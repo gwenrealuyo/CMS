@@ -1,3 +1,4 @@
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models import Q
 
@@ -252,7 +253,8 @@ class LessonTeacherTransfer(models.Model):
 
 class LessonSettings(models.Model):
     """
-    Stores global configuration for the lessons module, including the commitment form.
+    Stores global configuration for the lessons module, including the commitment
+    form and the printable NCC lessons booklet.
     """
 
     commitment_form = models.FileField(
@@ -266,6 +268,20 @@ class LessonSettings(models.Model):
         related_name="uploaded_commitment_forms",
     )
     updated_at = models.DateTimeField(auto_now=True)
+    ncc_lessons_pdf = models.FileField(
+        upload_to="lessons/ncc_lessons/",
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=["pdf"])],
+    )
+    ncc_lessons_pdf_uploaded_by = models.ForeignKey(
+        Person,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="uploaded_ncc_lessons_pdfs",
+    )
+    ncc_lessons_pdf_updated_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self) -> str:
         return "Lesson Settings"

@@ -109,8 +109,14 @@ class LessonTeacherTransferAdmin(admin.ModelAdmin):
 
 @admin.register(LessonSettings)
 class LessonSettingsAdmin(admin.ModelAdmin):
-    list_display = ("id", "uploaded_by", "updated_at")
-    autocomplete_fields = ("uploaded_by",)
+    list_display = (
+        "id",
+        "uploaded_by",
+        "updated_at",
+        "ncc_lessons_pdf_uploaded_by",
+        "ncc_lessons_pdf_updated_at",
+    )
+    autocomplete_fields = ("uploaded_by", "ncc_lessons_pdf_uploaded_by")
 
 
 @admin.register(LessonSessionReport)

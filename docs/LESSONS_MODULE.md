@@ -6,7 +6,7 @@
 - `LessonJourney` stores the default journey metadata (`journey_type`, `title_template`, `note_template`) that is applied when a participant finishes the lesson. The current default type is `LESSON`.
 - `PersonLessonProgress` links a `Person` to a specific lesson version and tracks status (`ASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `SKIPPED`) along with timestamps and notes. Completing a lesson automatically creates (or updates) a `people.models.Journey` of type `LESSON`.
 - `LessonStudentEnrollment` is the canonical per-student lessons record (teacher assignment + one-time commitment signature fields: `commitment_signed`, `commitment_signed_at`, `commitment_signed_by`).
-- `LessonSettings` is a singleton row (id=1) that stores the globally uploaded commitment-form PDF (`commitment_form`) and who uploaded it.
+- `LessonSettings` is a singleton row (id=1) that stores the globally uploaded commitment-form PDF (`commitment_form`) and the printable NCC lessons booklet (`ncc_lessons_pdf`), plus who uploaded each file.
 - `LessonSessionReport` captures the 1-on-1 teaching workflow:
   - `session_type`: `LESSON` (linked to a catalog lesson) or `PRE_LESSON` (introduction / other pre-course sessions; `lesson` is null).
   - `pre_lesson_kind`: `INTRODUCTION` or `OTHER` when `session_type=PRE_LESSON`.
@@ -80,18 +80,19 @@ Applied to:
 - `LessonStudentEnrollmentViewSet` (`student__branch_id`)
 - Progress `summary` action (`unassigned_visitors` via `apply_branch_to_person_queryset`)
 
-**Not branch-scoped:** lesson catalog CRUD (`LessonViewSet`) and global commitment PDF (`commitment-form` action).
+**Not branch-scoped:** lesson catalog CRUD (`LessonViewSet`) and global PDFs (`commitment-form` GET/POST and `ncc-lessons-pdf` POST).
 
 **Frontend** — [`lessonsBranchFilter.ts`](../frontend/src/lib/lessonsBranchFilter.ts):
 
-- Branch `<select>` on the right of the content tab row (`Lesson Content` | `Student Progress` | `Session Reports` | `Commitment Forms`).
+- Branch `<select>` on the right of the content tab row (`Lesson Content` | `Student Progress` | `Session Reports` | `Files`).
 - Editable for ADMIN, PASTOR, and `isSeniorCoordinator("LESSONS")`; locked with tooltip for teachers and other roles.
 - Changing branch refetches summary, progress, enrollments, and session reports (when that tab is active). Assign/session people dropdowns are filtered client-side to the selected branch.
 
-## Commitment Form Management
+## Commitment Form & NCC Lessons PDF
 
-- Commitment form route: `/api/lessons/lessons/commitment-form/` (GET/POST on `LessonViewSet` action). Uploads replace the existing file and log `uploaded_by`.
-- Frontend **Commitment Forms** tab surfaces the current PDF with download and replace actions. Uploaded files live under `backend/media/lessons/commitment_forms/` (gitignored).
+- Commitment form route: `/api/lessons/lessons/commitment-form/` (GET/POST on `LessonViewSet` action). GET returns the singleton settings, including both PDFs. POST uploads replace the commitment file and log `uploaded_by`.
+- NCC lessons booklet route: `/api/lessons/lessons/ncc-lessons-pdf/` (POST). Uploads replace `ncc_lessons_pdf` and set `ncc_lessons_pdf_uploaded_by` / `ncc_lessons_pdf_updated_at` without changing the commitment form timestamp. PDF extension is required.
+- Frontend **Files** tab surfaces both global PDFs (NCC booklet first, then the commitment form) with view, download, and replace actions. Uploaded files live under `backend/media/lessons/commitment_forms/` and `backend/media/lessons/ncc_lessons/` (gitignored).
 - Commitment signing is a one-time student-level action from the person progress modal (after all active latest lessons are completed) via `/api/lessons/enrollments/{id}/commitment/`.
 
 ## Session Reports & Teacher Workflow
@@ -116,7 +117,8 @@ Applied to:
 | `/api/lessons/progress/{id}/complete/` | Mark progress complete (optional note, timestamp, `completed_by`). |
 | `/api/lessons/progress/assign/` | Bulk assign one lesson to multiple people (eligibility rules apply). |
 | `/api/lessons/progress/summary/` | Person-level status buckets, lesson breakdown, `unassigned_visitors`; supports `year`, `lesson`, `include_superseded`, `branch_id`. |
-| `/api/lessons/lessons/commitment-form/` | Upload/get global commitment PDF. |
+| `/api/lessons/lessons/commitment-form/` | GET/POST global commitment PDF; GET also returns the NCC booklet fields. |
+| `/api/lessons/lessons/ncc-lessons-pdf/` | POST global NCC lessons booklet PDF. |
 | `/api/lessons/enrollments/` | Student–teacher enrollments; filter: `student`, `teacher`, `branch_id`. |
 | `/api/lessons/enrollments/{id}/commitment/` | Set/clear commitment signature. |
 | `/api/lessons/enrollments/{id}/transfer/` | Transfer student to another teacher. |
@@ -133,11 +135,12 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 | **Lesson Content** | Sidebar lesson catalog + `LessonDetailPanel`; global, not branch-filtered. |
 | **Student Progress** | `MemberProgressSection` + `LessonProgressTable`; branch-scoped. Person column shows **status** and **cluster** chips (not member ID). |
 | **Session Reports** | `SessionReportsSection`; branch-scoped; see above. |
-| **Commitment Forms** | `CommitmentFormSection`; global PDF only. |
+| **Files** | `NccLessonsPdfSection` + `CommitmentFormSection`; global PDFs (NCC booklet and commitment form). Internal tab id remains `commitment`. |
 
 ### Key components
 
 - `LessonList` / `LessonDetailPanel` / `LessonForm` — catalog CRUD.
+- `NccLessonsPdfSection` / `CommitmentFormSection` — global booklet and commitment PDFs on the Files tab (`LessonPdfResourceCard`).
 - `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators, cluster coordinators); respects `branch_id` on summary API.
 - `AssignLessonsDropdown` — multi-select assign; eligible students only; status/cluster under names.
 - `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators). Coordinators can **Assign teacher** from this modal when a student has progress (including finished / legacy) but no enrollment.
@@ -157,7 +160,7 @@ Automated tests live under `apps.lessons.tests`:
 |--------|----------|
 | `test_session_reports.py` | PRE_LESSON vs LESSON progress, remarks validation, delete + reconcile |
 | `test_enrollments.py` | Assign eligibility, commitment, transfers |
-| `test_branch_scope.py` | `branch_id` filtering, teacher cannot override branch, no-branch user |
+| `test_catalog_permissions.py` | Catalog CRUD, commitment PDF, NCC booklet upload permissions |
 
 Run with SQLite test settings (required in this repo):
 

@@ -153,13 +153,13 @@ Open **Lessons** for the seven-lesson New Converts Course and student progress.
 | **Lesson Content** | Course lessons (read-only for most users) |
 | **Student Progress** | Who is assigned which lesson and completion status |
 | **Session Reports** | One-on-one teaching sessions |
-| **Commitment Forms** | Signed commitment PDFs per student |
+| **Files** | Downloadable NCC lessons booklet and commitment form PDF |
 
 ### Typical workflow for teachers / coordinators
 
 1. **Assign lessons** — Student Progress → select students → **Assign Lessons**.
 2. **Log a session** — Session Reports → record date, lesson, student, and notes.
-3. **Track commitment** — upload or mark commitment form signatures on the Commitment Forms tab.
+3. **Download files** — Files tab has the NCC booklet and commitment form PDFs. Mark signatures from a student's progress modal.
 
 Progress moves through: **Assigned → In Progress → Completed**.
 

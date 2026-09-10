@@ -62,11 +62,9 @@ interface ExportPreviewModalProps {
   isBulkExport?: boolean;
 }
 
-function getSelectedFields(): string[] {
-  return Array.from(
-    document.querySelectorAll<HTMLInputElement>("input[data-field]:checked")
-  ).map((el) => el.getAttribute("data-field") || "");
-}
+const DEFAULT_EXPORT_FIELDS = PEOPLE_EXPORT_FIELDS.map((f) => f.key).filter(
+  (k) => k !== "address"
+);
 
 function normalizeBranchId(value?: number | string | null): string {
   if (value == null || value === "") return "";
@@ -87,6 +85,9 @@ export default function ExportPreviewModal({
 }: ExportPreviewModalProps) {
   const [branchId, setBranchId] = useState(normalizeBranchId(defaultBranchId));
   const [branchLoading, setBranchLoading] = useState(false);
+  const [selectedFields, setSelectedFields] = useState<Set<string>>(
+    () => new Set(DEFAULT_EXPORT_FIELDS)
+  );
   const onExportBranchChangeRef = useRef(onExportBranchChange);
   onExportBranchChangeRef.current = onExportBranchChange;
 
@@ -102,6 +103,7 @@ export default function ExportPreviewModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    setSelectedFields(new Set(DEFAULT_EXPORT_FIELDS));
     const initialBranch = normalizeBranchId(defaultBranchId);
     setBranchId(initialBranch);
 
@@ -153,10 +155,6 @@ export default function ExportPreviewModal({
   };
 
   if (!isOpen) return null;
-
-  const defaultSelected = new Set(
-    PEOPLE_EXPORT_FIELDS.map((f) => f.key).filter((k) => k !== "address")
-  );
 
   const buttons = lockedFormat
     ? FORMAT_BUTTONS.filter((b) => b.format === lockedFormat)
@@ -250,8 +248,16 @@ export default function ExportPreviewModal({
                 <label key={f.key} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
-                    defaultChecked={defaultSelected.has(f.key)}
-                    data-field={f.key}
+                    checked={selectedFields.has(f.key)}
+                    onChange={(e) => {
+                      const next = new Set(selectedFields);
+                      if (e.target.checked) {
+                        next.add(f.key);
+                      } else {
+                        next.delete(f.key);
+                      }
+                      setSelectedFields(next);
+                    }}
                     className="rounded border-gray-300 text-primary focus:ring-ring"
                   />
                   <span>{f.label}</span>
@@ -274,15 +280,31 @@ export default function ExportPreviewModal({
             </p>
           )}
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setSelectedFields(new Set())}
+              disabled={selectedFields.size === 0}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Clear All
+            </button>
             {buttons.map((button) => (
               <button
                 key={button.format}
                 type="button"
                 onClick={() =>
-                  onExport(button.format, getSelectedFields(), peopleForExport)
+                  onExport(
+                    button.format,
+                    Array.from(selectedFields),
+                    peopleForExport
+                  )
                 }
-                disabled={branchLoading || peopleForExport.length === 0}
+                disabled={
+                  branchLoading ||
+                  peopleForExport.length === 0 ||
+                  selectedFields.size === 0
+                }
                 className={`${button.className} disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {button.label}

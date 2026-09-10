@@ -157,13 +157,16 @@ class LessonViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Override to set permissions based on action.
-        Catalog create/update and commitment POST: HQ Admin/Pastor/Coordinator only.
+        Catalog create/update, commitment POST, and NCC lessons PDF POST:
+        HQ Admin/Pastor/Coordinator only.
         """
         if self.action in ["list", "retrieve"]:
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         if self.action == "commitment_form":
             if self.request.method == "GET":
                 return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+            return [IsAuthenticatedAndNotVisitor(), CanManageLessonCatalog()]
+        if self.action == "ncc_lessons_pdf":
             return [IsAuthenticatedAndNotVisitor(), CanManageLessonCatalog()]
         if self.action == "destroy":
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
@@ -211,6 +214,28 @@ class LessonViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         serializer = LessonSettingsSerializer(settings, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="ncc-lessons-pdf",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def ncc_lessons_pdf(self, request):
+        settings = self._get_settings()
+        serializer = LessonSettingsSerializer(
+            settings,
+            data=request.data,
+            context={"request": request},
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        if "ncc_lessons_pdf" not in serializer.validated_data:
+            raise ValidationError(
+                {"ncc_lessons_pdf": "Please choose a PDF to upload."}
+            )
+        serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

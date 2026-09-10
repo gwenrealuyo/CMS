@@ -1004,6 +1004,14 @@ export const lessonsApi = {
         headers: { "Content-Type": "multipart/form-data" },
       }
     ),
+  uploadNccLessonsPdf: (formData: FormData) =>
+    api.post<LessonCommitmentSettings>(
+      "/lessons/lessons/ncc-lessons-pdf/",
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    ),
 };
 
 export const ministriesApi = {

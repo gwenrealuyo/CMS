@@ -38,6 +38,7 @@ from apps.authentication.permissions import (
     IsAdmin,
     IsSelf,
 )
+from apps.people.permissions import CanCreatePerson
 
 
 def _person_display_name(person):
@@ -378,15 +379,8 @@ class PersonViewSet(viewsets.ModelViewSet):
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action == "create":
-            # Create: ADMIN, PASTOR, module coordinator; or MEMBER creating a visitor
-            if self.request.user.role == "MEMBER":
-                requested_role = (self.request.data or {}).get("role")
-                if requested_role == "VISITOR":
-                    return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-            return [
-                IsAuthenticatedAndNotVisitor(),
-                (IsAdminOrPastor | HasAnyModuleCoordinatorAssignment)(),
-            ]
+            # Create: Cluster coordinators+ for Members; Evangelism staff for Visitors only
+            return [IsAuthenticatedAndNotVisitor(), CanCreatePerson()]
         elif self.action in ["update", "partial_update"]:
             # Update: privileged writers, or the person updating themselves
             return [

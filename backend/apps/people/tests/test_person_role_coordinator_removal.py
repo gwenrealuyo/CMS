@@ -324,7 +324,7 @@ class PersonRoleCoordinatorRemovalTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("role", self._field_errors(res))
 
-    def test_reporter_only_can_create_visitor_not_member(self):
+    def test_reporter_only_cannot_create_visitor_or_member(self):
         reporter = Person.objects.create_user(
             username="reporter_only",
             email="reporter@test.com",
@@ -360,7 +360,7 @@ class PersonRoleCoordinatorRemovalTests(TestCase):
             },
             format="json",
         )
-        self.assertEqual(visitor_res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(visitor_res.status_code, status.HTTP_403_FORBIDDEN)
         member_res = self.client.post(
             "/api/people/people/",
             {
@@ -373,8 +373,7 @@ class PersonRoleCoordinatorRemovalTests(TestCase):
             },
             format="json",
         )
-        self.assertEqual(member_res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("role", self._field_errors(member_res))
+        self.assertEqual(member_res.status_code, status.HTTP_403_FORBIDDEN)
 
     @staticmethod
     def _field_errors(res):

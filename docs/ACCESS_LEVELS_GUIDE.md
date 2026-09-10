@@ -40,7 +40,7 @@ These are set when an administrator creates or edits a person under **Account & 
 | Manage branches / module toggles | Yes | No | No | — |
 | Assign module coordinators | Yes | No | No | — |
 | People — view | All (incl. admins) | All except admins | Self + family | — |
-| People — create/edit | Yes | Yes | Add visitors only | — |
+| People — create/edit | Yes | Yes | Edit self; cannot add people | — |
 | People — delete | Yes | No | No | — |
 | Families — view | All | All (branch-scoped) | Own families | — |
 | Families — create/edit | Yes | Yes | No (view only) | — |
@@ -136,11 +136,13 @@ When you have module assignments, you may see more people and families than a pl
 
 ### People and families editing
 
-| Who | Create / edit people & families |
-|-----|--------------------------------|
-| Admin, Pastor | Yes (within branch scope) |
-| **Any module coordinator assignment** | Yes (within visibility scope) |
-| Plain Member | Add **visitors** only |
+| Who | Add Person (Member) / Export / Import | Add Visitor | Families create/edit |
+|-----|----------------------------------------|-------------|----------------------|
+| Admin, Pastor | Yes (within branch scope) | Yes | Yes |
+| **Cluster Senior Coordinator** or **Cluster Coordinator** | Yes | Yes | Yes |
+| **Evangelism Senior Coordinator, Evangelism Coordinator, Bible Sharer** | No | Yes | No |
+| Lessons / Sunday School Teachers, other-module coordinators (unless they also have Cluster access above) | No | No | No |
+| Plain Member, Cluster Reporter, Evangelism Reporter | No | No | No |
 
 ### Per-module actions
 
@@ -155,8 +157,8 @@ Coordinators and pastors should **mark records inactive** or update status inste
 
 **Clusters**
 
-- **Cluster Reporter** (CLUSTER): see **assigned cluster card(s) only**; submit weekly reports for those clusters; cannot edit cluster members or settings; People create limited to **visitors only**.
-- **Evangelism Reporter**: submit weekly reports for assigned evangelism groups; cannot manage group members; People create limited to **visitors only** if Reporter is their only assignment.
+- **Cluster Reporter** (CLUSTER): see **assigned cluster card(s) only**; submit weekly reports for those clusters; cannot edit cluster members or settings; cannot add people.
+- **Evangelism Reporter**: submit weekly reports for assigned evangelism groups; cannot manage group members; cannot add people.
 - Non-senior **Cluster Coordinators** can **browse all cluster cards in their branch** (read-only for clusters they do not manage).
 - **Weekly reports** (list, analytics, year filters, create/edit) are limited to **managed clusters** (FK coordinator and/or resource-specific Cluster → Coordinator assignment). **Deleting** reports is **admin-only**; coordinators correct via edit.
 - **Compliance** tab is for senior cluster coordinators only.

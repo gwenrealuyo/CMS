@@ -44,11 +44,11 @@ Branch filtering applies to:
 | Assignment Type           | People Access                                                                                  | Families Access                                                                                | Clusters Access          | Notes                                             |
 | ------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------- |
 | **Cluster Coordinator**   | People in assigned cluster(s):<br>- Direct cluster members<br>- Members of families in cluster | Families in assigned cluster(s) + Families of cluster members (even if not directly connected) | **Read** all clusters in branch; **edit/delete** and **reports** only on managed clusters | Module-wide assignments are Senior Coordinator+ only. Filtered by branch. |
-| **Cluster Reporter**      | No expanded People list (visitors only via plain member rules) | No expanded Families list | **Assigned cluster(s) only** (read-only); weekly reports on assigned clusters | CLUSTER module only; resource-specific; no cluster management. |
+| **Cluster Reporter**      | No expanded People list | No expanded Families list | **Assigned cluster(s) only** (read-only); weekly reports on assigned clusters | CLUSTER module only; resource-specific; no cluster management; cannot add people. |
 | **Sunday School Teacher** | Students in classes where they are teacher/assistant                                           | Families of those students                                                                     | N/A                      | Limited to their classes                          |
 | **Lessons Teacher**       | Students in their lesson sessions                                                              | Families of those students                                                                     | N/A                      | Limited to their students                         |
-| **Bible Sharer**          | Members of assigned evangelism groups                                                          | Families of those members                                                                      | N/A                      | Limited to assigned groups; can submit weekly reports |
-| **Evangelism Reporter**   | No expanded People list (visitors only via plain member rules) | No expanded Families list | N/A | Weekly reports for assigned evangelism groups only |
+| **Bible Sharer**          | Members of assigned evangelism groups                                                          | Families of those members                                                                      | N/A                      | Limited to assigned groups; can submit weekly reports; **Add Visitor** only |
+| **Evangelism Reporter**   | No expanded People list | No expanded Families list | N/A | Weekly reports for assigned evangelism groups only; cannot add people |
 
 ## Frontend Module Access
 
@@ -111,6 +111,19 @@ When a user has multiple assignments, they see the union of all applicable peopl
 - **Lessons branch filter** (tab row on `/lessons`): editable for ADMIN, PASTOR, and **senior** Lessons coordinators; locked to the user’s assigned branch for Lessons teachers and other roles. Student-linked API lists honor `branch_id` when privileged; otherwise server forces `user.branch`. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
 - **Clusters**: On `ClustersPageView`, the **Clusters** tab primary header action is **Add Cluster** for **ADMIN**, **CLUSTER Senior Coordinator**, or **PASTOR** without a non-senior CLUSTER coordinator-only assignment; others see **Submit Report** as primary. Requires **`module_coordinator_assignments`** on the auth user payload (`UserSerializer` / `GET /auth/me/`). See **Clusters homepage / CTAs** in `docs/CLUSTERS_MODULE.md`. Member cluster cards/views use `members_details` / `families_details` for rosters; person/family panels open only when already in People/Family scope.
 - **Families**: **Add Family** and family edit/add-members/mark-inactive actions on People → Families are shown only for Admin, Pastor, or Cluster coordinators (senior or non-senior) via `canManageFamilies`. Plain Members and Cluster Reporters can view families in their list scope but cannot create or edit.
+
+### People create, export, and import
+
+Create, **Export All**, **Import**, and bulk export are **not** granted to every module assignment. Multiple assignments use the union (Cluster Coordinator + Teacher can still Add Person).
+
+| Who | Add Person (Member) | Add Visitor | Export All / Import / bulk export |
+| --- | --- | --- | --- |
+| **Admin, Pastor** | Yes | Yes | Yes |
+| **Cluster Senior Coordinator** or **Cluster Coordinator** (assignment or `Cluster.coordinator` FK) | Yes | Yes | Yes |
+| **Evangelism Senior Coordinator, Evangelism Coordinator, Bible Sharer** | No | Yes | No |
+| **Plain members, Cluster/Evangelism Reporters, Lessons/Sunday School Teachers**, and coordinators of other modules (Lessons, Sunday School, Finance, Events, Ministries) unless they also have Cluster access above | No | No | No |
+
+`POST /api/people/people/` follows the same matrix: Visitor requires `can_add_visitor`; Member and any other role require `can_add_person`. Senior Coordinators of a non-Cluster module no longer get Add Person.
 
 ## Multiple Assignment Tagging
 

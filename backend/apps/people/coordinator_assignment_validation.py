@@ -155,7 +155,39 @@ def user_is_reporter_only(person: Person) -> bool:
 
 
 def user_has_people_write_coordinator_assignment(person: Person) -> bool:
-    """Module assignments that grant coordinator-style people create (not Reporter-only)."""
+    """True when the person has any non-Reporter module assignment (used for self-edit staff fields)."""
     if not person.module_coordinator_assignments.exists():
         return False
     return not user_is_reporter_only(person)
+
+
+EVANGELISM_VISITOR_CREATE_LEVELS = (
+    ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+    ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+    ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+)
+
+
+def user_can_add_person(user) -> bool:
+    """Admin, Pastor, Cluster Senior Coordinator, or Cluster Coordinator (assignment or FK)."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
+        return True
+    from apps.clusters.permissions import is_non_senior_cluster_coordinator
+
+    return is_non_senior_cluster_coordinator(user)
+
+
+def user_can_add_visitor(user) -> bool:
+    """Cluster+ plus Evangelism Senior/Coordinator/Bible Sharer (not teachers or reporters)."""
+    if user_can_add_person(user):
+        return True
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return user.module_coordinator_assignments.filter(
+        module=ModuleCoordinator.ModuleType.EVANGELISM,
+        level__in=EVANGELISM_VISITOR_CREATE_LEVELS,
+    ).exists()

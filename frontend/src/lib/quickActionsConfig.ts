@@ -10,6 +10,7 @@ import type { User } from "@/src/lib/api";
 import type { ModuleCoordinator } from "@/src/types/person";
 import type { ModuleType } from "@/src/types/moduleSettings";
 import { canWriteLessons } from "@/src/lib/lessons/lessonsPermissions";
+import { userCanAddPerson, userCanAddVisitor } from "@/src/lib/peopleCreateAccess";
 
 type CoordinatorLevel = ModuleCoordinator["level"];
 
@@ -88,13 +89,8 @@ function isModuleEnabledForQuickAction(
   return ctx.moduleEnabled[module] !== false;
 }
 
-function canViewPeople(ctx: QuickActionsContext): boolean {
-  const { user, isSeniorCoordinator } = ctx;
-  if (!user) return false;
-  return (
-    ["MEMBER", "PASTOR", "ADMIN"].includes(user.role) ||
-    isSeniorCoordinator()
-  );
+function canCreatePeople(ctx: QuickActionsContext): boolean {
+  return userCanAddVisitor(ctx.user);
 }
 
 function canViewEvents(ctx: QuickActionsContext): boolean {
@@ -142,7 +138,7 @@ function canSubmitEvangelismReport(ctx: QuickActionsContext): boolean {
 function isVisible(action: QuickActionDefinition, ctx: QuickActionsContext): boolean {
   switch (action.key) {
     case "people":
-      return canViewPeople(ctx);
+      return canCreatePeople(ctx);
     case "events":
       return canViewEvents(ctx);
     case "lesson-session":
@@ -159,11 +155,9 @@ function isVisible(action: QuickActionDefinition, ctx: QuickActionsContext): boo
 export function getAvailableQuickActions(
   ctx: QuickActionsContext,
 ): QuickActionDefinition[] {
-  const plainMember = ctx.isPlainMember();
-
   return QUICK_ACTIONS.filter((action) => isVisible(action, ctx)).map(
     (action) => {
-      if (action.key === "people" && plainMember) {
+      if (action.key === "people" && !userCanAddPerson(ctx.user)) {
         return {
           ...action,
           label: "Add Visitor",

@@ -45,6 +45,8 @@ interface DataTableProps {
     branch?: number | string | null;
   }) => Promise<Person[]> | Person[];
   onImport?: (rows: Record<string, string>[]) => Promise<void> | void;
+  /** When false, hide Export All and bulk export. Defaults to true. */
+  canExport?: boolean;
   defaultBranchId?: number | null;
   defaultBranchCode?: string | null;
   branches?: Branch[];
@@ -73,6 +75,7 @@ export default function DataTable({
   onBulkExport,
   onExportAll,
   onImport,
+  canExport = true,
   defaultBranchId = null,
   defaultBranchCode = null,
   branches = [],
@@ -889,17 +892,22 @@ export default function DataTable({
         <div className="px-4 md:px-6 py-4 border-b border-gray-200">
           <div className="flex flex-col tablet:flex-row tablet:items-center tablet:justify-between gap-2 tablet:gap-3">
             <div className="min-w-0 flex-1 flex items-center justify-end tablet:justify-start">
-              {selectedPeople.size > 0 ? (
+              {selectedPeople.size > 0 &&
+              (canExport || onBulkDelete) ? (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">
                     {selectedPeople.size} selected
                   </span>
                   <BulkActionsMenu
-                    onBulkDelete={handleBulkDelete}
-                    onBulkExport={handleBulkExport}
+                    onBulkDelete={onBulkDelete ? handleBulkDelete : undefined}
+                    onBulkExport={canExport ? handleBulkExport : undefined}
                     selectedCount={selectedPeople.size}
                   />
                 </div>
+              ) : selectedPeople.size > 0 ? (
+                <span className="text-sm text-gray-600">
+                  {selectedPeople.size} selected
+                </span>
               ) : (
                 <p
                   className={`hidden tablet:block leading-snug text-gray-500 truncate pr-2 ${
@@ -941,7 +949,8 @@ export default function DataTable({
                   </svg>
                   Columns
                 </button>
-                {wrapWhenSelected(
+                {canExport &&
+                  wrapWhenSelected(
                   <button
                     type="button"
                     onClick={() => {
@@ -959,11 +968,12 @@ export default function DataTable({
                   </button>,
                   "min-w-0 flex-1 cursor-default tablet:flex-none",
                 )}
-                {wrapWhenSelected(
+                {onImport &&
+                  wrapWhenSelected(
                   <button
                     type="button"
                     onClick={() => setShowImportModal(true)}
-                    disabled={hasSelection || !onImport}
+                    disabled={hasSelection}
                     className="inline-flex min-w-0 w-full flex-1 items-center justify-center px-2 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring min-h-[44px] tablet:w-auto tablet:flex-none tablet:justify-start tablet:px-3 md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     <svg

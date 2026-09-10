@@ -11,6 +11,8 @@ from apps.clusters.models import Cluster
 from apps.authentication.password_validators import PasswordStrengthValidator
 from apps.events.models import EventType
 from apps.people.coordinator_assignment_validation import (
+    user_can_add_person,
+    user_can_add_visitor,
     user_has_people_write_coordinator_assignment,
     validate_module_coordinator_assignment,
 )
@@ -567,15 +569,21 @@ class PersonSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         instance = getattr(self, "instance", None)
 
-        # A "plain member" is a MEMBER with no ModuleCoordinator assignments. Members
-        # who coordinate a module write like coordinators; only plain members are
-        # restricted to creating visitors.
+        # A "plain member" is a MEMBER with no ModuleCoordinator assignments.
         is_plain_member = bool(
             request
             and request.user
             and request.user.is_authenticated
             and request.user.role == "MEMBER"
             and not user_has_people_write_coordinator_assignment(request.user)
+        )
+        visitor_only_create = bool(
+            request
+            and request.user
+            and request.user.is_authenticated
+            and not instance
+            and user_can_add_visitor(request.user)
+            and not user_can_add_person(request.user)
         )
 
         # Plain members editing themselves may not change staff-controlled fields.
@@ -607,13 +615,14 @@ class PersonSerializer(serializers.ModelSerializer):
         ):
             strip_vital_date_attrs(attrs)
 
-        # Member-created visitors get branch from inviter in create(); inviter must have a branch
-        if is_plain_member and not instance:
+        # Evangelism staff may create visitors only (not Members).
+        if visitor_only_create:
             role = attrs.get("role")
-            if role != "VISITOR":
+            if role and role != "VISITOR":
                 raise serializers.ValidationError(
-                    {"role": "Members can only create visitors."}
+                    {"role": "You can only add visitors."}
                 )
+            attrs["role"] = "VISITOR"
             if not request.user.branch:
                 raise serializers.ValidationError(
                     {
@@ -636,22 +645,21 @@ class PersonSerializer(serializers.ModelSerializer):
                 )
             if (
                 user.role == "MEMBER"
-                and user_has_people_write_coordinator_assignment(user)
+                and user_can_add_person(user)
                 and requested_role not in ("MEMBER", "VISITOR")
             ):
                 raise serializers.ValidationError(
-                    {"role": "Module coordinators can only assign Member or Visitor roles."}
+                    {"role": "Cluster coordinators can only assign Member or Visitor roles."}
                 )
 
         # App-layer required branch (DB column may still be null for legacy rows)
         branch_in_attrs = "branch" in attrs
 
         if not instance:
-            if not is_plain_member:
-                if not attrs.get("branch"):
-                    raise serializers.ValidationError(
-                        {"branch": "Branch is required."}
-                    )
+            if not attrs.get("branch"):
+                raise serializers.ValidationError(
+                    {"branch": "Branch is required."}
+                )
         else:
             if branch_in_attrs and attrs.get("branch") is None:
                 raise serializers.ValidationError(
@@ -986,16 +994,17 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context.get("request")
-        is_plain_member = bool(
+        visitor_only_create = bool(
             request
             and request.user
-            and request.user.role == "MEMBER"
-            and not user_has_people_write_coordinator_assignment(request.user)
+            and user_can_add_visitor(request.user)
+            and not user_can_add_person(request.user)
         )
-        if is_plain_member:
+        if visitor_only_create:
             validated_data["role"] = "VISITOR"
             validated_data["inviter"] = request.user
-            validated_data["branch"] = request.user.branch
+            if not validated_data.get("branch"):
+                validated_data["branch"] = request.user.branch
 
         commitment_write = self._pop_commitment_write_fields(validated_data)
 

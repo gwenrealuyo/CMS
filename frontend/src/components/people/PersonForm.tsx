@@ -20,6 +20,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useEventTypeOptions } from "@/src/hooks/useEventTypeOptions";
 import { getCreatableRoles } from "@/src/lib/personRolePermissions";
+import { getPeopleCreateAccess } from "@/src/lib/peopleCreateAccess";
 import { isValidUsername, suggestedUsername } from "@/src/lib/usernames";
 import {
   userCanEditVitalDates,
@@ -183,6 +184,8 @@ export default function PersonForm({
   } = useAuth();
   const { eventTypes } = useEventTypeOptions();
   const plainMember = isPlainMember();
+  const peopleCreateAccess = getPeopleCreateAccess(user);
+  const visitorOnlyCreate = !initialData?.id && peopleCreateAccess === "visitor";
   const isAdmin = user?.role === "ADMIN";
   const isCreating = !initialData?.id;
   const editingSelf = Boolean(
@@ -221,7 +224,8 @@ export default function PersonForm({
       : initialData?.role
         ? "MEMBER"
         : undefined;
-  const defaultRole = normalizedRole ?? (plainMember ? "VISITOR" : "MEMBER");
+  const defaultRole =
+    normalizedRole ?? (visitorOnlyCreate ? "VISITOR" : "MEMBER");
   const initialPersonId = initialData?.id ? String(initialData.id) : undefined;
   const initialFamilyIds = useMemo(() => {
     if (initialData?.family_ids) {
@@ -274,13 +278,10 @@ export default function PersonForm({
   const [showClusterDropdown, setShowClusterDropdown] = useState(false);
 
   const creatableRoles = useMemo(() => {
-    if (plainMember) {
-      if (editingSelf && initialData?.role) {
-        return [initialData.role];
-      }
-      return formData.water_baptism_date ? ["MEMBER"] : ["VISITOR"];
+    if (plainMember && editingSelf && initialData?.role) {
+      return [initialData.role];
     }
-    const roles = getCreatableRoles(user, false);
+    const roles = getCreatableRoles(user, { forEdit: !isCreating });
     if (
       initialData?.role === "ADMIN" &&
       !roles.includes("ADMIN") &&
@@ -289,17 +290,12 @@ export default function PersonForm({
       return [...roles, "ADMIN"];
     }
     return roles;
-  }, [
-    plainMember,
-    editingSelf,
-    user,
-    initialData?.role,
-    isCreating,
-    formData.water_baptism_date,
-  ]);
+  }, [plainMember, editingSelf, user, initialData?.role, isCreating]);
 
   const roleSelectDisabled =
-    plainMember || (initialData?.role === "ADMIN" && !isAdmin);
+    visitorOnlyCreate ||
+    plainMember ||
+    (initialData?.role === "ADMIN" && !isAdmin);
   const statusSelectDisabled = selfEditLocked;
 
   const canEditVitalDates = useMemo(() => {
@@ -406,18 +402,10 @@ export default function PersonForm({
   }, [initialData?.cluster_ids, initialPersonId, initialClusterIds]);
 
   useEffect(() => {
-    if (plainMember && !initialData?.id && formData.role !== "VISITOR") {
-      const hasWaterBaptism = Boolean(formData.water_baptism_date);
-      if (!hasWaterBaptism) {
-        setFormData((prev) => ({ ...prev, role: "VISITOR" }));
-      }
+    if (visitorOnlyCreate && formData.role !== "VISITOR") {
+      setFormData((prev) => ({ ...prev, role: "VISITOR" }));
     }
-  }, [
-    formData.role,
-    formData.water_baptism_date,
-    initialData?.id,
-    plainMember,
-  ]);
+  }, [formData.role, visitorOnlyCreate]);
   const [tabSwitchConfirmation, setTabSwitchConfirmation] = useState<{
     isOpen: boolean;
     targetTab: "basic" | "timeline" | null;
@@ -1599,9 +1587,9 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Membership and system roles.
                 </p>
-                {plainMember && !editingSelf && (
+                {visitorOnlyCreate && (
                   <p className="text-xs text-primary mb-4">
-                    Members can only add visitors. The role is fixed to Visitor.
+                    You can only add visitors. The role is fixed to Visitor.
                   </p>
                 )}
                 {selfEditLocked && (
@@ -2325,7 +2313,7 @@ export default function PersonForm({
                 <p className="text-xs text-gray-500 mb-4">
                   Link inviter, family, and cluster membership.
                 </p>
-                {plainMember && !editingSelf && (
+                {visitorOnlyCreate && (
                   <p className="text-xs text-primary mb-4">
                     Inviter defaults to you. Coordinators can edit this later.
                   </p>

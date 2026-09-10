@@ -43,6 +43,9 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { canManageFamilies } from "@/src/lib/familyPermissions";
 import {
+  getPeopleCreateAccess,
+} from "@/src/lib/peopleCreateAccess";
+import {
   canChangePeopleBranchFilter,
 } from "@/src/lib/peopleBranchFilter";
 import UserLoginCredentialsModal from "@/src/components/people/UserLoginCredentialsModal";
@@ -101,6 +104,11 @@ export default function PeoplePage() {
   const router = useRouter();
   const pathname = usePathname();
   const action = searchParams.get("action");
+  const { user, isSeniorCoordinator, isModuleCoordinator, isPlainMember } =
+    useAuth();
+  const peopleCreateAccess = getPeopleCreateAccess(user);
+  const canAddPerson = peopleCreateAccess === "person";
+  const canAddVisitor = peopleCreateAccess !== "none";
   const [activeTab, setActiveTab] = useState<
     "people" | "families" | "clusters" | "reports"
   >("people");
@@ -336,17 +344,33 @@ export default function PeoplePage() {
 
   useEffect(() => {
     if (action === "create") {
-      openCreatePersonModal();
+      if (canAddPerson) {
+        openCreatePersonModal();
+      } else if (canAddVisitor) {
+        openCreatePersonModal({
+          role: "VISITOR",
+          status: "ACTIVE",
+        });
+      }
       router.replace(pathname);
     }
     if (action === "add-visitor") {
-      openCreatePersonModal({
-        role: "VISITOR",
-        status: "ACTIVE",
-      });
+      if (canAddVisitor) {
+        openCreatePersonModal({
+          role: "VISITOR",
+          status: "ACTIVE",
+        });
+      }
       router.replace(pathname);
     }
-  }, [action, openCreatePersonModal, pathname, router]);
+  }, [
+    action,
+    canAddPerson,
+    canAddVisitor,
+    openCreatePersonModal,
+    pathname,
+    router,
+  ]);
   const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState<{
     isOpen: boolean;
     people: Person[];
@@ -399,19 +423,22 @@ export default function PeoplePage() {
       (personPanelOpen && personPanelMode !== "view"),
   );
   const { branches } = useBranches();
-  const { user, isSeniorCoordinator, isModuleCoordinator, isPlainMember } =
-    useAuth();
   const plainMember = isPlainMember();
   const userCanManageFamilies = canManageFamilies(user, {
     isModuleCoordinator,
     isSeniorCoordinator,
   });
-  const addPeopleButtonLabel = plainMember ? "Add Visitor" : "Add Person";
-  const createPeopleTitle = plainMember ? "Create Visitor" : "Create Person";
+  const addPeopleButtonLabel =
+    peopleCreateAccess === "visitor" ? "Add Visitor" : "Add Person";
+  const createPeopleTitle =
+    peopleCreateAccess === "visitor" ? "Create Visitor" : "Create Person";
   const isAdmin = user?.role === "ADMIN";
   const openAddPeopleFlow = useCallback(() => {
-    openCreatePersonModal(plainMember ? { role: "VISITOR" } : undefined);
-  }, [openCreatePersonModal, plainMember]);
+    if (!canAddVisitor) return;
+    openCreatePersonModal(
+      peopleCreateAccess === "visitor" ? { role: "VISITOR" } : undefined,
+    );
+  }, [openCreatePersonModal, canAddVisitor, peopleCreateAccess]);
   const userCanHardDelete = canHardDelete(user);
   const canChangeBranchFilter = useMemo(
     () => canChangePeopleBranchFilter(user, isSeniorCoordinator),
@@ -1784,12 +1811,14 @@ export default function PeoplePage() {
       {/* Page header with add people action */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">People</h1>
-        <Button
-          onClick={openAddPeopleFlow}
-          className="w-full sm:w-auto"
-        >
-          {addPeopleButtonLabel}
-        </Button>
+        {canAddVisitor && (
+          <Button
+            onClick={openAddPeopleFlow}
+            className="w-full sm:w-auto"
+          >
+            {addPeopleButtonLabel}
+          </Button>
+        )}
       </div>
       {SHOW_TABS && (
         <div className="fixed top-16 left-64 right-0 z-20 bg-white py-4 px-6 flex justify-between items-center border-b border-gray-200">
@@ -1842,7 +1871,8 @@ export default function PeoplePage() {
             </button>
           </div>
           {activeTab !== "reports" &&
-            (activeTab !== "families" || userCanManageFamilies) && (
+            (activeTab !== "families" || userCanManageFamilies) &&
+            (activeTab !== "people" || canAddVisitor) && (
             <Button
               onClick={() => {
                 if (activeTab === "people") {
@@ -1855,7 +1885,7 @@ export default function PeoplePage() {
             >
               Add{" "}
               {activeTab === "people"
-                ? plainMember
+                ? peopleCreateAccess === "visitor"
                   ? "Visitor"
                   : "Person"
                 : activeTab === "families"
@@ -2020,25 +2050,30 @@ export default function PeoplePage() {
                       : undefined
                   }
                   onBulkDelete={userCanHardDelete ? handleBulkDelete : undefined}
-                  onBulkExport={handleBulkExport}
-                  onImport={handleImportPeople}
-                  onExportAll={(opts) => {
-                    const params = { ...directoryFilterParams };
-                    delete params.branch;
-                    delete params.branch__in;
-                    delete params.branch_ne;
-                    delete params.branch_ne__in;
-                    if (opts?.branch != null && opts.branch !== "") {
-                      params.branch = opts.branch;
-                    }
-                    return peopleApi.getAllMatching({
-                      ...params,
-                      search: searchQuery.trim() || undefined,
-                      ordering: directoryOrdering,
-                      has_name: true,
-                      exclude_username: "admin",
-                    });
-                  }}
+                  onBulkExport={canAddPerson ? handleBulkExport : undefined}
+                  canExport={canAddPerson}
+                  onImport={canAddPerson ? handleImportPeople : undefined}
+                  onExportAll={
+                    canAddPerson
+                      ? (opts) => {
+                          const params = { ...directoryFilterParams };
+                          delete params.branch;
+                          delete params.branch__in;
+                          delete params.branch_ne;
+                          delete params.branch_ne__in;
+                          if (opts?.branch != null && opts.branch !== "") {
+                            params.branch = opts.branch;
+                          }
+                          return peopleApi.getAllMatching({
+                            ...params,
+                            search: searchQuery.trim() || undefined,
+                            ordering: directoryOrdering,
+                            has_name: true,
+                            exclude_username: "admin",
+                          });
+                        }
+                      : undefined
+                  }
                   defaultBranchId={userBranchId}
                   defaultBranchCode={userBranchCode}
                   branches={visibleBranches}

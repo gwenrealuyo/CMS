@@ -31,6 +31,7 @@ import {
 } from "@/src/lib/clusterWeeklyReportSubmit";
 import { formatApiErrorMessage, isDuplicateWeekReportError } from "@/src/lib/apiErrors";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { userCanAddVisitor } from "@/src/lib/peopleCreateAccess";
 import toast from "react-hot-toast";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
@@ -201,6 +202,7 @@ export default function ClusterWeeklyReportForm({
   clusters,
 }: ClusterWeeklyReportFormProps) {
   const { user } = useAuth();
+  const canAddVisitorToReport = userCanAddVisitor(user);
 
   const todayIsoParts = getIsoWeekParts(new Date());
   const [formData, setFormData] = useState({
@@ -1258,23 +1260,25 @@ export default function ClusterWeeklyReportForm({
               <label className="block text-sm font-medium text-gray-700">
                 Visitors Attended
               </label>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.nativeEvent.stopImmediatePropagation();
-                  setShowAddVisitorModal(true);
-                  return false;
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                className="text-sm text-primary hover:text-primary font-medium border border-primary/30 hover:border-primary rounded-lg px-3 py-1.5 transition-colors"
-              >
-                + Add New Visitor
-              </button>
+              {canAddVisitorToReport && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                    setShowAddVisitorModal(true);
+                    return false;
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="text-sm text-primary hover:text-primary font-medium border border-primary/30 hover:border-primary rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  + Add New Visitor
+                </button>
+              )}
             </div>
             <AttendanceSelector
               label=""

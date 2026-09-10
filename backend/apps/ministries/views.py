@@ -10,8 +10,13 @@ from apps.authentication.permissions import (
     IsAdmin,
 )
 from apps.people.models import ModuleCoordinator
-from apps.ministries.models import NCC_MINISTRY_CODE
+from apps.ministries.models import BIBLE_SHARERS_MINISTRY_CODE, NCC_MINISTRY_CODE
 
+from .bible_sharers import (
+    is_bible_sharers_ministry,
+    user_can_manage_bible_sharers_ministry,
+    user_is_bible_sharers_roster_manager,
+)
 from .models import Ministry, MinistryMember
 from .ncc import (
     is_ncc_ministry,
@@ -37,6 +42,26 @@ _LESSONS_ASSIGNMENT_PREFETCH = Prefetch(
         ),
     ),
 )
+
+
+def _system_roster_extra_ministries(user, queryset):
+    extra = Ministry.objects.none()
+    if user_is_lessons_roster_manager(user):
+        ncc_qs = queryset.filter(code=NCC_MINISTRY_CODE, is_system=True)
+        extra = extra | apply_ministry_branch_visibility(ncc_qs, user)
+    if user_is_bible_sharers_roster_manager(user):
+        bs_qs = queryset.filter(
+            code=BIBLE_SHARERS_MINISTRY_CODE, is_system=True
+        )
+        if (
+            user.role == "ADMIN"
+            or user.can_see_all_branches()
+            or user.is_senior_coordinator(ModuleCoordinator.ModuleType.EVANGELISM)
+        ):
+            extra = extra | bs_qs
+        else:
+            extra = extra | apply_ministry_branch_visibility(bs_qs, user)
+    return extra
 
 
 class MinistryViewSet(viewsets.ModelViewSet):
@@ -92,11 +117,8 @@ class MinistryViewSet(viewsets.ModelViewSet):
         if user.role == "ADMIN" or user.can_see_all_branches():
             return self._optimize_queryset(queryset)
 
-        # Lessons roster managers: include NCC ministries in visible branches
-        ncc_extra = Ministry.objects.none()
-        if user_is_lessons_roster_manager(user):
-            ncc_qs = queryset.filter(code=NCC_MINISTRY_CODE, is_system=True)
-            ncc_extra = apply_ministry_branch_visibility(ncc_qs, user)
+        # Roster managers: include NCC / Bible Sharers ministries they can see
+        roster_extra = _system_roster_extra_ministries(user, queryset)
 
         # Ministry Coordinator: assigned / primary / support, then branch+national
         coordinator_assignments = user.module_coordinator_assignments.filter(
@@ -122,15 +144,15 @@ class MinistryViewSet(viewsets.ModelViewSet):
                     primary_coordinator_ministries | support_coordinator_ministries
                 ).distinct()
             scoped = apply_ministry_branch_visibility(scoped, user)
-            return self._optimize_queryset((scoped | ncc_extra).distinct())
+            return self._optimize_queryset((scoped | roster_extra).distinct())
 
-        # Member / branch pastor: own branch + national (+ NCC for lessons managers)
+        # Member / branch pastor: own branch + national (+ system rosters)
         if user.role in ("MEMBER", "PASTOR"):
             scoped = apply_ministry_branch_visibility(queryset, user)
-            return self._optimize_queryset((scoped | ncc_extra).distinct())
+            return self._optimize_queryset((scoped | roster_extra).distinct())
 
-        if ncc_extra.exists():
-            return self._optimize_queryset(ncc_extra)
+        if roster_extra.exists():
+            return self._optimize_queryset(roster_extra)
         return self._optimize_queryset(queryset.none())
 
     def get_permissions(self):
@@ -150,7 +172,7 @@ class MinistryViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if instance.is_system:
             raise ValidationError(
-                {"detail": "System ministries (NCC roster) cannot be deleted."}
+                {"detail": "System ministries cannot be deleted."}
             )
         return super().destroy(request, *args, **kwargs)
 
@@ -197,12 +219,7 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
         coordinator_assignments = user.module_coordinator_assignments.filter(
             module=ModuleCoordinator.ModuleType.MINISTRIES
         )
-        ncc_extra = Ministry.objects.none()
-        if user_is_lessons_roster_manager(user):
-            ncc_extra = apply_ministry_branch_visibility(
-                ministry_qs.filter(code=NCC_MINISTRY_CODE, is_system=True),
-                user,
-            )
+        roster_extra = _system_roster_extra_ministries(user, ministry_qs)
 
         if coordinator_assignments.exists():
             ministry_ids = [
@@ -218,12 +235,12 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
             else:
                 scoped = (primary | support).distinct()
             scoped = apply_ministry_branch_visibility(scoped, user)
-            scoped = (scoped | ncc_extra).distinct()
+            scoped = (scoped | roster_extra).distinct()
         elif user.role in ("MEMBER", "PASTOR"):
             scoped = apply_ministry_branch_visibility(ministry_qs, user)
-            scoped = (scoped | ncc_extra).distinct()
-        elif ncc_extra.exists():
-            scoped = ncc_extra
+            scoped = (scoped | roster_extra).distinct()
+        elif roster_extra.exists():
+            scoped = roster_extra
         else:
             return queryset.none()
 
@@ -279,6 +296,19 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
                 return
             raise PermissionDenied(
                 "You do not have permission to manage this NCC teacher roster."
+            )
+
+        if is_bible_sharers_ministry(ministry):
+            if user_can_manage_bible_sharers_ministry(user, ministry):
+                return
+            if ministries_write and (
+                user.role == "ADMIN"
+                or user.can_see_all_branches()
+                or (user.branch_id and ministry.branch_id == user.branch_id)
+            ):
+                return
+            raise PermissionDenied(
+                "You do not have permission to manage this Bible Sharers roster."
             )
 
         if user.role in ("ADMIN", "PASTOR") or ministries_write:

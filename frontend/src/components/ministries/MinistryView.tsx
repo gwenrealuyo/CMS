@@ -11,6 +11,7 @@ import {
   getBranchOutlineBadgeStyle,
   getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
+import { isNccRoster } from "@/src/lib/ministries/systemMinistries";
 
 interface MinistryViewProps {
   ministry: Ministry;
@@ -138,9 +139,7 @@ export default function MinistryView({
 
   const activeMembersCount = sortedMembers.filter((m) => m.is_active).length;
   const inactiveMembersCount = sortedMembers.filter((m) => !m.is_active).length;
-  const isNccRoster =
-    Boolean(ministry.is_system) ||
-    (ministry.code || "").toUpperCase() === "NCC";
+  const isNcc = isNccRoster(ministry);
 
   return (
     <div className="flex flex-col h-full space-y-0">
@@ -574,7 +573,7 @@ export default function MinistryView({
                       >
                         {membership.is_active ? "Active" : "Inactive"}
                       </span>
-                      {isNccRoster && (
+                      {isNcc && (
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             membership.has_lessons_teacher_access

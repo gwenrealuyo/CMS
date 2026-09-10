@@ -5,9 +5,11 @@ from django.utils import timezone
 
 from core.datetime_utils import church_today
 
-# Reserved code for per-branch NCC / Lessons teacher roster ministries.
+# Reserved codes for system-managed roster ministries.
 NCC_MINISTRY_CODE = "NCC"
 NCC_MINISTRY_NAME = "NCC / Lessons"
+BIBLE_SHARERS_MINISTRY_CODE = "BIBLE_SHARERS"
+BIBLE_SHARERS_MINISTRY_NAME = "Bible Sharers"
 
 
 def today():
@@ -44,7 +46,8 @@ class Ministry(models.Model):
         null=True,
         blank=True,
         help_text="Short shortcut name for the ministry (e.g. WORSHIP). "
-        "NCC is reserved for the per-branch Lessons teacher roster.",
+        "NCC is reserved for the per-branch Lessons teacher roster. "
+        "BIBLE_SHARERS is reserved for the headquarters Bible Sharers roster.",
     )
     description = models.TextField(blank=True)
     category = models.CharField(
@@ -88,7 +91,10 @@ class Ministry(models.Model):
     is_active = models.BooleanField(default=True)
     is_system = models.BooleanField(
         default=False,
-        help_text="System ministries (e.g. NCC roster) are protected from normal delete/code edits.",
+        help_text=(
+            "System ministries (e.g. NCC and Bible Sharers rosters) are "
+            "protected from normal delete/code edits."
+        ),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -123,10 +129,11 @@ class Ministry(models.Model):
 
     @property
     def is_ncc_roster(self) -> bool:
-        return (
-            self.is_system
-            or (self.code or "").upper() == NCC_MINISTRY_CODE
-        )
+        return (self.code or "").upper() == NCC_MINISTRY_CODE
+
+    @property
+    def is_bible_sharers_roster(self) -> bool:
+        return (self.code or "").upper() == BIBLE_SHARERS_MINISTRY_CODE
 
 
 class MinistryRole(models.TextChoices):

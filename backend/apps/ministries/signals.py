@@ -38,11 +38,14 @@ def sync_support_coordinators(sender, instance, action, **kwargs):
 
 
 @receiver(post_save, sender=Branch)
-def ensure_ncc_ministry_for_branch(sender, instance, created, **kwargs):
+def ensure_system_ministries_for_branch(sender, instance, created, **kwargs):
     if kwargs.get("raw", False):
         return
-    if not created or not instance.is_active:
-        return
-    from .ncc import ensure_ncc_ministry
+    if created and instance.is_active:
+        from .ncc import ensure_ncc_ministry
 
-    ensure_ncc_ministry(instance)
+        ensure_ncc_ministry(instance)
+    if instance.is_active and instance.is_headquarters:
+        from .bible_sharers import ensure_bible_sharers_ministry
+
+        ensure_bible_sharers_ministry()

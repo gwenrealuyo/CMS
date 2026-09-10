@@ -33,8 +33,23 @@ The Ministries module manages church ministries, their coordinators, and team me
   - `meeting_schedule` (JSONField, optional) - Meeting schedule details (day, time, window, notes)
   - `communication_channel` (URLField, optional) - Link to communication channel (e.g., WhatsApp, Discord)
   - `is_active` (BooleanField, default=True) - Whether the ministry is currently active
+  - `is_system` (BooleanField, default=False) - Protected roster ministries (cannot be deleted; code/scope/branch cannot be changed)
   - Audit fields: `created_at`, `updated_at` (auto-managed timestamps)
 - Default ordering: Alphabetically by `name`
+- **Reserved codes**:
+  - `NCC` — per-branch New Converts Course / Lessons teacher roster (`is_system=True`, created for every active branch)
+  - `BIBLE_SHARERS` — headquarters Bible Sharers roster (`is_system=True`, **one row on the HQ branch only**; API create/update cannot use this code)
+
+### System-managed rosters
+
+System ministries (`is_system=True`) are seeded by the platform, not created in the Ministries form.
+
+| Ministry | Code | Scope | Who can manage members (beyond Ministries write) | Downstream use |
+|---|---|---|---|---|
+| **NCC / Lessons** | `NCC` | One `BRANCH` row per branch | Lessons coordinators / seniors (branch-limited) | Gates who can be assigned as a Lessons teacher; optional Lessons `TEACHER` access grant |
+| **Bible Sharers** | `BIBLE_SHARERS` | One `BRANCH` row on the headquarters branch | HQ pastor, Evangelism senior, or Evangelism coordinator on the HQ branch | HQ evangelism groups may only assign Bible Sharers who are already on this roster (active or inactive). Non-HQ groups are unchanged. Adding someone to the roster does **not** grant Evangelism access; that still happens when they are assigned to a group. |
+
+Detection is **code-based** (`NCC` vs `BIBLE_SHARERS`). `is_system` is only the protection flag.
 
 ### MinistryMember Model
 
@@ -87,6 +102,9 @@ All routes live under `/api/ministries/`:
     - `activity_cadence` - Filter by activity cadence
     - `category` - Filter by category
     - `is_active` - Filter by active status (true/false)
+    - `is_system` - Filter system-managed ministries
+    - `code` - Filter by ministry code (e.g. `NCC`, `BIBLE_SHARERS`)
+    - `scope`, `branch` - Filter by ministry scope / branch
     - `search` - Search in name, description, and coordinator names
     - `ordering` - Order by `name`, `activity_cadence`, or `created_at`
   - **Response**: Array of slim ministry objects with `primary_coordinator` and annotated `member_count` (no nested `memberships` or `support_coordinators`)
@@ -224,12 +242,14 @@ All routes live under `/api/ministries/`:
   - Results are still filtered to own-branch + NATIONAL (no other-branch local ministries)
   - Access is determined by `resource_id` in the coordinator assignment (when set)
   - **Senior** Ministries coordinators may create NATIONAL ministries
+- **Lessons coordinators / seniors** may manage **NCC** roster members even without Ministries write (own branch, unless they can pick any Lessons branch)
+- **Evangelism coordinators** (HQ branch), Evangelism seniors, and HQ pastors may manage **Bible Sharers** roster members even without Ministries write. Satellite pastors cannot.
 
 ### Permission Classes
 
 - **Read Operations** (`list`, `retrieve`): `IsAuthenticatedAndNotVisitor`, `IsMemberOrAbove`
 - **Write Operations** (`create`, `update`): `IsAuthenticatedAndNotVisitor`, `HasModuleAccess(MINISTRIES, "write")`
-- **Destroy**: Admin only
+- **Destroy**: Admin only. System ministries (`is_system=True`) cannot be deleted.
 
 ## Common Workflows
 

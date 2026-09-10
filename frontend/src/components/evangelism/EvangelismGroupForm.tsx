@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
@@ -12,6 +12,12 @@ import { Person } from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { useBranches } from "@/src/hooks/useBranches";
+import { ministriesApi, ministryMembersApi } from "@/src/lib/api";
+import {
+  BIBLE_SHARERS_MINISTRY_CODE,
+  BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE,
+} from "@/src/lib/ministries/systemMinistries";
 
 interface EvangelismGroupFormProps {
   coordinators?: Person[];
@@ -79,6 +85,10 @@ export default function EvangelismGroupForm({
   );
 
   const [initialPickerValue, setInitialPickerValue] = useState("");
+  const { branches } = useBranches();
+  const [bibleSharerRosterIds, setBibleSharerRosterIds] = useState<Set<string>>(
+    new Set(),
+  );
   const memberPool = useMemo(
     () => (people.length ? people : coordinators).filter(isSelectablePerson),
     [people, coordinators],
@@ -184,6 +194,69 @@ export default function EvangelismGroupForm({
     ],
     [clusters],
   );
+
+  const selectedCluster = useMemo(
+    () =>
+      clusters.find((cluster) => String(cluster.id) === values.cluster_id),
+    [clusters, values.cluster_id],
+  );
+  const isHqGroup = useMemo(() => {
+    const branchId = selectedCluster?.branch;
+    if (branchId == null) return false;
+    const branch = branches.find((b) => Number(b.id) === Number(branchId));
+    return Boolean(branch?.is_headquarters);
+  }, [selectedCluster, branches]);
+
+  useEffect(() => {
+    if (!isHqGroup) {
+      setBibleSharerRosterIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const listRes = await ministriesApi.list({
+          code: BIBLE_SHARERS_MINISTRY_CODE,
+          is_system: true,
+        });
+        const data = listRes.data as unknown;
+        const rows = Array.isArray(data)
+          ? data
+          : ((data as { results?: { id: number }[] })?.results ?? []);
+        const ministry = rows[0];
+        if (!ministry) {
+          if (!cancelled) setBibleSharerRosterIds(new Set());
+          return;
+        }
+        const membersRes = await ministryMembersApi.list({
+          ministry: ministry.id,
+        });
+        const membersData = membersRes.data as unknown;
+        const members = Array.isArray(membersData)
+          ? membersData
+          : ((membersData as { results?: { member?: { id: number }; member_id?: number }[] })
+              ?.results ?? []);
+        if (!cancelled) {
+          setBibleSharerRosterIds(
+            new Set(
+              members.map((m) =>
+                String(
+                  (m as { member?: { id: number }; member_id?: number }).member
+                    ?.id ??
+                    (m as { member_id?: number }).member_id,
+                ),
+              ),
+            ),
+          );
+        }
+      } catch {
+        if (!cancelled) setBibleSharerRosterIds(new Set());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isHqGroup]);
 
   const roleCandidateIds = useMemo(() => {
     if (isCreate) {
@@ -442,13 +515,18 @@ export default function EvangelismGroupForm({
           Bible Sharers and reporters must already be members
           {isCreate ? " (add them above first)" : ""}. The coordinator
           cannot hold either role on this group.
+          {isHqGroup
+            ? " HQ groups can only assign Bible Sharers from the headquarters Bible Sharers ministry roster."
+            : ""}
         </p>
         {(
           [
             {
               field: "bible_sharer_ids" as const,
               label: "Bible Sharers",
-              hint: "Can facilitate and submit weekly reports",
+              hint: isHqGroup
+                ? "Must be on the HQ Bible Sharers roster"
+                : "Can facilitate and submit weekly reports",
               chipClass: "bg-rose-50 text-rose-800 border-rose-200",
             },
             {
@@ -460,12 +538,28 @@ export default function EvangelismGroupForm({
           ] as const
         ).map((role) => {
           const selected = values[role.field] || [];
-          const options = roleCandidateOptions.filter(
-            (opt) =>
-              !selected.includes(opt.value) &&
-              (role.field !== "reporter_ids" ||
-                !(values.bible_sharer_ids || []).includes(opt.value)),
-          );
+          const options = roleCandidateOptions.filter((opt) => {
+            if (selected.includes(opt.value)) return false;
+            if (
+              role.field === "reporter_ids" &&
+              (values.bible_sharer_ids || []).includes(opt.value)
+            ) {
+              return false;
+            }
+            if (
+              role.field === "bible_sharer_ids" &&
+              isHqGroup &&
+              !bibleSharerRosterIds.has(opt.value)
+            ) {
+              return false;
+            }
+            return true;
+          });
+          const hqRosterEmpty =
+            role.field === "bible_sharer_ids" &&
+            isHqGroup &&
+            roleCandidateIds.size > 0 &&
+            options.length === 0;
           return (
             <div key={role.field} className="space-y-2">
               <p className="text-sm text-gray-700">
@@ -484,11 +578,18 @@ export default function EvangelismGroupForm({
                 placeholder={
                   roleCandidateIds.size === 0
                     ? "Add members first"
-                    : `Add ${role.label.toLowerCase()}`
+                    : hqRosterEmpty
+                      ? BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE
+                      : `Add ${role.label.toLowerCase()}`
                 }
                 className="w-full"
                 showSearch
               />
+              {hqRosterEmpty && (
+                <p className="text-xs text-gray-500">
+                  {BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE}
+                </p>
+              )}
               {selected.length > 0 && (
                 <ul className="flex flex-wrap gap-2">
                   {selected.map((id) => (

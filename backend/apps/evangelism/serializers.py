@@ -257,6 +257,17 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
                 {field_name: f"Unknown person IDs: {missing}"}
             )
 
+    def _group_cluster_is_headquarters(self, attrs) -> bool:
+        cluster = attrs.get("cluster", serializers.empty)
+        if cluster is serializers.empty:
+            cluster = self.instance.cluster if self.instance else None
+        if cluster is None:
+            return False
+        branch = getattr(cluster, "branch", None)
+        if branch is None:
+            return False
+        return bool(getattr(branch, "is_headquarters", False))
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
         coordinator_id = self._resolved_coordinator_id(attrs)
@@ -282,6 +293,27 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
                 member_ids,
                 "Bible Sharer",
             )
+            if self._group_cluster_is_headquarters(attrs) and bible_sharer_ids:
+                from apps.ministries.bible_sharers import (
+                    bible_sharers_roster_person_ids,
+                    ensure_bible_sharers_ministry,
+                )
+
+                ensure_bible_sharers_ministry()
+                roster_ids = bible_sharers_roster_person_ids()
+                not_on_roster = [
+                    rid for rid in bible_sharer_ids if rid not in roster_ids
+                ]
+                if not_on_roster:
+                    raise serializers.ValidationError(
+                        {
+                            "bible_sharer_ids": (
+                                "Select a Bible Sharer from the headquarters "
+                                "Bible Sharers roster (Ministries). Inactive "
+                                "roster members remain selectable."
+                            )
+                        }
+                    )
             attrs["_bible_sharer_ids"] = bible_sharer_ids
 
         return attrs

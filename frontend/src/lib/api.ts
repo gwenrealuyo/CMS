@@ -1012,6 +1012,9 @@ export const ministriesApi = {
     activity_cadence?: string;
     category?: string;
     is_active?: boolean;
+    code?: string;
+    is_system?: boolean;
+    branch?: number | string;
   }) => api.get<Ministry[]>("/ministries/", { params }),
   retrieve: (id: number | string) => api.get<Ministry>(`/ministries/${id}/`),
   create: (data: MinistryCreateInput) =>

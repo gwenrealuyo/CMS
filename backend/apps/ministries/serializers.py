@@ -10,7 +10,13 @@ from rest_framework.exceptions import ValidationError
 
 from apps.people.models import Branch
 
-from .models import Ministry, MinistryMember, MinistryRole, MinistryScope
+from .models import (
+    BIBLE_SHARERS_MINISTRY_CODE,
+    Ministry,
+    MinistryMember,
+    MinistryRole,
+    MinistryScope,
+)
 from .ncc import (
     is_ncc_ministry,
     person_has_lessons_teacher_access,
@@ -266,7 +272,10 @@ class MinistrySerializer(serializers.ModelSerializer):
             base = "".join(ch for ch in name.upper() if ch.isalnum())[:8] or "MIN"
             candidate = base
             suffix = 2
-            while Ministry.objects.filter(code=candidate).exists():
+            while (
+                Ministry.objects.filter(code=candidate).exists()
+                or candidate == BIBLE_SHARERS_MINISTRY_CODE
+            ):
                 candidate = f"{base[: max(1, 45)]}-{suffix}"
                 suffix += 1
             attrs["code"] = candidate
@@ -368,6 +377,18 @@ class MinistrySerializer(serializers.ModelSerializer):
                 )
 
         code = attrs.get("code", instance.code if instance is not None else None)
+        if (
+            code == BIBLE_SHARERS_MINISTRY_CODE
+            and (instance is None or not instance.is_system)
+        ):
+            raise ValidationError(
+                {
+                    "code": (
+                        "BIBLE_SHARERS is reserved for the headquarters "
+                        "Bible Sharers roster."
+                    )
+                }
+            )
         branch = attrs.get("branch", instance.branch if instance is not None else None)
         if code:
             qs = Ministry.objects.filter(code=code)

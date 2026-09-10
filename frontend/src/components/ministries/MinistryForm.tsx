@@ -25,6 +25,11 @@ import {
 import { getClusterCodeBadgeStyle } from "@/src/lib/branchChipColor";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import {
+  isBibleSharersRoster,
+  isNccRoster,
+  isSystemMinistry,
+} from "@/src/lib/ministries/systemMinistries";
 
 export interface PendingMember {
   member_id: string;
@@ -359,9 +364,9 @@ export default function MinistryForm({
     });
   }, [availablePeopleForMembers, memberSearch]);
 
-  const isNccRoster =
-    Boolean(initialData?.is_system) ||
-    (initialData?.code || "").toUpperCase() === "NCC";
+  const isSystemRoster = isSystemMinistry(initialData);
+  const isNcc = isNccRoster(initialData);
+  const isBibleSharers = isBibleSharersRoster(initialData);
 
   const addMember = (person: Person) => {
     const memberId = String(person.id);
@@ -376,7 +381,7 @@ export default function MinistryForm({
             skills: "",
             notes: "",
             is_active: true,
-            grant_lessons_teacher_access: isNccRoster ? true : undefined,
+            grant_lessons_teacher_access: isNcc ? true : undefined,
           },
         ],
       });
@@ -465,9 +470,18 @@ export default function MinistryForm({
   const updateMemberActive = (memberId: string, active: boolean) => {
     if (
       !active &&
-      isNccRoster &&
+      isNcc &&
       !window.confirm(
         "Mark this teacher inactive? Lessons teacher access will be revoked, but they stay selectable for enrollments.",
+      )
+    ) {
+      return;
+    }
+    if (
+      !active &&
+      isBibleSharers &&
+      !window.confirm(
+        "Mark this Bible Sharer inactive? They stay selectable for HQ evangelism groups.",
       )
     ) {
       return;
@@ -642,7 +656,7 @@ export default function MinistryForm({
             type="text"
             required
             value={values.code}
-            disabled={isNccRoster}
+            disabled={isSystemRoster}
             onChange={(event) =>
               setValues((prev) => ({
                 ...prev,
@@ -653,9 +667,13 @@ export default function MinistryForm({
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm uppercase focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100 disabled:text-gray-500"
           />
           <p className="mt-1 text-xs text-gray-500">
-            {isNccRoster
+            {isNcc
               ? "NCC / Lessons roster code is system-managed and cannot be changed."
-              : "Shortcut name shown in tables and pickers."}
+              : isBibleSharers
+                ? "Bible Sharers roster code is system-managed and cannot be changed."
+                : isSystemRoster
+                  ? "System ministry codes cannot be changed."
+                  : "Shortcut name shown in tables and pickers."}
           </p>
         </div>
 
@@ -726,7 +744,7 @@ export default function MinistryForm({
                       (user?.branch != null ? String(user.branch) : ""),
               }));
             }}
-            disabled={!canChooseNational}
+            disabled={!canChooseNational || isSystemRoster}
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100"
           >
             <option value="BRANCH">Branch</option>
@@ -751,7 +769,7 @@ export default function MinistryForm({
               required
               value={values.branch_id}
               onChange={handleChange("branch_id")}
-              disabled={!canPickAnyBranch}
+              disabled={!canPickAnyBranch || isSystemRoster}
               className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:bg-gray-100"
             >
               <option value="">Select branch</option>
@@ -932,7 +950,7 @@ export default function MinistryForm({
           </p>
         </div>
 
-        {!isNccRoster && (
+        {!isSystemRoster && (
           <div className="flex items-center gap-2">
             <input
               id="is_active"
@@ -1116,52 +1134,52 @@ export default function MinistryForm({
                                 </option>
                               ))}
                             </select>
-                            {isNccRoster && (
-                              <>
-                                <label className="inline-flex items-start gap-2 text-xs text-gray-700 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    className="mt-0.5 rounded border-gray-300 text-primary focus:ring-ring"
-                                    checked={
-                                      grant_lessons_teacher_access && is_active
-                                    }
-                                    disabled={!is_active}
-                                    onChange={(e) =>
-                                      updateMemberGrantAccess(
-                                        member_id,
-                                        e.target.checked,
-                                      )
-                                    }
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                  <span>
-                                    <span className="font-medium">
-                                      Grant Lessons teacher access
-                                    </span>
-                                    <span className="block text-gray-500 mt-0.5">
-                                      Lets them open Lessons, be assigned
-                                      students, and submit session reports.
-                                      Uncheck for roster-only (no module
-                                      access).
-                                    </span>
+                            {isNcc && (
+                              <label className="inline-flex items-start gap-2 text-xs text-gray-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 rounded border-gray-300 text-primary focus:ring-ring"
+                                  checked={
+                                    grant_lessons_teacher_access && is_active
+                                  }
+                                  disabled={!is_active}
+                                  onChange={(e) =>
+                                    updateMemberGrantAccess(
+                                      member_id,
+                                      e.target.checked,
+                                    )
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <span>
+                                  <span className="font-medium">
+                                    Grant Lessons teacher access
                                   </span>
-                                </label>
-                                <label className="inline-flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    className="rounded border-gray-300 text-primary focus:ring-ring"
-                                    checked={is_active}
-                                    onChange={(e) =>
-                                      updateMemberActive(
-                                        member_id,
-                                        e.target.checked,
-                                      )
-                                    }
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                  Active on roster
-                                </label>
-                              </>
+                                  <span className="block text-gray-500 mt-0.5">
+                                    Lets them open Lessons, be assigned
+                                    students, and submit session reports.
+                                    Uncheck for roster-only (no module
+                                    access).
+                                  </span>
+                                </span>
+                              </label>
+                            )}
+                            {(isNcc || isBibleSharers) && (
+                              <label className="inline-flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-gray-300 text-primary focus:ring-ring"
+                                  checked={is_active}
+                                  onChange={(e) =>
+                                    updateMemberActive(
+                                      member_id,
+                                      e.target.checked,
+                                    )
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                Active on roster
+                              </label>
                             )}
                             <input
                               type="text"

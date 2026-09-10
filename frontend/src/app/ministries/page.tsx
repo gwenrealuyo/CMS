@@ -24,6 +24,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { canWriteMinistries } from "@/src/lib/ministries/ministryPermissions";
+import { isNccRoster, isSystemMinistry } from "@/src/lib/ministries/systemMinistries";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import {
   CLUSTER_BRANCH_CHIP_CLASSNAME,
@@ -251,8 +252,8 @@ export default function MinistriesPage() {
   };
 
   const handleHardDelete = (ministry: Ministry) => {
-    if (ministry.is_system || (ministry.code || "").toUpperCase() === "NCC") {
-      toast.error("System ministries (NCC roster) cannot be deleted.");
+    if (isSystemMinistry(ministry)) {
+      toast.error("System ministries cannot be deleted.");
       return;
     }
     setDeleteConfirmation({
@@ -736,8 +737,7 @@ export default function MinistriesPage() {
                           </button>
                         )}
                         {userCanHardDelete &&
-                          !(row as Ministry).is_system &&
-                          (row as Ministry).code?.toUpperCase() !== "NCC" && (
+                          !isSystemMinistry(row as Ministry) && (
                           <button
                             type="button"
                             onClick={() => handleHardDelete(row as Ministry)}
@@ -807,7 +807,9 @@ export default function MinistriesPage() {
                 : undefined
             }
             onHardDelete={
-              userCanHardDelete
+              userCanHardDelete &&
+              viewMinistry &&
+              !isSystemMinistry(viewMinistry)
                 ? () => {
                     setIsViewOpen(false);
                     handleHardDelete(viewMinistry);
@@ -913,8 +915,12 @@ export default function MinistriesPage() {
                           skills: member.skills || "",
                           notes: member.notes || "",
                           is_active: member.is_active !== false,
-                          grant_lessons_teacher_access:
-                            member.grant_lessons_teacher_access !== false,
+                          ...(isNccRoster(created)
+                            ? {
+                                grant_lessons_teacher_access:
+                                  member.grant_lessons_teacher_access !== false,
+                              }
+                            : {}),
                         } as Partial<MinistryMember>),
                       ),
                     );
@@ -1116,8 +1122,12 @@ export default function MinistriesPage() {
                           skills: member.skills || "",
                           notes: member.notes || "",
                           is_active: member.is_active !== false,
-                          grant_lessons_teacher_access:
-                            member.grant_lessons_teacher_access !== false,
+                          ...(isNccRoster(updated)
+                            ? {
+                                grant_lessons_teacher_access:
+                                  member.grant_lessons_teacher_access !== false,
+                              }
+                            : {}),
                         } as Partial<MinistryMember>);
                       } else {
                         // Existing member - check if any fields changed
@@ -1129,8 +1139,11 @@ export default function MinistriesPage() {
                             (member.notes || "") ||
                           existingMembership.is_active !==
                             (member.is_active !== false) ||
-                          Boolean(existingMembership.has_lessons_teacher_access) !==
-                            (member.grant_lessons_teacher_access !== false);
+                          (isNccRoster(updated) &&
+                            Boolean(
+                              existingMembership.has_lessons_teacher_access,
+                            ) !==
+                              (member.grant_lessons_teacher_access !== false));
 
                         if (needsUpdate) {
                           await updateMember(existingMembership.id, {
@@ -1138,8 +1151,13 @@ export default function MinistriesPage() {
                             skills: member.skills || "",
                             notes: member.notes || "",
                             is_active: member.is_active !== false,
-                            grant_lessons_teacher_access:
-                              member.grant_lessons_teacher_access !== false,
+                            ...(isNccRoster(updated)
+                              ? {
+                                  grant_lessons_teacher_access:
+                                    member.grant_lessons_teacher_access !==
+                                    false,
+                                }
+                              : {}),
                           });
                         }
                       }

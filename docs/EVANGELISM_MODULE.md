@@ -38,6 +38,7 @@ Key features include:
   - `CLUSTER_BS_EVANGELISM` if `cluster` is not null
   - `BIBLE_STUDY` if `cluster` is null
 - **Bible Sharers**: People assigned as Bible Sharers on one or more evangelism groups. They can facilitate studies and submit weekly reports for those groups. Coverage monitoring counts unique assigned people per cluster (not a group flag). Ideally each cluster should have at least one Bible Sharer.
+  - **HQ roster**: Headquarters evangelism groups may only assign Bible Sharers who are on the system-managed **Bible Sharers** ministry (`code=BIBLE_SHARERS`, HQ branch). Add people under Ministries first. Inactive roster members remain selectable. Groups whose cluster is not on the headquarters branch keep the previous rule (any group member).
 - **Evangelism Reporters**: Members who can submit weekly reports for assigned groups without managing the group. Coordinator on a group replaces Bible Sharer and Reporter for that person.
 
 ### Evangelism group membership (`members`)
@@ -599,7 +600,7 @@ The Groups tab toolbar mirrors the clusters page layout:
   - Leader selection
   - Cluster selection (optional)
   - Location, meeting time, meeting day inputs
-  - Bible Sharer and Reporter pickers (must be members; coordinator cannot hold those roles)
+  - Bible Sharer and Reporter pickers (must be members; coordinator cannot hold those roles). On HQ groups, Bible Sharers must also be on the headquarters Bible Sharers ministry roster.
 - **`GroupMembersSection`**: Section displaying and managing group members
   - Table of enrolled members with role, join date, status
   - Add member button

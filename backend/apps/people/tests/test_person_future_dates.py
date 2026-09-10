@@ -75,3 +75,40 @@ class PersonFutureDateValidationTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         details = response.data.get("details", response.data)
         self.assertIn("date_first_attended", details)
+
+    def test_create_allows_empty_string_date_of_birth(self):
+        response = self.client.post(
+            "/api/people/people/",
+            self._create_payload(
+                email="jane.empty.dob@example.com",
+                date_of_birth="",
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertIsNone(response.data["date_of_birth"])
+        person = Person.objects.get(id=response.data["id"])
+        self.assertIsNone(person.date_of_birth)
+
+    def test_update_clears_date_of_birth_with_empty_string(self):
+        today = church_today()
+        create = self.client.post(
+            "/api/people/people/",
+            self._create_payload(
+                email="jane.clear.dob@example.com",
+                date_of_birth=today.isoformat(),
+            ),
+            format="json",
+        )
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.data)
+        person_id = create.data["id"]
+
+        response = self.client.patch(
+            f"/api/people/people/{person_id}/",
+            {"date_of_birth": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertIsNone(response.data["date_of_birth"])
+        person = Person.objects.get(id=person_id)
+        self.assertIsNone(person.date_of_birth)

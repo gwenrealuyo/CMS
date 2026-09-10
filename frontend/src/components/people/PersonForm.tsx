@@ -582,8 +582,20 @@ export default function PersonForm({
       if (name === "water_baptism_date") {
         next = applyWaterBaptismRoleRules(next, value);
       }
-      if (name === "lessons_finished_at" && value) {
-        next = { ...next, has_finished_lessons: true };
+      if (name === "lessons_finished_at") {
+        if (value) {
+          next = { ...next, has_finished_lessons: true };
+        } else {
+          next = {
+            ...next,
+            has_finished_lessons: false,
+            commitment_form_signed: false,
+            commitment_signed_at: "",
+          };
+        }
+      }
+      if (name === "commitment_signed_at" && !value) {
+        next = { ...next, commitment_form_signed: false };
       }
       return next;
     });
@@ -1688,7 +1700,13 @@ export default function PersonForm({
                             setFormData((prev) => ({
                               ...prev,
                               has_finished_lessons: checked,
-                              ...(checked ? {} : { lessons_finished_at: null }),
+                              ...(checked
+                                ? {}
+                                : {
+                                    lessons_finished_at: null,
+                                    commitment_form_signed: false,
+                                    commitment_signed_at: "",
+                                  }),
                             }));
                             setHasUnsavedChanges(true);
                           }}

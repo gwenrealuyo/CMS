@@ -23,6 +23,7 @@ import {
   getPersonStatusColor,
 } from "@/src/lib/personStatus";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
+import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import type {
   ClusterRosterFamily,
   ClusterRosterPerson,
@@ -175,6 +176,7 @@ export default function ClusterView({
   canManageCluster = true,
 }: ClusterViewProps) {
   const { branches } = useBranches();
+  const [memberSearch, setMemberSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortField>("last_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -359,6 +361,32 @@ export default function ClusterView({
     () => sortedDisplayMembers.filter((p) => p.role === "VISITOR"),
     [sortedDisplayMembers],
   );
+
+  const filteredCoreMembers = useMemo(() => {
+    const term = memberSearch.trim().toLowerCase();
+    if (!term) {
+      return sortedCoreMembers;
+    }
+    return sortedCoreMembers.filter((person) => {
+      const name = formatPersonName(person).toLowerCase();
+      const role = (person.role || "").toLowerCase();
+      const memberId = (person.member_id || "").toLowerCase();
+      return name.includes(term) || role.includes(term) || memberId.includes(term);
+    });
+  }, [sortedCoreMembers, memberSearch]);
+
+  const filteredVisitors = useMemo(() => {
+    const term = memberSearch.trim().toLowerCase();
+    if (!term) {
+      return sortedVisitors;
+    }
+    return sortedVisitors.filter((person) => {
+      const name = formatPersonName(person).toLowerCase();
+      const role = (person.role || "").toLowerCase();
+      const memberId = (person.member_id || "").toLowerCase();
+      return name.includes(term) || role.includes(term) || memberId.includes(term);
+    });
+  }, [sortedVisitors, memberSearch]);
 
   const roleBadgeClass = (role: string) => getPersonRoleColor(role);
 
@@ -896,25 +924,62 @@ export default function ClusterView({
                   )}
                 </div>
               </div>
-              {sortedCoreMembers.length > 0 && (
+              <ToolbarSearch
+                value={memberSearch}
+                onChange={setMemberSearch}
+                placeholder="Search members…"
+                ariaLabel="Search members"
+                fullWidth
+                className="mb-2"
+              />
+              {memberSearch.trim() && sortedCoreMembers.length > 0 && (
+                <p className="mb-2 text-xs text-gray-500">
+                  Showing {filteredCoreMembers.length} of{" "}
+                  {sortedCoreMembers.length}
+                </p>
+              )}
+              {filteredCoreMembers.length > 0 && (
                 <div
-                  className={`${peopleGridClass}${
+                  className={`max-h-80 overflow-y-auto pr-1${
                     sortedVisitors.length > 0 ? " mb-6" : ""
                   }`}
                 >
-                  {sortedCoreMembers.map((member) => renderPersonCard(member))}
+                  <div className={peopleGridClass}>
+                    {filteredCoreMembers.map((member) =>
+                      renderPersonCard(member),
+                    )}
+                  </div>
                 </div>
               )}
-              {sortedVisitors.length > 0 && sortedCoreMembers.length > 0 && (
-                <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
-                  Visitors ({visitorCount})
-                </h3>
+              {filteredVisitors.length > 0 &&
+                sortedCoreMembers.length > 0 && (
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
+                    Visitors ({visitorCount})
+                  </h3>
+                )}
+              {memberSearch.trim() &&
+                sortedVisitors.length > 0 &&
+                filteredVisitors.length > 0 && (
+                <p className="mb-2 text-xs text-gray-500">
+                  Showing {filteredVisitors.length} of {sortedVisitors.length}
+                </p>
               )}
-              {sortedVisitors.length > 0 && (
-                <div className={peopleGridClass}>
-                  {sortedVisitors.map((member) => renderPersonCard(member))}
+              {filteredVisitors.length > 0 && (
+                <div className="max-h-80 overflow-y-auto pr-1">
+                  <div className={peopleGridClass}>
+                    {filteredVisitors.map((member) =>
+                      renderPersonCard(member),
+                    )}
+                  </div>
                 </div>
               )}
+              {memberSearch.trim() &&
+                filteredCoreMembers.length === 0 &&
+                filteredVisitors.length === 0 && (
+                  <p className="text-sm text-gray-500 italic">
+                    No members match your search
+                  </p>
+                )}
             </div>
           )}
 

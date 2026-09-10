@@ -5,6 +5,7 @@ import { formatPersonName } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import Button from "@/src/components/ui/Button";
+import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import { useBranches } from "@/src/hooks/useBranches";
 import {
   CLUSTER_BRANCH_CHIP_CLASSNAME,
@@ -100,6 +101,7 @@ export default function FamilyView({
   showTopHeader = true,
 }: FamilyViewProps) {
   const { branches } = useBranches();
+  const [memberSearch, setMemberSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortField>("last_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -178,6 +180,19 @@ export default function FamilyView({
 
     return sorted;
   }, [familyMembers, sortBy, sortOrder]);
+
+  const filteredMembers = useMemo(() => {
+    const term = memberSearch.trim().toLowerCase();
+    if (!term) {
+      return sortedMembers;
+    }
+    return sortedMembers.filter((member) => {
+      const name = formatPersonName(member).toLowerCase();
+      const role = (member.role || "").toLowerCase();
+      const memberId = (member.member_id || "").toLowerCase();
+      return name.includes(term) || role.includes(term) || memberId.includes(term);
+    });
+  }, [sortedMembers, memberSearch]);
 
   const handleSortSelect = (field: SortField) => {
     if (sortBy === field) {
@@ -554,7 +569,30 @@ export default function FamilyView({
                   )}
                 </div>
               </div>
+              {familyMembers.length > 0 && (
+                <>
+                  <ToolbarSearch
+                    value={memberSearch}
+                    onChange={setMemberSearch}
+                    placeholder="Search members…"
+                    ariaLabel="Search members"
+                    fullWidth
+                    className="mb-2"
+                  />
+                  {memberSearch.trim() && (
+                    <p className="mb-2 text-xs text-gray-500">
+                      Showing {filteredMembers.length} of {familyMembers.length}
+                    </p>
+                  )}
+                </>
+              )}
               {familyMembers.length > 0 ? (
+                filteredMembers.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">
+                    No members match your search
+                  </p>
+                ) : (
+                <div className="max-h-80 overflow-y-auto pr-1">
                 <div
                   className={
                     isPanelMode
@@ -562,7 +600,7 @@ export default function FamilyView({
                       : "grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                   }
                 >
-                  {sortedMembers.map((member) => {
+                  {filteredMembers.map((member) => {
                     const memberName = formatFullName(member);
                     const isLongWrappedName = memberName.length > 20;
                     const isLeader =
@@ -641,6 +679,8 @@ export default function FamilyView({
                     );
                   })}
                 </div>
+                </div>
+                )
               ) : (
                 <div className="text-center py-8">
                   <svg

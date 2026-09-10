@@ -67,3 +67,48 @@ export function parseSessionTopicValue(value: string): {
   }
   return { sessionType: "LESSON", lessonId: Number(value) };
 }
+
+type SessionReportSortable = {
+  session_start?: string | null;
+  session_type?: LessonSessionType | null;
+  pre_lesson_kind?: PreLessonKind | null;
+  lesson?: { order?: number | null } | null;
+};
+
+/** Catalog position: Introduction, Other, then lesson.order. Missing lessons last. */
+export function sessionCatalogOrder(report: SessionReportSortable): number {
+  if (typeof report.lesson?.order === "number") {
+    return report.lesson.order;
+  }
+  if (report.session_type === "PRE_LESSON") {
+    return report.pre_lesson_kind === "INTRODUCTION" ? -2 : -1;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+function sessionStartMs(value?: string | null): number {
+  if (!value) {
+    return 0;
+  }
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+/**
+ * Sort by session_start, then NCC catalog order.
+ * `startDirection` is 1 for oldest-first, -1 for newest-first (default).
+ * Lesson order stays catalog order either way; pre-lessons sort before numbered lessons.
+ */
+export function compareSessionReportsByStartThenLessonOrder(
+  first: SessionReportSortable,
+  second: SessionReportSortable,
+  startDirection: 1 | -1 = -1,
+): number {
+  const timeDiff =
+    (sessionStartMs(first.session_start) - sessionStartMs(second.session_start)) *
+    startDirection;
+  if (timeDiff !== 0) {
+    return timeDiff;
+  }
+  return sessionCatalogOrder(first) - sessionCatalogOrder(second);
+}

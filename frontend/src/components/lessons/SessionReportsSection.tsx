@@ -15,7 +15,10 @@ import {
   SessionFilterValues,
 } from "@/src/lib/lessonsUtils";
 import { LessonSessionReport } from "@/src/types/lesson";
-import { formatSessionTopicLabel } from "@/src/lib/sessionTopic";
+import {
+  compareSessionReportsByStartThenLessonOrder,
+  formatSessionTopicLabel,
+} from "@/src/lib/sessionTopic";
 import { formatPersonName } from "@/src/lib/name";
 import {
   formatPersonClusterLabel,
@@ -336,10 +339,10 @@ export default function SessionReportsSection({
         );
       }
       if (sortField === "actualDate") {
-        return (
-          (new Date(first.session_start).getTime() -
-            new Date(second.session_start).getTime()) *
-          direction
+        return compareSessionReportsByStartThenLessonOrder(
+          first,
+          second,
+          direction === 1 ? 1 : -1,
         );
       }
       if (sortField === "nextScheduledDate") {
@@ -425,9 +428,7 @@ export default function SessionReportsSection({
       .map((group) => ({
         ...group,
         reports: [...group.reports].sort(
-          (a, b) =>
-            new Date(b.session_start).getTime() -
-            new Date(a.session_start).getTime(),
+          compareSessionReportsByStartThenLessonOrder,
         ),
       }))
       .sort(

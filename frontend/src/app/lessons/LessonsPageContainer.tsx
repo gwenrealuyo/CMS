@@ -47,7 +47,10 @@ import {
   getPersonLastActivityIso,
   parseTimestampMs,
 } from "@/src/lib/lessonsUtils";
-import { formatSessionTopicLabel } from "@/src/lib/sessionTopic";
+import {
+  compareSessionReportsByStartThenLessonOrder,
+  formatSessionTopicLabel,
+} from "@/src/lib/sessionTopic";
 import {
   PersonProgressSummary,
   LessonPersonSummary,
@@ -784,11 +787,9 @@ export default function LessonsPageContainer() {
         ...params,
         ...branchApiParams,
       });
-      const sorted = [...response.data].sort((first, second) => {
-        const firstTime = new Date(first.session_start).getTime();
-        const secondTime = new Date(second.session_start).getTime();
-        return secondTime - firstTime;
-      });
+      const sorted = [...response.data].sort(
+        compareSessionReportsByStartThenLessonOrder,
+      );
       const yearsFromReports = Array.from(
         new Set(
           sorted

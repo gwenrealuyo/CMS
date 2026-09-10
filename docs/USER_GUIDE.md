@@ -151,9 +151,11 @@ Open **Lessons** for the seven-lesson New Converts Course and student progress.
 | Tab | Purpose |
 |-----|---------|
 | **Lesson Content** | Course lessons (read-only for most users) |
-| **Student Progress** | Who is assigned which lesson and completion status |
-| **Session Reports** | One-on-one teaching sessions |
+| **Student Progress** | Who is assigned which lesson and completion status (teachers and coordinators) |
+| **Session Reports** | One-on-one teaching sessions (teachers and coordinators) |
 | **Files** | Downloadable NCC lessons booklet and commitment form PDF |
+
+Members without a Lessons assignment see **Lesson Content** and **Files** only.
 
 ### Typical workflow for teachers / coordinators
 

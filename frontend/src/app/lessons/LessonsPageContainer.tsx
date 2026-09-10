@@ -225,6 +225,7 @@ export default function LessonsPageContainer() {
     () => isLessonsTeacherScoped(user),
     [user],
   );
+  const showStudentWorkflowTabs = !user || canWriteLessonsAccess;
   const defaultSessionTeacherId = useMemo(() => {
     if (!isTeacherScopedSessionView || user?.id == null) {
       return "";
@@ -714,6 +715,15 @@ export default function LessonsPageContainer() {
   }, [action, canWriteLessonsAccess, pathname, router]);
 
   useEffect(() => {
+    if (
+      !showStudentWorkflowTabs &&
+      (activeContentTab === "progress" || activeContentTab === "sessions")
+    ) {
+      setActiveContentTab("lesson");
+    }
+  }, [showStudentWorkflowTabs, activeContentTab]);
+
+  useEffect(() => {
     if (!defaultSessionTeacherId) {
       return;
     }
@@ -728,23 +738,30 @@ export default function LessonsPageContainer() {
   }, [defaultSessionTeacherId]);
 
   useEffect(() => {
+    if (!showStudentWorkflowTabs) {
+      setProgress([]);
+      return;
+    }
     if (selectedLessonId) {
       fetchProgress(selectedLessonId);
     } else {
       setProgress([]);
     }
-  }, [selectedLessonId]);
+  }, [selectedLessonId, showStudentWorkflowTabs]);
 
   useEffect(() => {
-    if (activeContentTab !== "sessions") {
+    if (!showStudentWorkflowTabs || activeContentTab !== "sessions") {
       return;
     }
     fetchSessionReports(sessionFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeContentTab, sessionFilters]);
+  }, [activeContentTab, sessionFilters, showStudentWorkflowTabs]);
 
   useEffect(() => {
     if (branchApiParams === null) {
+      return;
+    }
+    if (!showStudentWorkflowTabs) {
       return;
     }
     fetchSummary();
@@ -758,7 +775,7 @@ export default function LessonsPageContainer() {
       fetchProgress(selectedLessonId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchApiParams, selectedBranchId, activeContentTab, sessionFilters]);
+  }, [branchApiParams, selectedBranchId, activeContentTab, sessionFilters, showStudentWorkflowTabs]);
 
   const fetchLessons = async () => {
     try {

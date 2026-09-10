@@ -415,6 +415,7 @@ export default function LessonsPageView({
     moduleEnabled,
   });
   const canTransferLessonTeacher = canWriteLessonsAccess;
+  const showStudentWorkflowTabs = !user || canWriteLessonsAccess;
   const enrollmentTeacherByStudentId = useMemo(() => {
     const map = new Map<number, number>();
     enrollmentByStudent.forEach((enrollment, studentId) => {
@@ -537,7 +538,11 @@ export default function LessonsPageView({
           <LessonContentTabs
             activeTab={activeContentTab}
             onTabChange={onSetActiveContentTab}
-            branchFilter={renderLessonsBranchSelect()}
+            hideProgress={!showStudentWorkflowTabs}
+            hideSessions={!showStudentWorkflowTabs}
+            branchFilter={
+              showStudentWorkflowTabs ? renderLessonsBranchSelect() : undefined
+            }
           />
 
           <div
@@ -582,6 +587,8 @@ export default function LessonsPageView({
             </div>
           </div>
 
+          {showStudentWorkflowTabs && (
+            <>
           <div
             className={activeContentTab === "progress" ? "space-y-6" : "hidden"}
           >
@@ -649,6 +656,8 @@ export default function LessonsPageView({
               canExport={sessionReports.length > 0}
             />
           </div>
+            </>
+          )}
 
           <div
             className={

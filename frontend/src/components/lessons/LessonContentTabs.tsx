@@ -11,8 +11,8 @@ export type LessonContentTab =
 interface LessonContentTabsProps {
   activeTab: LessonContentTab;
   onTabChange: (tab: LessonContentTab) => void;
-  disableProgress?: boolean;
-  disableSessions?: boolean;
+  hideProgress?: boolean;
+  hideSessions?: boolean;
   disableCommitment?: boolean;
   branchFilter?: ReactNode;
 }
@@ -23,8 +23,8 @@ const TAB_BUTTON_BASE_CLASS =
 export default function LessonContentTabs({
   activeTab,
   onTabChange,
-  disableProgress,
-  disableSessions,
+  hideProgress,
+  hideSessions,
   disableCommitment,
   branchFilter,
 }: LessonContentTabsProps) {
@@ -44,20 +44,28 @@ export default function LessonContentTabs({
       disabled: false,
       minWidthClass: "min-w-[68px] md:min-w-[100px]",
     },
-    {
-      id: "progress",
-      label: "Student Progress",
-      mobileLabel: "Progress",
-      disabled: Boolean(disableProgress),
-      minWidthClass: "min-w-[72px] md:min-w-[120px]",
-    },
-    {
-      id: "sessions",
-      label: "Session Reports",
-      mobileLabel: "Reports",
-      disabled: Boolean(disableSessions),
-      minWidthClass: "min-w-[72px] md:min-w-[110px]",
-    },
+    ...(!hideProgress
+      ? [
+          {
+            id: "progress" as const,
+            label: "Student Progress",
+            mobileLabel: "Progress",
+            disabled: false,
+            minWidthClass: "min-w-[72px] md:min-w-[120px]",
+          },
+        ]
+      : []),
+    ...(!hideSessions
+      ? [
+          {
+            id: "sessions" as const,
+            label: "Session Reports",
+            mobileLabel: "Reports",
+            disabled: false,
+            minWidthClass: "min-w-[72px] md:min-w-[110px]",
+          },
+        ]
+      : []),
     {
       id: "commitment",
       label: "Files",

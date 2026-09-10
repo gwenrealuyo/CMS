@@ -153,7 +153,8 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 ### Permissions (UI)
 
 - Lesson write / assign / session log: module coordinators, **NCC ministry primary/support coordinators**, and roles with `HasModuleAccess('LESSONS', 'write')` (see [ACCESS_CONTROL.md](./ACCESS_CONTROL.md)).
-- Branch picker: ADMIN, PASTOR, and HQ Lessons seniors (including HQ NCC primary) only.
+- **Student Progress** and **Session Reports** tabs: hidden unless the user has Lessons write access. Plain Members see **Lesson Content** and **Files** only.
+- Branch picker: ADMIN, PASTOR, and HQ Lessons seniors (including HQ NCC primary) only. Hidden when Progress/Reports tabs are hidden.
 
 NCC ministry roles (no extra `ModuleCoordinator` row):
 

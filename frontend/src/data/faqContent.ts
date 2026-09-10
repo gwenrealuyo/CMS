@@ -140,7 +140,7 @@ export const faqCategories: FaqCategory[] = [
         id: "lessons-tabs",
         question: "What are the Lessons tabs for?",
         answer:
-          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Session Reports is for one-on-one teaching sessions. Files has the downloadable NCC lessons booklet and the commitment form PDF.",
+          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Session Reports is for one-on-one teaching sessions. Files has the downloadable NCC lessons booklet and the commitment form PDF. Members without a Lessons assignment only see Lesson Content and Files.",
       },
       {
         id: "assign-and-log",

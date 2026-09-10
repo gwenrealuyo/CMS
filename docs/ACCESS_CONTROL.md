@@ -60,7 +60,7 @@ Branch filtering applies to:
 | **Cluster Coordinator**   | Full access + Stats/Summary cards       | Full access + Stats cards | Stats cards visible         |
 | **Sunday School Teacher** | Full access + Stats/Summary cards       | Limited access (no stats) | Can see their classes       |
 | **Lessons Teacher**       | Limited access (no stats)               | Full access + Stats cards | Can see their students      |
-| **MEMBER**                | Limited access (no stats/summary cards) | Limited access (no stats) | Can see their own data only |
+| **MEMBER**                | Limited access (no stats/summary cards) | **Lesson Content** and **Files** only (no Student Progress or Session Reports) | Can see their own data only |
 | **Bible Sharer**          | Limited access (no stats)               | Limited access (no stats) | Can see their groups        |
 
 ## Multiple Assignments (Union)
@@ -108,7 +108,7 @@ When a user has multiple assignments, they see the union of all applicable peopl
 ### Frontend Conditional Rendering
 
 - **Sunday School**: `SundaySchoolSummary` component hidden for MEMBER role
-- **Lessons**: `LessonStatsCards` shown for ADMIN, PASTOR, Senior Coordinators (including NCC primary coordinators), and Cluster Coordinators
+- **Lessons**: `LessonStatsCards` shown for ADMIN, PASTOR, Senior Coordinators (including NCC primary coordinators), and Cluster Coordinators. **Student Progress** and **Session Reports** tabs are hidden for users without Lessons write access (plain Members).
 - **Lessons branch filter** (tab row on `/lessons`): editable for ADMIN, PASTOR, and **HQ** senior Lessons coordinators (Admin Settings or NCC primary). Locked to the user’s assigned branch for Lessons teachers, Lessons coordinators, NCC support coordinators, and satellite seniors. Student-linked API lists honor `branch_id` when privileged; otherwise server forces `user.branch`. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
 - **Clusters**: On `ClustersPageView`, the **Clusters** tab primary header action is **Add Cluster** for **ADMIN**, **CLUSTER Senior Coordinator**, or **PASTOR** without a non-senior CLUSTER coordinator-only assignment; others see **Submit Report** as primary. Requires **`module_coordinator_assignments`** on the auth user payload (`UserSerializer` / `GET /auth/me/`). See **Clusters homepage / CTAs** in `docs/CLUSTERS_MODULE.md`. Member cluster cards/views use `members_details` / `families_details` for rosters; person/family panels open only when already in People/Family scope.
 - **Families**: **Add Family** and family edit/add-members/mark-inactive actions on People → Families are shown only for Admin, Pastor, or Cluster coordinators (senior or non-senior) via `canManageFamilies`. Plain Members and Cluster Reporters can view families in their list scope but cannot create or edit.

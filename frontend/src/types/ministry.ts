@@ -45,6 +45,8 @@ export interface MinistryMember {
   notes: string;
   grant_lessons_teacher_access?: boolean;
   has_lessons_teacher_access?: boolean;
+  grant_evangelism_bible_sharer_access?: boolean;
+  has_evangelism_bible_sharer_access?: boolean;
 }
 
 export interface Ministry {

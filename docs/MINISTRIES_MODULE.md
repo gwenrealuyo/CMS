@@ -47,7 +47,7 @@ System ministries (`is_system=True`) are seeded by the platform, not created in 
 | Ministry | Code | Scope | Who can manage members (beyond Ministries write) | Downstream use |
 |---|---|---|---|---|
 | **NCC / Lessons** | `NCC` | One `BRANCH` row per branch | Lessons coordinators / seniors (branch-limited) | Gates who can be assigned as a Lessons teacher; optional Lessons `TEACHER` access grant |
-| **Bible Sharers** | `BIBLE_SHARERS` | One `BRANCH` row on the headquarters branch | HQ pastor, Evangelism senior, or Evangelism coordinator on the HQ branch | HQ evangelism groups may only assign Bible Sharers who are already on this roster (active or inactive). Non-HQ groups are unchanged. Adding someone to the roster does **not** grant Evangelism access; that still happens when they are assigned to a group. |
+| **Bible Sharers** | `BIBLE_SHARERS` | One `BRANCH` row on the headquarters branch | HQ pastor, Evangelism senior, or Evangelism coordinator on the HQ branch | HQ evangelism groups may only assign Bible Sharers who are already on this roster (active or inactive). Non-HQ groups are unchanged. Optional **Grant Evangelism access** (default on) creates a module-wide `EVANGELISM` + `BIBLE_SHARER` row (`resource_id` empty) so they can open Evangelism **read-only**. Weekly reports still require being assigned as Bible Sharer (or Coordinator / Reporter) on a specific group. Unchecking grant or marking inactive deletes **only** the module-wide row. |
 
 Detection is **code-based** (`NCC` vs `BIBLE_SHARERS`). `is_system` is only the protection flag.
 
@@ -198,7 +198,7 @@ All routes live under `/api/ministries/`:
     ```
   - **Response**: Created ministry member object
   - **Access**: ADMIN, PASTOR, or Ministry Coordinator with write access
-  - **Note**: `join_date` is automatically set to today if not provided
+  - **Note**: `join_date` is automatically set to today if not provided. For NCC, `grant_lessons_teacher_access` (default true) syncs Lessons teacher access. For Bible Sharers, `grant_evangelism_bible_sharer_access` (default true) syncs a module-wide Evangelism Bible Sharer grant (read-only). Responses include `has_lessons_teacher_access` / `has_evangelism_bible_sharer_access`.
 
 #### Update Ministry Member
 

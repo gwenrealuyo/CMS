@@ -140,7 +140,13 @@ def allows_evangelism_report_mutation_attempt(user) -> bool:
         return True
     if user.module_coordinator_assignments.filter(
         module=EVANGELISM,
-        level__in=(COORDINATOR, SENIOR, REPORTER, BIBLE_SHARER),
+        level__in=(COORDINATOR, SENIOR),
+    ).exists():
+        return True
+    if user.module_coordinator_assignments.filter(
+        module=EVANGELISM,
+        level__in=(REPORTER, BIBLE_SHARER),
+        resource_id__isnull=False,
     ).exists():
         return True
     return EvangelismGroup.objects.filter(coordinator=user).exists()

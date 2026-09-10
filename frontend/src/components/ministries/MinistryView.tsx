@@ -11,7 +11,7 @@ import {
   getBranchOutlineBadgeStyle,
   getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
-import { isNccRoster } from "@/src/lib/ministries/systemMinistries";
+import { isNccRoster, isBibleSharersRoster } from "@/src/lib/ministries/systemMinistries";
 
 interface MinistryViewProps {
   ministry: Ministry;
@@ -140,6 +140,7 @@ export default function MinistryView({
   const activeMembersCount = sortedMembers.filter((m) => m.is_active).length;
   const inactiveMembersCount = sortedMembers.filter((m) => !m.is_active).length;
   const isNcc = isNccRoster(ministry);
+  const isBibleSharers = isBibleSharersRoster(ministry);
 
   return (
     <div className="flex flex-col h-full space-y-0">
@@ -583,6 +584,19 @@ export default function MinistryView({
                         >
                           {membership.has_lessons_teacher_access
                             ? "Lessons access"
+                            : "Roster only"}
+                        </span>
+                      )}
+                      {isBibleSharers && (
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            membership.has_evangelism_bible_sharer_access
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-amber-50 text-amber-800"
+                          }`}
+                        >
+                          {membership.has_evangelism_bible_sharer_access
+                            ? "Evangelism access"
                             : "Roster only"}
                         </span>
                       )}

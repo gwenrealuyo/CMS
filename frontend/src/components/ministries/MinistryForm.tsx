@@ -38,6 +38,7 @@ export interface PendingMember {
   notes?: string;
   is_active?: boolean;
   grant_lessons_teacher_access?: boolean;
+  grant_evangelism_bible_sharer_access?: boolean;
   membership_id?: number;
 }
 
@@ -166,6 +167,8 @@ export default function MinistryForm({
       is_active: membership.is_active,
       grant_lessons_teacher_access:
         membership.has_lessons_teacher_access ?? true,
+      grant_evangelism_bible_sharer_access:
+        membership.has_evangelism_bible_sharer_access ?? true,
       membership_id: membership.id,
     }));
 
@@ -244,6 +247,8 @@ export default function MinistryForm({
         is_active: membership.is_active,
         grant_lessons_teacher_access:
           membership.has_lessons_teacher_access ?? true,
+        grant_evangelism_bible_sharer_access:
+          membership.has_evangelism_bible_sharer_access ?? true,
         membership_id: membership.id,
       }));
 
@@ -382,6 +387,9 @@ export default function MinistryForm({
             notes: "",
             is_active: true,
             grant_lessons_teacher_access: isNcc ? true : undefined,
+            grant_evangelism_bible_sharer_access: isBibleSharers
+              ? true
+              : undefined,
           },
         ],
       });
@@ -467,6 +475,20 @@ export default function MinistryForm({
     });
   };
 
+  const updateMemberEvangelismGrantAccess = (
+    memberId: string,
+    grant: boolean,
+  ) => {
+    setValues({
+      ...values,
+      members: values.members.map((m) =>
+        m.member_id === memberId
+          ? { ...m, grant_evangelism_bible_sharer_access: grant }
+          : m,
+      ),
+    });
+  };
+
   const updateMemberActive = (memberId: string, active: boolean) => {
     if (
       !active &&
@@ -481,7 +503,7 @@ export default function MinistryForm({
       !active &&
       isBibleSharers &&
       !window.confirm(
-        "Mark this Bible Sharer inactive? They stay selectable for HQ evangelism groups.",
+        "Mark this Bible Sharer inactive? Evangelism access will be revoked (module-wide only). They stay selectable for HQ evangelism groups, and any group Bible Sharer assignments remain.",
       )
     ) {
       return;
@@ -493,9 +515,16 @@ export default function MinistryForm({
           ? {
               ...m,
               is_active: active,
-              grant_lessons_teacher_access: active
-                ? (m.grant_lessons_teacher_access ?? true)
-                : false,
+              grant_lessons_teacher_access: isNcc
+                ? active
+                  ? (m.grant_lessons_teacher_access ?? true)
+                  : false
+                : m.grant_lessons_teacher_access,
+              grant_evangelism_bible_sharer_access: isBibleSharers
+                ? active
+                  ? (m.grant_evangelism_bible_sharer_access ?? true)
+                  : false
+                : m.grant_evangelism_bible_sharer_access,
             }
           : m,
       ),
@@ -518,6 +547,8 @@ export default function MinistryForm({
               is_active: pendingMember.is_active !== false,
               grant_lessons_teacher_access:
                 pendingMember.grant_lessons_teacher_access !== false,
+              grant_evangelism_bible_sharer_access:
+                pendingMember.grant_evangelism_bible_sharer_access !== false,
             }
           : null;
       })
@@ -532,6 +563,7 @@ export default function MinistryForm({
           notes: string;
           is_active: boolean;
           grant_lessons_teacher_access: boolean;
+          grant_evangelism_bible_sharer_access: boolean;
         } => item !== null,
       );
   }, [values.members, people]);
@@ -1091,6 +1123,7 @@ export default function MinistryForm({
                   notes,
                   is_active,
                   grant_lessons_teacher_access,
+                  grant_evangelism_bible_sharer_access,
                 }) => (
                   <div
                     key={member_id}
@@ -1160,6 +1193,37 @@ export default function MinistryForm({
                                     students, and submit session reports.
                                     Uncheck for roster-only (no module
                                     access).
+                                  </span>
+                                </span>
+                              </label>
+                            )}
+                            {isBibleSharers && (
+                              <label className="inline-flex items-start gap-2 text-xs text-gray-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 rounded border-gray-300 text-primary focus:ring-ring"
+                                  checked={
+                                    grant_evangelism_bible_sharer_access &&
+                                    is_active
+                                  }
+                                  disabled={!is_active}
+                                  onChange={(e) =>
+                                    updateMemberEvangelismGrantAccess(
+                                      member_id,
+                                      e.target.checked,
+                                    )
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <span>
+                                  <span className="font-medium">
+                                    Grant Evangelism access
+                                  </span>
+                                  <span className="block text-gray-500 mt-0.5">
+                                    Lets them open Evangelism read-only.
+                                    Weekly reports require being assigned as
+                                    Bible Sharer on a group. Uncheck for
+                                    roster-only.
                                   </span>
                                 </span>
                               </label>

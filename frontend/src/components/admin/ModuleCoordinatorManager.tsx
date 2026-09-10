@@ -160,6 +160,11 @@ const coordinatorRequiresSpecificResource = (
   (level === "REPORTER" &&
     (module === "CLUSTER" || module === "EVANGELISM"));
 
+/** Sunday School / Lessons teachers still require a resource in this UI. */
+const levelForcesResourceSpecific = (
+  level: ModuleCoordinator["level"] | "",
+) => level === "TEACHER";
+
 async function fetchCoordinatorResourcesForModule(
   module: ModuleCoordinator["module"],
   branchId?: number | null,
@@ -780,7 +785,7 @@ export default function ModuleCoordinatorManager() {
       if (level === "SENIOR_COORDINATOR") {
         assignmentType = "module-wide";
         selectedResourceIds = [];
-      } else if (level === "TEACHER" || level === "BIBLE_SHARER") {
+      } else if (level === "TEACHER") {
         assignmentType = "resource-specific";
       } else if (
         level === "COORDINATOR" &&
@@ -828,7 +833,7 @@ export default function ModuleCoordinatorManager() {
         updated[index].assignmentType = "module-wide";
         updated[index].resource_id = null;
         updated[index].resource_type = "";
-      } else if (value === "TEACHER" || value === "BIBLE_SHARER") {
+      } else if (value === "TEACHER") {
         updated[index].assignmentType = "resource-specific";
       } else if (
         value === "COORDINATOR" &&
@@ -1517,10 +1522,7 @@ export default function ModuleCoordinatorManager() {
                     resource_type: "",
                   });
                   setFormResourceSelectedIds([]);
-                } else if (
-                  newLevel === "TEACHER" ||
-                  newLevel === "BIBLE_SHARER"
-                ) {
+                } else if (newLevel === "TEACHER") {
                   setAssignmentType("resource-specific");
                   setFormData({
                     ...formData,
@@ -1574,14 +1576,11 @@ export default function ModuleCoordinatorManager() {
                     ? formData.module === "EVANGELISM"
                       ? "Reporters submit weekly reports for assigned evangelism groups only; they cannot manage group members"
                       : "Reporters submit weekly reports for assigned clusters only; they cannot manage cluster members"
-                    : formData.level === "TEACHER" ||
-                        formData.level === "BIBLE_SHARER"
-                      ? `${
-                          formData.level === "TEACHER"
-                            ? "Teachers"
-                            : "Bible Sharers"
-                        } must be assigned to a specific resource`
-                      : ""}
+                    : formData.level === "TEACHER"
+                      ? "Teachers must be assigned to a specific resource"
+                      : formData.level === "BIBLE_SHARER"
+                        ? "Module-wide is a roster grant (read-only Evangelism). Pick a group to allow weekly reports for that group."
+                        : ""}
             </p>
           </div>
 
@@ -1606,8 +1605,7 @@ export default function ModuleCoordinatorManager() {
                       onChange={() => handleAssignmentTypeChange("module-wide")}
                       disabled={
                         !formData.level ||
-                        formData.level === "TEACHER" ||
-                        formData.level === "BIBLE_SHARER" ||
+                        levelForcesResourceSpecific(formData.level) ||
                         coordinatorRequiresSpecificResource(
                           formData.module,
                           formData.level,
@@ -1619,8 +1617,7 @@ export default function ModuleCoordinatorManager() {
                       <span
                         className={`font-medium ${
                           !formData.level ||
-                          formData.level === "TEACHER" ||
-                          formData.level === "BIBLE_SHARER" ||
+                          levelForcesResourceSpecific(formData.level) ||
                           coordinatorRequiresSpecificResource(
                             formData.module,
                             formData.level,
@@ -1682,13 +1679,15 @@ export default function ModuleCoordinatorManager() {
                     Senior Coordinators automatically have module-wide access.
                   </p>
                 )}
-                {(formData.level === "TEACHER" ||
-                  formData.level === "BIBLE_SHARER") && (
+                {formData.level === "TEACHER" && (
                   <p className="mt-2 text-xs text-amber-600">
-                    {formData.level === "TEACHER"
-                      ? "Teachers"
-                      : "Bible Sharers"}{" "}
-                    must be assigned to a specific resource.
+                    Teachers must be assigned to a specific resource.
+                  </p>
+                )}
+                {formData.level === "BIBLE_SHARER" && (
+                  <p className="mt-2 text-xs text-amber-600">
+                    Module-wide is a roster grant (read-only Evangelism). Pick a
+                    group to allow weekly reports for that group.
                   </p>
                 )}
                 {coordinatorRequiresSpecificResource(
@@ -1998,8 +1997,7 @@ export default function ModuleCoordinatorManager() {
                         }
                         disabled={
                           !bulkSimple.level ||
-                          bulkSimple.level === "TEACHER" ||
-                          bulkSimple.level === "BIBLE_SHARER" ||
+                          levelForcesResourceSpecific(bulkSimple.level) ||
                           coordinatorRequiresSpecificResource(
                             bulkSimple.module,
                             bulkSimple.level,
@@ -2010,8 +2008,7 @@ export default function ModuleCoordinatorManager() {
                       <span
                         className={
                           !bulkSimple.level ||
-                          bulkSimple.level === "TEACHER" ||
-                          bulkSimple.level === "BIBLE_SHARER" ||
+                          levelForcesResourceSpecific(bulkSimple.level) ||
                           coordinatorRequiresSpecificResource(
                             bulkSimple.module,
                             bulkSimple.level,
@@ -2069,13 +2066,15 @@ export default function ModuleCoordinatorManager() {
                       Senior coordinators have module-wide access.
                     </p>
                   )}
-                  {(bulkSimple.level === "TEACHER" ||
-                    bulkSimple.level === "BIBLE_SHARER") && (
+                  {bulkSimple.level === "TEACHER" && (
                     <p className="text-xs text-amber-600">
-                      {bulkSimple.level === "TEACHER"
-                        ? "Teachers"
-                        : "Bible Sharers"}{" "}
-                      must be assigned to specific resources.
+                      Teachers must be assigned to specific resources.
+                    </p>
+                  )}
+                  {bulkSimple.level === "BIBLE_SHARER" && (
+                    <p className="text-xs text-amber-600">
+                      Module-wide is a roster grant (read-only Evangelism). Pick
+                      groups to allow weekly reports for those groups.
                     </p>
                   )}
                   {coordinatorRequiresSpecificResource(
@@ -2287,8 +2286,9 @@ export default function ModuleCoordinatorManager() {
                                   }
                                   disabled={
                                     !assignment.level ||
-                                    assignment.level === "TEACHER" ||
-                                    assignment.level === "BIBLE_SHARER" ||
+                                    levelForcesResourceSpecific(
+                                      assignment.level,
+                                    ) ||
                                     coordinatorRequiresSpecificResource(
                                       assignment.module,
                                       assignment.level,
@@ -2299,8 +2299,9 @@ export default function ModuleCoordinatorManager() {
                                 <span
                                   className={
                                     !assignment.level ||
-                                    assignment.level === "TEACHER" ||
-                                    assignment.level === "BIBLE_SHARER" ||
+                                    levelForcesResourceSpecific(
+                                      assignment.level,
+                                    ) ||
                                     coordinatorRequiresSpecificResource(
                                       assignment.module,
                                       assignment.level,

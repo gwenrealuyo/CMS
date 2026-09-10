@@ -24,7 +24,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { canWriteMinistries } from "@/src/lib/ministries/ministryPermissions";
-import { isNccRoster, isSystemMinistry } from "@/src/lib/ministries/systemMinistries";
+import { isNccRoster, isBibleSharersRoster, isSystemMinistry } from "@/src/lib/ministries/systemMinistries";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import {
   CLUSTER_BRANCH_CHIP_CLASSNAME,
@@ -921,6 +921,13 @@ export default function MinistriesPage() {
                                   member.grant_lessons_teacher_access !== false,
                               }
                             : {}),
+                          ...(isBibleSharersRoster(created)
+                            ? {
+                                grant_evangelism_bible_sharer_access:
+                                  member.grant_evangelism_bible_sharer_access !==
+                                  false,
+                              }
+                            : {}),
                         } as Partial<MinistryMember>),
                       ),
                     );
@@ -1128,6 +1135,13 @@ export default function MinistriesPage() {
                                   member.grant_lessons_teacher_access !== false,
                               }
                             : {}),
+                          ...(isBibleSharersRoster(updated)
+                            ? {
+                                grant_evangelism_bible_sharer_access:
+                                  member.grant_evangelism_bible_sharer_access !==
+                                  false,
+                              }
+                            : {}),
                         } as Partial<MinistryMember>);
                       } else {
                         // Existing member - check if any fields changed
@@ -1143,7 +1157,13 @@ export default function MinistriesPage() {
                             Boolean(
                               existingMembership.has_lessons_teacher_access,
                             ) !==
-                              (member.grant_lessons_teacher_access !== false));
+                              (member.grant_lessons_teacher_access !== false)) ||
+                          (isBibleSharersRoster(updated) &&
+                            Boolean(
+                              existingMembership.has_evangelism_bible_sharer_access,
+                            ) !==
+                              (member.grant_evangelism_bible_sharer_access !==
+                                false));
 
                         if (needsUpdate) {
                           await updateMember(existingMembership.id, {
@@ -1155,6 +1175,13 @@ export default function MinistriesPage() {
                               ? {
                                   grant_lessons_teacher_access:
                                     member.grant_lessons_teacher_access !==
+                                    false,
+                                }
+                              : {}),
+                            ...(isBibleSharersRoster(updated)
+                              ? {
+                                  grant_evangelism_bible_sharer_access:
+                                    member.grant_evangelism_bible_sharer_access !==
                                     false,
                                 }
                               : {}),

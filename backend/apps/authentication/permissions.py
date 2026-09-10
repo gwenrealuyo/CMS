@@ -357,10 +357,12 @@ class HasModuleAccess(permissions.BasePermission):
                 ).exists():
                     return True
                 if mod_assignments.filter(
-                    level__in=(
-                        ModuleCoordinator.CoordinatorLevel.TEACHER,
-                        ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
-                    )
+                    level=ModuleCoordinator.CoordinatorLevel.TEACHER,
+                ).exists():
+                    return True
+                if mod_assignments.filter(
+                    level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+                    resource_id__isnull=False,
                 ).exists():
                     return True
 

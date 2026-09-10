@@ -93,9 +93,9 @@ def validate_module_coordinator_assignment(
                 "Bible Sharer assignments are only available for the Evangelism module."
             )
         elif resource_id is None:
-            errors["resource_id"] = (
-                "Bible Sharers must be assigned to at least one specific evangelism group."
-            )
+            # Module-wide roster grant (read-only Evangelism access).
+            resource_id = None
+            resource_type = ""
         elif not person.branch_id:
             errors["person"] = (
                 "Assignee must have a branch before receiving a resource-specific assignment."

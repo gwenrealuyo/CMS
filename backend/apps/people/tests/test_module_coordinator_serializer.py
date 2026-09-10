@@ -212,7 +212,7 @@ class ModuleCoordinatorAssignmentValidationTests(TestCase):
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
-    def test_bible_sharer_without_resource_rejected(self):
+    def test_bible_sharer_without_resource_is_module_wide_roster(self):
         serializer = ModuleCoordinatorSerializer(
             data={
                 "person": self.person_a.id,
@@ -221,8 +221,14 @@ class ModuleCoordinatorAssignmentValidationTests(TestCase):
                 "resource_id": None,
             }
         )
-        self.assertFalse(serializer.is_valid())
-        self.assertIn("resource_id", serializer.errors)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertIsNone(serializer.validated_data.get("resource_id"))
+        row = serializer.save()
+        self.assertIsNone(row.resource_id)
+        self.assertEqual(
+            ModuleCoordinatorSerializer(row).data["resource_scope_label"],
+            "Module-wide (roster)",
+        )
 
     def test_reporter_valid_assignment(self):
         cluster_a = Cluster.objects.create(

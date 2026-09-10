@@ -39,6 +39,7 @@ Key features include:
   - `BIBLE_STUDY` if `cluster` is null
 - **Bible Sharers**: People assigned as Bible Sharers on one or more evangelism groups. They can facilitate studies and submit weekly reports for those groups. Coverage monitoring counts unique assigned people per cluster (not a group flag). Ideally each cluster should have at least one Bible Sharer.
   - **HQ roster**: Headquarters evangelism groups may only assign Bible Sharers who are on the system-managed **Bible Sharers** ministry (`code=BIBLE_SHARERS`, HQ branch). Add people under Ministries first. Inactive roster members remain selectable. Groups whose cluster is not on the headquarters branch keep the previous rule (any group member).
+  - **Two-layer access**: **Grant Evangelism access** on the HQ roster (default on) creates a module-wide `BIBLE_SHARER` assignment (`resource_id` empty). That grant is **read-only** (open Evangelism; no group edits; no weekly reports). Adding or editing weekly reports still requires a **group-scoped** Bible Sharer (or Coordinator / Reporter) assignment. Unchecking the grant or marking the roster row inactive deletes only the module-wide row; group assignments stay. Being enrolled as a group member without a Bible Sharer / Reporter / Coordinator role does not allow reports.
 - **Evangelism Reporters**: Members who can submit weekly reports for assigned groups without managing the group. Coordinator on a group replaces Bible Sharer and Reporter for that person.
 
 ### Evangelism group membership (`members`)

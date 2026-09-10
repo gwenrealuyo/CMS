@@ -140,6 +140,108 @@ def user_can_manage_bible_sharers_ministry(user: Person, ministry: Ministry) -> 
     return bool(user.branch_id and ministry.branch_id == user.branch_id)
 
 
+def grant_evangelism_bible_sharer_access(person: Person) -> Optional[ModuleCoordinator]:
+    """
+    Ensure a module-wide Evangelism Bible Sharer roster grant (read-only).
+
+    Unique on (person, module, resource_id): an existing module-wide Evangelism
+    row (senior or grant) already covers access — do not create a duplicate.
+    Does not create group-scoped Bible Sharer rows.
+    """
+    existing = ModuleCoordinator.objects.filter(
+        person=person,
+        module=ModuleCoordinator.ModuleType.EVANGELISM,
+        resource_id=None,
+    ).first()
+    if existing:
+        return existing
+    return ModuleCoordinator.objects.create(
+        person=person,
+        module=ModuleCoordinator.ModuleType.EVANGELISM,
+        level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+        resource_id=None,
+        resource_type="",
+    )
+
+
+def _assignment_is_module_wide_bible_sharer_grant(
+    assignment: ModuleCoordinator,
+) -> bool:
+    return (
+        assignment.module == ModuleCoordinator.ModuleType.EVANGELISM
+        and assignment.level == ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+        and assignment.resource_id is None
+    )
+
+
+def _assignment_grants_evangelism_bible_sharer_access(
+    assignment: ModuleCoordinator,
+) -> bool:
+    if assignment.module != ModuleCoordinator.ModuleType.EVANGELISM:
+        return False
+    if assignment.level == ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR:
+        return True
+    return _assignment_is_module_wide_bible_sharer_grant(assignment)
+
+
+def person_has_evangelism_bible_sharer_access(person: Person) -> bool:
+    """True for admin/pastor, Evangelism senior, or a module-wide Bible Sharer grant."""
+    if getattr(person, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    cache = getattr(person, "_prefetched_objects_cache", None) or {}
+    if "module_coordinator_assignments" in cache:
+        return any(
+            _assignment_grants_evangelism_bible_sharer_access(assignment)
+            for assignment in person.module_coordinator_assignments.all()
+        )
+    if person.module_coordinator_assignments.filter(
+        module=ModuleCoordinator.ModuleType.EVANGELISM,
+        level=ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+    ).exists():
+        return True
+    return person.module_coordinator_assignments.filter(
+        module=ModuleCoordinator.ModuleType.EVANGELISM,
+        level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+        resource_id__isnull=True,
+    ).exists()
+
+
+def revoke_evangelism_bible_sharer_access(person: Person) -> int:
+    """Delete module-wide BIBLE_SHARER only; leave group assignments intact."""
+    deleted, _ = ModuleCoordinator.objects.filter(
+        person=person,
+        module=ModuleCoordinator.ModuleType.EVANGELISM,
+        level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+        resource_id__isnull=True,
+    ).delete()
+    return deleted
+
+
+def sync_bible_sharers_member_access(
+    membership: MinistryMember,
+    *,
+    grant_evangelism_bible_sharer_access_flag: Optional[bool] = None,
+) -> None:
+    """
+    Apply module-wide Evangelism Bible Sharer grant for a roster membership.
+
+    - Inactive membership always revokes the module-wide grant.
+    - Active membership: grant when flag is True; revoke when flag is False;
+      when flag is None on update, leave access unchanged.
+    """
+    if not is_bible_sharers_ministry(membership.ministry):
+        return
+
+    if not membership.is_active:
+        revoke_evangelism_bible_sharer_access(membership.member)
+        return
+
+    if grant_evangelism_bible_sharer_access_flag is True:
+        grant_evangelism_bible_sharer_access(membership.member)
+    elif grant_evangelism_bible_sharer_access_flag is False:
+        revoke_evangelism_bible_sharer_access(membership.member)
+
+
 def _ensure_bible_sharers_membership(person: Person, ministry: Ministry) -> bool:
     if person is None or ministry is None:
         return False

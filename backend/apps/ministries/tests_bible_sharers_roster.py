@@ -8,6 +8,7 @@ from apps.ministries.bible_sharers import (
     backfill_bible_sharers_roster_from_assignments,
     ensure_bible_sharers_ministry,
     headquarters_branch,
+    person_has_evangelism_bible_sharer_access,
     person_on_bible_sharers_roster,
 )
 from apps.ministries.models import (
@@ -417,3 +418,219 @@ class EvangelismHqBibleSharerRosterAPITests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(set(response.data["bible_sharer_ids"]), {self.sharer.id})
+
+
+class BibleSharersEvangelismGrantTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.hq = headquarters_branch()
+        self.assertIsNotNone(self.hq)
+        self.admin = Person.objects.create_user(
+            username="bs_grant_admin",
+            email="bs_grant_admin@test.com",
+            password="testpass123",
+            first_name="Grant",
+            last_name="Admin",
+            role="ADMIN",
+            branch=self.hq,
+            status="ACTIVE",
+        )
+        self.sharer = Person.objects.create_user(
+            username="bs_grant_sharer",
+            email="bs_grant_sharer@test.com",
+            password="testpass123",
+            first_name="Grant",
+            last_name="Sharer",
+            role="MEMBER",
+            branch=self.hq,
+            status="ACTIVE",
+        )
+        self.ministry = ensure_bible_sharers_ministry()
+        self.cluster = Cluster.objects.create(
+            code="BS-GNT",
+            name="Grant Cluster",
+            branch=self.hq,
+        )
+        self.group = EvangelismGroup.objects.create(
+            name="Grant Group",
+            cluster=self.cluster,
+            is_active=True,
+        )
+        self.group.members.add(self.sharer)
+        self.client.force_authenticate(user=self.admin)
+
+    def _module_wide_qs(self, person=None):
+        person = person or self.sharer
+        return ModuleCoordinator.objects.filter(
+            person=person,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id__isnull=True,
+        )
+
+    def _group_qs(self, person=None):
+        person = person or self.sharer
+        return ModuleCoordinator.objects.filter(
+            person=person,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id=self.group.id,
+        )
+
+    def _report_payload(self):
+        return {
+            "evangelism_group_id": self.group.id,
+            "year": 2026,
+            "week_number": 10,
+            "meeting_date": "2026-03-04",
+            "gathering_type": "PHYSICAL",
+            "members_attended": [],
+            "visitors_attended": [],
+        }
+
+    def test_grant_on_add_creates_module_wide_row(self):
+        response = self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": self.ministry.id,
+                "member_id": self.sharer.id,
+                "role": "team_member",
+                "grant_evangelism_bible_sharer_access": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertTrue(response.data["has_evangelism_bible_sharer_access"])
+        self.assertTrue(self._module_wide_qs().exists())
+        self.assertTrue(person_has_evangelism_bible_sharer_access(self.sharer))
+
+    def test_default_grant_on_create(self):
+        response = self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": self.ministry.id,
+                "member_id": self.sharer.id,
+                "role": "team_member",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertTrue(response.data["has_evangelism_bible_sharer_access"])
+        self.assertTrue(self._module_wide_qs().exists())
+
+    def test_grant_off_does_not_create_row(self):
+        response = self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": self.ministry.id,
+                "member_id": self.sharer.id,
+                "role": "team_member",
+                "grant_evangelism_bible_sharer_access": False,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertFalse(response.data["has_evangelism_bible_sharer_access"])
+        self.assertFalse(self._module_wide_qs().exists())
+
+    def test_uncheck_and_inactive_delete_module_wide_only(self):
+        membership = MinistryMember.objects.create(
+            ministry=self.ministry,
+            member=self.sharer,
+            role="team_member",
+            is_active=True,
+        )
+        ModuleCoordinator.objects.create(
+            person=self.sharer,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id=None,
+            resource_type="",
+        )
+        ModuleCoordinator.objects.create(
+            person=self.sharer,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id=self.group.id,
+            resource_type="EvangelismGroup",
+        )
+        response = self.client.patch(
+            f"/api/ministries/members/{membership.id}/",
+            {"grant_evangelism_bible_sharer_access": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertFalse(self._module_wide_qs().exists())
+        self.assertTrue(self._group_qs().exists())
+
+        ModuleCoordinator.objects.create(
+            person=self.sharer,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id=None,
+            resource_type="",
+        )
+        response = self.client.patch(
+            f"/api/ministries/members/{membership.id}/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertFalse(self._module_wide_qs().exists())
+        self.assertTrue(self._group_qs().exists())
+        self.assertFalse(response.data["has_evangelism_bible_sharer_access"])
+
+    def test_module_wide_only_is_read_only(self):
+        MinistryMember.objects.create(
+            ministry=self.ministry,
+            member=self.sharer,
+            role="team_member",
+            is_active=True,
+        )
+        ModuleCoordinator.objects.create(
+            person=self.sharer,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id=None,
+            resource_type="",
+        )
+        self.client.force_authenticate(user=self.sharer)
+        groups = self.client.get("/api/evangelism/groups/")
+        self.assertEqual(groups.status_code, status.HTTP_200_OK)
+        payload = groups.data
+        rows = (
+            payload["results"]
+            if isinstance(payload, dict) and "results" in payload
+            else payload
+        )
+        self.assertIn(self.group.id, {row["id"] for row in rows})
+
+        patch = self.client.patch(
+            f"/api/evangelism/groups/{self.group.id}/",
+            {"location": "Hall"},
+            format="json",
+        )
+        self.assertEqual(patch.status_code, status.HTTP_403_FORBIDDEN)
+
+        report = self.client.post(
+            "/api/evangelism/weekly-reports/",
+            self._report_payload(),
+            format="json",
+        )
+        self.assertEqual(report.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_group_assigned_bible_sharer_can_submit_report(self):
+        ModuleCoordinator.objects.create(
+            person=self.sharer,
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id=self.group.id,
+            resource_type="EvangelismGroup",
+        )
+        self.client.force_authenticate(user=self.sharer)
+        response = self.client.post(
+            "/api/evangelism/weekly-reports/",
+            self._report_payload(),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)

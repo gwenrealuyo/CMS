@@ -112,6 +112,13 @@ class ModuleCoordinatorSerializer(serializers.ModelSerializer):
                     pass
             return base
 
+        if (
+            obj.module == ModuleCoordinator.ModuleType.EVANGELISM
+            and obj.level == ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
+            and obj.resource_id is None
+        ):
+            return "Module-wide (roster)"
+
         if obj.resource_id is None:
             return None
         if obj.module == ModuleCoordinator.ModuleType.CLUSTER:

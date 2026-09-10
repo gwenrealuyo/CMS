@@ -64,7 +64,7 @@ Each assignment has:
 | **Person** | Who receives the access (Admin accounts cannot be assigned) |
 | **Module** | Which area of the app (Cluster, Evangelism, Lessons, etc.) |
 | **Level** | What kind of access within that module |
-| **Scope** | **Senior Coordinator:** module-wide. **Coordinator** on Cluster, Evangelism, or Sunday School: must pick resource(s) in the assignee's branch |
+| **Scope** | **Senior Coordinator:** module-wide. **Coordinator** on Cluster, Evangelism, or Sunday School: must pick resource(s) in the assignee's branch. **Bible Sharer:** group(s) for reports, or module-wide roster grant (read-only) |
 
 A person can hold **multiple assignments** across different modules. Access is combined (you see the **union** of everything your assignments allow).
 
@@ -89,7 +89,7 @@ A person can hold **multiple assignments** across different modules. Access is c
 | **Senior Coordinator** | Module-wide oversight; can delete records; sees branch-wide (or all branches at HQ); compliance and stats views |
 | **Coordinator** | Leadership within a module; create and edit; may be scoped to specific clusters, groups, or classes |
 | **Teacher** | Sunday School or Lessons instruction; edit own classes/students; generally cannot delete |
-| **Bible Sharer** | Evangelism group facilitation and weekly reports for assigned groups; cannot manage group members |
+| **Bible Sharer** | Evangelism group facilitation and weekly reports for assigned groups; cannot manage group members. A **module-wide** Bible Sharer row (from the HQ Ministries roster grant) is read-only Evangelism access until they are assigned to a group. |
 | **Reporter** | Weekly reports only (Cluster and Evangelism) |
 
 ### Per-module levels available
@@ -97,7 +97,7 @@ A person can hold **multiple assignments** across different modules. Access is c
 | Module | Levels you can assign | Resource-specific scope? |
 |--------|----------------------|--------------------------|
 | **Cluster** | Coordinator, Senior Coordinator, **Reporter** | Coordinator/Reporter: pick cluster(s); Senior: module-wide |
-| **Evangelism** | Coordinator, Senior Coordinator, Bible Sharer, Reporter | Yes — pick evangelism group(s) |
+| **Evangelism** | Coordinator, Senior Coordinator, Bible Sharer, Reporter | Coordinator/Reporter: pick evangelism group(s). Bible Sharer: group(s) for reports, or module-wide roster grant (read-only). Senior: module-wide |
 | **Lessons** | Coordinator, Senior Coordinator, Teacher | Module-wide only |
 | **Sunday School** | Coordinator, Senior Coordinator, Teacher | Yes — pick class(es) |
 | **Events** | Coordinator, Senior Coordinator | Module-wide only |
@@ -108,7 +108,7 @@ A person can hold **multiple assignments** across different modules. Access is c
 
 | Scope | Meaning |
 |-------|---------|
-| **Module-wide** (`resource` not set) | **Senior Coordinators only** for Cluster, Evangelism, and Sunday School — access across the entire module within your branch |
+| **Module-wide** (`resource` not set) | **Senior Coordinators** for Cluster, Evangelism, and Sunday School — access across the entire module within your branch. **Bible Sharer** may also be module-wide as an HQ roster grant (read-only Evangelism; reports still need a group assignment). |
 | **Resource-specific** | **Required** for Coordinators on Cluster, Evangelism, and Sunday School — limit to selected clusters, groups, or classes in the assignee's branch |
 
 **Example:** A **Cluster Coordinator** scoped to "North Cluster" can manage and submit reports only for that cluster. A **Cluster Senior Coordinator** (module-wide) can oversee all clusters in their branch.
@@ -165,7 +165,8 @@ Coordinators and pastors should **mark records inactive** or update status inste
 **Evangelism**
 
 - **Bible Sharers** can submit weekly reports for assigned groups; they cannot manage group members. Coordinators manage assigned groups (and that Coordinator assignment replaces Bible Sharer or Reporter on the same group).
-- Weekly evangelism reports can be submitted by Evangelism Coordinators, Bible Sharers, and Evangelism Reporters for their assigned groups.
+- A **module-wide** Bible Sharer grant (HQ Ministries roster checkbox, default on) lets them open Evangelism **read-only**. It does not unlock group edits or weekly reports.
+- Weekly evangelism reports can be submitted by Evangelism Coordinators, Bible Sharers, and Evangelism Reporters for their assigned groups. Plain group members cannot file reports.
 
 **Lessons**
 

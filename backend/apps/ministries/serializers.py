@@ -17,6 +17,11 @@ from .models import (
     MinistryRole,
     MinistryScope,
 )
+from .bible_sharers import (
+    is_bible_sharers_ministry,
+    person_has_evangelism_bible_sharer_access,
+    sync_bible_sharers_member_access,
+)
 from .ncc import (
     is_ncc_ministry,
     person_has_lessons_teacher_access,
@@ -25,6 +30,12 @@ from .ncc import (
 from .utils import sync_coordinators_to_members, user_can_set_national_ministry_scope
 
 User = get_user_model()
+
+
+def _clear_module_coordinator_prefetch(person) -> None:
+    cache = getattr(person, "_prefetched_objects_cache", None)
+    if cache is not None:
+        cache.pop("module_coordinator_assignments", None)
 
 
 class UserSummarySerializer(serializers.ModelSerializer):
@@ -55,6 +66,12 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
         default=True,
     )
     has_lessons_teacher_access = serializers.SerializerMethodField()
+    grant_evangelism_bible_sharer_access = serializers.BooleanField(
+        required=False,
+        write_only=True,
+        default=True,
+    )
+    has_evangelism_bible_sharer_access = serializers.SerializerMethodField()
 
     class Meta:
         model = MinistryMember
@@ -71,6 +88,8 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
             "notes",
             "grant_lessons_teacher_access",
             "has_lessons_teacher_access",
+            "grant_evangelism_bible_sharer_access",
+            "has_evangelism_bible_sharer_access",
         )
         read_only_fields = ("join_date",)
         # UniqueTogetherValidator requires ministry+member on every write;
@@ -81,6 +100,11 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
         if not is_ncc_ministry(obj.ministry):
             return False
         return person_has_lessons_teacher_access(obj.member)
+
+    def get_has_evangelism_bible_sharer_access(self, obj: MinistryMember) -> bool:
+        if not is_bible_sharers_ministry(obj.ministry):
+            return False
+        return person_has_evangelism_bible_sharer_access(obj.member)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -113,41 +137,78 @@ class MinistryMemberSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        grant_flag = validated_data.pop("grant_lessons_teacher_access", True)
+        grant_lessons_flag = validated_data.pop("grant_lessons_teacher_access", True)
+        grant_bible_sharer_flag = validated_data.pop(
+            "grant_evangelism_bible_sharer_access", True
+        )
         if "join_date" not in validated_data:
             validated_data["join_date"] = church_today()
         membership = super().create(validated_data)
         if is_ncc_ministry(membership.ministry):
             sync_ncc_member_access(
                 membership,
-                grant_lessons_teacher_access_flag=bool(grant_flag),
+                grant_lessons_teacher_access_flag=bool(grant_lessons_flag),
             )
+            _clear_module_coordinator_prefetch(membership.member)
+        if is_bible_sharers_ministry(membership.ministry):
+            sync_bible_sharers_member_access(
+                membership,
+                grant_evangelism_bible_sharer_access_flag=bool(
+                    grant_bible_sharer_flag
+                ),
+            )
+            _clear_module_coordinator_prefetch(membership.member)
         return membership
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        grant_flag = validated_data.pop("grant_lessons_teacher_access", serializers.empty)
+        grant_lessons_flag = validated_data.pop(
+            "grant_lessons_teacher_access", serializers.empty
+        )
+        grant_bible_sharer_flag = validated_data.pop(
+            "grant_evangelism_bible_sharer_access", serializers.empty
+        )
         previous_active = instance.is_active
         membership = super().update(instance, validated_data)
-        if not is_ncc_ministry(membership.ministry):
-            return membership
 
-        if not membership.is_active:
-            sync_ncc_member_access(
-                membership,
-                grant_lessons_teacher_access_flag=False,
-            )
-        elif grant_flag is not serializers.empty:
-            sync_ncc_member_access(
-                membership,
-                grant_lessons_teacher_access_flag=bool(grant_flag),
-            )
-        elif not previous_active and membership.is_active:
-            # Reactivated without explicit flag → default grant access
-            sync_ncc_member_access(
-                membership,
-                grant_lessons_teacher_access_flag=True,
-            )
+        if is_ncc_ministry(membership.ministry):
+            if not membership.is_active:
+                sync_ncc_member_access(
+                    membership,
+                    grant_lessons_teacher_access_flag=False,
+                )
+            elif grant_lessons_flag is not serializers.empty:
+                sync_ncc_member_access(
+                    membership,
+                    grant_lessons_teacher_access_flag=bool(grant_lessons_flag),
+                )
+            elif not previous_active and membership.is_active:
+                # Reactivated without explicit flag → default grant access
+                sync_ncc_member_access(
+                    membership,
+                    grant_lessons_teacher_access_flag=True,
+                )
+            _clear_module_coordinator_prefetch(membership.member)
+
+        if is_bible_sharers_ministry(membership.ministry):
+            if not membership.is_active:
+                sync_bible_sharers_member_access(
+                    membership,
+                    grant_evangelism_bible_sharer_access_flag=False,
+                )
+            elif grant_bible_sharer_flag is not serializers.empty:
+                sync_bible_sharers_member_access(
+                    membership,
+                    grant_evangelism_bible_sharer_access_flag=bool(
+                        grant_bible_sharer_flag
+                    ),
+                )
+            elif not previous_active and membership.is_active:
+                sync_bible_sharers_member_access(
+                    membership,
+                    grant_evangelism_bible_sharer_access_flag=True,
+                )
+            _clear_module_coordinator_prefetch(membership.member)
         return membership
 
 

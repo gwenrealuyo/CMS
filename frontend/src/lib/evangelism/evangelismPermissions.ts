@@ -57,9 +57,13 @@ export function canSubmitEvangelismReport({
       (assignment) => assignment.module === "EVANGELISM"
     ) ?? [];
 
-  return assignments.some((assignment) =>
-    EVANGELISM_REPORT_LEVELS.includes(assignment.level)
-  );
+  return assignments.some((assignment) => {
+    if (!EVANGELISM_REPORT_LEVELS.includes(assignment.level)) return false;
+    if (assignment.level === "BIBLE_SHARER" || assignment.level === "REPORTER") {
+      return assignment.resource_id != null;
+    }
+    return true;
+  });
 }
 
 export function canWriteEvangelismRecords({
@@ -74,11 +78,17 @@ export function canWriteEvangelismRecords({
     user.module_coordinator_assignments?.filter(
       (assignment) => assignment.module === "EVANGELISM"
     ) ?? [];
-  return assignments.some((assignment) =>
-    ["COORDINATOR", "SENIOR_COORDINATOR", "BIBLE_SHARER"].includes(
-      assignment.level,
-    )
-  );
+  return assignments.some((assignment) => {
+    if (
+      assignment.level === "COORDINATOR" ||
+      assignment.level === "SENIOR_COORDINATOR"
+    ) {
+      return true;
+    }
+    return (
+      assignment.level === "BIBLE_SHARER" && assignment.resource_id != null
+    );
+  });
 }
 
 export function assignedEvangelismGroupIds(

@@ -1,4 +1,4 @@
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -31,15 +31,26 @@ from .serializers import (
 )
 from .utils import apply_ministry_branch_visibility
 
-_LESSONS_ASSIGNMENT_PREFETCH = Prefetch(
+_ROSTER_ACCESS_ASSIGNMENT_PREFETCH = Prefetch(
     "memberships__member__module_coordinator_assignments",
     queryset=ModuleCoordinator.objects.filter(
-        module=ModuleCoordinator.ModuleType.LESSONS,
-        level__in=(
-            ModuleCoordinator.CoordinatorLevel.TEACHER,
-            ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-        ),
+        Q(
+            module=ModuleCoordinator.ModuleType.LESSONS,
+            level__in=(
+                ModuleCoordinator.CoordinatorLevel.TEACHER,
+                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+            ),
+        )
+        | Q(
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+            resource_id__isnull=True,
+        )
+        | Q(
+            module=ModuleCoordinator.ModuleType.EVANGELISM,
+            level=ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+        )
     ),
 )
 
@@ -106,7 +117,7 @@ class MinistryViewSet(viewsets.ModelViewSet):
         return queryset.prefetch_related(
             "support_coordinators",
             "memberships__member",
-            _LESSONS_ASSIGNMENT_PREFETCH,
+            _ROSTER_ACCESS_ASSIGNMENT_PREFETCH,
         )
 
     def get_queryset(self):
@@ -186,12 +197,23 @@ class MinistryMemberViewSet(viewsets.ModelViewSet):
             Prefetch(
                 "member__module_coordinator_assignments",
                 queryset=ModuleCoordinator.objects.filter(
-                    module=ModuleCoordinator.ModuleType.LESSONS,
-                    level__in=(
-                        ModuleCoordinator.CoordinatorLevel.TEACHER,
-                        ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-                        ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-                    ),
+                    Q(
+                        module=ModuleCoordinator.ModuleType.LESSONS,
+                        level__in=(
+                            ModuleCoordinator.CoordinatorLevel.TEACHER,
+                            ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+                            ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+                        ),
+                    )
+                    | Q(
+                        module=ModuleCoordinator.ModuleType.EVANGELISM,
+                        level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+                        resource_id__isnull=True,
+                    )
+                    | Q(
+                        module=ModuleCoordinator.ModuleType.EVANGELISM,
+                        level=ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+                    )
                 ),
             ),
         )

@@ -65,13 +65,6 @@ def _person_delete_blocked_response(instance):
         )
         return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
 
-    if instance.lesson_transfers_to.exists():
-        detail = (
-            f'Cannot delete "{name}" because they appear in lessons teacher '
-            "history. Reassign or clear those lesson teacher records, then try again."
-        )
-        return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
-
     detail = (
         f'Cannot delete "{name}" because other records still reference them.'
     )
@@ -407,7 +400,7 @@ class PersonViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.lesson_students.exists() or instance.lesson_transfers_to.exists():
+        if instance.lesson_students.exists():
             return _person_delete_blocked_response(instance)
         try:
             return super().destroy(request, *args, **kwargs)

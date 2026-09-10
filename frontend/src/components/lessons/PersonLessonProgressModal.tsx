@@ -320,8 +320,7 @@ export default function PersonLessonProgressModal({
                               →{" "}
                               {transfer.to_teacher
                                 ? formatPersonName(transfer.to_teacher)
-                                : transfer.note?.trim() ||
-                                  "Former / unknown teacher"}
+                                : "Former / unknown teacher"}
                             </p>
                             {transfer.transferred_by && (
                               <p className="text-xs text-gray-500">

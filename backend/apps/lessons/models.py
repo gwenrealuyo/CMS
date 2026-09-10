@@ -229,7 +229,7 @@ class LessonTeacherTransfer(models.Model):
         Person,
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         related_name="lesson_transfers_to",
         limit_choices_to=~Q(role="VISITOR"),
     )

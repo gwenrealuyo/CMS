@@ -89,7 +89,7 @@ class PersonDestroyAPITests(TestCase):
         self.assertIn("Maria Santos", detail)
         self.assertTrue(Person.objects.filter(pk=self.teacher.id).exists())
 
-    def test_admin_cannot_delete_person_in_lessons_teacher_history(self):
+    def test_admin_can_delete_person_in_lessons_teacher_history(self):
         enrollment = ensure_lesson_enrollment(
             self.student,
             teacher=self.teacher,
@@ -102,12 +102,15 @@ class PersonDestroyAPITests(TestCase):
         )
         enrollment.refresh_from_db()
         self.assertEqual(enrollment.teacher_id, self.other_teacher.id)
-        self.assertTrue(
-            LessonTeacherTransfer.objects.filter(to_teacher=self.teacher).exists()
+        history_ids = list(
+            LessonTeacherTransfer.objects.filter(to_teacher=self.teacher).values_list(
+                "pk", flat=True
+            )
         )
+        self.assertTrue(history_ids)
 
         res = self.client.delete(f"/api/people/people/{self.teacher.id}/")
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST, res.data)
-        detail = res.data.get("detail") or res.data.get("message", "")
-        self.assertIn("lessons teacher history", detail)
-        self.assertTrue(Person.objects.filter(pk=self.teacher.id).exists())
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT, res.data)
+        self.assertFalse(Person.objects.filter(pk=self.teacher.id).exists())
+        for transfer in LessonTeacherTransfer.objects.filter(pk__in=history_ids):
+            self.assertIsNone(transfer.to_teacher_id)

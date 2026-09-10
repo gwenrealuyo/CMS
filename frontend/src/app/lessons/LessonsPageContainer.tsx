@@ -43,24 +43,21 @@ import {
   groupProgressByPerson,
   buildStudentTeacherMapFromEnrollments,
   enrollmentByStudentId,
+  buildLatestSessionAtByStudent,
+  getPersonLastActivityIso,
+  parseTimestampMs,
 } from "@/src/lib/lessonsUtils";
 import { formatSessionTopicLabel } from "@/src/lib/sessionTopic";
 import {
   PersonProgressSummary,
   LessonPersonSummary,
   LessonTeacherRosterEntry,
+  ProgressSortField,
 } from "@/src/types/lesson";
 import { LessonFormValues } from "@/src/components/lessons/LessonForm";
 import { LessonContentTab } from "@/src/components/lessons/LessonContentTabs";
 import LessonsPageView from "./LessonsPageView";
 
-type ProgressSortField =
-  | "person"
-  | "teacher"
-  | "previousLesson"
-  | "progress"
-  | "nextLesson"
-  | "status";
 type ProgressStatusFilter = "ALL" | LessonProgressStatus;
 
 export default function LessonsPageContainer() {
@@ -91,10 +88,10 @@ export default function LessonsPageContainer() {
   const [progressStatusFilter, setProgressStatusFilter] =
     useState<ProgressStatusFilter>("ALL");
   const [progressSortField, setProgressSortField] =
-    useState<ProgressSortField>("person");
+    useState<ProgressSortField>("recentActivity");
   const [progressSortDirection, setProgressSortDirection] = useState<
     "asc" | "desc"
-  >("asc");
+  >("desc");
 
   const [summary, setSummary] = useState<LessonProgressSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -153,6 +150,9 @@ export default function LessonsPageContainer() {
   const [sessionReports, setSessionReports] = useState<LessonSessionReport[]>(
     []
   );
+  const [latestSessionAtByStudent, setLatestSessionAtByStudent] = useState<
+    Map<number, string>
+  >(() => new Map());
   const [enrollments, setEnrollments] = useState<LessonStudentEnrollment[]>([]);
   const [sessionReportsLoading, setSessionReportsLoading] = useState(false);
   const [sessionReportsError, setSessionReportsError] = useState<string | null>(
@@ -443,13 +443,36 @@ export default function LessonsPageContainer() {
     return lessons.filter((lesson) => lesson.is_latest && lesson.is_active);
   }, [lessons]);
 
+  const studentTeacherById = useMemo(
+    () => buildStudentTeacherMapFromEnrollments(enrollments),
+    [enrollments],
+  );
+
+  const enrollmentByStudent = useMemo(
+    () => enrollmentByStudentId(enrollments),
+    [enrollments],
+  );
+
   // Group progress by person
   const groupedProgress = useMemo(() => {
     if (allProgressLoading || allProgress.length === 0) {
       return [];
     }
-    return groupProgressByPerson(allProgress, lessons);
-  }, [allProgress, lessons, allProgressLoading]);
+    return groupProgressByPerson(allProgress, lessons).map((summary) => ({
+      ...summary,
+      lastActivityAt: getPersonLastActivityIso(
+        summary,
+        enrollmentByStudent.get(summary.person.id),
+        latestSessionAtByStudent.get(summary.person.id),
+      ),
+    }));
+  }, [
+    allProgress,
+    allProgressLoading,
+    enrollmentByStudent,
+    latestSessionAtByStudent,
+    lessons,
+  ]);
 
   const nextLessonIdByStudent = useMemo(() => {
     const map = new Map<number, number>();
@@ -460,16 +483,6 @@ export default function LessonsPageContainer() {
     });
     return map;
   }, [groupedProgress]);
-
-  const studentTeacherById = useMemo(
-    () => buildStudentTeacherMapFromEnrollments(enrollments),
-    [enrollments],
-  );
-
-  const enrollmentByStudent = useMemo(
-    () => enrollmentByStudentId(enrollments),
-    [enrollments],
-  );
 
   const assignedStudentIds = useMemo(() => {
     const ids = new Set<number>();
@@ -540,6 +553,16 @@ export default function LessonsPageContainer() {
     return [...filtered].sort((first, second) => {
       const direction = progressSortDirection === "asc" ? 1 : -1;
       switch (progressSortField) {
+        case "recentActivity": {
+          const firstMs = parseTimestampMs(first.lastActivityAt);
+          const secondMs = parseTimestampMs(second.lastActivityAt);
+          if (firstMs !== secondMs) {
+            return (firstMs - secondMs) * direction;
+          }
+          return formatPersonName(first.person).localeCompare(
+            formatPersonName(second.person)
+          );
+        }
         case "person":
           return (
             formatPersonName(first.person).localeCompare(
@@ -656,6 +679,7 @@ export default function LessonsPageContainer() {
     fetchSummary();
     fetchAllProgress();
     fetchEnrollments();
+    fetchLatestSessionActivity();
     if (activeContentTab === "sessions") {
       fetchSessionReports(sessionFilters);
     }
@@ -837,6 +861,15 @@ export default function LessonsPageContainer() {
       setEnrollments(response.data);
     } catch {
       setEnrollments([]);
+    }
+  };
+
+  const fetchLatestSessionActivity = async () => {
+    try {
+      const response = await lessonsApi.listSessionReports(branchApiParams ?? {});
+      setLatestSessionAtByStudent(buildLatestSessionAtByStudent(response.data));
+    } catch {
+      setLatestSessionAtByStudent(new Map());
     }
   };
 
@@ -1208,7 +1241,7 @@ export default function LessonsPageContainer() {
       return;
     }
     setProgressSortField(field);
-    setProgressSortDirection("asc");
+    setProgressSortDirection(field === "recentActivity" ? "desc" : "asc");
   };
 
   const openPersonProgressModal = (person: LessonPersonSummary) => {
@@ -1446,6 +1479,7 @@ export default function LessonsPageContainer() {
       }
 
       closeSessionModal();
+      await fetchLatestSessionActivity();
       if (activeContentTab === "sessions") {
         await fetchSessionReports(sessionFilters);
       }
@@ -1494,6 +1528,7 @@ export default function LessonsPageContainer() {
       setSessionDeleteLoading(true);
       setSessionDeleteError(null);
       await lessonsApi.deleteSessionReport(sessionDeleteTarget.id);
+      await fetchLatestSessionActivity();
       if (activeContentTab === "sessions") {
         await fetchSessionReports(sessionFilters);
       }

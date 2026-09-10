@@ -1,6 +1,7 @@
 import {
   Lesson,
   LessonPersonSummary,
+  LessonSessionReport,
   LessonStudentEnrollment,
   PersonLessonProgress,
   PersonProgressSummary,
@@ -279,6 +280,58 @@ export function enrollmentByStudentId(
     }
   }
   return map;
+}
+
+export function parseTimestampMs(value?: string | null): number {
+  if (!value) {
+    return 0;
+  }
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+export function buildLatestSessionAtByStudent(
+  reports: LessonSessionReport[],
+): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const report of reports) {
+    const studentId = report.student?.id;
+    if (studentId == null) {
+      continue;
+    }
+    const iso = report.session_start || report.session_date;
+    const ms = parseTimestampMs(iso);
+    if (!ms) {
+      continue;
+    }
+    if (ms > parseTimestampMs(map.get(studentId))) {
+      map.set(studentId, iso);
+    }
+  }
+  return map;
+}
+
+export function getPersonLastActivityIso(
+  summary: PersonProgressSummary,
+  enrollment: LessonStudentEnrollment | undefined,
+  latestSessionIso: string | undefined,
+): string | null {
+  const candidates: Array<string | null | undefined> = [
+    enrollment?.assigned_at,
+    latestSessionIso,
+    ...summary.allProgress.map((record) => record.assigned_at),
+  ];
+
+  let bestIso: string | null = null;
+  let bestMs = 0;
+  for (const candidate of candidates) {
+    const ms = parseTimestampMs(candidate);
+    if (ms > bestMs) {
+      bestMs = ms;
+      bestIso = candidate ?? null;
+    }
+  }
+  return bestIso;
 }
 
 /**

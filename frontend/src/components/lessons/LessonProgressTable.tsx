@@ -3,11 +3,13 @@ import {
   LessonProgressStatus,
   PersonProgressSummary,
   LessonPersonSummary,
+  ProgressSortField,
 } from "@/src/types/lesson";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import Pagination from "@/src/components/ui/Pagination";
 import { formatPersonName } from "@/src/lib/name";
+import { formatDisplayDate } from "@/src/lib/date";
 import {
   formatPersonClusterLabel,
   formatPersonStatusLabel,
@@ -16,14 +18,6 @@ import {
 } from "@/src/lib/personStatus";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
-
-type ProgressSortField =
-  | "person"
-  | "teacher"
-  | "previousLesson"
-  | "progress"
-  | "nextLesson"
-  | "status";
 
 interface LessonProgressTableProps {
   groupedProgress: PersonProgressSummary[];
@@ -283,6 +277,16 @@ export default function LessonProgressTable({
                         )}
                       </div>
                     </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Last activity
+                      </div>
+                      <div className="mt-1 text-gray-900">
+                        {formatDisplayDate(summary.lastActivityAt) ?? (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -297,11 +301,11 @@ export default function LessonProgressTable({
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto border rounded-lg">
-        <table className="w-full min-w-[1000px] divide-y divide-gray-200">
+        <table className="w-full min-w-[1120px] divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[18%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%] hover:bg-gray-100"
                 onClick={() => onSortChange("person")}
               >
                 <div className="flex items-center gap-1">
@@ -310,7 +314,7 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[14%] hover:bg-gray-100"
                 onClick={() => onSortChange("teacher")}
               >
                 <div className="flex items-center gap-1">
@@ -319,7 +323,7 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[22%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[18%] hover:bg-gray-100"
                 onClick={() => onSortChange("previousLesson")}
               >
                 <div className="flex items-center gap-1">
@@ -328,7 +332,7 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[14%] hover:bg-gray-100"
                 onClick={() => onSortChange("progress")}
               >
                 <div className="flex items-center gap-1">
@@ -337,7 +341,7 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[22%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[18%] hover:bg-gray-100"
                 onClick={() => onSortChange("nextLesson")}
               >
                 <div className="flex items-center gap-1">
@@ -346,12 +350,21 @@ export default function LessonProgressTable({
                 </div>
               </th>
               <th
-                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%] hover:bg-gray-100"
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[10%] hover:bg-gray-100"
                 onClick={() => onSortChange("status")}
               >
                 <div className="flex items-center gap-1">
                   <span>Status</span>
                   {renderSortIcon("status")}
+                </div>
+              </th>
+              <th
+                className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[10%] hover:bg-gray-100"
+                onClick={() => onSortChange("recentActivity")}
+              >
+                <div className="flex items-center gap-1">
+                  <span>Last activity</span>
+                  {renderSortIcon("recentActivity")}
                 </div>
               </th>
             </tr>
@@ -459,6 +472,11 @@ export default function LessonProgressTable({
                     >
                       {statusLabels[summaryStatus]}
                     </span>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-700 whitespace-nowrap">
+                    {formatDisplayDate(summary.lastActivityAt) ?? (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                 </tr>
               );

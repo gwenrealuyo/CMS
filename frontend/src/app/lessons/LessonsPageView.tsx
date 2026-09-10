@@ -43,18 +43,12 @@ import {
   PersonProgressSummary,
   LessonPersonSummary,
   LessonStudentEnrollment,
+  ProgressSortField,
 } from "@/src/types/lesson";
 import PersonLessonProgressModal from "@/src/components/lessons/PersonLessonProgressModal";
 import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 
-type ProgressSortField =
-  | "person"
-  | "teacher"
-  | "previousLesson"
-  | "progress"
-  | "nextLesson"
-  | "status";
 type ProgressStatusFilter = "ALL" | LessonProgressStatus;
 
 interface LessonsPageViewProps {

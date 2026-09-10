@@ -27,6 +27,15 @@ export type LessonProgressStatus =
   | "COMPLETED"
   | "SKIPPED";
 
+export type ProgressSortField =
+  | "person"
+  | "teacher"
+  | "previousLesson"
+  | "progress"
+  | "nextLesson"
+  | "status"
+  | "recentActivity";
+
 export interface LessonPersonSummary {
   id: number;
   first_name?: string;
@@ -147,6 +156,7 @@ export interface PersonProgressSummary {
   nextLesson: Lesson | null;
   progressPercentage: number;
   allProgress: PersonLessonProgress[];
+  lastActivityAt?: string | null;
 }
 
 export interface LessonStudentEnrollment {

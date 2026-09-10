@@ -13,6 +13,7 @@ import {
   LessonProgressStatus,
   LessonStudentEnrollment,
   PersonProgressSummary,
+  ProgressSortField,
 } from "@/src/types/lesson";
 import { Person } from "@/src/types/person";
 import { LessonPersonLike } from "@/src/lib/lessonsUtils";
@@ -26,13 +27,6 @@ import {
   TOOLBAR_CARD_CLASS,
 } from "@/src/lib/toolbarStyles";
 
-type ProgressSortField =
-  | "person"
-  | "teacher"
-  | "previousLesson"
-  | "progress"
-  | "nextLesson"
-  | "status";
 type ProgressStatusFilter = "ALL" | LessonProgressStatus;
 
 interface MemberProgressSectionProps {

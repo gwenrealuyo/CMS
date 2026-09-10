@@ -1566,6 +1566,14 @@ export default function LessonsPageContainer() {
       enrollmentByStudent={enrollmentByStudent}
       teacherChoices={teacherChoices}
       currentUserId={user?.id ?? null}
+      onAssignTeacher={async (studentId, teacherId, note) => {
+        await lessonsApi.createEnrollment({
+          student_id: studentId,
+          teacher_id: teacherId,
+          note,
+        });
+        await fetchEnrollments();
+      }}
       onTransferTeacher={async (enrollmentId, teacherId, note) => {
         await lessonsApi.transferEnrollment(enrollmentId, {
           teacher_id: teacherId,

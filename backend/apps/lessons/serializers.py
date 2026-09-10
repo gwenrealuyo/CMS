@@ -384,6 +384,9 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     teacher_display_name = serializers.SerializerMethodField()
+    note = serializers.CharField(
+        required=False, allow_blank=True, write_only=True, default=""
+    )
 
     class Meta:
         model = LessonStudentEnrollment
@@ -402,6 +405,7 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
             "is_active",
             "assigned_at",
             "updated_at",
+            "note",
         ]
         read_only_fields = [
             "historical_teacher_first_name",
@@ -434,6 +438,7 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
         )
         student = validated_data["student"]
         teacher = validated_data["teacher"]
+        note = validated_data.pop("note", "") or ""
         if LessonStudentEnrollment.objects.filter(student=student).exists():
             raise serializers.ValidationError(
                 {"student_id": "This student already has a lessons teacher assigned."}
@@ -443,7 +448,12 @@ class LessonStudentEnrollmentSerializer(serializers.ModelSerializer):
             student,
             teacher,
             assigned_by=assigned_by,
+            note=note,
         )
+
+    def update(self, instance, validated_data):
+        validated_data.pop("note", None)
+        return super().update(instance, validated_data)
 
 
 class EnrollmentCommitmentSerializer(serializers.Serializer):

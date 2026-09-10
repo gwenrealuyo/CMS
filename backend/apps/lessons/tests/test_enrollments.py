@@ -307,6 +307,35 @@ class LessonEnrollmentAPITests(TestCase):
             LessonStudentEnrollment.objects.filter(student=self.teacher_a).exists()
         )
 
+    def test_enrollment_create_allows_finished_student_with_progress(self):
+        self.student.has_finished_lessons = True
+        self.student.lessons_finished_at = timezone.now().date()
+        self.student.save(
+            update_fields=["has_finished_lessons", "lessons_finished_at"]
+        )
+        self._mark_all_active_lessons_completed(self.student)
+        self.assertFalse(
+            LessonStudentEnrollment.objects.filter(student=self.student).exists()
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        url = reverse("lessons:lesson-enrollment-list")
+        response = self.client.post(
+            url,
+            {
+                "student_id": self.student.id,
+                "teacher_id": self.teacher_a.id,
+                "note": "Legacy teacher backfill",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        enrollment = LessonStudentEnrollment.objects.get(student=self.student)
+        self.assertEqual(enrollment.teacher_id, self.teacher_a.id)
+        transfer = LessonTeacherTransfer.objects.get(enrollment=enrollment)
+        self.assertEqual(transfer.to_teacher_id, self.teacher_a.id)
+        self.assertEqual(transfer.note, "Legacy teacher backfill")
+
     def test_transfer_rejects_person_as_own_teacher(self):
         enrollment = LessonStudentEnrollment.objects.create(
             student=self.teacher_a,

@@ -934,6 +934,7 @@ export const lessonsApi = {
   createEnrollment: (payload: {
     student_id: number | string;
     teacher_id: number | string;
+    note?: string;
   }) => api.post<LessonStudentEnrollment>("/lessons/enrollments/", payload),
   transferEnrollment: (
     id: number | string,

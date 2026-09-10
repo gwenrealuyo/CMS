@@ -140,7 +140,7 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 - `LessonList` / `LessonDetailPanel` / `LessonForm` — catalog CRUD.
 - `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators, cluster coordinators); respects `branch_id` on summary API.
 - `AssignLessonsDropdown` — multi-select assign; eligible students only; status/cluster under names.
-- `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators).
+- `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators). Coordinators can **Assign teacher** from this modal when a student has progress (including finished / legacy) but no enrollment.
 - `LessonSessionReportForm` — log/edit sessions (lesson vs pre-lesson topic picker).
 - `LessonContentTabs` — tab bar plus optional `branchFilter` slot on the right.
 

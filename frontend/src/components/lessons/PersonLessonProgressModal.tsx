@@ -30,6 +30,11 @@ interface PersonLessonProgressModalProps {
   allLessons: Lesson[];
   enrollment: LessonStudentEnrollment | null;
   canTransferTeacher: boolean;
+  onAssignTeacher: (
+    studentId: number,
+    teacherId: number,
+    note?: string
+  ) => Promise<void>;
   onTransferTeacher: (
     enrollmentId: number,
     teacherId: number,
@@ -63,6 +68,7 @@ export default function PersonLessonProgressModal({
   allLessons,
   enrollment,
   canTransferTeacher,
+  onAssignTeacher,
   onTransferTeacher,
   onRequestCommitmentToggle,
   isProgressUpdating,
@@ -227,24 +233,42 @@ export default function PersonLessonProgressModal({
     );
   }, [allLessonsWithProgress]);
 
-  const handleTransferSubmit = async () => {
-    if (!enrollment || !transferTeacherId) {
+  const isAssigningTeacher = !enrollment;
+  const teacherPickerTitle = isAssigningTeacher
+    ? "Assign teacher"
+    : "Transfer teacher";
+  const teacherPickerSubmitLabel = isAssigningTeacher
+    ? "Assign teacher"
+    : "Transfer teacher";
+
+  const handleTeacherPickerSubmit = async () => {
+    if (!transferTeacherId || !person) {
+      return;
+    }
+    if (!isAssigningTeacher && !enrollment) {
       return;
     }
     try {
       setTransferSubmitting(true);
       setTransferError(null);
-      await onTransferTeacher(
-        enrollment.id,
-        Number(transferTeacherId),
-        transferNote.trim() || undefined
-      );
+      const note = transferNote.trim() || undefined;
+      const teacherId = Number(transferTeacherId);
+      if (isAssigningTeacher) {
+        await onAssignTeacher(person.id, teacherId, note);
+      } else if (enrollment) {
+        await onTransferTeacher(enrollment.id, teacherId, note);
+      }
       setTransferOpen(false);
       setTransferTeacherId("");
       setTransferNote("");
     } catch (error: unknown) {
       setTransferError(
-        extractErrorMessage(error, "Failed to transfer teacher.")
+        extractErrorMessage(
+          error,
+          isAssigningTeacher
+            ? "Failed to assign teacher."
+            : "Failed to transfer teacher."
+        )
       );
     } finally {
       setTransferSubmitting(false);
@@ -273,13 +297,13 @@ export default function PersonLessonProgressModal({
                   <span className="text-gray-500">No teacher</span>
                 )}
               </p>
-              {canTransferTeacher && enrollment && (
+              {canTransferTeacher && (
                 <Button
                   variant="tertiary"
                   className="w-full sm:w-auto min-h-[40px] text-sm"
                   onClick={() => setTransferOpen(true)}
                 >
-                  Change teacher
+                  {enrollment ? "Change teacher" : "Assign teacher"}
                 </Button>
               )}
             </div>
@@ -466,16 +490,17 @@ export default function PersonLessonProgressModal({
           setTransferOpen(false);
           setTransferError(null);
         }}
-        title="Transfer teacher"
+        title={teacherPickerTitle}
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Assign a new lessons teacher for {formatPersonName(person)}. Session
-            logs keep their own teacher and do not change this assignment.
+            {isAssigningTeacher
+              ? `Assign a lessons teacher for ${formatPersonName(person)}. Session logs keep their own teacher and do not change this assignment.`
+              : `Assign a new lessons teacher for ${formatPersonName(person)}. Session logs keep their own teacher and do not change this assignment.`}
           </p>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
-              New teacher
+              {isAssigningTeacher ? "Teacher" : "New teacher"}
             </label>
             <ScalableSelect
               options={teacherSelectOptions}
@@ -511,7 +536,11 @@ export default function PersonLessonProgressModal({
               onChange={(event) => setTransferNote(event.target.value)}
               rows={3}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Reason for transfer..."
+              placeholder={
+                isAssigningTeacher
+                  ? "Reason for assignment..."
+                  : "Reason for transfer..."
+              }
             />
           </div>
           {transferError && <ErrorMessage message={transferError} />}
@@ -527,9 +556,9 @@ export default function PersonLessonProgressModal({
             <Button
               className="min-h-[44px]"
               disabled={transferSubmitting || !transferTeacherId}
-              onClick={handleTransferSubmit}
+              onClick={handleTeacherPickerSubmit}
             >
-              {transferSubmitting ? "Saving..." : "Transfer teacher"}
+              {transferSubmitting ? "Saving..." : teacherPickerSubmitLabel}
             </Button>
           </div>
         </div>

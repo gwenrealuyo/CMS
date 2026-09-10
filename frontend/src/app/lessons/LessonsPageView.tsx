@@ -217,6 +217,11 @@ interface LessonsPageViewProps {
   enrollmentByStudent: Map<number, LessonStudentEnrollment>;
   enrollmentByStudentForAssign: Map<number, LessonStudentEnrollment>;
   defaultAssignTeacherId: string | null;
+  onAssignTeacher: (
+    studentId: number,
+    teacherId: number,
+    note?: string
+  ) => Promise<void>;
   onTransferTeacher: (
     enrollmentId: number,
     teacherId: number,
@@ -347,6 +352,7 @@ export default function LessonsPageView({
   enrollmentByStudent,
   enrollmentByStudentForAssign,
   defaultAssignTeacherId,
+  onAssignTeacher,
   onTransferTeacher,
   onProgressFilterChange,
   onProgressSearchQueryChange,
@@ -911,6 +917,7 @@ export default function LessonsPageView({
             : null
         }
         canTransferTeacher={canTransferLessonTeacher}
+        onAssignTeacher={onAssignTeacher}
         onTransferTeacher={onTransferTeacher}
         onRequestCommitmentToggle={onRequestCommitmentToggle}
         isProgressUpdating={isProgressUpdating}

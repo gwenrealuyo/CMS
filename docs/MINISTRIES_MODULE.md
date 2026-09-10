@@ -46,7 +46,7 @@ System ministries (`is_system=True`) are seeded by the platform, not created in 
 
 | Ministry | Code | Scope | Who can manage members (beyond Ministries write) | Downstream use |
 |---|---|---|---|---|
-| **NCC / Lessons** | `NCC` | One `BRANCH` row per branch | Lessons coordinators / seniors (branch-limited) | Gates who can be assigned as a Lessons teacher; optional Lessons `TEACHER` access grant |
+| **NCC / Lessons** | `NCC` | One `BRANCH` row per branch | Lessons coordinators / seniors, **NCC primary and support coordinators** (branch-limited; HQ primary may manage other branches) | Gates who can be assigned as a Lessons teacher; optional Lessons `TEACHER` access grant. **Primary coordinator** receives Lessons senior access; **support coordinators** receive Lessons coordinator access (Lessons/NCC data only; no extra People/Families scope). |
 | **Bible Sharers** | `BIBLE_SHARERS` | One `BRANCH` row on the headquarters branch | HQ pastor, Evangelism senior, or Evangelism coordinator on the HQ branch | HQ evangelism groups may only assign Bible Sharers who are already on this roster (active or inactive). Non-HQ groups are unchanged. Optional **Grant Evangelism access** (default on) creates a module-wide `EVANGELISM` + `BIBLE_SHARER` row (`resource_id` empty) so they can open Evangelism **read-only**. Weekly reports still require being assigned as Bible Sharer (or Coordinator / Reporter) on a specific group. Unchecking grant or marking inactive deletes **only** the module-wide row. |
 
 Detection is **code-based** (`NCC` vs `BIBLE_SHARERS`). `is_system` is only the protection flag.

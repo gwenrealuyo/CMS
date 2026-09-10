@@ -7,7 +7,10 @@ from typing import Iterable, Optional
 from django.db import transaction
 
 from apps.people.models import Branch, ModuleCoordinator, Person
-from apps.lessons.branch_scope import can_pick_lessons_branch
+from apps.lessons.coordinator_access import (
+    can_pick_lessons_branch,
+    has_lessons_browse_all,
+)
 
 from .models import (
     NCC_MINISTRY_CODE,
@@ -208,13 +211,7 @@ def user_is_lessons_roster_manager(user: Person) -> bool:
         return False
     if user.role in ("ADMIN", "PASTOR"):
         return True
-    return user.module_coordinator_assignments.filter(
-        module=ModuleCoordinator.ModuleType.LESSONS,
-        level__in=(
-            ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-        ),
-    ).exists()
+    return has_lessons_browse_all(user)
 
 
 def user_can_manage_ncc_ministry(user: Person, ministry: Ministry) -> bool:

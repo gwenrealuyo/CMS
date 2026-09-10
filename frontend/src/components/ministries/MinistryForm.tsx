@@ -819,6 +819,12 @@ export default function MinistryForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Primary Coordinator
           </label>
+          {isNcc && (
+            <p className="mb-1 text-xs text-gray-500">
+              Grants Lessons senior coordinator access for this branch. HQ
+              primary coordinators can also view other branches in Lessons.
+            </p>
+          )}
           <ScalableSelect
             options={[{ label: "Not set", value: "" }, ...coordinatorOptions]}
             value={values.primary_coordinator_id}
@@ -838,6 +844,12 @@ export default function MinistryForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Supporting Coordinators
           </label>
+          {isNcc && (
+            <p className="mb-1 text-xs text-gray-500">
+              Grants the same Lessons access as a Lessons coordinator for this
+              branch (assign lessons, log sessions, manage the teacher roster).
+            </p>
+          )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="sm:flex-1">
               <ScalableSelect

@@ -20,13 +20,16 @@ from apps.authentication.permissions import (
     IsAdmin,
     CanManageLessonCatalog,
 )
-from apps.people.models import ModuleCoordinator
 from apps.ministries.models import MinistryMember, NCC_MINISTRY_CODE
 from apps.ministries.ncc import (
     ensure_ncc_ministry,
     lessons_teacher_access_person_ids,
 )
 from apps.lessons.branch_scope import can_pick_lessons_branch
+from apps.lessons.coordinator_access import (
+    has_lessons_browse_all,
+    has_lessons_teacher_assignment,
+)
 
 from .models import (
     Lesson,
@@ -260,17 +263,11 @@ class PersonLessonProgressViewSet(
         # ADMIN/PASTOR: All progress
         if user.role in ["ADMIN", "PASTOR"]:
             pass  # No filtering
-        # Lessons Coordinator: All progress
-        elif user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.LESSONS,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
-        ):
+        # Lessons Coordinator / Senior / NCC primary or support: All progress
+        elif has_lessons_browse_all(user):
             pass  # No filtering
         # Lessons Teacher: Only progress for their students
-        elif user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.LESSONS,
-            level=ModuleCoordinator.CoordinatorLevel.TEACHER
-        ):
+        elif has_lessons_teacher_assignment(user):
             queryset = queryset.filter(person__lesson_enrollment__teacher=user)
         # MEMBER: Only own progress
         elif user.role == "MEMBER":
@@ -407,17 +404,11 @@ class LessonSessionReportViewSet(viewsets.ModelViewSet):
         # ADMIN/PASTOR: All reports
         if user.role in ["ADMIN", "PASTOR"]:
             pass  # No filtering
-        # Lessons Coordinator: All reports
-        elif user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.LESSONS,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR
-        ):
+        # Lessons Coordinator / Senior / NCC primary or support: All reports
+        elif has_lessons_browse_all(user):
             pass  # No filtering
         # Lessons Teacher: Only reports where they are the teacher
-        elif user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.LESSONS,
-            level=ModuleCoordinator.CoordinatorLevel.TEACHER
-        ):
+        elif has_lessons_teacher_assignment(user):
             queryset = queryset.filter(teacher=user)
         # MEMBER: Only reports where they are the student
         elif user.role == "MEMBER":
@@ -584,15 +575,9 @@ class LessonStudentEnrollmentViewSet(viewsets.ModelViewSet):
 
         if user.role in ["ADMIN", "PASTOR"]:
             pass
-        elif user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.LESSONS,
-            level=ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-        ):
+        elif has_lessons_browse_all(user):
             pass
-        elif user.is_module_coordinator(
-            ModuleCoordinator.ModuleType.LESSONS,
-            level=ModuleCoordinator.CoordinatorLevel.TEACHER,
-        ):
+        elif has_lessons_teacher_assignment(user):
             queryset = queryset.filter(teacher=user)
         elif user.role == "MEMBER":
             queryset = queryset.filter(student=user)

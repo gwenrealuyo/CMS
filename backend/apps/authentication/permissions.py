@@ -373,6 +373,16 @@ class HasModuleAccess(permissions.BasePermission):
                     "PASTOR",
                 ]
 
+        # NCC ministry coordinators have Lessons write without a ModuleCoordinator row.
+        if (
+            module_type_str == ModuleCoordinator.ModuleType.LESSONS
+            and effective_action in ["write", "create"]
+        ):
+            from apps.lessons.coordinator_access import has_lessons_write_access
+
+            if has_lessons_write_access(user):
+                return True
+
         # MEMBER has read-only access to all modules
         if user.role == "MEMBER" and effective_action == "read":
             return True
@@ -405,6 +415,7 @@ class CanManageLessonCatalog(permissions.BasePermission):
     - ADMIN (any branch; bypasses module disabled)
     - PASTOR on an HQ branch (module enabled)
     - Lessons COORDINATOR or SENIOR_COORDINATOR on an HQ branch (module enabled)
+    - NCC ministry primary or support coordinator on an HQ branch (module enabled)
 
     Teachers, Bible Sharers, plain Members, and non-HQ pastors/coordinators
     are denied.
@@ -429,10 +440,6 @@ class CanManageLessonCatalog(permissions.BasePermission):
         if getattr(user, "role", None) == "PASTOR":
             return True
 
-        return user.module_coordinator_assignments.filter(
-            module=ModuleCoordinator.ModuleType.LESSONS,
-            level__in=(
-                ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-                ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-            ),
-        ).exists()
+        from apps.lessons.coordinator_access import has_lessons_browse_all
+
+        return has_lessons_browse_all(user)

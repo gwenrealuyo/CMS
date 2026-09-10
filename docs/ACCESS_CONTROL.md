@@ -95,6 +95,7 @@ When a user has multiple assignments, they see the union of all applicable peopl
 7. **Cluster Coordinator Family Access**: Cluster coordinators see families of their members even if the family isn't directly connected to the cluster
 8. **Member Sunday School Access**: Members can access Sunday School module but stats/summary cards are hidden
 9. **Cluster Coordinator Lessons Stats**: Cluster coordinators can see stats cards in Lessons module
+10. **NCC ministry coordinators**: Support coordinators have Lessons Coordinator access; primary coordinators have Lessons Senior access (HQ primary may view other branches). These roles do **not** expand People/Families. Access is derived from the NCC ministry record, not a `ModuleCoordinator` LESSONS row.
 
 ## Implementation Details
 
@@ -107,8 +108,8 @@ When a user has multiple assignments, they see the union of all applicable peopl
 ### Frontend Conditional Rendering
 
 - **Sunday School**: `SundaySchoolSummary` component hidden for MEMBER role
-- **Lessons**: `LessonStatsCards` shown for ADMIN, PASTOR, Senior Coordinators, and Cluster Coordinators
-- **Lessons branch filter** (tab row on `/lessons`): editable for ADMIN, PASTOR, and **senior** Lessons coordinators; locked to the user’s assigned branch for Lessons teachers and other roles. Student-linked API lists honor `branch_id` when privileged; otherwise server forces `user.branch`. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
+- **Lessons**: `LessonStatsCards` shown for ADMIN, PASTOR, Senior Coordinators (including NCC primary coordinators), and Cluster Coordinators
+- **Lessons branch filter** (tab row on `/lessons`): editable for ADMIN, PASTOR, and **HQ** senior Lessons coordinators (Admin Settings or NCC primary). Locked to the user’s assigned branch for Lessons teachers, Lessons coordinators, NCC support coordinators, and satellite seniors. Student-linked API lists honor `branch_id` when privileged; otherwise server forces `user.branch`. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
 - **Clusters**: On `ClustersPageView`, the **Clusters** tab primary header action is **Add Cluster** for **ADMIN**, **CLUSTER Senior Coordinator**, or **PASTOR** without a non-senior CLUSTER coordinator-only assignment; others see **Submit Report** as primary. Requires **`module_coordinator_assignments`** on the auth user payload (`UserSerializer` / `GET /auth/me/`). See **Clusters homepage / CTAs** in `docs/CLUSTERS_MODULE.md`. Member cluster cards/views use `members_details` / `families_details` for rosters; person/family panels open only when already in People/Family scope.
 - **Families**: **Add Family** and family edit/add-members/mark-inactive actions on People → Families are shown only for Admin, Pastor, or Cluster coordinators (senior or non-senior) via `canManageFamilies`. Plain Members and Cluster Reporters can view families in their list scope but cannot create or edit.
 

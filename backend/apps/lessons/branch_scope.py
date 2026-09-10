@@ -2,13 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from apps.people.models import ModuleCoordinator, Person
-
-
-def can_pick_lessons_branch(user: Person) -> bool:
-    if user.role in ("ADMIN", "PASTOR"):
-        return True
-    return user.is_senior_coordinator(ModuleCoordinator.ModuleType.LESSONS)
+from apps.lessons.coordinator_access import can_pick_lessons_branch
+from apps.people.models import Person
 
 
 def _parse_branch_param(request) -> Optional[int]:

@@ -70,8 +70,9 @@ Student-linked data is filtered by church branch (`people.Person.branch`), consi
 
 | Who can pick branch (`branch_id` query param) | Scope |
 |-----------------------------------------------|--------|
-| `ADMIN`, `PASTOR`, senior Lessons coordinator | Optional `branch_id` / `branch`; omit param for all branches |
-| Everyone else with `user.branch` | Forced to `user.branch` (query param ignored) |
+| `ADMIN`, `PASTOR` | Optional `branch_id` / `branch`; omit param for all branches |
+| Lessons senior coordinator **or NCC primary coordinator**, at HQ | Optional `branch_id`; omit param for all branches. UI defaults to the user's own branch. |
+| Everyone else with `user.branch` (including Lessons coordinators, NCC support coordinators, satellite seniors/primaries, and teachers) | Forced to `user.branch` (query param ignored) |
 | Users without a branch | Empty queryset |
 
 Applied to:
@@ -86,8 +87,8 @@ Applied to:
 **Frontend** — [`lessonsBranchFilter.ts`](../frontend/src/lib/lessonsBranchFilter.ts):
 
 - Branch `<select>` on the right of the content tab row (`Lesson Content` | `Student Progress` | `Session Reports` | `Files`).
-- Editable for ADMIN, PASTOR, and `isSeniorCoordinator("LESSONS")`; locked with tooltip for teachers and other roles.
-- Changing branch refetches summary, progress, enrollments, and session reports (when that tab is active). Assign/session people dropdowns are filtered client-side to the selected branch.
+- Editable for ADMIN, PASTOR, and HQ Lessons seniors (Admin Settings **or** NCC primary coordinator). Locked with tooltip for teachers, Lessons coordinators, NCC support coordinators, and satellite seniors.
+- Changing branch refetches summary, progress, enrollments, and session reports (when that tab is active). Assign/session people dropdowns are filtered client-side to the selected branch. The filter **defaults to the user's own branch** (not “All branches”).
 
 ## Commitment Form & NCC Lessons PDF
 
@@ -143,7 +144,7 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 
 - `LessonList` / `LessonDetailPanel` / `LessonForm` — catalog CRUD.
 - `NccLessonsPdfSection` / `CommitmentFormSection` — global booklet and commitment PDFs on the Files tab (`LessonPdfResourceCard`).
-- `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators, cluster coordinators); respects `branch_id` on summary API.
+- `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators including NCC primary, cluster coordinators); respects `branch_id` on summary API.
 - `AssignLessonsDropdown` — multi-select assign; eligible students only; status/cluster under names.
 - `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators). Coordinators can **Assign teacher** from this modal when a student has progress (including finished / legacy) but no enrollment.
 - `LessonSessionReportForm` — log/edit sessions (lesson vs pre-lesson topic picker).
@@ -151,8 +152,15 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 
 ### Permissions (UI)
 
-- Lesson write / assign / session log: module coordinators and roles with `HasModuleAccess('LESSONS', 'write')` (see [ACCESS_CONTROL.md](./ACCESS_CONTROL.md)).
-- Branch picker: ADMIN, PASTOR, senior Lessons coordinator only.
+- Lesson write / assign / session log: module coordinators, **NCC ministry primary/support coordinators**, and roles with `HasModuleAccess('LESSONS', 'write')` (see [ACCESS_CONTROL.md](./ACCESS_CONTROL.md)).
+- Branch picker: ADMIN, PASTOR, and HQ Lessons seniors (including HQ NCC primary) only.
+
+NCC ministry roles (no extra `ModuleCoordinator` row):
+
+| NCC ministry role | Lessons access |
+|-------------------|----------------|
+| **Support coordinator** | Same as Lessons Coordinator (all students in their branch; assign, log sessions, manage that branch's NCC roster). Does not expand People/Families. |
+| **Primary coordinator** | Same as Lessons Senior Coordinator for Lessons/NCC. Own branch unless the NCC ministry is HQ, in which case they may view other branches. People/Families stay unchanged. |
 
 ## Testing
 
@@ -163,6 +171,7 @@ Automated tests live under `apps.lessons.tests`:
 | `test_session_reports.py` | PRE_LESSON vs LESSON progress, remarks validation, pre-lesson LESSON journeys, delete + reconcile |
 | `test_enrollments.py` | Assign eligibility, commitment, transfers |
 | `test_catalog_permissions.py` | Catalog CRUD, commitment PDF, NCC booklet upload permissions |
+| `test_ncc_coordinator_access.py` | NCC primary/support Lessons access, HQ vs satellite branch picking |
 
 Run with SQLite test settings (required in this repo):
 

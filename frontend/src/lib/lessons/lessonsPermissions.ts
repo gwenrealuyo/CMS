@@ -22,10 +22,24 @@ function lessonsAssignments(user: User | null): ModuleCoordinator[] {
   );
 }
 
-/** Admin, pastor, and Lessons coordinators can browse every student/teacher. */
+function hasNccLessonsCoordinatorRole(user: User | null): boolean {
+  return user?.ncc_lessons_role === "PRIMARY" || user?.ncc_lessons_role === "SUPPORT";
+}
+
+/** Lessons Senior Coordinator assignment or NCC ministry primary coordinator. */
+export function hasLessonsSeniorAccess(user: User | null): boolean {
+  if (!user) return false;
+  if (user.ncc_lessons_role === "PRIMARY") return true;
+  return lessonsAssignments(user).some(
+    (assignment) => assignment.level === "SENIOR_COORDINATOR",
+  );
+}
+
+/** Admin, pastor, Lessons coordinators, and NCC ministry coordinators. */
 export function canBrowseAllLessonStudents(user: User | null): boolean {
   if (!user) return false;
   if (user.role === "ADMIN" || user.role === "PASTOR") return true;
+  if (hasNccLessonsCoordinatorRole(user)) return true;
   return lessonsAssignments(user).some((assignment) =>
     LESSONS_CATALOG_LEVELS.includes(assignment.level),
   );
@@ -60,6 +74,8 @@ export function canWriteLessons({
 
   if (user.role === "PASTOR") return true;
 
+  if (hasNccLessonsCoordinatorRole(user)) return true;
+
   return lessonsAssignments(user).some((assignment) =>
     LESSONS_WRITE_LEVELS.includes(assignment.level),
   );
@@ -67,7 +83,8 @@ export function canWriteLessons({
 
 /**
  * Matches backend CanManageLessonCatalog: Admin (any branch), or HQ Pastor /
- * Lessons Coordinator / Senior Coordinator. Teachers and non-HQ are excluded.
+ * Lessons Coordinator / Senior Coordinator / NCC primary or support.
+ * Teachers and non-HQ are excluded.
  */
 export function canManageLessonCatalog({
   user,
@@ -82,6 +99,8 @@ export function canManageLessonCatalog({
   if (!user.branch_is_headquarters) return false;
 
   if (user.role === "PASTOR") return true;
+
+  if (hasNccLessonsCoordinatorRole(user)) return true;
 
   return lessonsAssignments(user).some((assignment) =>
     LESSONS_CATALOG_LEVELS.includes(assignment.level),

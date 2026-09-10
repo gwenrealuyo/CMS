@@ -21,6 +21,8 @@ import {
   LessonProgressSummaryByLesson,
 } from "@/src/types/lesson";
 import { usePeople } from "@/src/hooks/usePeople";
+import { useModuleSettings } from "@/src/hooks/useModuleSettings";
+import { canWriteLessons } from "@/src/lib/lessons/lessonsPermissions";
 import { Person } from "@/src/types/person";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import QuickActions from "@/src/components/dashboard/QuickActions";
@@ -259,6 +261,7 @@ function averageClusterMemberRates(
 
 export default function Dashboard() {
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
+  const { moduleEnabled } = useModuleSettings();
   const [lessonSummary, setLessonSummary] =
     useState<LessonProgressSummary | null>(null);
   const [lessonSummaryLoading, setLessonSummaryLoading] = useState(true);
@@ -314,14 +317,11 @@ export default function Dashboard() {
     );
   }, [user, isSeniorCoordinator]);
 
-  /** Matches backend PersonLessonProgressViewSet.summary — HasModuleAccess('LESSONS','write') on custom action. */
-  const canViewLessons = useMemo(() => {
-    if (!user) return false;
-    if (user.role === "ADMIN" || user.role === "PASTOR") return true;
-    if (isSeniorCoordinator("LESSONS")) return true;
-    if (isModuleCoordinator("LESSONS")) return true;
-    return false;
-  }, [user, isModuleCoordinator, isSeniorCoordinator]);
+  /** Matches backend HasModuleAccess('LESSONS','write') including NCC ministry coordinators. */
+  const canViewLessons = useMemo(
+    () => canWriteLessons({ user, moduleEnabled }),
+    [user, moduleEnabled],
+  );
 
   const canViewEvents = useMemo(() => {
     if (!user) return false;

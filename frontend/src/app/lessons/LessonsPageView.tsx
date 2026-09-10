@@ -32,7 +32,7 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import NoteInputModal from "@/src/components/ui/NoteInputModal";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
-import { canWriteLessons, canManageLessonCatalog } from "@/src/lib/lessons/lessonsPermissions";
+import { canWriteLessons, canManageLessonCatalog, hasLessonsSeniorAccess } from "@/src/lib/lessons/lessonsPermissions";
 import {
   Lesson,
   LessonCommitmentSettings,
@@ -414,13 +414,7 @@ export default function LessonsPageView({
     user,
     moduleEnabled,
   });
-  const canTransferLessonTeacher = Boolean(
-    user &&
-      (user.role === "ADMIN" ||
-        user.role === "PASTOR" ||
-        isSeniorCoordinator("LESSONS") ||
-        isModuleCoordinator("LESSONS"))
-  );
+  const canTransferLessonTeacher = canWriteLessonsAccess;
   const enrollmentTeacherByStudentId = useMemo(() => {
     const map = new Map<number, number>();
     enrollmentByStudent.forEach((enrollment, studentId) => {
@@ -436,7 +430,8 @@ export default function LessonsPageView({
     user?.role === "ADMIN" || 
     user?.role === "PASTOR" || 
     isSeniorCoordinator() ||
-    isModuleCoordinator("CLUSTER", "COORDINATOR");
+    isModuleCoordinator("CLUSTER", "COORDINATOR") ||
+    hasLessonsSeniorAccess(user);
 
   const lessonsBranchSelectInteractive =
     lessonsBranchCanChangeFilter && !lessonsBranchesLoading;

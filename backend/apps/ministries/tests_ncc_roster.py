@@ -442,3 +442,129 @@ class NccMinistryRosterTests(TestCase):
             backfill_ncc_roster_from_lessons_teachers(),
             0,
         )
+
+    def _ncc_support(self):
+        person = Person.objects.create_user(
+            username="ncc_support",
+            email="ncc_support@test.com",
+            password="testpass123",
+            first_name="Ncc",
+            last_name="Support",
+            role="MEMBER",
+            branch=self.branch,
+            status="ACTIVE",
+        )
+        ministry = ensure_ncc_ministry(self.branch)
+        ministry.support_coordinators.add(person)
+        return person
+
+    def _ncc_primary(self, branch, username):
+        person = Person.objects.create_user(
+            username=username,
+            email=f"{username}@test.com",
+            password="testpass123",
+            first_name="Ncc",
+            last_name="Primary",
+            role="MEMBER",
+            branch=branch,
+            status="ACTIVE",
+        )
+        ministry = ensure_ncc_ministry(branch)
+        ministry.primary_coordinator = person
+        ministry.save(update_fields=["primary_coordinator", "updated_at"])
+        return person
+
+    def test_ncc_support_can_manage_own_branch_roster(self):
+        ministry = ensure_ncc_ministry(self.branch)
+        support = self._ncc_support()
+        self.client.force_authenticate(user=support)
+        response = self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": ministry.id,
+                "member_id": self.teacher.id,
+                "role": "team_member",
+                "grant_lessons_teacher_access": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_ncc_support_cannot_manage_other_ministry(self):
+        other = Ministry.objects.create(
+            name="Worship Support",
+            code="WORSHIP-SUP",
+            scope="BRANCH",
+            branch=self.branch,
+            is_active=True,
+        )
+        support = self._ncc_support()
+        self.client.force_authenticate(user=support)
+        response = self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": other.id,
+                "member_id": self.teacher.id,
+                "role": "team_member",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_satellite_ncc_primary_cannot_manage_other_branch_roster(self):
+        primary = self._ncc_primary(self.branch, "ncc_sat_primary")
+        other_ministry = ensure_ncc_ministry(self.other_branch)
+        other_teacher = Person.objects.create_user(
+            username="ncc_other_teacher",
+            email="ncc_other_teacher@test.com",
+            password="testpass123",
+            first_name="Other",
+            last_name="Teacher",
+            role="MEMBER",
+            branch=self.other_branch,
+            status="ACTIVE",
+        )
+        self.client.force_authenticate(user=primary)
+        response = self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": other_ministry.id,
+                "member_id": other_teacher.id,
+                "role": "team_member",
+                "grant_lessons_teacher_access": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_hq_ncc_primary_can_manage_other_branch_roster(self):
+        hq = Branch.objects.create(
+            name="NCC HQ",
+            code="NCCHQ",
+            is_active=True,
+            is_headquarters=True,
+        )
+        primary = self._ncc_primary(hq, "ncc_hq_primary")
+        other_ministry = ensure_ncc_ministry(self.other_branch)
+        other_teacher = Person.objects.create_user(
+            username="ncc_hq_other_teacher",
+            email="ncc_hq_other_teacher@test.com",
+            password="testpass123",
+            first_name="Hqother",
+            last_name="Teacher",
+            role="MEMBER",
+            branch=self.other_branch,
+            status="ACTIVE",
+        )
+        self.client.force_authenticate(user=primary)
+        response = self.client.post(
+            "/api/ministries/members/",
+            {
+                "ministry": other_ministry.id,
+                "member_id": other_teacher.id,
+                "role": "team_member",
+                "grant_lessons_teacher_access": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)

@@ -210,7 +210,7 @@ export default function LessonsPageContainer() {
   ]);
 
   const { people, loading: peopleLoading, error: peopleError } = usePeople();
-  const { user, isSeniorCoordinator } = useAuth();
+  const { user } = useAuth();
   const { moduleEnabled } = useModuleSettings();
   const userCanHardDelete = canHardDelete(user);
   const canWriteLessonsAccess = useMemo(
@@ -233,8 +233,8 @@ export default function LessonsPageContainer() {
   }, [isTeacherScopedSessionView, user?.id]);
 
   const lessonsBranchCanChangeFilter = useMemo(
-    () => canChangeLessonsBranchFilterForUser(user, isSeniorCoordinator),
-    [user, isSeniorCoordinator],
+    () => canChangeLessonsBranchFilterForUser(user),
+    [user],
   );
 
   const [selectedBranchId, setSelectedBranchId] = useState("");

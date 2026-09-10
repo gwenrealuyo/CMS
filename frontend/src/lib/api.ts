@@ -1786,6 +1786,8 @@ export interface User {
   must_change_password?: boolean;
   first_login?: boolean;
   module_coordinator_assignments?: ModuleCoordinator[];
+  ncc_lessons_role?: "PRIMARY" | "SUPPORT" | null;
+  ncc_primary_at_headquarters?: boolean;
 }
 
 export interface PasswordResetRequest {

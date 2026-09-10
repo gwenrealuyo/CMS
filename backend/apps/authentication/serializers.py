@@ -94,6 +94,8 @@ class UserSerializer(serializers.ModelSerializer):
     module_coordinator_assignments = ModuleCoordinatorSerializer(
         many=True, read_only=True
     )
+    ncc_lessons_role = serializers.SerializerMethodField()
+    ncc_primary_at_headquarters = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -114,6 +116,8 @@ class UserSerializer(serializers.ModelSerializer):
             "branch_is_headquarters",
             "can_see_all_branches",
             "module_coordinator_assignments",
+            "ncc_lessons_role",
+            "ncc_primary_at_headquarters",
         )
         read_only_fields = (
             "id",
@@ -127,6 +131,8 @@ class UserSerializer(serializers.ModelSerializer):
             "branch_is_headquarters",
             "can_see_all_branches",
             "module_coordinator_assignments",
+            "ncc_lessons_role",
+            "ncc_primary_at_headquarters",
         )
 
     def get_full_name(self, obj):
@@ -144,6 +150,16 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_can_see_all_branches(self, obj):
         return obj.can_see_all_branches()
+
+    def get_ncc_lessons_role(self, obj):
+        from apps.lessons.coordinator_access import ncc_lessons_role
+
+        return ncc_lessons_role(obj)
+
+    def get_ncc_primary_at_headquarters(self, obj):
+        from apps.lessons.coordinator_access import is_ncc_primary_at_headquarters
+
+        return is_ncc_primary_at_headquarters(obj)
 
 
 class TokenResponseSerializer(serializers.Serializer):

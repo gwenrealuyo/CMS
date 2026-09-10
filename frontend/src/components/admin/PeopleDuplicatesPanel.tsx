@@ -114,7 +114,8 @@ export default function PeopleDuplicatesPanel() {
       await loadGroups();
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+          err?.response?.data?.detail ||
           "Failed to delete person. Please try again.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, loading: false }));

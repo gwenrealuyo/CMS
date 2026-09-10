@@ -1,4 +1,5 @@
 from django.db.models import Q, Count
+from django.db.models.deletion import ProtectedError
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.pagination import PageNumberPagination
@@ -37,6 +38,44 @@ from apps.authentication.permissions import (
     IsAdmin,
     IsSelf,
 )
+
+
+def _person_display_name(person):
+    return (person.get_full_name() or person.username or f"person {person.pk}").strip()
+
+
+def _person_delete_blocked_response(instance):
+    """400 body when PROTECT FKs (usually lessons teacher rows) block delete."""
+    name = _person_display_name(instance)
+    student_enrollments = list(
+        instance.lesson_students.select_related("student")[:3]
+    )
+    student_count = instance.lesson_students.count()
+    if student_count:
+        sample_names = [
+            _person_display_name(enrollment.student)
+            for enrollment in student_enrollments
+        ]
+        names_text = ", ".join(sample_names)
+        student_word = "student" if student_count == 1 else "students"
+        detail = (
+            f'Cannot delete "{name}" because they are assigned as a lessons '
+            f"teacher for {student_count} {student_word}, including {names_text}. "
+            "Reassign those students on the Lessons page, then try again."
+        )
+        return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+    if instance.lesson_transfers_to.exists():
+        detail = (
+            f'Cannot delete "{name}" because they appear in lessons teacher '
+            "history. Reassign or clear those lesson teacher records, then try again."
+        )
+        return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+    detail = (
+        f'Cannot delete "{name}" because other records still reference them.'
+    )
+    return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PersonPagination(PageNumberPagination):
@@ -365,6 +404,15 @@ class PersonViewSet(viewsets.ModelViewSet):
             # Delete: Only ADMIN
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.lesson_students.exists() or instance.lesson_transfers_to.exists():
+            return _person_delete_blocked_response(instance)
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return _person_delete_blocked_response(instance)
 
     @action(detail=False, methods=["get"], url_path="possible-duplicates")
     def possible_duplicates(self, request):

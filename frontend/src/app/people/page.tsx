@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import PersonForm from "@/src/components/people/PersonForm";
 import PersonProfile from "@/src/components/people/PersonProfile";
@@ -58,6 +59,19 @@ import ClusterView from "@/src/components/clusters/ClusterView";
 import AddFamilyMemberModal from "@/src/components/families/AddFamilyMemberModal";
 import ClusterReportsDashboard from "@/src/components/reports/ClusterReportsDashboard";
 import ClusterWeeklyReportForm from "@/src/components/reports/ClusterWeeklyReportForm";
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  const data = (
+    error as { response?: { data?: { message?: string; detail?: string } } }
+  )?.response?.data;
+  if (typeof data?.message === "string" && data.message.trim()) {
+    return data.message;
+  }
+  if (typeof data?.detail === "string" && data.detail.trim()) {
+    return data.detail;
+  }
+  return fallback;
+}
 
 const DEFAULT_PEOPLE_BRANCH_FILTER_ID = "default-branch";
 
@@ -1230,6 +1244,12 @@ export default function PeoplePage() {
         setViewEditPerson(null);
       } catch (error) {
         console.error("Failed to delete person:", error);
+        toast.error(
+          getApiErrorMessage(
+            error,
+            "Failed to delete person. Please try again.",
+          ),
+        );
         setPersonDeleteConfirmation((prev) => ({ ...prev, loading: false }));
       }
     }
@@ -1383,7 +1403,12 @@ export default function PeoplePage() {
       });
     } catch (error) {
       console.error("Error deleting people:", error);
-      alert("Failed to delete some people. Please try again.");
+      toast.error(
+        getApiErrorMessage(
+          error,
+          "Failed to delete some people. Please try again.",
+        ),
+      );
       setBulkDeleteConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };

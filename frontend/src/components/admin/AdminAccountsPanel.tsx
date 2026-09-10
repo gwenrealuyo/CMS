@@ -159,7 +159,8 @@ export default function AdminAccountsPanel() {
       await loadAdmins();
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+          err?.response?.data?.detail ||
           "Failed to delete admin account. Please try again.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, loading: false }));

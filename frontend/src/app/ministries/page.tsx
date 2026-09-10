@@ -1,7 +1,7 @@
 "use client";
 
 import { AxiosError } from "axios";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
@@ -89,9 +89,7 @@ export default function MinistriesPage() {
   }, [user, defaultBranchFilter, setFilter]);
 
   const userCanHardDelete = canHardDelete(user);
-  const [searchQuery, setSearchQuery] = useState(filters.search ?? "");
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewMinistry, setViewMinistry] = useState<Ministry | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -132,10 +130,34 @@ export default function MinistriesPage() {
     [categoryOptions],
   );
 
+  const visibleMinistries = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) {
+      return ministries;
+    }
+    return ministries.filter((ministry) => {
+      const coordinator = ministry.primary_coordinator
+        ? formatPersonName(ministry.primary_coordinator).toLowerCase()
+        : "";
+      const haystack = [
+        ministry.name,
+        ministry.code,
+        ministry.description,
+        coordinator,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [ministries, searchQuery]);
+
   const stats = useMemo(() => {
-    const total = ministries.length;
-    const active = ministries.filter((ministry) => ministry.is_active).length;
-    const byCadence = ministries.reduce<Record<string, number>>(
+    const total = visibleMinistries.length;
+    const active = visibleMinistries.filter(
+      (ministry) => ministry.is_active,
+    ).length;
+    const byCadence = visibleMinistries.reduce<Record<string, number>>(
       (acc, ministry) => {
         acc[ministry.activity_cadence] =
           (acc[ministry.activity_cadence] || 0) + 1;
@@ -144,47 +166,10 @@ export default function MinistriesPage() {
       {},
     );
     return { total, active, byCadence };
-  }, [ministries]);
-
-  // Debounced search for better performance
-  const handleSearchChange = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-      setIsSearching(true);
-
-      // Clear existing timeout
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-
-      // Set new timeout for debounced search
-      searchTimeoutRef.current = setTimeout(() => {
-        setFilter("search", query);
-        setIsSearching(false);
-      }, 300); // 300ms delay
-    },
-    [setFilter],
-  );
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Sync searchQuery with filter when filter changes externally (e.g., reset)
-  useEffect(() => {
-    if (filters.search !== searchQuery) {
-      setSearchQuery(filters.search ?? "");
-    }
-  }, [filters.search, searchQuery]);
+  }, [visibleMinistries]);
 
   const handleResetFilters = () => {
     setSearchQuery("");
-    setFilter("search", "");
     setFilter("activity_cadence", "all");
     setFilter("category", "all");
     setFilter("scope", "all");
@@ -394,7 +379,7 @@ export default function MinistriesPage() {
                 <input
                   type="search"
                   value={searchQuery}
-                  onChange={(event) => handleSearchChange(event.target.value)}
+                  onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Name, description, coordinator"
                   className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 />
@@ -553,9 +538,18 @@ export default function MinistriesPage() {
                   listed here.
                 </p>
               </div>
+            ) : visibleMinistries.length === 0 ? (
+              <div className="py-12 text-center">
+                <h3 className="text-lg font-semibold text-gray-600">
+                  No matching ministries
+                </h3>
+                <p className="text-sm text-gray-500 mt-2">
+                  Try a different search, or reset filters to see all ministries.
+                </p>
+              </div>
             ) : (
               <Table
-                data={ministries.map((ministry) => ({
+                data={visibleMinistries.map((ministry) => ({
                   ...ministry,
                   membersCount:
                     ministry.member_count ?? ministry.memberships?.length ?? 0,

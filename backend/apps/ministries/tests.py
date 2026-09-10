@@ -680,6 +680,7 @@ class MinistryListPayloadAPITests(TestCase):
             item for item in self._list_rows(response) if item["id"] == self.ministry.id
         )
         self.assertEqual(row["member_count"], 2)
+        self.assertIn("description", row)
         self.assertNotIn("memberships", row)
         self.assertNotIn("support_coordinators", row)
 

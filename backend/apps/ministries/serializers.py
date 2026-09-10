@@ -225,6 +225,7 @@ class MinistryListSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "code",
+            "description",
             "category",
             "activity_cadence",
             "scope",

@@ -11,7 +11,6 @@ import {
 } from "@/src/types/ministry";
 
 export interface MinistryFilters {
-  search?: string;
   activity_cadence?: MinistryCadence | "all";
   category?: MinistryCategory | "all";
   scope?: MinistryScope | "all";
@@ -23,7 +22,6 @@ export interface MinistryFilters {
 export const useMinistries = () => {
   const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [filters, setFilters] = useState<MinistryFilters>({
-    search: "",
     activity_cadence: "all",
     category: "all",
     scope: "all",
@@ -40,7 +38,6 @@ export const useMinistries = () => {
     try {
       setLoading(true);
       const params: Record<string, unknown> = {};
-      if (filters.search) params.search = filters.search;
       if (filters.activity_cadence && filters.activity_cadence !== "all") {
         params.activity_cadence = filters.activity_cadence;
       }

@@ -10,6 +10,8 @@ interface ModalProps {
   className?: string;
   hideHeader?: boolean;
   headerClassName?: string;
+  /** Extra classes for the scrollable children wrapper. */
+  contentClassName?: string;
   /** When false, backdrop clicks do not dismiss the modal. Default true. */
   closeOnOutsideClick?: boolean;
 }
@@ -22,6 +24,7 @@ export default function Modal({
   className = "",
   hideHeader = false,
   headerClassName = "",
+  contentClassName = "",
   closeOnOutsideClick = true,
 }: ModalProps) {
   useEffect(() => {
@@ -82,9 +85,13 @@ export default function Modal({
           </div>
         )}
         <div
-          className={`flex-1 overflow-y-auto ${
-            hideHeader ? "p-0" : "p-4 md:p-6"
-          }`}
+          className={
+            contentClassName
+              ? `flex-1 min-h-0 ${contentClassName}`
+              : `flex-1 overflow-y-auto ${
+                  hideHeader ? "p-0" : "p-4 md:p-6"
+                }`
+          }
         >
           {children}
         </div>

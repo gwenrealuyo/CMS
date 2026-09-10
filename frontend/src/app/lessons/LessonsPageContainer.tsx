@@ -1259,6 +1259,13 @@ export default function LessonsPageContainer() {
     });
   };
 
+  const resetProgressBrowseState = () => {
+    setProgressSearchQuery("");
+    setProgressFilterLessonId(null);
+    setProgressStatusFilter("ALL");
+    closePersonProgressModal();
+  };
+
   const updateSessionFilterDraft = (
     field: keyof SessionFilterValues,
     value: string
@@ -1486,6 +1493,7 @@ export default function LessonsPageContainer() {
         ) ?? editingSessionReport?.student;
       const studentName = formatPersonName(student);
       closeSessionModal();
+      resetProgressBrowseState();
       toast.success(
         wasEditing
           ? `Session report for ${studentName} updated.`
@@ -1543,6 +1551,7 @@ export default function LessonsPageContainer() {
       await lessonsApi.deleteSessionReport(sessionDeleteTarget.id);
       const studentName = formatPersonName(sessionDeleteTarget.student);
       setSessionDeleteTarget(null);
+      resetProgressBrowseState();
       toast.success(`Session report for ${studentName} deleted.`, {
         duration: 4000,
       });

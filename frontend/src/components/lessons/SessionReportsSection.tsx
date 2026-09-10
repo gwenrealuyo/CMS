@@ -93,7 +93,7 @@ function SessionReportCard({
   return (
     <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50/90 to-white px-4 py-3.5 sm:px-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             {!hideStudentHeader && (
               <div className="flex flex-wrap items-center gap-2">
@@ -119,13 +119,13 @@ function SessionReportCard({
               </div>
             )}
             <span
-              className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+              className={`inline-flex max-w-full min-w-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-normal break-words ${
                 isPreLesson
                   ? "border-amber-200 bg-amber-50 text-amber-900"
                   : "border-blue-200 bg-blue-50 text-blue-900"
               } ${hideStudentHeader ? "" : "mt-2"}`}
             >
-              <span className="truncate">{topicLabel}</span>
+              <span className="whitespace-normal break-words">{topicLabel}</span>
             </span>
           </div>
           <div className="flex shrink-0 gap-1.5">

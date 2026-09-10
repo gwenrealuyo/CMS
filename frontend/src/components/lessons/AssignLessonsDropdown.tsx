@@ -277,181 +277,209 @@ export default function AssignLessonsDropdown({
     selectedLessonIds.size > 0 &&
     (!requiresTeacherPicker || Boolean(selectedTeacherId));
 
-  const panelBody = (
-    <>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 sm:max-h-[60vh]">
-        {!selectedPersonId ? (
-          <>
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Search Person
-              </label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, nickname, or member ID..."
-                className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                autoFocus={isMdUp}
-              />
-            </div>
+  const renderPanelBody = (layout: "modal" | "popover") => {
+    const isModal = layout === "modal";
+    const personListClass = isModal
+      ? "min-h-0 flex-1 overflow-y-auto border rounded-lg divide-y divide-gray-200"
+      : "max-h-48 overflow-y-auto border rounded-lg divide-y divide-gray-200";
+    const lessonListClass = isModal
+      ? "min-h-0 flex-1 overflow-y-auto border rounded-lg divide-y divide-gray-200"
+      : "max-h-64 overflow-y-auto border rounded-lg divide-y divide-gray-200";
 
-            {peopleError && <ErrorMessage message={peopleError} />}
-            {assignError && <ErrorMessage message={assignError} />}
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Select Person
-              </label>
-              <div className="max-h-48 overflow-y-auto border rounded-lg divide-y divide-gray-200">
-                {peopleLoading ? (
-                  <div className="p-4">
-                    <LoadingSpinner />
-                  </div>
-                ) : filteredPeople.length === 0 ? (
-                  <div className="p-4 text-sm text-gray-500">
-                    {eligiblePeople.length === 0
-                      ? emptyEligibleMessage
-                      : "No people match your search."}
-                  </div>
-                ) : (
-                  filteredPeople.map((person) => (
-                    <button
-                      key={person.id}
-                      type="button"
-                      onClick={() => handlePersonSelect(person.id)}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
-                    >
-                      <div className="font-medium text-foreground">
-                        {formatPersonName(person)}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(person.status)}`}
-                        >
-                          {formatPersonStatusLabel(person.status)}
-                        </span>
-                        <span
-                          className={getPersonClusterChipClass(
-                            (person.cluster_codes?.length ?? 0) > 0,
-                          )}
-                        >
-                          {formatPersonClusterLabel(person.cluster_codes)}
-                        </span>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">
-                  Selected: {formatPersonName(selectedPerson!)}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPersonId(null);
-                    setSelectedLessonIds(new Set());
-                    setSelectedTeacherId("");
-                  }}
-                  className="text-sm text-primary hover:text-primary min-h-[44px] px-2"
-                >
-                  Change
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Teacher
-                {requiresTeacherPicker && (
-                  <span className="text-red-500 ml-1">*</span>
-                )}
-              </label>
-              {existingEnrollment ? (
-                <p className="text-sm text-gray-600 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-                  {enrollmentTeacherLabel(
-                    existingEnrollment,
-                    formatPersonName,
-                  )}{" "}
-                  (assigned)
-                </p>
-              ) : (
-                <ScalableSelect
-                  options={teacherSelectOptions}
-                  value={selectedTeacherId}
-                  onChange={setSelectedTeacherId}
-                  placeholder="Select teacher..."
-                  searchPlaceholder="Search teacher..."
-                  emptyMessage={
-                    studentBranchId == null
-                      ? "Student must have a branch before assigning a lessons teacher."
-                      : NCC_TEACHER_ROSTER_EMPTY_MESSAGE
-                  }
-                />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Select Lessons (all checked by default)
-              </label>
-              <div className="max-h-64 overflow-y-auto border rounded-lg divide-y divide-gray-200">
-                {sortedLessons.map((lesson) => (
-                  <label
-                    key={lesson.id}
-                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer min-h-[44px]"
-                  >
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-primary focus:ring-ring"
-                      checked={selectedLessonIds.has(lesson.id)}
-                      onChange={() => handleLessonToggle(lesson.id)}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium">
-                        Lesson {lesson.order}: {lesson.title}
-                      </div>
-                      {lesson.version_label && (
-                        <span className="chip-primary-sm mt-1">
-                          {lesson.version_label}
-                        </span>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="p-4 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3">
-        <Button
-          variant="tertiary"
-          onClick={handleCancel}
-          disabled={assigning}
-          className="w-full sm:w-auto min-h-[44px]"
+    return (
+      <>
+        <div
+          className={
+            isModal
+              ? "flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4"
+              : "flex-1 overflow-y-auto p-4 space-y-4 sm:max-h-[60vh]"
+          }
         >
-          Cancel
-        </Button>
-        {canSubmit && (
+          {!selectedPersonId ? (
+            <>
+              <div className="shrink-0 space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Search Person
+                </label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, nickname, or member ID..."
+                  className="w-full min-h-[44px] border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  autoFocus={isMdUp}
+                />
+              </div>
+
+              {peopleError && <ErrorMessage message={peopleError} />}
+              {assignError && <ErrorMessage message={assignError} />}
+
+              <div
+                className={
+                  isModal
+                    ? "flex min-h-0 flex-1 flex-col space-y-2"
+                    : "space-y-2"
+                }
+              >
+                <label className="block shrink-0 text-sm font-medium text-gray-700">
+                  Select Person
+                </label>
+                <div className={personListClass}>
+                  {peopleLoading ? (
+                    <div className="p-4">
+                      <LoadingSpinner />
+                    </div>
+                  ) : filteredPeople.length === 0 ? (
+                    <div className="p-4 text-sm text-gray-500">
+                      {eligiblePeople.length === 0
+                        ? emptyEligibleMessage
+                        : "No people match your search."}
+                    </div>
+                  ) : (
+                    filteredPeople.map((person) => (
+                      <button
+                        key={person.id}
+                        type="button"
+                        onClick={() => handlePersonSelect(person.id)}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
+                      >
+                        <div className="font-medium text-foreground">
+                          {formatPersonName(person)}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPersonStatusColor(person.status)}`}
+                          >
+                            {formatPersonStatusLabel(person.status)}
+                          </span>
+                          <span
+                            className={getPersonClusterChipClass(
+                              (person.cluster_codes?.length ?? 0) > 0,
+                            )}
+                          >
+                            {formatPersonClusterLabel(person.cluster_codes)}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="shrink-0 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Selected: {formatPersonName(selectedPerson!)}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPersonId(null);
+                      setSelectedLessonIds(new Set());
+                      setSelectedTeacherId("");
+                    }}
+                    className="text-sm text-primary hover:text-primary min-h-[44px] px-2"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+
+              <div className="shrink-0 space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Teacher
+                  {requiresTeacherPicker && (
+                    <span className="text-red-500 ml-1">*</span>
+                  )}
+                </label>
+                {existingEnrollment ? (
+                  <p className="text-sm text-gray-600 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                    {enrollmentTeacherLabel(
+                      existingEnrollment,
+                      formatPersonName,
+                    )}{" "}
+                    (assigned)
+                  </p>
+                ) : (
+                  <ScalableSelect
+                    options={teacherSelectOptions}
+                    value={selectedTeacherId}
+                    onChange={setSelectedTeacherId}
+                    placeholder="Select teacher..."
+                    searchPlaceholder="Search teacher..."
+                    emptyMessage={
+                      studentBranchId == null
+                        ? "Student must have a branch before assigning a lessons teacher."
+                        : NCC_TEACHER_ROSTER_EMPTY_MESSAGE
+                    }
+                  />
+                )}
+              </div>
+
+              <div
+                className={
+                  isModal
+                    ? "flex min-h-0 flex-1 flex-col space-y-2"
+                    : "space-y-2"
+                }
+              >
+                <label className="block shrink-0 text-sm font-medium text-gray-700">
+                  Select Lessons (all checked by default)
+                </label>
+                <div className={lessonListClass}>
+                  {sortedLessons.map((lesson) => (
+                    <label
+                      key={lesson.id}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer min-h-[44px]"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-primary focus:ring-ring"
+                        checked={selectedLessonIds.has(lesson.id)}
+                        onChange={() => handleLessonToggle(lesson.id)}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          Lesson {lesson.order}: {lesson.title}
+                        </div>
+                        {lesson.version_label && (
+                          <span className="chip-primary-sm mt-1">
+                            {lesson.version_label}
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="shrink-0 p-4 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3">
           <Button
-            onClick={handleSubmit}
+            variant="tertiary"
+            onClick={handleCancel}
             disabled={assigning}
             className="w-full sm:w-auto min-h-[44px]"
           >
-            {assigning ? "Assigning..." : "Assign Selected Lessons"}
+            Cancel
           </Button>
-        )}
-      </div>
-    </>
-  );
+          {canSubmit && (
+            <Button
+              onClick={handleSubmit}
+              disabled={assigning}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              {assigning ? "Assigning..." : "Assign Selected Lessons"}
+            </Button>
+          )}
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="relative w-full md:w-auto" ref={containerRef}>
@@ -468,10 +496,9 @@ export default function AssignLessonsDropdown({
           isOpen={isOpen}
           onClose={handleCancel}
           title="Assign Lessons"
+          contentClassName="overflow-hidden flex flex-col p-0"
         >
-          <div className="-mx-4 flex max-h-[calc(100vh-8rem)] flex-col sm:mx-0">
-            {panelBody}
-          </div>
+          {renderPanelBody("modal")}
         </Modal>
       )}
 
@@ -482,7 +509,7 @@ export default function AssignLessonsDropdown({
               Assign Lessons
             </h3>
           </div>
-          {panelBody}
+          {renderPanelBody("popover")}
         </div>
       )}
     </div>

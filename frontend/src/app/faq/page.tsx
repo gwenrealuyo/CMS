@@ -22,7 +22,7 @@ function FaqPageContent() {
             Frequently asked questions
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Quick answers about signing in, access, people, clusters, and more.
+            Quick answers about signing in, access, people, clusters, lessons, and more.
           </p>
         </div>
 

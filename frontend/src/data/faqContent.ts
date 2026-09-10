@@ -127,6 +127,36 @@ export const faqCategories: FaqCategory[] = [
     ],
   },
   {
+    id: "lessons",
+    title: "Lessons (NCC)",
+    items: [
+      {
+        id: "what-is-lessons",
+        question: "What is Lessons (NCC)?",
+        answer:
+          "Lessons is the seven-lesson New Converts Course. Teachers and coordinators assign lessons, log session reports, and track commitment forms. Progress moves from Assigned → In Progress → Completed.",
+      },
+      {
+        id: "lessons-tabs",
+        question: "What are the Lessons tabs for?",
+        answer:
+          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Session Reports is for one-on-one teaching sessions. Commitment Forms tracks signed commitment PDFs per student.",
+      },
+      {
+        id: "assign-and-log",
+        question: "How do I assign lessons and log a session?",
+        answer:
+          "On Student Progress, select students and click Assign Lessons. To log a session, go to Session Reports or use + → Log Lesson Session, then record the date, lesson, student, and notes. Teachers see and log sessions for their assigned students.",
+      },
+      {
+        id: "cannot-edit-catalog",
+        question: "Why can’t I edit lesson content or upload the commitment form?",
+        answer:
+          "Lesson catalog (create, edit, or deactivate lessons) and the global commitment-form upload are limited to Admins, HQ Pastors, HQ Lessons Coordinators, and HQ Senior Coordinators. Teachers cannot manage catalog content.",
+      },
+    ],
+  },
+  {
     id: "other-modules",
     title: "Other modules",
     items: [
@@ -135,12 +165,6 @@ export const faqCategories: FaqCategory[] = [
         question: "What can I do in Evangelism?",
         answer:
           "Evangelism covers Bible study groups, visitor follow-up, and conversion tracking. Coordinators manage groups and prospects, record baptisms and Holy Ghost reception, and submit weekly evangelism reports. Use + → Submit Evangelism Report when available for your role.",
-      },
-      {
-        id: "lessons",
-        question: "What is Lessons (NCC)?",
-        answer:
-          "Lessons is the seven-lesson New Converts Course. Teachers and coordinators assign lessons, log session reports, and track commitment forms. Progress moves from Assigned → In Progress → Completed.",
       },
       {
         id: "sunday-school",

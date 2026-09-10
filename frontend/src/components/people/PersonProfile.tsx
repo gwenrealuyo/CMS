@@ -872,6 +872,11 @@ export default function PersonProfile({
                         value={person.maiden_name}
                       />
                       <ProfileFieldRow
+                        label="NCC teacher"
+                        value={person.lesson_teacher_display_name}
+                        fallback="No teacher"
+                      />
+                      <ProfileFieldRow
                         label="Lessons started"
                         value={formatDisplayDate(person.lessons_started_at)}
                       />

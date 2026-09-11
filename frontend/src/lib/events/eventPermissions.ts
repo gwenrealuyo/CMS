@@ -9,6 +9,11 @@ const EVENTS_WRITE_LEVELS: ModuleCoordinator["level"][] = [
   "BIBLE_SHARER",
 ];
 
+const EVENTS_ROOM_MANAGE_LEVELS: ModuleCoordinator["level"][] = [
+  "COORDINATOR",
+  "SENIOR_COORDINATOR",
+];
+
 export type CanWriteEventsContext = {
   user: User | null;
   moduleEnabled?: Partial<Record<ModuleType, boolean>>;
@@ -34,5 +39,28 @@ export function canWriteEvents({
 
   return assignments.some((assignment) =>
     EVENTS_WRITE_LEVELS.includes(assignment.level)
+  );
+}
+
+/** ADMIN, PASTOR, and Events COORDINATOR / SENIOR_COORDINATOR. */
+export function canManageEventRooms({
+  user,
+  moduleEnabled,
+}: CanWriteEventsContext): boolean {
+  if (!user) return false;
+
+  if (user.role === "ADMIN") return true;
+
+  if (moduleEnabled?.EVENTS === false) return false;
+
+  if (user.role === "PASTOR") return true;
+
+  const assignments =
+    user.module_coordinator_assignments?.filter(
+      (assignment) => assignment.module === "EVENTS"
+    ) ?? [];
+
+  return assignments.some((assignment) =>
+    EVENTS_ROOM_MANAGE_LEVELS.includes(assignment.level)
   );
 }

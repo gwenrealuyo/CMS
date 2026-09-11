@@ -25,13 +25,14 @@ import {
 import EventsFilterToolbar from "@/src/components/events/EventsFilterToolbar";
 import EventAgendaPanel from "@/src/components/events/EventAgendaPanel";
 import EventTypesManager from "@/src/components/events/EventTypesManager";
+import EventRoomsManager from "@/src/components/events/EventRoomsManager";
 import { EventTypeStylesProvider } from "@/src/contexts/EventTypeStylesContext";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { Event } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
-import { canWriteEvents } from "@/src/lib/events/eventPermissions";
+import { canManageEventRooms, canWriteEvents } from "@/src/lib/events/eventPermissions";
 import {
   buildAgendaGroups,
   EventCardItem,
@@ -102,6 +103,7 @@ export default function EventsPage() {
   );
   const [yearFilterInitialized, setYearFilterInitialized] = useState(false);
   const [isTypesManagerOpen, setIsTypesManagerOpen] = useState(false);
+  const [isRoomsManagerOpen, setIsRoomsManagerOpen] = useState(false);
   const currentYear = new Date().getFullYear().toString();
   const { user, isModuleCoordinator, isSeniorCoordinator } = useAuth();
   const userCanHardDelete = canHardDelete(user);
@@ -133,6 +135,10 @@ export default function EventsPage() {
   );
 
   const canManageEventTypes = canWriteEventsAccess;
+  const canManageRooms = useMemo(
+    () => canManageEventRooms({ user, moduleEnabled }),
+    [user, moduleEnabled]
+  );
 
   useEffect(() => {
     if (action === "create" && canWriteEventsAccess) {
@@ -703,6 +709,15 @@ export default function EventsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-foreground">Church Events</h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {canManageRooms && (
+            <Button
+              variant="tertiary"
+              onClick={() => setIsRoomsManagerOpen(true)}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              Manage Rooms
+            </Button>
+          )}
           {canManageEventTypes && (
             <Button
               variant="tertiary"
@@ -950,6 +965,12 @@ export default function EventsPage() {
           onCreate={createEventType}
           onUpdate={updateEventType}
           onDelete={userCanHardDelete ? deleteEventType : undefined}
+        />
+      )}
+      {canManageRooms && (
+        <EventRoomsManager
+          isOpen={isRoomsManagerOpen}
+          onClose={() => setIsRoomsManagerOpen(false)}
         />
       )}
     </DashboardLayout>

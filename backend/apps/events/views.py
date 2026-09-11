@@ -22,8 +22,9 @@ from apps.authentication.permissions import (
 )
 from apps.people.models import ModuleCoordinator
 from core.datetime_utils import church_calendar_date
-from .models import Event, EventType
-from .serializers import EventSerializer, EventTypeSerializer
+from .models import Event, EventRoom, EventType
+from .permissions import CanManageEventRooms, apply_event_room_branch_scope
+from .serializers import EventRoomSerializer, EventSerializer, EventTypeSerializer
 from .services.recurrence import clean_weekly_pattern
 
 
@@ -77,6 +78,46 @@ class EventTypeViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 
+class EventRoomViewSet(viewsets.ModelViewSet):
+    queryset = EventRoom.objects.all()
+    serializer_class = EventRoomSerializer
+    permission_classes = [IsAuthenticatedAndNotVisitor]
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    search_fields = ["name", "notes"]
+    filterset_fields = ["is_active"]
+
+    def get_queryset(self):
+        queryset = EventRoom.objects.select_related("branch").annotate(
+            event_count=Count("events")
+        )
+        user = self.request.user
+        branch_param = self.request.query_params.get("branch")
+        return apply_event_room_branch_scope(queryset, user, branch_param)
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticatedAndNotVisitor(), CanManageEventRooms()]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if not user.can_see_all_branches():
+            serializer.save(branch_id=user.branch_id)
+        else:
+            serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.events.exists():
+            return Response(
+                {"detail": "Cannot delete a room that is used by existing events."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
 class EventViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
     serializer_class = EventSerializer
@@ -88,7 +129,7 @@ class EventViewSet(viewsets.ModelViewSet):
         queryset = (
             Event.objects.all()
             .order_by("start_date")
-            .select_related("event_type", "branch", "created_by", "updated_by")
+            .select_related("event_type", "branch", "room", "created_by", "updated_by")
             .prefetch_related(
                 "attendance_records__person__clusters",
                 "attendance_records__person__families",

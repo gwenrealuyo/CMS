@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models.functions import Lower
 
 from .event_type_seed import DEFAULT_EVENT_TYPE_COLOR
 
@@ -29,6 +30,35 @@ class EventType(models.Model):
         return self.label
 
 
+class EventRoom(models.Model):
+    branch = models.ForeignKey(
+        "people.Branch",
+        on_delete=models.CASCADE,
+        related_name="event_rooms",
+    )
+    name = models.CharField(max_length=200)
+    capacity = models.PositiveIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"),
+                "branch",
+                name="events_eventroom_branch_lname_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["branch", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.branch})"
+
+
 class Event(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -41,6 +71,13 @@ class Event(models.Model):
         default="SUNDAY_SERVICE",
     )
     location = models.CharField(max_length=200)
+    room = models.ForeignKey(
+        EventRoom,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="events",
+    )
     branch = models.ForeignKey(
         "people.Branch",
         on_delete=models.SET_NULL,

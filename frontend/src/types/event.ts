@@ -52,6 +52,18 @@ export interface EventTypeOption {
   event_count?: number;
 }
 
+export interface EventRoom {
+  id: number;
+  branch: number;
+  branch_name?: string | null;
+  name: string;
+  capacity?: number | null;
+  notes?: string;
+  is_active: boolean;
+  sort_order: number;
+  event_count?: number;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -61,6 +73,8 @@ export interface Event {
   type: string;
   type_display: string;
   location: string;
+  room?: number | null;
+  room_name?: string | null;
   branch?: number | null;
   branch_name?: string | null;
   is_recurring: boolean;

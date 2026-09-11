@@ -28,6 +28,7 @@ import {
   EventAttendanceRecord,
   AttendanceStatus,
   EventTypeOption,
+  EventRoom,
 } from "@/src/types/event";
 import {
   Ministry,
@@ -870,6 +871,25 @@ export const eventTypesApi = {
   ) => api.patch<EventTypeOption>(`/event-types/${encodeURIComponent(code)}/`, data),
   delete: (code: string) =>
     api.delete(`/event-types/${encodeURIComponent(code)}/`),
+};
+
+export type EventRoomWrite = {
+  branch: number;
+  name: string;
+  capacity?: number | null;
+  notes?: string;
+  is_active?: boolean;
+  sort_order?: number;
+};
+
+export const eventRoomsApi = {
+  list: (params?: { branch?: number | string; is_active?: boolean }) =>
+    api.get<EventRoom[]>("/event-rooms/", { params }),
+  getById: (id: number | string) => api.get<EventRoom>(`/event-rooms/${id}/`),
+  create: (data: EventRoomWrite) => api.post<EventRoom>("/event-rooms/", data),
+  update: (id: number | string, data: Partial<EventRoomWrite>) =>
+    api.patch<EventRoom>(`/event-rooms/${id}/`, data),
+  delete: (id: number | string) => api.delete(`/event-rooms/${id}/`),
 };
 
 export const attendanceApi = {

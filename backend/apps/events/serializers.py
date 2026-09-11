@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.attendance.serializers import AttendanceRecordSerializer
-from .models import Event, EventType
+from .models import Event, EventRoom, EventType
 from .services.recurrence import clean_weekly_pattern, generate_occurrences
 
 import re
@@ -50,6 +50,68 @@ class EventTypeSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
 
+class EventRoomSerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(
+        source="branch.name", read_only=True, allow_null=True
+    )
+    event_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = EventRoom
+        fields = [
+            "id",
+            "branch",
+            "branch_name",
+            "name",
+            "capacity",
+            "notes",
+            "is_active",
+            "sort_order",
+            "event_count",
+        ]
+
+    def validate_name(self, value):
+        cleaned = (value or "").strip()
+        if not cleaned:
+            raise ValidationError("Name is required.")
+        return cleaned
+
+    def validate(self, attrs):
+        instance = getattr(self, "instance", None)
+        name = attrs.get("name") or getattr(instance, "name", None)
+        branch = attrs.get("branch") if "branch" in attrs else getattr(
+            instance, "branch", None
+        )
+        request = self.context.get("request") if self.context else None
+        user = getattr(request, "user", None) if request else None
+
+        if user and user.is_authenticated and not user.can_see_all_branches():
+            if not user.branch_id:
+                raise ValidationError(
+                    {"branch": "Your account has no branch assigned."}
+                )
+            if branch is None:
+                branch = user.branch
+                attrs["branch"] = branch
+            elif getattr(branch, "pk", branch) != user.branch_id:
+                raise ValidationError(
+                    {"branch": "You can only manage rooms for your own branch."}
+                )
+
+        if not branch:
+            raise ValidationError({"branch": "Branch is required."})
+
+        if name:
+            qs = EventRoom.objects.filter(branch=branch, name__iexact=name)
+            if instance:
+                qs = qs.exclude(pk=instance.pk)
+            if qs.exists():
+                raise ValidationError(
+                    {"name": "A room with this name already exists in this branch."}
+                )
+        return super().validate(attrs)
+
+
 class EventSerializer(serializers.ModelSerializer):
     type = serializers.SlugRelatedField(
         slug_field="code",
@@ -57,6 +119,15 @@ class EventSerializer(serializers.ModelSerializer):
         source="event_type",
     )
     type_display = serializers.CharField(source="event_type.label", read_only=True)
+    location = serializers.CharField(allow_blank=True, required=False)
+    room = serializers.PrimaryKeyRelatedField(
+        queryset=EventRoom.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+    room_name = serializers.CharField(
+        source="room.name", read_only=True, allow_null=True
+    )
     branch_name = serializers.CharField(
         source="branch.name", read_only=True, allow_null=True
     )
@@ -67,6 +138,20 @@ class EventSerializer(serializers.ModelSerializer):
     attendee_badges = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
     updated_by_name = serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request") if self.context else None
+        user = getattr(request, "user", None)
+        if (
+            user
+            and user.is_authenticated
+            and not user.can_see_all_branches()
+            and user.branch_id
+        ):
+            self.fields["room"].queryset = EventRoom.objects.filter(
+                branch_id=user.branch_id
+            )
 
     class Meta:
         model = Event
@@ -79,6 +164,8 @@ class EventSerializer(serializers.ModelSerializer):
             "type",
             "type_display",
             "location",
+            "room",
+            "room_name",
             "branch",
             "branch_name",
             "is_recurring",
@@ -189,6 +276,33 @@ class EventSerializer(serializers.ModelSerializer):
             attrs["recurrence_pattern"] = cleaned_pattern
         else:
             attrs["recurrence_pattern"] = None
+
+        room = attrs["room"] if "room" in attrs else getattr(instance, "room", None)
+        branch = attrs["branch"] if "branch" in attrs else getattr(
+            instance, "branch", None
+        )
+        location = attrs["location"] if "location" in attrs else getattr(
+            instance, "location", ""
+        )
+
+        if room is not None:
+            room_branch_id = room.branch_id
+            selected_branch_id = getattr(branch, "pk", branch) if branch else None
+            if selected_branch_id is not None and room_branch_id != selected_branch_id:
+                raise ValidationError(
+                    {"room": "Room must belong to the selected branch."}
+                )
+            attrs["branch"] = room.branch
+            attrs["location"] = room.name
+        else:
+            location_text = (location or "").strip()
+            if not location_text:
+                raise ValidationError(
+                    {
+                        "location": "Location is required when no room is selected."
+                    }
+                )
+            attrs["location"] = location_text
 
         return super().validate(attrs)
 

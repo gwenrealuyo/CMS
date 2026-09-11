@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/clusters/", include("apps.clusters.urls", namespace="clusters")),
     path("api/events/", include("apps.events.urls")),
     path("api/event-types/", include(("apps.events.type_urls", "event_types"), namespace="event_types")),
+    path("api/event-rooms/", include(("apps.events.room_urls", "event_rooms"), namespace="event_rooms")),
     path("api/attendance/", include("apps.attendance.urls", namespace="attendance")),
     path("api/ministries/", include("apps.ministries.urls", namespace="ministries")),
     path("api/lessons/", include("apps.lessons.urls", namespace="lessons")),

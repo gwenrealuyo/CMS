@@ -1,6 +1,13 @@
+"use client";
+
 import { useState, useEffect, useMemo } from "react";
 import { Event, WeeklyRecurrencePattern } from "@/src/types/event";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { useBranches } from "@/src/hooks/useBranches";
+import { useEventRooms } from "@/src/hooks/useEventRooms";
 import Button from "../ui/Button";
+
+const OFFSITE_ROOM = "other";
 
 interface EventFormProps {
   onSubmit: (event: Partial<Event>) => Promise<Event | void>;
@@ -149,29 +156,39 @@ const toUtcISOString = (value?: string | null) => {
   return date.toISOString();
 };
 
+type RoomSelection = number | typeof OFFSITE_ROOM | "";
+
 type FormDefaults = {
   title: string;
   description: string;
   type: string;
   location: string;
+  branch: number | "";
+  room: RoomSelection;
   is_recurring: boolean;
   start_date: string;
   end_date: string;
 };
 
+function withPlaceholders(
+  defaults: Omit<FormDefaults, "branch" | "room">
+): FormDefaults {
+  return { ...defaults, branch: "", room: "" };
+}
+
 function buildSundayTemplateDefaults(): FormDefaults {
   const startDate = formatDateForInput(getNextSundayAt9AM());
   const endDate = formatDateForInput(getNextSundayAt11AM());
 
-  return {
+  return withPlaceholders({
     title: "Sunday Service",
     description: "",
     type: "SUNDAY_SERVICE",
-    location: "HQ Muntinlupa",
+    location: "",
     is_recurring: false,
     start_date: startDate,
     end_date: endDate,
-  };
+  });
 }
 
 function buildDefaultsFromDate(
@@ -184,22 +201,22 @@ function buildDefaultsFromDate(
   const endDate = endDateFromStart(startDate);
 
   if (start.getDay() === 0) {
-    return {
+    return withPlaceholders({
       title: "Sunday Service",
       description: "",
       type: "SUNDAY_SERVICE",
-      location: "HQ Muntinlupa",
+      location: "",
       is_recurring: false,
       start_date: startDate,
       end_date: endDate,
-    };
+    });
   }
 
   const type = eventTypeOptions[0]?.value ?? "SPECIAL_EVENT";
   const title =
     eventTypeOptions.find((option) => option.value === type)?.label ?? "";
 
-  return {
+  return withPlaceholders({
     title,
     description: "",
     type,
@@ -207,7 +224,13 @@ function buildDefaultsFromDate(
     is_recurring: false,
     start_date: startDate,
     end_date: endDate,
-  };
+  });
+}
+
+function resolveRoomSelection(initialData?: Partial<Event>): RoomSelection {
+  if (initialData?.room != null) return Number(initialData.room);
+  if (initialData) return OFFSITE_ROOM;
+  return "";
 }
 
 export default function EventForm({
@@ -219,26 +242,76 @@ export default function EventForm({
   lockRecurrence = false,
   scopeHint,
 }: EventFormProps) {
+  const { user } = useAuth();
+  const canPickBranch = Boolean(user?.can_see_all_branches);
+  const { branches } = useBranches();
+  const userBranchId =
+    user?.branch != null && user.branch !== undefined
+      ? Number(user.branch)
+      : "";
+
   const defaultFormData = useMemo(() => {
+    const defaultBranch =
+      initialData?.branch != null
+        ? Number(initialData.branch)
+        : userBranchId;
+
     if (initialData) {
       return {
         title: initialData.title || "",
         description: initialData.description || "",
         type: initialData.type || "SUNDAY_SERVICE",
         location: initialData.location || "",
+        branch: defaultBranch,
+        room: resolveRoomSelection(initialData),
         is_recurring: initialData.is_recurring || false,
         start_date: initialData.start_date || "",
         end_date: initialData.end_date || "",
       };
     }
 
-    if (presetDate) {
-      return buildDefaultsFromDate(presetDate, eventTypeOptions);
-    }
-
-    return buildSundayTemplateDefaults();
-  }, [initialData, presetDate, eventTypeOptions]);
+    const base = presetDate
+      ? buildDefaultsFromDate(presetDate, eventTypeOptions)
+      : buildSundayTemplateDefaults();
+    return { ...base, branch: defaultBranch };
+  }, [initialData, presetDate, eventTypeOptions, userBranchId]);
   const [formData, setFormData] = useState(defaultFormData);
+
+  const selectedBranchId =
+    formData.branch === "" ? null : Number(formData.branch);
+  const { rooms, loading: roomsLoading } = useEventRooms({
+    branchId: selectedBranchId,
+    enabled: selectedBranchId != null,
+  });
+  const roomChoices = useMemo(() => {
+    return rooms.filter(
+      (room) =>
+        room.is_active ||
+        (initialData?.room != null && Number(initialData.room) === room.id)
+    );
+  }, [rooms, initialData?.room]);
+
+  useEffect(() => {
+    if (initialData) return;
+    if (formData.room !== "") return;
+    if (roomsLoading || selectedBranchId == null) return;
+    const first = roomChoices.find((room) => room.is_active);
+    if (first) {
+      setFormData((prev) => ({
+        ...prev,
+        room: first.id,
+        location: first.name,
+      }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, room: OFFSITE_ROOM }));
+  }, [
+    initialData,
+    formData.room,
+    roomChoices,
+    roomsLoading,
+    selectedBranchId,
+  ]);
 
   const initialRecurrence = useMemo<WeeklyRecurrencePattern | null>(
     () =>
@@ -290,6 +363,31 @@ export default function EventForm({
         setRecurrencePattern(null);
       }
 
+      return;
+    }
+
+    if (name === "branch") {
+      setFormData((prev) => ({
+        ...prev,
+        branch: value ? Number(value) : "",
+        room: "",
+        location: "",
+      }));
+      return;
+    }
+
+    if (name === "room") {
+      if (value === OFFSITE_ROOM) {
+        setFormData((prev) => ({ ...prev, room: OFFSITE_ROOM }));
+        return;
+      }
+      const roomId = Number(value);
+      const selected = roomChoices.find((room) => room.id === roomId);
+      setFormData((prev) => ({
+        ...prev,
+        room: roomId,
+        location: selected?.name || prev.location,
+      }));
       return;
     }
 
@@ -359,12 +457,25 @@ export default function EventForm({
 
       const startIso = toUtcISOString(startSource) ?? startSource;
       const endIso = toUtcISOString(endSource) ?? endSource;
+      const isOffsite =
+        formData.room === OFFSITE_ROOM || formData.room === "";
+      const selectedRoom = roomChoices.find(
+        (room) => room.id === Number(formData.room)
+      );
 
       const payload: Partial<Event> = {
-        ...formData,
+        title: formData.title,
+        description: formData.description,
+        type: formData.type,
+        is_recurring: formData.is_recurring,
         start_date: startIso,
         end_date: endIso,
         recurrence_pattern: formData.is_recurring ? patternToSend : null,
+        branch: formData.branch === "" ? null : Number(formData.branch),
+        room: isOffsite ? null : Number(formData.room),
+        location: isOffsite
+          ? formData.location.trim()
+          : selectedRoom?.name || formData.location,
       };
 
       await onSubmit(payload);
@@ -461,7 +572,7 @@ export default function EventForm({
                 />
               </div>
 
-              {/* Event Type and Location */}
+              {/* Event Type, Branch, Room */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -482,18 +593,77 @@ export default function EventForm({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Location *
+                    Branch *
                   </label>
-                  <input
-                    type="text"
-                    name="location"
+                  <select
+                    name="branch"
                     required
-                    value={formData.location}
+                    value={formData.branch}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    placeholder="e.g., Main Sanctuary"
-                  />
+                    disabled={!canPickBranch}
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
+                  >
+                    {formData.branch === "" && (
+                      <option value="">Select branch</option>
+                    )}
+                    {(canPickBranch
+                      ? branches
+                      : branches.filter((branch) => branch.id === userBranchId)
+                    ).map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                        {branch.is_headquarters ? " (HQ)" : ""}
+                      </option>
+                    ))}
+                    {!canPickBranch &&
+                      userBranchId !== "" &&
+                      !branches.some((branch) => branch.id === userBranchId) && (
+                        <option value={userBranchId}>
+                          {user?.branch_name || `Branch #${userBranchId}`}
+                        </option>
+                      )}
+                  </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Room *
+                  </label>
+                  <select
+                    name="room"
+                    required
+                    value={formData.room}
+                    onChange={handleChange}
+                    disabled={formData.branch === ""}
+                    className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
+                  >
+                    {formData.room === "" && (
+                      <option value="">Select room</option>
+                    )}
+                    {roomChoices.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                        {room.capacity != null ? ` (${room.capacity})` : ""}
+                      </option>
+                    ))}
+                    <option value={OFFSITE_ROOM}>Other / off-site</option>
+                  </select>
+                </div>
+                {(formData.room === OFFSITE_ROOM || formData.room === "") && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Location *
+                    </label>
+                    <input
+                      type="text"
+                      name="location"
+                      required={formData.room === OFFSITE_ROOM}
+                      value={formData.location}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                      placeholder="e.g., Retreat center, park"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Description */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import toast from "react-hot-toast";
 
@@ -12,9 +13,11 @@ import { eventsApi } from "@/src/lib/api";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import {
   filterEligibleMembersByQuery,
+  formatLampIdDisplay,
   getCheckedInPersonIds,
   getEligibleMembers,
   resolvePersonFromEntry,
+  resolvePersonFromMemberId,
 } from "@/src/lib/events/checkInUtils";
 import { formatPersonName } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
@@ -26,6 +29,15 @@ import { Event, EventAttendanceRecord } from "@/src/types/event";
 import { Person } from "@/src/types/person";
 
 type EntryTab = "manual" | "camera";
+
+const SCAN_COOLDOWN_MS = 2000;
+
+const CheckInQrScanner = dynamic(() => import("./CheckInQrScanner"), {
+  ssr: false,
+  loading: () => (
+    <p className="mt-4 text-sm text-muted-foreground">Starting camera…</p>
+  ),
+});
 
 interface EventCheckInViewProps {
   eventId: string;
@@ -57,16 +69,22 @@ function StatCard({
 }) {
   return (
     <div className="flex-1 min-w-0 rounded-xl border border-primary/15 bg-white p-5 shadow-sm">
-      <div
-        className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg ${iconClassName}`}
-      >
-        {icon}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-3xl font-semibold text-lighthouse-navy">
+            {value}
+          </div>
+          <div className="text-sm text-muted-foreground">{label}</div>
+          <p className="mt-1 text-xs leading-snug text-gray-400">
+            {description}
+          </p>
+        </div>
+        <div
+          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+        >
+          {icon}
+        </div>
       </div>
-      <div className="text-3xl font-semibold text-lighthouse-navy">{value}</div>
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <p className="mt-1 text-xs leading-snug text-gray-400">
-        {description}
-      </p>
     </div>
   );
 }
@@ -85,6 +103,7 @@ export default function EventCheckInView({
   const [attendanceLoading, setAttendanceLoading] = useState(true);
   const [entryTab, setEntryTab] = useState<EntryTab>("manual");
   const [entryValue, setEntryValue] = useState("");
+  const [checkInSearchTerm, setCheckInSearchTerm] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -95,6 +114,7 @@ export default function EventCheckInView({
   }>({ isOpen: false, record: null, loading: false });
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const scanCooldownUntilRef = useRef(0);
 
   const fetchEvent = useCallback(async () => {
     setEventLoading(true);
@@ -155,6 +175,28 @@ export default function EventCheckInView({
     [attendanceRecords]
   );
 
+  const filteredRecentCheckIns = useMemo(() => {
+    const trimmed = checkInSearchTerm.trim();
+    if (!trimmed) {
+      return recentCheckIns;
+    }
+    const term = trimmed.toLowerCase();
+    const termWithoutLampPrefix = term.replace(/^lamp/, "");
+    return recentCheckIns.filter((record) => {
+      const name = formatPersonName(record.person).toLowerCase();
+      const memberId = (record.person.member_id || "").toLowerCase();
+      const displayId = formatLampIdDisplay(record.person.member_id).toLowerCase();
+      return (
+        name.includes(term) ||
+        memberId.includes(term) ||
+        displayId.includes(term) ||
+        (termWithoutLampPrefix.length > 0 &&
+          (memberId.includes(termWithoutLampPrefix) ||
+            displayId.includes(termWithoutLampPrefix)))
+      );
+    });
+  }, [recentCheckIns, checkInSearchTerm]);
+
   const suggestions = useMemo(
     () => filterEligibleMembersByQuery(eligibleMembers, entryValue),
     [eligibleMembers, entryValue]
@@ -199,7 +241,9 @@ export default function EventCheckInView({
       setEntryValue("");
       setShowSuggestions(false);
       toast.success(`${formatPersonName(person)} checked in`);
-      inputRef.current?.focus();
+      if (entryTab === "manual") {
+        inputRef.current?.focus();
+      }
     } catch {
       setActionError("Unable to check in this person. Please try again.");
     } finally {
@@ -217,6 +261,21 @@ export default function EventCheckInView({
     }
 
     await checkInPerson(resolved.person);
+  };
+
+  const handleQrScan = (text: string) => {
+    const now = Date.now();
+    if (submitting || now < scanCooldownUntilRef.current) return;
+
+    scanCooldownUntilRef.current = now + SCAN_COOLDOWN_MS;
+
+    const resolved = resolvePersonFromMemberId(text, eligibleMembers);
+    if (!resolved.ok) {
+      setActionError(resolved.error);
+      return;
+    }
+
+    void checkInPerson(resolved.person);
   };
 
   const handleSelectSuggestion = (person: Person) => {
@@ -318,14 +377,14 @@ export default function EventCheckInView({
       </header>
 
       <div className="mx-auto w-full max-w-3xl px-6 py-8">
-        <div className="mb-8 rounded-xl border border-primary/20 bg-gradient-to-r from-lighthouse-ivory to-muted p-6">
-          <h1 className="text-2xl font-bold text-primary md:text-3xl">
+        <div className="mb-5 rounded-lg border border-primary/20 bg-gradient-to-r from-lighthouse-ivory to-muted px-4 py-3">
+          <h1 className="text-xs font-semibold uppercase tracking-wide text-primary">
             Check-In
           </h1>
-          <p className="mt-1 text-lg font-medium text-lighthouse-navy">
+          <p className="mt-0.5 text-base font-medium text-lighthouse-navy">
             {event.title}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {formatOccurrenceLabel(occurrenceDate)}
             {event.branch_name ? ` · ${event.branch_name}` : ""}
           </p>
@@ -361,7 +420,7 @@ export default function EventCheckInView({
             label="Checked In"
             value={checkedInCount}
             description="Already marked present for this date"
-            iconClassName="bg-lighthouse-olive/15 text-lighthouse-olive"
+            iconClassName="bg-green-100 text-lighthouse-olive"
             icon={
               <svg
                 className="h-5 w-5"
@@ -382,7 +441,7 @@ export default function EventCheckInView({
             label="Remaining"
             value={remainingCount}
             description="Eligible people not yet checked in"
-            iconClassName="bg-lighthouse-gold/15 text-lighthouse-gold"
+            iconClassName="bg-amber-100 text-lighthouse-gold"
             icon={
               <svg
                 className="h-5 w-5"
@@ -404,7 +463,10 @@ export default function EventCheckInView({
         <div className="mb-5 flex rounded-lg border border-primary/10 bg-muted p-1">
           <button
             type="button"
-            onClick={() => setEntryTab("manual")}
+            onClick={() => {
+              setEntryTab("manual");
+              setActionError(null);
+            }}
             className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors ${
               entryTab === "manual"
                 ? "bg-white text-primary shadow-sm ring-1 ring-primary/10"
@@ -428,9 +490,15 @@ export default function EventCheckInView({
           </button>
           <button
             type="button"
-            disabled
-            title="QR scanning coming soon"
-            className="relative flex flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-muted-foreground/60"
+            onClick={() => {
+              setEntryTab("camera");
+              setActionError(null);
+            }}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors ${
+              entryTab === "camera"
+                ? "bg-white text-primary shadow-sm ring-1 ring-primary/10"
+                : "text-muted-foreground hover:text-lighthouse-navy"
+            }`}
           >
             <svg
               className="h-4 w-4"
@@ -452,19 +520,17 @@ export default function EventCheckInView({
               />
             </svg>
             Camera Scan
-            <span className="absolute -top-2 right-2 rounded-full bg-lighthouse-gold/20 px-2 py-0.5 text-[10px] font-semibold text-lighthouse-navy">
-              Soon
-            </span>
           </button>
         </div>
 
         <div className="mb-5 rounded-xl border border-primary/20 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-lighthouse-navy">
-            Enter Attendee
+            {entryTab === "camera" ? "Scan Attendee" : "Enter Attendee"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter a name or LAMP ID. QR and barcode scanning are planned for a
-            future update.
+            {entryTab === "camera"
+              ? "Point the camera at a member QR code. It should contain the LAMP ID, for example LAMP00001."
+              : "Enter a name or LAMP ID."}
           </p>
 
           {actionError && (
@@ -473,6 +539,9 @@ export default function EventCheckInView({
             </div>
           )}
 
+          {entryTab === "camera" ? (
+            <CheckInQrScanner onScan={handleQrScan} paused={submitting} />
+          ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div className="relative" ref={suggestionsRef}>
               <label
@@ -531,7 +600,7 @@ export default function EventCheckInView({
                                 </p>
                                 {person.member_id && (
                                   <p className="truncate text-xs text-muted-foreground">
-                                    LAMP ID: {person.member_id}
+                                    LAMP ID: {formatLampIdDisplay(person.member_id)}
                                   </p>
                                 )}
                               </div>
@@ -574,12 +643,49 @@ export default function EventCheckInView({
               Check In
             </Button>
           </form>
+          )}
         </div>
 
         <div className="rounded-xl border border-primary/20 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-lighthouse-navy">
             Recent Check-Ins
           </h2>
+          {recentCheckIns.length > 0 && (
+            <div className="mt-4">
+              <label
+                htmlFor="check-in-search"
+                className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              >
+                Search checked-in attendees
+              </label>
+              <div className="relative">
+                <input
+                  id="check-in-search"
+                  type="text"
+                  value={checkInSearchTerm}
+                  onChange={(event) => setCheckInSearchTerm(event.target.value)}
+                  placeholder="Search by name or LAMP ID..."
+                  className="input-field pr-10 text-sm"
+                />
+                <svg
+                  className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+                  />
+                </svg>
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                This search only filters people already checked in.
+              </p>
+            </div>
+          )}
           <div className="mt-4">
             {attendanceLoading ? (
               <LoadingSpinner />
@@ -587,9 +693,14 @@ export default function EventCheckInView({
               <p className="py-8 text-center text-sm text-muted-foreground">
                 No check-ins yet
               </p>
+            ) : filteredRecentCheckIns.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No matching check-ins
+              </p>
             ) : (
-              <ul className="divide-y divide-primary/10">
-                {recentCheckIns.map((record) => (
+              <div className="max-h-80 overflow-y-auto pr-1">
+                <ul className="divide-y divide-primary/10">
+                {filteredRecentCheckIns.map((record) => (
                   <li
                     key={record.id}
                     className="group flex items-center justify-between gap-3 py-3.5 first:pt-0 last:pb-0"
@@ -598,6 +709,11 @@ export default function EventCheckInView({
                       <p className="truncate text-sm font-medium text-lighthouse-navy">
                         {formatPersonName(record.person)}
                       </p>
+                      {record.person.member_id && (
+                        <span className="chip-sky-sm shrink-0">
+                          {formatLampIdDisplay(record.person.member_id)}
+                        </span>
+                      )}
                       {record.person.status && (
                         <span
                           className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonStatusColor(record.person.status)}`}
@@ -612,14 +728,13 @@ export default function EventCheckInView({
                           {record.person.role}
                         </span>
                       )}
-                      {record.person.cluster_codes?.[0] && (
+                      {record.person.cluster_codes?.[0] ? (
                         <span className="chip-primary-sm shrink-0">
                           {record.person.cluster_codes[0]}
                         </span>
-                      )}
-                      {record.person.member_id && (
-                        <span className="chip-sky-sm shrink-0">
-                          {record.person.member_id}
+                      ) : (
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                          NO CLUSTER
                         </span>
                       )}
                     </div>
@@ -642,7 +757,8 @@ export default function EventCheckInView({
                     </div>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </div>
             )}
           </div>
         </div>

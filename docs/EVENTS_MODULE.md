@@ -60,7 +60,7 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
   - surfaces the total recorded attendees and highlights whether journeys are logged;
   - provides an **Open Check-In** action that opens `/events/check-in?event={id}&occurrence=YYYY-MM-DD` in a new tab for a focused check-in station UI.
 
-### Check-In Page (manual v1)
+### Check-In Page
 
 - Route: `/events/check-in?event={id}&occurrence=YYYY-MM-DD` (requires auth via `ProtectedRoute`).
 - Layout: full-width, centered column without the dashboard sidebar — intended for tablets or a dedicated check-in tab.
@@ -68,8 +68,8 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
   - **Total** — eligible members (`isSelectablePerson`) in the event branch, or all eligible members when the event is church-wide;
   - **Checked In** — unique people with attendance records for the occurrence;
   - **Remaining** — `Total − Checked In`.
-- **Manual Entry** tab accepts name or LAMP ID; Enter key submits (barcode-scanner friendly for future QR text payloads).
-- **Camera Scan** tab is visible but disabled; QR/camera check-in is planned for a future release.
+- **Manual Entry** tab accepts name or LAMP ID; Enter key submits.
+- **Camera Scan** tab uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in; unknown IDs and already-checked-in people show an error. Camera access requires HTTPS or localhost.
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
 
 ## Testing

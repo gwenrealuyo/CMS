@@ -81,6 +81,36 @@ export function resolvePersonFromEntry(
   };
 }
 
+export function resolvePersonFromMemberId(
+  scannedValue: string,
+  eligibleMembers: Person[]
+): PersonResolveResult {
+  const trimmed = scannedValue.trim();
+  if (!trimmed) {
+    return { ok: false, error: "No LAMP ID found in this QR code." };
+  }
+
+  const normalized = trimmed.toLowerCase();
+  const match = eligibleMembers.find(
+    (person) => person.member_id?.toLowerCase() === normalized
+  );
+
+  if (!match) {
+    return {
+      ok: false,
+      error: "No member found for this LAMP ID.",
+    };
+  }
+
+  return { ok: true, person: match };
+}
+
+export function formatLampIdDisplay(
+  memberId?: string | null
+): string {
+  return (memberId ?? "").trim().replace(/^lamp/i, "");
+}
+
 export function getCheckedInPersonIds(
   records: Array<{ person: { id: string } }>
 ): Set<string> {

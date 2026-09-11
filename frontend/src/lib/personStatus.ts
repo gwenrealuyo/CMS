@@ -13,7 +13,7 @@ export function getPersonStatusColor(
     case "SEMIACTIVE":
       return "bg-yellow-100 text-yellow-800";
     case "ONGOING":
-      return "bg-green-100 text-green-800";
+      return "bg-sky-100 text-sky-800";
     case "NO_RESPONSE":
       return "bg-yellow-100 text-yellow-800";
     case "INACTIVE":

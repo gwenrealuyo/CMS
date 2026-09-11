@@ -23,6 +23,7 @@ export interface EventAttendancePerson {
   middle_name?: string;
   last_name: string;
   suffix?: string;
+  nickname?: string;
   role: PersonRole;
   status: PersonStatus;
   member_id?: string;

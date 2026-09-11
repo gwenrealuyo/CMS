@@ -58,7 +58,8 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
   - shows attendees for the selected occurrence, with the derived badges for quick context;
   - lets coordinators add/remove attendees; status defaults to “Present” and edits sync journeys automatically;
   - surfaces the total recorded attendees and highlights whether journeys are logged;
-  - provides an **Open Check-In** action that opens `/events/check-in?event={id}&occurrence=YYYY-MM-DD` in a new tab for a focused check-in station UI.
+  - provides an **Open Check-In** action that opens `/events/check-in?event={id}&occurrence=YYYY-MM-DD` in a new tab for a focused check-in station UI;
+  - for **past** occurrences (occurrence date before today, local calendar), also shows **Generate Report**, which opens the attendance report modal (same as on the check-in page).
 
 ### Expected Attendees (Sunday Service)
 
@@ -83,6 +84,18 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 - **Manual Entry** tab accepts name or LAMP ID; Enter key submits.
 - **Camera Scan** tab uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in; unknown IDs and already-checked-in people show an error. Camera access requires HTTPS or localhost.
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
+- For **past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
+
+### Attendance Report (past occurrences)
+
+Available from Event Details and the check-in page when the selected occurrence date is before today (local calendar day). No new backend report API — the report is computed in the browser from people + attendance for that occurrence.
+
+- **Summary:** Expected (same rules as check-in Total), Checked In (unique attendance), Remaining (expected not checked in), Surprises (checked in but not in the expected pool).
+- **Breakdowns:** Checked-in and remaining counts by person status (Active, Semi-active, Inactive, Ongoing, No Response, etc.).
+- **Surprises list** and a searchable **checked-in roster** (LAMP ID without prefix, status, role, cluster / NO CLUSTER).
+- **Download CSV** with event title, occurrence date, summary counts, and rows for checked-in / remaining / surprises (name, LAMP ID, role, status, cluster, category, check-in time when present).
+
+Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; other types use the full eligible pool as expected (same as check-in).
 
 ## Testing
 

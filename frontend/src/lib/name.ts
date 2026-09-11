@@ -44,7 +44,7 @@ export function formatPersonName(person: PersonLike): string {
   }
 
   const first = person.first_name ?? "";
-  const nickname = (person as any).nickname;
+  const nickname = person.nickname;
   const middle = person.middle_name;
   const last = person.last_name ?? "";
   const suffix = person.suffix;

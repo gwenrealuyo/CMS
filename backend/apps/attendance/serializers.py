@@ -20,6 +20,7 @@ class AttendancePersonSerializer(serializers.ModelSerializer):
             "middle_name",
             "last_name",
             "suffix",
+            "nickname",
             "role",
             "status",
             "member_id",
@@ -32,7 +33,10 @@ class AttendancePersonSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_full_name(self, obj: Person) -> str:
-        parts = [obj.first_name, obj.middle_name, obj.last_name, obj.suffix]
+        parts = [obj.first_name]
+        if obj.nickname:
+            parts.append(f'"{obj.nickname}"')
+        parts.extend([obj.middle_name, obj.last_name, obj.suffix])
         return " ".join(filter(None, parts)).strip()
 
     def get_cluster_codes(self, obj: Person):

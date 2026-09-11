@@ -21,6 +21,7 @@ interface SelectOption {
   /** Shown on the right (e.g. for national ministry pickers). */
   branchCode?: string | null;
   memberId?: string | null;
+  nickname?: string | null;
   /** When set, renders a small Cluster vs Group badge (distinct styling). */
   typeLabel?: "cluster" | "group";
 }
@@ -89,6 +90,7 @@ export default function ScalableSelect({
         option.label.toLowerCase().includes(query) ||
         String(option.value).toLowerCase().includes(query) ||
         (option.memberId?.toLowerCase().includes(query) ?? false) ||
+        (option.nickname?.toLowerCase().includes(query) ?? false) ||
         (option.clusterCode?.toLowerCase().includes(query) ?? false) ||
         (option.branchCode?.toLowerCase().includes(query) ?? false) ||
         (option.roleLabel?.toLowerCase().includes(query) ?? false) ||
@@ -458,7 +460,8 @@ export default function ScalableSelect({
         aria-disabled={interactionBlocked || disabled}
         tabIndex={interactionBlocked ? -1 : undefined}
         className={`
-          flex h-11 w-full shrink-0 items-center px-3 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm
+          flex w-full shrink-0 items-center px-3 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm
+          min-h-[44px] md:min-h-0 py-2.5 md:py-2
           focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
           ${
             disabled && !interactionBlocked

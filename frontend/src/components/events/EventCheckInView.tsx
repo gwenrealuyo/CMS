@@ -7,10 +7,13 @@ import toast from "react-hot-toast";
 
 import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import EventAttendanceReportModal from "@/src/components/events/EventAttendanceReportModal";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { usePeople } from "@/src/hooks/usePeople";
 import { eventsApi } from "@/src/lib/api";
 import { XMarkIcon } from "@heroicons/react/24/solid";
+import { isPastOccurrenceDate } from "@/src/lib/events/attendanceReportUtils";
 import {
   countExpectedOngoingVisitors,
   filterEligibleMembersByQuery,
@@ -106,6 +109,7 @@ export default function EventCheckInView({
   const [entryTab, setEntryTab] = useState<EntryTab>("manual");
   const [entryValue, setEntryValue] = useState("");
   const [checkInSearchTerm, setCheckInSearchTerm] = useState("");
+  const [clusterFilter, setClusterFilter] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -114,6 +118,8 @@ export default function EventCheckInView({
     record: EventAttendanceRecord | null;
     loading: boolean;
   }>({ isOpen: false, record: null, loading: false });
+  const [reportOpen, setReportOpen] = useState(false);
+  const canGenerateReport = isPastOccurrenceDate(occurrenceDate);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const scanCooldownUntilRef = useRef(0);
@@ -193,14 +199,54 @@ export default function EventCheckInView({
     [attendanceRecords]
   );
 
+  const clusterFilterOptions = useMemo(() => {
+    const codes = new Set<string>();
+    let hasNoCluster = false;
+    for (const record of recentCheckIns) {
+      const code = record.person.cluster_codes?.[0];
+      if (code) {
+        codes.add(code);
+      } else {
+        hasNoCluster = true;
+      }
+    }
+    return {
+      codes: Array.from(codes).sort((a, b) => a.localeCompare(b)),
+      hasNoCluster,
+    };
+  }, [recentCheckIns]);
+
+  const clusterSelectOptions = useMemo(() => {
+    const options = [{ value: "", label: "All clusters" }];
+    if (clusterFilterOptions.hasNoCluster) {
+      options.push({ value: "NO_CLUSTER", label: "NO CLUSTER" });
+    }
+    for (const code of clusterFilterOptions.codes) {
+      options.push({ value: code, label: code });
+    }
+    return options;
+  }, [clusterFilterOptions]);
+
   const filteredRecentCheckIns = useMemo(() => {
+    let filtered = recentCheckIns;
+
+    if (clusterFilter === "NO_CLUSTER") {
+      filtered = filtered.filter(
+        (record) => !record.person.cluster_codes?.[0]
+      );
+    } else if (clusterFilter) {
+      filtered = filtered.filter(
+        (record) => record.person.cluster_codes?.[0] === clusterFilter
+      );
+    }
+
     const trimmed = checkInSearchTerm.trim();
     if (!trimmed) {
-      return recentCheckIns;
+      return filtered;
     }
     const term = trimmed.toLowerCase();
     const termWithoutLampPrefix = term.replace(/^lamp/, "");
-    return recentCheckIns.filter((record) => {
+    return filtered.filter((record) => {
       const name = formatPersonName(record.person).toLowerCase();
       const memberId = (record.person.member_id || "").toLowerCase();
       const displayId = formatLampIdDisplay(record.person.member_id).toLowerCase();
@@ -213,7 +259,7 @@ export default function EventCheckInView({
             displayId.includes(termWithoutLampPrefix)))
       );
     });
-  }, [recentCheckIns, checkInSearchTerm]);
+  }, [recentCheckIns, checkInSearchTerm, clusterFilter]);
 
   const suggestions = useMemo(
     () => filterEligibleMembersByQuery(checkInCandidates, entryValue),
@@ -396,16 +442,30 @@ export default function EventCheckInView({
 
       <div className="mx-auto w-full max-w-3xl px-6 py-8">
         <div className="mb-5 rounded-lg border border-primary/20 bg-gradient-to-r from-lighthouse-ivory to-muted px-4 py-3">
-          <h1 className="text-xs font-semibold uppercase tracking-wide text-primary">
-            Check-In
-          </h1>
-          <p className="mt-0.5 text-base font-medium text-lighthouse-navy">
-            {event.title}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {formatOccurrenceLabel(occurrenceDate)}
-            {event.branch_name ? ` · ${event.branch_name}` : ""}
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Check-In
+              </h1>
+              <p className="mt-0.5 text-base font-medium text-lighthouse-navy">
+                {event.title}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {formatOccurrenceLabel(occurrenceDate)}
+                {event.branch_name ? ` · ${event.branch_name}` : ""}
+              </p>
+            </div>
+            {canGenerateReport ? (
+              <Button
+                variant="tertiary"
+                onClick={() => setReportOpen(true)}
+                disabled={attendanceLoading || peopleLoading}
+                className="w-full shrink-0 sm:w-auto"
+              >
+                Generate Report
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -676,37 +736,61 @@ export default function EventCheckInView({
           </h2>
           {recentCheckIns.length > 0 && (
             <div className="mt-4">
-              <label
-                htmlFor="check-in-search"
-                className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-              >
-                Search checked-in attendees
-              </label>
-              <div className="relative">
-                <input
-                  id="check-in-search"
-                  type="text"
-                  value={checkInSearchTerm}
-                  onChange={(event) => setCheckInSearchTerm(event.target.value)}
-                  placeholder="Search by name or LAMP ID..."
-                  className="input-field pr-10 text-sm"
-                />
-                <svg
-                  className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1">
+                  <label
+                    htmlFor="check-in-search"
+                    className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    Search checked-in attendees
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="check-in-search"
+                      type="text"
+                      value={checkInSearchTerm}
+                      onChange={(event) =>
+                        setCheckInSearchTerm(event.target.value)
+                      }
+                      placeholder="Search by name or LAMP ID..."
+                      className="input-field pr-10 text-sm"
+                    />
+                    <svg
+                      className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="sm:w-52 sm:shrink-0">
+                  <label
+                    htmlFor="check-in-cluster-filter"
+                    className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    Cluster
+                  </label>
+                  <ScalableSelect
+                    options={clusterSelectOptions}
+                    value={clusterFilter}
+                    onChange={setClusterFilter}
+                    placeholder="All clusters"
+                    searchPlaceholder="Search clusters..."
+                    emptyMessage="No matching clusters"
+                    showSearch
+                    className="w-full"
                   />
-                </svg>
+                </div>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                This search only filters people already checked in.
+                Filters only apply to people already checked in.
               </p>
             </div>
           )}
@@ -815,6 +899,15 @@ export default function EventCheckInView({
         cancelText="Cancel"
         variant="danger"
         loading={removeConfirmation.loading}
+      />
+
+      <EventAttendanceReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        event={event}
+        occurrenceDate={occurrenceDate}
+        people={people}
+        attendanceRecords={attendanceRecords}
       />
     </div>
   );

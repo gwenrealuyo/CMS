@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { Person, PersonUI } from "@/src/types/person";
 import { peopleApi } from "@/src/lib/api";
+import { formatPersonName } from "@/src/lib/name";
 
 export const usePeople = (enabled: boolean = true) => {
   const [people, setPeople] = useState<Person[]>([]);
   const peopleUI: PersonUI[] = people.map((p) => ({
     ...p,
-    name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+    name: formatPersonName(p),
     dateFirstAttended: p.date_first_attended,
   }));
   const [loading, setLoading] = useState(true);

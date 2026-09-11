@@ -4,6 +4,7 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
+import EventAttendanceReportModal from "@/src/components/events/EventAttendanceReportModal";
 import { usePeople } from "@/src/hooks/usePeople";
 import {
   AttendanceStatus,
@@ -11,6 +12,7 @@ import {
   EventAttendanceRecord,
 } from "@/src/types/event";
 import { formatPersonName } from "@/src/lib/name";
+import { isPastOccurrenceDate } from "@/src/lib/events/attendanceReportUtils";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import {
@@ -191,8 +193,13 @@ export default function EventView({
     record: EventAttendanceRecord | null;
     loading: boolean;
   }>({ isOpen: false, record: null, loading: false });
+  const [reportOpen, setReportOpen] = useState(false);
 
-  const { peopleUI, loading: peopleLoading } = usePeople();
+  const { people, peopleUI, loading: peopleLoading } = usePeople();
+
+  const canGenerateReport = Boolean(
+    selectedOccurrenceDate && isPastOccurrenceDate(selectedOccurrenceDate)
+  );
 
   useEffect(() => {
     setSelectedOccurrenceDate(initialOccurrenceKey);
@@ -206,10 +213,12 @@ export default function EventView({
     () =>
       peopleUI.filter(isSelectablePerson).map((person) => {
         const clusterCode = person.cluster_codes?.[0];
+        const nickname = (person.nickname || "").trim();
         return {
           value: String(person.id),
           label: formatPersonName(person),
           memberId: person.member_id,
+          nickname: nickname || null,
           disabled: attendanceRecords.some(
             (record) => String(record.person.id) === String(person.id)
           ),
@@ -559,43 +568,55 @@ export default function EventView({
                   )}
                 </p>
               </div>
-              <Button
-                onClick={() => {
-                  if (!selectedOccurrenceDate) return;
-                  const url = `/events/check-in?event=${event.id}&occurrence=${selectedOccurrenceDate}`;
-                  window.open(url, "_blank", "noopener,noreferrer");
-                }}
-                disabled={!selectedOccurrenceDate}
-                className="w-full md:w-auto gap-2 bg-primary text-primary-foreground hover:bg-blue-700 border border-primary/20 shadow-sm"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+                <Button
+                  onClick={() => {
+                    if (!selectedOccurrenceDate) return;
+                    const url = `/events/check-in?event=${event.id}&occurrence=${selectedOccurrenceDate}`;
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                  disabled={!selectedOccurrenceDate}
+                  className="w-full md:w-auto gap-2 bg-primary text-primary-foreground hover:bg-blue-700 border border-primary/20 shadow-sm"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-                  />
-                </svg>
-                Open Check-In
-                <svg
-                  className="h-3.5 w-3.5 opacity-80"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                  />
-                </svg>
-              </Button>
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                    />
+                  </svg>
+                  Open Check-In
+                  <svg
+                    className="h-3.5 w-3.5 opacity-80"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </Button>
+                {canGenerateReport ? (
+                  <Button
+                    variant="tertiary"
+                    onClick={() => setReportOpen(true)}
+                    disabled={attendanceLoading || peopleLoading}
+                    className="w-full md:w-auto gap-2"
+                  >
+                    Generate Report
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
             {actionError && (
@@ -612,6 +633,7 @@ export default function EventView({
                   onChange={setSelectedPersonId}
                   onConfirm={addAttendeeById}
                   placeholder="Select attendee"
+                  searchPlaceholder="Search by name, nickname, or LAMP ID..."
                   loading={peopleLoading}
                   emptyMessage="No matching people"
                   showSearch
@@ -869,6 +891,17 @@ export default function EventView({
           </Button>
         </div>
       </div>
+
+      {selectedOccurrenceDate ? (
+        <EventAttendanceReportModal
+          isOpen={reportOpen}
+          onClose={() => setReportOpen(false)}
+          event={event}
+          occurrenceDate={selectedOccurrenceDate}
+          people={people}
+          attendanceRecords={attendanceRecords}
+        />
+      ) : null}
     </div>
   );
 }

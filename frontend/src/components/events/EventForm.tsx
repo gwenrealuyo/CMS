@@ -561,7 +561,7 @@ export default function EventForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-h-[85vh] overflow-y-auto space-y-6 text-sm max-w-3xl"
+      className="space-y-6 text-sm max-w-3xl"
     >
       {scopeHint && (
         <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">

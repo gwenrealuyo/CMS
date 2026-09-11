@@ -126,7 +126,7 @@ class PersonViewSet(viewsets.ModelViewSet):
     ordering = ["last_name", "first_name", "id"]
 
     def get_serializer_class(self):
-        if self.action == "list":
+        if self.action in ("list", "admin_accounts"):
             return PersonListSerializer
         return PersonSerializer
 
@@ -142,8 +142,11 @@ class PersonViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
 
         # ADMIN role accounts are system users and never appear in people
-        # list/search, including when the requester is ADMIN.
-        queryset = queryset.exclude(role="ADMIN")
+        # list/search, including when the requester is ADMIN. Profile and
+        # mutation access still includes them for ADMIN requesters so Admin
+        # Settings can view, edit, and delete those accounts.
+        if not (for_profile and getattr(user, "role", None) == "ADMIN"):
+            queryset = queryset.exclude(role="ADMIN")
 
         # ADMIN users: Can see all non-admin people
         if user.role == "ADMIN":
@@ -354,7 +357,7 @@ class PersonViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         # Avoid N+1: one profile-scope ID set for list responses.
-        if getattr(self, "action", None) == "list" and self.request.user.is_authenticated:
+        if getattr(self, "action", None) in ("list", "admin_accounts") and self.request.user.is_authenticated:
             user = self.request.user
             # List and profile scope match for these roles — skip the extra queryset.
             if user.role in ("ADMIN", "PASTOR") or user.is_senior_coordinator():
@@ -373,7 +376,7 @@ class PersonViewSet(viewsets.ModelViewSet):
         """
         Override to set permissions based on action.
         """
-        if self.action == "possible_duplicates":
+        if self.action in ("possible_duplicates", "admin_accounts"):
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         if self.action in ["list", "retrieve"]:
             # Read: All authenticated non-visitors
@@ -430,6 +433,22 @@ class PersonViewSet(viewsets.ModelViewSet):
             same_branch_only=same_branch_only,
         )
         return Response({"groups": groups, "count": len(groups)})
+
+    @action(detail=False, methods=["get"], url_path="admin-accounts")
+    def admin_accounts(self, request):
+        """ADMIN-only list of ADMIN role accounts (hidden from the people directory)."""
+        queryset = (
+            super()
+            .get_queryset()
+            .filter(role="ADMIN")
+            .order_by("last_name", "first_name", "id")
+        )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class FamilyPagination(PageNumberPagination):

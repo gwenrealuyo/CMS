@@ -285,3 +285,71 @@ class PersonListPaginationAndFilterTests(TestCase):
         response = self.client.get(f"/api/people/people/{self.admin.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.admin.id)
+
+    def test_admin_can_retrieve_other_admin(self):
+        other_admin = Person.objects.create_user(
+            username="other_admin_profile",
+            email="other_admin_profile@test.com",
+            password="testpass123",
+            first_name="Other",
+            last_name="Admin",
+            role="ADMIN",
+            branch=self.branch_a,
+            status="ACTIVE",
+        )
+        response = self.client.get(f"/api/people/people/{other_admin.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], other_admin.id)
+
+    def test_pastor_cannot_retrieve_admin_profile(self):
+        pastor = Person.objects.create_user(
+            username="list_pastor",
+            email="list_pastor@test.com",
+            password="testpass123",
+            first_name="List",
+            last_name="Pastor",
+            role="PASTOR",
+            branch=self.branch_a,
+            status="ACTIVE",
+        )
+        self.client.force_authenticate(user=pastor)
+        response = self.client.get(f"/api/people/people/{self.admin.id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_admin_accounts_lists_admins_only(self):
+        other_admin = Person.objects.create_user(
+            username="other_admin_list",
+            email="other_admin_list@test.com",
+            password="testpass123",
+            first_name="Other",
+            last_name="Admin",
+            role="ADMIN",
+            branch=self.branch_a,
+            status="ACTIVE",
+        )
+        response = self.client.get(
+            "/api/people/people/admin-accounts/", {"page_size": 50}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {r["id"] for r in self._results(response)}
+        self.assertIn(self.admin.id, ids)
+        self.assertIn(other_admin.id, ids)
+        self.assertNotIn(self.member_a.id, ids)
+        row = next(r for r in self._results(response) if r["id"] == self.admin.id)
+        self.assertEqual(row["role"], "ADMIN")
+        self.assertEqual(row["username"], self.admin.username)
+
+    def test_admin_accounts_forbidden_for_pastor(self):
+        pastor = Person.objects.create_user(
+            username="accounts_pastor",
+            email="accounts_pastor@test.com",
+            password="testpass123",
+            first_name="Accounts",
+            last_name="Pastor",
+            role="PASTOR",
+            branch=self.branch_a,
+            status="ACTIVE",
+        )
+        self.client.force_authenticate(user=pastor)
+        response = self.client.get("/api/people/people/admin-accounts/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

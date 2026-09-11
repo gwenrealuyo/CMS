@@ -12,18 +12,6 @@ import { Person } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 
-function unwrapPeopleList(data: unknown): Person[] {
-  if (Array.isArray(data)) return data;
-  if (
-    data &&
-    typeof data === "object" &&
-    Array.isArray((data as { results?: Person[] }).results)
-  ) {
-    return (data as { results: Person[] }).results;
-  }
-  return [];
-}
-
 type SortField = "name" | "username" | "email" | "branch" | "status";
 type SortDirection = "asc" | "desc";
 
@@ -60,8 +48,8 @@ export default function AdminAccountsPanel() {
     try {
       setLoading(true);
       setError(null);
-      const res = await peopleApi.search({ role: "ADMIN" });
-      setAdmins(unwrapPeopleList(res.data));
+      const res = await peopleApi.listAdminAccounts();
+      setAdmins(res.data);
     } catch (err: any) {
       setError(
         err?.response?.data?.detail || "Failed to load admin accounts.",

@@ -335,13 +335,14 @@ export type PeopleListParams = {
 export type PeopleListResponse = PaginatedResponse<Person> | Person[];
 
 async function fetchAllPeoplePages(
-  params: PeopleListParams = {}
+  params: PeopleListParams = {},
+  path = "/people/people/"
 ): Promise<Person[]> {
   const all: Person[] = [];
   let page = 1;
   // Cap pages to avoid runaway loops if next is malformed.
   for (let i = 0; i < 500; i += 1) {
-    const { data } = await api.get<PeopleListResponse>("/people/people/", {
+    const { data } = await api.get<PeopleListResponse>(path, {
       params: { ...params, page, page_size: 100 },
     });
     if (Array.isArray(data)) {
@@ -360,6 +361,14 @@ export const peopleApi = {
   /** Pages through the people list and returns every row (picker / legacy callers). */
   getAll: async (): Promise<{ data: Person[] }> => {
     const data = await fetchAllPeoplePages();
+    return { data };
+  },
+  /** ADMIN-only: every ADMIN role account (hidden from the people directory). */
+  listAdminAccounts: async (): Promise<{ data: Person[] }> => {
+    const data = await fetchAllPeoplePages(
+      {},
+      "/people/people/admin-accounts/"
+    );
     return { data };
   },
   /** Fetch all pages matching directory filters (export). */

@@ -18,6 +18,10 @@ import {
 } from "@/src/lib/events/checkInUtils";
 import { formatPersonName } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import {
+  formatPersonStatusLabel,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
 import { Event, EventAttendanceRecord } from "@/src/types/event";
 import { Person } from "@/src/types/person";
 
@@ -41,11 +45,13 @@ function formatOccurrenceLabel(dateValue: string) {
 function StatCard({
   label,
   value,
+  description,
   icon,
   iconClassName,
 }: {
   label: string;
   value: number;
+  description: string;
   icon: ReactNode;
   iconClassName: string;
 }) {
@@ -58,6 +64,9 @@ function StatCard({
       </div>
       <div className="text-3xl font-semibold text-lighthouse-navy">{value}</div>
       <div className="text-sm text-muted-foreground">{label}</div>
+      <p className="mt-1 text-xs leading-snug text-gray-400">
+        {description}
+      </p>
     </div>
   );
 }
@@ -326,6 +335,11 @@ export default function EventCheckInView({
           <StatCard
             label="Total"
             value={totalCount}
+            description={
+              event.branch_name
+                ? `People in ${event.branch_name} who can be checked in`
+                : "People who can be checked in for this event"
+            }
             iconClassName="bg-primary/10 text-primary"
             icon={
               <svg
@@ -346,6 +360,7 @@ export default function EventCheckInView({
           <StatCard
             label="Checked In"
             value={checkedInCount}
+            description="Already marked present for this date"
             iconClassName="bg-lighthouse-olive/15 text-lighthouse-olive"
             icon={
               <svg
@@ -366,6 +381,7 @@ export default function EventCheckInView({
           <StatCard
             label="Remaining"
             value={remainingCount}
+            description="Eligible people not yet checked in"
             iconClassName="bg-lighthouse-gold/15 text-lighthouse-gold"
             icon={
               <svg
@@ -582,6 +598,13 @@ export default function EventCheckInView({
                       <p className="truncate text-sm font-medium text-lighthouse-navy">
                         {formatPersonName(record.person)}
                       </p>
+                      {record.person.status && (
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonStatusColor(record.person.status)}`}
+                        >
+                          {formatPersonStatusLabel(record.person.status)}
+                        </span>
+                      )}
                       {record.person.role && (
                         <span
                           className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonRoleColor(record.person.role)}`}
@@ -589,14 +612,14 @@ export default function EventCheckInView({
                           {record.person.role}
                         </span>
                       )}
-                      {record.person.member_id && (
-                        <span className="chip-sky-sm shrink-0">
-                          {record.person.member_id}
-                        </span>
-                      )}
                       {record.person.cluster_codes?.[0] && (
                         <span className="chip-primary-sm shrink-0">
                           {record.person.cluster_codes[0]}
+                        </span>
+                      )}
+                      {record.person.member_id && (
+                        <span className="chip-sky-sm shrink-0">
+                          {record.person.member_id}
                         </span>
                       )}
                     </div>

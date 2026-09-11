@@ -4,6 +4,7 @@ import { Event } from "@/src/types/event";
 import Card from "@/src/components/ui/Card";
 import Button from "../ui/Button";
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
+import EventRecurringChip from "@/src/components/events/EventRecurringChip";
 
 interface EventCardProps {
   event: Event;
@@ -38,8 +39,11 @@ export default function EventCard({
               {event.type_display || event.type}
             </span>
             {event.is_recurring && (
-              <span className="ml-2 chip-gray-sm">
-                🔁 Recurring
+              <span className="ml-2 inline-flex align-middle">
+                <EventRecurringChip
+                  size="sm"
+                  frequency={event.recurrence_pattern?.frequency}
+                />
               </span>
             )}
           </div>

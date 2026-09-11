@@ -77,6 +77,7 @@ export interface Event {
   room_name?: string | null;
   branch?: number | null;
   branch_name?: string | null;
+  branch_is_headquarters?: boolean | null;
   is_recurring: boolean;
   recurrence_pattern?: WeeklyRecurrencePattern | null;
   occurrences?: EventOccurrence[];

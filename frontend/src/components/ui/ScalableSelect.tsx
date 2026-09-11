@@ -13,12 +13,13 @@ interface SelectOption {
   disabled?: boolean;
   statusLabel?: string | null;
   statusClassName?: string | null;
+  roleLabel?: string | null;
+  roleClassName?: string | null;
   clusterCode?: string | null;
   /** Colors the cluster chip from the person's branch. */
   clusterBranchId?: number | null;
   /** Shown on the right (e.g. for national ministry pickers). */
   branchCode?: string | null;
-  familyName?: string | null;
   memberId?: string | null;
   /** When set, renders a small Cluster vs Group badge (distinct styling). */
   typeLabel?: "cluster" | "group";
@@ -89,7 +90,9 @@ export default function ScalableSelect({
         String(option.value).toLowerCase().includes(query) ||
         (option.memberId?.toLowerCase().includes(query) ?? false) ||
         (option.clusterCode?.toLowerCase().includes(query) ?? false) ||
-        (option.branchCode?.toLowerCase().includes(query) ?? false)
+        (option.branchCode?.toLowerCase().includes(query) ?? false) ||
+        (option.roleLabel?.toLowerCase().includes(query) ?? false) ||
+        (option.statusLabel?.toLowerCase().includes(query) ?? false)
     );
   }, [options, searchQuery]);
 
@@ -271,6 +274,15 @@ export default function ScalableSelect({
               </span>
             )}
             <span className="truncate">{option.label}</span>
+            {option.roleLabel && (
+              <span
+                className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  option.roleClassName ?? "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {option.roleLabel}
+              </span>
+            )}
             {option.statusLabel && (
               <span
                 className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
@@ -294,11 +306,6 @@ export default function ScalableSelect({
             {option.typeLabel === "group" && (
               <span className="inline-flex shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
                 Group
-              </span>
-            )}
-            {option.familyName && (
-              <span className="chip-green-sm shrink-0 text-[10px]">
-                {option.familyName}
               </span>
             )}
           </span>

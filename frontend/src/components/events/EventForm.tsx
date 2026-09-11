@@ -279,7 +279,7 @@ export default function EventForm({
 
   const selectedBranchId =
     formData.branch === "" ? null : Number(formData.branch);
-  const { rooms, loading: roomsLoading } = useEventRooms({
+  const { rooms } = useEventRooms({
     branchId: selectedBranchId,
     enabled: selectedBranchId != null,
   });
@@ -290,28 +290,6 @@ export default function EventForm({
         (initialData?.room != null && Number(initialData.room) === room.id)
     );
   }, [rooms, initialData?.room]);
-
-  useEffect(() => {
-    if (initialData) return;
-    if (formData.room !== "") return;
-    if (roomsLoading || selectedBranchId == null) return;
-    const first = roomChoices.find((room) => room.is_active);
-    if (first) {
-      setFormData((prev) => ({
-        ...prev,
-        room: first.id,
-        location: first.name,
-      }));
-      return;
-    }
-    setFormData((prev) => ({ ...prev, room: OFFSITE_ROOM }));
-  }, [
-    initialData,
-    formData.room,
-    roomChoices,
-    roomsLoading,
-    selectedBranchId,
-  ]);
 
   const initialRecurrence = useMemo<WeeklyRecurrencePattern | null>(
     () =>
@@ -457,8 +435,10 @@ export default function EventForm({
 
       const startIso = toUtcISOString(startSource) ?? startSource;
       const endIso = toUtcISOString(endSource) ?? endSource;
-      const isOffsite =
-        formData.room === OFFSITE_ROOM || formData.room === "";
+      if (formData.room === "") {
+        return;
+      }
+      const isOffsite = formData.room === OFFSITE_ROOM;
       const selectedRoom = roomChoices.find(
         (room) => room.id === Number(formData.room)
       );
@@ -637,7 +617,9 @@ export default function EventForm({
                     className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100"
                   >
                     {formData.room === "" && (
-                      <option value="">Select room</option>
+                      <option value="" disabled>
+                        Select room
+                      </option>
                     )}
                     {roomChoices.map((room) => (
                       <option key={room.id} value={room.id}>
@@ -648,7 +630,7 @@ export default function EventForm({
                     <option value={OFFSITE_ROOM}>Other / off-site</option>
                   </select>
                 </div>
-                {(formData.room === OFFSITE_ROOM || formData.room === "") && (
+                {formData.room === OFFSITE_ROOM && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Location *
@@ -656,7 +638,7 @@ export default function EventForm({
                     <input
                       type="text"
                       name="location"
-                      required={formData.room === OFFSITE_ROOM}
+                      required
                       value={formData.location}
                       onChange={handleChange}
                       className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"

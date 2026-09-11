@@ -12,7 +12,13 @@ import {
 } from "@/src/types/event";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { getPersonRoleColor } from "@/src/lib/personRole";
+import {
+  formatPersonStatusLabel,
+  getPersonStatusColor,
+} from "@/src/lib/personStatus";
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
+import EventRecurringChip from "@/src/components/events/EventRecurringChip";
 
 interface AddAttendanceInput {
   person_id: string;
@@ -102,6 +108,20 @@ export default function EventView({
     event.recurrence_pattern?.excluded_dates?.length || 0;
   const skippedLabel = skippedDatesCount === 1 ? "occurrence" : "occurrences";
 
+  const locationDisplay = useMemo(() => {
+    const location = event.location?.trim() ?? "";
+    if (!location) return "";
+    const branch = event.branch_name?.trim();
+    if (!branch) return location;
+    const branchHasHq = /\bhq\b/i.test(branch);
+    const branchLabel =
+      event.branch_is_headquarters && !branchHasHq ? `${branch} (HQ)` : branch;
+    if (location.toLowerCase().includes(branchLabel.toLowerCase())) {
+      return location;
+    }
+    return `${location} - ${branchLabel}`;
+  }, [event.location, event.branch_name, event.branch_is_headquarters]);
+
   const toDateKey = (value: string) =>
     new Date(value).toISOString().split("T")[0];
 
@@ -186,7 +206,6 @@ export default function EventView({
     () =>
       peopleUI.filter(isSelectablePerson).map((person) => {
         const clusterCode = person.cluster_codes?.[0];
-        const familyName = person.family_names?.[0];
         return {
           value: String(person.id),
           label: formatPersonName(person),
@@ -195,7 +214,10 @@ export default function EventView({
             (record) => String(record.person.id) === String(person.id)
           ),
           clusterCode,
-          familyName,
+          roleLabel: person.role || null,
+          roleClassName: getPersonRoleColor(person.role),
+          statusLabel: formatPersonStatusLabel(person.status),
+          statusClassName: getPersonStatusColor(person.status),
         };
       }),
     [peopleUI, attendanceRecords]
@@ -356,9 +378,9 @@ export default function EventView({
                 {event.type_display || event.type}
               </span>
               {event.is_recurring && (
-                <span className="chip-gray">
-                  🔁 Recurring Event
-                </span>
+                <EventRecurringChip
+                  frequency={event.recurrence_pattern?.frequency}
+                />
               )}
               {event.attendance_count !== undefined &&
                 event.attendance_count > 0 && (
@@ -425,7 +447,7 @@ export default function EventView({
                 </div>
               </div>
 
-              {event.location && (
+              {locationDisplay && (
                 <div className="flex items-start">
                   <svg
                     className="w-5 h-5 text-gray-400 mt-0.5 mr-3"
@@ -451,7 +473,7 @@ export default function EventView({
                       Location
                     </div>
                     <div className="text-sm text-gray-500">
-                      {event.location}
+                      {locationDisplay}
                     </div>
                   </div>
                 </div>

@@ -131,6 +131,11 @@ class EventSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(
         source="branch.name", read_only=True, allow_null=True
     )
+    branch_is_headquarters = serializers.BooleanField(
+        source="branch.is_headquarters",
+        read_only=True,
+        allow_null=True,
+    )
     occurrences = serializers.SerializerMethodField()
     next_occurrence = serializers.SerializerMethodField()
     attendance_count = serializers.SerializerMethodField()
@@ -168,6 +173,7 @@ class EventSerializer(serializers.ModelSerializer):
             "room_name",
             "branch",
             "branch_name",
+            "branch_is_headquarters",
             "is_recurring",
             "recurrence_pattern",
             "occurrences",

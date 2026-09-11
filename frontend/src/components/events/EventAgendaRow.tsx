@@ -2,6 +2,7 @@
 
 import { Event } from "@/src/types/event";
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
+import EventRecurringChip from "@/src/components/events/EventRecurringChip";
 
 export type EventAgendaRowSize = "compact" | "comfortable";
 
@@ -38,12 +39,10 @@ function EventMeta({
         </span>
       )}
       {event.is_recurring && (
-        <span
-          className={`${metaTextClass} text-gray-400 shrink-0`}
-          title="Recurring"
-        >
-          🔁
-        </span>
+        <EventRecurringChip
+          size="sm"
+          frequency={event.recurrence_pattern?.frequency}
+        />
       )}
       {event.location && (
         <span
@@ -94,7 +93,10 @@ function EventComfortableDetails({
           {event.type_display || event.type}
         </span>
         {event.is_recurring && (
-          <span className="text-sm text-gray-500">Recurring weekly</span>
+          <EventRecurringChip
+            size="sm"
+            frequency={event.recurrence_pattern?.frequency}
+          />
         )}
       </div>
 

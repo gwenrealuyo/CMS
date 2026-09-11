@@ -824,6 +824,8 @@ export const eventsApi = {
   delete: (id: string) => api.delete(`/events/${id}/`),
   excludeOccurrence: (id: string, payload: { date: string }) =>
     api.post<Event>(`/events/${id}/exclude-occurrence/`, payload),
+  endRecurrence: (id: string, payload: { date: string }) =>
+    api.post<Event>(`/events/${id}/end-recurrence/`, payload),
   splitEdit: (
     id: string,
     payload: Partial<Event> & { scope: "occurrence" | "following"; date: string }

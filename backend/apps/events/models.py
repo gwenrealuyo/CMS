@@ -87,6 +87,10 @@ class Event(models.Model):
     )
     is_recurring = models.BooleanField(default=False)
     recurrence_pattern = models.JSONField(null=True, blank=True)
+    expected_include_active = models.BooleanField(default=True)
+    expected_include_semiactive = models.BooleanField(default=True)
+    expected_include_inactive = models.BooleanField(default=True)
+    expected_include_ongoing_visitors = models.BooleanField(default=True)
     volunteers = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="volunteered_events"
     )

@@ -60,14 +60,26 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
   - surfaces the total recorded attendees and highlights whether journeys are logged;
   - provides an **Open Check-In** action that opens `/events/check-in?event={id}&occurrence=YYYY-MM-DD` in a new tab for a focused check-in station UI.
 
+### Expected Attendees (Sunday Service)
+
+Sunday Service events store expected-attendee flags on `Event`:
+
+- `expected_include_active` (default `true`)
+- `expected_include_semiactive` (default `true`)
+- `expected_include_inactive` (default `true`)
+- `expected_include_ongoing_visitors` (default `true`) — includes people with role `VISITOR` and status `ONGOING`
+
+The Event form shows these toggles only when the type is Sunday Service. Other event types keep the broader check-in pool for now (non-admin, branch-scoped). AWTA registration is planned separately.
+
 ### Check-In Page
 
 - Route: `/events/check-in?event={id}&occurrence=YYYY-MM-DD` (requires auth via `ProtectedRoute`).
 - Layout: full-width, centered column without the dashboard sidebar — intended for tablets or a dedicated check-in tab.
 - Stats (branch-aware when `event.branch` is set):
-  - **Total** — eligible members (`isSelectablePerson`) in the event branch, or all eligible members when the event is church-wide;
-  - **Checked In** — unique people with attendance records for the occurrence;
-  - **Remaining** — `Total − Checked In`.
+  - **Total** — expected attendees for the event. For Sunday Service this uses the expected-attendee flags (Active / Semi-active / Inactive / optional Ongoing visitors). For other types, non-admin people in the event branch (or all when church-wide). When Ongoing visitors are included, Total notes how many of them are in the count;
+  - **Checked In** — unique people with attendance records for the occurrence (expected plus any extras);
+  - **Remaining** — expected people not yet checked in (not `Total − Checked In` when extras are present).
+- Manual Entry and Camera Scan look up anyone in the broader check-in candidate pool (non-admin, branch-scoped), so people outside Total can still check in.
 - **Manual Entry** tab accepts name or LAMP ID; Enter key submits.
 - **Camera Scan** tab uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in; unknown IDs and already-checked-in people show an error. Camera access requires HTTPS or localhost.
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.

@@ -3,6 +3,15 @@ import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { Event } from "@/src/types/event";
 import { Person } from "@/src/types/person";
 
+function normalizeStatus(status?: string | null): string {
+  return (status || "").trim().toUpperCase();
+}
+
+function normalizeRole(role?: string | null): string {
+  return (role || "").trim().toUpperCase();
+}
+
+/** People who can be checked in (branch-scoped, non-admin). */
 export function getEligibleMembers(people: Person[], event: Event): Person[] {
   const selectable = people.filter(isSelectablePerson);
   if (event.branch == null) {
@@ -11,6 +20,54 @@ export function getEligibleMembers(people: Person[], event: Event): Person[] {
   return selectable.filter(
     (person) => Number(person.branch) === Number(event.branch)
   );
+}
+
+function isOngoingVisitor(person: Person): boolean {
+  return (
+    normalizeRole(person.role) === "VISITOR" &&
+    normalizeStatus(person.status) === "ONGOING"
+  );
+}
+
+/**
+ * Expected attendees for Total / Remaining.
+ * Sunday Service uses status/visitor flags; other types use the full eligible pool.
+ */
+export function getExpectedMembers(people: Person[], event: Event): Person[] {
+  const candidates = getEligibleMembers(people, event);
+  if (event.type !== "SUNDAY_SERVICE") {
+    return candidates;
+  }
+
+  const includeActive = event.expected_include_active ?? true;
+  const includeSemiactive = event.expected_include_semiactive ?? true;
+  const includeInactive = event.expected_include_inactive ?? true;
+  const includeOngoingVisitors =
+    event.expected_include_ongoing_visitors ?? true;
+
+  return candidates.filter((person) => {
+    if (isOngoingVisitor(person)) {
+      return includeOngoingVisitors;
+    }
+    const status = normalizeStatus(person.status);
+    if (status === "ACTIVE") return includeActive;
+    if (status === "SEMIACTIVE") return includeSemiactive;
+    if (status === "INACTIVE") return includeInactive;
+    return false;
+  });
+}
+
+export function countExpectedOngoingVisitors(
+  people: Person[],
+  event: Event
+): number {
+  if (
+    event.type !== "SUNDAY_SERVICE" ||
+    !(event.expected_include_ongoing_visitors ?? true)
+  ) {
+    return 0;
+  }
+  return getExpectedMembers(people, event).filter(isOngoingVisitor).length;
 }
 
 export type PersonResolveResult =

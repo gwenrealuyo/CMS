@@ -168,6 +168,10 @@ type FormDefaults = {
   is_recurring: boolean;
   start_date: string;
   end_date: string;
+  expected_include_active: boolean;
+  expected_include_semiactive: boolean;
+  expected_include_inactive: boolean;
+  expected_include_ongoing_visitors: boolean;
 };
 
 function withPlaceholders(
@@ -176,19 +180,41 @@ function withPlaceholders(
   return { ...defaults, branch: "", room: "" };
 }
 
+function withExpectedAttendeeDefaults(
+  defaults: Omit<
+    FormDefaults,
+    | "branch"
+    | "room"
+    | "expected_include_active"
+    | "expected_include_semiactive"
+    | "expected_include_inactive"
+    | "expected_include_ongoing_visitors"
+  >
+): Omit<FormDefaults, "branch" | "room"> {
+  return {
+    ...defaults,
+    expected_include_active: true,
+    expected_include_semiactive: true,
+    expected_include_inactive: true,
+    expected_include_ongoing_visitors: true,
+  };
+}
+
 function buildSundayTemplateDefaults(): FormDefaults {
   const startDate = formatDateForInput(getNextSundayAt9AM());
   const endDate = formatDateForInput(getNextSundayAt11AM());
 
-  return withPlaceholders({
-    title: "Sunday Service",
-    description: "",
-    type: "SUNDAY_SERVICE",
-    location: "",
-    is_recurring: false,
-    start_date: startDate,
-    end_date: endDate,
-  });
+  return withPlaceholders(
+    withExpectedAttendeeDefaults({
+      title: "Sunday Service",
+      description: "",
+      type: "SUNDAY_SERVICE",
+      location: "",
+      is_recurring: false,
+      start_date: startDate,
+      end_date: endDate,
+    })
+  );
 }
 
 function buildDefaultsFromDate(
@@ -201,30 +227,34 @@ function buildDefaultsFromDate(
   const endDate = endDateFromStart(startDate);
 
   if (start.getDay() === 0) {
-    return withPlaceholders({
-      title: "Sunday Service",
-      description: "",
-      type: "SUNDAY_SERVICE",
-      location: "",
-      is_recurring: false,
-      start_date: startDate,
-      end_date: endDate,
-    });
+    return withPlaceholders(
+      withExpectedAttendeeDefaults({
+        title: "Sunday Service",
+        description: "",
+        type: "SUNDAY_SERVICE",
+        location: "",
+        is_recurring: false,
+        start_date: startDate,
+        end_date: endDate,
+      })
+    );
   }
 
   const type = eventTypeOptions[0]?.value ?? "SPECIAL_EVENT";
   const title =
     eventTypeOptions.find((option) => option.value === type)?.label ?? "";
 
-  return withPlaceholders({
-    title,
-    description: "",
-    type,
-    location: "",
-    is_recurring: false,
-    start_date: startDate,
-    end_date: endDate,
-  });
+  return withPlaceholders(
+    withExpectedAttendeeDefaults({
+      title,
+      description: "",
+      type,
+      location: "",
+      is_recurring: false,
+      start_date: startDate,
+      end_date: endDate,
+    })
+  );
 }
 
 function resolveRoomSelection(initialData?: Partial<Event>): RoomSelection {
@@ -267,6 +297,13 @@ export default function EventForm({
         is_recurring: initialData.is_recurring || false,
         start_date: initialData.start_date || "",
         end_date: initialData.end_date || "",
+        expected_include_active: initialData.expected_include_active ?? true,
+        expected_include_semiactive:
+          initialData.expected_include_semiactive ?? true,
+        expected_include_inactive:
+          initialData.expected_include_inactive ?? true,
+        expected_include_ongoing_visitors:
+          initialData.expected_include_ongoing_visitors ?? true,
       };
     }
 
@@ -456,6 +493,11 @@ export default function EventForm({
         location: isOffsite
           ? formData.location.trim()
           : selectedRoom?.name || formData.location,
+        expected_include_active: formData.expected_include_active,
+        expected_include_semiactive: formData.expected_include_semiactive,
+        expected_include_inactive: formData.expected_include_inactive,
+        expected_include_ongoing_visitors:
+          formData.expected_include_ongoing_visitors,
       };
 
       await onSubmit(payload);
@@ -776,6 +818,64 @@ export default function EventForm({
                       Weekly schedule can be adjusted anytime. You can skip an
                       individual week later without removing the series.
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {formData.type === "SUNDAY_SERVICE" && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      Expected Attendees
+                    </h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Active, Semi-active, and Inactive members define the
+                      expected count for check-in. Ongoing visitors are included
+                      in Total by default. Anyone can still be checked in at the
+                      door.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        name="expected_include_active"
+                        checked={formData.expected_include_active}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                      />
+                      Active
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        name="expected_include_semiactive"
+                        checked={formData.expected_include_semiactive}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                      />
+                      Semi-active
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        name="expected_include_inactive"
+                        checked={formData.expected_include_inactive}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                      />
+                      Inactive
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        name="expected_include_ongoing_visitors"
+                        checked={formData.expected_include_ongoing_visitors}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                      />
+                      Ongoing visitors
+                    </label>
                   </div>
                 </div>
               )}

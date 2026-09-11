@@ -12,10 +12,12 @@ import { usePeople } from "@/src/hooks/usePeople";
 import { eventsApi } from "@/src/lib/api";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import {
+  countExpectedOngoingVisitors,
   filterEligibleMembersByQuery,
   formatLampIdDisplay,
   getCheckedInPersonIds,
   getEligibleMembers,
+  getExpectedMembers,
   resolvePersonFromEntry,
   resolvePersonFromMemberId,
 } from "@/src/lib/events/checkInUtils";
@@ -152,9 +154,14 @@ export default function EventCheckInView({
     fetchAttendance();
   }, [fetchAttendance]);
 
-  const eligibleMembers = useMemo(() => {
+  const checkInCandidates = useMemo(() => {
     if (!event) return [];
     return getEligibleMembers(people, event);
+  }, [people, event]);
+
+  const expectedMembers = useMemo(() => {
+    if (!event) return [];
+    return getExpectedMembers(people, event);
   }, [people, event]);
 
   const checkedInIds = useMemo(
@@ -162,9 +169,20 @@ export default function EventCheckInView({
     [attendanceRecords]
   );
 
-  const totalCount = eligibleMembers.length;
+  const expectedIds = useMemo(
+    () => new Set(expectedMembers.map((person) => String(person.id))),
+    [expectedMembers]
+  );
+
+  const totalCount = expectedMembers.length;
   const checkedInCount = checkedInIds.size;
-  const remainingCount = Math.max(0, totalCount - checkedInCount);
+  const remainingCount = Array.from(expectedIds).filter(
+    (id) => !checkedInIds.has(id)
+  ).length;
+  const ongoingVisitorExpectedCount = useMemo(() => {
+    if (!event) return 0;
+    return countExpectedOngoingVisitors(people, event);
+  }, [people, event]);
 
   const recentCheckIns = useMemo(
     () =>
@@ -198,8 +216,8 @@ export default function EventCheckInView({
   }, [recentCheckIns, checkInSearchTerm]);
 
   const suggestions = useMemo(
-    () => filterEligibleMembersByQuery(eligibleMembers, entryValue),
-    [eligibleMembers, entryValue]
+    () => filterEligibleMembersByQuery(checkInCandidates, entryValue),
+    [checkInCandidates, entryValue]
   );
 
   useEffect(() => {
@@ -254,7 +272,7 @@ export default function EventCheckInView({
   const handleCheckIn = async () => {
     if (!event || submitting) return;
 
-    const resolved = resolvePersonFromEntry(entryValue, eligibleMembers);
+    const resolved = resolvePersonFromEntry(entryValue, checkInCandidates);
     if (!resolved.ok) {
       setActionError(resolved.error);
       return;
@@ -269,7 +287,7 @@ export default function EventCheckInView({
 
     scanCooldownUntilRef.current = now + SCAN_COOLDOWN_MS;
 
-    const resolved = resolvePersonFromMemberId(text, eligibleMembers);
+    const resolved = resolvePersonFromMemberId(text, checkInCandidates);
     if (!resolved.ok) {
       setActionError(resolved.error);
       return;
@@ -395,9 +413,15 @@ export default function EventCheckInView({
             label="Total"
             value={totalCount}
             description={
-              event.branch_name
-                ? `People in ${event.branch_name} who can be checked in`
-                : "People who can be checked in for this event"
+              ongoingVisitorExpectedCount > 0
+                ? `Expected attendees · Includes ${ongoingVisitorExpectedCount} ongoing visitor${
+                    ongoingVisitorExpectedCount === 1 ? "" : "s"
+                  }`
+                : event.type === "SUNDAY_SERVICE"
+                  ? "Expected attendees for this service"
+                  : event.branch_name
+                    ? `People in ${event.branch_name} who can be checked in`
+                    : "People who can be checked in for this event"
             }
             iconClassName="bg-primary/10 text-primary"
             icon={
@@ -440,7 +464,7 @@ export default function EventCheckInView({
           <StatCard
             label="Remaining"
             value={remainingCount}
-            description="Eligible people not yet checked in"
+            description="Expected attendees not yet checked in"
             iconClassName="bg-amber-100 text-lighthouse-gold"
             icon={
               <svg

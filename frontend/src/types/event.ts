@@ -79,6 +79,10 @@ export interface Event {
   branch_name?: string | null;
   branch_is_headquarters?: boolean | null;
   is_recurring: boolean;
+  expected_include_active?: boolean;
+  expected_include_semiactive?: boolean;
+  expected_include_inactive?: boolean;
+  expected_include_ongoing_visitors?: boolean;
   recurrence_pattern?: WeeklyRecurrencePattern | null;
   occurrences?: EventOccurrence[];
   next_occurrence?: EventOccurrence | null;

@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.events.models import Event
 from apps.people.models import Person
+from core.datetime_utils import church_calendar_date
 
 from .models import AttendanceRecord
 
@@ -95,9 +96,42 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             ),
             "notes": validated_data.get("notes", ""),
         }
+        event = validated_data["event"]
+        person = validated_data["person"]
+
+        if not event.is_recurring:
+            target_date = (
+                church_calendar_date(event.start_date)
+                or validated_data["occurrence_date"]
+            )
+            existing = list(
+                AttendanceRecord.objects.filter(event=event, person=person).order_by(
+                    "-recorded_at", "id"
+                )
+            )
+            if existing:
+                record = existing[0]
+                AttendanceRecord.objects.filter(event=event, person=person).exclude(
+                    pk=record.pk
+                ).delete()
+                record.occurrence_date = target_date
+                record.status = defaults["status"]
+                record.notes = defaults["notes"]
+                record.save()
+                self._was_created = False
+                return record
+            record = AttendanceRecord.objects.create(
+                event=event,
+                person=person,
+                occurrence_date=target_date,
+                **defaults,
+            )
+            self._was_created = True
+            return record
+
         record, created = AttendanceRecord.objects.update_or_create(
-            event=validated_data["event"],
-            person=validated_data["person"],
+            event=event,
+            person=person,
             occurrence_date=validated_data["occurrence_date"],
             defaults=defaults,
         )

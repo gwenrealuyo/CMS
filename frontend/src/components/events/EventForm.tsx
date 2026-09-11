@@ -6,6 +6,7 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useEventRooms } from "@/src/hooks/useEventRooms";
 import Button from "../ui/Button";
+import ConfirmationModal from "../ui/ConfirmationModal";
 
 const OFFSITE_ROOM = "other";
 
@@ -54,6 +55,21 @@ const formatDateOnly = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const toCalendarDateKey = (value?: string | null): string | null => {
+  if (!value) return null;
+  const parsed = parseLocalDateTime(value);
+  if (!parsed) return null;
+  return formatDateOnly(parsed);
+};
+
+const recordedAttendeeCount = (data?: Partial<Event>) => {
+  if (!data) return 0;
+  if (typeof data.attendance_count === "number") {
+    return data.attendance_count;
+  }
+  return data.attendance_records?.length ?? 0;
 };
 
 const getNextSundayAt9AM = () => {
@@ -342,6 +358,10 @@ export default function EventForm({
   const [recurrencePattern, setRecurrencePattern] =
     useState<WeeklyRecurrencePattern | null>(initialRecurrence);
   const [loading, setLoading] = useState(false);
+  const [dateMoveConfirm, setDateMoveConfirm] = useState<{
+    isOpen: boolean;
+    payload: Partial<Event> | null;
+  }>({ isOpen: false, payload: null });
 
   useEffect(() => {
     setFormData(defaultFormData);
@@ -450,60 +470,75 @@ export default function EventForm({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitPayload = async (payload: Partial<Event>) => {
     try {
       setLoading(true);
-      let patternToSend = recurrencePattern;
-
-      if (formData.is_recurring) {
-        const baseStart = formData.start_date || defaultFormData.start_date;
-        if (!patternToSend) {
-          patternToSend = buildWeeklyPattern(baseStart, null);
-          setRecurrencePattern(patternToSend);
-        } else {
-          patternToSend = buildWeeklyPattern(baseStart, patternToSend);
-          setRecurrencePattern(patternToSend);
-        }
-      }
-
-      const startSource = formData.start_date || defaultFormData.start_date;
-      const endSource = formData.end_date || defaultFormData.end_date;
-
-      const startIso = toUtcISOString(startSource) ?? startSource;
-      const endIso = toUtcISOString(endSource) ?? endSource;
-      if (formData.room === "") {
-        return;
-      }
-      const isOffsite = formData.room === OFFSITE_ROOM;
-      const selectedRoom = roomChoices.find(
-        (room) => room.id === Number(formData.room)
-      );
-
-      const payload: Partial<Event> = {
-        title: formData.title,
-        description: formData.description,
-        type: formData.type,
-        is_recurring: formData.is_recurring,
-        start_date: startIso,
-        end_date: endIso,
-        recurrence_pattern: formData.is_recurring ? patternToSend : null,
-        branch: formData.branch === "" ? null : Number(formData.branch),
-        room: isOffsite ? null : Number(formData.room),
-        location: isOffsite
-          ? formData.location.trim()
-          : selectedRoom?.name || formData.location,
-        expected_include_active: formData.expected_include_active,
-        expected_include_semiactive: formData.expected_include_semiactive,
-        expected_include_inactive: formData.expected_include_inactive,
-        expected_include_ongoing_visitors:
-          formData.expected_include_ongoing_visitors,
-      };
-
       await onSubmit(payload);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    let patternToSend = recurrencePattern;
+
+    if (formData.is_recurring) {
+      const baseStart = formData.start_date || defaultFormData.start_date;
+      if (!patternToSend) {
+        patternToSend = buildWeeklyPattern(baseStart, null);
+        setRecurrencePattern(patternToSend);
+      } else {
+        patternToSend = buildWeeklyPattern(baseStart, patternToSend);
+        setRecurrencePattern(patternToSend);
+      }
+    }
+
+    const startSource = formData.start_date || defaultFormData.start_date;
+    const endSource = formData.end_date || defaultFormData.end_date;
+
+    const startIso = toUtcISOString(startSource) ?? startSource;
+    const endIso = toUtcISOString(endSource) ?? endSource;
+    if (formData.room === "") {
+      return;
+    }
+    const isOffsite = formData.room === OFFSITE_ROOM;
+    const selectedRoom = roomChoices.find(
+      (room) => room.id === Number(formData.room)
+    );
+
+    const payload: Partial<Event> = {
+      title: formData.title,
+      description: formData.description,
+      type: formData.type,
+      is_recurring: formData.is_recurring,
+      start_date: startIso,
+      end_date: endIso,
+      recurrence_pattern: formData.is_recurring ? patternToSend : null,
+      branch: formData.branch === "" ? null : Number(formData.branch),
+      room: isOffsite ? null : Number(formData.room),
+      location: isOffsite
+        ? formData.location.trim()
+        : selectedRoom?.name || formData.location,
+      expected_include_active: formData.expected_include_active,
+      expected_include_semiactive: formData.expected_include_semiactive,
+      expected_include_inactive: formData.expected_include_inactive,
+      expected_include_ongoing_visitors:
+        formData.expected_include_ongoing_visitors,
+    };
+
+    const attendeeCount = recordedAttendeeCount(initialData);
+    const dateChanged =
+      Boolean(initialData) &&
+      toCalendarDateKey(initialData?.start_date) !==
+        toCalendarDateKey(formData.start_date);
+
+    if (initialData && attendeeCount > 0 && dateChanged) {
+      setDateMoveConfirm({ isOpen: true, payload });
+      return;
+    }
+
+    await submitPayload(payload);
   };
 
   const activeStartDate = formData.start_date || defaultFormData.start_date;
@@ -558,7 +593,11 @@ export default function EventForm({
     return formatDateForInput(date);
   };
 
+  const pendingAttendeeCount = recordedAttendeeCount(initialData);
+  const attendeeLabel = pendingAttendeeCount === 1 ? "attendee" : "attendees";
+
   return (
+    <>
     <form
       onSubmit={handleSubmit}
       className="space-y-6 text-sm max-w-3xl"
@@ -907,5 +946,24 @@ export default function EventForm({
         </Button>
       </div>
     </form>
+    <ConfirmationModal
+      isOpen={dateMoveConfirm.isOpen}
+      onClose={() => setDateMoveConfirm({ isOpen: false, payload: null })}
+      onConfirm={() => {
+        const payload = dateMoveConfirm.payload;
+        setDateMoveConfirm({ isOpen: false, payload: null });
+        if (payload) {
+          void submitPayload(payload);
+        }
+      }}
+      title="Move event date?"
+      message={`${pendingAttendeeCount} ${attendeeLabel} already recorded for this event will move to the new date. Continue?`}
+      confirmText="Move date"
+      cancelText="Cancel"
+      variant="warning"
+      zIndex={80}
+      loading={loading}
+    />
+    </>
   );
 }

@@ -12,6 +12,7 @@ from rest_framework.response import Response
 
 from apps.attendance.models import AttendanceRecord
 from apps.attendance.serializers import AttendanceRecordSerializer
+from apps.attendance.services import collapse_one_off_event_attendance
 from apps.authentication.permissions import (
     IsMemberOrAbove,
     IsAuthenticatedAndNotVisitor,
@@ -171,7 +172,15 @@ class EventViewSet(viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
     def perform_update(self, serializer):
-        serializer.save(updated_by=self.request.user)
+        instance = serializer.instance
+        old_date = church_calendar_date(instance.start_date)
+        was_recurring = instance.is_recurring
+        event = serializer.save(updated_by=self.request.user)
+        if was_recurring or event.is_recurring:
+            return
+        new_date = church_calendar_date(event.start_date)
+        if old_date and new_date and old_date != new_date:
+            collapse_one_off_event_attendance(event, new_date)
 
     def get_permissions(self):
         """

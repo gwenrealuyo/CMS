@@ -206,8 +206,17 @@ export default function EventView({
   }, [event.id, initialOccurrenceKey]);
 
   useEffect(() => {
-    setAttendanceRecords(event.attendance_records ?? []);
-  }, [event.id, event.attendance_records]);
+    const records = event.attendance_records ?? [];
+    if (!selectedOccurrenceDate) {
+      setAttendanceRecords(records);
+      return;
+    }
+    setAttendanceRecords(
+      records.filter(
+        (record) => record.occurrence_date === selectedOccurrenceDate
+      )
+    );
+  }, [event.id, event.attendance_records, selectedOccurrenceDate]);
 
   const attendeeOptions = useMemo(
     () =>
@@ -232,8 +241,7 @@ export default function EventView({
     [peopleUI, attendanceRecords]
   );
 
-  const totalAttendanceCount =
-    event.attendance_count ?? attendanceRecords.length;
+  const totalAttendanceCount = attendanceRecords.length;
 
   const filteredAttendanceRecords = useMemo(() => {
     if (!attendanceSearchTerm.trim()) {
@@ -391,8 +399,7 @@ export default function EventView({
                   frequency={event.recurrence_pattern?.frequency}
                 />
               )}
-              {event.attendance_count !== undefined &&
-                event.attendance_count > 0 && (
+              {totalAttendanceCount > 0 && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 text-sm text-gray-600 bg-gray-50 rounded-full border border-gray-200">
                     <svg
                       className="w-4 h-4"
@@ -408,8 +415,8 @@ export default function EventView({
                       />
                     </svg>
                     <span>
-                      {event.attendance_count} Attendee
-                      {event.attendance_count !== 1 ? "s" : ""}
+                      {totalAttendanceCount} Attendee
+                      {totalAttendanceCount !== 1 ? "s" : ""}
                     </span>
                   </span>
                 )}

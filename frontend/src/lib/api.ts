@@ -823,6 +823,14 @@ export const eventsApi = {
   delete: (id: string) => api.delete(`/events/${id}/`),
   excludeOccurrence: (id: string, payload: { date: string }) =>
     api.post<Event>(`/events/${id}/exclude-occurrence/`, payload),
+  splitEdit: (
+    id: string,
+    payload: Partial<Event> & { scope: "occurrence" | "following"; date: string }
+  ) =>
+    api.post<{ event: Event; created_event: Event }>(
+      `/events/${id}/split-edit/`,
+      payload
+    ),
   listAttendance: (id: string, params?: { occurrence_date?: string }) =>
     api.get<EventAttendanceRecord[]>(`/events/${id}/attendance/`, {
       params,

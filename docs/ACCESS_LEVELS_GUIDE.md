@@ -187,6 +187,7 @@ Coordinators and pastors should **mark records inactive** or update status inste
 
 - Event coordinators create and edit events.
 - Non-events senior coordinators may only edit events they created.
+- Coordinators with Events write may remove or edit a single recurring occurrence or this-and-following weeks. **Hard delete of the entire event** is admin-only.
 
 **Ministries**
 

@@ -12,10 +12,16 @@ import toast from "react-hot-toast";
 import DashboardLayout from "@/src/components/layout/DashboardLayout";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
-import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import EventCalendar from "@/src/components/events/EventCalendar";
 import EventForm from "@/src/components/events/EventForm";
 import EventView from "@/src/components/events/EventView";
+import EventDeleteModal, {
+  EventDeleteScope,
+} from "@/src/components/events/EventDeleteModal";
+import {
+  RecurrenceScope,
+  buildScopedEventDraft,
+} from "@/src/lib/events/recurrenceScope";
 import EventsFilterToolbar from "@/src/components/events/EventsFilterToolbar";
 import EventAgendaPanel from "@/src/components/events/EventAgendaPanel";
 import EventTypesManager from "@/src/components/events/EventTypesManager";
@@ -60,12 +66,24 @@ export default function EventsPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     event: Event | null;
+    occurrenceDate: string | null;
     loading: boolean;
   }>({
     isOpen: false,
     event: null,
+    occurrenceDate: null,
     loading: false,
   });
+  const [editChooser, setEditChooser] = useState<{
+    isOpen: boolean;
+    event: Event | null;
+    occurrenceDate: string | null;
+  }>({
+    isOpen: false,
+    event: null,
+    occurrenceDate: null,
+  });
+  const [editScope, setEditScope] = useState<RecurrenceScope | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -97,6 +115,9 @@ export default function EventsPage() {
     createEvent,
     updateEvent,
     deleteEvent,
+    excludeOccurrence,
+    endRecurrence,
+    splitEdit,
     getEvent,
     listAttendance,
     addAttendance,
@@ -299,16 +320,40 @@ export default function EventsPage() {
   const handleUpdateEvent = async (eventData: Partial<Event>) => {
     if (!viewEditEvent) return;
     try {
-      const result = await updateEvent(viewEditEvent.id, eventData);
+      const occurrenceDate = viewOccurrenceDate;
+      let result: Event | { event: Event; created_event: Event } | void;
+      if (
+        viewEditEvent.is_recurring &&
+        (editScope === "occurrence" || editScope === "following")
+      ) {
+        if (!occurrenceDate) {
+          throw new Error("Missing occurrence date");
+        }
+        result = await splitEdit(viewEditEvent.id, {
+          ...eventData,
+          scope: editScope,
+          date: occurrenceDate,
+        });
+      } else {
+        result = await updateEvent(viewEditEvent.id, eventData);
+      }
       setIsModalOpen(false);
       setViewEditEvent(null);
       setViewOccurrenceDate(null);
       setViewMode("edit");
-      const title = result?.title || eventData.title || viewEditEvent.title;
+      setEditScope(null);
+      const title =
+        (result && "created_event" in result
+          ? result.created_event.title
+          : result && "title" in result
+            ? result.title
+            : null) ||
+        eventData.title ||
+        viewEditEvent.title;
       toast.success(
         title ? `Event "${title}" has been updated.` : "Event updated successfully."
       );
-      return result;
+      return result && "created_event" in result ? result.created_event : result;
     } catch (err) {
       console.error(err);
       toast.error(getErrorMessage(err, "Failed to update event. Please try again."));
@@ -316,27 +361,52 @@ export default function EventsPage() {
     }
   };
 
-  const handleDeleteEvent = async () => {
+  const handleConfirmDelete = async (scope: EventDeleteScope) => {
     if (!deleteConfirmation.event) return;
 
-    const eventTitle = deleteConfirmation.event.title;
+    const target = deleteConfirmation.event;
+    const eventTitle = target.title;
+    const occurrenceDate = deleteConfirmation.occurrenceDate;
 
     try {
       setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
-      await deleteEvent(deleteConfirmation.event.id);
+      if (scope === "occurrence") {
+        if (!occurrenceDate) {
+          throw new Error("Missing occurrence date");
+        }
+        await excludeOccurrence(target.id, occurrenceDate);
+        toast.success(
+          eventTitle
+            ? `Removed "${eventTitle}" for that date.`
+            : "Occurrence removed."
+        );
+      } else if (scope === "following") {
+        if (!occurrenceDate) {
+          throw new Error("Missing occurrence date");
+        }
+        await endRecurrence(target.id, occurrenceDate);
+        toast.success(
+          eventTitle
+            ? `Ended "${eventTitle}" from that date.`
+            : "Series ended from this date."
+        );
+      } else {
+        await deleteEvent(target.id);
+        toast.success(
+          eventTitle
+            ? `Event "${eventTitle}" has been deleted.`
+            : "Event deleted successfully."
+        );
+      }
       setDeleteConfirmation({
         isOpen: false,
         event: null,
+        occurrenceDate: null,
         loading: false,
       });
       setIsModalOpen(false);
       setViewEditEvent(null);
       setViewOccurrenceDate(null);
-      toast.success(
-        eventTitle
-          ? `Event "${eventTitle}" has been deleted.`
-          : "Event deleted successfully."
-      );
     } catch (error) {
       console.error("Error deleting event:", error);
       toast.error(
@@ -350,6 +420,7 @@ export default function EventsPage() {
     setDeleteConfirmation({
       isOpen: false,
       event: null,
+      occurrenceDate: null,
       loading: false,
     });
   };
@@ -466,6 +537,7 @@ export default function EventsPage() {
 
   const openCreateModal = () => {
     setViewEditEvent(null);
+    setEditScope(null);
     setViewMode("edit");
     setIsModalOpen(true);
   };
@@ -736,6 +808,7 @@ export default function EventsPage() {
           setViewEditEvent(null);
           setViewOccurrenceDate(null);
           setViewMode("edit");
+          setEditScope(null);
         }}
         title={
           viewMode === "view"
@@ -752,16 +825,29 @@ export default function EventsPage() {
             event={viewEditEvent}
             initialOccurrenceDate={viewOccurrenceDate}
             showAuditMetadata={canWriteEventsAccess}
-            onEdit={() => {
-              setViewOccurrenceDate(null);
+            onEdit={({ occurrenceDate }) => {
+              if (viewEditEvent.is_recurring && canWriteEventsAccess) {
+                setViewOccurrenceDate(occurrenceDate);
+                setEditChooser({
+                  isOpen: true,
+                  event: viewEditEvent,
+                  occurrenceDate,
+                });
+                return;
+              }
+              setEditScope(null);
+              setViewOccurrenceDate(occurrenceDate);
               setViewMode("edit");
             }}
             onDelete={
-              userCanHardDelete
-                ? () => {
+              viewEditEvent &&
+              (userCanHardDelete ||
+                (viewEditEvent.is_recurring && canWriteEventsAccess))
+                ? ({ occurrenceDate }) => {
                     setDeleteConfirmation({
                       isOpen: true,
                       event: viewEditEvent,
+                      occurrenceDate,
                       loading: false,
                     });
                   }
@@ -787,28 +873,74 @@ export default function EventsPage() {
           <EventForm
             eventTypeOptions={eventFormTypeOptions}
             onSubmit={viewEditEvent ? handleUpdateEvent : handleCreateEvent}
-            initialData={viewEditEvent || undefined}
+            initialData={
+              viewEditEvent
+                ? editScope && viewEditEvent.is_recurring
+                  ? buildScopedEventDraft(
+                      viewEditEvent,
+                      editScope,
+                      viewOccurrenceDate
+                    )
+                  : viewEditEvent
+                : undefined
+            }
             presetDate={viewEditEvent ? null : selectedDate}
+            lockRecurrence={editScope === "occurrence"}
+            scopeHint={
+              editScope === "occurrence"
+                ? "Editing this occurrence only. Other weeks of the series will not change."
+                : editScope === "following"
+                  ? "Editing this date and later weeks. Earlier weeks stay as they are."
+                  : editScope === "series"
+                    ? "Editing the entire series."
+                    : undefined
+            }
             onClose={() => {
               setIsModalOpen(false);
               setViewEditEvent(null);
               setViewOccurrenceDate(null);
               setViewMode("edit");
+              setEditScope(null);
             }}
           />
         )}
       </Modal>
 
-      <ConfirmationModal
+      <EventDeleteModal
         isOpen={deleteConfirmation.isOpen}
+        event={deleteConfirmation.event}
+        occurrenceDate={deleteConfirmation.occurrenceDate}
+        canDeleteSeries={userCanHardDelete}
+        canEditSeries={canWriteEventsAccess}
         onClose={closeDeleteConfirmation}
-        onConfirm={handleDeleteEvent}
-        title="Delete Event"
-        message={`Are you sure you want to delete "${deleteConfirmation.event?.title}"? This action cannot be undone.`}
-        confirmText="Delete Event"
-        cancelText="Cancel"
-        variant="danger"
+        onConfirm={handleConfirmDelete}
         loading={deleteConfirmation.loading}
+      />
+
+      <EventDeleteModal
+        mode="edit"
+        isOpen={editChooser.isOpen}
+        event={editChooser.event}
+        occurrenceDate={editChooser.occurrenceDate}
+        canDeleteSeries={false}
+        canEditSeries={canWriteEventsAccess}
+        onClose={() =>
+          setEditChooser({
+            isOpen: false,
+            event: null,
+            occurrenceDate: null,
+          })
+        }
+        onConfirm={(scope: RecurrenceScope) => {
+          setEditScope(scope);
+          setViewOccurrenceDate(editChooser.occurrenceDate);
+          setEditChooser({
+            isOpen: false,
+            event: null,
+            occurrenceDate: null,
+          });
+          setViewMode("edit");
+        }}
       />
 
       {canManageEventTypes && (

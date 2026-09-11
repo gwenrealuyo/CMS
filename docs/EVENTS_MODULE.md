@@ -40,7 +40,12 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 - `EventForm` (React) defaults new events to Sunday 9–11 AM Manila time, converts local picks to UTC before posting, and manages weekly recurrence options.
 - `EventCard`, `EventView`, and `EventCalendar` render dates in the viewer’s locale via `toLocaleDateString` / `toLocaleTimeString`.
 - The Events page filters support search, type, year, and month. Month defaults to the calendar’s current view and includes an “All Months” option; “All Months” requires a specific year (Year cannot be “All”).
-- Excluding a single week calls `POST /api/events/{id}/exclude-occurrence/` which updates the stored pattern and pushes back the refreshed occurrences.
+- Deleting or editing a recurring event from the detail view asks what to apply:
+  - **This occurrence** — delete uses `POST /api/events/{id}/exclude-occurrence/`; edit uses `POST /api/events/{id}/split-edit/` with `scope=occurrence` (that week becomes its own event; the date is excluded from the original series).
+  - **This and following occurrences** — delete uses `POST /api/events/{id}/end-recurrence/`; edit uses `split-edit` with `scope=following` (original series ends the day before; a new event continues from the selected date).
+  - **Entire series** — edit is a normal `PUT /api/events/{id}/`. Delete is admin-only `DELETE /api/events/{id}/`.
+- Coordinators with Events write can remove or edit a single week or this-and-following; only admins can delete the whole event. One-off events still use admin-only delete.
+- Excluding a week or ending/splitting the series keeps existing attendance (moved onto the new event when splitting). Deleting the entire series cascades those records.
 
 ## Attendance Tracking
 
@@ -69,9 +74,7 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 ## Testing
 
-Backend recurrence logic and the exclude-occurrence action are covered by unit tests in `apps/events/tests/test_recurrence.py`.
-Branch fields on event retrieve are covered by `apps/events/tests/test_event_branch_api.py`.
-Attendance and journey flows are exercised by API tests in `apps/attendance/tests/test_attendance_api.py`.
+Recurring delete options (`exclude-occurrence`, `end-recurrence`, and series `DELETE`) are covered by `apps.events.tests.test_recurrence_delete`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

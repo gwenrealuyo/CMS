@@ -25,8 +25,8 @@ interface EventViewProps {
   event: Event;
   initialOccurrenceDate?: string | null;
   showAuditMetadata?: boolean;
-  onEdit: () => void;
-  onDelete?: () => void;
+  onEdit: (payload: { occurrenceDate: string }) => void;
+  onDelete?: (payload: { occurrenceDate: string }) => void;
   onCancel?: () => void;
   onClose: () => void;
   listAttendance: (
@@ -768,7 +768,14 @@ export default function EventView({
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-6 border-t border-gray-200 bg-gray-50">
         {onDelete ? (
         <Button
-          onClick={onDelete}
+          onClick={() =>
+            onDelete({
+              occurrenceDate:
+                selectedOccurrence?.start_date ||
+                selectedOccurrenceDate ||
+                eventDateKey,
+            })
+          }
           variant="secondary"
           className="!text-red-600 min-h-[44px] px-4 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 flex items-center justify-center w-full sm:w-auto"
         >
@@ -812,7 +819,14 @@ export default function EventView({
             <span>{onCancel ? "Back" : "Close"}</span>
           </Button>
           <Button
-            onClick={onEdit}
+            onClick={() =>
+              onEdit({
+                occurrenceDate:
+                  selectedOccurrence?.start_date ||
+                  selectedOccurrenceDate ||
+                  eventDateKey,
+              })
+            }
             variant="secondary"
             className="!text-primary min-h-[44px] px-6 text-sm font-normal bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 flex items-center justify-center space-x-2 w-full sm:w-auto"
           >

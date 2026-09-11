@@ -189,6 +189,8 @@ Open **Events** for the church calendar.
 - Filter by type (e.g. Sunday Service, Doctrinal Class), month, or year.
 - **Create an event** — coordinators use **+ → Create Event** or the Events page button.
 - **Take attendance** — open an event occurrence and use the attendance panel.
+- **Delete a recurring event** — you are asked whether to remove **this occurrence**, **this and following occurrences**, or (admins only) the **entire series**. Removing one week does not delete the rest of the schedule.
+- **Edit a recurring event** — you are asked the same choices before the form opens, so a time or title change can apply to one week, later weeks, or the whole series.
 
 Recurring events (e.g. weekly Sunday Service) generate occurrences you can open individually.
 

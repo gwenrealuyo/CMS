@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 import django_filters
+from django.db import transaction
 from django.db.models import Count
 from django.utils.dateparse import parse_date
 from django.utils import dateparse, timezone
@@ -138,7 +139,15 @@ class EventViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve", "attendance", "types"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
-        elif self.action in ["create", "update", "partial_update", "add_attendance"]:
+        elif self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "add_attendance",
+            "exclude_occurrence",
+            "end_recurrence",
+            "split_edit",
+        ]:
             # Write operations: ADMIN, PASTOR, Events Coordinator, or Senior Coordinator (with restrictions)
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "write")]
         elif self.action == "destroy":
@@ -151,7 +160,15 @@ class EventViewSet(viewsets.ModelViewSet):
 
         # Senior Coordinator can only edit/delete events they created
         if (
-            self.action in ["update", "partial_update", "destroy"]
+            self.action
+            in [
+                "update",
+                "partial_update",
+                "destroy",
+                "exclude_occurrence",
+                "end_recurrence",
+                "split_edit",
+            ]
             and user.is_senior_coordinator()
             and not user.is_module_coordinator(ModuleCoordinator.ModuleType.EVENTS)
         ):
@@ -170,6 +187,110 @@ class EventViewSet(viewsets.ModelViewSet):
         if parsed and timezone.is_naive(parsed):
             parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
         return parsed
+
+    def _parse_occurrence_date(self, date_value):
+        """Parse an occurrence date from ISO datetime or YYYY-MM-DD.
+
+        Returns (date, error_response). error_response is set when parsing fails.
+        """
+        if not date_value:
+            return None, Response(
+                {"date": ["This field is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        parsed_dt = dateparse.parse_datetime(date_value)
+        if parsed_dt is not None:
+            if timezone.is_naive(parsed_dt):
+                parsed_dt = timezone.make_aware(
+                    parsed_dt, timezone.get_current_timezone()
+                )
+            return church_calendar_date(parsed_dt), None
+
+        try:
+            parsed_date = datetime.fromisoformat(date_value)
+            return church_calendar_date(parsed_date), None
+        except ValueError:
+            try:
+                parsed_date = datetime.strptime(date_value, "%Y-%m-%d")
+                return parsed_date.date(), None
+            except ValueError:
+                return None, Response(
+                    {"date": ["Invalid date format. Use ISO 8601."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+    def _recurrence_bounds(self, event):
+        pattern = clean_weekly_pattern(event.recurrence_pattern, event.start_date)
+        start_date = church_calendar_date(event.start_date)
+        through_date = date.fromisoformat(pattern["through"])
+        return pattern, start_date, through_date
+
+    def _date_out_of_range_response(self):
+        return Response(
+            {
+                "date": [
+                    "Date must fall between the event start date and recurrence end date."
+                ]
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def _exclude_target_date(self, event, target_date, user):
+        pattern, start_date, through_date = self._recurrence_bounds(event)
+        if target_date < start_date or target_date > through_date:
+            return self._date_out_of_range_response()
+        excluded = set(pattern.get("excluded_dates", []))
+        excluded.add(target_date.isoformat())
+        pattern["excluded_dates"] = sorted(excluded)
+        event.recurrence_pattern = pattern
+        event.updated_by = user
+        event.save(update_fields=["recurrence_pattern", "updated_by", "updated_at"])
+        return None
+
+    def _end_series_before(self, event, target_date, user):
+        pattern, start_date, through_date = self._recurrence_bounds(event)
+        if target_date <= start_date:
+            return Response(
+                {
+                    "date": [
+                        "Cannot apply this to the first occurrence of the series."
+                    ]
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if target_date > through_date:
+            return self._date_out_of_range_response()
+        pattern["through"] = (target_date - timedelta(days=1)).isoformat()
+        event.recurrence_pattern = clean_weekly_pattern(pattern, event.start_date)
+        event.updated_by = user
+        event.save(update_fields=["recurrence_pattern", "updated_by", "updated_at"])
+        return None
+
+    def _move_attendance(
+        self,
+        source_event,
+        dest_event,
+        *,
+        occurrence_date=None,
+        occurrence_date_gte=None,
+        new_occurrence_date=None,
+    ):
+        records = source_event.attendance_records.all()
+        if occurrence_date is not None:
+            records = records.filter(occurrence_date=occurrence_date)
+        if occurrence_date_gte is not None:
+            records = records.filter(occurrence_date__gte=occurrence_date_gte)
+        updates = []
+        for record in records:
+            record.event = dest_event
+            if new_occurrence_date is not None:
+                record.occurrence_date = new_occurrence_date
+            updates.append(record)
+        if updates:
+            AttendanceRecord.objects.bulk_update(
+                updates, ["event", "occurrence_date"]
+            )
 
     @action(detail=False, methods=["get"], url_path="types")
     def types(self, request):
@@ -253,54 +374,108 @@ class EventViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        date_value = request.data.get("date")
-        if not date_value:
-            return Response(
-                {"date": ["This field is required."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        target_date, error = self._parse_occurrence_date(request.data.get("date"))
+        if error:
+            return error
 
-        parsed_dt = dateparse.parse_datetime(date_value)
-        if parsed_dt is not None:
-            if timezone.is_naive(parsed_dt):
-                parsed_dt = timezone.make_aware(
-                    parsed_dt, timezone.get_current_timezone()
-                )
-            target_date = church_calendar_date(parsed_dt)
-        else:
-            try:
-                parsed_date = datetime.fromisoformat(date_value)
-                target_date = church_calendar_date(parsed_date)
-            except ValueError:
-                try:
-                    parsed_date = datetime.strptime(date_value, "%Y-%m-%d")
-                    target_date = parsed_date.date()
-                except ValueError:
-                    return Response(
-                        {"date": ["Invalid date format. Use ISO 8601."]},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-        pattern = clean_weekly_pattern(event.recurrence_pattern, event.start_date)
-        start_date = church_calendar_date(event.start_date)
-        through_date = datetime.fromisoformat(pattern["through"]).date()
-
-        if target_date < start_date or target_date > through_date:
-            return Response(
-                {
-                    "date": [
-                        "Date must fall between the event start date and recurrence end date."
-                    ]
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        excluded = set(pattern.get("excluded_dates", []))
-        excluded.add(target_date.isoformat())
-        pattern["excluded_dates"] = sorted(excluded)
-        event.recurrence_pattern = pattern
-        event.updated_by = request.user
-        event.save(update_fields=["recurrence_pattern", "updated_by", "updated_at"])
+        range_error = self._exclude_target_date(event, target_date, request.user)
+        if range_error:
+            return range_error
 
         serializer = self.get_serializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="end-recurrence")
+    def end_recurrence(self, request, pk=None):
+        """Stop a series on the given date (that occurrence and later weeks)."""
+        event = self.get_object()
+
+        if not event.is_recurring:
+            return Response(
+                {"detail": "Event is not recurring."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_date, error = self._parse_occurrence_date(request.data.get("date"))
+        if error:
+            return error
+
+        range_error = self._end_series_before(event, target_date, request.user)
+        if range_error:
+            return range_error
+
+        serializer = self.get_serializer(event)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="split-edit")
+    def split_edit(self, request, pk=None):
+        """Apply an edit to one occurrence or this-and-following weeks."""
+        event = self.get_object()
+
+        if not event.is_recurring:
+            return Response(
+                {"detail": "Event is not recurring."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        scope = request.data.get("scope")
+        if scope not in ("occurrence", "following"):
+            return Response(
+                {"scope": ["Must be 'occurrence' or 'following'."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_date, error = self._parse_occurrence_date(request.data.get("date"))
+        if error:
+            return error
+
+        payload = {
+            key: value
+            for key, value in request.data.items()
+            if key not in ("scope", "date")
+        }
+        if "branch" not in payload:
+            payload["branch"] = event.branch_id
+        if scope == "occurrence":
+            payload["is_recurring"] = False
+            payload["recurrence_pattern"] = None
+
+        create_serializer = self.get_serializer(data=payload)
+        create_serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            if scope == "occurrence":
+                range_error = self._exclude_target_date(
+                    event, target_date, request.user
+                )
+            else:
+                range_error = self._end_series_before(
+                    event, target_date, request.user
+                )
+            if range_error:
+                return range_error
+
+            new_event = create_serializer.save(created_by=request.user)
+            new_occurrence_date = church_calendar_date(new_event.start_date)
+            if scope == "occurrence":
+                self._move_attendance(
+                    event,
+                    new_event,
+                    occurrence_date=target_date,
+                    new_occurrence_date=new_occurrence_date,
+                )
+            else:
+                self._move_attendance(
+                    event,
+                    new_event,
+                    occurrence_date_gte=target_date,
+                )
+
+        event.refresh_from_db()
+        return Response(
+            {
+                "event": self.get_serializer(event).data,
+                "created_event": self.get_serializer(new_event).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )

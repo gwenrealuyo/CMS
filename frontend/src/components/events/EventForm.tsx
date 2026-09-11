@@ -8,6 +8,8 @@ interface EventFormProps {
   presetDate?: Date | null;
   onClose?: () => void;
   eventTypeOptions?: { value: string; label: string }[];
+  lockRecurrence?: boolean;
+  scopeHint?: string;
 }
 
 /** Parse datetime-local (wall clock) and ISO strings without UTC shifting. */
@@ -214,6 +216,8 @@ export default function EventForm({
   presetDate,
   onClose,
   eventTypeOptions = [],
+  lockRecurrence = false,
+  scopeHint,
 }: EventFormProps) {
   const defaultFormData = useMemo(() => {
     if (initialData) {
@@ -426,6 +430,11 @@ export default function EventForm({
       onSubmit={handleSubmit}
       className="max-h-[85vh] overflow-y-auto space-y-6 text-sm max-w-3xl"
     >
+      {scopeHint && (
+        <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          {scopeHint}
+        </p>
+      )}
       <div className="space-y-6 pr-1">
         <div>
           <div className="p-0">
@@ -572,7 +581,8 @@ export default function EventForm({
                   name="is_recurring"
                   checked={formData.is_recurring}
                   onChange={handleChange}
-                  className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded"
+                  disabled={lockRecurrence}
+                  className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded disabled:opacity-50"
                 />
                 <label
                   htmlFor="is_recurring"

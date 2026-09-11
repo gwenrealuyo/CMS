@@ -223,6 +223,36 @@ export const useEvents = () => {
     [findAndReplaceEvent]
   );
 
+  const endRecurrence = useCallback(
+    async (id: string, date: string) => {
+      try {
+        const response = await eventsApi.endRecurrence(id, { date });
+        findAndReplaceEvent(response.data);
+        return response.data;
+      } catch (err) {
+        throw new Error("Failed to end recurrence");
+      }
+    },
+    [findAndReplaceEvent]
+  );
+
+  const splitEdit = useCallback(
+    async (
+      id: string,
+      payload: Partial<Event> & { scope: "occurrence" | "following"; date: string }
+    ) => {
+      try {
+        const response = await eventsApi.splitEdit(id, payload);
+        findAndReplaceEvent(response.data.event);
+        findAndReplaceEvent(response.data.created_event);
+        return response.data;
+      } catch (err) {
+        throw new Error("Failed to update recurring event");
+      }
+    },
+    [findAndReplaceEvent]
+  );
+
   const getEvent = useCallback(
     async (
       id: string,
@@ -288,6 +318,8 @@ export const useEvents = () => {
     updateEvent,
     deleteEvent,
     excludeOccurrence,
+    endRecurrence,
+    splitEdit,
     getEvent,
     listAttendance,
     addAttendance,

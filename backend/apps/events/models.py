@@ -112,3 +112,52 @@ class Event(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.start_date}"
+
+
+class EventSetting(models.Model):
+    """Singleton flags for the Events module (e.g. member self-check-in)."""
+
+    SOLO_PK = 1
+
+    member_self_checkin_enabled = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, all logged-in members can use Sunday self-check-in. "
+            "When disabled, only admins and Events coordinators see it."
+        ),
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_event_settings",
+    )
+
+    class Meta:
+        verbose_name = "Event Setting"
+        verbose_name_plural = "Event Settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = self.SOLO_PK
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        self.member_self_checkin_enabled = False
+        self.updated_by = None
+        self.save(
+            update_fields=["member_self_checkin_enabled", "updated_by", "updated_at"]
+        )
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(
+            pk=cls.SOLO_PK,
+            defaults={"member_self_checkin_enabled": False},
+        )
+        return obj
+
+    def __str__(self):
+        status = "Enabled" if self.member_self_checkin_enabled else "Disabled"
+        return f"Member self-check-in: {status}"

@@ -615,7 +615,9 @@ export default function EventSelfCheckInView() {
     return shell(
       <div className="text-center">
         <p className="text-sm text-muted-foreground">
-          Self check-in is only available on Sunday Service days.
+          {payload?.reason === "restricted"
+            ? "Self check-in is not open to members yet."
+            : "Self check-in is only available on Sunday Service days."}
         </p>
         <Link href="/dashboard" className="mt-5 inline-block w-full">
           <Button className="w-full">Back to dashboard</Button>

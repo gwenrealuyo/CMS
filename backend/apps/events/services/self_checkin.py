@@ -26,6 +26,34 @@ AGE_GROUP_LABELS = {
 
 REASON_NO_SERVICE = "no_service_today"
 REASON_NOT_FOR_BRANCH = "no_service_for_branch"
+REASON_RESTRICTED = "restricted"
+
+
+def user_is_self_checkin_staff(user) -> bool:
+    """Admins and Events coordinators (including senior) may always use self-check-in."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) == "ADMIN":
+        return True
+    return user.module_coordinator_assignments.filter(
+        module=ModuleCoordinator.ModuleType.EVENTS,
+        level__in=(
+            ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+            ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+        ),
+    ).exists()
+
+
+def member_self_checkin_enabled() -> bool:
+    from apps.events.models import EventSetting
+
+    return EventSetting.get_solo().member_self_checkin_enabled
+
+
+def user_can_use_self_checkin(user) -> bool:
+    if user_is_self_checkin_staff(user):
+        return True
+    return member_self_checkin_enabled()
 
 
 def user_has_events_write(user) -> bool:

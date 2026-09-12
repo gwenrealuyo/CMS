@@ -12,12 +12,15 @@ from apps.attendance.serializers import AttendanceRecordSerializer
 from apps.authentication.permissions import (
     IsAuthenticatedAndNotVisitor,
     IsMemberOrAbove,
+    IsAdmin,
 )
-from apps.events.models import EventType
+from apps.events.models import EventSetting, EventType
 from apps.evangelism.models import Prospect
 from apps.evangelism.services import mark_prospect_attended
+from apps.events.serializers import EventSettingSerializer
 from apps.events.services.self_checkin import (
     AGE_GROUP_LABELS,
+    REASON_RESTRICTED,
     SUNDAY_SERVICE_TYPE,
     checked_in_person_ids,
     exact_name_matches,
@@ -39,6 +42,7 @@ from apps.events.services.self_checkin import (
     serialize_session_event,
     undoable_person_ids,
     user_can_encode_self_checkin_visitors,
+    user_can_use_self_checkin,
 )
 from apps.people.models import Journey, Person
 from apps.people.name_formatting import title_case_name
@@ -52,11 +56,23 @@ class CanEncodeSelfCheckInVisitors(BasePermission):
         return bool(user and user_can_encode_self_checkin_visitors(user))
 
 
+class CanUseSelfCheckIn(BasePermission):
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        return bool(user and user_can_use_self_checkin(user))
+
+
 SESSION_PERMISSIONS = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
 ENCODE_PERMISSIONS = [
     IsAuthenticatedAndNotVisitor,
     IsMemberOrAbove,
+    CanUseSelfCheckIn,
     CanEncodeSelfCheckInVisitors,
+]
+MUTATE_PERMISSIONS = [
+    IsAuthenticatedAndNotVisitor,
+    IsMemberOrAbove,
+    CanUseSelfCheckIn,
 ]
 
 
@@ -78,6 +94,19 @@ def _unavailable_payload(resolved) -> dict:
         "can_encode_visitors": resolved.can_encode_visitors,
         "session": None,
         "options": [],
+    }
+
+
+def _restricted_payload() -> dict:
+    return {
+        "available": False,
+        "reason": REASON_RESTRICTED,
+        "occurrence_date": None,
+        "needs_selection": False,
+        "can_encode_visitors": False,
+        "session": None,
+        "options": [],
+        "detail": "Self check-in is not open to members yet.",
     }
 
 
@@ -161,12 +190,14 @@ class SelfCheckInSessionView(APIView):
     permission_classes = SESSION_PERMISSIONS
 
     def get(self, request):
+        if not user_can_use_self_checkin(request.user):
+            return Response(_restricted_payload())
         resolved = resolve_session(request.user, event_id=_event_id_from_request(request))
         return build_session_response(request, resolved)
 
 
 class SelfCheckInView(APIView):
-    permission_classes = SESSION_PERMISSIONS
+    permission_classes = MUTATE_PERMISSIONS
 
     def post(self, request):
         resolved = resolve_session(request.user, event_id=_event_id_from_request(request))
@@ -219,7 +250,7 @@ class SelfCheckInView(APIView):
 
 
 class SelfCheckInUndoView(APIView):
-    permission_classes = SESSION_PERMISSIONS
+    permission_classes = MUTATE_PERMISSIONS
 
     def post(self, request):
         resolved = resolve_session(request.user, event_id=_event_id_from_request(request))
@@ -601,3 +632,20 @@ class SelfCheckInInvitersView(APIView):
                 },
             )
         return Response({"results": results, "query": query})
+
+
+class EventSettingView(APIView):
+    """Singleton Events flags (ADMIN only). GET/PATCH /api/events/settings/"""
+
+    permission_classes = [IsAuthenticatedAndNotVisitor, IsAdmin]
+
+    def get(self, request):
+        setting = EventSetting.get_solo()
+        return Response(EventSettingSerializer(setting).data)
+
+    def patch(self, request):
+        setting = EventSetting.get_solo()
+        serializer = EventSettingSerializer(setting, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(updated_by=request.user)
+        return Response(serializer.data)

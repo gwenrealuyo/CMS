@@ -34,6 +34,7 @@ import ModuleCoordinatorManager from "@/src/components/admin/ModuleCoordinatorMa
 import BranchForm from "@/src/components/admin/BranchForm";
 import ModuleSettingsManager from "@/src/components/admin/ModuleSettingsManager";
 import PeopleAutomationSettingsManager from "@/src/components/admin/PeopleAutomationSettingsManager";
+import EventSettingsManager from "@/src/components/admin/EventSettingsManager";
 import PeopleDuplicatesPanel from "@/src/components/admin/PeopleDuplicatesPanel";
 import AdminAccountsPanel from "@/src/components/admin/AdminAccountsPanel";
 import { TABLET_MIN } from "@/src/lib/breakpoints";
@@ -2149,6 +2150,7 @@ function AdminSettingsPageContent() {
             {activeTab === "module-controls" && (
               <div className="space-y-8">
                 <ModuleSettingsManager />
+                <EventSettingsManager />
                 <PeopleAutomationSettingsManager />
               </div>
             )}

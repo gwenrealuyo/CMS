@@ -87,6 +87,7 @@ import {
 import { Branch } from "@/src/types/branch";
 import { ModuleSetting } from "@/src/types/moduleSettings";
 import { PeopleAutomationSetting } from "@/src/types/peopleAutomationSettings";
+import { EventSetting } from "@/src/types/eventSettings";
 import { NotificationFeedResponse } from "@/src/types/notifications";
 import { ReportsScopeMeta, PeopleSummary, EngagementSummary, NccSummary, CymSummary, V2bSummary, StewardshipSummary, OverviewSummary } from "@/src/types/reports";
 
@@ -604,6 +605,13 @@ export const peopleAutomationSettingsApi = {
       "/people/people-automation-settings/",
       data,
     ),
+};
+
+export const eventSettingsApi = {
+  get: () => api.get<EventSetting>("/events/settings/"),
+  patch: (
+    data: Partial<Pick<EventSetting, "member_self_checkin_enabled">>,
+  ) => api.patch<EventSetting>("/events/settings/", data),
 };
 
 export const branchesApi = {

@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import Cluster
 from apps.evangelism.models import Prospect
-from apps.events.models import Event, EventType
+from apps.events.models import Event, EventSetting, EventType
 from apps.people.models import Branch, Family, ModuleCoordinator, Person
 
 
@@ -154,10 +154,58 @@ class SelfCheckInAPITests(APITestCase):
         self.views_today_patch.start()
         self.addCleanup(self.church_today_patch.stop)
         self.addCleanup(self.views_today_patch.stop)
+        EventSetting.get_solo()
+        EventSetting.objects.filter(pk=EventSetting.SOLO_PK).update(
+            member_self_checkin_enabled=True
+        )
 
     def test_unauthenticated_rejected(self):
         response = self.client.get("/api/events/self-check-in/session/")
         self.assertEqual(response.status_code, 401)
+
+    def test_member_self_checkin_hidden_when_setting_off(self):
+        EventSetting.objects.filter(pk=EventSetting.SOLO_PK).update(
+            member_self_checkin_enabled=False
+        )
+        self.client.force_authenticate(self.member)
+        session = self.client.get("/api/events/self-check-in/session/")
+        self.assertEqual(session.status_code, 200, session.data)
+        self.assertFalse(session.data["available"])
+        self.assertEqual(session.data["reason"], "restricted")
+        blocked = self.client.post(
+            "/api/events/self-check-in/",
+            {"person_ids": [self.member.id]},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 403)
+
+    def test_coordinator_can_use_self_checkin_when_setting_off(self):
+        EventSetting.objects.filter(pk=EventSetting.SOLO_PK).update(
+            member_self_checkin_enabled=False
+        )
+        self.client.force_authenticate(self.coordinator)
+        session = self.client.get("/api/events/self-check-in/session/")
+        self.assertEqual(session.status_code, 200, session.data)
+        self.assertTrue(session.data["available"])
+
+    def test_admin_can_toggle_member_self_checkin_setting(self):
+        EventSetting.objects.filter(pk=EventSetting.SOLO_PK).update(
+            member_self_checkin_enabled=False
+        )
+        self.client.force_authenticate(self.member)
+        forbidden = self.client.get("/api/events/settings/")
+        self.assertEqual(forbidden.status_code, 403)
+        self.client.force_authenticate(self.admin)
+        current = self.client.get("/api/events/settings/")
+        self.assertEqual(current.status_code, 200, current.data)
+        self.assertFalse(current.data["member_self_checkin_enabled"])
+        updated = self.client.patch(
+            "/api/events/settings/",
+            {"member_self_checkin_enabled": True},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertTrue(updated.data["member_self_checkin_enabled"])
 
     def test_no_service_on_weekday(self):
         with patch(

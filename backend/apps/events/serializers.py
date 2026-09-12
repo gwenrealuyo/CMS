@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.attendance.serializers import AttendanceRecordSerializer
-from .models import Event, EventRoom, EventType
+from .models import Event, EventRoom, EventType, EventSetting
 from .services.conflicts import validate_sunday_service_uniqueness
 from .services.recurrence import (
     RecurrencePatternError,
@@ -412,3 +412,23 @@ class EventSerializer(serializers.ModelSerializer):
                 }
             )
         return badges
+
+
+class EventSettingSerializer(serializers.ModelSerializer):
+    updated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EventSetting
+        fields = [
+            "id",
+            "member_self_checkin_enabled",
+            "updated_at",
+            "updated_by",
+            "updated_by_name",
+        ]
+        read_only_fields = ["id", "updated_at", "updated_by", "updated_by_name"]
+
+    def get_updated_by_name(self, obj):
+        if not obj.updated_by:
+            return None
+        return obj.updated_by.get_full_name() or obj.updated_by.username

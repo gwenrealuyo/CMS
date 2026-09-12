@@ -99,7 +99,8 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 Mobile-first page at `/events/self-check-in` (authenticated, no sidebar). Complements the staff station; both write the same `AttendanceRecord` + `EVENT_ATTENDANCE` journey.
 
 - **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have a `SUNDAY_SERVICE` occurrence. If none, the page is unavailable (no last-week fallback). Prefer the user’s branch; admins / HQ pastors get a picker when more than one branch or time matches.
-- **Members:** any authenticated non-visitor can check in themselves and household members on the same `Family` record(s). Deceased and other admin accounts are skipped. Does **not** require Events write.
+- **Who can use it:** **Member self-check-in** in Admin Settings → Module controls is off by default. While off, only admins and Events coordinators (coordinator / senior coordinator) see the banner and page. Turn the switch on to open it to all logged-in members.
+- **Members:** any allowed authenticated non-visitor can check in themselves and household members on the same `Family` record(s). Deceased and other admin accounts are skipped. Does **not** require Events write.
 - **Visitors:** search by name first (existing `VISITOR` records **and Invited prospects** in the event branch), select a match, then confirm check-in. Encode if none match. Encode is limited to people who can add visitors (`user_can_add_visitor`) **or** Events write (Events coordinators). Inviter defaults to the logged-in user and is editable. Phone is not used for matching. Duplicate first+last name in the branch returns 409 with matches (people and Invited prospects) instead of creating a second person.
 - Checking in an Invited prospect uses the same `mark_prospect_attended` path as Evangelism / cluster reports: creates a `VISITOR` / `ONGOING` Person, sets first activity to Sunday Service, then marks Present. Undo still only removes attendance.
 - New visitors: `VISITOR` / `ONGOING`, `date_first_attended` today, `first_activity_attended=SUNDAY_SERVICE`, event branch, age group stored as a visitor note. First and last names use the same title-case rules as Add Person.
@@ -108,7 +109,8 @@ Mobile-first page at `/events/self-check-in` (authenticated, no sidebar). Comple
 
 API (all authenticated, non-visitor):
 
-- `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`. `?event=` selects among options.
+- `GET|PATCH /api/events/settings/` — ADMIN. `member_self_checkin_enabled` opens self-check-in to all members (default off).
+- `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`. `?event=` selects among options. Members get `available: false`, `reason: restricted` while the setting is off.
 - `POST /api/events/self-check-in/` — `{ person_ids, event_id? }` household Present upsert.
 - `POST /api/events/self-check-in/undo/` — `{ person_ids, event_id? }` remove today’s Present records you are allowed to undo.
 - `GET|POST /api/events/self-check-in/visitors/` — name search (visitors + Invited prospects) / check in existing person, check in prospect (`prospect_id`), or encode.

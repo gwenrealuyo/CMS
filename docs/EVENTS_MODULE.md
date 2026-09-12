@@ -14,16 +14,24 @@ Recurring events store a JSON payload in `Event.recurrence_pattern`:
 ```json
 {
   "frequency": "weekly",
-  "weekdays": [0],
-  "through": "2025-12-31",
-  "excluded_dates": ["2025-04-06"]
+  "interval": 2,
+  "weekdays": [6],
+  "monthly_mode": "by_weekday",
+  "month_day": 13,
+  "week_of_month": 2,
+  "through": "2026-12-31",
+  "excluded_dates": ["2026-04-06"]
 }
 ```
 
-- `frequency`: currently always `"weekly"` (validated server-side).
-- `weekdays`: Python weekday integers (Monday = 0, … Sunday = 6). The frontend converts JavaScript’s Sunday=0 to this format before submit.
+- `frequency`: `"weekly"` or `"monthly"`. Missing values default to `"weekly"`; unknown values are rejected on write.
+- `interval`: `1` (every week) or `2` (every 2 weeks). Only used for weekly series; monthly is always `1`. Older records without `interval` are treated as weekly.
+- `weekdays`: Python weekday integers (Monday = 0, … Sunday = 6). The frontend converts JavaScript’s Sunday=0 to this format before submit. Used for weekly series and monthly-by-weekday.
+- `monthly_mode`: `"by_date"` (same calendar day) or `"by_weekday"` (nth or last weekday). Monthly only.
+- `month_day`: 1–31 for monthly by date. If that day does not exist in a month (Jan 31 → February), the last day of the month is used.
+- `week_of_month`: `1`–`4` or `-1` (last that weekday in the month). Monthly by weekday only.
 - `through`: ISO date string (YYYY-MM-DD) clamped to one year from the base start.
-- `excluded_dates`: ISO dates for individual occurrences removed via the “Skip this week” action.
+- `excluded_dates`: ISO dates for individual occurrences removed via skip-this-occurrence.
 
 The recurrence service expands this pattern on demand in `apps.events.services.recurrence.generate_occurrences`, providing `occurrences` and `next_occurrence` fields in the serializer.
 
@@ -37,7 +45,7 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 ## Frontend Behavior
 
-- `EventForm` (React) defaults new events to Sunday 9–11 AM Manila time, converts local picks to UTC before posting, and manages weekly recurrence options.
+- `EventForm` (React) defaults new events to Sunday 9–11 AM Manila time, converts local picks to UTC before posting, and manages recurrence (weekly, every 2 weeks, or monthly by date / weekday).
 - `EventCard`, `EventView`, and `EventCalendar` render dates in the viewer’s locale via `toLocaleDateString` / `toLocaleTimeString`.
 - The Events page filters support search, type, year, and month. Month defaults to the calendar’s current view and includes an “All Months” option; “All Months” requires a specific year (Year cannot be “All”).
 - Deleting or editing a recurring event from the detail view asks what to apply:
@@ -119,7 +127,7 @@ Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; ot
 
 ## Testing
 
-Recurring delete options (`exclude-occurrence`, `end-recurrence`, and series `DELETE`) are covered by `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`.
+Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

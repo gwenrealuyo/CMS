@@ -1,20 +1,18 @@
 "use client";
 
+import { RecurrencePattern } from "@/src/types/event";
+import { recurrenceChipLabel } from "@/src/lib/events/recurrenceLabel";
+
 type EventRecurringChipProps = {
-  frequency?: string | null;
+  pattern?: RecurrencePattern | null;
   size?: "sm" | "md";
 };
 
-function frequencyLabel(frequency?: string | null): string {
-  const value = frequency?.trim().toLowerCase();
-  return value || "weekly";
-}
-
 export default function EventRecurringChip({
-  frequency,
+  pattern,
   size = "md",
 }: EventRecurringChipProps) {
-  const label = frequencyLabel(frequency);
+  const label = recurrenceChipLabel(pattern);
   const chipClass = size === "sm" ? "chip-primary-sm gap-1" : "chip-primary gap-1.5";
   const iconClass = size === "sm" ? "w-2.5 h-2.5" : "w-3.5 h-3.5";
 

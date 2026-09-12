@@ -41,7 +41,7 @@ function EventMeta({
       {event.is_recurring && (
         <EventRecurringChip
           size="sm"
-          frequency={event.recurrence_pattern?.frequency}
+          pattern={event.recurrence_pattern}
         />
       )}
       {event.location && (
@@ -95,7 +95,7 @@ function EventComfortableDetails({
         {event.is_recurring && (
           <EventRecurringChip
             size="sm"
-            frequency={event.recurrence_pattern?.frequency}
+            pattern={event.recurrence_pattern}
           />
         )}
       </div>

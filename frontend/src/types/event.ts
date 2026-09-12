@@ -8,12 +8,22 @@ export interface EventOccurrence {
   is_base_occurrence: boolean;
 }
 
-export interface WeeklyRecurrencePattern {
-  frequency: "weekly";
+export type RecurrenceFrequency = "weekly" | "monthly";
+export type MonthlyRecurrenceMode = "by_date" | "by_weekday";
+
+export interface RecurrencePattern {
+  frequency: RecurrenceFrequency;
+  interval?: number;
   weekdays: number[];
+  monthly_mode?: MonthlyRecurrenceMode;
+  month_day?: number;
+  week_of_month?: number;
   through: string;
   excluded_dates?: string[];
 }
+
+/** @deprecated Use RecurrencePattern */
+export type WeeklyRecurrencePattern = RecurrencePattern;
 
 export type AttendanceStatus = "PRESENT" | "ABSENT" | "EXCUSED";
 
@@ -84,7 +94,7 @@ export interface Event {
   expected_include_semiactive?: boolean;
   expected_include_inactive?: boolean;
   expected_include_ongoing_visitors?: boolean;
-  recurrence_pattern?: WeeklyRecurrencePattern | null;
+  recurrence_pattern?: RecurrencePattern | null;
   occurrences?: EventOccurrence[];
   next_occurrence?: EventOccurrence | null;
   attendee_badges?: Array<{

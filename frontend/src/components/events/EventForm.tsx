@@ -1,12 +1,20 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Event, WeeklyRecurrencePattern } from "@/src/types/event";
+import { Event, RecurrencePattern } from "@/src/types/event";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useBranches } from "@/src/hooks/useBranches";
 import { useEventRooms } from "@/src/hooks/useEventRooms";
 import Button from "../ui/Button";
 import ConfirmationModal from "../ui/ConfirmationModal";
+import {
+  RepeatOption,
+  buildRecurrencePattern,
+  formatRecurrenceSummary,
+  getRepeatOption,
+  monthlyDateOptionLabel,
+  monthlyWeekdayOptionLabel,
+} from "@/src/lib/events/recurrenceLabel";
 
 const OFFSITE_ROOM = "other";
 
@@ -44,10 +52,6 @@ const parseLocalDateTime = (value: string): Date | null => {
 
   const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const toPythonWeekday = (jsWeekday: number) => {
-  return jsWeekday === 0 ? 6 : jsWeekday - 1;
 };
 
 const formatDateOnly = (date: Date) => {
@@ -143,10 +147,11 @@ const clampThroughDate = (start: Date, candidate?: Date | null) => {
   return normalized;
 };
 
-const buildWeeklyPattern = (
+const buildPattern = (
   startValue: string,
-  existing?: WeeklyRecurrencePattern | null
-): WeeklyRecurrencePattern => {
+  existing?: RecurrencePattern | null,
+  overrides?: Partial<RecurrencePattern>
+): RecurrencePattern => {
   const startDate = parseLocalDateTime(startValue) ?? new Date();
 
   const throughCandidate = existing?.through
@@ -155,12 +160,12 @@ const buildWeeklyPattern = (
 
   const throughDate = clampThroughDate(startDate, throughCandidate);
 
-  return {
-    frequency: "weekly",
-    weekdays: [toPythonWeekday(startDate.getDay())],
-    through: formatDateOnly(throughDate),
-    excluded_dates: existing?.excluded_dates ?? [],
-  };
+  return buildRecurrencePattern(
+    startDate,
+    formatDateOnly(throughDate),
+    existing,
+    overrides
+  );
 };
 
 const toUtcISOString = (value?: string | null) => {
@@ -344,10 +349,10 @@ export default function EventForm({
     );
   }, [rooms, initialData?.room]);
 
-  const initialRecurrence = useMemo<WeeklyRecurrencePattern | null>(
+  const initialRecurrence = useMemo<RecurrencePattern | null>(
     () =>
       initialData?.is_recurring
-        ? buildWeeklyPattern(
+        ? buildPattern(
             initialData.start_date || defaultFormData.start_date,
             initialData.recurrence_pattern || null
           )
@@ -356,7 +361,7 @@ export default function EventForm({
   );
 
   const [recurrencePattern, setRecurrencePattern] =
-    useState<WeeklyRecurrencePattern | null>(initialRecurrence);
+    useState<RecurrencePattern | null>(initialRecurrence);
   const [loading, setLoading] = useState(false);
   const [dateMoveConfirm, setDateMoveConfirm] = useState<{
     isOpen: boolean;
@@ -367,7 +372,7 @@ export default function EventForm({
     setFormData(defaultFormData);
     if (initialData?.is_recurring) {
       setRecurrencePattern(
-        buildWeeklyPattern(
+        buildPattern(
           initialData.start_date || defaultFormData.start_date,
           initialData.recurrence_pattern || null
         )
@@ -392,7 +397,7 @@ export default function EventForm({
       if (nextIsRecurring) {
         const sourceStart = formData.start_date || defaultFormData.start_date;
         setRecurrencePattern((current) =>
-          buildWeeklyPattern(sourceStart, current)
+          buildPattern(sourceStart, current)
         );
       } else {
         setRecurrencePattern(null);
@@ -465,7 +470,7 @@ export default function EventForm({
       nextStartDate
     ) {
       setRecurrencePattern((current) =>
-        buildWeeklyPattern(nextStartDate as string, current)
+        buildPattern(nextStartDate as string, current)
       );
     }
   };
@@ -486,10 +491,10 @@ export default function EventForm({
     if (formData.is_recurring) {
       const baseStart = formData.start_date || defaultFormData.start_date;
       if (!patternToSend) {
-        patternToSend = buildWeeklyPattern(baseStart, null);
+        patternToSend = buildPattern(baseStart, null);
         setRecurrencePattern(patternToSend);
       } else {
-        patternToSend = buildWeeklyPattern(baseStart, patternToSend);
+        patternToSend = buildPattern(baseStart, patternToSend);
         setRecurrencePattern(patternToSend);
       }
     }
@@ -552,10 +557,6 @@ export default function EventForm({
             : new Date();
           return Number.isNaN(fallback.getTime()) ? new Date() : fallback;
         })();
-  const recurrenceWeekdayLabel = activeStartDateObj.toLocaleDateString(
-    "en-US",
-    { weekday: "long" }
-  );
 
   const recurrenceMaxThroughDate = getMaxThroughDate(activeStartDateObj);
   const currentThroughDate = recurrencePattern?.through
@@ -568,6 +569,13 @@ export default function EventForm({
   const recurrenceThroughValue = formatDateOnly(clampedThroughDate);
   const recurrenceMinThroughValue = formatDateOnly(activeStartDateObj);
   const recurrenceMaxThroughValue = formatDateOnly(recurrenceMaxThroughDate);
+  const liveRecurrencePattern = formData.is_recurring
+    ? buildPattern(activeStartDate, {
+        ...(recurrencePattern ?? {}),
+        through: recurrenceThroughValue,
+      } as RecurrencePattern)
+    : recurrencePattern;
+  const repeatOption = getRepeatOption(liveRecurrencePattern);
 
   const handleRecurrenceThroughChange = (value: string) => {
     if (!value) return;
@@ -576,15 +584,32 @@ export default function EventForm({
     const clamped = clampThroughDate(activeStartDateObj, selectedDate);
 
     setRecurrencePattern((current) => {
-      const base = current
-        ? { ...current }
-        : buildWeeklyPattern(activeStartDate, null);
-      return {
+      const base = current ?? buildPattern(activeStartDate, null);
+      return buildPattern(activeStartDate, {
         ...base,
-        weekdays: [toPythonWeekday(activeStartDateObj.getDay())],
         through: formatDateOnly(clamped),
-      };
+      });
     });
+  };
+
+  const handleRepeatOptionChange = (value: RepeatOption) => {
+    setRecurrencePattern((current) =>
+      buildPattern(activeStartDate, current, {
+        frequency: value === "monthly" ? "monthly" : "weekly",
+        interval: value === "every_2_weeks" ? 2 : 1,
+        monthly_mode:
+          value === "monthly" ? current?.monthly_mode ?? "by_date" : undefined,
+      })
+    );
+  };
+
+  const handleMonthlyModeChange = (mode: "by_date" | "by_weekday") => {
+    setRecurrencePattern((current) =>
+      buildPattern(activeStartDate, current, {
+        frequency: "monthly",
+        monthly_mode: mode,
+      })
+    );
   };
 
   const formatDateTimeLocal = (dateString: string) => {
@@ -779,7 +804,7 @@ export default function EventForm({
                         };
                         if (prev.is_recurring) {
                           setRecurrencePattern((current) =>
-                            buildWeeklyPattern(value, current)
+                            buildPattern(value, current)
                           );
                         }
                         return next;
@@ -828,16 +853,67 @@ export default function EventForm({
               {formData.is_recurring && (
                 <div className="ml-6 mt-3 space-y-3 border-l border-gray-200 pl-4">
                   <p className="text-xs text-gray-500">
-                    Repeats weekly every {recurrenceWeekdayLabel} through{" "}
-                    {new Date(
-                      `${recurrenceThroughValue}T00:00:00`
-                    ).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                    .
+                    {formatRecurrenceSummary(
+                      liveRecurrencePattern,
+                      activeStartDateObj.toLocaleDateString("en-US", {
+                        weekday: "long",
+                      })
+                    )}
                   </p>
+
+                  <div>
+                    <label
+                      htmlFor="recurrence_repeat"
+                      className="block text-xs font-medium text-gray-600 mb-1"
+                    >
+                      Repeat
+                    </label>
+                    <select
+                      id="recurrence_repeat"
+                      value={repeatOption}
+                      disabled={lockRecurrence}
+                      onChange={(e) =>
+                        handleRepeatOptionChange(e.target.value as RepeatOption)
+                      }
+                      className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm disabled:opacity-50"
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="every_2_weeks">Every 2 weeks</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+
+                  {repeatOption === "monthly" && (
+                    <fieldset className="space-y-2" disabled={lockRecurrence}>
+                      <legend className="text-xs font-medium text-gray-600">
+                        Monthly on
+                      </legend>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="radio"
+                          name="monthly_mode"
+                          checked={
+                            liveRecurrencePattern?.monthly_mode !== "by_weekday"
+                          }
+                          onChange={() => handleMonthlyModeChange("by_date")}
+                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
+                        />
+                        {monthlyDateOptionLabel(activeStartDateObj)}
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="radio"
+                          name="monthly_mode"
+                          checked={
+                            liveRecurrencePattern?.monthly_mode === "by_weekday"
+                          }
+                          onChange={() => handleMonthlyModeChange("by_weekday")}
+                          className="h-4 w-4 text-primary focus:ring-ring border-gray-300"
+                        />
+                        {monthlyWeekdayOptionLabel(activeStartDateObj)}
+                      </label>
+                    </fieldset>
+                  )}
 
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -854,8 +930,8 @@ export default function EventForm({
                       className="w-full md:w-64 px-3 py-2 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
                     />
                     <p className="text-[11px] text-gray-400 mt-1">
-                      Weekly schedule can be adjusted anytime. You can skip an
-                      individual week later without removing the series.
+                      Schedule can be adjusted anytime. You can skip an
+                      individual date later without removing the series.
                     </p>
                   </div>
                 </div>

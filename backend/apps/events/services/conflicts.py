@@ -13,7 +13,7 @@ from core.datetime_utils import church_calendar_date
 from apps.events.models import Event
 from apps.events.services.recurrence import (
     Occurrence,
-    clean_weekly_pattern,
+    clean_recurrence_pattern,
     generate_occurrences,
 )
 
@@ -42,7 +42,7 @@ def _branches_conflict(left: Optional[int], right: Optional[int]) -> bool:
 def _pattern_for(event) -> Dict:
     if not event.is_recurring:
         return {}
-    return clean_weekly_pattern(event.recurrence_pattern, event.start_date)
+    return clean_recurrence_pattern(event.recurrence_pattern, event.start_date)
 
 
 def _as_occurrence_source(

@@ -8,7 +8,11 @@ from rest_framework.exceptions import ValidationError
 from apps.attendance.serializers import AttendanceRecordSerializer
 from .models import Event, EventRoom, EventType
 from .services.conflicts import validate_sunday_service_uniqueness
-from .services.recurrence import clean_weekly_pattern, generate_occurrences
+from .services.recurrence import (
+    RecurrencePatternError,
+    clean_recurrence_pattern,
+    generate_occurrences,
+)
 
 import re
 
@@ -239,7 +243,12 @@ class EventSerializer(serializers.ModelSerializer):
 
         pattern = {}
         if obj.is_recurring:
-            pattern = clean_weekly_pattern(obj.recurrence_pattern, obj.start_date)
+            try:
+                pattern = clean_recurrence_pattern(
+                    obj.recurrence_pattern, obj.start_date
+                )
+            except RecurrencePatternError:
+                pattern = obj.recurrence_pattern or {}
 
         occurrences = generate_occurrences(obj, pattern, start_dt, end_dt)
         payload = [occ.as_dict() for occ in occurrences]
@@ -283,7 +292,10 @@ class EventSerializer(serializers.ModelSerializer):
                 raise ValidationError(
                     "Recurring events require both start_date and end_date."
                 )
-            cleaned_pattern = clean_weekly_pattern(raw_pattern, start_date)
+            try:
+                cleaned_pattern = clean_recurrence_pattern(raw_pattern, start_date)
+            except RecurrencePatternError as exc:
+                raise ValidationError({"recurrence_pattern": str(exc)})
             attrs["recurrence_pattern"] = cleaned_pattern
         else:
             attrs["recurrence_pattern"] = None

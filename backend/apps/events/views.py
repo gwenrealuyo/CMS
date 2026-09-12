@@ -26,7 +26,7 @@ from core.datetime_utils import church_calendar_date
 from .models import Event, EventRoom, EventType
 from .permissions import CanManageEventRooms, apply_event_room_branch_scope
 from .serializers import EventRoomSerializer, EventSerializer, EventTypeSerializer
-from .services.recurrence import clean_weekly_pattern
+from .services.recurrence import clean_recurrence_pattern
 
 
 class EventFilter(django_filters.FilterSet):
@@ -271,7 +271,7 @@ class EventViewSet(viewsets.ModelViewSet):
                 )
 
     def _recurrence_bounds(self, event):
-        pattern = clean_weekly_pattern(event.recurrence_pattern, event.start_date)
+        pattern = clean_recurrence_pattern(event.recurrence_pattern, event.start_date)
         start_date = church_calendar_date(event.start_date)
         through_date = date.fromisoformat(pattern["through"])
         return pattern, start_date, through_date
@@ -312,7 +312,7 @@ class EventViewSet(viewsets.ModelViewSet):
         if target_date > through_date:
             return self._date_out_of_range_response()
         pattern["through"] = (target_date - timedelta(days=1)).isoformat()
-        event.recurrence_pattern = clean_weekly_pattern(pattern, event.start_date)
+        event.recurrence_pattern = clean_recurrence_pattern(pattern, event.start_date)
         event.updated_by = user
         event.save(update_fields=["recurrence_pattern", "updated_by", "updated_at"])
         return None

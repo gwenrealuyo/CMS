@@ -21,6 +21,7 @@ import {
 } from "@/src/lib/personStatus";
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
 import EventRecurringChip from "@/src/components/events/EventRecurringChip";
+import { formatRecurrenceSummary } from "@/src/lib/events/recurrenceLabel";
 
 interface AddAttendanceInput {
   person_id: string;
@@ -87,24 +88,6 @@ export default function EventView({
       minute: "2-digit",
     });
   };
-
-  const recurrenceWeekdayLabel = useMemo(() => {
-    if (!event.start_date) return null;
-    return new Date(event.start_date).toLocaleDateString("en-US", {
-      weekday: "long",
-    });
-  }, [event.start_date]);
-
-  const recurrenceThroughLabel = useMemo(() => {
-    if (!event.recurrence_pattern?.through) return null;
-    return new Date(
-      `${event.recurrence_pattern.through}T00:00:00`
-    ).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }, [event.recurrence_pattern?.through]);
 
   const skippedDatesCount =
     event.recurrence_pattern?.excluded_dates?.length || 0;
@@ -396,7 +379,7 @@ export default function EventView({
               </span>
               {event.is_recurring && (
                 <EventRecurringChip
-                  frequency={event.recurrence_pattern?.frequency}
+                  pattern={event.recurrence_pattern}
                 />
               )}
               {totalAttendanceCount > 0 && (
@@ -515,8 +498,7 @@ export default function EventView({
                       Recurrence
                     </div>
                     <div className="text-sm text-gray-500">
-                      Weekly on {recurrenceWeekdayLabel || "the selected day"}{" "}
-                      through {recurrenceThroughLabel || "the end of the year"}.
+                      {formatRecurrenceSummary(event.recurrence_pattern)}
                       {skippedDatesCount > 0 && (
                         <span className="block text-xs text-gray-400 mt-1">
                           {skippedDatesCount} {skippedLabel} skipped for this

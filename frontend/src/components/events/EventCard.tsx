@@ -5,6 +5,7 @@ import Card from "@/src/components/ui/Card";
 import Button from "../ui/Button";
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
 import EventRecurringChip from "@/src/components/events/EventRecurringChip";
+import { formatRecurrenceSummary } from "@/src/lib/events/recurrenceLabel";
 
 interface EventCardProps {
   event: Event;
@@ -42,7 +43,7 @@ export default function EventCard({
               <span className="ml-2 inline-flex align-middle">
                 <EventRecurringChip
                   size="sm"
-                  frequency={event.recurrence_pattern?.frequency}
+                  pattern={event.recurrence_pattern}
                 />
               </span>
             )}
@@ -90,18 +91,7 @@ export default function EventCard({
               </div>
               {event.is_recurring && event.recurrence_pattern && (
                 <div className="text-xs text-gray-500 mt-1">
-                  Repeats weekly on{" "}
-                  {new Date(nextStart).toLocaleDateString("en-US", {
-                    weekday: "long",
-                  })}
-                  {" through "}
-                  {new Date(
-                    `${event.recurrence_pattern.through}T00:00:00`
-                  ).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {formatRecurrenceSummary(event.recurrence_pattern)}
                 </div>
               )}
             </div>

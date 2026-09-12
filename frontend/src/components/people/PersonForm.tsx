@@ -63,6 +63,7 @@ import PersonDateField, {
   ESTIMATE_HELP,
 } from "@/src/components/people/PersonDateField";
 import { LessonTeacherRosterEntry } from "@/src/types/lesson";
+import { NCC_TEACHER_ROSTER_EMPTY_MESSAGE } from "@/src/lib/lessonsUtils";
 
 const JOURNEY_TYPE_OPTIONS: JourneyType[] = [
   "BAPTISM",
@@ -313,10 +314,11 @@ export default function PersonForm({
     formData.has_lesson_enrollment ?? initialData?.has_lesson_enrollment,
   );
 
+  const hasPersonBranch = formData.branch != null;
   const needsTeacherPicker =
-    Boolean(formData.has_finished_lessons) &&
-    !hasLessonEnrollment &&
-    canEditVitalDates;
+    !hasLessonEnrollment && canEditVitalDates && hasPersonBranch;
+  const teacherRequiredForFinished =
+    Boolean(formData.has_finished_lessons) && !hasLessonEnrollment;
 
   const [teacherRoster, setTeacherRoster] = useState<
     LessonTeacherRosterEntry[]
@@ -968,7 +970,7 @@ export default function PersonForm({
     personData.family_ids = normalizeIdList(formData.family_ids);
     personData.cluster_ids = normalizeIdList(formData.cluster_ids);
 
-    // Teacher fields create enrollment when finished (unsigned until commitment signed).
+    // Teacher fields create enrollment on save; unfinished students stay unfinished.
     if (!personData.commitment_form_signed) {
       personData.commitment_signed_at = null;
     } else {
@@ -984,10 +986,16 @@ export default function PersonForm({
         (personData as Record<string, unknown>)[key] = null;
       }
     }
-    if (hasLessonEnrollment || !personData.has_finished_lessons) {
+    if (hasLessonEnrollment) {
       delete personData.lesson_teacher_id;
       delete personData.historical_teacher_first_name;
       delete personData.historical_teacher_last_name;
+    } else if (!personData.has_finished_lessons) {
+      delete personData.historical_teacher_first_name;
+      delete personData.historical_teacher_last_name;
+      if (!personData.lesson_teacher_id) {
+        delete personData.lesson_teacher_id;
+      }
     } else if (teacherMode === "select") {
       delete personData.historical_teacher_first_name;
       delete personData.historical_teacher_last_name;
@@ -1139,7 +1147,7 @@ export default function PersonForm({
       return;
     }
 
-    if (formData.has_finished_lessons && !hasLessonEnrollment) {
+    if (teacherRequiredForFinished) {
       if (teacherMode === "select" && !formData.lesson_teacher_id) {
         toast.error(
           "Select a lessons teacher, or switch to Former / not in system.",
@@ -1772,6 +1780,9 @@ export default function PersonForm({
                           disabled={!canEditVitalDates}
                           onChange={(e) => {
                             const checked = e.target.checked;
+                            if (!checked) {
+                              setTeacherMode("select");
+                            }
                             setFormData((prev) => ({
                               ...prev,
                               has_finished_lessons: checked,
@@ -1843,45 +1854,91 @@ export default function PersonForm({
                       </p>
                     </div>
                   )}
-                  {formData.has_finished_lessons &&
+                  {!formData.has_finished_lessons &&
                     !hasLessonEnrollment &&
                     canEditVitalDates && (
-                      <div className="md:col-span-2 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                        <p className="text-xs text-gray-600">
-                          No lessons enrollment yet. Choose their teacher, or
-                          enter a former / unknown teacher name.
+                      <div className="md:col-span-2">
+                        <p className="text-xs text-gray-500">
+                          You can assign their NCC teacher now. This creates a
+                          lessons enrollment without marking lessons finished.
+                          Assign specific lessons on the Lessons page.
                         </p>
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <label className="inline-flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="teacher_mode"
-                              checked={teacherMode === "select"}
-                              onChange={() => setTeacherMode("select")}
-                              className="text-primary border-gray-300 focus:ring-ring"
-                            />
-                            <span className="text-sm text-gray-700">
-                              Select teacher
-                            </span>
-                          </label>
-                          <label className="inline-flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="teacher_mode"
-                              checked={teacherMode === "historical"}
-                              onChange={() => setTeacherMode("historical")}
-                              className="text-primary border-gray-300 focus:ring-ring"
-                            />
-                            <span className="text-sm text-gray-700">
-                              Former / not in system
-                            </span>
-                          </label>
-                        </div>
-                        {teacherMode === "select" ? (
+                      </div>
+                    )}
+                  {hasLessonEnrollment && (
+                    <div className="md:col-span-2">
+                      <p className="text-xs text-gray-500">
+                        NCC teacher:{" "}
+                        {formData.lesson_teacher_display_name ||
+                          initialData?.lesson_teacher_display_name ||
+                          "Assigned"}
+                        . To change the teacher, use{" "}
+                        <a
+                          href="/lessons"
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          Lessons
+                        </a>
+                        .
+                      </p>
+                    </div>
+                  )}
+                  {!hasLessonEnrollment && canEditVitalDates && (
+                      <div className="md:col-span-2 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        {!hasPersonBranch ? (
+                          <p className="text-xs text-gray-600">
+                            Student must have a branch before assigning a
+                            lessons teacher.
+                          </p>
+                        ) : formData.has_finished_lessons ? (
+                          <>
+                            <p className="text-xs text-gray-600">
+                              No lessons enrollment yet. Choose their teacher,
+                              or enter a former / unknown teacher name.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <label className="inline-flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="teacher_mode"
+                                  checked={teacherMode === "select"}
+                                  onChange={() => setTeacherMode("select")}
+                                  className="text-primary border-gray-300 focus:ring-ring"
+                                />
+                                <span className="text-sm text-gray-700">
+                                  Select teacher
+                                </span>
+                              </label>
+                              <label className="inline-flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="teacher_mode"
+                                  checked={teacherMode === "historical"}
+                                  onChange={() => setTeacherMode("historical")}
+                                  className="text-primary border-gray-300 focus:ring-ring"
+                                />
+                                <span className="text-sm text-gray-700">
+                                  Former / not in system
+                                </span>
+                              </label>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-xs text-gray-600">
+                            Optional. Leave blank if they do not have a teacher
+                            yet.
+                          </p>
+                        )}
+                        {hasPersonBranch &&
+                          (teacherMode === "select" ||
+                            !formData.has_finished_lessons) && (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Lessons teacher
-                              <span className="text-red-500 ml-1">*</span>
+                              NCC teacher
+                              {teacherRequiredForFinished &&
+                                teacherMode === "select" && (
+                                  <span className="text-red-500 ml-1">*</span>
+                                )}
                             </label>
                             <ScalableSelect
                               options={teacherSelectOptions}
@@ -1899,10 +1956,13 @@ export default function PersonForm({
                               }}
                               placeholder="Select teacher..."
                               searchPlaceholder="Search teacher..."
-                              emptyMessage="No teachers found"
+                              emptyMessage={NCC_TEACHER_ROSTER_EMPTY_MESSAGE}
                             />
                           </div>
-                        ) : (
+                        )}
+                        {hasPersonBranch &&
+                          formData.has_finished_lessons &&
+                          teacherMode === "historical" && (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1950,16 +2010,6 @@ export default function PersonForm({
                         )}
                       </div>
                     )}
-                  {formData.has_finished_lessons && hasLessonEnrollment && (
-                    <div className="md:col-span-2">
-                      <p className="text-xs text-gray-500">
-                        Lessons teacher:{" "}
-                        {formData.lesson_teacher_display_name ||
-                          initialData?.lesson_teacher_display_name ||
-                          "Assigned"}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

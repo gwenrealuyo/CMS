@@ -700,70 +700,12 @@ class PersonSerializer(serializers.ModelSerializer):
         if instance is not None:
             existing_enrollment = getattr(instance, "lesson_enrollment", None)
 
-        # Finished + no enrollment → teacher (or former names) required to create enrollment.
-        if has_finished_lessons and existing_enrollment is None:
-            teacher = attrs.get("lesson_teacher_id")
-            hist_first = (attrs.get("historical_teacher_first_name") or "").strip()
-            hist_last = (attrs.get("historical_teacher_last_name") or "").strip()
-            if teacher is None and not (hist_first and hist_last):
-                raise serializers.ValidationError(
-                    {
-                        "lesson_teacher_id": (
-                            "Select a lessons teacher, or enter former/unknown "
-                            "teacher first and last name."
-                        )
-                    }
-                )
-            if teacher is not None and (hist_first or hist_last):
-                raise serializers.ValidationError(
-                    {
-                        "historical_teacher_first_name": (
-                            "Provide either a lessons teacher or historical "
-                            "teacher names, not both."
-                        )
-                    }
-                )
-            if teacher is not None:
-                from apps.ministries.ncc import (
-                    ensure_ncc_ministry,
-                    person_on_ncc_roster,
-                )
-
-                branch = attrs.get(
-                    "branch",
-                    instance.branch if instance else None,
-                )
-                if branch is None:
-                    raise serializers.ValidationError(
-                        {
-                            "lesson_teacher_id": (
-                                "Person must have a branch before assigning "
-                                "a lessons teacher."
-                            )
-                        }
-                    )
-                ensure_ncc_ministry(branch)
-                if not person_on_ncc_roster(teacher, branch):
-                    raise serializers.ValidationError(
-                        {
-                            "lesson_teacher_id": (
-                                "Select a teacher from this branch's NCC / "
-                                "Lessons roster."
-                            )
-                        }
-                    )
-                if instance is not None:
-                    from apps.lessons.services import (
-                        student_cannot_be_own_teacher_error,
-                    )
-
-                    reason = student_cannot_be_own_teacher_error(
-                        instance, teacher
-                    )
-                    if reason:
-                        raise serializers.ValidationError(
-                            {"lesson_teacher_id": reason}
-                        )
+        self._validate_lesson_teacher_write(
+            attrs,
+            instance=instance,
+            existing_enrollment=existing_enrollment,
+            has_finished_lessons=has_finished_lessons,
+        )
 
         commitment_in_payload = "commitment_form_signed" in attrs
         if commitment_in_payload:
@@ -901,6 +843,84 @@ class PersonSerializer(serializers.ModelSerializer):
             completed_by=completed_by,
         )
 
+    def _validate_live_lesson_teacher(self, teacher, attrs, instance) -> None:
+        from apps.lessons.services import student_cannot_be_own_teacher_error
+        from apps.ministries.ncc import ensure_ncc_ministry, person_on_ncc_roster
+
+        branch = attrs.get("branch", instance.branch if instance else None)
+        if branch is None:
+            raise serializers.ValidationError(
+                {
+                    "lesson_teacher_id": (
+                        "Person must have a branch before assigning "
+                        "a lessons teacher."
+                    )
+                }
+            )
+        ensure_ncc_ministry(branch)
+        if not person_on_ncc_roster(teacher, branch):
+            raise serializers.ValidationError(
+                {
+                    "lesson_teacher_id": (
+                        "Select a teacher from this branch's NCC / "
+                        "Lessons roster."
+                    )
+                }
+            )
+        if instance is not None:
+            reason = student_cannot_be_own_teacher_error(instance, teacher)
+            if reason:
+                raise serializers.ValidationError({"lesson_teacher_id": reason})
+
+    def _validate_lesson_teacher_write(
+        self,
+        attrs,
+        *,
+        instance,
+        existing_enrollment,
+        has_finished_lessons,
+    ) -> None:
+        if existing_enrollment is not None:
+            return
+
+        teacher = attrs.get("lesson_teacher_id")
+        hist_first = (attrs.get("historical_teacher_first_name") or "").strip()
+        hist_last = (attrs.get("historical_teacher_last_name") or "").strip()
+        has_hist = bool(hist_first and hist_last)
+
+        if teacher is not None and (hist_first or hist_last):
+            raise serializers.ValidationError(
+                {
+                    "historical_teacher_first_name": (
+                        "Provide either a lessons teacher or historical "
+                        "teacher names, not both."
+                    )
+                }
+            )
+
+        if has_finished_lessons:
+            if teacher is None and not has_hist:
+                raise serializers.ValidationError(
+                    {
+                        "lesson_teacher_id": (
+                            "Select a lessons teacher, or enter former/unknown "
+                            "teacher first and last name."
+                        )
+                    }
+                )
+        elif hist_first or hist_last:
+            raise serializers.ValidationError(
+                {
+                    "historical_teacher_first_name": (
+                        "Former / unknown teacher names can only be used when "
+                        "marking lessons as finished."
+                    )
+                }
+            )
+
+        if teacher is not None:
+            self._validate_live_lesson_teacher(teacher, attrs, instance)
+
     @staticmethod
     def _pop_commitment_write_fields(validated_data: dict) -> dict:
         return {
@@ -921,35 +941,51 @@ class PersonSerializer(serializers.ModelSerializer):
             ),
         }
 
+    @staticmethod
+    def _teacher_write_values(write_fields: dict):
+        teacher = write_fields.get("lesson_teacher_id")
+        if teacher is serializers.empty:
+            teacher = None
+        hist_first = write_fields.get("historical_teacher_first_name")
+        if hist_first is serializers.empty:
+            hist_first = ""
+        hist_last = write_fields.get("historical_teacher_last_name")
+        if hist_last is serializers.empty:
+            hist_last = ""
+        return teacher, (hist_first or "").strip(), (hist_last or "").strip()
+
+    def _ensure_enrollment_from_write_fields(self, person: Person, write_fields: dict):
+        from apps.lessons.services import ensure_lesson_enrollment
+
+        enrollment = getattr(person, "lesson_enrollment", None)
+        if enrollment is not None:
+            return enrollment
+
+        teacher, hist_first, hist_last = self._teacher_write_values(write_fields)
+        if teacher is None and not (hist_first and hist_last):
+            return None
+
+        request = self.context.get("request")
+        actor = request.user if request and isinstance(request.user, Person) else None
+        return ensure_lesson_enrollment(
+            person,
+            teacher,
+            assigned_by=actor,
+            historical_teacher_first_name=hist_first,
+            historical_teacher_last_name=hist_last,
+        )
+
     def _apply_commitment_write(self, person: Person, write_fields: dict) -> None:
         from apps.lessons.services import (
             _as_aware_datetime,
             clear_enrollment_commitment_signed,
-            ensure_lesson_enrollment,
             set_enrollment_commitment_signed,
         )
 
         request = self.context.get("request")
         actor = request.user if request and isinstance(request.user, Person) else None
 
-        enrollment = getattr(person, "lesson_enrollment", None)
-        if person.has_finished_lessons and enrollment is None:
-            teacher = write_fields.get("lesson_teacher_id")
-            if teacher is serializers.empty:
-                teacher = None
-            hist_first = write_fields.get("historical_teacher_first_name")
-            hist_last = write_fields.get("historical_teacher_last_name")
-            if hist_first is serializers.empty:
-                hist_first = ""
-            if hist_last is serializers.empty:
-                hist_last = ""
-            enrollment = ensure_lesson_enrollment(
-                person,
-                teacher,
-                assigned_by=actor,
-                historical_teacher_first_name=hist_first or "",
-                historical_teacher_last_name=hist_last or "",
-            )
+        enrollment = self._ensure_enrollment_from_write_fields(person, write_fields)
 
         commitment_value = write_fields.get("commitment_form_signed")
         if commitment_value is serializers.empty:
@@ -961,21 +997,17 @@ class PersonSerializer(serializers.ModelSerializer):
             return
 
         if enrollment is None:
-            teacher = write_fields.get("lesson_teacher_id")
-            if teacher is serializers.empty:
-                teacher = None
-            hist_first = write_fields.get("historical_teacher_first_name")
-            hist_last = write_fields.get("historical_teacher_last_name")
-            if hist_first is serializers.empty:
-                hist_first = ""
-            if hist_last is serializers.empty:
-                hist_last = ""
-            enrollment = ensure_lesson_enrollment(
-                person,
-                teacher,
-                assigned_by=actor,
-                historical_teacher_first_name=hist_first or "",
-                historical_teacher_last_name=hist_last or "",
+            enrollment = self._ensure_enrollment_from_write_fields(
+                person, write_fields
+            )
+        if enrollment is None:
+            raise serializers.ValidationError(
+                {
+                    "lesson_teacher_id": (
+                        "Select a lessons teacher, or enter former/unknown "
+                        "teacher first and last name."
+                    )
+                }
             )
 
         signed_at = write_fields.get("commitment_signed_at")

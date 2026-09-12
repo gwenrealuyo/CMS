@@ -31,6 +31,10 @@ import {
   TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
+  TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS,
+  TOOLBAR_PANEL_COMPACT_BRANCH_CLASS,
+  TOOLBAR_PANEL_COMPACT_CLASS,
+  TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTIONS_ROW_CLASS,
   TOOLBAR_STACKED_CONTROLS_CLASS,
@@ -744,15 +748,9 @@ export default function ClustersPageView({
           >
             <div className="space-y-6 min-w-0">
             {/* Stats Cards */}
-            <div
-              className={
-                panelOpen
-                  ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
-                  : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-              }
-            >
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
               <div
-                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 card-shadow"
+                className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
                 role="region"
                 aria-label="Total Clusters"
               >
@@ -777,7 +775,7 @@ export default function ClustersPageView({
                       </svg>
                     </div>
                   </div>
-                  <div className="ml-3">
+                  <div className="ml-3 min-w-0">
                     <p
                       className="text-sm font-medium text-gray-600"
                       aria-label="Metric label"
@@ -800,7 +798,7 @@ export default function ClustersPageView({
                 </div>
               </div>
               <div
-                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 card-shadow"
+                className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
                 role="region"
                 aria-label="Total Members"
               >
@@ -825,7 +823,7 @@ export default function ClustersPageView({
                       </svg>
                     </div>
                   </div>
-                  <div className="ml-3">
+                  <div className="ml-3 min-w-0">
                     <p
                       className="text-sm font-medium text-gray-600"
                       aria-label="Metric label"
@@ -848,7 +846,7 @@ export default function ClustersPageView({
                 </div>
               </div>
               <div
-                className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 py-4 card-shadow"
+                className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
                 role="region"
                 aria-label="Unassigned Members"
               >
@@ -873,7 +871,7 @@ export default function ClustersPageView({
                       </svg>
                     </div>
                   </div>
-                  <div className="ml-3">
+                  <div className="ml-3 min-w-0">
                     <p
                       className="text-sm font-medium text-gray-600"
                       aria-label="Metric label"
@@ -899,11 +897,11 @@ export default function ClustersPageView({
 
             {/* Search + branch + actions (Families-style toolbar) */}
             <div className={TOOLBAR_CARD_CLASS}>
-              {/* Stacked 3-row toolbar (mobile, or desktop with detail panel open) */}
+              {/* Search+branch row (desktop + panel), stacked toolbar (mobile) */}
               <div
                 className={
                   useStackedToolbar
-                    ? "flex flex-col gap-3"
+                    ? TOOLBAR_PANEL_COMPACT_CLASS
                     : "flex flex-col gap-3 tablet:hidden"
                 }
               >
@@ -915,10 +913,10 @@ export default function ClustersPageView({
                   ariaLabel="Search clusters"
                 />
 
-                <div className={TOOLBAR_STACKED_CONTROLS_CLASS}>
-                  <div className="flex w-full items-center gap-3">
+                {useStackedToolbar && (
+                  <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
                     <div className="min-w-0 flex-1">
-                      {renderClusterBranchSelect(true)}
+                      {renderClusterBranchSelect()}
                     </div>
                     <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
                       <input
@@ -932,6 +930,33 @@ export default function ClustersPageView({
                       Show inactive
                     </label>
                   </div>
+                )}
+
+                <div
+                  className={
+                    useStackedToolbar
+                      ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
+                      : TOOLBAR_STACKED_CONTROLS_CLASS
+                  }
+                >
+                  {!useStackedToolbar && (
+                    <div className="flex w-full items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        {renderClusterBranchSelect(true)}
+                      </div>
+                      <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={showInactiveClusters}
+                          onChange={(e) =>
+                            onShowInactiveClustersChange(e.target.checked)
+                          }
+                          className="rounded border-gray-300 text-primary focus:ring-ring"
+                        />
+                        Show inactive
+                      </label>
+                    </div>
+                  )}
 
                   <ViewModeToggle
                     fullWidth
@@ -940,7 +965,13 @@ export default function ClustersPageView({
                   />
                 </div>
 
-                <div className="relative">
+                <div
+                  className={
+                    useStackedToolbar
+                      ? TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS
+                      : "relative"
+                  }
+                >
                   <div
                     className={
                       hasClusterModuleWideAccess
@@ -1059,16 +1090,26 @@ export default function ClustersPageView({
                 {hasClusterModuleWideAccess &&
                   isSelectionMode &&
                   selectedClusters.size > 0 && (
+                    <div
+                      className={useStackedToolbar ? "col-span-full" : undefined}
+                    >
                     <BulkActionsMenu
                       onBulkMarkInactive={onBulkMarkInactive}
                       onBulkDelete={onBulkDelete}
                       onBulkExport={onBulkExport}
                       selectedCount={selectedClusters.size}
                     />
+                    </div>
                   )}
 
                 {clusterActiveFilters.length > 0 && (
-                  <div className="flex w-full flex-wrap items-center gap-2">
+                  <div
+                    className={
+                      useStackedToolbar
+                        ? "col-span-full flex w-full flex-wrap items-center gap-2"
+                        : "flex w-full flex-wrap items-center gap-2"
+                    }
+                  >
                     {clusterActiveFilters.map((filter) => (
                       <span
                         key={filter.id}

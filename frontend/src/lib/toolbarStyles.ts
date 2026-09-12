@@ -21,6 +21,18 @@ export const TOOLBAR_STACKED_ACTION_BUTTON_CLASS =
 
 export const TOOLBAR_STACKED_CONTROLS_CLASS = "flex flex-col gap-3";
 
+/** Desktop list column with a detail panel open: search + branch share the first row. */
+export const TOOLBAR_PANEL_COMPACT_CLASS =
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3";
+
+export const TOOLBAR_PANEL_COMPACT_BRANCH_CLASS =
+  "col-start-2 row-start-1 flex min-w-0 items-center gap-3";
+
+export const TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS =
+  "col-span-full flex flex-col gap-3";
+
+export const TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS = "relative col-span-full";
+
 export const TOOLBAR_ACTION_BUTTON_CLASS =
   "inline-flex min-h-[44px] shrink-0 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring sm:min-h-0";
 

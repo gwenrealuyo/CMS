@@ -13,6 +13,10 @@ import {
   TOOLBAR_BRANCH_SELECT_LOCKED_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
+  TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS,
+  TOOLBAR_PANEL_COMPACT_BRANCH_CLASS,
+  TOOLBAR_PANEL_COMPACT_CLASS,
+  TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_CONTROLS_CLASS,
 } from "@/src/lib/toolbarStyles";
@@ -507,13 +511,7 @@ export default function FamilyManagementDashboard({
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
-      <div
-        className={
-          panelOpen
-            ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
-            : "grid grid-cols-1 md:grid-cols-3 gap-4"
-        }
-      >
+      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3 [&>*]:min-w-0">
         <div className="bg-white rounded-lg border border-gray-200 p-4 card-shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -533,7 +531,7 @@ export default function FamilyManagementDashboard({
                 </svg>
               </div>
             </div>
-            <div className="ml-3">
+            <div className="ml-3 min-w-0">
               <p className="text-sm font-medium text-gray-500">
                 Total Families
               </p>
@@ -562,7 +560,7 @@ export default function FamilyManagementDashboard({
                 </svg>
               </div>
             </div>
-            <div className="ml-3">
+            <div className="ml-3 min-w-0">
               <p className="text-sm font-medium text-gray-500">Total Members</p>
               <p className="text-2xl font-semibold text-gray-900">
                 {families.reduce((acc, family) => acc + getFamilyMemberCount(family), 0)}
@@ -589,7 +587,7 @@ export default function FamilyManagementDashboard({
                 </svg>
               </div>
             </div>
-            <div className="ml-3">
+            <div className="ml-3 min-w-0">
               <p className="text-sm font-medium text-gray-500">
                 Unassigned Members
               </p>
@@ -603,11 +601,11 @@ export default function FamilyManagementDashboard({
 
       {/* Header */}
       <div className={TOOLBAR_CARD_CLASS}>
-        {/* Stacked 3-row toolbar (mobile, or desktop with detail panel open) */}
+        {/* Stacked toolbar (mobile), or search+branch row (desktop + panel) */}
         <div
           className={
             useStackedToolbar
-              ? "flex flex-col gap-3"
+              ? TOOLBAR_PANEL_COMPACT_CLASS
               : "flex flex-col gap-3 tablet:hidden"
           }
         >
@@ -622,8 +620,20 @@ export default function FamilyManagementDashboard({
             ariaLabel="Search families"
           />
 
-          <div className={TOOLBAR_STACKED_CONTROLS_CLASS}>
-            {renderFamilyBranchSelect(true)}
+          {useStackedToolbar && (
+            <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
+              {renderFamilyBranchSelect()}
+            </div>
+          )}
+
+          <div
+            className={
+              useStackedToolbar
+                ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
+                : TOOLBAR_STACKED_CONTROLS_CLASS
+            }
+          >
+            {!useStackedToolbar && renderFamilyBranchSelect(true)}
             <ViewModeToggle
               fullWidth
               viewMode={viewMode}
@@ -631,7 +641,13 @@ export default function FamilyManagementDashboard({
             />
           </div>
 
-          <div className="relative">
+          <div
+            className={
+              useStackedToolbar
+                ? TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS
+                : "relative"
+            }
+          >
             <div className="grid grid-cols-2 gap-2">
               <button
                 ref={mobileSortButtonRef}
@@ -755,7 +771,13 @@ export default function FamilyManagementDashboard({
           </div>
 
           {familyFilters.length > 0 && (
-            <div className="flex w-full flex-wrap items-center gap-2">
+            <div
+              className={
+                useStackedToolbar
+                  ? "col-span-full flex w-full flex-wrap items-center gap-2"
+                  : "flex w-full flex-wrap items-center gap-2"
+              }
+            >
               {familyFilters.map((filter, index) => (
                 <span
                   key={index}

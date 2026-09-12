@@ -86,6 +86,26 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
 - For **past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
 
+### Self Check-In (Sunday Service)
+
+Mobile-first page at `/events/self-check-in` (authenticated, no sidebar). Complements the staff station; both write the same `AttendanceRecord` + `EVENT_ATTENDANCE` journey.
+
+- **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have a `SUNDAY_SERVICE` occurrence. If none, the page is unavailable (no last-week fallback). Prefer the user’s branch; admins / HQ pastors get a picker when more than one branch or time matches.
+- **Members:** any authenticated non-visitor can check in themselves and household members on the same `Family` record(s). Deceased and other admin accounts are skipped. Does **not** require Events write.
+- **Visitors:** search by name first (existing `VISITOR` records **and Invited prospects** in the event branch), select a match, then confirm check-in. Encode if none match. Encode is limited to people who can add visitors (`user_can_add_visitor`) **or** Events write (Events coordinators). Inviter defaults to the logged-in user and is editable. Phone is not used for matching. Duplicate first+last name in the branch returns 409 with matches (people and Invited prospects) instead of creating a second person.
+- Checking in an Invited prospect uses the same `mark_prospect_attended` path as Evangelism / cluster reports: creates a `VISITOR` / `ONGOING` Person, sets first activity to Sunday Service, then marks Present. Undo still only removes attendance.
+- New visitors: `VISITOR` / `ONGOING`, `date_first_attended` today, `first_activity_attended=SUNDAY_SERVICE`, event branch, age group stored as a visitor note. First and last names use the same title-case rules as Add Person.
+- Dashboard and My record show a Sunday-aware **Check in** banner when a session is open.
+- After a successful check-in, **I made a mistake** undoes that attendance for this service (household or encoded visitors). It does not delete the person record.
+
+API (all authenticated, non-visitor):
+
+- `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`. `?event=` selects among options.
+- `POST /api/events/self-check-in/` — `{ person_ids, event_id? }` household Present upsert.
+- `POST /api/events/self-check-in/undo/` — `{ person_ids, event_id? }` remove today’s Present records you are allowed to undo.
+- `GET|POST /api/events/self-check-in/visitors/` — name search (visitors + Invited prospects) / check in existing person, check in prospect (`prospect_id`), or encode.
+- `GET /api/events/self-check-in/inviters/` — inviter search for encode.
+
 ### Attendance Report (past occurrences)
 
 Available from Event Details and the check-in page when the selected occurrence date is before today (local calendar day). No new backend report API — the report is computed in the browser from people + attendance for that occurrence.
@@ -99,7 +119,7 @@ Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; ot
 
 ## Testing
 
-Recurring delete options (`exclude-occurrence`, `end-recurrence`, and series `DELETE`) are covered by `apps.events.tests.test_recurrence_delete`.
+Recurring delete options (`exclude-occurrence`, `end-recurrence`, and series `DELETE`) are covered by `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

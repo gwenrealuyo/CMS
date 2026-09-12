@@ -319,7 +319,7 @@ export default function EventAttendanceReportModal({
                 value={rosterSearch}
                 onChange={(e) => setRosterSearch(e.target.value)}
                 placeholder="Search checked-in..."
-                className="input-field w-full text-sm sm:max-w-xs"
+                className="input-field h-11 min-h-[44px] w-full text-sm sm:max-w-xs md:min-h-[44px] md:py-0"
               />
               <div className="w-full sm:w-64">
                 <ScalableSelect

@@ -35,6 +35,7 @@ import { EvangelismPeopleTallyRow } from "@/src/types/evangelism";
 import { SundaySchoolSummary } from "@/src/types/sundaySchool";
 import Modal from "@/src/components/ui/Modal";
 import ClusterWeeklyReportForm from "@/src/components/reports/ClusterWeeklyReportForm";
+import SundaySelfCheckInBanner from "@/src/components/events/SundaySelfCheckInBanner";
 import { Cluster, ClusterWeeklyReport } from "@/src/types/cluster";
 
 type UpcomingEvent = {
@@ -1014,6 +1015,8 @@ export default function Dashboard() {
               </Button>
             )}
           </div>
+
+          <SundaySelfCheckInBanner />
 
           {(extendedMetricsError ||
             (allowLessonWidgets && lessonSummaryError) ||

@@ -460,8 +460,7 @@ export default function ScalableSelect({
         aria-disabled={interactionBlocked || disabled}
         tabIndex={interactionBlocked ? -1 : undefined}
         className={`
-          flex w-full shrink-0 items-center px-3 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm
-          min-h-[44px] md:min-h-0 py-2.5 md:py-2
+          flex h-11 w-full shrink-0 items-center px-3 text-left bg-white border border-gray-300 rounded-md shadow-sm text-sm
           focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
           ${
             disabled && !interactionBlocked

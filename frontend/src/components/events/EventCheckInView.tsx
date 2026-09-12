@@ -753,7 +753,7 @@ export default function EventCheckInView({
                         setCheckInSearchTerm(event.target.value)
                       }
                       placeholder="Search by name or LAMP ID..."
-                      className="input-field pr-10 text-sm"
+                      className="input-field h-11 min-h-[44px] pr-10 text-sm md:min-h-[44px] md:py-0"
                     />
                     <svg
                       className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"

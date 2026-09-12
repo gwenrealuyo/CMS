@@ -13,6 +13,7 @@ import { Cluster } from "@/src/types/cluster";
 import { clustersApi, peopleApi } from "@/src/lib/api";
 import { usePeople } from "@/src/hooks/usePeople";
 import { useFamilies } from "@/src/hooks/useFamilies";
+import SundaySelfCheckInBanner from "@/src/components/events/SundaySelfCheckInBanner";
 
 export default function MePage() {
   return (
@@ -131,6 +132,7 @@ function MePageContent() {
             Account settings
           </Link>
         </div>
+        <SundaySelfCheckInBanner />
         {isMember && (
           <p className="text-sm text-gray-600">
             You can edit your profile here. Vital dates, role, status, branch,

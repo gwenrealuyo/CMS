@@ -31,6 +31,12 @@ import {
   EventRoom,
 } from "@/src/types/event";
 import {
+  SelfCheckInInviter,
+  SelfCheckInSessionResponse,
+  SelfCheckInVisitorMatch,
+  SelfCheckInVisitorWrite,
+} from "@/src/types/selfCheckIn";
+import {
   Ministry,
   MinistryMember,
   MinistryCreateInput,
@@ -853,6 +859,55 @@ export const eventsApi = {
     }>(`/events/${id}/attendance/`, payload),
   removeAttendance: (id: string, attendanceId: number | string) =>
     api.delete<{ event: Event }>(`/events/${id}/attendance/${attendanceId}/`),
+  selfCheckInSession: (params?: { event?: number | string }) =>
+    api.get<SelfCheckInSessionResponse>("/events/self-check-in/session/", {
+      params: params?.event ? { event: params.event } : undefined,
+    }),
+  selfCheckIn: (payload: {
+    person_ids: Array<number | string>;
+    event_id?: number | string;
+  }) =>
+    api.post<SelfCheckInSessionResponse>("/events/self-check-in/", payload),
+  undoSelfCheckIn: (payload: {
+    person_ids: Array<number | string>;
+    event_id?: number | string;
+  }) =>
+    api.post<SelfCheckInSessionResponse>("/events/self-check-in/undo/", payload),
+  searchSelfCheckInVisitors: (
+    query: string,
+    params?: { event?: number | string }
+  ) =>
+    api.get<{ query: string; results: SelfCheckInVisitorMatch[] }>(
+      "/events/self-check-in/visitors/",
+      {
+        params: {
+          q: query,
+          ...(params?.event ? { event: params.event } : {}),
+        },
+      }
+    ),
+  selfCheckInVisitor: (payload: SelfCheckInVisitorWrite) =>
+    api.post<{
+      created_person: boolean;
+      already_checked_in: boolean;
+      person: SelfCheckInVisitorMatch;
+      attendance_record?: EventAttendanceRecord;
+      detail?: string;
+      matches?: SelfCheckInVisitorMatch[];
+    }>("/events/self-check-in/visitors/", payload),
+  searchSelfCheckInInviters: (
+    query: string,
+    params?: { event?: number | string }
+  ) =>
+    api.get<{ query: string; results: SelfCheckInInviter[] }>(
+      "/events/self-check-in/inviters/",
+      {
+        params: {
+          q: query,
+          ...(params?.event ? { event: params.event } : {}),
+        },
+      }
+    ),
 };
 
 export const eventTypesApi = {

@@ -29,6 +29,7 @@ const FIELD_LABELS: Record<string, string> = {
   lessons_finished_at: "Lessons finished date",
   commitment_signed_at: "Commitment signed date",
   inviter: "Inviter",
+  inviter_id: "Inviter",
   photo: "Photo",
   family_ids: "Families",
   non_field_errors: "",

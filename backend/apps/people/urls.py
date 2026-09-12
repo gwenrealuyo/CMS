@@ -5,6 +5,7 @@ from .views import (
     PersonViewSet,
     FamilyViewSet,
     JourneyViewSet,
+    MemberCareCaseViewSet,
     ModuleCoordinatorViewSet,
     ModuleSettingViewSet,
     PeopleAutomationSettingView,
@@ -21,6 +22,7 @@ router.register(
     r"module-coordinators", ModuleCoordinatorViewSet, basename="module-coordinator"
 )
 router.register(r"module-settings", ModuleSettingViewSet, basename="module-setting")
+router.register(r"care-cases", MemberCareCaseViewSet, basename="care-case")
 
 urlpatterns = [
     path(

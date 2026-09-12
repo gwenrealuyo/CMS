@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Person,
   Journey,
@@ -20,6 +21,7 @@ import ExpandableText from "@/src/components/ui/ExpandableText";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { formatPersonStatusLabel } from "@/src/lib/personStatus";
 import { formatDisplayDate as formatApiDate } from "@/src/lib/date";
+import { memberCareActionLabel } from "@/src/lib/memberCare";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -649,6 +651,39 @@ export default function PersonProfile({
                           label="Status reason"
                           value={person.latest_status_change.reason}
                         />
+                      ) : null}
+                      {person.open_care_case ? (
+                        <>
+                          <ProfileFieldRow
+                            label="Care details"
+                            value={person.open_care_case.details || null}
+                            fallback="Not specified"
+                          />
+                          <ProfileFieldRow
+                            label="Recommended action"
+                            value={memberCareActionLabel(
+                              person.open_care_case.recommended_action,
+                              person.open_care_case.recommended_action_other,
+                            )}
+                            valueNode={
+                              <span className="inline-flex flex-col items-start gap-1 text-sm text-gray-900 md:items-end">
+                                <span>
+                                  {memberCareActionLabel(
+                                    person.open_care_case.recommended_action,
+                                    person.open_care_case
+                                      .recommended_action_other,
+                                  )}
+                                </span>
+                                <Link
+                                  href="/clusters?tab=care"
+                                  className="text-primary hover:underline"
+                                >
+                                  Edit in Cluster Care
+                                </Link>
+                              </span>
+                            }
+                          />
+                        </>
                       ) : null}
                       <ProfileFieldRow
                         label="Role"

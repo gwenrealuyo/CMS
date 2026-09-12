@@ -11,6 +11,7 @@ from .models import (
     Journey,
     Person,
     PersonStatusChange,
+    MemberCareCase,
     ModuleCoordinator,
     ModuleSetting,
     PeopleAutomationSetting,
@@ -386,6 +387,151 @@ class PersonStatusChangeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class MemberCareCasePersonSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    cluster_ids = serializers.SerializerMethodField()
+    cluster_labels = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Person
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "full_name",
+            "role",
+            "status",
+            "cluster_ids",
+            "cluster_labels",
+        ]
+
+    def get_full_name(self, obj):
+        return format_person_display_name(obj) or obj.username
+
+    def get_cluster_ids(self, obj):
+        return [c.id for c in obj.clusters.all()]
+
+    def get_cluster_labels(self, obj):
+        return cluster_export_labels(obj)
+
+
+class MemberCareCaseAssigneeSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Person
+        fields = ["id", "full_name"]
+
+    def get_full_name(self, obj):
+        return format_person_display_name(obj) or obj.username
+
+
+class MemberCareCaseSerializer(serializers.ModelSerializer):
+    person = MemberCareCasePersonSerializer(read_only=True)
+    assigned_to = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Person.objects.exclude(role="VISITOR"),
+        required=False,
+    )
+    assigned_to_details = MemberCareCaseAssigneeSerializer(
+        source="assigned_to", many=True, read_only=True
+    )
+    recommended_action_display = serializers.CharField(
+        source="get_recommended_action_display", read_only=True
+    )
+    case_status_display = serializers.CharField(
+        source="get_case_status_display", read_only=True
+    )
+    needs_attention = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MemberCareCase
+        fields = [
+            "id",
+            "person",
+            "details",
+            "recommended_action",
+            "recommended_action_display",
+            "recommended_action_other",
+            "assigned_to",
+            "assigned_to_details",
+            "assigned_to_label",
+            "due_date",
+            "case_status",
+            "case_status_display",
+            "remarks",
+            "source_status_change",
+            "opened_at",
+            "updated_at",
+            "updated_by",
+            "needs_attention",
+        ]
+        read_only_fields = [
+            "person",
+            "source_status_change",
+            "opened_at",
+            "updated_at",
+            "updated_by",
+            "needs_attention",
+            "recommended_action_display",
+            "case_status_display",
+            "assigned_to_details",
+        ]
+
+    def get_needs_attention(self, obj):
+        if obj.case_status not in (
+            MemberCareCase.CaseStatus.OPEN,
+            MemberCareCase.CaseStatus.IN_PROGRESS,
+        ):
+            return False
+        if not (obj.recommended_action or "").strip():
+            return True
+        if obj.due_date and obj.due_date < church_today():
+            return True
+        return False
+
+    def validate(self, attrs):
+        action = attrs.get(
+            "recommended_action",
+            getattr(self.instance, "recommended_action", "") if self.instance else "",
+        )
+        if action == MemberCareCase.RecommendedAction.OTHER:
+            other = attrs.get(
+                "recommended_action_other",
+                getattr(self.instance, "recommended_action_other", "")
+                if self.instance
+                else "",
+            )
+            other = (other or "").strip()
+            if not other:
+                raise serializers.ValidationError(
+                    {
+                        "recommended_action_other": (
+                            "Describe the other recommended action."
+                        )
+                    }
+                )
+            attrs["recommended_action_other"] = other
+        else:
+            attrs["recommended_action_other"] = ""
+        return attrs
+
+    def update(self, instance, validated_data):
+        action = validated_data.get("recommended_action", instance.recommended_action)
+        if action == MemberCareCase.RecommendedAction.NO_ACTION:
+            validated_data["case_status"] = MemberCareCase.CaseStatus.NO_ACTION
+        elif (
+            action
+            and instance.case_status == MemberCareCase.CaseStatus.NO_ACTION
+            and "case_status" not in validated_data
+        ):
+            validated_data["case_status"] = MemberCareCase.CaseStatus.IN_PROGRESS
+        request = self.context.get("request")
+        if request and getattr(request, "user", None) and request.user.is_authenticated:
+            instance.updated_by = request.user
+        return super().update(instance, validated_data)
+
+
 class BranchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Branch
@@ -423,6 +569,7 @@ class PersonSerializer(serializers.ModelSerializer):
         write_only=True, required=False, allow_blank=True
     )
     latest_status_change = serializers.SerializerMethodField()
+    open_care_case = serializers.SerializerMethodField()
     journeys = JourneySerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()
     cluster_labels = serializers.SerializerMethodField()
@@ -521,6 +668,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "status",
             "status_change_reason",
             "latest_status_change",
+            "open_care_case",
             "note",
             "journeys",
             "cluster_codes",
@@ -1276,6 +1424,26 @@ class PersonSerializer(serializers.ModelSerializer):
         if not change:
             return None
         return PersonStatusChangeSerializer(change).data
+
+    def get_open_care_case(self, obj: Person):
+        from apps.clusters.permissions import (
+            can_access_member_care,
+            filter_care_cases_for_user,
+        )
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not can_access_member_care(user):
+            return None
+        case = MemberCareCase.objects.filter(person=obj).first()
+        if case is None or not case.is_open_caseload:
+            return None
+        scoped = filter_care_cases_for_user(
+            user, MemberCareCase.objects.filter(pk=case.pk)
+        )
+        if not scoped.exists():
+            return None
+        return MemberCareCaseSerializer(case, context=self.context).data
 
     def _lesson_enrollment(self, obj: Person):
         # Reverse OneToOne raises DoesNotExist (also AttributeError); getattr

@@ -176,3 +176,22 @@ export function userCanEditVitalDatesOnCreate(auth: ManageClusterAuth): boolean 
   if (isSeniorCoordinator("CLUSTER")) return true;
   return isModuleCoordinator("CLUSTER", "COORDINATOR");
 }
+
+/**
+ * Who may view and edit the member care caseload (pastoral notes).
+ * Mirrors backend `can_access_member_care`. Not reporters or plain members.
+ */
+export function userCanAccessMemberCare(
+  auth: ManageClusterAuth,
+  clusters: Cluster[] = [],
+): boolean {
+  const { userId, role, isSeniorCoordinator, isModuleCoordinator } = auth;
+  if (!userId) return false;
+  if (role === "ADMIN" || role === "PASTOR") return true;
+  if (isSeniorCoordinator("CLUSTER")) return true;
+  if (isModuleCoordinator("CLUSTER", "COORDINATOR")) return true;
+  return clusters.some((c) => {
+    const cid = c.coordinator?.id ?? c.coordinator_id ?? undefined;
+    return cid != null && Number(cid) === Number(userId);
+  });
+}

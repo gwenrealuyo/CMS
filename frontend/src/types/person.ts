@@ -32,6 +32,57 @@ export interface PersonStatusChange {
   needs_follow_up: boolean;
 }
 
+export type MemberCareRecommendedAction =
+  | "FOLLOW_UP_MONITOR"
+  | "VISITATION"
+  | "NO_ACTION"
+  | "OTHER"
+  | "";
+
+export type MemberCareCaseStatus =
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "NO_ACTION"
+  | "COMPLETED"
+  | "RECOVERED";
+
+export interface MemberCareCasePerson {
+  id: number;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: PersonRole;
+  status: PersonStatus;
+  cluster_ids: number[];
+  cluster_labels: string[];
+}
+
+export interface MemberCareAssignee {
+  id: number;
+  full_name: string;
+}
+
+export interface MemberCareCase {
+  id: number;
+  person: MemberCareCasePerson;
+  details: string;
+  recommended_action: MemberCareRecommendedAction;
+  recommended_action_display: string;
+  recommended_action_other: string;
+  assigned_to: number[];
+  assigned_to_details: MemberCareAssignee[];
+  assigned_to_label: string;
+  due_date: string | null;
+  case_status: MemberCareCaseStatus;
+  case_status_display: string;
+  remarks: string;
+  source_status_change: number | null;
+  opened_at: string;
+  updated_at: string;
+  updated_by: number | null;
+  needs_attention: boolean;
+}
+
 export type Gender = "MALE" | "FEMALE" | "";
 
 export type JourneyType =
@@ -113,6 +164,8 @@ export interface Person {
   status_change_reason?: string;
   /** Retrieve-only latest PersonStatusChange */
   latest_status_change?: PersonStatusChange | null;
+  /** Retrieve-only open MemberCareCase when the requester can access member care */
+  open_care_case?: MemberCareCase | null;
   journeys?: Journey[];
   groups?: string[]; // Group IDs
   user_permissions?: string[]; // Permission IDs

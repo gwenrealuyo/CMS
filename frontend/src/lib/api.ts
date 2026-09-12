@@ -1,5 +1,5 @@
 import axios, { type AxiosResponse } from "axios";
-import { Person, Family, Journey, ModuleCoordinator } from "@/src/types/person";
+import { Person, Family, Journey, ModuleCoordinator, MemberCareCase } from "@/src/types/person";
 import {
   Cluster,
   ClusterWeeklyReport,
@@ -116,6 +116,7 @@ const PERSON_FORM_DATA_SKIP_FIELDS = new Set([
   "groups",
   "user_permissions",
   "latest_status_change",
+  "open_care_case",
 ]);
 
 export function personDataToFormData(
@@ -442,7 +443,66 @@ export const peopleApi = {
   patch: (id: string, data: Partial<Person>) =>
     api.patch<Person>(`/people/people/${id}/`, data),
   delete: (id: string) => api.delete(`/people/people/${id}/`),
+  listCareCases: (params?: {
+    cluster_id?: number | string;
+    unclustered?: boolean | string;
+    person_status?: string;
+    recommended_action?: string;
+    case_status?: string;
+    include_closed?: boolean | string;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<MemberCareCase> | MemberCareCase[]>(
+      "/people/care-cases/",
+      { params },
+    ),
+  patchCareCase: (
+    id: number | string,
+    data: Partial<{
+      details: string;
+      recommended_action: string;
+      recommended_action_other: string;
+      assigned_to: number[];
+      assigned_to_label: string;
+      due_date: string | null;
+      case_status: string;
+      remarks: string;
+    }>,
+  ) => api.patch<MemberCareCase>(`/people/care-cases/${id}/`, data),
 };
+
+export async function fetchAllCareCases(
+  params: {
+    cluster_id?: number | string;
+    unclustered?: boolean | string;
+    person_status?: string;
+    recommended_action?: string;
+    case_status?: string;
+    include_closed?: boolean | string;
+    search?: string;
+  } = {},
+): Promise<MemberCareCase[]> {
+  const all: MemberCareCase[] = [];
+  let page = 1;
+  for (let i = 0; i < 50; i += 1) {
+    const { data } = await peopleApi.listCareCases({
+      ...params,
+      page,
+      page_size: 200,
+    });
+    if (Array.isArray(data)) {
+      return data;
+    }
+    all.push(...(data.results ?? []));
+    if (!data.next) {
+      break;
+    }
+    page += 1;
+  }
+  return all;
+}
 
 export type FamiliesListParams = {
   search?: string;

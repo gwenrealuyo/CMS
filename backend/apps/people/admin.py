@@ -4,6 +4,7 @@ from .models import (
     Branch,
     Person,
     PersonStatusChange,
+    MemberCareCase,
     Family,
     Journey,
     ModuleCoordinator,
@@ -188,10 +189,33 @@ class PersonStatusChangeAdmin(admin.ModelAdmin):
         return False
 
 
+class MemberCareCaseAdmin(admin.ModelAdmin):
+    list_display = (
+        "person",
+        "case_status",
+        "recommended_action",
+        "due_date",
+        "updated_at",
+    )
+    list_filter = ("case_status", "recommended_action")
+    search_fields = (
+        "person__username",
+        "person__first_name",
+        "person__last_name",
+        "details",
+        "remarks",
+        "recommended_action_other",
+    )
+    raw_id_fields = ("person", "updated_by", "source_status_change")
+    filter_horizontal = ("assigned_to",)
+    readonly_fields = ("opened_at", "updated_at")
+
+
 # Register with custom admin
 admin.site.register(Branch)
 admin.site.register(Person, PersonAdmin)
 admin.site.register(PersonStatusChange, PersonStatusChangeAdmin)
+admin.site.register(MemberCareCase, MemberCareCaseAdmin)
 admin.site.register(Family)
 admin.site.register(Journey)
 admin.site.register(ModuleCoordinator, ModuleCoordinatorAdmin)

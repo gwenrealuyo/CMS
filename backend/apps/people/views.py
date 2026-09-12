@@ -11,6 +11,7 @@ from .models import (
     Person,
     Family,
     Journey,
+    MemberCareCase,
     ModuleCoordinator,
     ModuleSetting,
     PeopleAutomationSetting,
@@ -28,6 +29,7 @@ from .serializers import (
     ModuleSettingSerializer,
     PeopleAutomationSettingSerializer,
     ModuleCoordinatorBulkCreateSerializer,
+    MemberCareCaseSerializer,
 )
 from apps.authentication.permissions import (
     IsMemberOrAbove,
@@ -40,6 +42,10 @@ from apps.authentication.permissions import (
     IsSelf,
 )
 from apps.people.permissions import CanCreatePerson
+from apps.clusters.permissions import (
+    CanAccessMemberCare,
+    filter_care_cases_for_user,
+)
 
 
 def _person_display_name(person):
@@ -898,3 +904,81 @@ class BranchViewSet(viewsets.ModelViewSet):
             # Write: Only ADMIN
             return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor()]
+
+
+class MemberCareCasePagination(PageNumberPagination):
+    page_size = 200
+    page_size_query_param = "page_size"
+    max_page_size = 500
+
+
+class MemberCareCaseViewSet(viewsets.ModelViewSet):
+    """Cluster-scoped member care caseload. List + PATCH only."""
+
+    serializer_class = MemberCareCaseSerializer
+    pagination_class = MemberCareCasePagination
+    permission_classes = [IsAuthenticatedAndNotVisitor, CanAccessMemberCare]
+    http_method_names = ["get", "patch", "head", "options"]
+    filter_backends = [filters.SearchFilter]
+    search_fields = [
+        "person__first_name",
+        "person__last_name",
+        "person__nickname",
+        "details",
+        "remarks",
+        "assigned_to_label",
+        "recommended_action_other",
+    ]
+    ordering = ["person__last_name", "person__first_name", "id"]
+
+    def get_queryset(self):
+        queryset = (
+            MemberCareCase.objects.select_related(
+                "person",
+                "updated_by",
+                "source_status_change",
+            )
+            .prefetch_related("assigned_to", "person__clusters")
+            .all()
+        )
+        queryset = filter_care_cases_for_user(self.request.user, queryset)
+
+        cluster_id = self.request.query_params.get("cluster_id")
+        unclustered = self.request.query_params.get("unclustered")
+        if cluster_id in ("none", "0"):
+            queryset = queryset.filter(person__clusters__isnull=True)
+        elif cluster_id:
+            queryset = queryset.filter(person__clusters__id=cluster_id).distinct()
+        elif unclustered in ("1", "true", "True"):
+            queryset = queryset.filter(person__clusters__isnull=True)
+
+        person_status = self.request.query_params.get("person_status")
+        if person_status:
+            queryset = queryset.filter(person__status=person_status)
+
+        recommended_action = self.request.query_params.get("recommended_action")
+        if recommended_action:
+            queryset = queryset.filter(recommended_action=recommended_action)
+
+        case_status = self.request.query_params.get("case_status")
+        include_closed = self.request.query_params.get("include_closed") in (
+            "1",
+            "true",
+            "True",
+        )
+        if self.action == "list":
+            if case_status:
+                queryset = queryset.filter(case_status=case_status)
+            elif not include_closed:
+                queryset = queryset.filter(
+                    case_status__in=[
+                        MemberCareCase.CaseStatus.OPEN,
+                        MemberCareCase.CaseStatus.IN_PROGRESS,
+                        MemberCareCase.CaseStatus.NO_ACTION,
+                    ]
+                )
+
+        return queryset.order_by("person__last_name", "person__first_name", "id")
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)

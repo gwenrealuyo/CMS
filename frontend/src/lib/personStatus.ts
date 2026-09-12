@@ -80,3 +80,26 @@ export function statusRequiresChangeReason(
 ): boolean {
   return STATUSES_REQUIRING_CHANGE_REASON.has(normalizePersonStatus(status));
 }
+
+export const MEMBER_ATTENDANCE_STATUSES: PersonStatus[] = [
+  "ACTIVE",
+  "SEMIACTIVE",
+  "INACTIVE",
+  "DORMANT",
+  "FALLAWAY",
+  "DECEASED",
+];
+
+export const VISITOR_ATTENDANCE_STATUSES: PersonStatus[] = [
+  "ONGOING",
+  "NO_RESPONSE",
+  "DECEASED",
+];
+
+export function personStatusOptionsForRole(
+  role: string | null | undefined,
+): PersonStatus[] {
+  return role === "VISITOR"
+    ? VISITOR_ATTENDANCE_STATUSES
+    : MEMBER_ATTENDANCE_STATUSES;
+}

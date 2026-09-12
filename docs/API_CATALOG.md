@@ -76,6 +76,7 @@ Notes:
 - Status by role (UI): members/pastors/admins use ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED; visitors use ONGOING|NO_RESPONSE|DECEASED. Prospect pipeline stages INVITED/ATTENDED are separate from `Person.status`.
 - When `status` changes on update, a `PersonStatusChange` row and a Journey `NOTE` (`Status Update: OLD → NEW`) are created. `status_change_reason` is **required** when changing **to** SEMIACTIVE, INACTIVE, DORMANT, FALLAWAY, or DECEASED. Optional for Active / Ongoing / No Response. Not required on create, attendance auto-calc, or system baptism/role writes.
 - `latest_status_change` (retrieve/update response): `{id, from_status, to_status, reason, source (MANUAL|AUTO_ATTENDANCE|SYSTEM), changed_by, created_at, needs_follow_up}`. Omitted from list serializer.
+- `open_care_case` (retrieve/update response): nested `MemberCareCase` when the requester can access member care, the case is in the open caseload (OPEN / IN_PROGRESS / NO_ACTION), and the person is in their cluster scope. Omitted from list serializer and hidden from reporters / plain members.
 - When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.
 
 - Update Status: `POST /api/people/people/{id}/update_status/`
@@ -88,6 +89,21 @@ Notes:
   - Access: ADMIN only
   - Singleton: `auto_status_updates_enabled` (boolean). When false, attendance signals, the management command, and `update_status` do not change Active/Semi-active/Inactive.
   - UI: Admin Settings → Module Controls → People automations
+
+### Member care cases
+
+- List: `GET /api/people/care-cases/`
+  - Access: ADMIN, PASTOR, CLUSTER Senior Coordinator, CLUSTER Coordinator. **Not** reporters or plain members.
+  - Scope: cases whose person is in an accessible cluster. Unclustered people: pastor/admin/senior only (grouped as “No cluster”).
+  - Query params: `cluster_id` (or `none`/`0` for unclustered), `unclustered=1`, `person_status`, `recommended_action`, `case_status`, `include_closed=1`, `search`, `page`, `page_size`
+  - Default list is the open caseload (`OPEN`, `IN_PROGRESS`, `NO_ACTION`). Recovered/completed require `include_closed=1` or an explicit `case_status`.
+  - Nested `person`: `id`, name fields, `status`, `cluster_ids`, `cluster_labels`. `needs_attention` is true for OPEN/IN_PROGRESS with no recommended action or an overdue `due_date`.
+- Retrieve: `GET /api/people/care-cases/{id}/`
+- Partial Update: `PATCH /api/people/care-cases/{id}/`
+  - Writable: `details`, `recommended_action`, `recommended_action_other`, `assigned_to` (person ids), `assigned_to_label`, `due_date`, `case_status`, `remarks`
+  - Setting `recommended_action=NO_ACTION` also sets `case_status=NO_ACTION`
+  - `recommended_action=OTHER` requires `recommended_action_other`; the custom text is cleared when the action is not Other
+  - No create/delete; cases are opened from status changes (`record_person_status_change`)
 
 ### Family
 

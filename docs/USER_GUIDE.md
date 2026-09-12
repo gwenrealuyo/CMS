@@ -98,8 +98,17 @@ Clusters are your church's small groups. Open **Clusters** in the sidebar.
 | Tab | Purpose |
 |-----|---------|
 | **Clusters** | View and manage cluster details (members, families, coordinator, schedule) |
+| **Care** | Cluster Care caseload: follow up members who are semi-active, inactive, dormant, or fall away (coordinators, pastors, admins) |
 | **Reports** | Browse submitted weekly reports |
 | **Compliance** | Oversight view for senior cluster coordinators |
+
+### Cluster Care
+
+When a member’s attendance status becomes **Semi-active**, **Inactive**, **Dormant**, or **Fall Away**, a Cluster Care case opens automatically. Coordinators record **details**, a **recommended action** (follow up and monitor, visitation, no action for now, or other), **who**, **when**, and **remarks**. Choosing **Other** requires a short description of that action. **No action for now** stays on the list — it does not remove the person. Active members are marked **Recovered**; deceased cases are completed and are not a follow-up queue.
+
+On a cluster record, coordinators can tap **Change status** on a member or visitor, enter a reason when required, and save without opening the full person form. That update uses the same rules as People → Edit, and opens or recovers the care case.
+
+Open **Clusters → Care**, or the **Cluster Care** section on a cluster record. The Care tab shows **Open caseload**, **Needs attention**, and **No action** counts; click a card to filter the list. Click a row to edit the case in the right-side panel (or a modal on a phone). Person profiles show care details and action under Status reason, with **Edit in Cluster Care** when you have access.
 
 ### Submit a weekly cluster report
 

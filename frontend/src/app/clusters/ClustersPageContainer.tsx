@@ -10,7 +10,7 @@ import { ClusterContentTab } from "@/src/components/clusters/ClusterContentTabs"
 import ClustersPageView from "./ClustersPageView";
 import { Cluster, ClusterInput } from "@/src/types/cluster";
 import { ClusterWeeklyReport, ClusterWeeklyReportInput } from "@/src/types/cluster";
-import { Person, PersonUI, Family } from "@/src/types/person";
+import { Person, PersonUI, Family, MemberCareCase } from "@/src/types/person";
 import {
   clustersApi,
   branchesApi,
@@ -30,10 +30,11 @@ import {
   userCanManageCluster,
   clustersForReportSubmission,
   canAccessClusterReports,
+  userCanAccessMemberCare,
 } from "@/src/lib/clusterPermissions";
 import { countClusterMembersFromDetails } from "@/src/lib/clusterRoster";
 
-type PanelEntity = "cluster" | "person" | "family";
+type PanelEntity = "cluster" | "person" | "family" | "care";
 type PanelMode = "view" | "edit" | "create";
 type PanelSnapshot = {
   entity: PanelEntity;
@@ -41,6 +42,7 @@ type PanelSnapshot = {
   cluster: Cluster | null;
   person: Person | null;
   family: Family | null;
+  care: MemberCareCase | null;
 };
 
 export default function ClustersPageContainer() {
@@ -143,7 +145,10 @@ export default function ClustersPageContainer() {
   const [panelCluster, setPanelCluster] = useState<Cluster | null>(null);
   const [panelPerson, setPanelPerson] = useState<Person | null>(null);
   const [panelFamily, setPanelFamily] = useState<Family | null>(null);
+  const [panelCareCase, setPanelCareCase] = useState<MemberCareCase | null>(null);
+  const [showCareModal, setShowCareModal] = useState(false);
   const [panelHistory, setPanelHistory] = useState<PanelSnapshot[]>([]);
+  const [careReloadToken, setCareReloadToken] = useState(0);
 
   const [isReportFormOpen, setReportFormOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<ClusterWeeklyReport | null>(null);
@@ -189,6 +194,11 @@ export default function ClustersPageContainer() {
 
   const canAccessClusterReportsUser = useMemo(
     () => canAccessClusterReports(clusterAuthCtx, reportClusters),
+    [clusterAuthCtx, reportClusters],
+  );
+
+  const canAccessMemberCareUser = useMemo(
+    () => userCanAccessMemberCare(clusterAuthCtx, reportClusters),
     [clusterAuthCtx, reportClusters],
   );
 
@@ -815,6 +825,8 @@ export default function ClustersPageContainer() {
     setPanelCluster(null);
     setPanelPerson(null);
     setPanelFamily(null);
+    setPanelCareCase(null);
+    setShowCareModal(false);
     setPanelHistory([]);
   }, []);
 
@@ -828,9 +840,10 @@ export default function ClustersPageContainer() {
         cluster: panelCluster,
         person: panelPerson,
         family: panelFamily,
+        care: panelCareCase,
       },
     ]);
-  }, [panelOpen, panelEntity, panelMode, panelCluster, panelPerson, panelFamily]);
+  }, [panelOpen, panelEntity, panelMode, panelCluster, panelPerson, panelFamily, panelCareCase]);
 
   const restorePanelSnapshot = useCallback((snapshot: PanelSnapshot) => {
     setPanelOpen(true);
@@ -839,6 +852,7 @@ export default function ClustersPageContainer() {
     setPanelCluster(snapshot.cluster);
     setPanelPerson(snapshot.person);
     setPanelFamily(snapshot.family);
+    setPanelCareCase(snapshot.care);
   }, []);
 
   const goBackClusterPanel = useCallback(() => {
@@ -898,6 +912,7 @@ export default function ClustersPageContainer() {
         setPanelCluster(resolved);
         setPanelPerson(null);
         setPanelFamily(null);
+        setPanelCareCase(null);
         return;
       }
 
@@ -960,6 +975,11 @@ export default function ClustersPageContainer() {
       if (clusterId || reportId) {
         router.replace(pathname);
       }
+      return;
+    }
+
+    if (tab === "care") {
+      setActiveTab(canAccessMemberCareUser ? "care" : "clusters");
       return;
     }
 
@@ -1032,7 +1052,7 @@ export default function ClustersPageContainer() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, reportClusters, pathname, router, canAccessClusterReportsUser]);
+  }, [searchParams, reportClusters, pathname, router, canAccessClusterReportsUser, canAccessMemberCareUser]);
 
   const openPersonInPanel = useCallback(
     async (person: Person) => {
@@ -1053,6 +1073,7 @@ export default function ClustersPageContainer() {
         setPanelPerson(resolved);
         setPanelCluster(null);
         setPanelFamily(null);
+        setPanelCareCase(null);
         return;
       }
       setPersonOverCluster(resolved);
@@ -1081,6 +1102,7 @@ export default function ClustersPageContainer() {
         setPanelFamily(resolved);
         setPanelCluster(null);
         setPanelPerson(null);
+        setPanelCareCase(null);
         return;
       }
       setFamilyOverCluster(resolved);
@@ -1088,7 +1110,71 @@ export default function ClustersPageContainer() {
     },
     [isDesktop, pushCurrentPanelToHistory]
   );
+
+  const openCareInPanel = useCallback(
+    (row: MemberCareCase) => {
+      if (!isDesktop) {
+        if (showCareModal && panelCareCase?.id === row.id) {
+          setShowCareModal(false);
+          setPanelCareCase(null);
+          return;
+        }
+        setPanelCareCase(row);
+        setShowCareModal(true);
+        return;
+      }
+      if (panelOpen && panelEntity === "care" && panelCareCase?.id === row.id) {
+        goBackClusterPanel();
+        return;
+      }
+      pushCurrentPanelToHistory();
+      setPanelOpen(true);
+      setPanelEntity("care");
+      setPanelMode("view");
+      setPanelCareCase(row);
+      setPanelCluster(null);
+      setPanelPerson(null);
+      setPanelFamily(null);
+    },
+    [
+      isDesktop,
+      showCareModal,
+      panelOpen,
+      panelEntity,
+      panelCareCase,
+      goBackClusterPanel,
+      pushCurrentPanelToHistory,
+    ],
+  );
+
+  const closeCareModal = useCallback(() => {
+    setShowCareModal(false);
+    setPanelCareCase(null);
+  }, []);
+
+  const handleCareCaseSaved = useCallback((row: MemberCareCase) => {
+    setPanelCareCase(row);
+    setCareReloadToken((n) => n + 1);
+  }, []);
   
+  const handlePersonStatusChanged = useCallback(
+    async (_person: Person, clusterId: number) => {
+      if (needPeopleCatalog) {
+        await refreshPeople();
+      }
+      try {
+        const { data } = await clustersApi.getById(clusterId);
+        setViewCluster((prev) => (prev?.id === clusterId ? data : prev));
+        setPanelCluster((prev) => (prev?.id === clusterId ? data : prev));
+        setClusterOverPerson((prev) => (prev?.id === clusterId ? data : prev));
+        setCareReloadToken((n) => n + 1);
+      } catch (error) {
+        console.error("Failed to refresh cluster after status change", error);
+      }
+    },
+    [needPeopleCatalog, refreshPeople],
+  );
+
   const handleAssignMembers = async (memberIds: number[]) => {
     if (assignMembersModal.cluster) {
       try {
@@ -1344,6 +1430,9 @@ export default function ClustersPageContainer() {
       panelCluster={panelCluster}
       panelPerson={panelPerson}
       panelFamily={panelFamily}
+      panelCareCase={panelCareCase}
+      showCareModal={showCareModal}
+      onCloseCareModal={closeCareModal}
       onCloseClusterPanel={closeClusterPanel}
       onBackClusterPanel={goBackClusterPanel}
       clusterDeleteConfirmation={clusterDeleteConfirmation}
@@ -1491,6 +1580,10 @@ export default function ClustersPageContainer() {
       onViewPerson={(p) => {
         openPersonInPanel(p);
       }}
+      onOpenCareCase={openCareInPanel}
+      onCareCaseSaved={handleCareCaseSaved}
+      careReloadToken={careReloadToken}
+      onPersonStatusChanged={handlePersonStatusChanged}
       // Data
       people={people}
       peopleUI={peopleUI}

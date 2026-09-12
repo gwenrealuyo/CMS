@@ -123,6 +123,81 @@ def calculate_person_attendance_status(person, reference_date=None):
         return "INACTIVE"
 
 
+def sync_member_care_case(person, *, to_status, reason="", source_change=None):
+    """
+    Open, update, recover, or complete the person's member care case.
+
+    Visitors are ignored (evangelism handles prospect drop-off). Care statuses
+    auto-open a case; ACTIVE recovers; DECEASED completes.
+    """
+    from apps.people.models import FOLLOW_UP_STATUSES, MemberCareCase
+
+    if getattr(person, "role", None) == "VISITOR":
+        return None
+
+    case = MemberCareCase.objects.filter(person=person).first()
+    reason = (reason or "").strip()
+    updates = []
+
+    if to_status in FOLLOW_UP_STATUSES:
+        if case is None:
+            return MemberCareCase.objects.create(
+                person=person,
+                details=reason,
+                case_status=MemberCareCase.CaseStatus.OPEN,
+                source_status_change=source_change,
+            )
+        if case.case_status in (
+            MemberCareCase.CaseStatus.RECOVERED,
+            MemberCareCase.CaseStatus.COMPLETED,
+        ):
+            case.case_status = MemberCareCase.CaseStatus.OPEN
+            updates.append("case_status")
+        if reason and (
+            not (case.details or "").strip()
+            or case.case_status
+            in (
+                MemberCareCase.CaseStatus.OPEN,
+                MemberCareCase.CaseStatus.IN_PROGRESS,
+                MemberCareCase.CaseStatus.NO_ACTION,
+            )
+        ):
+            case.details = reason
+            updates.append("details")
+        if source_change is not None:
+            case.source_status_change = source_change
+            updates.append("source_status_change")
+        if updates:
+            case.save(update_fields=list(dict.fromkeys(updates)))
+        return case
+
+    if case is None:
+        return None
+
+    if to_status == "ACTIVE" and case.case_status != MemberCareCase.CaseStatus.RECOVERED:
+        case.case_status = MemberCareCase.CaseStatus.RECOVERED
+        if source_change is not None:
+            case.source_status_change = source_change
+            case.save(update_fields=["case_status", "source_status_change"])
+        else:
+            case.save(update_fields=["case_status"])
+        return case
+
+    if (
+        to_status == "DECEASED"
+        and case.case_status != MemberCareCase.CaseStatus.COMPLETED
+    ):
+        case.case_status = MemberCareCase.CaseStatus.COMPLETED
+        if source_change is not None:
+            case.source_status_change = source_change
+            case.save(update_fields=["case_status", "source_status_change"])
+        else:
+            case.save(update_fields=["case_status"])
+        return case
+
+    return case
+
+
 def record_person_status_change(
     *,
     person,
@@ -158,6 +233,12 @@ def record_person_status_change(
         reason=reason,
         source=source,
         changed_by=changed_by if getattr(changed_by, "pk", None) else None,
+    )
+    sync_member_care_case(
+        person,
+        to_status=to_status,
+        reason=reason,
+        source_change=change,
     )
 
     if not from_status:

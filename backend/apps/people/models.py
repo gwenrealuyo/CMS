@@ -230,6 +230,88 @@ class PersonStatusChange(models.Model):
         return f"{self.person_id}: {self.from_status or '—'} → {self.to_status}"
 
 
+class MemberCareCase(models.Model):
+    """Pastoral care caseload for a member (cluster roster), not evangelism prospects."""
+
+    class RecommendedAction(models.TextChoices):
+        FOLLOW_UP_MONITOR = "FOLLOW_UP_MONITOR", "Follow up and monitor progress"
+        VISITATION = "VISITATION", "Visitation and follow up"
+        NO_ACTION = "NO_ACTION", "No action for now"
+        OTHER = "OTHER", "Other"
+
+    class CaseStatus(models.TextChoices):
+        OPEN = "OPEN", "Open"
+        IN_PROGRESS = "IN_PROGRESS", "In progress"
+        NO_ACTION = "NO_ACTION", "No action"
+        COMPLETED = "COMPLETED", "Completed"
+        RECOVERED = "RECOVERED", "Recovered"
+
+    person = models.OneToOneField(
+        Person,
+        on_delete=models.CASCADE,
+        related_name="care_case",
+    )
+    details = models.TextField(blank=True)
+    recommended_action = models.CharField(
+        max_length=30,
+        choices=RecommendedAction.choices,
+        blank=True,
+    )
+    recommended_action_other = models.CharField(max_length=255, blank=True)
+    assigned_to = models.ManyToManyField(
+        Person,
+        blank=True,
+        related_name="assigned_member_care_cases",
+    )
+    assigned_to_label = models.CharField(max_length=150, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    case_status = models.CharField(
+        max_length=20,
+        choices=CaseStatus.choices,
+        default=CaseStatus.OPEN,
+    )
+    remarks = models.TextField(blank=True)
+    source_status_change = models.ForeignKey(
+        PersonStatusChange,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="care_cases",
+    )
+    opened_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_member_care_cases",
+    )
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        verbose_name = "Member Care Case"
+        verbose_name_plural = "Member Care Cases"
+        indexes = [
+            models.Index(fields=["case_status"], name="people_carecase_status_idx"),
+            models.Index(
+                fields=["recommended_action"],
+                name="people_carecase_action_idx",
+            ),
+        ]
+
+    @property
+    def is_open_caseload(self) -> bool:
+        return self.case_status in {
+            self.CaseStatus.OPEN,
+            self.CaseStatus.IN_PROGRESS,
+            self.CaseStatus.NO_ACTION,
+        }
+
+    def __str__(self):
+        return f"{self.person_id} ({self.case_status})"
+
+
 class Family(models.Model):
     name = models.CharField(max_length=100)
     leader = models.ForeignKey(

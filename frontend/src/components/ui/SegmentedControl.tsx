@@ -28,7 +28,7 @@ export default function SegmentedControl<T extends string>({
   return (
     <div
       className={`inline-flex rounded-lg bg-gray-100 p-1 gap-0.5 ${
-        fullWidthOnMobile ? "w-full sm:w-auto" : ""
+        fullWidthOnMobile ? "w-full sm:w-auto overflow-x-auto" : ""
       } ${className}`.trim()}
       role="tablist"
     >
@@ -46,7 +46,7 @@ export default function SegmentedControl<T extends string>({
                 onChange(option.id);
               }
             }}
-            className={`inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2.5 md:py-2 text-sm font-medium transition-all min-h-[44px] md:min-h-0 ${
+            className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-2.5 sm:px-4 md:py-2 text-xs sm:text-sm font-medium transition-all min-h-[44px] md:min-h-0 ${
               fullWidthOnMobile ? "flex-1 sm:flex-none" : ""
             } ${
               isActive

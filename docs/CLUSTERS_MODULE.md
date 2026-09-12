@@ -212,7 +212,12 @@ Trends are calculated by comparing the current period with the previous period:
 
 ## API Surface
 
-All routes live under `/api/clusters/` (namespaced in `core.urls`):
+All cluster CRUD and weekly reports live under `/api/clusters/` (namespaced in `core.urls`). Member care cases live under `/api/people/care-cases/` (see `docs/API_CATALOG.md`).
+
+### Member care cases
+
+- `GET /api/people/care-cases/` — list cases in the requester’s cluster (or branch) scope. Default: open caseload. `?cluster_id=`, `?include_closed=1`
+- `PATCH /api/people/care-cases/{id}/` — details, recommended action (Other requires custom text), assignees, due date, case status, remarks
 
 ### Clusters
 
@@ -306,6 +311,7 @@ Implemented in `frontend/src/app/clusters/ClustersPageView.tsx` (derived from `u
 The page uses tabs similar to the Lessons page:
 
 - **Clusters Tab**: Manage clusters (list, create, edit, delete)
+- **Care Tab**: Cluster Care caseload (spreadsheet grouped by cluster) for coordinators, pastors, and admins. Not shown to reporters or plain members.
 - **Reports Tab**: View and manage cluster weekly reports
 
 ### Components Overview
@@ -325,7 +331,8 @@ The page uses tabs similar to the Lessons page:
   - **Manual Member Control**: Users can manually add or remove individual members regardless of family assignments
   - **Search Functionality**: Searchable inputs for families and members with dropdown suggestions
   - **Visual Feedback**: Selected families and members are displayed as chips/cards with remove buttons
-- **`ClusterView`**: Cluster detail includes members/visitors, families, and a **Prospects** section (`ClusterProspectsSection`) listing **invited** (not yet attended) visitors for that cluster (inviter or endorsed). **Update** opens **Mark attended**. **View** (opens Evangelism Prospects in a new tab) appears for senior coordinators, pastors, and admins.
+- **`ClusterView`**: Cluster detail includes members/visitors, a **Change status** action on each roster card (cluster managers only; same `status` + `status_change_reason` rules as the person form), a **Cluster Care** section (open caseload for that cluster), families, and a **Prospects** section (`ClusterProspectsSection`) listing **invited** (not yet attended) visitors for that cluster (inviter or endorsed). **Update** opens **Mark attended**. **View** (opens Evangelism Prospects in a new tab) appears for senior coordinators, pastors, and admins.
+- **Care Tab** (`ClusterCareRoster`): Cluster Care caseload of `MemberCareCase` rows (attendance status, name, details, recommended action, who, when, status, remarks). Stat cards for **Open caseload**, **Needs attention**, and **No action** filter the list. Desktop spreadsheet; mobile stacked cards. Click a row to edit in the right-side panel (same panel as cluster/person/family). Default hides recovered/completed. Setting recommended action to **No action for now** keeps the person on the list (`case_status=NO_ACTION`). Deep link: `/clusters?tab=care`.
 - **Reports Tab**:
   - Non-senior cluster coordinators see **managed clusters only** in filters, analytics, and the report form (API enforces the same scope).
   - Helper copy: browse all branch clusters on the Clusters tab; weekly reports are limited to coordinated clusters.

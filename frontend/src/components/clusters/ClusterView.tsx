@@ -6,7 +6,7 @@ import {
   type CSSProperties,
 } from "react";
 import { Cluster } from "@/src/types/cluster";
-import { Person, Family } from "@/src/types/person";
+import { Person, Family, PersonStatus, MemberCareCase } from "@/src/types/person";
 import { formatPersonName } from "@/src/lib/name";
 import Button from "@/src/components/ui/Button";
 import { useBranches } from "@/src/hooks/useBranches";
@@ -29,6 +29,10 @@ import type {
   ClusterRosterPerson,
 } from "@/src/lib/clusterRoster";
 import ClusterProspectsSection from "@/src/components/clusters/ClusterProspectsSection";
+import ClusterCareRoster from "@/src/components/clusters/ClusterCareRoster";
+import ChangePersonStatusModal from "@/src/components/people/ChangePersonStatusModal";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { userCanAccessMemberCare } from "@/src/lib/clusterPermissions";
 
 type SortField =
   | "first_name"
@@ -151,11 +155,14 @@ interface ClusterViewProps {
   onSubmitReport: () => void;
   onViewPerson?: (person: Person) => void;
   onViewFamily?: (family: Family) => void;
+  onEditCareCase?: (row: MemberCareCase) => void;
+  selectedCareCaseId?: number | null;
   showTopHeader?: boolean;
   /** When false, hides the Members-section Submit Report action (e.g. module-wide users use Reports tab). Default true. */
   showSubmitReportButton?: boolean;
   /** When false, hides Edit, Delete, and Assign Members actions. */
   canManageCluster?: boolean;
+  onPersonStatusChanged?: (person: Person) => void;
 }
 
 export default function ClusterView({
@@ -171,15 +178,37 @@ export default function ClusterView({
   onSubmitReport,
   onViewPerson,
   onViewFamily,
+  onEditCareCase,
+  selectedCareCaseId,
   showTopHeader = true,
   showSubmitReportButton = true,
   canManageCluster = true,
+  onPersonStatusChanged,
 }: ClusterViewProps) {
   const { branches } = useBranches();
+  const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
+  const showMemberCare =
+    canManageCluster &&
+    userCanAccessMemberCare(
+      {
+        userId: user?.id,
+        role: user?.role,
+        isSeniorCoordinator,
+        isModuleCoordinator,
+      },
+      [cluster],
+    );
   const [memberSearch, setMemberSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortField>("last_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [statusOverrides, setStatusOverrides] = useState(
+    {} as Record<string, PersonStatus>,
+  );
+  const [statusPerson, setStatusPerson] = useState(
+    null as ClusterRosterPerson | null,
+  );
+  const [careReloadToken, setCareReloadToken] = useState(0);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -278,7 +307,10 @@ export default function ClusterView({
       return uiDate || person.date_first_attended || "";
     };
 
-    const combined = [...clusterMembers];
+    const combined = clusterMembers.map((member) => {
+      const nextStatus = statusOverrides[String(member.id)];
+      return nextStatus ? { ...member, status: nextStatus } : member;
+    });
     if (
       displayCoordinator &&
       !combined.some(
@@ -288,6 +320,9 @@ export default function ClusterView({
       combined.push({
         ...displayCoordinator,
         id: String(displayCoordinator.id),
+        status:
+          statusOverrides[String(displayCoordinator.id)] ||
+          displayCoordinator.status,
         canOpenProfile: coordinator
           ? (coordinator as Person & { can_view_profile?: boolean })
               .can_view_profile !== false
@@ -337,7 +372,7 @@ export default function ClusterView({
       if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
-  }, [clusterMembers, coordinator, displayCoordinator, sortBy, sortOrder]);
+  }, [clusterMembers, coordinator, displayCoordinator, sortBy, sortOrder, statusOverrides]);
 
   const handleSortSelect = (field: SortField) => {
     if (sortBy === field) {
@@ -481,6 +516,18 @@ export default function ClusterView({
               >
                 {formatPersonStatusLabel(member.status)}
               </span>
+            )}
+            {canManageCluster && (
+              <button
+                type="button"
+                className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium text-primary hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setStatusPerson(member);
+                }}
+              >
+                Change status
+              </button>
             )}
             {!isCoordinator && (
               <span
@@ -983,6 +1030,28 @@ export default function ClusterView({
             </div>
           )}
 
+          {showMemberCare && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                Cluster Care
+              </h3>
+              <ClusterCareRoster
+                clusterId={cluster.id}
+                clusters={[cluster]}
+                assigneePeople={[
+                  ...clusterMembers,
+                  ...(displayCoordinator ? [displayCoordinator] : []),
+                ]}
+                canEdit={canManageCluster}
+                compact
+                reloadToken={careReloadToken}
+                onViewPerson={onViewPerson}
+                onOpenCase={onEditCareCase}
+                selectedCaseId={selectedCareCaseId}
+              />
+            </div>
+          )}
+
           <ClusterProspectsSection
             clusterId={cluster.id}
             compact={isPanelMode}
@@ -1154,6 +1223,20 @@ export default function ClusterView({
           </>
         ) : null}
       </div>
+
+      <ChangePersonStatusModal
+        person={statusPerson}
+        isOpen={Boolean(statusPerson)}
+        onClose={() => setStatusPerson(null)}
+        onSaved={(updated) => {
+          setStatusOverrides((prev) => ({
+            ...prev,
+            [String(updated.id)]: updated.status,
+          }));
+          setCareReloadToken((n) => n + 1);
+          onPersonStatusChanged?.(updated);
+        }}
+      />
     </div>
   );
 }

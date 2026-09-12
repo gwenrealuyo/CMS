@@ -988,6 +988,7 @@ export default function PersonForm({
     delete personData.journeys;
     delete personData.photo;
     delete personData.latest_status_change;
+    delete personData.open_care_case;
     personData.family_ids = normalizeIdList(formData.family_ids);
     personData.cluster_ids = normalizeIdList(formData.cluster_ids);
 

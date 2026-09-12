@@ -6,6 +6,8 @@ import ClusterContentTabs, {
   ClusterContentTab,
 } from "@/src/components/clusters/ClusterContentTabs";
 import ClusterComplianceTab from "@/src/components/clusters/ClusterComplianceTab";
+import ClusterCareRoster from "@/src/components/clusters/ClusterCareRoster";
+import CareCaseForm from "@/src/components/clusters/CareCaseForm";
 import ClusterCard from "@/src/components/clusters/ClusterCard";
 import ClusterView from "@/src/components/clusters/ClusterView";
 import ClusterForm from "@/src/components/clusters/ClusterForm";
@@ -47,13 +49,14 @@ import {
   ClusterWeeklyReport,
   ClusterWeeklyReportInput,
 } from "@/src/types/cluster";
-import { Person, PersonUI, Family } from "@/src/types/person";
+import { Person, PersonUI, Family, MemberCareCase } from "@/src/types/person";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   userCanManageCluster,
   clustersForReportSubmission,
   isClusterReporterOnly,
+  userCanAccessMemberCare,
 } from "@/src/lib/clusterPermissions";
 import {
   countClusterMembersFromDetails,
@@ -130,11 +133,14 @@ interface ClustersPageViewProps {
   onCancelClusterEdit: () => void;
   isDesktop: boolean;
   panelOpen: boolean;
-  panelEntity: "cluster" | "person" | "family";
+  panelEntity: "cluster" | "person" | "family" | "care";
   panelMode: "view" | "edit" | "create";
   panelCluster: Cluster | null;
   panelPerson: Person | null;
   panelFamily: Family | null;
+  panelCareCase: MemberCareCase | null;
+  showCareModal: boolean;
+  onCloseCareModal: () => void;
   onCloseClusterPanel: () => void;
   onBackClusterPanel: () => void;
   clusterDeleteConfirmation: {
@@ -174,6 +180,10 @@ interface ClustersPageViewProps {
   onUpdateClusterOverlay: (data: Partial<ClusterInput>) => Promise<void>;
   onViewFamily?: (family: Family) => void;
   onViewPerson?: (person: Person) => void;
+  onOpenCareCase?: (row: MemberCareCase) => void;
+  onCareCaseSaved?: (row: MemberCareCase) => void;
+  careReloadToken?: number;
+  onPersonStatusChanged?: (person: Person, clusterId: number) => void;
   // Reports tab props
   reports: ClusterWeeklyReport[];
   reportsLoading: boolean;
@@ -292,6 +302,9 @@ export default function ClustersPageView({
   panelCluster,
   panelPerson,
   panelFamily,
+  panelCareCase,
+  showCareModal,
+  onCloseCareModal,
   onCloseClusterPanel,
   onBackClusterPanel,
   clusterDeleteConfirmation,
@@ -322,6 +335,10 @@ export default function ClustersPageView({
   onUpdateClusterOverlay,
   onViewFamily,
   onViewPerson,
+  onOpenCareCase,
+  onCareCaseSaved,
+  careReloadToken = 0,
+  onPersonStatusChanged,
   reports,
   reportsLoading,
   reportsError,
@@ -446,6 +463,17 @@ export default function ClustersPageView({
     }
   }, [canAccessClusterReports, activeTab, onTabChange]);
 
+  const canAccessMemberCare = userCanAccessMemberCare(
+    clusterAuthCtx,
+    allClusters,
+  );
+
+  useEffect(() => {
+    if (!canAccessMemberCare && activeTab === "care") {
+      onTabChange("clusters");
+    }
+  }, [canAccessMemberCare, activeTab, onTabChange]);
+
   // Calculate stats from summary endpoint (branch-scoped; not toolbar text filters)
   const totalMembers = summaryMemberCount;
   const unassignedMembers = summaryUnassignedCount;
@@ -531,6 +559,7 @@ export default function ClustersPageView({
       return "Cluster";
     }
     if (panelEntity === "person") return "Profile";
+    if (panelEntity === "care") return "Cluster Care";
     return "Family";
   };
 
@@ -581,11 +610,20 @@ export default function ClustersPageView({
           }}
           onViewFamily={onViewFamily}
           onViewPerson={onViewPerson}
+          onEditCareCase={onOpenCareCase}
+          selectedCareCaseId={
+            panelEntity === "care" || showCareModal
+              ? panelCareCase?.id
+              : undefined
+          }
           showTopHeader={!isPanel}
           showSubmitReportButton={
             !hasClusterModuleWideAccess && manageCluster
           }
           canManageCluster={manageCluster}
+          onPersonStatusChanged={(person) =>
+            onPersonStatusChanged?.(person, Number(currentViewCluster.id))
+          }
         />
       );
     }
@@ -694,6 +732,20 @@ export default function ClustersPageView({
     );
   };
 
+  const renderCareFlow = (inModal = false) => {
+    if (!panelCareCase) return null;
+    return (
+      <CareCaseForm
+        caseRow={panelCareCase}
+        clusters={allClusters}
+        panelLayout
+        onCancel={inModal ? onCloseCareModal : onBackClusterPanel}
+        onSaved={onCareCaseSaved}
+        onViewPerson={onViewPerson}
+      />
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -701,7 +753,7 @@ export default function ClustersPageView({
           <div className="space-y-1 min-w-0">
             <h1 className="text-2xl font-bold text-foreground">Clusters</h1>
             <p className="text-sm text-gray-600">
-              Manage clusters and weekly reports
+              Manage clusters, cluster care, and weekly reports
             </p>
           </div>
           <div className="relative z-10 flex shrink-0 flex-col gap-2 sm:flex-row sm:gap-2">
@@ -736,6 +788,7 @@ export default function ClustersPageView({
           onTabChange={onTabChange}
           showComplianceTab={canAccessCompliance}
           showReportsTab={canAccessClusterReports}
+          showCareTab={canAccessMemberCare}
         />
 
         {activeTab === "clusters" && (
@@ -1610,6 +1663,44 @@ export default function ClustersPageView({
                 {panelEntity === "cluster" && renderClusterFlow(true)}
                 {panelEntity === "person" && renderPersonFlow(true)}
                 {panelEntity === "family" && renderFamilyFlow(true)}
+                {panelEntity === "care" && renderCareFlow()}
+              </PersonDetailPanel>
+            )}
+          </div>
+        )}
+
+        {activeTab === "care" && canAccessMemberCare && (
+          <div
+            className={
+              isDesktop && panelOpen
+                ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_500px]"
+                : ""
+            }
+          >
+            <div className="min-w-0">
+              <ClusterCareRoster
+                clusters={allClusters}
+                canEdit
+                onViewPerson={onViewPerson}
+                onOpenCase={onOpenCareCase}
+                selectedCaseId={
+                  panelEntity === "care" || showCareModal
+                    ? panelCareCase?.id
+                    : undefined
+                }
+                reloadToken={careReloadToken}
+              />
+            </div>
+            {isDesktop && panelOpen && (
+              <PersonDetailPanel
+                isOpen={panelOpen}
+                title={getPanelTitle()}
+                onClose={onBackClusterPanel}
+              >
+                {panelEntity === "cluster" && renderClusterFlow(true)}
+                {panelEntity === "person" && renderPersonFlow(true)}
+                {panelEntity === "family" && renderFamilyFlow(true)}
+                {panelEntity === "care" && renderCareFlow()}
               </PersonDetailPanel>
             )}
           </div>
@@ -1810,6 +1901,7 @@ export default function ClustersPageView({
               }}
               onViewFamily={onViewFamily}
               onViewPerson={onViewPerson}
+              onEditCareCase={onOpenCareCase}
               showSubmitReportButton={
                 !hasClusterModuleWideAccess &&
                 userCanManageCluster(
@@ -1821,6 +1913,9 @@ export default function ClustersPageView({
                 clusterOverPerson as Cluster,
                 clusterAuthCtx,
               )}
+              onPersonStatusChanged={(person) =>
+                onPersonStatusChanged?.(person, Number(clusterOverPerson.id))
+              }
             />
           </Modal>
         )}
@@ -1847,6 +1942,19 @@ export default function ClustersPageView({
               error={null}
               submitting={false}
             />
+          </Modal>
+        )}
+
+        {/* Cluster Care form (mobile modal) */}
+        {!isDesktop && showCareModal && panelCareCase && (
+          <Modal
+            isOpen={showCareModal}
+            onClose={onCloseCareModal}
+            title="Cluster Care"
+            className="!mt-0 z-[50]"
+            closeOnOutsideClick={false}
+          >
+            {renderCareFlow(true)}
           </Modal>
         )}
 

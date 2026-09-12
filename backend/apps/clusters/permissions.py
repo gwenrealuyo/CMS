@@ -384,3 +384,53 @@ class ClusterWeeklyReportScopedPermission(permissions.BasePermission):
         if cluster is None:
             return False
         return user_can_submit_cluster_report(user, cluster)
+
+
+def can_access_member_care(user) -> bool:
+    """Pastoral care roster: admin, pastor, cluster senior, cluster coordinator. Not reporters."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", None) in ("ADMIN", "PASTOR"):
+        return True
+    if user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER):
+        return True
+    return is_non_senior_cluster_coordinator(user)
+
+
+def filter_care_cases_for_user(user, queryset):
+    """Scope MemberCareCase queryset. Unclustered people: pastor/admin/senior only."""
+    from django.db.models import Q
+
+    if not can_access_member_care(user):
+        return queryset.none()
+
+    if getattr(user, "role", None) == "ADMIN":
+        return queryset
+
+    if user.can_see_all_branches() and (
+        getattr(user, "role", None) == "PASTOR"
+        or user.is_senior_coordinator(ModuleCoordinator.ModuleType.CLUSTER)
+    ):
+        return queryset
+
+    if getattr(user, "role", None) == "PASTOR" or user.is_senior_coordinator(
+        ModuleCoordinator.ModuleType.CLUSTER
+    ):
+        if not user.branch_id:
+            return queryset.none()
+        return queryset.filter(
+            Q(person__clusters__branch_id=user.branch_id)
+            | Q(person__clusters__isnull=True, person__branch_id=user.branch_id)
+        ).distinct()
+
+    managed_ids = managed_cluster_ids_for_coordinator(user)
+    if not managed_ids:
+        return queryset.none()
+    return queryset.filter(person__clusters__id__in=managed_ids).distinct()
+
+
+class CanAccessMemberCare(permissions.BasePermission):
+    """ADMIN, PASTOR, cluster senior, cluster coordinator. Not reporters or members."""
+
+    def has_permission(self, request, view):
+        return can_access_member_care(request.user)

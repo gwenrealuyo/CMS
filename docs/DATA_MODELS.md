@@ -77,11 +77,22 @@ Notes
 - Fields: `person` → Person, `from_status?`, `to_status`, `reason?` (TextField), `source` (MANUAL|AUTO_ATTENDANCE|SYSTEM), `changed_by` → Person (nullable), `created_at`
 - Meta: Ordering by `-created_at`, indexes on `(person, -created_at)`, `to_status`, `source`
 - Notes:
-  - Queryable history for a later member follow-up / drop-off queue (distinct from evangelism Prospect `DropOff`)
+  - Queryable history that seeds the member care caseload (`MemberCareCase`; distinct from evangelism Prospect `DropOff`)
   - `needs_follow_up` is true when `to_status` is SEMIACTIVE, INACTIVE, DORMANT, or FALLAWAY (not DECEASED)
   - Manual edits via the person API require `status_change_reason` when changing **to** SEMIACTIVE, INACTIVE, DORMANT, FALLAWAY, or DECEASED
   - Attendance auto-calc writes `source=AUTO_ATTENDANCE` with a canned reason
   - System writes (e.g. baptism role flip) use `source=SYSTEM`
+  - When `to_status` is SEMIACTIVE, INACTIVE, DORMANT, or FALLAWAY and the person is not a visitor, a `MemberCareCase` is opened or reopened (see below)
+
+### MemberCareCase
+
+- Fields: `person` → Person (OneToOne), `details?` (seeded from the status-change reason), `recommended_action?` (FOLLOW_UP_MONITOR|VISITATION|NO_ACTION|OTHER), `recommended_action_other?` (required when action is OTHER), `assigned_to` → M2M Person, `assigned_to_label?`, `due_date?`, `case_status` (OPEN|IN_PROGRESS|NO_ACTION|COMPLETED|RECOVERED), `remarks?`, `source_status_change` → PersonStatusChange (nullable), `opened_at`, `updated_at`, `updated_by` → Person (nullable)
+- Notes:
+  - Person-centric pastoral caseload for **members** (not evangelism prospect drop-off). Cluster is not stored; group/filter via `person.clusters`
+  - Auto-open from `record_person_status_change` when `to_status` is SEMIACTIVE / INACTIVE / DORMANT / FALLAWAY and `role != VISITOR`
+  - Existing RECOVERED/COMPLETED cases reopen to OPEN; NO_ACTION stays on the roster (a new status change can still refresh `details`)
+  - `to_status=ACTIVE` sets RECOVERED; `to_status=DECEASED` sets COMPLETED and does not open a new case
+  - Backfill: `python manage.py backfill_member_care_cases` (optional `--dry-run`)
 
 ## Data Models (apps.ministries.models)
 

@@ -30,6 +30,7 @@ from apps.people.usernames import (
     generate_unique_username,
     normalize_and_validate_username,
 )
+from apps.people.family_counts import count_family_members, count_family_visitors
 
 
 def delete_person_photo_if_cleared(instance, validated_data):
@@ -1359,6 +1360,26 @@ class PersonListSerializer(serializers.ModelSerializer):
         return True
 
 
+def _family_member_preview_rows(members, limit=None):
+    """Slim household rows for list/detail; admins are never shown."""
+    rows = []
+    for member in members:
+        if member.role == "ADMIN":
+            continue
+        rows.append(
+            {
+                "id": member.id,
+                "first_name": member.first_name or "",
+                "last_name": member.last_name or "",
+                "role": member.role or "",
+                "photo": member.photo.url if member.photo else None,
+            }
+        )
+        if limit is not None and len(rows) >= limit:
+            break
+    return rows
+
+
 class FamilyMemberPreviewSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     first_name = serializers.CharField(allow_blank=True)
@@ -1391,17 +1412,7 @@ class FamilyListSerializer(serializers.ModelSerializer):
         ]
 
     def get_member_preview(self, obj: Family):
-        members = list(obj.members.all()[:5])
-        return [
-            {
-                "id": m.id,
-                "first_name": m.first_name or "",
-                "last_name": m.last_name or "",
-                "role": m.role or "",
-                "photo": m.photo.url if m.photo else None,
-            }
-            for m in members
-        ]
+        return _family_member_preview_rows(obj.members.all(), limit=5)
 
 
 class FamilySerializer(serializers.ModelSerializer):
@@ -1439,22 +1450,19 @@ class FamilySerializer(serializers.ModelSerializer):
         ]
 
     def get_members_details(self, obj: Family):
-        return [
-            {
-                "id": m.id,
-                "first_name": m.first_name or "",
-                "last_name": m.last_name or "",
-                "role": m.role or "",
-                "photo": m.photo.url if m.photo else None,
-            }
-            for m in obj.members.all()
-        ]
+        return _family_member_preview_rows(obj.members.all())
 
     def get_member_count(self, obj: Family):
-        return obj.members.count()
+        annotated = obj.__dict__.get("member_count")
+        if isinstance(annotated, int):
+            return annotated
+        return count_family_members(obj)
 
     def get_visitor_count(self, obj: Family):
-        return obj.members.filter(role="VISITOR").count()
+        annotated = obj.__dict__.get("visitor_count")
+        if isinstance(annotated, int):
+            return annotated
+        return count_family_visitors(obj)
 
     def _get_person_label(self, person: Person) -> str:
         return person.get_full_name() or person.username

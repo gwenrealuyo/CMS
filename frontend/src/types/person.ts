@@ -140,8 +140,9 @@ export interface Family {
   notes?: string; // Family notes/description
   is_active?: boolean;
   created_at?: string;
-  /** Present on paginated directory list responses */
+  /** MEMBER + PASTOR household size (admins and visitors excluded). */
   member_count?: number;
+  /** VISITOR-role household size. */
   visitor_count?: number;
   member_preview?: FamilyMemberPreview[];
   /** Present on retrieve — full slim roster for detail panel */

@@ -14,4 +14,4 @@ export function canChangeLessonsBranchFilter(
 
 /** Shown on disabled branch controls for scoped users */
 export const LESSONS_BRANCH_LOCKED_HINT =
-  "Branch is limited to your assignment. Admins, pastors, and headquarters senior lessons coordinators can switch branches.";
+  "Branch is limited to your assignment.";

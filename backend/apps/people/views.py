@@ -1,4 +1,4 @@
-from django.db.models import Q, Count
+from django.db.models import Q
 from django.db.models.deletion import ProtectedError
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
@@ -16,6 +16,7 @@ from .models import (
     PeopleAutomationSetting,
 )
 from .filters import PersonFilter, FamilyFilter
+from .family_counts import annotate_family_roster_counts
 from .serializers import (
     BranchSerializer,
     PersonSerializer,
@@ -568,15 +569,9 @@ class FamilyViewSet(viewsets.ModelViewSet):
             else:
                 scoped = queryset.none()
 
-        # Annotate for list ordering/filters and FamilyListSerializer.
-        return scoped.annotate(
-            member_count=Count("members", distinct=True),
-            visitor_count=Count(
-                "members",
-                filter=Q(members__role="VISITOR"),
-                distinct=True,
-            ),
-        )
+        # Subquery counts so permission/branch JOINs on members cannot collapse
+        # household size (Member users otherwise always see member_count=1).
+        return annotate_family_roster_counts(scoped)
 
     def get_permissions(self):
         """

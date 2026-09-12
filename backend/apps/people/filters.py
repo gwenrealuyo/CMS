@@ -181,7 +181,7 @@ class PersonFilter(django_filters.FilterSet):
 class FamilyFilter(django_filters.FilterSet):
     """Server-side filters for the families directory."""
 
-    branch = django_filters.NumberFilter(field_name="branch_id")
+    branch = django_filters.NumberFilter(method="filter_branch")
     member_count_min = django_filters.NumberFilter(
         field_name="member_count", lookup_expr="gte"
     )
@@ -213,6 +213,14 @@ class FamilyFilter(django_filters.FilterSet):
     name_ne = django_filters.CharFilter(
         field_name="name", lookup_expr="iexact", exclude=True
     )
+
+    def filter_branch(self, queryset, name, value):
+        """Match Family.branch or any member's branch (same as FamilyViewSet scope)."""
+        if value in (None, ""):
+            return queryset
+        return queryset.filter(
+            Q(branch_id=value) | Q(members__branch_id=value)
+        ).distinct()
 
     class Meta:
         model = Family

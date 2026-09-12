@@ -5,6 +5,33 @@ import {
   PersonUI,
 } from "@/src/types/person";
 
+/** Roles included in family ``member_count`` (converts are stored as MEMBER). */
+const FAMILY_MEMBER_ROLES = new Set(["MEMBER", "PASTOR"]);
+
+export function isCountedFamilyMemberRole(
+  role?: string | null
+): boolean {
+  return FAMILY_MEMBER_ROLES.has(role || "");
+}
+
+export function getFamilyMemberCount(family: Family): number {
+  if (typeof family.member_count === "number") return family.member_count;
+  const preview = family.members_details ?? family.member_preview ?? [];
+  if (preview.length) {
+    return preview.filter((m) => isCountedFamilyMemberRole(m.role)).length;
+  }
+  return family.members?.length ?? 0;
+}
+
+export function getFamilyVisitorCount(family: Family): number {
+  if (typeof family.visitor_count === "number") return family.visitor_count;
+  const preview = family.members_details ?? family.member_preview ?? [];
+  if (preview.length) {
+    return preview.filter((m) => m.role === "VISITOR").length;
+  }
+  return 0;
+}
+
 function slimToPersonUI(m: FamilyMemberPreview): PersonUI {
   return {
     id: String(m.id),

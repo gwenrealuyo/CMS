@@ -493,8 +493,14 @@ export const familiesApi = {
     const data = await fetchAllFamiliesPages(params ?? {});
     return { data };
   },
-  list: (params?: FamiliesListParams) =>
-    api.get<PaginatedResponse<Family>>("/people/families/", { params }),
+  list: (
+    params?: FamiliesListParams,
+    config?: { signal?: AbortSignal }
+  ) =>
+    api.get<PaginatedResponse<Family>>("/people/families/", {
+      params,
+      ...config,
+    }),
   unassignedPeople: (params?: {
     search?: string;
     page?: number;

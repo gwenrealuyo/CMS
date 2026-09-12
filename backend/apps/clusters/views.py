@@ -14,6 +14,7 @@ import csv
 import io
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 from .filters import ClusterFilter
+from .roster_counts import annotate_cluster_roster_counts
 from .report_membership import sync_report_visitors_to_cluster_members
 from .serializers import (
     ClusterSerializer,
@@ -104,14 +105,8 @@ class ClusterViewSet(viewsets.ModelViewSet):
         ) or self.request.query_params.get("branch")
         queryset = apply_cluster_branch_scope(queryset, user, branch_param)
 
-        # Annotate for list ordering/filters and ClusterListSerializer.
-        queryset = queryset.annotate(
-            member_count=Count("members", distinct=True),
-            visitor_count=Count(
-                "members",
-                filter=Q(members__role="VISITOR"),
-                distinct=True,
-            ),
+        # Subquery role counts so visitors are not included in member_count.
+        queryset = annotate_cluster_roster_counts(queryset).annotate(
             family_count=Count("families", distinct=True),
         )
 

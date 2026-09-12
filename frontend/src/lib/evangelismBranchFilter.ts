@@ -46,4 +46,4 @@ export function canChangeProspectsBranchFilter(
 
 /** Shown on disabled branch controls for scoped users */
 export const EVANGELISM_BRANCH_LOCKED_HINT =
-  "Branch is limited to your assignment. Admins, pastors, and senior evangelism coordinators can switch branches.";
+  "Branch is limited to your assignment.";

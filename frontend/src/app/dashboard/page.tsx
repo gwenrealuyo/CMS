@@ -1038,9 +1038,9 @@ export default function Dashboard() {
             </div>
           )}
 
-          {allowPeopleMetrics ||
-          allowLessonWidgets ||
-          allowExtendedDashboardMetrics ? (
+          {(allowPeopleMetrics ||
+            allowLessonWidgets ||
+            allowExtendedDashboardMetrics) && (
             <div className="grid grid-cols-1 tablet:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {allowPeopleMetrics && (
                 <MetricCard
@@ -1139,12 +1139,6 @@ export default function Dashboard() {
                 />
               )}
             </div>
-          ) : (
-            <Card>
-              <p className="text-sm text-gray-500">
-                Metrics are unavailable for your current access level.
-              </p>
-            </Card>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

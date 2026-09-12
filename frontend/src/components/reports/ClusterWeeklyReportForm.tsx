@@ -30,6 +30,7 @@ import {
   prospectIdFromAttendanceId,
 } from "@/src/lib/clusterWeeklyReportSubmit";
 import { formatApiErrorMessage, isDuplicateWeekReportError } from "@/src/lib/apiErrors";
+import { formatPersonName } from "@/src/lib/name";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { userCanAddVisitor } from "@/src/lib/peopleCreateAccess";
 import toast from "react-hot-toast";
@@ -48,29 +49,12 @@ type ReportAttendeeDetail = {
   last_name?: string;
   middle_name?: string;
   suffix?: string;
+  nickname?: string;
   username?: string;
   email?: string;
   role?: string;
   status?: string;
 };
-
-function formatPersonNameFromFields(person: {
-  first_name?: string;
-  last_name?: string;
-  middle_name?: string;
-  suffix?: string;
-}): string {
-  const middleInitial = person.middle_name
-    ? ` ${person.middle_name.trim().charAt(0)}.`
-    : "";
-  const suffixPart =
-    person.suffix && person.suffix.trim().length > 0
-      ? ` ${person.suffix.trim()}`
-      : "";
-  return `${person.first_name ?? ""}${middleInitial} ${
-    person.last_name ?? ""
-  }${suffixPart}`.trim();
-}
 
 function reportAttendeeToPersonUI(
   detail: ReportAttendeeDetail,
@@ -78,9 +62,12 @@ function reportAttendeeToPersonUI(
 ): PersonUI {
   return {
     id: String(detail.id),
-    name: formatPersonNameFromFields(detail),
+    name: formatPersonName(detail),
     first_name: detail.first_name ?? "",
     last_name: detail.last_name ?? "",
+    middle_name: detail.middle_name,
+    suffix: detail.suffix,
+    nickname: detail.nickname,
     username: detail.username ?? "",
     email: detail.email ?? "",
     role: (detail.role ?? defaultRole) as PersonUI["role"],
@@ -129,16 +116,45 @@ function mergeClusterMembersIntoPeople(
 ): PersonUI[] {
   if (!membersDetails?.length) return people;
 
-  const existingIds = new Set(people.map((p) => String(p.id)));
+  const byId = new Map(people.map((p) => [String(p.id), p]));
   const merged = [...people];
 
   for (const detail of membersDetails) {
     const id = String(detail.id);
-    if (!existingIds.has(id) && isSelectablePerson(detail)) {
+    const existing = byId.get(id);
+    if (existing) {
+      const nickname = existing.nickname || detail.nickname;
+      const middle_name = existing.middle_name || detail.middle_name;
+      const suffix = existing.suffix || detail.suffix;
+      if (
+        nickname !== existing.nickname ||
+        middle_name !== existing.middle_name ||
+        suffix !== existing.suffix
+      ) {
+        const updated = {
+          ...existing,
+          nickname,
+          middle_name,
+          suffix,
+          name: formatPersonName({
+            ...existing,
+            nickname,
+            middle_name,
+            suffix,
+          }),
+        };
+        const index = merged.findIndex((p) => String(p.id) === id);
+        if (index >= 0) merged[index] = updated;
+        byId.set(id, updated);
+      }
+      continue;
+    }
+    if (isSelectablePerson(detail)) {
       const defaultRole =
         detail.role === "VISITOR" ? "VISITOR" : "MEMBER";
-      merged.push(reportAttendeeToPersonUI(detail, defaultRole));
-      existingIds.add(id);
+      const added = reportAttendeeToPersonUI(detail, defaultRole);
+      merged.push(added);
+      byId.set(id, added);
     }
   }
 
@@ -269,7 +285,7 @@ export default function ClusterWeeklyReportForm({
         const peopleUI: PersonUI[] = response.data
           .filter(isSelectablePerson)
           .map((p) => {
-          const name = formatPersonNameFromFields(p);
+          const name = formatPersonName(p);
             return {
               ...p,
               name,

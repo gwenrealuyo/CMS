@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Person, PersonUI } from "@/src/types/person";
 import { X } from "lucide-react";
 import { Cluster } from "@/src/types/cluster";
+import { formatPersonName } from "@/src/lib/name";
 
 const normalizePersonId = (id: string | number): string => String(id);
 
@@ -9,6 +10,24 @@ const personIdsMatch = (
   a: string | number,
   b: string | number
 ): boolean => normalizePersonId(a) === normalizePersonId(b);
+
+function attendancePersonLabel(person: PersonUI): string {
+  const formatted = formatPersonName(person);
+  if (formatted && formatted !== "Unknown person") {
+    return formatted;
+  }
+  return person.name || "Unknown";
+}
+
+function personMatchesSearch(person: PersonUI, searchTerm: string): boolean {
+  const query = searchTerm.toLowerCase();
+  const nickname = person.nickname?.toLowerCase() ?? "";
+  return (
+    attendancePersonLabel(person).toLowerCase().includes(query) ||
+    nickname.includes(query) ||
+    (person.name?.toLowerCase().includes(query) ?? false)
+  );
+}
 
 interface AttendanceSelectorProps {
   label: string;
@@ -131,7 +150,7 @@ export default function AttendanceSelector({
   // Filter by search term (already filtered by role and cluster membership in peopleByRole)
   const filteredPeople = peopleByRole.filter((person) => {
     if (searchTerm.trim().length === 0) return false;
-    return person.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return personMatchesSearch(person, searchTerm);
   });
 
   // Get selected people objects (normalize IDs so number/string mismatches don't break UI)
@@ -548,10 +567,7 @@ export default function AttendanceSelector({
       {selectedPeople.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2 p-3 bg-slate-50 rounded-lg border border-slate-200 min-h-[60px]">
           {selectedPeople.map((person) => {
-            const displayName =
-              person.name ||
-              `${person.first_name || ""} ${person.last_name || ""}`.trim() ||
-              "Unknown";
+            const displayName = attendancePersonLabel(person);
             return (
               <span
                 key={person.id}
@@ -616,7 +632,7 @@ export default function AttendanceSelector({
                       }`}
                     >
                       <div className="font-medium text-gray-900">
-                        {person.name}
+                        {attendancePersonLabel(person)}
                       </div>
                       {filterRole === "VISITOR" ? (
                         <div className="text-sm text-gray-500">
@@ -627,7 +643,7 @@ export default function AttendanceSelector({
                                 )
                               : undefined;
                             const inviterName = inviter
-                              ? inviter.name
+                              ? attendancePersonLabel(inviter)
                               : "Unknown";
                             const statusLabel = person.status
                               ? person.status.toLowerCase()
@@ -697,11 +713,7 @@ export default function AttendanceSelector({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 text-sm">
-                        {person.name ||
-                          `${person.first_name || ""} ${
-                            person.last_name || ""
-                          }`.trim() ||
-                          "Unknown"}
+                        {attendancePersonLabel(person)}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         {(person.status || "active").toLowerCase()}
@@ -743,11 +755,7 @@ export default function AttendanceSelector({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 text-sm">
-                        {person.name ||
-                          `${person.first_name || ""} ${
-                            person.last_name || ""
-                          }`.trim() ||
-                          "Unknown"}
+                        {attendancePersonLabel(person)}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         {(person.status || "active").toLowerCase()}
@@ -781,18 +789,16 @@ export default function AttendanceSelector({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 text-sm">
-                        {person.name ||
-                          `${person.first_name || ""} ${
-                            person.last_name || ""
-                          }`.trim() ||
-                          "Unknown"}
+                        {attendancePersonLabel(person)}
                       </div>
                       <div className="text-xs text-gray-500">
                         {(() => {
                           const inviter = person.inviter
                             ? availablePeople.find((p) => p.id === person.inviter)
                             : undefined;
-                          const inviterName = inviter ? inviter.name : "Unknown";
+                          const inviterName = inviter
+                            ? attendancePersonLabel(inviter)
+                            : "Unknown";
                           const statusLabel = person.status
                             ? person.status.toLowerCase()
                             : "";
@@ -832,18 +838,16 @@ export default function AttendanceSelector({
                       />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-gray-900 text-sm">
-                          {person.name ||
-                            `${person.first_name || ""} ${
-                              person.last_name || ""
-                            }`.trim() ||
-                            "Unknown"}
+                          {attendancePersonLabel(person)}
                         </div>
                         <div className="text-xs text-gray-500">
                           {(() => {
                             const inviter = person.inviter
                               ? availablePeople.find((p) => p.id === person.inviter)
                               : undefined;
-                            const inviterName = inviter ? inviter.name : "Unknown";
+                            const inviterName = inviter
+                            ? attendancePersonLabel(inviter)
+                            : "Unknown";
                             const statusLabel = person.status
                               ? person.status.toLowerCase()
                               : "";

@@ -12,6 +12,10 @@ import {
   getBranchOutlineBadgeStyle,
   getBranchDisplayCode,
 } from "@/src/lib/branchChipColor";
+import {
+  getFamilyMemberCount,
+  getFamilyVisitorCount,
+} from "@/src/lib/familyRoster";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -229,7 +233,7 @@ export default function FamilyView({
     }
   };
 
-  // All family members are displayed together - no separation in the model
+  // Household roster lists everyone; member vs visitor is a role split only.
 
   const getLeader = () => {
     if (!family.leader) return null;
@@ -240,6 +244,9 @@ export default function FamilyView({
 
   const leader = getLeader();
   const isPanelMode = !showTopHeader;
+  const memberCount = getFamilyMemberCount(family);
+  const visitorCount = getFamilyVisitorCount(family);
+  const householdCount = familyMembers.length;
 
   const familyBranch =
     family.branch != null
@@ -324,7 +331,8 @@ export default function FamilyView({
                     />
                   </svg>
                   <span className="text-sm font-normal">
-                    {familyMembers.length} members
+                    {memberCount} {memberCount === 1 ? "member" : "members"} •{" "}
+                    {visitorCount} {visitorCount === 1 ? "visitor" : "visitors"}
                   </span>
                 </div>
               </div>
@@ -412,12 +420,12 @@ export default function FamilyView({
             </div>
           )}
 
-          {/* Family Members */}
+          {/* Household */}
           {(familyMembers.length > 0 || onAddMember) && (
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <h3 className="text-base md:text-lg font-semibold text-gray-900">
-                  Members ({familyMembers.length})
+                  Household ({householdCount})
                 </h3>
                 <div
                   className={`flex ${
@@ -574,8 +582,8 @@ export default function FamilyView({
                   <ToolbarSearch
                     value={memberSearch}
                     onChange={setMemberSearch}
-                    placeholder="Search members…"
-                    ariaLabel="Search members"
+                    placeholder="Search household…"
+                    ariaLabel="Search household"
                     fullWidth
                     className="mb-2"
                   />
@@ -589,7 +597,7 @@ export default function FamilyView({
               {familyMembers.length > 0 ? (
                 filteredMembers.length === 0 ? (
                   <p className="text-sm text-gray-500 italic">
-                    No members match your search
+                    No one in this household matches your search
                   </p>
                 ) : (
                 <div className="max-h-80 overflow-y-auto pr-1">
@@ -697,10 +705,10 @@ export default function FamilyView({
                     />
                   </svg>
                   <h3 className="mt-2 text-sm font-medium text-gray-900">
-                    No family members yet
+                    No one in this household yet
                   </h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    This family doesn&rsquo;t have any members assigned yet.
+                    This family doesn&rsquo;t have anyone assigned yet.
                   </p>
                   {onAddMember && (
                     <div className="mt-4">

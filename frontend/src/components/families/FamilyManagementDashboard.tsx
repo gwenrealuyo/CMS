@@ -26,6 +26,10 @@ import PersonAvatar from "@/src/components/people/PersonAvatar";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { branchesApi } from "@/src/lib/api";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
+import {
+  getFamilyMemberCount,
+  getFamilyVisitorCount,
+} from "@/src/lib/familyRoster";
 
 interface SortOption {
   key: string;
@@ -184,10 +188,6 @@ export default function FamilyManagementDashboard({
           ? String(user.branch)
           : "",
       );
-      return;
-    }
-    if (user.branch != null && user.branch !== undefined) {
-      setBranchFilterId((prev) => (prev === "" ? String(user.branch) : prev));
     }
   }, [user]);
 
@@ -252,7 +252,7 @@ export default function FamilyManagementDashboard({
     if (branchesLoading && canChangeFamilyBranchFilter) {
       return "Loading branches…";
     }
-    return "Branch is limited to your assignment. Pastors, admins, and senior cluster coordinators can switch branches.";
+    return "Branch is limited to your assignment.";
   }, [
     familyBranchSelectInteractive,
     branchesLoading,
@@ -462,20 +462,6 @@ export default function FamilyManagementDashboard({
 
   const getPersonById = (id: string) => {
     return _legacyPeople.find((person) => String(person.id) === String(id));
-  };
-
-  const getFamilyVisitorCount = (family: Family) => {
-    if (typeof family.visitor_count === "number") return family.visitor_count;
-    const members = family.members ?? [];
-    return members.filter((memberId) => {
-      const person = getPersonById(String(memberId));
-      return person?.role === "VISITOR";
-    }).length;
-  };
-
-  const getFamilyMemberCount = (family: Family) => {
-    if (typeof family.member_count === "number") return family.member_count;
-    return family.members?.length ?? family.member_preview?.length ?? 0;
   };
 
   const getFamilyPreviewMembers = (family: Family): PersonUI[] => {
@@ -1271,6 +1257,8 @@ export default function FamilyManagementDashboard({
           >
             {visibleFamilies.map((family) => {
               const familyMembers = getFamilyPreviewMembers(family);
+              const memberCount = getFamilyMemberCount(family);
+              const visitorCount = getFamilyVisitorCount(family);
 
               return (
                 <div
@@ -1286,8 +1274,9 @@ export default function FamilyManagementDashboard({
                           The {family.name} Family
                         </h3>
                         <p className="text-xs text-gray-600 mt-1">
-                          {getFamilyMemberCount(family)} members •{" "}
-                          {getFamilyVisitorCount(family)} visitors
+                          {memberCount} {memberCount === 1 ? "member" : "members"}{" "}
+                          • {visitorCount}{" "}
+                          {visitorCount === 1 ? "visitor" : "visitors"}
                         </p>
                       </div>
                       <div
@@ -1315,11 +1304,11 @@ export default function FamilyManagementDashboard({
                       </div>
                     </div>
 
-                    {/* Family Members */}
+                    {/* Household */}
                     {familyMembers.length > 0 && (
                       <div>
                         <h4 className="text-xs font-medium text-gray-700 mb-2">
-                          Members ({familyMembers.length})
+                          Household ({familyMembers.length})
                         </h4>
                         <div className="space-y-1.5">
                           {familyMembers.slice(0, 5).map((member) => (

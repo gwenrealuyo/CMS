@@ -338,7 +338,7 @@ export default function ClusterReportsDashboard({
     if (branchesLoading && canChangeBranchFilter) {
       return "Loading branches…";
     }
-    return "Branch is limited to your assignment. Pastors, admins, and senior cluster coordinators can switch branches.";
+    return "Branch is limited to your assignment.";
   }, [
     reportsBranchSelectInteractive,
     branchesLoading,

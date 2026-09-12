@@ -217,7 +217,7 @@ All routes live under `/api/clusters/` (namespaced in `core.urls`):
 ### Clusters
 
 - `/api/clusters/clusters/` – ClusterViewSet CRUD
-  - `GET` – List all clusters
+  - `GET` – List all clusters. Slim rows include `member_count` (MEMBER + PASTOR; admins and visitors excluded) and `visitor_count` (VISITOR only).
   - `POST` – Create a new cluster (requires `name` or `code`, optional `coordinator_id`, `families`, `members`, etc.)
   - `GET /{id}/` – Retrieve a specific cluster
   - `PUT /{id}/` – Update a cluster (full update)
@@ -252,13 +252,15 @@ All routes live under `/api/clusters/` (namespaced in `core.urls`):
 
 Serializers (`apps.clusters.serializers`) expose:
 
+- `ClusterListSerializer`:
+  - Directory list payload with annotated `member_count` (MEMBER + PASTOR), `visitor_count` (VISITOR), and `family_count`. Admins are excluded from both people counts.
 - `ClusterSerializer`:
   - `coordinator` – nested object with id, first_name, last_name, username (read-only)
   - `coordinator_id` – write-only field for setting coordinator
   - `families` – list of family IDs (when families are assigned, all family members are automatically added to members)
   - `members` – list of person IDs (automatically includes all family members when families are assigned)
-  - `members_details` – read-only privacy-safe roster (`id`, `first_name`, `last_name`, `role`, `photo`); includes visitors (role distinguishes them). No email/phone/address/status. Used so Members can see names on every branch cluster without expanding People list access.
-  - `families_details` – read-only privacy-safe family roster (`id`, `name`, `member_count`); no address or nested member PII.
+  - `members_details` – read-only privacy-safe roster (`id`, `first_name`, `nickname`, `middle_name`, `suffix`, `last_name`, `role`, `status`, `photo`); includes visitors (role distinguishes them). No email/phone/address. Used so Members can see names on every branch cluster without expanding People list access.
+  - `families_details` – read-only privacy-safe family roster (`id`, `name`, `member_count`); `member_count` is MEMBER + PASTOR only (visitors and admins excluded). No address or nested member PII.
   - **Automatic Member Addition**: The serializer's `create()` and `update()` methods automatically add all members from assigned families to the cluster's members list. Users can manually remove individual members if needed.
 - `ClusterWeeklyReportSerializer`:
   - `cluster_name` – read-only cluster name

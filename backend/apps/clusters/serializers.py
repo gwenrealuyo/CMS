@@ -6,6 +6,7 @@ from core.datetime_utils import church_today
 import logging
 
 from apps.people.models import Person, Family, Journey, ModuleCoordinator
+from apps.people.family_counts import FAMILY_MEMBER_ROLES
 from apps.people.name_formatting import (
     PERSON_NAME_FIELDS,
     PROSPECT_NAME_FIELDS,
@@ -35,6 +36,17 @@ from .exceptions import DuplicateWeekReport
 from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
 
 logger = logging.getLogger(__name__)
+
+
+def _person_roster_name_fields(person):
+    """Display-name fields used by the UI formatter (includes nickname)."""
+    return {
+        "first_name": person.first_name,
+        "last_name": person.last_name,
+        "middle_name": person.middle_name,
+        "suffix": person.suffix,
+        "nickname": person.nickname,
+    }
 
 
 class ClusterListSerializer(serializers.ModelSerializer):
@@ -303,8 +315,7 @@ class ClusterSerializer(serializers.ModelSerializer):
         return [
             {
                 "id": person.id,
-                "first_name": person.first_name,
-                "last_name": person.last_name,
+                **_person_roster_name_fields(person),
                 "role": person.role,
                 "status": person.status,
                 "photo": self._person_photo_url(person),
@@ -318,7 +329,11 @@ class ClusterSerializer(serializers.ModelSerializer):
             {
                 "id": family.id,
                 "name": family.name,
-                "member_count": len(family.members.all()),
+                "member_count": sum(
+                    1
+                    for member in family.members.all()
+                    if member.role in FAMILY_MEMBER_ROLES
+                ),
             }
             for family in obj.families.all()
         ]
@@ -680,8 +695,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         return [
             {
                 "id": person.id,
-                "first_name": person.first_name,
-                "last_name": person.last_name,
+                **_person_roster_name_fields(person),
                 "username": person.username,
                 "role": person.role,
                 "status": person.status,
@@ -715,8 +729,7 @@ class ClusterWeeklyReportSerializer(serializers.ModelSerializer):
         return [
             {
                 "id": person.id,
-                "first_name": person.first_name,
-                "last_name": person.last_name,
+                **_person_roster_name_fields(person),
                 "username": person.username,
                 "role": person.role,
                 "status": person.status,

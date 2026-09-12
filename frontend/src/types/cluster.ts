@@ -5,6 +5,9 @@ export interface ClusterMemberDetail {
   id: number;
   first_name: string;
   last_name: string;
+  middle_name?: string;
+  suffix?: string;
+  nickname?: string;
   role: string;
   status?: string;
   photo?: string | null;
@@ -33,8 +36,9 @@ export interface Cluster {
   members?: number[];
   members_details?: ClusterMemberDetail[];
   families_details?: ClusterFamilyDetail[];
-  /** Annotated counts on slim directory list rows. */
+  /** MEMBER + PASTOR roster size (admins and visitors excluded). */
   member_count?: number;
+  /** VISITOR-role roster size. */
   visitor_count?: number;
   family_count?: number;
   /** Person IDs with CLUSTER REPORTER assignment for this cluster */
@@ -77,6 +81,9 @@ export interface ClusterWeeklyReport {
     id: number;
     first_name: string;
     last_name: string;
+    middle_name?: string;
+    suffix?: string;
+    nickname?: string;
     username: string;
     role?: string;
     status?: string;
@@ -85,6 +92,9 @@ export interface ClusterWeeklyReport {
     id: number;
     first_name: string;
     last_name: string;
+    middle_name?: string;
+    suffix?: string;
+    nickname?: string;
     username: string;
     role?: string;
     status?: string;

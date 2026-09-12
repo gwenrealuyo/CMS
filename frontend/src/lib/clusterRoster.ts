@@ -19,6 +19,9 @@ function detailToRosterPerson(
     return {
       ...existing,
       id: String(existing.id),
+      nickname: existing.nickname || detail.nickname,
+      middle_name: existing.middle_name || detail.middle_name,
+      suffix: existing.suffix || detail.suffix,
       canOpenProfile: existing.can_view_profile !== false,
     };
   }
@@ -28,6 +31,9 @@ function detailToRosterPerson(
     email: "",
     first_name: detail.first_name || "",
     last_name: detail.last_name || "",
+    middle_name: detail.middle_name || "",
+    suffix: detail.suffix || "",
+    nickname: detail.nickname || "",
     role: detail.role as Person["role"],
     status: (detail.status as Person["status"]) || "ACTIVE",
     photo: detail.photo ?? undefined,
@@ -78,7 +84,8 @@ export function resolveClusterRosterFamilies(
         return {
           ...existing,
           canOpenProfile: true,
-          member_count: existing.members?.length ?? d.member_count,
+          member_count:
+            existing.member_count ?? d.member_count ?? existing.members?.length,
         };
       }
       return {
@@ -97,7 +104,7 @@ export function resolveClusterRosterFamilies(
     .map((f) => ({
       ...f,
       canOpenProfile: true,
-      member_count: f.members?.length ?? 0,
+      member_count: f.member_count ?? f.members?.length ?? 0,
     }));
 }
 
@@ -105,6 +112,7 @@ export function countClusterMembersFromDetails(
   cluster: Cluster,
   peopleUI: PersonUI[]
 ): { memberCount: number; visitorCount: number } {
+  // List API member_count is MEMBER+PASTOR only; visitor_count is VISITOR only.
   if (
     typeof cluster.member_count === "number" ||
     typeof cluster.visitor_count === "number"

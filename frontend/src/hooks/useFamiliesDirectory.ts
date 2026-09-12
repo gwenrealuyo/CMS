@@ -40,9 +40,14 @@ export function useFamiliesDirectory(
   const [debouncedSearch, setDebouncedSearch] = useState(search);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
   const filtersKey = useMemo(() => JSON.stringify(filters), [filters]);
 
   useEffect(() => {
+    if (!search.trim()) {
+      setDebouncedSearch("");
+      return;
+    }
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
     }, debounceMs);
@@ -58,10 +63,10 @@ export function useFamiliesDirectory(
       return;
     }
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const requestId = ++requestIdRef.current;
 
     try {
       setLoading(true);
@@ -78,8 +83,10 @@ export function useFamiliesDirectory(
         params.search = debouncedSearch.trim();
       }
 
-      const response = await familiesApi.list(params);
-      if (abortControllerRef.current.signal.aborted) {
+      const response = await familiesApi.list(params, {
+        signal: controller.signal,
+      });
+      if (requestId !== requestIdRef.current || controller.signal.aborted) {
         return;
       }
 
@@ -88,7 +95,8 @@ export function useFamiliesDirectory(
       setTotalCount(data.count ?? 0);
     } catch (err: unknown) {
       if (
-        abortControllerRef.current?.signal.aborted ||
+        requestId !== requestIdRef.current ||
+        controller.signal.aborted ||
         (err as { name?: string })?.name === "CanceledError" ||
         (err as { name?: string })?.name === "AbortError"
       ) {
@@ -98,7 +106,7 @@ export function useFamiliesDirectory(
       setFamilies([]);
       setTotalCount(0);
     } finally {
-      if (!abortControllerRef.current?.signal.aborted) {
+      if (requestId === requestIdRef.current && !controller.signal.aborted) {
         setLoading(false);
       }
     }

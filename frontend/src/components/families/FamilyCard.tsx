@@ -25,7 +25,9 @@ export default function FamilyCard({
             <h3 className="text-lg font-semibold text-foreground">
               {family.name}
             </h3>
-            <p className="text-sm text-gray-600">{members.length} members</p>
+            <p className="text-sm text-gray-600">
+              Household ({members.length})
+            </p>
           </div>
           <div className="space-x-2">
             {onEdit && (

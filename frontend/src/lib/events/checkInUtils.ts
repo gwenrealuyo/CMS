@@ -11,9 +11,12 @@ function normalizeRole(role?: string | null): string {
   return (role || "").trim().toUpperCase();
 }
 
-/** People who can be checked in (branch-scoped, non-admin). */
+/** People who can be checked in (branch-scoped, non-admin, not deceased). */
 export function getEligibleMembers(people: Person[], event: Event): Person[] {
-  const selectable = people.filter(isSelectablePerson);
+  const selectable = people.filter(
+    (person) =>
+      isSelectablePerson(person) && normalizeStatus(person.status) !== "DECEASED"
+  );
   if (event.branch == null) {
     return selectable;
   }

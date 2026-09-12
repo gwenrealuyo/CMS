@@ -77,7 +77,7 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 - Route: `/events/check-in?event={id}&occurrence=YYYY-MM-DD` (requires auth via `ProtectedRoute`).
 - Layout: full-width, centered column without the dashboard sidebar — intended for tablets or a dedicated check-in tab.
 - Stats (branch-aware when `event.branch` is set):
-  - **Total** — expected attendees for the event. For Sunday Service this uses the expected-attendee flags (Active / Semi-active / Inactive / optional Ongoing visitors). For other types, non-admin people in the event branch (or all when church-wide). When Ongoing visitors are included, Total notes how many of them are in the count;
+  - **Total** — expected attendees for the event. For Sunday Service this uses the expected-attendee flags (Active / Semi-active / Inactive / optional Ongoing visitors). For other types, non-admin people in the event branch (or all when church-wide). Deceased people are excluded. When Ongoing visitors are included, Total notes how many of them are in the count;
   - **Checked In** — unique people with attendance records for the occurrence (expected plus any extras);
   - **Remaining** — expected people not yet checked in (not `Total − Checked In` when extras are present).
 - Manual Entry and Camera Scan look up anyone in the broader check-in candidate pool (non-admin, branch-scoped), so people outside Total can still check in.
@@ -115,7 +115,7 @@ Available from Event Details and the check-in page when the selected occurrence 
 - **Surprises list** and a searchable **checked-in roster** (LAMP ID without prefix, status, role, cluster / NO CLUSTER).
 - **Download CSV** with event title, occurrence date, summary counts, and rows for checked-in / remaining / surprises (name, LAMP ID, role, status, cluster, category, check-in time when present).
 
-Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; other types use the full eligible pool as expected (same as check-in).
+Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; other types use the full eligible pool as expected (same as check-in). Deceased people are excluded from Expected / Remaining in all cases.
 
 ## Testing
 

@@ -33,6 +33,8 @@ const FIELD_LABELS: Record<string, string> = {
   photo: "Photo",
   family_ids: "Families",
   non_field_errors: "",
+  start_date: "Start date",
+  end_date: "End date",
 };
 
 function humanizeFieldKey(key: string): string {

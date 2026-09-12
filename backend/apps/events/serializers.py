@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.attendance.serializers import AttendanceRecordSerializer
 from .models import Event, EventRoom, EventType
+from .services.conflicts import validate_sunday_service_uniqueness
 from .services.recurrence import clean_weekly_pattern, generate_occurrences
 
 import re
@@ -313,6 +314,23 @@ class EventSerializer(serializers.ModelSerializer):
                     }
                 )
             attrs["location"] = location_text
+
+        context = self.context or {}
+        ignore_dates = context.get("sunday_service_ignore_dates")
+        validate_sunday_service_uniqueness(
+            event_type=attrs.get(
+                "event_type", getattr(instance, "event_type", None)
+            ),
+            start=start_date,
+            end=end_date,
+            is_recurring=is_recurring,
+            recurrence_pattern=attrs.get("recurrence_pattern"),
+            branch=attrs.get("branch"),
+            exclude_event_id=getattr(instance, "pk", None),
+            ignore_event_id=context.get("sunday_service_ignore_event_id"),
+            ignore_dates=set(ignore_dates) if ignore_dates else None,
+            ignore_dates_gte=context.get("sunday_service_ignore_dates_gte"),
+        )
 
         return super().validate(attrs)
 

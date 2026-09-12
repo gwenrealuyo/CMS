@@ -170,26 +170,18 @@ export const useEvents = () => {
 
   const createEvent = useCallback(
     async (eventData: Partial<Event>) => {
-      try {
-        const response = await eventsApi.create(eventData);
-        findAndReplaceEvent(response.data);
-        return response.data;
-      } catch (err) {
-        throw new Error("Failed to create event");
-      }
+      const response = await eventsApi.create(eventData);
+      findAndReplaceEvent(response.data);
+      return response.data;
     },
     [findAndReplaceEvent]
   );
 
   const updateEvent = useCallback(
     async (id: string, eventData: Partial<Event>) => {
-      try {
-        const response = await eventsApi.update(id, eventData);
-        findAndReplaceEvent(response.data);
-        return response.data;
-      } catch (err) {
-        throw new Error("Failed to update event");
-      }
+      const response = await eventsApi.update(id, eventData);
+      findAndReplaceEvent(response.data);
+      return response.data;
     },
     [findAndReplaceEvent]
   );
@@ -241,14 +233,10 @@ export const useEvents = () => {
       id: string,
       payload: Partial<Event> & { scope: "occurrence" | "following"; date: string }
     ) => {
-      try {
-        const response = await eventsApi.splitEdit(id, payload);
-        findAndReplaceEvent(response.data.event);
-        findAndReplaceEvent(response.data.created_event);
-        return response.data;
-      } catch (err) {
-        throw new Error("Failed to update recurring event");
-      }
+      const response = await eventsApi.splitEdit(id, payload);
+      findAndReplaceEvent(response.data.event);
+      findAndReplaceEvent(response.data.created_event);
+      return response.data;
     },
     [findAndReplaceEvent]
   );

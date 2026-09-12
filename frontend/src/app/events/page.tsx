@@ -33,6 +33,7 @@ import { Event } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import { canManageEventRooms, canWriteEvents } from "@/src/lib/events/eventPermissions";
+import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import {
   buildAgendaGroups,
   EventCardItem,
@@ -302,8 +303,7 @@ export default function EventsPage() {
   }, [events, viewEditEvent]);
 
   const getErrorMessage = (error: unknown, fallback: string) =>
-    (error as { response?: { data?: { message?: string } } })?.response?.data
-      ?.message || fallback;
+    formatApiErrorMessage(error, fallback);
 
   const handleCreateEvent = async (eventData: Partial<Event>) => {
     try {

@@ -491,6 +491,15 @@ class EventViewSet(viewsets.ModelViewSet):
             payload["recurrence_pattern"] = None
 
         create_serializer = self.get_serializer(data=payload)
+        create_serializer.context["sunday_service_ignore_event_id"] = event.pk
+        if scope == "occurrence":
+            create_serializer.context["sunday_service_ignore_dates"] = {
+                target_date
+            }
+        else:
+            create_serializer.context["sunday_service_ignore_dates_gte"] = (
+                target_date
+            )
         create_serializer.is_valid(raise_exception=True)
 
         with transaction.atomic():

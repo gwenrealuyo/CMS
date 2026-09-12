@@ -32,7 +32,7 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import NoteInputModal from "@/src/components/ui/NoteInputModal";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
-import { canWriteLessons, canManageLessonCatalog, hasLessonsSeniorAccess } from "@/src/lib/lessons/lessonsPermissions";
+import { canWriteLessons, canManageLessonCatalog, isLessonsTeacherScoped } from "@/src/lib/lessons/lessonsPermissions";
 import {
   Lesson,
   LessonCommitmentSettings,
@@ -426,13 +426,12 @@ export default function LessonsPageView({
     return map;
   }, [enrollmentByStudent]);
 
-  // Show stats cards for: ADMIN, PASTOR, Senior Coordinators, Cluster Coordinators
-  const shouldShowStats = 
-    user?.role === "ADMIN" || 
-    user?.role === "PASTOR" || 
+  // Show stats cards for Lessons write access (admins, pastors, coordinators,
+  // NCC coordinators, teachers) plus cluster coordinators / any-module seniors.
+  const shouldShowStats =
+    canWriteLessonsAccess ||
     isSeniorCoordinator() ||
-    isModuleCoordinator("CLUSTER", "COORDINATOR") ||
-    hasLessonsSeniorAccess(user);
+    isModuleCoordinator("CLUSTER", "COORDINATOR");
 
   const lessonsBranchSelectInteractive =
     lessonsBranchCanChangeFilter && !lessonsBranchesLoading;
@@ -531,6 +530,7 @@ export default function LessonsPageView({
             loading={summaryLoading}
             error={summaryError}
             ongoingStudentsCount={ongoingStudentsCount}
+            scopedToAssignedStudents={isLessonsTeacherScoped(user)}
           />
         )}
 

@@ -10,6 +10,8 @@ interface LessonStatsCardsProps {
   ongoingStudentsCount: number;
   loading: boolean;
   error?: string | null;
+  /** Teachers see completed / ongoing / average for their assigned students only. */
+  scopedToAssignedStudents?: boolean;
 }
 
 const formatNumber = (value: number) =>
@@ -21,6 +23,7 @@ export default function LessonStatsCards({
   ongoingStudentsCount,
   loading,
   error,
+  scopedToAssignedStudents = false,
 }: LessonStatsCardsProps) {
   if (loading) {
     return (
@@ -48,24 +51,43 @@ export default function LessonStatsCards({
       getTieredCompletionPercentTextClass(averageProgress)
     : "text-gray-600";
 
+  const ongoingSubtitle = scopedToAssignedStudents
+    ? "Your assigned students who have not finished all lessons"
+    : "Students who have not finished all lessons";
+  const completedSubtitle = scopedToAssignedStudents
+    ? "Your assigned students who finished all lessons this year"
+    : "Students who finished all lessons this year";
+  const averageSubtitle = scopedToAssignedStudents
+    ? "Share of your assigned students this year who finished the course"
+    : "Share of this year's students who finished the course";
+  const visitorsSubtitle = scopedToAssignedStudents
+    ? "Visitors in your branch not yet enrolled (not limited to your students)"
+    : "Visitors not yet enrolled in any lesson";
+
   return (
     <div className="space-y-6">
+      {scopedToAssignedStudents && (
+        <p className="text-sm text-gray-600">
+          Ongoing, completed, and average counts include only students assigned
+          to you.
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <SummaryCard
           title="Visitors Awaiting Lessons"
           value={formatNumber(visitorsAwaitingCount)}
-          subtitle="Visitors not yet enrolled in any lesson"
+          subtitle={visitorsSubtitle}
           valueClassName="text-red-600"
         />
         <SummaryCard
           title="Ongoing Students"
           value={formatNumber(ongoingStudentsCount)}
-          subtitle="Students with ongoing lessons this year"
+          subtitle={ongoingSubtitle}
         />
         <SummaryCard
-          title="Completed Lessons"
+          title="Completed This Year"
           value={formatNumber(completedCount)}
-          subtitle="Students who completed all lessons"
+          subtitle={completedSubtitle}
           valueClassName={
             completedCount > 0 ? "text-green-600" : "text-primary"
           }
@@ -73,7 +95,7 @@ export default function LessonStatsCards({
         <SummaryCard
           title="Average Progress"
           value={`${averageProgress}%`}
-          subtitle="Completion rate across yearly students"
+          subtitle={averageSubtitle}
           valueClassName={averageProgressColorClass}
         />
       </div>

@@ -119,7 +119,7 @@ Applied to:
 | `/api/lessons/progress/` | List/create/update progress; filter: `person`, `lesson`, `status`, `branch_id`. |
 | `/api/lessons/progress/{id}/complete/` | Mark progress complete (optional note, timestamp, `completed_by`). |
 | `/api/lessons/progress/assign/` | Bulk assign one lesson to multiple people (eligibility rules apply). |
-| `/api/lessons/progress/summary/` | Person-level status buckets, lesson breakdown, `unassigned_visitors`; supports `year`, `lesson`, `include_superseded`, `branch_id`. |
+| `/api/lessons/progress/summary/` | Person-level status buckets (COMPLETED = finished all lessons in `year`, dated by `completed_at` else `lessons_finished_at`), lesson breakdown, `unassigned_visitors`; supports `year`, `lesson`, `include_superseded`, `branch_id`. |
 | `/api/lessons/lessons/commitment-form/` | GET/POST global commitment PDF; GET also returns the NCC booklet fields. |
 | `/api/lessons/lessons/ncc-lessons-pdf/` | POST global NCC lessons booklet PDF. |
 | `/api/lessons/enrollments/` | Student–teacher enrollments; filter: `student`, `teacher`, `branch_id`. |
@@ -144,7 +144,7 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 
 - `LessonList` / `LessonDetailPanel` / `LessonForm` — catalog CRUD.
 - `NccLessonsPdfSection` / `CommitmentFormSection` — global booklet and commitment PDFs on the Files tab (`LessonPdfResourceCard`).
-- `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators including NCC primary, cluster coordinators); respects `branch_id` on summary API.
+- `LessonStatsCards` — dashboard-style metrics (ADMIN, PASTOR, senior coordinators including NCC primary, cluster coordinators, Lessons coordinators, and Lessons teachers); respects `branch_id` on summary API. Teachers see ongoing / completed / average for their assigned students only (help text says so); unassigned visitors remain branch-wide. **Completed This Year** counts students whose course finish date (`completed_at`, else `lessons_finished_at`) falls in the current year; historical bulk imports are excluded.
 - `AssignLessonsDropdown` — multi-select assign; eligible students only; status/cluster under names.
 - `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators). Coordinators can **Assign teacher** from this modal when a student has progress (including finished / legacy) but no enrollment.
 - `LessonSessionReportForm` — log/edit sessions (lesson vs pre-lesson topic picker).
@@ -173,6 +173,7 @@ Automated tests live under `apps.lessons.tests`:
 | `test_enrollments.py` | Assign eligibility, commitment, transfers |
 | `test_catalog_permissions.py` | Catalog CRUD, commitment PDF, NCC booklet upload permissions |
 | `test_ncc_coordinator_access.py` | NCC primary/support Lessons access, HQ vs satellite branch picking |
+| `test_progress_summary.py` | Yearly COMPLETED cohort uses finish dates, not import-time `assigned_at` |
 
 Run with SQLite test settings (required in this repo):
 

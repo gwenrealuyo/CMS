@@ -287,7 +287,7 @@ Visitors do not receive in-app notifications.
 | Cannot edit a person | You may be a plain Member; coordinators and pastors have broader edit access |
 | Cannot submit a cluster report | You need a **Cluster** module assignment for that cluster |
 | Branch filter is locked | Some roles can only view their own branch's data |
-| Stats cards hidden | Summary stats are limited to coordinators, pastors, and admins in some modules |
+| Stats cards hidden | In some modules, summary stats are for coordinators, pastors, and admins. Lessons teachers can see NCC stat cards for their students. |
 | Module missing entirely | Ask an admin to check **Admin Settings → Module Controls** |
 
 ---

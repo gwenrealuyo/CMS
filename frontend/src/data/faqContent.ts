@@ -68,7 +68,7 @@ export const faqCategories: FaqCategory[] = [
         id: "stats-hidden",
         question: "Why don’t I see summary stats or Analytics?",
         answer:
-          "Summary stats in some modules are limited to coordinators, pastors, and admins. Analytics is available to Admins and Pastors only.",
+          "Summary stats in some modules are limited to coordinators, pastors, and admins. Lessons teachers can see NCC stat cards for their assigned students. Analytics is available to Admins and Pastors only.",
       },
     ],
   },

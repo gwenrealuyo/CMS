@@ -672,6 +672,30 @@ def reconcile_student_progress_from_reports(
         clear_enrollment_commitment_signed(enrollment)
 
 
+def _course_finish_calendar_date(person_records) -> Optional[date]:
+    """
+    Real course-finish day for a person who completed every in-scope lesson.
+
+    Uses the latest progress ``completed_at`` (church calendar). If those
+    timestamps are missing (common after bulk import), falls back to
+    ``Person.lessons_finished_at``. Does not use ``assigned_at``.
+    """
+    completed_dates = []
+    person = None
+    for record in person_records:
+        person = record.person
+        if record.status != PersonLessonProgress.Status.COMPLETED:
+            continue
+        milestone = church_calendar_date(record.completed_at)
+        if milestone is not None:
+            completed_dates.append(milestone)
+    if completed_dates:
+        return max(completed_dates)
+    if person is None:
+        return None
+    return church_calendar_date(person.lessons_finished_at)
+
+
 def build_lesson_progress_summary(
     progress_qs,
     *,
@@ -680,7 +704,12 @@ def build_lesson_progress_summary(
     version_label: Optional[str] = None,
     include_superseded: bool = False,
 ) -> dict:
-    """Aggregate lesson progress for a pre-filtered PersonLessonProgress queryset."""
+    """Aggregate lesson progress for a pre-filtered PersonLessonProgress queryset.
+
+    Person-level COMPLETED counts only students whose course finish date
+    (``completed_at`` or ``lessons_finished_at``) falls in ``year``. Historical
+    graduates and undated bulk imports are excluded from the yearly cohort.
+    """
     queryset = progress_qs
 
     if lesson_id:
@@ -697,35 +726,16 @@ def build_lesson_progress_summary(
         record_status_totals[entry["status"]] = entry["total"]
 
     target_year = year if year is not None else timezone.now().year
-
-    if timezone.is_aware(timezone.now()):
-        year_start = timezone.make_aware(
-            datetime(target_year, 1, 1, 0, 0, 0),
-            timezone.get_current_timezone(),
-        )
-        year_end = timezone.make_aware(
-            datetime(target_year, 12, 31, 23, 59, 59, 999999),
-            timezone.get_current_timezone(),
-        )
-    else:
-        year_start = datetime(target_year, 1, 1, 0, 0, 0)
-        year_end = datetime(target_year, 12, 31, 23, 59, 59, 999999)
+    year_start_date = date(target_year, 1, 1)
+    year_end_date = date(target_year, 12, 31)
 
     active_latest_queryset = queryset.filter(
         lesson__is_latest=True,
         lesson__is_active=True,
-    ).select_related("lesson")
+    ).select_related("lesson", "person")
 
-    cohort_person_ids = list(
-        active_latest_queryset.filter(assigned_at__lte=year_end)
-        .filter(Q(completed_at__isnull=True) | Q(completed_at__gte=year_start))
-        .values_list("person_id", flat=True)
-        .distinct()
-    )
-
-    cohort_records = active_latest_queryset.filter(person_id__in=cohort_person_ids)
     records_by_person: dict = {}
-    for progress in cohort_records:
+    for progress in active_latest_queryset:
         records_by_person.setdefault(progress.person_id, []).append(progress)
 
     lessons_in_scope_count = (
@@ -734,9 +744,9 @@ def build_lesson_progress_summary(
     person_status_totals = {
         status: 0 for status, _ in PersonLessonProgress.Status.choices
     }
+    cohort_person_ids: list[int] = []
 
-    for person_id in cohort_person_ids:
-        person_records = records_by_person.get(person_id, [])
+    for person_id, person_records in records_by_person.items():
         completed_count = sum(
             1
             for record in person_records
@@ -745,10 +755,24 @@ def build_lesson_progress_summary(
 
         if completed_count == 0:
             person_status_totals[PersonLessonProgress.Status.ASSIGNED] += 1
-        elif lessons_in_scope_count > 0 and completed_count >= lessons_in_scope_count:
-            person_status_totals[PersonLessonProgress.Status.COMPLETED] += 1
-        else:
-            person_status_totals[PersonLessonProgress.Status.IN_PROGRESS] += 1
+            cohort_person_ids.append(person_id)
+            continue
+
+        finished_all = (
+            lessons_in_scope_count > 0 and completed_count >= lessons_in_scope_count
+        )
+        if finished_all:
+            finish_date = _course_finish_calendar_date(person_records)
+            if (
+                finish_date is not None
+                and year_start_date <= finish_date <= year_end_date
+            ):
+                person_status_totals[PersonLessonProgress.Status.COMPLETED] += 1
+                cohort_person_ids.append(person_id)
+            continue
+
+        person_status_totals[PersonLessonProgress.Status.IN_PROGRESS] += 1
+        cohort_person_ids.append(person_id)
 
     lesson_breakdown = (
         queryset.values(

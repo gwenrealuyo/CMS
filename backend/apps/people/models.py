@@ -2,6 +2,24 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 
 
+PERSON_STATUS_CHOICES = [
+    ("ACTIVE", "Active"),
+    ("SEMIACTIVE", "Semiactive"),
+    ("INACTIVE", "Inactive"),
+    ("DORMANT", "Dormant"),
+    ("FALLAWAY", "Fall Away"),
+    ("DECEASED", "Deceased"),
+    # For VISITOR role specialized states; UI can restrict selection conditionally
+    ("ONGOING", "Ongoing"),
+    ("NO_RESPONSE", "No Response"),
+]
+
+FOLLOW_UP_STATUSES = frozenset({"SEMIACTIVE", "INACTIVE", "DORMANT", "FALLAWAY"})
+REQUIRED_MANUAL_REASON_STATUSES = frozenset(
+    {"SEMIACTIVE", "INACTIVE", "DORMANT", "FALLAWAY", "DECEASED"}
+)
+
+
 class Branch(models.Model):
     """Represents a church branch/location"""
 
@@ -95,17 +113,7 @@ class Person(AbstractUser):
     status = models.CharField(
         blank=True,
         max_length=20,
-        choices=[
-            ("ACTIVE", "Active"),
-            ("SEMIACTIVE", "Semiactive"),
-            ("INACTIVE", "Inactive"),
-            ("DORMANT", "Dormant"),
-            ("FALLAWAY", "Fall Away"),
-            ("DECEASED", "Deceased"),
-            # For VISITOR role specialized states; UI can restrict selection conditionally
-            ("ONGOING", "Ongoing"),
-            ("NO_RESPONSE", "No Response"),
-        ],
+        choices=PERSON_STATUS_CHOICES,
     )
     must_change_password = models.BooleanField(default=False)
     first_login = models.BooleanField(default=True)
@@ -169,6 +177,57 @@ class Person(AbstractUser):
                 name="people_person_branch_role_idx",
             ),
         ]
+
+
+class PersonStatusChange(models.Model):
+    """Queryable history of Person.status changes (manual, auto, or system)."""
+
+    class Source(models.TextChoices):
+        MANUAL = "MANUAL", "Manual"
+        AUTO_ATTENDANCE = "AUTO_ATTENDANCE", "Auto attendance"
+        SYSTEM = "SYSTEM", "System"
+
+    person = models.ForeignKey(
+        Person,
+        on_delete=models.CASCADE,
+        related_name="status_changes",
+    )
+    from_status = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=PERSON_STATUS_CHOICES,
+    )
+    to_status = models.CharField(max_length=20, choices=PERSON_STATUS_CHOICES)
+    reason = models.TextField(blank=True)
+    source = models.CharField(max_length=20, choices=Source.choices)
+    changed_by = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="person_status_changes_made",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "Person Status Change"
+        verbose_name_plural = "Person Status Changes"
+        indexes = [
+            models.Index(
+                fields=["person", "-created_at"],
+                name="people_statuschg_person_idx",
+            ),
+            models.Index(fields=["to_status"], name="people_statuschg_to_idx"),
+            models.Index(fields=["source"], name="people_statuschg_source_idx"),
+        ]
+
+    @property
+    def needs_follow_up(self) -> bool:
+        return self.to_status in FOLLOW_UP_STATUSES
+
+    def __str__(self):
+        return f"{self.person_id}: {self.from_status or '—'} → {self.to_status}"
 
 
 class Family(models.Model):

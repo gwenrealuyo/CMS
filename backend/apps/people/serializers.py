@@ -5,7 +5,18 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 
 from core.datetime_utils import church_today
-from .models import Branch, Family, Journey, Person, ModuleCoordinator, ModuleSetting, PeopleAutomationSetting
+from .models import (
+    Branch,
+    Family,
+    Journey,
+    Person,
+    PersonStatusChange,
+    ModuleCoordinator,
+    ModuleSetting,
+    PeopleAutomationSetting,
+    REQUIRED_MANUAL_REASON_STATUSES,
+)
+from apps.people.utils import record_person_status_change
 from apps.clusters.branch_membership import prune_person_from_mismatched_branch_clusters
 from apps.clusters.models import Cluster
 from apps.authentication.password_validators import PasswordStrengthValidator
@@ -357,6 +368,24 @@ class JourneySerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at"]
 
 
+class PersonStatusChangeSerializer(serializers.ModelSerializer):
+    needs_follow_up = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = PersonStatusChange
+        fields = [
+            "id",
+            "from_status",
+            "to_status",
+            "reason",
+            "source",
+            "changed_by",
+            "created_at",
+            "needs_follow_up",
+        ]
+        read_only_fields = fields
+
+
 class BranchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Branch
@@ -390,6 +419,10 @@ class PersonSerializer(serializers.ModelSerializer):
         validators=[validate_person_photo],
     )
     note = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    status_change_reason = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
+    latest_status_change = serializers.SerializerMethodField()
     journeys = JourneySerializer(many=True, read_only=True)
     cluster_codes = serializers.SerializerMethodField()
     cluster_labels = serializers.SerializerMethodField()
@@ -486,6 +519,8 @@ class PersonSerializer(serializers.ModelSerializer):
             "branch_code",
             "member_id",
             "status",
+            "status_change_reason",
+            "latest_status_change",
             "note",
             "journeys",
             "cluster_codes",
@@ -813,6 +848,23 @@ class PersonSerializer(serializers.ModelSerializer):
                         {"username": list(exc.messages)}
                     )
 
+        if instance and "status" in attrs:
+            new_status = attrs.get("status") or ""
+            if (
+                new_status != (instance.status or "")
+                and new_status in REQUIRED_MANUAL_REASON_STATUSES
+            ):
+                reason = (attrs.get("status_change_reason") or "").strip()
+                if not reason:
+                    raise serializers.ValidationError(
+                        {
+                            "status_change_reason": (
+                                "A reason is required when changing status to "
+                                "Semi-active, Inactive, Dormant, Fall Away, or Deceased."
+                            )
+                        }
+                    )
+
         return attrs
 
     def _trigger_legacy_lessons_backfill(
@@ -1042,6 +1094,7 @@ class PersonSerializer(serializers.ModelSerializer):
         commitment_write = self._pop_commitment_write_fields(validated_data)
 
         note = validated_data.pop("note", "").strip() if "note" in validated_data else ""
+        validated_data.pop("status_change_reason", None)
         initial_password = (validated_data.pop("initial_password", None) or "").strip()
         generate_temporary_password = validated_data.pop(
             "generate_temporary_password", True
@@ -1132,6 +1185,10 @@ class PersonSerializer(serializers.ModelSerializer):
         previous_lessons_finished_at = instance.lessons_finished_at
         # Store old branch value before update
         old_branch = instance.branch
+        old_status = instance.status
+        status_change_reason = (
+            validated_data.pop("status_change_reason", None) or ""
+        ).strip()
 
         commitment_write = self._pop_commitment_write_fields(validated_data)
 
@@ -1177,6 +1234,22 @@ class PersonSerializer(serializers.ModelSerializer):
                 verified_by=None,
             )
 
+        if old_status != updated_instance.status:
+            request = self.context.get("request")
+            changed_by = (
+                request.user
+                if request and getattr(request, "user", None) and request.user.is_authenticated
+                else None
+            )
+            record_person_status_change(
+                person=updated_instance,
+                from_status=old_status,
+                to_status=updated_instance.status,
+                source=PersonStatusChange.Source.MANUAL,
+                reason=status_change_reason,
+                changed_by=changed_by,
+            )
+
         return updated_instance
 
     def get_cluster_codes(self, obj: Person):
@@ -1197,6 +1270,12 @@ class PersonSerializer(serializers.ModelSerializer):
 
     def get_family_names(self, obj: Person):
         return [f.name for f in obj.families.all()]
+
+    def get_latest_status_change(self, obj: Person):
+        change = obj.status_changes.order_by("-created_at", "-id").first()
+        if not change:
+            return None
+        return PersonStatusChangeSerializer(change).data
 
     def _lesson_enrollment(self, obj: Person):
         # Reverse OneToOne raises DoesNotExist (also AttributeError); getattr

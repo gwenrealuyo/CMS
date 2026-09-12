@@ -28,9 +28,13 @@ Notes
   - **SEMIACTIVE**: ≥1 attendance for at least ONE type (but not all three with ≥3 each). If person not in any cluster, maximum status is SEMIACTIVE.
   - **INACTIVE**: 0 attendances for ALL types
   - Status updates occur in real-time when attendance records are created/updated for Sunday Service or Doctrinal Class events, or when cluster attendance changes.
-  - When status changes, a Journey entry of type `NOTE` is automatically created with title "Status Update: {OLD_STATUS} → {NEW_STATUS}".
+  - When status changes, a `PersonStatusChange` row is created (`source=AUTO_ATTENDANCE`) and a Journey `NOTE` titled "Status Update: {OLD_STATUS} → {NEW_STATUS}" is written (one auto journey per person per day).
   - Auto-calc never overwrites manual pastoral statuses: **DORMANT**, **FALLAWAY**, or **DECEASED**.
   - When automation is disabled, attendance and the `update_status` endpoint do not change status; manual edits in the person form still work.
+- **Manual status changes** (Edit person form):
+  - Changing **to** Semi-active, Inactive, Dormant, Fall Away, or Deceased requires `status_change_reason`.
+  - Changing to Active or visitor statuses (Ongoing / No Response) may include an optional reason.
+  - Each change writes `PersonStatusChange` (`source=MANUAL`) plus a Journey `NOTE` with the reason as the description.
 - **Manual pastoral statuses** (set via Edit person form status field; not produced by attendance auto-calc):
   - **DORMANT**: Member who remains on the church roll but has been away from regular fellowship and activities for an extended period. Distinct from Inactive (short-term 4-week attendance drop). Return to fellowship is still expected or hoped for.
   - **FALLAWAY** (Fall Away): Member who has left fellowship or abandoned regular participation with no current expectation of return. Distinct from Dormant (membership retained, return still hoped for) and from Inactive (temporary attendance drop).
@@ -66,7 +70,18 @@ Notes
   - `CLUSTER` type journeys are automatically created when:
     - People attend cluster meetings (via ClusterWeeklyReport) - title: "Attended Cluster Meeting - {Cluster Code}"
     - People are added to or transferred between clusters - title: "Joined Cluster - {Cluster Code}" or "Transferred to Cluster - {Cluster Code}"
-  - `NOTE` type journeys are automatically created when a Person's status changes (ACTIVE/SEMIACTIVE/INACTIVE) - title: "Status Update: {OLD_STATUS} → {NEW_STATUS}". Only created when status changes from one value to another (not for first assignment), and only one journey entry per day (updates existing if multiple changes occur). Manual statuses (DORMANT, FALLAWAY, DECEASED) are not overwritten by attendance auto-updates.
+  - `NOTE` type journeys are automatically created when a Person's status changes — title: "Status Update: {OLD_STATUS} → {NEW_STATUS}". Only created when status changes from one value to another (not for first assignment). Auto attendance coalesces to one journey entry per day; manual changes always create a new note with the pastor's reason. Manual statuses (DORMANT, FALLAWAY, DECEASED) are not overwritten by attendance auto-updates.
+
+### PersonStatusChange
+
+- Fields: `person` → Person, `from_status?`, `to_status`, `reason?` (TextField), `source` (MANUAL|AUTO_ATTENDANCE|SYSTEM), `changed_by` → Person (nullable), `created_at`
+- Meta: Ordering by `-created_at`, indexes on `(person, -created_at)`, `to_status`, `source`
+- Notes:
+  - Queryable history for a later member follow-up / drop-off queue (distinct from evangelism Prospect `DropOff`)
+  - `needs_follow_up` is true when `to_status` is SEMIACTIVE, INACTIVE, DORMANT, or FALLAWAY (not DECEASED)
+  - Manual edits via the person API require `status_change_reason` when changing **to** SEMIACTIVE, INACTIVE, DORMANT, FALLAWAY, or DECEASED
+  - Attendance auto-calc writes `source=AUTO_ATTENDANCE` with a canned reason
+  - System writes (e.g. baptism role flip) use `source=SYSTEM`
 
 ## Data Models (apps.ministries.models)
 

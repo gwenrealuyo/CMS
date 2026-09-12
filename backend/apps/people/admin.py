@@ -1,6 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Branch, Person, Family, Journey, ModuleCoordinator
+from .models import (
+    Branch,
+    Person,
+    PersonStatusChange,
+    Family,
+    Journey,
+    ModuleCoordinator,
+)
 
 
 class PersonAdmin(UserAdmin):
@@ -145,9 +152,46 @@ class ModuleCoordinatorAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at",)
 
 
+class PersonStatusChangeAdmin(admin.ModelAdmin):
+    list_display = (
+        "person",
+        "from_status",
+        "to_status",
+        "source",
+        "changed_by",
+        "created_at",
+    )
+    list_filter = ("source", "to_status", "created_at")
+    search_fields = (
+        "person__username",
+        "person__first_name",
+        "person__last_name",
+        "reason",
+    )
+    raw_id_fields = ("person", "changed_by")
+    readonly_fields = (
+        "person",
+        "from_status",
+        "to_status",
+        "reason",
+        "source",
+        "changed_by",
+        "created_at",
+    )
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 # Register with custom admin
 admin.site.register(Branch)
 admin.site.register(Person, PersonAdmin)
+admin.site.register(PersonStatusChange, PersonStatusChangeAdmin)
 admin.site.register(Family)
 admin.site.register(Journey)
 admin.site.register(ModuleCoordinator, ModuleCoordinatorAdmin)

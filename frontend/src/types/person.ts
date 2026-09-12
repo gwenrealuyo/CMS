@@ -16,6 +16,22 @@ export type PersonStatus =
   | "ONGOING"
   | "NO_RESPONSE";
 
+export type PersonStatusChangeSource =
+  | "MANUAL"
+  | "AUTO_ATTENDANCE"
+  | "SYSTEM";
+
+export interface PersonStatusChange {
+  id: number;
+  from_status: PersonStatus | "";
+  to_status: PersonStatus;
+  reason: string;
+  source: PersonStatusChangeSource;
+  changed_by: number | string | null;
+  created_at: string;
+  needs_follow_up: boolean;
+}
+
 export type Gender = "MALE" | "FEMALE" | "";
 
 export type JourneyType =
@@ -93,6 +109,10 @@ export interface Person {
   branch_code?: string; // Branch code (if nested data included)
   member_id?: string;
   status: PersonStatus;
+  /** Write-only: required when changing to Semi-active, Inactive, Dormant, Fall Away, or Deceased */
+  status_change_reason?: string;
+  /** Retrieve-only latest PersonStatusChange */
+  latest_status_change?: PersonStatusChange | null;
   journeys?: Journey[];
   groups?: string[]; // Group IDs
   user_permissions?: string[]; // Permission IDs

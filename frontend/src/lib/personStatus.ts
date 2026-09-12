@@ -66,3 +66,17 @@ export function formatPersonClusterLabel(clusterCodes?: string[] | null): string
   }
   return codes.join(", ");
 }
+
+const STATUSES_REQUIRING_CHANGE_REASON = new Set<string>([
+  "SEMIACTIVE",
+  "INACTIVE",
+  "DORMANT",
+  "FALLAWAY",
+  "DECEASED",
+]);
+
+export function statusRequiresChangeReason(
+  status: PersonStatus | string | null | undefined,
+): boolean {
+  return STATUSES_REQUIRING_CHANGE_REASON.has(normalizePersonStatus(status));
+}

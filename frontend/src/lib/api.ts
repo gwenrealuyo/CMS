@@ -114,6 +114,7 @@ const PERSON_FORM_DATA_SKIP_FIELDS = new Set([
   "full_name",
   "groups",
   "user_permissions",
+  "latest_status_change",
 ]);
 
 export function personDataToFormData(

@@ -205,15 +205,38 @@ def _handle_baptism_role_update(person, current_date, original_date):
     date_cleared = original_date is not None and current_date is None
 
     if date_set and person.role == "VISITOR":
+        old_status = person.status
         person.role = "MEMBER"
         person.status = "ACTIVE"
         person.save(update_fields=["role", "status"])
+        from apps.people.models import PersonStatusChange
+        from apps.people.utils import record_person_status_change
+
+        record_person_status_change(
+            person=person,
+            from_status=old_status,
+            to_status="ACTIVE",
+            source=PersonStatusChange.Source.SYSTEM,
+            reason="Status set after water baptism.",
+        )
         return
 
     if date_cleared and person.role == "MEMBER":
+        old_status = person.status
         person.role = "VISITOR"
-        person.status = "ONGOING" if person.date_first_attended else "NO_RESPONSE"
+        new_status = "ONGOING" if person.date_first_attended else "NO_RESPONSE"
+        person.status = new_status
         person.save(update_fields=["role", "status"])
+        from apps.people.models import PersonStatusChange
+        from apps.people.utils import record_person_status_change
+
+        record_person_status_change(
+            person=person,
+            from_status=old_status,
+            to_status=new_status,
+            source=PersonStatusChange.Source.SYSTEM,
+            reason="Status set after water baptism date was cleared.",
+        )
 
 
 def _handle_first_attended_journey(person, current_date, original_date, current_activity, original_activity):

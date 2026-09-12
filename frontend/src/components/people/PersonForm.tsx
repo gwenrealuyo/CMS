@@ -6,7 +6,13 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { Person, Journey, JourneyType, Family } from "@/src/types/person";
+import {
+  Person,
+  PersonStatus,
+  Journey,
+  JourneyType,
+  Family,
+} from "@/src/types/person";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import Button from "@/src/components/ui/Button";
@@ -52,6 +58,10 @@ import {
   findPossibleNameDuplicates,
 } from "@/src/lib/personDuplicates";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  formatPersonStatusLabel,
+  statusRequiresChangeReason,
+} from "@/src/lib/personStatus";
 import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import {
   PERSON_PHOTO_ACCEPT,
@@ -272,6 +282,7 @@ export default function PersonForm({
   const [teacherMode, setTeacherMode] = useState<"select" | "historical">(
     "select",
   );
+  const [statusChangeReason, setStatusChangeReason] = useState("");
 
   const [familySearch, setFamilySearch] = useState("");
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
@@ -597,10 +608,19 @@ export default function PersonForm({
     formData.role === "VISITOR"
       ? ["ONGOING", "NO_RESPONSE", "DECEASED"]
       : ["ACTIVE", "SEMIACTIVE", "INACTIVE", "DORMANT", "FALLAWAY", "DECEASED"];
+  const originalStatus = initialData?.status;
+  const statusChanged =
+    !isCreating &&
+    Boolean(formData.status) &&
+    formData.status !== originalStatus;
+  const statusReasonRequired =
+    statusChanged &&
+    statusRequiresChangeReason(formData.status as PersonStatus);
 
   useEffect(() => {
     setPhotoFile(null);
     setPhotoRemoved(false);
+    setStatusChangeReason("");
     if (photoInputRef.current) {
       photoInputRef.current.value = "";
     }
@@ -967,6 +987,7 @@ export default function PersonForm({
     const personData: Partial<Person> = { ...formData };
     delete personData.journeys;
     delete personData.photo;
+    delete personData.latest_status_change;
     personData.family_ids = normalizeIdList(formData.family_ids);
     personData.cluster_ids = normalizeIdList(formData.cluster_ids);
 
@@ -1027,6 +1048,12 @@ export default function PersonForm({
       }
     }
 
+    if (statusChanged) {
+      personData.status_change_reason = statusChangeReason.trim();
+    } else {
+      delete personData.status_change_reason;
+    }
+
     const submitData: Partial<Person> | FormData = photoFile
       ? personDataToFormData(personData, photoFile)
       : photoRemoved && initialData?.id
@@ -1084,6 +1111,7 @@ export default function PersonForm({
       setHasUnsavedChanges(false);
       setPhotoFile(null);
       setPhotoRemoved(false);
+      setStatusChangeReason("");
     } catch (error: any) {
       console.error("Failed to save person:", error);
       toast.error(
@@ -1113,6 +1141,8 @@ export default function PersonForm({
     hasLessonEnrollment,
     isAdmin,
     isCreating,
+    statusChanged,
+    statusChangeReason,
   ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1206,6 +1236,13 @@ export default function PersonForm({
         toast.error("Passwords do not match.");
         return;
       }
+    }
+
+    if (statusReasonRequired && !statusChangeReason.trim()) {
+      toast.error(
+        "Please enter a reason for this status change (Semi-active, Inactive, Dormant, Fall Away, or Deceased).",
+      );
+      return;
     }
 
     const memberIdConflict = findMemberIdConflict(peopleOptions, {
@@ -1682,6 +1719,41 @@ export default function PersonForm({
                         ))}
                       </select>
                     </LockedField>
+                    {statusChanged && !statusSelectDisabled && (
+                      <div className="mt-3">
+                        <label
+                          htmlFor="status_change_reason"
+                          className="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                          Reason for status change
+                          {statusReasonRequired && (
+                            <span className="text-red-500"> *</span>
+                          )}
+                        </label>
+                        <textarea
+                          id="status_change_reason"
+                          name="status_change_reason"
+                          value={statusChangeReason}
+                          onChange={(e) => {
+                            setStatusChangeReason(e.target.value);
+                            setHasUnsavedChanges(true);
+                          }}
+                          rows={3}
+                          required={statusReasonRequired}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                          placeholder={
+                            statusReasonRequired
+                              ? `Why is this person being marked ${formatPersonStatusLabel(formData.status)}?`
+                              : "Optional note for this status change"
+                          }
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {statusReasonRequired
+                            ? "Required for Semi-active, Inactive, Dormant, Fall Away, and Deceased. Used for follow-up later."
+                            : "Optional. Saved with this status change for follow-up later."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">

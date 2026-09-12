@@ -64,7 +64,8 @@ Person fields (serializer)
 id, username (generated on create; writable on update for ADMIN only), first_name, last_name, middle_name?, suffix?, nickname?, maiden_name?, gender?,
 facebook_name?, photo?, role, phone?, address?, country?, date_of_birth?,
 date_first_attended?, inviter (Person id)?, inviter_display_name? (read-only), branch (Branch id)?, member_id?,
-status? (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE)
+status? (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE),
+status_change_reason? (write-only), latest_status_change? (read-only object)
 ```
 
 Notes:
@@ -73,6 +74,8 @@ Notes:
 - `inviter_display_name` (read-only) uses the usual display format: first name, nickname in quotes, middle initial, last name, suffix.
 - Name fields (`first_name`, `last_name`, `middle_name`, `suffix`, `nickname`, `maiden_name`) are normalized on write: mixed-case is preserved; all-lower/all-upper is title-cased (particles, Mc/Mac, Roman numerals).
 - Status by role (UI): members/pastors/admins use ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED; visitors use ONGOING|NO_RESPONSE|DECEASED. Prospect pipeline stages INVITED/ATTENDED are separate from `Person.status`.
+- When `status` changes on update, a `PersonStatusChange` row and a Journey `NOTE` (`Status Update: OLD → NEW`) are created. `status_change_reason` is **required** when changing **to** SEMIACTIVE, INACTIVE, DORMANT, FALLAWAY, or DECEASED. Optional for Active / Ongoing / No Response. Not required on create, attendance auto-calc, or system baptism/role writes.
+- `latest_status_change` (retrieve/update response): `{id, from_status, to_status, reason, source (MANUAL|AUTO_ATTENDANCE|SYSTEM), changed_by, created_at, needs_follow_up}`. Omitted from list serializer.
 - When `branch` field is updated, a Journey entry with type `BRANCH_TRANSFER` is automatically created.
 
 - Update Status: `POST /api/people/people/{id}/update_status/`

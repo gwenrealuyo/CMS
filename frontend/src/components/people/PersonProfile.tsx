@@ -644,6 +644,12 @@ export default function PersonProfile({
                         renderAsBadge
                         badgeClassName={getStatusColor(person.status)}
                       />
+                      {person.latest_status_change?.reason?.trim() ? (
+                        <ProfileFieldRow
+                          label="Status reason"
+                          value={person.latest_status_change.reason}
+                        />
+                      ) : null}
                       <ProfileFieldRow
                         label="Role"
                         value={person.role}

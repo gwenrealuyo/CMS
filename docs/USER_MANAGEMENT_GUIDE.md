@@ -67,6 +67,8 @@ Coordinator capabilities come from **module assignments** (see Part 3 and the Ac
 
 Choose **Status**. For members/pastors/admins: Active, Semi-active, Inactive, Dormant, Fall Away, or Deceased. For visitors: Ongoing, No Response, or Deceased (create/attend defaults to Ongoing; Deceased is set manually).
 
+When **editing** an existing person and you change status, a **Reason for status change** box appears. A reason is **required** when changing to Semi-active, Inactive, Dormant, Fall Away, or Deceased (optional for Active and visitor statuses). The reason is stored on the person's profile and timeline so follow-up can use it later.
+
 Manual pastoral statuses (**Dormant**, **Fall Away**, **Deceased**) are set only in this edit form status field (there is no separate “Set Deceased” profile button). Attendance auto-updates do not overwrite them.
 
 ### Step 5: Set login access (admins only, non-Visitor roles)

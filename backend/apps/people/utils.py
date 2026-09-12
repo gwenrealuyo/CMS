@@ -10,6 +10,12 @@ from apps.events.models import Event
 from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import ClusterWeeklyReport
 
+STATUS_UPDATE_JOURNEY_PREFIX = "Status Update:"
+AUTO_ATTENDANCE_REASON = (
+    "Status automatically updated from {from_status} to {to_status} "
+    "based on attendance patterns (4-week rolling window)."
+)
+
 
 def calculate_person_attendance_status(person, reference_date=None):
     """
@@ -117,6 +123,72 @@ def calculate_person_attendance_status(person, reference_date=None):
         return "INACTIVE"
 
 
+def record_person_status_change(
+    *,
+    person,
+    from_status,
+    to_status,
+    source,
+    reason="",
+    changed_by=None,
+):
+    """
+    Persist a PersonStatusChange and a Journey NOTE when status actually changes.
+
+    Journey notes are skipped on first assignment (empty from_status). Auto
+    attendance coalesces to one Status Update NOTE per person per day.
+    """
+    from apps.people.models import Journey, PersonStatusChange
+
+    from_status = from_status or ""
+    to_status = to_status or ""
+    if from_status == to_status:
+        return None
+
+    reason = (reason or "").strip()
+    if source == PersonStatusChange.Source.AUTO_ATTENDANCE and not reason:
+        reason = AUTO_ATTENDANCE_REASON.format(
+            from_status=from_status, to_status=to_status
+        )
+
+    change = PersonStatusChange.objects.create(
+        person=person,
+        from_status=from_status,
+        to_status=to_status,
+        reason=reason,
+        source=source,
+        changed_by=changed_by if getattr(changed_by, "pk", None) else None,
+    )
+
+    if not from_status:
+        return change
+
+    title = f"{STATUS_UPDATE_JOURNEY_PREFIX} {from_status} → {to_status}"
+    today = church_today()
+    if source == PersonStatusChange.Source.AUTO_ATTENDANCE:
+        existing_journey = Journey.objects.filter(
+            user=person,
+            type="NOTE",
+            date=today,
+            title__startswith=STATUS_UPDATE_JOURNEY_PREFIX,
+        ).first()
+        if existing_journey:
+            existing_journey.title = title
+            existing_journey.description = reason
+            existing_journey.save(update_fields=["title", "description"])
+            return change
+
+    Journey.objects.create(
+        user=person,
+        type="NOTE",
+        title=title,
+        description=reason,
+        date=today,
+        verified_by=None,
+    )
+    return change
+
+
 def update_person_status(person, force=False):
     """
     Update person's status based on attendance and create Journey entry if changed.
@@ -128,7 +200,7 @@ def update_person_status(person, force=False):
     Returns:
         bool: True if status was updated, False otherwise
     """
-    from apps.people.models import Journey, PeopleAutomationSetting
+    from apps.people.models import PeopleAutomationSetting, PersonStatusChange
 
     if not PeopleAutomationSetting.get_solo().auto_status_updates_enabled:
         return False
@@ -147,35 +219,13 @@ def update_person_status(person, force=False):
         # Update status
         person.status = new_status
         person.save(update_fields=['status'])
-        
-        # Create Journey entry for status change (type: NOTE)
-        # Only create if there was a previous status (not first assignment)
-        if old_status:
-            today = church_today()
-            
-            # Check if journey already exists for today (prevent duplicates)
-            existing_journey = Journey.objects.filter(
-                user=person,
-                type="NOTE",
-                date=today,
-                title__startswith="Status Update:"
-            ).first()
-            
-            if existing_journey:
-                # Update existing journey with latest status change
-                existing_journey.title = f"Status Update: {old_status} → {new_status}"
-                existing_journey.description = f"Status automatically updated from {old_status} to {new_status} based on attendance patterns (4-week rolling window)."
-                existing_journey.save()
-            else:
-                # Create new journey entry
-                Journey.objects.create(
-                    user=person,
-                    type="NOTE",
-                    title=f"Status Update: {old_status} → {new_status}",
-                    description=f"Status automatically updated from {old_status} to {new_status} based on attendance patterns (4-week rolling window).",
-                    date=today,
-                    verified_by=None,  # System-generated, no verifier
-                )
+
+        record_person_status_change(
+            person=person,
+            from_status=old_status,
+            to_status=new_status,
+            source=PersonStatusChange.Source.AUTO_ATTENDANCE,
+        )
         
         return True
     return False

@@ -174,3 +174,35 @@ class FamilyDirectoryAPITests(APITestCase):
         row = self._family_row(response, "Antonio")
         self.assertEqual(row["member_count"], 3)
         self.assertEqual(row["visitor_count"], 1)
+
+    def test_summary_ignores_search_and_field_filters(self):
+        self._antonio_household()
+        self.client.force_authenticate(self.admin)
+
+        unfiltered = self.client.get("/api/people/families/summary/")
+        self.assertEqual(unfiltered.status_code, 200, unfiltered.data)
+        self.assertEqual(unfiltered.data["family_count"], 3)
+        self.assertEqual(unfiltered.data["member_count"], 4)
+
+        searched = self.client.get(
+            "/api/people/families/summary/",
+            {"search": "Santos", "name__icontains": "Santos"},
+        )
+        self.assertEqual(searched.status_code, 200, searched.data)
+        self.assertEqual(searched.data["family_count"], 3)
+        self.assertEqual(searched.data["member_count"], 4)
+
+        listed = self.client.get(
+            "/api/people/families/",
+            {"search": "Santos"},
+        )
+        self.assertEqual(listed.status_code, 200, listed.data)
+        self.assertEqual(listed.data["count"], 1)
+
+        branched = self.client.get(
+            "/api/people/families/summary/",
+            {"branch": self.other_branch.id},
+        )
+        self.assertEqual(branched.status_code, 200, branched.data)
+        self.assertEqual(branched.data["family_count"], 1)
+        self.assertEqual(branched.data["member_count"], 0)

@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.db.models.deletion import ProtectedError
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes, action
@@ -577,7 +577,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
         """
         Override to set permissions based on action.
         """
-        if self.action in ["list", "retrieve", "unassigned_people"]:
+        if self.action in ["list", "retrieve", "unassigned_people", "summary"]:
             # Read: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
         elif self.action == "create":
@@ -640,6 +640,57 @@ class FamilyViewSet(viewsets.ModelViewSet):
             page, many=True, context=person_view.get_serializer_context()
         )
         return paginator.get_paginated_response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        """
+        KPI totals under the same branch / include_inactive scope as list.
+        Toolbar search and field filters do not apply.
+        """
+        qs = self.get_queryset()
+        branch = request.query_params.get("branch")
+        if branch not in (None, ""):
+            qs = qs.filter(
+                Q(branch_id=branch) | Q(members__branch_id=branch)
+            ).distinct()
+
+        # Collapse permission/branch JOINs before aggregating annotations.
+        family_ids = qs.order_by().values("pk").distinct()
+        family_count = family_ids.count()
+        member_agg = annotate_family_roster_counts(
+            Family.objects.filter(pk__in=family_ids)
+        ).aggregate(total_members=Sum("member_count"))
+        member_count = member_agg.get("total_members") or 0
+
+        person_view = PersonViewSet()
+        person_view.request = request
+        person_view.args = getattr(self, "args", ())
+        person_view.kwargs = getattr(self, "kwargs", {})
+        person_view.action = "list"
+        person_view.format_kwarg = getattr(self, "format_kwarg", None)
+
+        people_qs = person_view._scoped_people_queryset(for_profile=False)
+        assigned_ids = (
+            Person.objects.filter(families__is_active=True)
+            .values_list("id", flat=True)
+            .distinct()
+        )
+        unassigned_count = (
+            people_qs.exclude(id__in=assigned_ids)
+            .exclude(username="admin")
+            .exclude(Q(first_name="") | Q(last_name=""))
+            .exclude(first_name__isnull=True)
+            .exclude(last_name__isnull=True)
+            .count()
+        )
+
+        return Response(
+            {
+                "family_count": family_count,
+                "member_count": member_count,
+                "unassigned_count": unassigned_count,
+            }
+        )
 
 
 class JourneyViewSet(viewsets.ModelViewSet):

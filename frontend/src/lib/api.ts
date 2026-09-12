@@ -464,6 +464,12 @@ export type FamiliesListParams = {
 
 export type FamiliesListResponse = PaginatedResponse<Family> | Family[];
 
+export type FamiliesSummary = {
+  family_count: number;
+  member_count: number;
+  unassigned_count: number;
+};
+
 async function fetchAllFamiliesPages(
   params: FamiliesListParams = {}
 ): Promise<Family[]> {
@@ -510,6 +516,8 @@ export const familiesApi = {
       "/people/families/unassigned-people/",
       { params }
     ),
+  summary: (params?: { branch?: number | string }) =>
+    api.get<FamiliesSummary>("/people/families/summary/", { params }),
   getById: (id: string) => api.get<Family>(`/people/families/${id}/`),
   create: (data: Partial<Family>) =>
     api.post<Family>("/people/families/", data),

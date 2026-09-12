@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Family } from "@/src/types/person";
-import { familiesApi, type FamiliesListParams } from "@/src/lib/api";
+import {
+  familiesApi,
+  type FamiliesListParams,
+  type FamiliesSummary,
+} from "@/src/lib/api";
 
 export interface UseFamiliesDirectoryOptions {
   search?: string;
@@ -126,4 +130,61 @@ export function useFamiliesDirectory(
     error,
     refetch: fetchPage,
   };
+}
+
+const EMPTY_FAMILIES_SUMMARY: FamiliesSummary = {
+  family_count: 0,
+  member_count: 0,
+  unassigned_count: 0,
+};
+
+export function useFamiliesSummary(options: {
+  branch?: string;
+  enabled?: boolean;
+} = {}) {
+  const { branch = "", enabled = true } = options;
+  const [summary, setSummary] = useState<FamiliesSummary>(EMPTY_FAMILIES_SUMMARY);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+
+  const fetchSummary = useCallback(async () => {
+    if (!enabled) {
+      setSummary(EMPTY_FAMILIES_SUMMARY);
+      return;
+    }
+
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const requestId = ++requestIdRef.current;
+
+    try {
+      const response = await familiesApi.summary(
+        branch ? { branch } : undefined,
+      );
+      if (requestId !== requestIdRef.current || controller.signal.aborted) {
+        return;
+      }
+      setSummary(response.data);
+    } catch (err: unknown) {
+      if (
+        requestId !== requestIdRef.current ||
+        controller.signal.aborted ||
+        (err as { name?: string })?.name === "CanceledError" ||
+        (err as { name?: string })?.name === "AbortError"
+      ) {
+        return;
+      }
+      console.error("Failed to load families summary", err);
+    }
+  }, [enabled, branch]);
+
+  useEffect(() => {
+    void fetchSummary();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, [fetchSummary]);
+
+  return { summary, refetch: fetchSummary };
 }

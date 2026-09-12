@@ -3,7 +3,10 @@ import { Family, Person, PersonUI } from "@/src/types/person";
 import Button from "@/src/components/ui/Button";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
-import { useFamiliesDirectory } from "@/src/hooks/useFamiliesDirectory";
+import {
+  useFamiliesDirectory,
+  useFamiliesSummary,
+} from "@/src/hooks/useFamiliesDirectory";
 import { useUnassignedPeople } from "@/src/hooks/useUnassignedPeople";
 import type { FamiliesListParams } from "@/src/lib/api";
 import {
@@ -381,6 +384,11 @@ export default function FamilyManagementDashboard({
     ordering: directoryOrdering,
   });
 
+  const { summary: directorySummary, refetch: refetchSummary } =
+    useFamiliesSummary({
+      branch: branchFilterId,
+    });
+
   const {
     peopleUI: unassignedPeopleUI,
     totalCount: unassignedTotalCount,
@@ -407,8 +415,12 @@ export default function FamilyManagementDashboard({
   );
 
   const refetchDirectory = useCallback(async () => {
-    await Promise.all([refetchFamilies(), refetchUnassigned()]);
-  }, [refetchFamilies, refetchUnassigned]);
+    await Promise.all([
+      refetchFamilies(),
+      refetchUnassigned(),
+      refetchSummary(),
+    ]);
+  }, [refetchFamilies, refetchUnassigned, refetchSummary]);
 
   useEffect(() => {
     onRefetchReady?.(refetchDirectory);
@@ -536,7 +548,7 @@ export default function FamilyManagementDashboard({
                 Total Families
               </p>
               <p className="text-2xl font-semibold text-gray-900">
-                {familiesTotalCount}
+                {directorySummary.family_count}
               </p>
             </div>
           </div>
@@ -563,7 +575,7 @@ export default function FamilyManagementDashboard({
             <div className="ml-3 min-w-0">
               <p className="text-sm font-medium text-gray-500">Total Members</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {families.reduce((acc, family) => acc + getFamilyMemberCount(family), 0)}
+                {directorySummary.member_count}
               </p>
             </div>
           </div>
@@ -592,7 +604,7 @@ export default function FamilyManagementDashboard({
                 Unassigned Members
               </p>
               <p className="text-2xl font-semibold text-gray-900">
-                {unassignedTotalCount}
+                {directorySummary.unassigned_count}
               </p>
             </div>
           </div>

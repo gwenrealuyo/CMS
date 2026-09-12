@@ -151,7 +151,8 @@ Open **Lessons** for the seven-lesson New Converts Course and student progress.
 | Tab | Purpose |
 |-----|---------|
 | **Lesson Content** | Course lessons (read-only for most users) |
-| **Student Progress** | Who is assigned which lesson and completion status (teachers and coordinators) |
+| **Student Progress** | Students grouped by teacher, with not started / in progress / completed counts (teachers and coordinators) |
+| **Teachers** | Per-teacher student load, including roster teachers with no students yet (coordinators). Open a teacher to jump to their students on Student Progress. |
 | **Session Reports** | One-on-one teaching sessions (teachers and coordinators) |
 | **Files** | Downloadable NCC lessons booklet and commitment form PDF |
 
@@ -163,7 +164,7 @@ Members without a Lessons assignment see **Lesson Content** and **Files** only.
 2. **Log a session** — Session Reports → record date, lesson, student, and notes. Teachers only see their assigned students, and the teacher filter defaults to themselves.
 3. **Download files** — Files tab has the NCC booklet and commitment form PDFs. Mark signatures from a student's progress modal.
 
-Progress moves through: **Assigned → In Progress → Completed**.
+Progress moves through: **Not started → In Progress → Completed**.
 
 ---
 

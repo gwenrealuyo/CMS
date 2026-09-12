@@ -1080,7 +1080,7 @@ export default function Dashboard() {
                 <MetricCard
                   title="Outstanding NCC Assignments"
                   value={lessonMetrics.outstanding}
-                  subtitle="Assigned or currently in progress"
+                  subtitle="Not started or currently in progress"
                   loading={lessonSummaryLoading}
                   trend={outstandingTrend}
                 />
@@ -1194,7 +1194,7 @@ export default function Dashboard() {
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-xs text-gray-600">
                           <div>
                             <span className="block font-semibold text-gray-700">
-                              Assigned
+                              Not started
                             </span>
                             {lesson.assigned}
                           </div>

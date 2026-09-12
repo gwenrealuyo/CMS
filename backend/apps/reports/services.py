@@ -1091,6 +1091,14 @@ def build_ncc_summary(progress_qs, people_qs, *, year: int):
     return payload
 
 
+NCC_PROGRESS_STATUS_LABELS = {
+    "ASSIGNED": "Not started",
+    "IN_PROGRESS": "In Progress",
+    "COMPLETED": "Completed",
+    "SKIPPED": "Skipped",
+}
+
+
 def build_ncc_summary_csv(payload: dict) -> str:
     output = io.StringIO()
     writer = csv.writer(output)
@@ -1103,7 +1111,9 @@ def build_ncc_summary_csv(payload: dict) -> str:
 
     writer.writerow(["Overall Status", "Count"])
     for status, count in (payload.get("overall") or {}).items():
-        writer.writerow([status, count])
+        writer.writerow(
+            [NCC_PROGRESS_STATUS_LABELS.get(status, status), count]
+        )
     writer.writerow([])
 
     writer.writerow(
@@ -1112,7 +1122,7 @@ def build_ncc_summary_csv(payload: dict) -> str:
             "Title",
             "Completed",
             "In Progress",
-            "Assigned",
+            "Not started",
             "Skipped",
             "Total",
         ]

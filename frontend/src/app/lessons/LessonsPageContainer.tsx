@@ -32,6 +32,7 @@ import { useModuleSettings } from "@/src/hooks/useModuleSettings";
 import {
   canWriteLessons,
   canManageLessonCatalog,
+  canBrowseAllLessonStudents,
   isLessonsTeacherScoped,
 } from "@/src/lib/lessons/lessonsPermissions";
 import {
@@ -41,12 +42,16 @@ import {
   escapeCsvValue,
   SessionFilterValues,
   groupProgressByPerson,
+  getPersonLessonLifecycleStatus,
   buildStudentTeacherMapFromEnrollments,
   enrollmentByStudentId,
   buildLatestSessionAtByStudent,
   getPersonLastActivityIso,
   parseTimestampMs,
   studentsAssignedToTeacher,
+  groupStudentsByTeacher,
+  buildTeacherOverviewRows,
+  TeacherProgressGroup,
 } from "@/src/lib/lessonsUtils";
 import {
   compareSessionReportsByStartThenLessonOrder,
@@ -89,6 +94,7 @@ export default function LessonsPageContainer() {
     number | null
   >(null);
   const [progressSearchQuery, setProgressSearchQuery] = useState("");
+  const [focusTeacherKey, setFocusTeacherKey] = useState<string | null>(null);
   const [progressStatusFilter, setProgressStatusFilter] =
     useState<ProgressStatusFilter>("ALL");
   const [progressSortField, setProgressSortField] =
@@ -553,23 +559,17 @@ export default function LessonsPageContainer() {
   }, [allProgress]);
 
   const getLifecycleStatus = useCallback(
-    (summary: PersonProgressSummary): LessonProgressStatus | "ASSIGNED" => {
-      if (summary.totalLessons <= 0 || summary.completedCount <= 0) {
-        return "ASSIGNED";
-      }
-      if (summary.completedCount >= summary.totalLessons) {
-        return "COMPLETED";
-      }
-      return "IN_PROGRESS";
+    (summary: PersonProgressSummary): LessonProgressStatus => {
+      return getPersonLessonLifecycleStatus(summary);
     },
-    []
+    [],
   );
 
   const getStatusForSort = useCallback(
-    (summary: PersonProgressSummary): LessonProgressStatus | "ASSIGNED" => {
+    (summary: PersonProgressSummary): LessonProgressStatus => {
       return getLifecycleStatus(summary);
     },
-    [getLifecycleStatus]
+    [getLifecycleStatus],
   );
 
   const displayedGroupedProgress = useMemo(() => {
@@ -698,6 +698,15 @@ export default function LessonsPageContainer() {
     }).length;
   }, [groupedProgress]);
 
+  const teacherOverviewRows = useMemo(
+    () =>
+      buildTeacherOverviewRows(
+        groupStudentsByTeacher(groupedProgress, studentTeacherById),
+        teacherRoster,
+      ),
+    [groupedProgress, studentTeacherById, teacherRoster],
+  );
+
   useEffect(() => {
     fetchLessons();
     fetchCommitmentForm();
@@ -717,11 +726,21 @@ export default function LessonsPageContainer() {
   useEffect(() => {
     if (
       !showStudentWorkflowTabs &&
-      (activeContentTab === "progress" || activeContentTab === "sessions")
+      (activeContentTab === "progress" ||
+        activeContentTab === "teachers" ||
+        activeContentTab === "sessions")
     ) {
       setActiveContentTab("lesson");
+      return;
     }
-  }, [showStudentWorkflowTabs, activeContentTab]);
+    if (
+      showStudentWorkflowTabs &&
+      !canBrowseAllLessonStudents(user) &&
+      activeContentTab === "teachers"
+    ) {
+      setActiveContentTab("progress");
+    }
+  }, [showStudentWorkflowTabs, activeContentTab, user]);
 
   useEffect(() => {
     if (!defaultSessionTeacherId) {
@@ -1382,6 +1401,12 @@ export default function LessonsPageContainer() {
     closePersonProgressModal();
   };
 
+  const handleTeacherOverviewClick = (group: TeacherProgressGroup) => {
+    resetProgressBrowseState();
+    setFocusTeacherKey(group.key);
+    setActiveContentTab("progress");
+  };
+
   const updateSessionFilterDraft = (
     field: keyof SessionFilterValues,
     value: string
@@ -1745,8 +1770,10 @@ export default function LessonsPageContainer() {
       allProgressLoading={allProgressLoading}
       allProgressError={allProgressError}
       groupedProgress={displayedGroupedProgress}
+      teacherOverviewRows={teacherOverviewRows}
       assignedStudentIds={assignedStudentIds}
       studentTeacherById={studentTeacherById}
+      focusTeacherKey={focusTeacherKey}
       enrollmentByStudent={enrollmentByStudent}
       teacherChoices={teacherChoices}
       currentUserId={user?.id ?? null}
@@ -1872,6 +1899,7 @@ export default function LessonsPageContainer() {
       onProgressSearchQueryChange={handleProgressSearchQueryChange}
       onProgressStatusFilterChange={handleProgressStatusFilterChange}
       onProgressSortChange={handleProgressSortChange}
+      onTeacherOverviewClick={handleTeacherOverviewClick}
       onOpenPersonProgressModal={openPersonProgressModal}
       onClosePersonProgressModal={closePersonProgressModal}
       onSetActiveContentTab={setActiveContentTab}

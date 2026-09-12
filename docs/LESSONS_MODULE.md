@@ -86,7 +86,7 @@ Applied to:
 
 **Frontend** — [`lessonsBranchFilter.ts`](../frontend/src/lib/lessonsBranchFilter.ts):
 
-- Branch `<select>` on the right of the content tab row (`Lesson Content` | `Student Progress` | `Session Reports` | `Files`).
+- Branch `<select>` on the right of the content tab row (`Lesson Content` | `Student Progress` | `Teachers` | `Session Reports` | `Files`).
 - Editable for ADMIN, PASTOR, and HQ Lessons seniors (Admin Settings **or** NCC primary coordinator). Locked with tooltip for teachers, Lessons coordinators, NCC support coordinators, and satellite seniors.
 - Changing branch refetches summary, progress, enrollments, and session reports (when that tab is active). Assign/session people dropdowns are filtered client-side to the selected branch. The filter **defaults to the user's own branch** (not “All branches”).
 
@@ -136,7 +136,8 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 | Tab | Purpose |
 |-----|---------|
 | **Lesson Content** | Sidebar lesson catalog + `LessonDetailPanel`; global, not branch-filtered. |
-| **Student Progress** | `MemberProgressSection` + `LessonProgressTable`; branch-scoped. Person column shows **status** and **cluster** chips (not member ID). |
+| **Student Progress** | `MemberProgressSection` + `LessonProgressTable`; branch-scoped. Students are grouped under collapsible teacher headers with total assigned / in progress / completed / not started counts. Person column shows **status** and **cluster** chips (not member ID). Person-level `ASSIGNED` status is labeled **Not started**. Clicking a teacher on the Teachers tab opens this tab with that group expanded. |
+| **Teachers** | Coordinator overview (`TeacherOverviewSection`): per-teacher assigned / in progress / completed / not started counts. Includes NCC roster teachers with zero students. Hidden from Lessons teachers (TEACHER assignment only) and from users without Lessons write access. |
 | **Session Reports** | `SessionReportsSection`; branch-scoped; see above. |
 | **Files** | `NccLessonsPdfSection` + `CommitmentFormSection`; global PDFs (NCC booklet and commitment form). Internal tab id remains `commitment`. |
 
@@ -149,11 +150,13 @@ Entry: [`frontend/src/app/lessons/page.tsx`](../frontend/src/app/lessons/page.ts
 - `PersonLessonProgressModal` — per-student progress, commitment toggle, teacher transfer (coordinators). Coordinators can **Assign teacher** from this modal when a student has progress (including finished / legacy) but no enrollment.
 - `LessonSessionReportForm` — log/edit sessions (lesson vs pre-lesson topic picker).
 - `LessonContentTabs` — tab bar plus optional `branchFilter` slot on the right.
+- `TeacherOverviewSection` — coordinator Teachers tab; roster plus student load; click-through to Student Progress.
 
 ### Permissions (UI)
 
 - Lesson write / assign / session log: module coordinators, **NCC ministry primary/support coordinators**, and roles with `HasModuleAccess('LESSONS', 'write')` (see [ACCESS_CONTROL.md](./ACCESS_CONTROL.md)).
 - **Student Progress** and **Session Reports** tabs: hidden unless the user has Lessons write access. Plain Members see **Lesson Content** and **Files** only.
+- **Teachers** tab: Admin, Pastor, Lessons coordinators, and NCC primary/support coordinators only. Lessons teachers who are not coordinators stay on Student Progress (their assigned students).
 - Branch picker: ADMIN, PASTOR, and HQ Lessons seniors (including HQ NCC primary) only. Hidden when Progress/Reports tabs are hidden.
 
 NCC ministry roles (no extra `ModuleCoordinator` row):

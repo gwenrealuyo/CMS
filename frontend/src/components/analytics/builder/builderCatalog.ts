@@ -133,7 +133,7 @@ function nccKpis(data: unknown): BuilderPreviewKpi[] {
     { label: "Participants", value: payload.total_participants },
     { label: "Completed", value: overall.COMPLETED ?? 0 },
     { label: "In Progress", value: overall.IN_PROGRESS ?? 0 },
-    { label: "Assigned", value: overall.ASSIGNED ?? 0 },
+    { label: "Not started", value: overall.ASSIGNED ?? 0 },
     { label: "Unassigned Visitors", value: payload.unassigned_visitors ?? 0 },
   ];
 }

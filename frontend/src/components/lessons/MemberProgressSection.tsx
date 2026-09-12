@@ -61,15 +61,8 @@ interface MemberProgressSectionProps {
   defaultTeacherId: string | null;
   teacherChoices: LessonPersonLike[];
   currentUserId?: string | number | null;
-  onPersonClick: (person: {
-    id: number;
-    first_name?: string;
-    middle_name?: string;
-    last_name?: string;
-    suffix?: string;
-    username: string;
-    member_id?: string;
-  }) => void;
+  onPersonClick: (person: LessonPersonSummary) => void;
+  focusTeacherKey?: string | null;
 }
 
 export default function MemberProgressSection({
@@ -101,6 +94,7 @@ export default function MemberProgressSection({
   teacherChoices,
   currentUserId,
   onPersonClick,
+  focusTeacherKey = null,
 }: MemberProgressSectionProps) {
   const activeLatestLessons = allLessons.filter(
     (lesson) => lesson.is_latest && lesson.is_active,
@@ -166,7 +160,7 @@ export default function MemberProgressSection({
               aria-label="Filter by status"
             >
               <option value="ALL">All status</option>
-              <option value="ASSIGNED">Assigned</option>
+              <option value="ASSIGNED">Not started</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="COMPLETED">Completed</option>
               <option value="SKIPPED">Skipped</option>
@@ -206,6 +200,8 @@ export default function MemberProgressSection({
           onSortChange={onProgressSortChange}
           onPersonClick={onPersonClick}
           displayMode={effectiveViewMode}
+          searchQuery={progressSearchQuery}
+          focusTeacherKey={focusTeacherKey}
         />
       </div>
     </Card>

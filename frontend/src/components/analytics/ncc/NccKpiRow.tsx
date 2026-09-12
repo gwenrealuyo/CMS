@@ -45,7 +45,7 @@ export default function NccKpiRow({ summary }: NccKpiRowProps) {
         icon={kpiIcon(ClockIcon)}
       />
       <KpiCard
-        label="Assigned"
+        label="Not started"
         value={overall.ASSIGNED ?? 0}
         icon={kpiIcon(BookOpenIcon)}
       />

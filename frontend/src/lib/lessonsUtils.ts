@@ -1,11 +1,14 @@
 import {
   Lesson,
   LessonPersonSummary,
+  LessonProgressStatus,
   LessonSessionReport,
   LessonStudentEnrollment,
+  LessonTeacherRosterEntry,
   PersonLessonProgress,
   PersonProgressSummary,
 } from "@/src/types/lesson";
+import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 
 export type LessonPersonLike = {
@@ -170,6 +173,181 @@ export function extractErrorMessage(
     }
   }
   return defaultMessage;
+}
+
+/** Person-level course status: not started, in progress, or completed. */
+export function getPersonLessonLifecycleStatus(
+  summary: Pick<PersonProgressSummary, "totalLessons" | "completedCount">,
+): LessonProgressStatus {
+  if (summary.totalLessons <= 0 || summary.completedCount <= 0) {
+    return "ASSIGNED";
+  }
+  if (summary.completedCount >= summary.totalLessons) {
+    return "COMPLETED";
+  }
+  return "IN_PROGRESS";
+}
+
+export function lessonProgressStatusLabel(
+  status: LessonProgressStatus | string,
+): string {
+  switch (status) {
+    case "ASSIGNED":
+      return "Not started";
+    case "IN_PROGRESS":
+      return "In Progress";
+    case "COMPLETED":
+      return "Completed";
+    case "SKIPPED":
+      return "Skipped";
+    default:
+      return status;
+  }
+}
+
+export type TeacherProgressGroup = {
+  key: string;
+  teacher: LessonPersonSummary | null;
+  students: PersonProgressSummary[];
+  total: number;
+  inProgress: number;
+  completed: number;
+  notStarted: number;
+  number: number | null;
+  isActive?: boolean | null;
+};
+
+export function groupStudentsByTeacher(
+  students: PersonProgressSummary[],
+  studentTeacherById: Map<number, LessonPersonSummary>,
+  teacherSortDirection: "asc" | "desc" = "asc",
+): TeacherProgressGroup[] {
+  const buckets = new Map<
+    string,
+    { teacher: LessonPersonSummary | null; students: PersonProgressSummary[] }
+  >();
+
+  for (const summary of students) {
+    const teacher = studentTeacherById.get(summary.person.id) ?? null;
+    const key = teacher?.id != null ? String(teacher.id) : "no-teacher";
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.students.push(summary);
+    } else {
+      buckets.set(key, { teacher, students: [summary] });
+    }
+  }
+
+  const named: TeacherProgressGroup[] = [];
+  let noTeacher: TeacherProgressGroup | null = null;
+
+  buckets.forEach((bucket, key) => {
+    let notStarted = 0;
+    let inProgress = 0;
+    let completed = 0;
+    for (const summary of bucket.students) {
+      const status = getPersonLessonLifecycleStatus(summary);
+      if (status === "COMPLETED") {
+        completed += 1;
+      } else if (status === "IN_PROGRESS") {
+        inProgress += 1;
+      } else {
+        notStarted += 1;
+      }
+    }
+    const group: TeacherProgressGroup = {
+      key,
+      teacher: bucket.teacher,
+      students: bucket.students,
+      total: bucket.students.length,
+      inProgress,
+      completed,
+      notStarted,
+      number: null,
+    };
+    if (bucket.teacher) {
+      named.push(group);
+    } else {
+      noTeacher = group;
+    }
+  });
+
+  named.sort((first, second) =>
+    formatPersonName(first.teacher).localeCompare(
+      formatPersonName(second.teacher),
+    ),
+  );
+  if (teacherSortDirection === "desc") {
+    named.reverse();
+  }
+  named.forEach((group, index) => {
+    group.number = index + 1;
+  });
+
+  return noTeacher ? [...named, noTeacher] : named;
+}
+
+export function buildTeacherOverviewRows(
+  studentGroups: TeacherProgressGroup[],
+  roster: LessonTeacherRosterEntry[],
+): TeacherProgressGroup[] {
+  const byKey = new Map<string, TeacherProgressGroup>();
+
+  for (const group of studentGroups) {
+    byKey.set(group.key, { ...group, isActive: group.key === "no-teacher" ? null : true });
+  }
+
+  for (const teacher of roster) {
+    const key = String(teacher.id);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.isActive = teacher.is_active ?? true;
+      continue;
+    }
+    byKey.set(key, {
+      key,
+      teacher,
+      students: [],
+      total: 0,
+      inProgress: 0,
+      completed: 0,
+      notStarted: 0,
+      number: null,
+      isActive: teacher.is_active ?? true,
+    });
+  }
+
+  const named: TeacherProgressGroup[] = [];
+  let noTeacher: TeacherProgressGroup | null = null;
+  byKey.forEach((group) => {
+    if (group.teacher) {
+      named.push(group);
+    } else {
+      noTeacher = group;
+    }
+  });
+
+  named.sort((first, second) =>
+    formatPersonName(first.teacher).localeCompare(
+      formatPersonName(second.teacher),
+    ),
+  );
+  named.forEach((group, index) => {
+    group.number = index + 1;
+  });
+
+  return noTeacher ? [...named, noTeacher] : named;
+}
+
+export function formatTeacherGroupHeader(group: TeacherProgressGroup): string {
+  const teacherName = group.teacher
+    ? formatPersonName(group.teacher)
+    : "No teacher";
+  const prefix = group.number != null ? `${group.number}. ` : "";
+  return (
+    `${prefix}${teacherName} (Total assigned: ${group.total}) ` +
+    `[In progress: ${group.inProgress}, Completed: ${group.completed}, Not started: ${group.notStarted}]`
+  );
 }
 
 export function groupProgressByPerson(

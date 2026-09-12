@@ -17,6 +17,7 @@ import LessonContentTabs, {
   LessonContentTab,
 } from "@/src/components/lessons/LessonContentTabs";
 import MemberProgressSection from "@/src/components/lessons/MemberProgressSection";
+import TeacherOverviewSection from "@/src/components/lessons/TeacherOverviewSection";
 import SessionReportsSection, {
   LessonPersonLike,
 } from "@/src/components/lessons/SessionReportsSection";
@@ -32,7 +33,8 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import NoteInputModal from "@/src/components/ui/NoteInputModal";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
-import { canWriteLessons, canManageLessonCatalog, isLessonsTeacherScoped } from "@/src/lib/lessons/lessonsPermissions";
+import { canWriteLessons, canManageLessonCatalog, canBrowseAllLessonStudents, isLessonsTeacherScoped } from "@/src/lib/lessons/lessonsPermissions";
+import { TeacherProgressGroup } from "@/src/lib/lessonsUtils";
 import {
   Lesson,
   LessonCommitmentSettings,
@@ -115,6 +117,7 @@ interface LessonsPageViewProps {
   allProgressLoading: boolean;
   allProgressError: string | null;
   groupedProgress: PersonProgressSummary[];
+  teacherOverviewRows: TeacherProgressGroup[];
   assignedStudentIds: Set<number>;
   studentTeacherById: Map<number, LessonPersonSummary>;
   progressFilterLessonId: number | null;
@@ -122,6 +125,7 @@ interface LessonsPageViewProps {
   progressStatusFilter: ProgressStatusFilter;
   progressSortField: ProgressSortField;
   progressSortDirection: "asc" | "desc";
+  focusTeacherKey?: string | null;
   activeLatestLessons: Lesson[];
   // Person progress modal
   personProgressModal: {
@@ -237,6 +241,7 @@ interface LessonsPageViewProps {
   onProgressSearchQueryChange: (value: string) => void;
   onProgressStatusFilterChange: (value: ProgressStatusFilter) => void;
   onProgressSortChange: (field: ProgressSortField) => void;
+  onTeacherOverviewClick: (group: TeacherProgressGroup) => void;
   onOpenPersonProgressModal: (person: LessonPersonSummary) => void;
   onClosePersonProgressModal: () => void;
   onSetActiveContentTab: (tab: LessonContentTab) => void;
@@ -375,12 +380,14 @@ export default function LessonsPageView({
   onProgressSearchQueryChange,
   onProgressStatusFilterChange,
   onProgressSortChange,
+  onTeacherOverviewClick,
   onOpenPersonProgressModal,
   onClosePersonProgressModal,
   allProgress,
   allProgressLoading,
   allProgressError,
   groupedProgress,
+  teacherOverviewRows,
   assignedStudentIds,
   studentTeacherById,
   progressFilterLessonId,
@@ -388,6 +395,7 @@ export default function LessonsPageView({
   progressStatusFilter,
   progressSortField,
   progressSortDirection,
+  focusTeacherKey = null,
   activeLatestLessons,
   personProgressModal,
   onSetActiveContentTab,
@@ -416,6 +424,8 @@ export default function LessonsPageView({
   });
   const canTransferLessonTeacher = canWriteLessonsAccess;
   const showStudentWorkflowTabs = !user || canWriteLessonsAccess;
+  const showTeachersTab =
+    showStudentWorkflowTabs && canBrowseAllLessonStudents(user);
   const enrollmentTeacherByStudentId = useMemo(() => {
     const map = new Map<number, number>();
     enrollmentByStudent.forEach((enrollment, studentId) => {
@@ -539,6 +549,7 @@ export default function LessonsPageView({
             activeTab={activeContentTab}
             onTabChange={onSetActiveContentTab}
             hideProgress={!showStudentWorkflowTabs}
+            hideTeachers={!showTeachersTab}
             hideSessions={!showStudentWorkflowTabs}
             branchFilter={
               showStudentWorkflowTabs ? renderLessonsBranchSelect() : undefined
@@ -621,8 +632,24 @@ export default function LessonsPageView({
               teacherChoices={teacherChoices}
               currentUserId={currentUserId}
               onPersonClick={onOpenPersonProgressModal}
+              focusTeacherKey={focusTeacherKey}
             />
           </div>
+
+          {showTeachersTab ? (
+            <div
+              className={
+                activeContentTab === "teachers" ? "space-y-6" : "hidden"
+              }
+            >
+              <TeacherOverviewSection
+                rows={teacherOverviewRows}
+                loading={allProgressLoading}
+                error={allProgressError}
+                onTeacherClick={onTeacherOverviewClick}
+              />
+            </div>
+          ) : null}
 
           <div
             className={activeContentTab === "sessions" ? "space-y-6" : "hidden"}

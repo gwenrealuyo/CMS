@@ -43,7 +43,7 @@ export interface LessonPersonSummary {
   last_name?: string;
   suffix?: string;
   username: string;
-  member_id?: string;
+  member_id?: string | null;
   status?: string | null;
   cluster_codes?: string[] | null;
   branch?: number | null;

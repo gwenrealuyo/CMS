@@ -71,9 +71,10 @@ Record Donation is intentionally not included (finance `?action=add-donation` ca
 ### Lessons page (`/lessons`)
 
 - Container/view split: `LessonsPageContainer` (data, branch filter, API) + `LessonsPageView` (layout).
-- **Tabs:** Lesson Content (catalog) | Student Progress | Session Reports | Files — full-width segmented control on mobile; branch filter stacks below (`LessonContentTabs` + `TOOLBAR_BRANCH_SELECT_*`). Progress and Session Reports are hidden for users without Lessons write access (plain Members see Content and Files only).
+- **Tabs:** Lesson Content (catalog) | Student Progress | Teachers | Session Reports | Files — full-width segmented control on mobile; branch filter stacks below (`LessonContentTabs` + `TOOLBAR_BRANCH_SELECT_*`). Progress and Session Reports are hidden for users without Lessons write access (plain Members see Content and Files only). **Teachers** is coordinator-only (Admin/Pastor/Lessons coordinators/NCC primary+support); Lessons teachers do not see it.
 - **Branch filter** (below tab row on mobile): scopes progress, enrollments, session reports, and summary stats; defaults to the user's branch; HQ Lessons seniors (including HQ NCC primary) can switch branches. Lesson catalog and commitment PDF stay global. See [LESSONS_MODULE.md](./LESSONS_MODULE.md#branch-scoping).
-- **Student Progress:** shared toolbar (`ToolbarSearch`, `ViewModeToggle`, `toolbarStyles`); cards on mobile by default; table coerced to cards below `md` via `listViewMode.ts`.
+- **Student Progress:** students grouped under collapsible teacher headers (total assigned / in progress / completed / not started). Shared toolbar (`ToolbarSearch`, `ViewModeToggle`, `toolbarStyles`); cards on mobile by default; table coerced to cards below `md` via `listViewMode.ts`. Status filter/badge **Not started** is the person-level `ASSIGNED` bucket.
+- **Teachers:** sortable assigned / in progress / completed / not started chips; idle NCC roster teachers show as 0; click a teacher to open Student Progress with that group expanded.
 - **Session Reports:** Table/Cards toggle; table coerced to cards below `md` when selected on a narrow viewport. Lessons teachers are locked to themselves in the teacher filter and only see their assigned students.
 - **Assign Lessons:** full-screen modal on mobile; dropdown popover on desktop (`AssignLessonsDropdown`).
 - Deep link `?action=log-session` opens Session Reports and the log-session modal.

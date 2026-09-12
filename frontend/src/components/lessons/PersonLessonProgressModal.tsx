@@ -19,6 +19,7 @@ import { formatDisplayDate } from "@/src/lib/date";
 import {
   extractErrorMessage,
   enrollmentTeacherLabel,
+  lessonProgressStatusLabel,
   NCC_TEACHER_ROSTER_EMPTY_MESSAGE,
   personBranchId,
 } from "@/src/lib/lessonsUtils";
@@ -47,13 +48,6 @@ interface PersonLessonProgressModalProps {
   isProgressUpdating: boolean;
   onClose: () => void;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  ASSIGNED: "Assigned",
-  IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed",
-  SKIPPED: "Skipped",
-};
 
 const STATUS_COLORS: Record<string, string> = {
   ASSIGNED: "bg-gray-100 text-gray-700",
@@ -398,7 +392,7 @@ export default function PersonLessonProgressModal({
                               }`
                         }
                       >
-                        {STATUS_LABELS[progress.status] || progress.status}
+                        {lessonProgressStatusLabel(progress.status)}
                       </span>
                     )}
                     {!progress && (

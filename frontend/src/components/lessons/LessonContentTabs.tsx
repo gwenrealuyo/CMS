@@ -5,6 +5,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 export type LessonContentTab =
   | "lesson"
   | "progress"
+  | "teachers"
   | "sessions"
   | "commitment";
 
@@ -12,6 +13,7 @@ interface LessonContentTabsProps {
   activeTab: LessonContentTab;
   onTabChange: (tab: LessonContentTab) => void;
   hideProgress?: boolean;
+  hideTeachers?: boolean;
   hideSessions?: boolean;
   disableCommitment?: boolean;
   branchFilter?: ReactNode;
@@ -24,6 +26,7 @@ export default function LessonContentTabs({
   activeTab,
   onTabChange,
   hideProgress,
+  hideTeachers,
   hideSessions,
   disableCommitment,
   branchFilter,
@@ -52,6 +55,17 @@ export default function LessonContentTabs({
             mobileLabel: "Progress",
             disabled: false,
             minWidthClass: "min-w-[72px] md:min-w-[120px]",
+          },
+        ]
+      : []),
+    ...(!hideTeachers
+      ? [
+          {
+            id: "teachers" as const,
+            label: "Teachers",
+            mobileLabel: "Teachers",
+            disabled: false,
+            minWidthClass: "min-w-[72px] md:min-w-[88px]",
           },
         ]
       : []),

@@ -134,13 +134,13 @@ export const faqCategories: FaqCategory[] = [
         id: "what-is-lessons",
         question: "What is Lessons (NCC)?",
         answer:
-          "Lessons is the seven-lesson New Converts Course. Teachers and coordinators assign lessons, log session reports, and track commitment forms. Progress moves from Assigned → In Progress → Completed.",
+          "Lessons is the seven-lesson New Converts Course. Teachers and coordinators assign lessons, log session reports, and track commitment forms. Progress moves from Not started → In Progress → Completed.",
       },
       {
         id: "lessons-tabs",
         question: "What are the Lessons tabs for?",
         answer:
-          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Session Reports is for one-on-one teaching sessions. Files has the downloadable NCC lessons booklet and the commitment form PDF. Members without a Lessons assignment only see Lesson Content and Files.",
+          "Lesson Content shows the course lessons (read-only for most users). Student Progress lists who is assigned which lesson and their completion status. Teachers (coordinators only) shows each teacher's student load, including roster teachers with no students yet; click a teacher to open their group on Student Progress. Session Reports is for one-on-one teaching sessions. Files has the downloadable NCC lessons booklet and the commitment form PDF. Members without a Lessons assignment only see Lesson Content and Files. Lessons teachers do not see the Teachers tab.",
       },
       {
         id: "assign-and-log",

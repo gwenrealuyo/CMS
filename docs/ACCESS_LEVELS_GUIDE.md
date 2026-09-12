@@ -241,7 +241,7 @@ When assignments overlap, you always get the **broadest combined view** — neve
 The sidebar, dashboard cards, quick actions (+ menu), and stats panels adapt to your access:
 
 - **Disabled modules** disappear from the sidebar (except for Admins).
-- **Stats / summary cards** in Sunday School and Lessons are hidden from plain Members. On Lessons, Members without a Lessons assignment also do not see **Student Progress** or **Session Reports**.
+- **Stats / summary cards** in Sunday School and Lessons are hidden from plain Members. On Lessons, Members without a Lessons assignment also do not see **Student Progress** or **Session Reports**. The **Teachers** tab is coordinator-only.
 - **Cluster page primary button** is **Add Cluster** for admins, pastors, and senior cluster coordinators; other cluster coordinators see **Submit Report** as the main action.
 - **Analytics** appears only for Admin and Pastor roles.
 - **Admin Settings** appears only for Admins.

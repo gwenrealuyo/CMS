@@ -124,7 +124,7 @@ Create, **Export All**, **Import**, and bulk export are **not** granted to every
 | **Evangelism Senior Coordinator, Evangelism Coordinator, Bible Sharer** | No | Yes | No |
 | **Plain members, Cluster/Evangelism Reporters, Lessons/Sunday School Teachers**, and coordinators of other modules (Lessons, Sunday School, Finance, Events, Ministries) unless they also have Cluster access above | No | No | No |
 
-`POST /api/people/people/` follows the same matrix: Visitor requires `can_add_visitor`; Member and any other role require `can_add_person`. Senior Coordinators of a non-Cluster module no longer get Add Person.
+`POST /api/people/people/` follows the same matrix: Visitor requires `can_add_visitor`; Member and any other role require `can_add_person`. Senior Coordinators of a non-Cluster module no longer get Add Person. Only **admins** may assign the Pastor or Admin roles (the person form hides those options for everyone else). Non-admins who already have Pastor as their current role may keep it on update.
 
 ## Multiple Assignment Tagging
 

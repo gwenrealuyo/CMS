@@ -323,12 +323,13 @@ export default function PersonForm({
       return [initialData.role];
     }
     const roles = getCreatableRoles(user, { forEdit: !isCreating });
+    const currentRole = initialData?.role;
     if (
-      initialData?.role === "ADMIN" &&
-      !roles.includes("ADMIN") &&
-      !isCreating
+      !isCreating &&
+      (currentRole === "ADMIN" || currentRole === "PASTOR") &&
+      !roles.includes(currentRole)
     ) {
-      return [...roles, "ADMIN"];
+      return [...roles, currentRole];
     }
     return roles;
   }, [plainMember, editingSelf, user, initialData?.role, isCreating]);
@@ -336,7 +337,8 @@ export default function PersonForm({
   const roleSelectDisabled =
     visitorOnlyCreate ||
     plainMember ||
-    (initialData?.role === "ADMIN" && !isAdmin);
+    ((initialData?.role === "ADMIN" || initialData?.role === "PASTOR") &&
+      !isAdmin);
   const statusSelectDisabled = selfEditLocked;
 
   const canEditVitalDates = useMemo(() => {

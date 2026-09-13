@@ -104,7 +104,7 @@ export interface Journey {
   type: JourneyType;
   type_display?: string;
   description?: string;
-  verified_by?: string; // Person ID
+  verified_by?: string | null; // Person ID; null = unknown / not sure
   verified_by_display_name?: string | null;
   historical_verified_first_name?: string;
   historical_verified_last_name?: string;

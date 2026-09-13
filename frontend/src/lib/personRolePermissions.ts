@@ -12,7 +12,7 @@ export function getCreatableRoles(
 ): PersonRole[] {
   if (!user) return [];
   if (user.role === "ADMIN") return ["MEMBER", "VISITOR", "PASTOR", "ADMIN"];
-  if (user.role === "PASTOR") return ["MEMBER", "VISITOR", "PASTOR"];
+  if (user.role === "PASTOR") return ["MEMBER", "VISITOR"];
   if (options?.forEdit) {
     return ["MEMBER", "VISITOR"];
   }

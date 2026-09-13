@@ -951,10 +951,11 @@ class PersonSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"role": "Only admins can assign the Admin role."}
                 )
-            if requested_role == "PASTOR" and user.role not in ("ADMIN", "PASTOR"):
-                raise serializers.ValidationError(
-                    {"role": "You cannot assign the Pastor role."}
-                )
+            if requested_role == "PASTOR" and user.role != "ADMIN":
+                if not instance or instance.role != "PASTOR":
+                    raise serializers.ValidationError(
+                        {"role": "Only admins can assign the Pastor role."}
+                    )
             if (
                 user.role == "MEMBER"
                 and user_can_add_person(user)

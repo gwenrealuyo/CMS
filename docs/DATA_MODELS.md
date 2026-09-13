@@ -64,8 +64,9 @@ Notes
 
 ### Journey
 
-- Fields: `user` → Person, `title?`, `date`, `type` (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE|EVENT_ATTENDANCE|MINISTRY|BRANCH_TRANSFER), `description?`, `verified_by` → Person (nullable), `created_at`
+- Fields: `user` → Person, `title?`, `date`, `type` (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE|EVENT_ATTENDANCE|MINISTRY|BRANCH_TRANSFER), `description?`, `verified_by` → Person (nullable; for BAPTISM/SPIRIT, null means baptizer/witness unknown), `historical_verified_first_name?`, `historical_verified_last_name?` (legacy names when the person is not in the directory), `created_at`
 - Notes:
+  - For `BAPTISM`, `verified_by` is the person who baptized the member. For `SPIRIT`, `verified_by` is who witnessed when they received the Holy Ghost. Person retrieve exposes these as `baptized_by` / `hg_witnessed_by` (plus display names and optional first/last name fields for former records).
   - `BRANCH_TRANSFER` type is automatically created when a Person's branch changes
   - `CLUSTER` type journeys are automatically created when:
     - People attend cluster meetings (via ClusterWeeklyReport) - title: "Attended Cluster Meeting - {Cluster Code}"

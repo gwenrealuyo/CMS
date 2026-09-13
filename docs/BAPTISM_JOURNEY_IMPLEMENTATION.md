@@ -52,7 +52,7 @@ For **water_baptism_date**:
 - **Title**: `"Baptized in Jesus' name"`
 - **Description**: Optional descriptive text (e.g., "Water baptism")
 - **User**: The Person instance
-- **Verified by**: None (system-generated)
+- **Verified by**: Optional. The person who baptized the member (`baptized_by` / Journey `verified_by`). Must not be a visitor or admin. `null` means unknown (UI: **Not sure**). If they are not in the directory, store first and last name on the journey (`historical_verified_first_name` / `historical_verified_last_name`; Person API: `baptized_by_first_name` / `baptized_by_last_name`).
 
 For **spirit_baptism_date**:
 - **Type**: "SPIRIT"
@@ -60,7 +60,7 @@ For **spirit_baptism_date**:
 - **Title**: `"Received the Holy Ghost"`
 - **Description**: Optional descriptive text (e.g., "Spirit baptism")
 - **User**: The Person instance
-- **Verified by**: None (system-generated)
+- **Verified by**: Optional. The person who witnessed when they received the Holy Ghost (`hg_witnessed_by` / Journey `verified_by`). Must not be a visitor or admin. `null` means unknown (UI: **Not sure**). If they are not in the directory, store first and last name on the journey (`historical_verified_first_name` / `historical_verified_last_name`; Person API: `hg_witnessed_by_first_name` / `hg_witnessed_by_last_name`).
 
 For **date_first_attended**:
 - **Type**: "NOTE"

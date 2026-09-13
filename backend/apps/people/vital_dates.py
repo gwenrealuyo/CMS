@@ -19,6 +19,12 @@ VITAL_DATE_ATTRS = (
     "lesson_teacher_id",
     "historical_teacher_first_name",
     "historical_teacher_last_name",
+    "baptized_by",
+    "hg_witnessed_by",
+    "baptized_by_first_name",
+    "baptized_by_last_name",
+    "hg_witnessed_by_first_name",
+    "hg_witnessed_by_last_name",
 )
 
 

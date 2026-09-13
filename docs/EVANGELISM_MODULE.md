@@ -177,10 +177,11 @@ Key features include:
   - `cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster for tracking (from inviter or endorsed cluster)
   - `conversion_date` (DateField) – date of conversion journey
   - `water_baptism_date` (DateField, nullable) – date of water baptism
-  - `spirit_baptism_date` (DateField, nullable) – date of Holy Ghost reception
+  - `spirit_baptism_date` (DateField, nullable) – date they received the Holy Ghost
+  - `verified_by` (ForeignKey to `people.Person`, nullable) – who verified the conversion (unused by the baptism/HG person pickers)
+  - Write-through (not Conversion columns): `baptized_by_id` / `hg_witnessed_by_id` — optional Person IDs stored as `Journey.verified_by` on the person's BAPTISM / SPIRIT journeys (`null` = unknown). `baptized_by_first_name` / `baptized_by_last_name` and `hg_witnessed_by_*` record former names when the person is not in the directory. Read as nested `baptized_by` / `hg_witnessed_by` plus display names.
   - `is_complete` (BooleanField) – True if both baptisms completed
   - `notes` (TextField, blank) – additional notes
-  - `verified_by` (ForeignKey to `people.Person`, nullable) – who verified the conversion
   - `created_at`, `updated_at` (DateTimeFields)
 - Default ordering: by `-conversion_date`
 - **Validation**: Check if lessons are completed before baptism.
@@ -507,6 +508,9 @@ Serializers (`apps.evangelism.serializers`) expose:
   - `evangelism_group` – nested group object (read-only)
   - `cluster` – nested cluster object (read-only)
   - `verified_by` – nested person object (read-only)
+  - `baptized_by` / `hg_witnessed_by` – nested person objects from the member's BAPTISM / SPIRIT journeys (read-only)
+  - `baptized_by_id` / `hg_witnessed_by_id` – write-only Person IDs; optional (`null` = unknown baptizer/witness)
+  - `baptized_by_first_name` / `baptized_by_last_name` / `hg_witnessed_by_first_name` / `hg_witnessed_by_last_name` – optional former names when the baptizer/witness is not in the directory
   - All conversion fields
 
 - `MonthlyConversionTrackingSerializer`:

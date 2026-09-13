@@ -10,6 +10,7 @@ from apps.people.utils import update_person_status
 from django.utils import timezone
 
 from core.datetime_utils import church_today
+from apps.people.baptism_verifiers import apply_stashed_verifiers_to_journey
 from apps.people.models import Person, Journey, Family
 import logging
 
@@ -111,7 +112,7 @@ def manage_baptism_journeys(sender, instance, created, **kwargs):
             original_water_baptism,
             "BAPTISM",
             "Baptized in Jesus' name",
-            "Water baptism"
+            "Water baptism",
         )
         _handle_baptism_role_update(
             instance,
@@ -126,7 +127,7 @@ def manage_baptism_journeys(sender, instance, created, **kwargs):
             original_spirit_baptism,
             "SPIRIT",
             "Received the Holy Ghost",
-            "Spirit baptism"
+            "Spirit baptism",
         )
         
         # Handle date_first_attended
@@ -185,18 +186,19 @@ def _handle_baptism_date_journey(person, current_date, original_date, journey_ty
             journey.date = current_date
             journey.title = title
             journey.description = description_base
+            apply_stashed_verifiers_to_journey(journey, person, journey_type)
             journey.save()
             logger.debug(f"Updated {journey_type} journey for person {person.id}")
         else:
-            # Create new journey
-            Journey.objects.create(
+            journey = Journey(
                 user=person,
                 type=journey_type,
                 date=current_date,
                 title=title,
                 description=description_base,
-                verified_by=None
             )
+            apply_stashed_verifiers_to_journey(journey, person, journey_type)
+            journey.save()
             logger.debug(f"Created {journey_type} journey for person {person.id}")
 
 

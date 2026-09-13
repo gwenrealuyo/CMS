@@ -572,6 +572,9 @@ export default function FamiliesTabContent({
         onClose={isPanel ? goBackFamilyPanel : closePersonOverFamily}
         onNoFamilyClick={() => {}}
         onNoClusterClick={() => {}}
+        onViewPerson={(id) => {
+          void openPersonFromFamily({ id } as Person);
+        }}
       />
     );
   };

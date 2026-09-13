@@ -713,6 +713,28 @@ export default function EvangelismPage() {
         lesson_start_date: lessonStart || null,
         water_baptism_date: values.water_baptism_date || null,
         spirit_baptism_date: values.spirit_baptism_date || null,
+        baptized_by_id: values.baptized_by_id
+          ? values.baptized_by_id
+          : values.water_baptism_date || values.baptized_by_first_name
+            ? null
+            : undefined,
+        baptized_by_first_name:
+          (values.baptized_by_first_name || "").trim() ||
+          (values.water_baptism_date ? "" : undefined),
+        baptized_by_last_name:
+          (values.baptized_by_last_name || "").trim() ||
+          (values.water_baptism_date ? "" : undefined),
+        hg_witnessed_by_id: values.hg_witnessed_by_id
+          ? values.hg_witnessed_by_id
+          : values.spirit_baptism_date || values.hg_witnessed_by_first_name
+            ? null
+            : undefined,
+        hg_witnessed_by_first_name:
+          (values.hg_witnessed_by_first_name || "").trim() ||
+          (values.spirit_baptism_date ? "" : undefined),
+        hg_witnessed_by_last_name:
+          (values.hg_witnessed_by_last_name || "").trim() ||
+          (values.spirit_baptism_date ? "" : undefined),
         notes: values.notes,
         prospect_id: prospectMatch?.id,
         evangelism_group_id: viewEditGroup?.id
@@ -758,6 +780,26 @@ export default function EvangelismPage() {
         notes: values.notes ?? "",
         water_baptism_date: w ? w : null,
         spirit_baptism_date: s ? s : null,
+        baptized_by_id: values.baptized_by_id
+          ? values.baptized_by_id
+          : w || values.baptized_by_first_name
+            ? null
+            : undefined,
+        baptized_by_first_name:
+          (values.baptized_by_first_name || "").trim() || (w ? "" : undefined),
+        baptized_by_last_name:
+          (values.baptized_by_last_name || "").trim() || (w ? "" : undefined),
+        hg_witnessed_by_id: values.hg_witnessed_by_id
+          ? values.hg_witnessed_by_id
+          : s || values.hg_witnessed_by_first_name
+            ? null
+            : undefined,
+        hg_witnessed_by_first_name:
+          (values.hg_witnessed_by_first_name || "").trim() ||
+          (s ? "" : undefined),
+        hg_witnessed_by_last_name:
+          (values.hg_witnessed_by_last_name || "").trim() ||
+          (s ? "" : undefined),
       });
 
       setSuccessMessage("Conversion updated successfully.");

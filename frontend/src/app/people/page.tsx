@@ -1680,6 +1680,9 @@ export default function PeoplePage() {
             onNoClusterClick={(p) => {
               openSelectClusterForPerson(p);
             }}
+            onViewPerson={(id) => {
+              void openPersonInteraction("view", { id } as Person);
+            }}
             onEdit={() => {
               setViewMode("edit");
               setProfileStartOnTimelineTab(false);
@@ -2912,6 +2915,9 @@ export default function PeoplePage() {
             }}
             onNoClusterClick={(p) => {
               openSelectClusterForPerson(p);
+            }}
+            onViewPerson={(id) => {
+              void openPersonInteraction("view", { id } as Person);
             }}
             onEdit={() => {
               // Switch to edit within this overlay

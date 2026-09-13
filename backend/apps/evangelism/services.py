@@ -5,6 +5,7 @@ from django.db.models import Q, Count
 from django.utils import timezone
 
 from apps.people.models import Person, Journey
+from apps.people.baptism_verifiers import UNSET, stash_baptism_verifiers
 from apps.people.name_formatting import title_case_name
 from apps.people.usernames import generate_unique_username
 from apps.clusters.models import Cluster
@@ -559,6 +560,17 @@ def update_person_baptism_dates(
     Sync conversion data to Person model.
     """
     person = conversion.person
+    baptized_by = getattr(conversion, "_baptism_verified_by", UNSET)
+    hg_witnessed_by = getattr(conversion, "_spirit_verified_by", UNSET)
+    stash_baptism_verifiers(
+        person,
+        baptized_by=baptized_by,
+        hg_witnessed_by=hg_witnessed_by,
+        baptized_by_first_name=getattr(conversion, "_baptism_hist_first", UNSET),
+        baptized_by_last_name=getattr(conversion, "_baptism_hist_last", UNSET),
+        hg_witnessed_by_first_name=getattr(conversion, "_spirit_hist_first", UNSET),
+        hg_witnessed_by_last_name=getattr(conversion, "_spirit_hist_last", UNSET),
+    )
     if conversion.water_baptism_date:
         person.water_baptism_date = conversion.water_baptism_date
     if conversion.spirit_baptism_date:

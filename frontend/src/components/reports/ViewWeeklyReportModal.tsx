@@ -6,7 +6,7 @@ import Button from "@/src/components/ui/Button";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import PersonAvatar from "@/src/components/people/PersonAvatar";
 import PersonProfile from "@/src/components/people/PersonProfile";
-import { familiesApi } from "@/src/lib/api";
+import { familiesApi, peopleApi } from "@/src/lib/api";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import {
@@ -666,6 +666,11 @@ export default function ViewWeeklyReportModal({
               onClose={handlePersonModalCancel}
               hideEditButton={true}
               hideDeleteButton={true}
+              onViewPerson={(id) => {
+                void peopleApi.getById(id).then((response) => {
+                  setSelectedPerson(response.data as PersonUI);
+                });
+              }}
             />
           </div>
         </ModalOverlay>

@@ -32,6 +32,19 @@ from apps.people.vital_dates import (
     strip_vital_date_attrs,
     user_can_edit_vital_dates,
 )
+from apps.people.baptism_verifiers import (
+    BAPTISM_JOURNEY_TYPE,
+    SPIRIT_JOURNEY_TYPE,
+    UNSET as BAPTISM_VERIFIER_UNSET,
+    apply_verifier_fields,
+    baptism_verifier_queryset,
+    historical_verifier_names,
+    journey_verified_by,
+    journey_verifier_display_name,
+    person_verifier_display_name,
+    stash_baptism_verifiers,
+    validate_historical_name_pair,
+)
 from apps.people.name_formatting import (
     PERSON_NAME_FIELDS,
     apply_title_case_name_fields,
@@ -346,11 +359,49 @@ class ModuleCoordinatorBulkCreateSerializer(serializers.Serializer):
         return {"created": created_assignments}
 
 
+class JourneyVerifierIdField(serializers.PrimaryKeyRelatedField):
+    """Person PK stored on a BAPTISM/SPIRIT journey's verified_by."""
+
+    def __init__(self, journey_type: str, **kwargs):
+        self.journey_type = journey_type
+        kwargs.setdefault("queryset", baptism_verifier_queryset())
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("allow_null", True)
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        return journey_verified_by(instance, self.journey_type)
+
+
+class JourneyHistoricalNameField(serializers.CharField):
+    """First/last name stored on a BAPTISM/SPIRIT journey for people not in the directory."""
+
+    def __init__(self, journey_type: str, name_index: int, **kwargs):
+        self.journey_type = journey_type
+        self.name_index = name_index
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("allow_blank", True)
+        kwargs.setdefault("max_length", 150)
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        person = instance if isinstance(instance, Person) else getattr(instance, "person", None)
+        first, last = historical_verifier_names(person, self.journey_type)
+        return first if self.name_index == 0 else last
+
+
 class JourneySerializer(serializers.ModelSerializer):
     type_display = serializers.CharField(source="get_type_display", read_only=True)
     user = serializers.PrimaryKeyRelatedField(queryset=Person.objects.all())
     verified_by = serializers.PrimaryKeyRelatedField(
-        queryset=Person.objects.exclude(role="ADMIN"), allow_null=True, required=False
+        queryset=baptism_verifier_queryset(), allow_null=True, required=False
+    )
+    verified_by_display_name = serializers.SerializerMethodField()
+    historical_verified_first_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=150
+    )
+    historical_verified_last_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=150
     )
 
     class Meta:
@@ -364,9 +415,67 @@ class JourneySerializer(serializers.ModelSerializer):
             "description",
             "type_display",
             "verified_by",
+            "verified_by_display_name",
+            "historical_verified_first_name",
+            "historical_verified_last_name",
             "created_at",
         ]
-        read_only_fields = ["created_at"]
+        read_only_fields = ["created_at", "verified_by_display_name"]
+
+    def get_verified_by_display_name(self, obj: Journey):
+        return journey_verifier_display_name(obj)
+
+    def validate(self, attrs):
+        first = attrs.get(
+            "historical_verified_first_name",
+            getattr(self.instance, "historical_verified_first_name", ""),
+        )
+        last = attrs.get(
+            "historical_verified_last_name",
+            getattr(self.instance, "historical_verified_last_name", ""),
+        )
+        if "historical_verified_first_name" in attrs or "historical_verified_last_name" in attrs:
+            validate_historical_name_pair(
+                first, last, first_field="historical_verified_first_name"
+            )
+        apply_title_case_name_fields(
+            attrs,
+            ("historical_verified_first_name", "historical_verified_last_name"),
+        )
+        return attrs
+
+    def create(self, validated_data):
+        journey = Journey(**validated_data)
+        apply_verifier_fields(
+            journey,
+            verified_by=validated_data.get("verified_by", BAPTISM_VERIFIER_UNSET),
+            first_name=validated_data.get(
+                "historical_verified_first_name", BAPTISM_VERIFIER_UNSET
+            ),
+            last_name=validated_data.get(
+                "historical_verified_last_name", BAPTISM_VERIFIER_UNSET
+            ),
+        )
+        journey.save()
+        return journey
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        apply_verifier_fields(
+            instance,
+            verified_by=validated_data["verified_by"]
+            if "verified_by" in validated_data
+            else BAPTISM_VERIFIER_UNSET,
+            first_name=validated_data["historical_verified_first_name"]
+            if "historical_verified_first_name" in validated_data
+            else BAPTISM_VERIFIER_UNSET,
+            last_name=validated_data["historical_verified_last_name"]
+            if "historical_verified_last_name" in validated_data
+            else BAPTISM_VERIFIER_UNSET,
+        )
+        instance.save()
+        return instance
 
 
 class PersonStatusChangeSerializer(serializers.ModelSerializer):
@@ -624,6 +733,14 @@ class PersonSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
+    baptized_by = JourneyVerifierIdField(BAPTISM_JOURNEY_TYPE)
+    baptized_by_display_name = serializers.SerializerMethodField()
+    baptized_by_first_name = JourneyHistoricalNameField(BAPTISM_JOURNEY_TYPE, 0)
+    baptized_by_last_name = JourneyHistoricalNameField(BAPTISM_JOURNEY_TYPE, 1)
+    hg_witnessed_by = JourneyVerifierIdField(SPIRIT_JOURNEY_TYPE)
+    hg_witnessed_by_display_name = serializers.SerializerMethodField()
+    hg_witnessed_by_first_name = JourneyHistoricalNameField(SPIRIT_JOURNEY_TYPE, 0)
+    hg_witnessed_by_last_name = JourneyHistoricalNameField(SPIRIT_JOURNEY_TYPE, 1)
 
     class Meta:
         model = Person
@@ -650,6 +767,14 @@ class PersonSerializer(serializers.ModelSerializer):
             "first_activity_attended",
             "water_baptism_date",
             "spirit_baptism_date",
+            "baptized_by",
+            "baptized_by_display_name",
+            "baptized_by_first_name",
+            "baptized_by_last_name",
+            "hg_witnessed_by",
+            "hg_witnessed_by_display_name",
+            "hg_witnessed_by_first_name",
+            "hg_witnessed_by_last_name",
             "has_finished_lessons",
             "lessons_started_at",
             "lessons_finished_at",
@@ -727,6 +852,9 @@ class PersonSerializer(serializers.ModelSerializer):
                 data.pop("username", None)
             if not hasattr(data, "getlist"):
                 for field_name in self._BLANKABLE_DATE_FIELDS:
+                    if data.get(field_name) == "":
+                        data[field_name] = None
+                for field_name in ("baptized_by", "hg_witnessed_by"):
                     if data.get(field_name) == "":
                         data[field_name] = None
         return super().to_internal_value(data)
@@ -966,6 +1094,27 @@ class PersonSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(future_date_errors)
 
         apply_title_case_name_fields(attrs, PERSON_NAME_FIELDS)
+        apply_title_case_name_fields(
+            attrs,
+            (
+                "baptized_by_first_name",
+                "baptized_by_last_name",
+                "hg_witnessed_by_first_name",
+                "hg_witnessed_by_last_name",
+            ),
+        )
+        if "baptized_by_first_name" in attrs or "baptized_by_last_name" in attrs:
+            validate_historical_name_pair(
+                attrs.get("baptized_by_first_name"),
+                attrs.get("baptized_by_last_name"),
+                first_field="baptized_by_first_name",
+            )
+        if "hg_witnessed_by_first_name" in attrs or "hg_witnessed_by_last_name" in attrs:
+            validate_historical_name_pair(
+                attrs.get("hg_witnessed_by_first_name"),
+                attrs.get("hg_witnessed_by_last_name"),
+                first_field="hg_witnessed_by_first_name",
+            )
 
         gender = attrs.get(
             "gender",
@@ -1014,6 +1163,12 @@ class PersonSerializer(serializers.ModelSerializer):
                     )
 
         return attrs
+
+    def get_baptized_by_display_name(self, obj: Person):
+        return person_verifier_display_name(obj, BAPTISM_JOURNEY_TYPE)
+
+    def get_hg_witnessed_by_display_name(self, obj: Person):
+        return person_verifier_display_name(obj, SPIRIT_JOURNEY_TYPE)
 
     def _trigger_legacy_lessons_backfill(
         self,
@@ -1120,6 +1275,27 @@ class PersonSerializer(serializers.ModelSerializer):
 
         if teacher is not None:
             self._validate_live_lesson_teacher(teacher, attrs, instance)
+
+    @staticmethod
+    def _pop_baptism_verifier_fields(validated_data: dict):
+        return {
+            "baptized_by": validated_data.pop("baptized_by", BAPTISM_VERIFIER_UNSET),
+            "hg_witnessed_by": validated_data.pop(
+                "hg_witnessed_by", BAPTISM_VERIFIER_UNSET
+            ),
+            "baptized_by_first_name": validated_data.pop(
+                "baptized_by_first_name", BAPTISM_VERIFIER_UNSET
+            ),
+            "baptized_by_last_name": validated_data.pop(
+                "baptized_by_last_name", BAPTISM_VERIFIER_UNSET
+            ),
+            "hg_witnessed_by_first_name": validated_data.pop(
+                "hg_witnessed_by_first_name", BAPTISM_VERIFIER_UNSET
+            ),
+            "hg_witnessed_by_last_name": validated_data.pop(
+                "hg_witnessed_by_last_name", BAPTISM_VERIFIER_UNSET
+            ),
+        }
 
     @staticmethod
     def _pop_commitment_write_fields(validated_data: dict) -> dict:
@@ -1240,6 +1416,7 @@ class PersonSerializer(serializers.ModelSerializer):
                 validated_data["branch"] = request.user.branch
 
         commitment_write = self._pop_commitment_write_fields(validated_data)
+        verifier_write = self._pop_baptism_verifier_fields(validated_data)
 
         note = validated_data.pop("note", "").strip() if "note" in validated_data else ""
         validated_data.pop("status_change_reason", None)
@@ -1266,7 +1443,9 @@ class PersonSerializer(serializers.ModelSerializer):
         validated_data["username"] = generate_unique_username(
             first_name, last_name
         )
-        person = super().create(validated_data)
+        person = Person(**validated_data)
+        stash_baptism_verifiers(person, **verifier_write)
+        person.save()
         self._apply_memberships(person, families=families, clusters=clusters)
 
         if (
@@ -1339,6 +1518,8 @@ class PersonSerializer(serializers.ModelSerializer):
         ).strip()
 
         commitment_write = self._pop_commitment_write_fields(validated_data)
+        verifier_write = self._pop_baptism_verifier_fields(validated_data)
+        stash_baptism_verifiers(instance, **verifier_write)
 
         families = (
             validated_data.pop("families") if "families" in validated_data else None

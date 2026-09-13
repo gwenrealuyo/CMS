@@ -105,6 +105,9 @@ export interface Journey {
   type_display?: string;
   description?: string;
   verified_by?: string; // Person ID
+  verified_by_display_name?: string | null;
+  historical_verified_first_name?: string;
+  historical_verified_last_name?: string;
   created_at?: string; // ISO datetime
 }
 
@@ -138,6 +141,14 @@ export interface Person {
   date_first_attended?: string; // ISO date string
   water_baptism_date?: string; // ISO date string
   spirit_baptism_date?: string; // ISO date string
+  baptized_by?: string | null;
+  baptized_by_display_name?: string | null;
+  baptized_by_first_name?: string;
+  baptized_by_last_name?: string;
+  hg_witnessed_by?: string | null;
+  hg_witnessed_by_display_name?: string | null;
+  hg_witnessed_by_first_name?: string;
+  hg_witnessed_by_last_name?: string;
   has_finished_lessons?: boolean;
   lessons_started_at?: string; // ISO date string
   lessons_finished_at?: string | null; // ISO date string

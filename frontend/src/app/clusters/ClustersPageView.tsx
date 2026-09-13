@@ -672,6 +672,9 @@ export default function ClustersPageView({
         }}
         onNoFamilyClick={() => {}}
         onNoClusterClick={() => {}}
+        onViewPerson={(id) => {
+          onViewPerson?.({ id } as Person);
+        }}
         onEdit={() => {
           if (isPanel) {
             onBackClusterPanel();

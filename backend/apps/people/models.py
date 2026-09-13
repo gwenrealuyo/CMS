@@ -365,6 +365,8 @@ class Journey(models.Model):
     verified_by = models.ForeignKey(
         Person, on_delete=models.SET_NULL, null=True, related_name="verified_journeys"
     )
+    historical_verified_first_name = models.CharField(max_length=150, blank=True)
+    historical_verified_last_name = models.CharField(max_length=150, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

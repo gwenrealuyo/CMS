@@ -4,14 +4,32 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
+import BaptismVerifierPicker from "@/src/components/people/BaptismVerifierPicker";
 import { Conversion } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
 import { lessonsApi } from "@/src/lib/api";
+import {
+  BAPTIZED_BY_HINT,
+  BAPTIZED_BY_LABEL,
+  HG_WITNESSED_BY_HINT,
+  HG_WITNESSED_BY_LABEL,
+  historicalNamesComplete,
+  initialVerifierMode,
+  personIdString,
+  verifierPeopleOptions,
+  type VerifierEntryMode,
+} from "@/src/lib/baptismVerifiers";
 
 export interface ConversionFormValues {
   person_id: string;
   water_baptism_date?: string;
   spirit_baptism_date?: string;
+  baptized_by_id?: string;
+  baptized_by_first_name?: string;
+  baptized_by_last_name?: string;
+  hg_witnessed_by_id?: string;
+  hg_witnessed_by_first_name?: string;
+  hg_witnessed_by_last_name?: string;
   lesson_start_date?: string;
   date_first_invited?: string;
   date_first_attended?: string;
@@ -87,6 +105,16 @@ export default function ConversionForm({
     spirit_baptism_date: initialData?.spirit_baptism_date
       ? new Date(initialData.spirit_baptism_date).toISOString().split("T")[0]
       : "",
+    baptized_by_id: personIdString(
+      initialData?.baptized_by_id ?? initialData?.baptized_by,
+    ),
+    baptized_by_first_name: initialData?.baptized_by_first_name || "",
+    baptized_by_last_name: initialData?.baptized_by_last_name || "",
+    hg_witnessed_by_id: personIdString(
+      initialData?.hg_witnessed_by_id ?? initialData?.hg_witnessed_by,
+    ),
+    hg_witnessed_by_first_name: initialData?.hg_witnessed_by_first_name || "",
+    hg_witnessed_by_last_name: initialData?.hg_witnessed_by_last_name || "",
     lesson_start_date: initialData?.lesson_start_date
       ? isoDateInputValue(initialData.lesson_start_date)
       : "",
@@ -96,6 +124,26 @@ export default function ConversionForm({
   });
   const [lessonDateTouched, setLessonDateTouched] = useState(false);
   const [loadingLessonDate, setLoadingLessonDate] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [baptizerMode, setBaptizerMode] = useState<VerifierEntryMode>(() =>
+    initialVerifierMode(
+      initialData?.baptized_by_id ?? initialData?.baptized_by,
+      initialData?.baptized_by_first_name,
+      initialData?.baptized_by_last_name,
+    ),
+  );
+  const [hgWitnessMode, setHgWitnessMode] = useState<VerifierEntryMode>(() =>
+    initialVerifierMode(
+      initialData?.hg_witnessed_by_id ?? initialData?.hg_witnessed_by,
+      initialData?.hg_witnessed_by_first_name,
+      initialData?.hg_witnessed_by_last_name,
+    ),
+  );
+
+  const verifierOptions = useMemo(
+    () => verifierPeopleOptions(people),
+    [people],
+  );
 
   const handleChange =
     (field: keyof ConversionFormValues) =>
@@ -115,7 +163,43 @@ export default function ConversionForm({
     if (!values.person_id) {
       return;
     }
-    await onSubmit(values);
+    if (
+      values.water_baptism_date &&
+      baptizerMode === "historical" &&
+      !historicalNamesComplete(
+        values.baptized_by_first_name,
+        values.baptized_by_last_name,
+      )
+    ) {
+      setLocalError("Enter former/unknown baptizer first and last name.");
+      return;
+    }
+    if (
+      values.spirit_baptism_date &&
+      hgWitnessMode === "historical" &&
+      !historicalNamesComplete(
+        values.hg_witnessed_by_first_name,
+        values.hg_witnessed_by_last_name,
+      )
+    ) {
+      setLocalError("Enter former/unknown witness first and last name.");
+      return;
+    }
+    const payload: ConversionFormValues = { ...values };
+    if (baptizerMode === "historical") {
+      payload.baptized_by_id = "";
+    } else {
+      payload.baptized_by_first_name = "";
+      payload.baptized_by_last_name = "";
+    }
+    if (hgWitnessMode === "historical") {
+      payload.hg_witnessed_by_id = "";
+    } else {
+      payload.hg_witnessed_by_first_name = "";
+      payload.hg_witnessed_by_last_name = "";
+    }
+    setLocalError(null);
+    await onSubmit(payload);
   };
 
   const selectablePeople = useMemo(() => {
@@ -185,7 +269,9 @@ export default function ConversionForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      {error && <ErrorMessage message={error} />}
+      {(error || localError) && (
+        <ErrorMessage message={error || localError || ""} />
+      )}
 
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -262,7 +348,41 @@ export default function ConversionForm({
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
-
+        <div className="space-y-1">
+          <BaptismVerifierPicker
+            label={BAPTIZED_BY_LABEL}
+            hint={BAPTIZED_BY_HINT}
+            radioName="conversion_baptizer_mode"
+            mode={baptizerMode}
+            onModeChange={(mode) => {
+              setBaptizerMode(mode);
+              setValues((prev) => ({
+                ...prev,
+                baptized_by_id: mode === "historical" ? "" : prev.baptized_by_id,
+                baptized_by_first_name:
+                  mode === "select" ? "" : prev.baptized_by_first_name,
+                baptized_by_last_name:
+                  mode === "select" ? "" : prev.baptized_by_last_name,
+              }));
+            }}
+            personId={values.baptized_by_id || ""}
+            onPersonIdChange={(value) =>
+              setValues((prev) => ({ ...prev, baptized_by_id: value }))
+            }
+            firstName={values.baptized_by_first_name || ""}
+            lastName={values.baptized_by_last_name || ""}
+            onFirstNameChange={(value) =>
+              setValues((prev) => ({ ...prev, baptized_by_first_name: value }))
+            }
+            onLastNameChange={(value) =>
+              setValues((prev) => ({ ...prev, baptized_by_last_name: value }))
+            }
+            options={verifierOptions}
+            emptyMessage="No baptizer found"
+            requireHistoricalNames={Boolean(values.water_baptism_date)}
+            showClusterCodes={false}
+          />
+        </div>
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
             Holy Ghost Reception Date
@@ -272,6 +392,47 @@ export default function ConversionForm({
             value={values.spirit_baptism_date}
             onChange={handleChange("spirit_baptism_date")}
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+        <div className="space-y-1">
+          <BaptismVerifierPicker
+            label={HG_WITNESSED_BY_LABEL}
+            hint={HG_WITNESSED_BY_HINT}
+            radioName="conversion_hg_witness_mode"
+            mode={hgWitnessMode}
+            onModeChange={(mode) => {
+              setHgWitnessMode(mode);
+              setValues((prev) => ({
+                ...prev,
+                hg_witnessed_by_id:
+                  mode === "historical" ? "" : prev.hg_witnessed_by_id,
+                hg_witnessed_by_first_name:
+                  mode === "select" ? "" : prev.hg_witnessed_by_first_name,
+                hg_witnessed_by_last_name:
+                  mode === "select" ? "" : prev.hg_witnessed_by_last_name,
+              }));
+            }}
+            personId={values.hg_witnessed_by_id || ""}
+            onPersonIdChange={(value) =>
+              setValues((prev) => ({ ...prev, hg_witnessed_by_id: value }))
+            }
+            firstName={values.hg_witnessed_by_first_name || ""}
+            lastName={values.hg_witnessed_by_last_name || ""}
+            onFirstNameChange={(value) =>
+              setValues((prev) => ({
+                ...prev,
+                hg_witnessed_by_first_name: value,
+              }))
+            }
+            onLastNameChange={(value) =>
+              setValues((prev) => ({
+                ...prev,
+                hg_witnessed_by_last_name: value,
+              }))
+            }
+            options={verifierOptions}
+            emptyMessage="No witness found"
+            requireHistoricalNames={Boolean(values.spirit_baptism_date)}
           />
         </div>
       </div>

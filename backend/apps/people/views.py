@@ -349,7 +349,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                 .get_queryset()
                 .filter(Q(pk__in=qs.values_list("pk", flat=True)) | Q(pk=user_pk))
                 .prefetch_related(
-                    "journeys",
+                    "journeys__verified_by",
                     "module_coordinator_assignments",
                 )
             )
@@ -700,7 +700,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
 
 
 class JourneyViewSet(viewsets.ModelViewSet):
-    queryset = Journey.objects.all()
+    queryset = Journey.objects.select_related("user", "verified_by").all()
     serializer_class = JourneySerializer
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     filter_backends = [DjangoFilterBackend]

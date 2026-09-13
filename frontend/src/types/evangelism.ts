@@ -255,6 +255,16 @@ export interface Conversion {
   notes?: string;
   verified_by?: Person;
   verified_by_id?: string;
+  baptized_by?: Person | null;
+  baptized_by_id?: string;
+  baptized_by_first_name?: string;
+  baptized_by_last_name?: string;
+  baptized_by_display_name?: string | null;
+  hg_witnessed_by?: Person | null;
+  hg_witnessed_by_id?: string;
+  hg_witnessed_by_first_name?: string;
+  hg_witnessed_by_last_name?: string;
+  hg_witnessed_by_display_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -272,6 +282,12 @@ export type ConversionWritePayload = {
   lesson_start_date?: string | null;
   water_baptism_date?: string | null;
   spirit_baptism_date?: string | null;
+  baptized_by_id?: string | null;
+  baptized_by_first_name?: string | null;
+  baptized_by_last_name?: string | null;
+  hg_witnessed_by_id?: string | null;
+  hg_witnessed_by_first_name?: string | null;
+  hg_witnessed_by_last_name?: string | null;
   notes?: string;
 };
 

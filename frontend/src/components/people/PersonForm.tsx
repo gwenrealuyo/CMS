@@ -29,11 +29,26 @@ import { getCreatableRoles } from "@/src/lib/personRolePermissions";
 import { getPeopleCreateAccess } from "@/src/lib/peopleCreateAccess";
 import { isValidUsername, suggestedUsername } from "@/src/lib/usernames";
 import {
+  BAPTIZED_BY_HINT,
+  BAPTIZED_BY_LABEL,
+  HG_WITNESSED_BY_HINT,
+  HG_WITNESSED_BY_LABEL,
+  historicalNamesComplete,
+  initialVerifierMode,
+  isVerifierRequiredJourneyType,
+  journeyVerifierHint,
+  journeyVerifierLabel,
+  personIdString,
+  verifierPeopleOptions,
+  type VerifierEntryMode,
+} from "@/src/lib/baptismVerifiers";
+import {
   userCanEditVitalDates,
   userCanEditVitalDatesOnCreate,
 } from "@/src/lib/clusterPermissions";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import SearchableSelect from "@/src/components/ui/SearchableSelect";
+import BaptismVerifierPicker from "@/src/components/people/BaptismVerifierPicker";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import PasswordInput from "@/src/components/ui/PasswordInput";
 import ExpandableText from "@/src/components/ui/ExpandableText";
@@ -282,6 +297,20 @@ export default function PersonForm({
   const [teacherMode, setTeacherMode] = useState<"select" | "historical">(
     "select",
   );
+  const [baptizerMode, setBaptizerMode] = useState<VerifierEntryMode>(() =>
+    initialVerifierMode(
+      initialData?.baptized_by,
+      initialData?.baptized_by_first_name,
+      initialData?.baptized_by_last_name,
+    ),
+  );
+  const [hgWitnessMode, setHgWitnessMode] = useState<VerifierEntryMode>(() =>
+    initialVerifierMode(
+      initialData?.hg_witnessed_by,
+      initialData?.hg_witnessed_by_first_name,
+      initialData?.hg_witnessed_by_last_name,
+    ),
+  );
   const [statusChangeReason, setStatusChangeReason] = useState("");
 
   const [familySearch, setFamilySearch] = useState("");
@@ -369,6 +398,11 @@ export default function PersonForm({
     [teacherRoster, initialData?.id],
   );
 
+  const verifierSelectOptions = useMemo(
+    () => verifierPeopleOptions(peopleOptions),
+    [peopleOptions],
+  );
+
   // Invite/attend + first activity: writable when creating a visitor (API accepts on create)
   const canEditInviteAttendDates =
     canEditVitalDates || (isCreating && formData.role === "VISITOR");
@@ -433,9 +467,13 @@ export default function PersonForm({
     title?: string;
     description?: string;
     verified_by?: string | null;
+    historical_verified_first_name?: string | null;
+    historical_verified_last_name?: string | null;
   }) =>
     `${m.date ?? ""}|${m.type ?? ""}|${m.title ?? ""}|${m.description ?? ""}|${
       m.verified_by ?? ""
+    }|${m.historical_verified_first_name ?? ""}|${
+      m.historical_verified_last_name ?? ""
     }`;
   useEffect(() => {
     const initialKeys = new Set(
@@ -513,13 +551,19 @@ export default function PersonForm({
     title: string;
     description: string;
     verified_by: string;
+    historical_verified_first_name: string;
+    historical_verified_last_name: string;
   }>({
     date: new Date().toISOString().slice(0, 10),
     type: "NOTE",
     title: "",
     description: "",
     verified_by: "",
+    historical_verified_first_name: "",
+    historical_verified_last_name: "",
   });
+  const [journeyVerifierMode, setJourneyVerifierMode] =
+    useState<VerifierEntryMode>("select");
 
   const [editingJourneyIndex, setEditingJourneyIndex] = useState<number | null>(
     null,
@@ -696,10 +740,52 @@ export default function PersonForm({
     setHasUnsavedChanges(true);
   };
 
+  const blankJourney = () => ({
+    date: new Date().toISOString().slice(0, 10),
+    type: "NOTE" as JourneyType,
+    title: "",
+    description: "",
+    verified_by: "",
+    historical_verified_first_name: "",
+    historical_verified_last_name: "",
+  });
+
+  const journeyVerifierWrite = () => {
+    if (
+      isVerifierRequiredJourneyType(newJourney.type) &&
+      journeyVerifierMode === "historical"
+    ) {
+      return {
+        verified_by: null,
+        historical_verified_first_name:
+          newJourney.historical_verified_first_name.trim(),
+        historical_verified_last_name:
+          newJourney.historical_verified_last_name.trim(),
+      };
+    }
+    return {
+      verified_by: newJourney.verified_by || null,
+      historical_verified_first_name: "",
+      historical_verified_last_name: "",
+    };
+  };
+
   const handleAddJourney = () => {
     if (!newJourney.date || !newJourney.title.trim()) {
       return;
     }
+    if (
+      isVerifierRequiredJourneyType(newJourney.type) &&
+      journeyVerifierMode === "historical" &&
+      !historicalNamesComplete(
+        newJourney.historical_verified_first_name,
+        newJourney.historical_verified_last_name,
+      )
+    ) {
+      toast.error("Enter former/unknown first and last name.");
+      return;
+    }
+    const verifierWrite = journeyVerifierWrite();
     // If editing an existing person, persist immediately so it remains after closing
     const existingUserId = (initialData?.id || (formData as any).id) as
       | string
@@ -713,7 +799,7 @@ export default function PersonForm({
             date: newJourney.date,
             type: newJourney.type,
             description: newJourney.description,
-            verified_by: newJourney.verified_by || undefined,
+            ...verifierWrite,
           });
           const createdJourney = {
             ...newJourney,
@@ -757,13 +843,8 @@ export default function PersonForm({
         "Journey event added. It will be saved when you submit the form.",
       );
     }
-    setNewJourney({
-      date: new Date().toISOString().slice(0, 10),
-      type: "NOTE",
-      title: "",
-      description: "",
-      verified_by: "",
-    });
+    setNewJourney(blankJourney());
+    setJourneyVerifierMode("select");
   };
 
   const handleEditJourney = (index: number) => {
@@ -776,7 +857,18 @@ export default function PersonForm({
         title: journey.title || "",
         description: journey.description || "",
         verified_by: journey.verified_by ? String(journey.verified_by) : "",
+        historical_verified_first_name:
+          journey.historical_verified_first_name || "",
+        historical_verified_last_name:
+          journey.historical_verified_last_name || "",
       });
+      setJourneyVerifierMode(
+        initialVerifierMode(
+          journey.verified_by,
+          journey.historical_verified_first_name,
+          journey.historical_verified_last_name,
+        ),
+      );
     }
   };
 
@@ -786,6 +878,17 @@ export default function PersonForm({
       !newJourney.title.trim() ||
       editingJourneyIndex === null
     ) {
+      return;
+    }
+    if (
+      isVerifierRequiredJourneyType(newJourney.type) &&
+      journeyVerifierMode === "historical" &&
+      !historicalNamesComplete(
+        newJourney.historical_verified_first_name,
+        newJourney.historical_verified_last_name,
+      )
+    ) {
+      toast.error("Enter former/unknown first and last name.");
       return;
     }
 
@@ -812,7 +915,7 @@ export default function PersonForm({
             date: newJourney.date,
             type: newJourney.type,
             description: newJourney.description,
-            verified_by: newJourney.verified_by || undefined,
+            ...journeyVerifierWrite(),
           });
           const nextJourneys = (formData.journeys || []).map((journey, index) =>
             index === editingJourneyIndex
@@ -870,13 +973,8 @@ export default function PersonForm({
 
   const handleCancelEdit = () => {
     setEditingJourneyIndex(null);
-    setNewJourney({
-      date: new Date().toISOString().slice(0, 10),
-      type: "NOTE",
-      title: "",
-      description: "",
-      verified_by: "",
-    });
+    setNewJourney(blankJourney());
+    setJourneyVerifierMode("select");
   };
 
   const finishJourneyMutation = async (
@@ -1035,6 +1133,42 @@ export default function PersonForm({
     delete (
       personData as Partial<Person> & { lesson_teacher_display_name?: string }
     ).lesson_teacher_display_name;
+    delete (
+      personData as Partial<Person> & { baptized_by_display_name?: string }
+    ).baptized_by_display_name;
+    delete (
+      personData as Partial<Person> & { hg_witnessed_by_display_name?: string }
+    ).hg_witnessed_by_display_name;
+    if (baptizerMode === "historical") {
+      personData.baptized_by = null;
+      personData.baptized_by_first_name = (
+        personData.baptized_by_first_name || ""
+      ).trim();
+      personData.baptized_by_last_name = (
+        personData.baptized_by_last_name || ""
+      ).trim();
+    } else {
+      personData.baptized_by = personData.baptized_by
+        ? personIdString(personData.baptized_by)
+        : null;
+      personData.baptized_by_first_name = "";
+      personData.baptized_by_last_name = "";
+    }
+    if (hgWitnessMode === "historical") {
+      personData.hg_witnessed_by = null;
+      personData.hg_witnessed_by_first_name = (
+        personData.hg_witnessed_by_first_name || ""
+      ).trim();
+      personData.hg_witnessed_by_last_name = (
+        personData.hg_witnessed_by_last_name || ""
+      ).trim();
+    } else {
+      personData.hg_witnessed_by = personData.hg_witnessed_by
+        ? personIdString(personData.hg_witnessed_by)
+        : null;
+      personData.hg_witnessed_by_first_name = "";
+      personData.hg_witnessed_by_last_name = "";
+    }
 
     if (isCreating || !isAdmin) {
       delete personData.username;
@@ -1091,7 +1225,11 @@ export default function PersonForm({
                 date: journey.date,
                 type: journey.type,
                 description: journey.description,
-                verified_by: journey.verified_by || undefined,
+                verified_by: journey.verified_by || null,
+                historical_verified_first_name:
+                  journey.historical_verified_first_name || "",
+                historical_verified_last_name:
+                  journey.historical_verified_last_name || "",
               });
             }
             await onJourneySaved?.(String((result as { id: string }).id));
@@ -1193,6 +1331,29 @@ export default function PersonForm({
           return;
         }
       }
+    }
+
+    if (
+      formData.water_baptism_date &&
+      baptizerMode === "historical" &&
+      !historicalNamesComplete(
+        formData.baptized_by_first_name,
+        formData.baptized_by_last_name,
+      )
+    ) {
+      toast.error("Enter former/unknown baptizer first and last name.");
+      return;
+    }
+    if (
+      formData.spirit_baptism_date &&
+      hgWitnessMode === "historical" &&
+      !historicalNamesComplete(
+        formData.hg_witnessed_by_first_name,
+        formData.hg_witnessed_by_last_name,
+      )
+    ) {
+      toast.error("Enter former/unknown witness first and last name.");
+      return;
     }
 
     if (formData.commitment_form_signed) {
@@ -2249,6 +2410,67 @@ export default function PersonForm({
                       />
                     </LockedField>
                   </div>
+                  <div className="col-span-full">
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <BaptismVerifierPicker
+                        label={BAPTIZED_BY_LABEL}
+                        hint={BAPTIZED_BY_HINT}
+                        radioName="baptizer_mode"
+                        mode={baptizerMode}
+                        onModeChange={(mode) => {
+                          setBaptizerMode(mode);
+                          setFormData((prev) => ({
+                            ...prev,
+                            baptized_by:
+                              mode === "historical" ? null : prev.baptized_by,
+                            baptized_by_first_name:
+                              mode === "select"
+                                ? ""
+                                : prev.baptized_by_first_name,
+                            baptized_by_last_name:
+                              mode === "select"
+                                ? ""
+                                : prev.baptized_by_last_name,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        personId={personIdString(formData.baptized_by)}
+                        onPersonIdChange={(value) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            baptized_by: value || null,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        firstName={formData.baptized_by_first_name || ""}
+                        lastName={formData.baptized_by_last_name || ""}
+                        onFirstNameChange={(value) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            baptized_by_first_name: value,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        onLastNameChange={(value) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            baptized_by_last_name: value,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        options={verifierSelectOptions}
+                        emptyMessage="No baptizer found"
+                        disabled={!canEditVitalDates}
+                        requireHistoricalNames={Boolean(
+                          formData.water_baptism_date,
+                        )}
+                        showClusterCodes={false}
+                      />
+                    </LockedField>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Spirit Baptism Date
@@ -2264,6 +2486,68 @@ export default function PersonForm({
                           handleDateFieldChange("spirit_baptism_date", next)
                         }
                         disabled={!canEditVitalDates}
+                      />
+                    </LockedField>
+                  </div>
+                  <div className="col-span-full">
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <BaptismVerifierPicker
+                        label={HG_WITNESSED_BY_LABEL}
+                        hint={HG_WITNESSED_BY_HINT}
+                        radioName="hg_witness_mode"
+                        mode={hgWitnessMode}
+                        onModeChange={(mode) => {
+                          setHgWitnessMode(mode);
+                          setFormData((prev) => ({
+                            ...prev,
+                            hg_witnessed_by:
+                              mode === "historical"
+                                ? null
+                                : prev.hg_witnessed_by,
+                            hg_witnessed_by_first_name:
+                              mode === "select"
+                                ? ""
+                                : prev.hg_witnessed_by_first_name,
+                            hg_witnessed_by_last_name:
+                              mode === "select"
+                                ? ""
+                                : prev.hg_witnessed_by_last_name,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        personId={personIdString(formData.hg_witnessed_by)}
+                        onPersonIdChange={(value) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            hg_witnessed_by: value || null,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        firstName={formData.hg_witnessed_by_first_name || ""}
+                        lastName={formData.hg_witnessed_by_last_name || ""}
+                        onFirstNameChange={(value) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            hg_witnessed_by_first_name: value,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        onLastNameChange={(value) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            hg_witnessed_by_last_name: value,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        options={verifierSelectOptions}
+                        emptyMessage="No witness found"
+                        disabled={!canEditVitalDates}
+                        requireHistoricalNames={Boolean(
+                          formData.spirit_baptism_date,
+                        )}
                       />
                     </LockedField>
                   </div>
@@ -2888,12 +3172,24 @@ export default function PersonForm({
               </label>
               <select
                 value={newJourney.type}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const type = e.target.value as JourneyType;
                   setNewJourney((prev) => ({
                     ...prev,
-                    type: e.target.value as JourneyType,
-                  }))
-                }
+                    type,
+                    historical_verified_first_name:
+                      isVerifierRequiredJourneyType(type)
+                        ? prev.historical_verified_first_name
+                        : "",
+                    historical_verified_last_name:
+                      isVerifierRequiredJourneyType(type)
+                        ? prev.historical_verified_last_name
+                        : "",
+                  }));
+                  if (!isVerifierRequiredJourneyType(type)) {
+                    setJourneyVerifierMode("select");
+                  }
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               >
                 {JOURNEY_TYPE_OPTIONS.map((type) => (
@@ -2920,26 +3216,68 @@ export default function PersonForm({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Verified By
-              </label>
-              <SearchableSelect
-                value={newJourney.verified_by || ""}
-                onChange={(value) =>
-                  setNewJourney((prev) => ({ ...prev, verified_by: value }))
-                }
-                options={peopleOptions
-                  .filter((p) => p.role !== "ADMIN" && p.username !== "admin")
-                  .map((p) => ({
-                    ...p,
-                    id: p.id,
-                    username: p.username || p.email || String(p.id),
-                  }))}
-                placeholder="Type a name to search..."
-                emptyMessage="No verifier found"
-                showEmptyOption={true}
-                emptyOptionLabel="No verifier"
-              />
+              {isVerifierRequiredJourneyType(newJourney.type) ? (
+                <BaptismVerifierPicker
+                  label={journeyVerifierLabel(newJourney.type)}
+                  hint={journeyVerifierHint(newJourney.type)}
+                  radioName="journey_verifier_mode"
+                  mode={journeyVerifierMode}
+                  onModeChange={(mode) => {
+                    setJourneyVerifierMode(mode);
+                    setNewJourney((prev) => ({
+                      ...prev,
+                      verified_by: mode === "historical" ? "" : prev.verified_by,
+                      historical_verified_first_name:
+                        mode === "select"
+                          ? ""
+                          : prev.historical_verified_first_name,
+                      historical_verified_last_name:
+                        mode === "select"
+                          ? ""
+                          : prev.historical_verified_last_name,
+                    }));
+                  }}
+                  personId={newJourney.verified_by || ""}
+                  onPersonIdChange={(value) =>
+                    setNewJourney((prev) => ({ ...prev, verified_by: value }))
+                  }
+                  firstName={newJourney.historical_verified_first_name}
+                  lastName={newJourney.historical_verified_last_name}
+                  onFirstNameChange={(value) =>
+                    setNewJourney((prev) => ({
+                      ...prev,
+                      historical_verified_first_name: value,
+                    }))
+                  }
+                  onLastNameChange={(value) =>
+                    setNewJourney((prev) => ({
+                      ...prev,
+                      historical_verified_last_name: value,
+                    }))
+                  }
+                  options={verifierSelectOptions}
+                  emptyMessage="No verifier found"
+                  requireHistoricalNames={true}
+                  showClusterCodes={newJourney.type !== "BAPTISM"}
+                />
+              ) : (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {journeyVerifierLabel(newJourney.type)}
+                  </label>
+                  <SearchableSelect
+                    value={newJourney.verified_by || ""}
+                    onChange={(value) =>
+                      setNewJourney((prev) => ({ ...prev, verified_by: value }))
+                    }
+                    options={verifierSelectOptions}
+                    placeholder="Type a name to search..."
+                    emptyMessage="No verifier found"
+                    showEmptyOption={true}
+                    emptyOptionLabel="No verifier"
+                  />
+                </>
+              )}
             </div>
             <div className="flex gap-3">
               {editingJourneyIndex !== null && (

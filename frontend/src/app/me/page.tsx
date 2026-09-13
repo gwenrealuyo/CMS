@@ -175,6 +175,9 @@ function MePageContent() {
               onNoClusterClick={
                 canManageAssignments ? () => router.push("/people") : undefined
               }
+              onViewPerson={(id) => {
+                router.push(`/people?open=${id}`);
+              }}
               onEdit={() => {
                 setStartOnTimelineTab(false);
                 setProfileStartOnTimelineTab(false);

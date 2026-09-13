@@ -117,6 +117,8 @@ const PERSON_FORM_DATA_SKIP_FIELDS = new Set([
   "user_permissions",
   "latest_status_change",
   "open_care_case",
+  "baptized_by_display_name",
+  "hg_witnessed_by_display_name",
 ]);
 
 export function personDataToFormData(

@@ -21,6 +21,13 @@ import ExpandableText from "@/src/components/ui/ExpandableText";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import { formatPersonStatusLabel } from "@/src/lib/personStatus";
 import { formatDisplayDate as formatApiDate } from "@/src/lib/date";
+import {
+  BAPTIZED_BY_LABEL,
+  HG_WITNESSED_BY_LABEL,
+  NOT_SURE_OPTION_LABEL,
+  journeyVerifierLabel,
+  personIdString,
+} from "@/src/lib/baptismVerifiers";
 import { memberCareActionLabel } from "@/src/lib/memberCare";
 
 function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
@@ -92,6 +99,7 @@ interface PersonProfileProps {
   onViewFamily?: (family: Family) => void;
   onNoFamilyClick?: (person: Person) => void;
   onNoClusterClick?: (person: Person) => void;
+  onViewPerson?: (personId: string) => void;
   onEdit: () => void;
   onDelete: () => void;
   onAddTimeline: () => void;
@@ -114,6 +122,7 @@ export default function PersonProfile({
   onViewFamily,
   onNoFamilyClick,
   onNoClusterClick,
+  onViewPerson,
   onEdit,
   onDelete,
   onAddTimeline,
@@ -202,6 +211,27 @@ export default function PersonProfile({
   };
 
   const ProfileFieldRow = DetailFieldRow;
+
+  const renderLinkedPersonName = (
+    personId?: string | number | null,
+    displayName?: string | null,
+  ) => {
+    const name = (displayName || "").trim();
+    const id = personIdString(personId);
+    if (!name) return null;
+    if (!onViewPerson || !id) {
+      return <span className="text-sm text-gray-800">{name}</span>;
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => onViewPerson(id)}
+        className="text-sm font-medium text-primary hover:underline text-left"
+      >
+        {name}
+      </button>
+    );
+  };
 
   const prettifyFirstActivity = (rawValue?: string) => {
     if (!rawValue) return "Not specified";
@@ -899,10 +929,40 @@ export default function PersonProfile({
                         )}
                       />
                       <ProfileFieldRow
+                        label={BAPTIZED_BY_LABEL}
+                        value={person.baptized_by_display_name}
+                        fallback={
+                          person.water_baptism_date
+                            ? NOT_SURE_OPTION_LABEL
+                            : "Not specified"
+                        }
+                        valueNode={
+                          renderLinkedPersonName(
+                            person.baptized_by,
+                            person.baptized_by_display_name,
+                          ) || undefined
+                        }
+                      />
+                      <ProfileFieldRow
                         label="Spirit baptism"
                         value={formatDisplayDate(
                           (person as any).spirit_baptism_date,
                         )}
+                      />
+                      <ProfileFieldRow
+                        label={HG_WITNESSED_BY_LABEL}
+                        value={person.hg_witnessed_by_display_name}
+                        fallback={
+                          person.spirit_baptism_date
+                            ? NOT_SURE_OPTION_LABEL
+                            : "Not specified"
+                        }
+                        valueNode={
+                          renderLinkedPersonName(
+                            person.hg_witnessed_by,
+                            person.hg_witnessed_by_display_name,
+                          ) || undefined
+                        }
                       />
                       <ProfileFieldRow
                         label="Nickname"
@@ -1093,6 +1153,29 @@ export default function PersonProfile({
                                 {formatDisplayDate(journey.date) ||
                                   journey.date}
                               </div>
+                              {(journey.type === "BAPTISM" ||
+                                journey.type === "SPIRIT") && (
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    {journeyVerifierLabel(journey.type)}:{" "}
+                                    {renderLinkedPersonName(
+                                      journey.verified_by,
+                                      journey.verified_by_display_name,
+                                    ) ||
+                                      journey.verified_by_display_name ||
+                                      NOT_SURE_OPTION_LABEL}
+                                  </div>
+                                )}
+                              {journey.verified_by_display_name &&
+                                journey.type !== "BAPTISM" &&
+                                journey.type !== "SPIRIT" && (
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    Verified by:{" "}
+                                    {renderLinkedPersonName(
+                                      journey.verified_by,
+                                      journey.verified_by_display_name,
+                                    ) || journey.verified_by_display_name}
+                                  </div>
+                                )}
                               {journey.description && (
                                 <ExpandableText
                                   text={journey.description}

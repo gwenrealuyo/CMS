@@ -33,6 +33,8 @@ interface SearchableSelectProps {
   showEmptyOption?: boolean;
   emptyOptionLabel?: string;
   disabled?: boolean;
+  showStatus?: boolean;
+  showClusterCodes?: boolean;
 }
 
 export default function SearchableSelect({
@@ -47,6 +49,8 @@ export default function SearchableSelect({
   showEmptyOption = true,
   emptyOptionLabel = "All",
   disabled = false,
+  showStatus = true,
+  showClusterCodes = true,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -261,10 +265,13 @@ export default function SearchableSelect({
                   const role =
                     typeof option.role === "string" ? option.role : "";
                   const status =
-                    typeof option.status === "string" ? option.status : "";
-                  const clusterCodes = Array.isArray(option.cluster_codes)
-                    ? (option.cluster_codes as string[])
-                    : null;
+                    showStatus && typeof option.status === "string"
+                      ? option.status
+                      : "";
+                  const clusterCodes =
+                    showClusterCodes && Array.isArray(option.cluster_codes)
+                      ? (option.cluster_codes as string[])
+                      : null;
                   return (
                     <button
                       key={optionId}

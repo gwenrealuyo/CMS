@@ -63,7 +63,10 @@ Person fields (serializer)
 ```
 id, username (generated on create; writable on update for ADMIN only), first_name, last_name, middle_name?, suffix?, nickname?, maiden_name?, gender?,
 facebook_name?, photo?, role, phone?, address?, country?, date_of_birth?,
-date_first_attended?, inviter (Person id)?, inviter_display_name? (read-only), branch (Branch id)?, member_id?,
+date_first_attended?, inviter (Person id)?, inviter_display_name? (read-only),
+water_baptism_date?, baptized_by (Person id)?, baptized_by_display_name? (read-only),
+spirit_baptism_date?, hg_witnessed_by (Person id)?, hg_witnessed_by_display_name? (read-only),
+branch (Branch id)?, member_id?,
 status? (ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED|ONGOING|NO_RESPONSE),
 status_change_reason? (write-only), latest_status_change? (read-only object)
 ```
@@ -72,6 +75,7 @@ Notes:
 - `maiden_name` is optional metadata (searchable); not part of display `full_name` / username generation.
 - `username` is generated on create from first two letters of first name + last name (lowercase; letters, digits, and `@ . + - _` only). Client-supplied `username` is ignored on create. On update, only ADMIN may change it (unique, non-blank, not reserved `admin`). Non-admin payloads drop `username`.
 - `inviter_display_name` (read-only) uses the usual display format: first name, nickname in quotes, middle initial, last name, suffix.
+- `baptized_by` / `hg_witnessed_by` are stored as `Journey.verified_by` on the BAPTISM / SPIRIT journeys. Optional; omit or send `null` when the baptizer/witness is unknown (UI: **Not sure**). The live person must not be a visitor or admin. To record someone who is not in the directory, send `baptized_by_first_name` / `baptized_by_last_name` (or `hg_witnessed_by_first_name` / `hg_witnessed_by_last_name`) instead of a person id — stored on the journey as `historical_verified_first_name` / `historical_verified_last_name`. A live person id clears those names. `baptized_by` is who baptized the member; `hg_witnessed_by` is who witnessed when they received the Holy Ghost. Display names use the same format as `inviter_display_name` (historical names are first + last).
 - Name fields (`first_name`, `last_name`, `middle_name`, `suffix`, `nickname`, `maiden_name`) are normalized on write: mixed-case is preserved; all-lower/all-upper is title-cased (particles, Mc/Mac, Roman numerals).
 - Status by role (UI): members/pastors/admins use ACTIVE|SEMIACTIVE|INACTIVE|DORMANT|FALLAWAY|DECEASED; visitors use ONGOING|NO_RESPONSE|DECEASED. Prospect pipeline stages INVITED/ATTENDED are separate from `Person.status`.
 - When `status` changes on update, a `PersonStatusChange` row and a Journey `NOTE` (`Status Update: OLD → NEW`) are created. `status_change_reason` is **required** when changing **to** SEMIACTIVE, INACTIVE, DORMANT, FALLAWAY, or DECEASED. Optional for Active / Ongoing / No Response. Not required on create, attendance auto-calc, or system baptism/role writes.
@@ -149,7 +153,7 @@ branch (Branch id)?, description?, created_at (read-only)
 - Retrieve: `GET /api/people/journeys/{id}/`
 - Create: `POST /api/people/journeys/`
   - Required: `user` (Person ID), `date`, `type`
-  - Optional: `title`, `description`, `verified_by` (Person ID)
+  - Optional: `title`, `description`, `verified_by` (Person ID; for `BAPTISM` / `SPIRIT`, `null` means the baptizer/witness is unknown), `historical_verified_first_name` / `historical_verified_last_name` (legacy names when the person is not in the directory; both required together)
 - Update: `PUT /api/people/journeys/{id}/`
 - Partial Update: `PATCH /api/people/journeys/{id}/`
 - Delete: `DELETE /api/people/journeys/{id}/`
@@ -158,10 +162,10 @@ Journey fields (serializer)
 
 ```
 id, user (Person ID), title?, date, type (LESSON|BAPTISM|SPIRIT|CLUSTER|NOTE|EVENT_ATTENDANCE|MINISTRY|BRANCH_TRANSFER),
-description?, verified_by (Person ID | null), created_at (read-only)
+description?, verified_by (Person ID | null), verified_by_display_name? (read-only), historical_verified_first_name?, historical_verified_last_name?, created_at (read-only)
 ```
 
-Note: `BRANCH_TRANSFER` type is automatically created when a Person's branch changes.
+Note: `BRANCH_TRANSFER` type is automatically created when a Person's branch changes. For `BAPTISM`, `verified_by` is who baptized the member. For `SPIRIT`, `verified_by` is who witnessed when they received the Holy Ghost. Both may be `null` when unknown. Live `verified_by` people cannot be visitors or admins. Use `historical_verified_*` names when the baptizer/witness is not in the directory.
 
 ### Module Coordinator Assignments
 

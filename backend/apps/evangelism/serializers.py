@@ -4,6 +4,16 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from apps.people.models import ModuleCoordinator, Person
+from apps.people.baptism_verifiers import (
+    BAPTISM_JOURNEY_TYPE,
+    SPIRIT_JOURNEY_TYPE,
+    UNSET as BAPTISM_VERIFIER_UNSET,
+    baptism_verifier_queryset,
+    historical_verifier_names,
+    journey_verified_by,
+    person_verifier_display_name,
+    validate_historical_name_pair,
+)
 from apps.people.name_formatting import (
     PROSPECT_NAME_FIELDS,
     apply_title_case_name_fields,
@@ -828,6 +838,34 @@ class ConversionSerializer(serializers.ModelSerializer):
     date_first_attended = serializers.DateField(
         required=False, allow_null=True, write_only=True
     )
+    baptized_by = serializers.SerializerMethodField()
+    baptized_by_id = serializers.PrimaryKeyRelatedField(
+        queryset=baptism_verifier_queryset(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    baptized_by_first_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=150, write_only=True
+    )
+    baptized_by_last_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=150, write_only=True
+    )
+    baptized_by_display_name = serializers.SerializerMethodField()
+    hg_witnessed_by = serializers.SerializerMethodField()
+    hg_witnessed_by_id = serializers.PrimaryKeyRelatedField(
+        queryset=baptism_verifier_queryset(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    hg_witnessed_by_first_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=150, write_only=True
+    )
+    hg_witnessed_by_last_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=150, write_only=True
+    )
+    hg_witnessed_by_display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversion
@@ -853,6 +891,16 @@ class ConversionSerializer(serializers.ModelSerializer):
             "notes",
             "verified_by",
             "verified_by_id",
+            "baptized_by",
+            "baptized_by_id",
+            "baptized_by_first_name",
+            "baptized_by_last_name",
+            "baptized_by_display_name",
+            "hg_witnessed_by",
+            "hg_witnessed_by_id",
+            "hg_witnessed_by_first_name",
+            "hg_witnessed_by_last_name",
+            "hg_witnessed_by_display_name",
             "created_at",
             "updated_at",
         )
@@ -860,6 +908,116 @@ class ConversionSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "conversion_date": {"required": False, "allow_null": True}
         }
+
+    def get_baptized_by(self, obj: Conversion):
+        person = journey_verified_by(obj.person, BAPTISM_JOURNEY_TYPE)
+        if not person:
+            return None
+        return PersonSummarySerializer(person).data
+
+    def get_hg_witnessed_by(self, obj: Conversion):
+        person = journey_verified_by(obj.person, SPIRIT_JOURNEY_TYPE)
+        if not person:
+            return None
+        return PersonSummarySerializer(person).data
+
+    def get_baptized_by_display_name(self, obj: Conversion):
+        return person_verifier_display_name(obj.person, BAPTISM_JOURNEY_TYPE)
+
+    def get_hg_witnessed_by_display_name(self, obj: Conversion):
+        return person_verifier_display_name(obj.person, SPIRIT_JOURNEY_TYPE)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        b_first, b_last = historical_verifier_names(
+            instance.person, BAPTISM_JOURNEY_TYPE
+        )
+        h_first, h_last = historical_verifier_names(
+            instance.person, SPIRIT_JOURNEY_TYPE
+        )
+        data["baptized_by_first_name"] = b_first
+        data["baptized_by_last_name"] = b_last
+        data["hg_witnessed_by_first_name"] = h_first
+        data["hg_witnessed_by_last_name"] = h_last
+        return data
+
+    def validate(self, attrs):
+        apply_title_case_name_fields(
+            attrs,
+            (
+                "baptized_by_first_name",
+                "baptized_by_last_name",
+                "hg_witnessed_by_first_name",
+                "hg_witnessed_by_last_name",
+            ),
+        )
+        if "baptized_by_first_name" in attrs or "baptized_by_last_name" in attrs:
+            validate_historical_name_pair(
+                attrs.get("baptized_by_first_name"),
+                attrs.get("baptized_by_last_name"),
+                first_field="baptized_by_first_name",
+            )
+        if "hg_witnessed_by_first_name" in attrs or "hg_witnessed_by_last_name" in attrs:
+            validate_historical_name_pair(
+                attrs.get("hg_witnessed_by_first_name"),
+                attrs.get("hg_witnessed_by_last_name"),
+                first_field="hg_witnessed_by_first_name",
+            )
+        return attrs
+
+    def create(self, validated_data):
+        validated_data = self._pop_verifier_write(validated_data)
+        conversion = super().create(validated_data)
+        self._apply_pending_verifier_write(conversion)
+        return conversion
+
+    def update(self, instance, validated_data):
+        validated_data = self._pop_verifier_write(validated_data)
+        conversion = super().update(instance, validated_data)
+        self._apply_pending_verifier_write(conversion)
+        return conversion
+
+    def _pop_verifier_write(self, validated_data):
+        self._pending_verifier_write = {
+            "baptized_by": validated_data.pop("baptized_by_id", BAPTISM_VERIFIER_UNSET),
+            "hg_witnessed_by": validated_data.pop(
+                "hg_witnessed_by_id", BAPTISM_VERIFIER_UNSET
+            ),
+            "baptized_by_first_name": validated_data.pop(
+                "baptized_by_first_name", BAPTISM_VERIFIER_UNSET
+            ),
+            "baptized_by_last_name": validated_data.pop(
+                "baptized_by_last_name", BAPTISM_VERIFIER_UNSET
+            ),
+            "hg_witnessed_by_first_name": validated_data.pop(
+                "hg_witnessed_by_first_name", BAPTISM_VERIFIER_UNSET
+            ),
+            "hg_witnessed_by_last_name": validated_data.pop(
+                "hg_witnessed_by_last_name", BAPTISM_VERIFIER_UNSET
+            ),
+        }
+        return validated_data
+
+    def _apply_pending_verifier_write(self, conversion: Conversion):
+        write = getattr(self, "_pending_verifier_write", None) or {}
+        conversion._baptism_verified_by = write.get(
+            "baptized_by", BAPTISM_VERIFIER_UNSET
+        )
+        conversion._spirit_verified_by = write.get(
+            "hg_witnessed_by", BAPTISM_VERIFIER_UNSET
+        )
+        conversion._baptism_hist_first = write.get(
+            "baptized_by_first_name", BAPTISM_VERIFIER_UNSET
+        )
+        conversion._baptism_hist_last = write.get(
+            "baptized_by_last_name", BAPTISM_VERIFIER_UNSET
+        )
+        conversion._spirit_hist_first = write.get(
+            "hg_witnessed_by_first_name", BAPTISM_VERIFIER_UNSET
+        )
+        conversion._spirit_hist_last = write.get(
+            "hg_witnessed_by_last_name", BAPTISM_VERIFIER_UNSET
+        )
 
 
 class MonthlyConversionTrackingSerializer(serializers.ModelSerializer):

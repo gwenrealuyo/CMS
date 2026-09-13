@@ -12,7 +12,7 @@ import {
   EventAttendanceRecord,
 } from "@/src/types/event";
 import { formatPersonName } from "@/src/lib/name";
-import { isPastOccurrenceDate } from "@/src/lib/events/attendanceReportUtils";
+import { isAttendanceReportAvailable } from "@/src/lib/events/attendanceReportUtils";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import {
@@ -181,7 +181,7 @@ export default function EventView({
   const { people, peopleUI, loading: peopleLoading } = usePeople();
 
   const canGenerateReport = Boolean(
-    selectedOccurrenceDate && isPastOccurrenceDate(selectedOccurrenceDate)
+    selectedOccurrenceDate && isAttendanceReportAvailable(selectedOccurrenceDate)
   );
 
   useEffect(() => {

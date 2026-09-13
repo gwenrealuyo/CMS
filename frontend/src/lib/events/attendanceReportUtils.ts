@@ -133,8 +133,8 @@ export function formatAttendanceReportStatusLabel(status: string): string {
   }
 }
 
-/** True when occurrence YYYY-MM-DD is before the local calendar today. */
-export function isPastOccurrenceDate(
+/** True when occurrence YYYY-MM-DD is today or earlier (local calendar). */
+export function isAttendanceReportAvailable(
   occurrenceDate: string,
   now: Date = new Date()
 ): boolean {
@@ -142,7 +142,7 @@ export function isPastOccurrenceDate(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
   const occurrence = startOfLocalDay(new Date(`${trimmed}T12:00:00`));
   const today = startOfLocalDay(now);
-  return occurrence.getTime() < today.getTime();
+  return occurrence.getTime() <= today.getTime();
 }
 
 export function buildAttendanceReport(

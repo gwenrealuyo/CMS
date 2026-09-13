@@ -13,7 +13,7 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { usePeople } from "@/src/hooks/usePeople";
 import { eventsApi } from "@/src/lib/api";
 import { XMarkIcon } from "@heroicons/react/24/solid";
-import { isPastOccurrenceDate } from "@/src/lib/events/attendanceReportUtils";
+import { isAttendanceReportAvailable } from "@/src/lib/events/attendanceReportUtils";
 import {
   countExpectedOngoingVisitors,
   filterEligibleMembersByQuery,
@@ -119,7 +119,7 @@ export default function EventCheckInView({
     loading: boolean;
   }>({ isOpen: false, record: null, loading: false });
   const [reportOpen, setReportOpen] = useState(false);
-  const canGenerateReport = isPastOccurrenceDate(occurrenceDate);
+  const canGenerateReport = isAttendanceReportAvailable(occurrenceDate);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const scanCooldownUntilRef = useRef(0);

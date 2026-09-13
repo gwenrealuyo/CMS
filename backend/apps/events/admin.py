@@ -18,4 +18,15 @@ class EventRoomAdmin(admin.ModelAdmin):
     ordering = ["branch", "sort_order", "name"]
 
 
-admin.site.register(Event)
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = [
+        "title",
+        "event_type",
+        "start_date",
+        "booking_status",
+        "branch",
+        "room",
+    ]
+    list_filter = ["booking_status", "event_type", "is_recurring"]
+    search_fields = ["title", "location"]

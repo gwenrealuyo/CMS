@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 
 import django_filters
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils.dateparse import parse_date
 from django.utils import dateparse, timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -24,17 +24,34 @@ from apps.authentication.permissions import (
 from apps.people.models import ModuleCoordinator
 from core.datetime_utils import church_calendar_date
 from .models import Event, EventRoom, EventType
-from .permissions import CanManageEventRooms, apply_event_room_branch_scope
+from .permissions import (
+    CanApproveEventBooking,
+    CanCreateOrUpdateEvent,
+    CanManageEventRooms,
+    apply_event_room_branch_scope,
+    can_approve_event_booking,
+)
 from .serializers import EventRoomSerializer, EventSerializer, EventTypeSerializer
+from .services.booking import (
+    booking_status_for_update,
+    initial_booking_status,
+    mark_approved,
+    mark_rejected,
+)
+from .services.conflicts import (
+    validate_room_booking,
+    validate_sunday_service_uniqueness,
+)
 from .services.recurrence import clean_recurrence_pattern
 
 
 class EventFilter(django_filters.FilterSet):
     type = django_filters.CharFilter(field_name="event_type_id", lookup_expr="exact")
+    booking_status = django_filters.CharFilter(field_name="booking_status")
 
     class Meta:
         model = Event
-        fields = ["start_date"]
+        fields = ["start_date", "booking_status"]
 
 
 class EventTypeViewSet(viewsets.ModelViewSet):
@@ -142,6 +159,16 @@ class EventViewSet(viewsets.ModelViewSet):
 
         user = self.request.user
 
+        queryset = queryset.exclude(booking_status=Event.BookingStatus.REJECTED)
+        if not can_approve_event_booking(user):
+            queryset = queryset.filter(
+                Q(booking_status=Event.BookingStatus.APPROVED)
+                | Q(
+                    booking_status=Event.BookingStatus.PENDING,
+                    created_by=user,
+                )
+            )
+
         if user.role in ["ADMIN", "PASTOR"]:
             pass
         elif user.is_module_coordinator(
@@ -169,13 +196,25 @@ class EventViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        serializer.save(
+            created_by=self.request.user,
+            booking_status=initial_booking_status(self.request.user),
+        )
 
     def perform_update(self, serializer):
         instance = serializer.instance
         old_date = church_calendar_date(instance.start_date)
         was_recurring = instance.is_recurring
-        event = serializer.save(updated_by=self.request.user)
+        extra = {"updated_by": self.request.user}
+        next_status = booking_status_for_update(
+            self.request.user, instance, serializer.validated_data
+        )
+        if next_status:
+            extra["booking_status"] = next_status
+            extra["reviewed_by"] = None
+            extra["reviewed_at"] = None
+            extra["review_note"] = ""
+        event = serializer.save(**extra)
         if was_recurring or event.is_recurring:
             return
         new_date = church_calendar_date(event.start_date)
@@ -189,10 +228,11 @@ class EventViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve", "attendance", "types"]:
             # Read operations: All authenticated non-visitors
             return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        elif self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticatedAndNotVisitor(), CanCreateOrUpdateEvent()]
+        elif self.action in ["approve", "reject"]:
+            return [IsAuthenticatedAndNotVisitor(), CanApproveEventBooking()]
         elif self.action in [
-            "create",
-            "update",
-            "partial_update",
             "add_attendance",
             "exclude_occurrence",
             "end_recurrence",
@@ -200,8 +240,6 @@ class EventViewSet(viewsets.ModelViewSet):
         ]:
             # Write operations: ADMIN, PASTOR, Events Coordinator, or Senior Coordinator (with restrictions)
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "write")]
-        elif self.action == "destroy":
-            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
     def get_object(self):
@@ -491,13 +529,13 @@ class EventViewSet(viewsets.ModelViewSet):
             payload["recurrence_pattern"] = None
 
         create_serializer = self.get_serializer(data=payload)
-        create_serializer.context["sunday_service_ignore_event_id"] = event.pk
+        create_serializer.context["schedule_ignore_event_id"] = event.pk
         if scope == "occurrence":
-            create_serializer.context["sunday_service_ignore_dates"] = {
+            create_serializer.context["schedule_ignore_dates"] = {
                 target_date
             }
         else:
-            create_serializer.context["sunday_service_ignore_dates_gte"] = (
+            create_serializer.context["schedule_ignore_dates_gte"] = (
                 target_date
             )
         create_serializer.is_valid(raise_exception=True)
@@ -538,3 +576,55 @@ class EventViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    def _recheck_schedule_conflicts(self, event):
+        validate_sunday_service_uniqueness(
+            event_type=event.event_type,
+            start=event.start_date,
+            end=event.end_date,
+            is_recurring=event.is_recurring,
+            recurrence_pattern=event.recurrence_pattern,
+            branch=event.branch,
+            exclude_event_id=event.pk,
+        )
+        validate_room_booking(
+            room=event.room,
+            start=event.start_date,
+            end=event.end_date,
+            is_recurring=event.is_recurring,
+            recurrence_pattern=event.recurrence_pattern,
+            exclude_event_id=event.pk,
+        )
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        event = self.get_object()
+        if event.booking_status != Event.BookingStatus.PENDING:
+            return Response(
+                {"detail": "Only pending bookings can be approved."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self._recheck_schedule_conflicts(event)
+        mark_approved(
+            event,
+            request.user,
+            note=request.data.get("review_note") or request.data.get("note") or "",
+        )
+        event.refresh_from_db()
+        return Response(self.get_serializer(event).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        event = self.get_object()
+        if event.booking_status != Event.BookingStatus.PENDING:
+            return Response(
+                {"detail": "Only pending bookings can be rejected."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        mark_rejected(
+            event,
+            request.user,
+            note=request.data.get("review_note") or request.data.get("note") or "",
+        )
+        event.refresh_from_db()
+        return Response(self.get_serializer(event).data)

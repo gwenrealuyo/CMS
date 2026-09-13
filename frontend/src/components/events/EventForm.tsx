@@ -7,6 +7,7 @@ import { useBranches } from "@/src/hooks/useBranches";
 import { useEventRooms } from "@/src/hooks/useEventRooms";
 import Button from "../ui/Button";
 import ConfirmationModal from "../ui/ConfirmationModal";
+import { findScheduleConflict } from "@/src/lib/events/scheduleConflicts";
 import {
   RepeatOption,
   buildRecurrencePattern,
@@ -26,6 +27,10 @@ interface EventFormProps {
   eventTypeOptions?: { value: string; label: string }[];
   lockRecurrence?: boolean;
   scopeHint?: string;
+  existingEvents?: Event[];
+  ignoreOccurrenceDate?: string | null;
+  ignoreDatesGte?: string | null;
+  isBookingRequest?: boolean;
 }
 
 /** Parse datetime-local (wall clock) and ISO strings without UTC shifting. */
@@ -292,6 +297,10 @@ export default function EventForm({
   eventTypeOptions = [],
   lockRecurrence = false,
   scopeHint,
+  existingEvents = [],
+  ignoreOccurrenceDate = null,
+  ignoreDatesGte = null,
+  isBookingRequest = false,
 }: EventFormProps) {
   const { user } = useAuth();
   const canPickBranch = Boolean(user?.can_see_all_branches);
@@ -363,6 +372,7 @@ export default function EventForm({
   const [recurrencePattern, setRecurrencePattern] =
     useState<RecurrencePattern | null>(initialRecurrence);
   const [loading, setLoading] = useState(false);
+  const [conflictError, setConflictError] = useState<string | null>(null);
   const [dateMoveConfirm, setDateMoveConfirm] = useState<{
     isOpen: boolean;
     payload: Partial<Event> | null;
@@ -532,6 +542,19 @@ export default function EventForm({
         formData.expected_include_ongoing_visitors,
     };
 
+    const conflict = findScheduleConflict({
+      payload,
+      events: existingEvents,
+      excludeEventId: initialData?.id,
+      ignoreOccurrenceDate,
+      ignoreDatesGte,
+    });
+    if (conflict) {
+      setConflictError(conflict.message);
+      return;
+    }
+    setConflictError(null);
+
     const attendeeCount = recordedAttendeeCount(initialData);
     const dateChanged =
       Boolean(initialData) &&
@@ -630,6 +653,17 @@ export default function EventForm({
       {scopeHint && (
         <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
           {scopeHint}
+        </p>
+      )}
+      {isBookingRequest && !initialData && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          This booking will be submitted for Events Coordinator approval. The
+          room is held until they approve or reject it.
+        </p>
+      )}
+      {conflictError && (
+        <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {conflictError}
         </p>
       )}
       <div className="space-y-6 pr-1">
@@ -1018,7 +1052,9 @@ export default function EventForm({
             ? "Saving..."
             : initialData
             ? "Update Event"
-            : "Create Event"}
+            : isBookingRequest
+              ? "Submit booking"
+              : "Create Event"}
         </Button>
       </div>
     </form>

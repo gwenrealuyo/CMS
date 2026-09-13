@@ -185,8 +185,11 @@ Coordinators and pastors should **mark records inactive** or update status inste
 
 **Events**
 
-- Event coordinators create and edit events.
-- Non-events senior coordinators may only edit events they created.
+- Admin, Pastor, Events Coordinator, and Events Senior Coordinator **publish** events immediately when there is no schedule conflict.
+- Coordinator or Senior Coordinator of **another** module can **request** a room/time. The booking stays pending (slot held) until Events leadership approves or rejects it. Dual Events + other-module assignment publishes immediately.
+- Reporters, Teachers, Bible Sharers, and plain members cannot create events. Events has no Teacher or Bible Sharer assignment in Admin Settings.
+- Pending bookings are visible to the requester and to approvers; members only see approved events. Self-check-in stays closed until approved.
+- Requesters may edit or cancel their own pending request. Changing room or time on their own already-approved event sends it back to pending. Approvers can edit approved events without re-approval.
 - Coordinators with Events write may remove or edit a single recurring occurrence or this-and-following weeks. **Hard delete of the entire event** is admin-only.
 
 **Ministries**
@@ -301,13 +304,15 @@ When the system decides what you can see:
 | Admin | All | All | All | All | All |
 | Pastor | All (branch) | All (branch) | All (branch) | All (branch) | All (branch) |
 | Member | Visitors only | No | No | No | No |
-| Cluster Coordinator | Scoped | Yes (scoped) | No | No | No |
+| Cluster Coordinator | Scoped | Yes (scoped) | No | No | Request / pending |
 | Cluster Reporter | Visitors only | Yes (assigned) | No | No | No |
-| Cluster Senior Coord. | Branch-wide | All (branch) | No | No | No |
+| Cluster Senior Coord. | Branch-wide | All (branch) | No | No | Request / pending |
 | Lessons Teacher | Students | No | No | No | No |
-| Lessons Coordinator | Branch students | No | Yes | No | No |
+| Lessons Coordinator | Branch students | No | Yes | No | Request / pending |
 | SS Teacher | Class students | No | No | Yes (class) | No |
-| Evangelism Coord. | Group members | No | No | No | No |
+| Evangelism Coord. | Group members | No | No | No | Request / pending |
 | Bible Sharer | Group members | No | No | No | No |
+| Events Coordinator | Visitors only | No | No | No | Publish |
+| Events Senior Coord. | Branch-wide | No | No | No | Publish |
 
 For full technical detail (API permissions, queryset rules), see `ACCESS_CONTROL.md` in the developer documentation.

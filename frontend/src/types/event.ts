@@ -90,6 +90,11 @@ export interface Event {
   branch_name?: string | null;
   branch_is_headquarters?: boolean | null;
   is_recurring: boolean;
+  booking_status?: "pending" | "approved" | "rejected";
+  reviewed_by?: number | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
+  review_note?: string;
   expected_include_active?: boolean;
   expected_include_semiactive?: boolean;
   expected_include_inactive?: boolean;

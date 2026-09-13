@@ -8,7 +8,7 @@ Email, SMS, push notifications, and system-wide events (for example “new membe
 
 | Aspect | Design |
 |--------|--------|
-| Data source | **Computed on read** from existing domain tables (weekly reports, follow-up tasks, admin auth models) |
+| Data source | **Computed on read** from existing domain tables (weekly reports, follow-up tasks, event bookings, admin auth models) |
 | Persistence | `NotificationDismissal` only — tracks which items a user has dismissed |
 | Updates | Frontend polls every **60 seconds** while the browser tab is visible; immediate refresh after weekly report submit |
 | Visibility | All roles except **VISITOR**; bell is hidden for visitors |
@@ -125,6 +125,7 @@ Returns the same shape as `GET` (typically empty `items`).
 | `cluster_report_overdue` | `ADMIN`, `PASTOR`, or cluster **senior coordinator** | Clusters in oversight scope missing this week’s report (excludes clusters the user already gets as `cluster_report_due`) |
 | `follow_up_overdue` | User assigned on `FollowUpTask` | `due_date` before today; status `PENDING` or `IN_PROGRESS` |
 | `follow_up_due_soon` | Same | Due within the next **3 days**; same statuses |
+| `event_booking_pending` | Admin, Pastor, Events Coordinator, Events Senior Coordinator; EVENTS module enabled | `Event.booking_status=pending` (up to 10 newest). Href `/events?booking=pending` |
 
 **Coordinator applicability:** Cluster and evangelism due reminders are **independent**. A user who coordinates both a cluster and an evangelism group can receive **both** due alerts when neither report is filed.
 
@@ -134,7 +135,9 @@ Returns the same shape as `GET` (typically empty `items`).
 
 - `cluster_report_due:{cluster_id}:{year}:{week_number}`
 - `evangelism_report_due:{group_id}:{year}:{week_number}`
+- `event_booking_pending:{event_id}`
 - `activity:cluster_report_submitted:{report_id}`
+- `activity:event_booking_approved:{event_id}` / `activity:event_booking_rejected:{event_id}`
 
 ### Activity (`category: "activity"`)
 
@@ -142,6 +145,8 @@ Returns the same shape as `GET` (typically empty `items`).
 |--------|--------|--------|
 | `cluster_report_submitted` | `ClusterWeeklyReport` where `submitted_by` = current user | `submitted_at` within last 7 days |
 | `evangelism_report_submitted` | `EvangelismWeeklyReport` where `submitted_by` = current user | Same |
+| `event_booking_approved` | `Event` the current user created, now `approved` | `reviewed_at` within last 7 days |
+| `event_booking_rejected` | Same, now `rejected` | Same |
 
 These items use `severity: "success"` and do not increment the bell badge.
 
@@ -180,6 +185,7 @@ Clicking a notification navigates via `href`. Pages read query parameters and op
 | `/evangelism` | `group={id}` | Reports tab; open submit modal with group pre-selected |
 | `/evangelism` | `report={id}` | Reports tab; open view modal for report |
 | `/admin-settings` | — | Admin security / password reset area |
+| `/events` | `booking=pending` | Opens **Manage Pending**: agenda filtered to pending room bookings |
 
 Implementation:
 
@@ -193,7 +199,7 @@ Implementation:
 - Initial fetch when the user is authenticated and not a visitor.
 - Poll every **60s** when `document.visibilityState === "visible"`.
 - Refetch when the dropdown opens.
-- After a successful cluster or evangelism weekly report create/update, call `requestNotificationsRefetch()` from [`notificationsEvents.ts`](../frontend/src/lib/notificationsEvents.ts) so activity appears without waiting for the poll.
+- After a successful cluster or evangelism weekly report create/update, or after submitting / reviewing an event booking, call `requestNotificationsRefetch()` from [`notificationsEvents.ts`](../frontend/src/lib/notificationsEvents.ts) so activity appears without waiting for the poll.
 
 ### UI
 
@@ -208,6 +214,7 @@ If a module is disabled in **Module Settings** (`ModuleSetting.is_enabled`), not
 
 - CLUSTER off → no cluster due, overdue, or cluster activity items
 - EVANGELISM off → no evangelism due or evangelism activity / follow-up items
+- EVENTS off → no event booking pending alerts or booking approved/rejected activity
 
 ## Database
 

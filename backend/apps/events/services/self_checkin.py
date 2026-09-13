@@ -132,7 +132,10 @@ def find_todays_sunday_services(
 ) -> List[Tuple[Event, Occurrence]]:
     today = today or church_today()
     events = (
-        Event.objects.filter(event_type_id=SUNDAY_SERVICE_TYPE)
+        Event.objects.filter(
+            event_type_id=SUNDAY_SERVICE_TYPE,
+            booking_status=Event.BookingStatus.APPROVED,
+        )
         .select_related("event_type", "branch", "room")
         .order_by("start_date", "id")
     )

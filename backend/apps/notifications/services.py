@@ -22,6 +22,9 @@ from apps.notifications.scoping import (
 )
 from apps.people.models import ModuleCoordinator
 
+from apps.events.models import Event
+from apps.events.permissions import can_approve_event_booking
+
 ACTIVITY_WINDOW_DAYS = 7
 FEED_CAP = 50
 
@@ -65,6 +68,7 @@ def submission_severity() -> str:
 def build_notification_feed(user) -> List[NotificationItem]:
     items: List[NotificationItem] = []
     items.extend(_build_admin_alerts(user))
+    items.extend(_build_event_booking_pending(user))
     items.extend(_build_cluster_report_due(user))
     items.extend(_build_evangelism_report_due(user))
     items.extend(_build_cluster_report_overdue_oversight(user))
@@ -133,6 +137,43 @@ def _build_admin_alerts(user) -> List[NotificationItem]:
             )
         )
 
+    return items
+
+
+def _build_event_booking_pending(user) -> List[NotificationItem]:
+    if not can_approve_event_booking(user):
+        return []
+    if not is_module_enabled(ModuleCoordinator.ModuleType.EVENTS):
+        return []
+
+    items: List[NotificationItem] = []
+    pending = (
+        Event.objects.filter(booking_status=Event.BookingStatus.PENDING)
+        .select_related("created_by", "room")
+        .order_by("-created_at")[:10]
+    )
+    for event in pending:
+        requester = ""
+        if event.created_by:
+            requester = event.created_by.get_full_name() or event.created_by.username
+        room_label = event.location or (event.room.name if event.room_id else "")
+        body = event.title
+        if requester:
+            body = f"{event.title} — requested by {requester}"
+        if room_label:
+            body = f"{body} ({room_label})"
+        items.append(
+            NotificationItem(
+                key=f"event_booking_pending:{event.id}",
+                category="alert",
+                type="event_booking_pending",
+                severity="warning",
+                title="Event booking pending",
+                body=body,
+                href="/events?booking=pending",
+                occurred_at=_aware_dt(event.created_at),
+            )
+        )
     return items
 
 
@@ -368,6 +409,41 @@ def _build_activity_items(user) -> List[NotificationItem]:
                     body=f"{group.name} — Week {report.week_number} saved successfully",
                     href=f"/evangelism?tab=reports&report={report.id}",
                     occurred_at=_aware_dt(report.submitted_at),
+                )
+            )
+
+    if is_module_enabled(ModuleCoordinator.ModuleType.EVENTS):
+        reviewed = (
+            Event.objects.filter(
+                created_by=user,
+                reviewed_at__gte=since,
+                booking_status__in=(
+                    Event.BookingStatus.APPROVED,
+                    Event.BookingStatus.REJECTED,
+                ),
+            )
+            .order_by("-reviewed_at")[:10]
+        )
+        for event in reviewed:
+            approved = event.booking_status == Event.BookingStatus.APPROVED
+            items.append(
+                NotificationItem(
+                    key=f"activity:event_booking_{event.booking_status}:{event.id}",
+                    category="activity",
+                    type=(
+                        "event_booking_approved"
+                        if approved
+                        else "event_booking_rejected"
+                    ),
+                    severity="success" if approved else "warning",
+                    title=(
+                        "Event booking approved"
+                        if approved
+                        else "Event booking rejected"
+                    ),
+                    body=event.title,
+                    href="/events",
+                    occurred_at=_aware_dt(event.reviewed_at),
                 )
             )
 

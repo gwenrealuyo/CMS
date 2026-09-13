@@ -895,6 +895,7 @@ export const eventsApi = {
     end?: string;
     type?: string;
     search?: string;
+    booking_status?: "pending" | "approved";
     page?: number;
     page_size?: number;
   }) =>
@@ -925,6 +926,10 @@ export const eventsApi = {
       `/events/${id}/split-edit/`,
       payload
     ),
+  approve: (id: string, payload?: { review_note?: string }) =>
+    api.post<Event>(`/events/${id}/approve/`, payload ?? {}),
+  reject: (id: string, payload?: { review_note?: string }) =>
+    api.post<Event>(`/events/${id}/reject/`, payload ?? {}),
   listAttendance: (id: string, params?: { occurrence_date?: string }) =>
     api.get<EventAttendanceRecord[]>(`/events/${id}/attendance/`, {
       params,

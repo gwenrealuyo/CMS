@@ -228,6 +228,28 @@ export const useEvents = () => {
     [findAndReplaceEvent]
   );
 
+  const approveEvent = useCallback(
+    async (id: string, payload?: { review_note?: string }) => {
+      const response = await eventsApi.approve(id, payload);
+      findAndReplaceEvent(response.data);
+      return response.data;
+    },
+    [findAndReplaceEvent]
+  );
+
+  const rejectEvent = useCallback(
+    async (id: string, payload?: { review_note?: string }) => {
+      const response = await eventsApi.reject(id, payload);
+      setEvents((current) => {
+        const remaining = current.filter((event) => event.id !== id);
+        setCalendarEvents(buildCalendarOccurrences(remaining));
+        return remaining;
+      });
+      return response.data;
+    },
+    [buildCalendarOccurrences]
+  );
+
   const splitEdit = useCallback(
     async (
       id: string,
@@ -308,6 +330,8 @@ export const useEvents = () => {
     excludeOccurrence,
     endRecurrence,
     splitEdit,
+    approveEvent,
+    rejectEvent,
     getEvent,
     listAttendance,
     addAttendance,

@@ -60,6 +60,11 @@ class EventRoom(models.Model):
 
 
 class Event(models.Model):
+    class BookingStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     start_date = models.DateTimeField()
@@ -87,6 +92,21 @@ class Event(models.Model):
     )
     is_recurring = models.BooleanField(default=False)
     recurrence_pattern = models.JSONField(null=True, blank=True)
+    booking_status = models.CharField(
+        max_length=20,
+        choices=BookingStatus.choices,
+        default=BookingStatus.APPROVED,
+        db_index=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="events_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
     expected_include_active = models.BooleanField(default=True)
     expected_include_semiactive = models.BooleanField(default=True)
     expected_include_inactive = models.BooleanField(default=True)

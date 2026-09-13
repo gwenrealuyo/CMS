@@ -32,12 +32,23 @@ import { canHardDelete } from "@/src/lib/canHardDelete";
 import { Event } from "@/src/types/event";
 import { useEvents } from "@/src/hooks/useEvents";
 import { useModuleSettings } from "@/src/hooks/useModuleSettings";
-import { canManageEventRooms, canWriteEvents } from "@/src/lib/events/eventPermissions";
+import { canManageEventRooms, canWriteEvents, canRequestEventBooking, canApproveEventBooking, canCreateEvent } from "@/src/lib/events/eventPermissions";
 import { formatApiErrorMessage } from "@/src/lib/apiErrors";
+import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
 import {
   buildAgendaGroups,
   EventCardItem,
 } from "@/src/lib/events/agenda";
+
+function toLocalDayKey(value?: string | null): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value.slice(0, 10);
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 const MONTH_NAMES = [
   "January",
@@ -121,6 +132,8 @@ export default function EventsPage() {
     excludeOccurrence,
     endRecurrence,
     splitEdit,
+    approveEvent,
+    rejectEvent,
     getEvent,
     listAttendance,
     addAttendance,
@@ -134,21 +147,89 @@ export default function EventsPage() {
     () => canWriteEvents({ user, moduleEnabled }),
     [user, moduleEnabled]
   );
+  const canRequestBooking = useMemo(
+    () => canRequestEventBooking({ user, moduleEnabled }),
+    [user, moduleEnabled]
+  );
+  const canApproveBookings = useMemo(
+    () => canApproveEventBooking({ user, moduleEnabled }),
+    [user, moduleEnabled]
+  );
+  const canCreateEventsAccess = useMemo(
+    () => canCreateEvent({ user, moduleEnabled }),
+    [user, moduleEnabled]
+  );
 
   const canManageEventTypes = canWriteEventsAccess;
   const canManageRooms = useMemo(
     () => canManageEventRooms({ user, moduleEnabled }),
     [user, moduleEnabled]
   );
+  const [filterBooking, setFilterBooking] = useState<string>("all");
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   useEffect(() => {
-    if (action === "create" && canWriteEventsAccess) {
+    if (action === "create" && canCreateEventsAccess) {
       setViewEditEvent(null);
       setViewMode("edit");
       setIsModalOpen(true);
       router.replace(pathname);
     }
-  }, [action, pathname, router, canWriteEventsAccess]);
+  }, [action, pathname, router, canCreateEventsAccess]);
+
+  const pendingBookingCount = useMemo(() => {
+    const ids = new Set(
+      events
+        .filter((event) => event.booking_status === "pending")
+        .map((event) => String(event.id))
+    );
+    return ids.size;
+  }, [events]);
+
+  const syncBookingQuery = useCallback(
+    (enabled: boolean) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (enabled) {
+        params.set("booking", "pending");
+      } else {
+        params.delete("booking");
+      }
+      const query = params.toString();
+      const next = query ? `${pathname}?${query}` : pathname;
+      const current = searchParams.toString()
+        ? `${pathname}?${searchParams.toString()}`
+        : pathname;
+      if (next !== current) {
+        router.replace(next);
+      }
+    },
+    [pathname, router, searchParams]
+  );
+
+  const setPendingQueue = useCallback(
+    (enabled: boolean) => {
+      setFilterBooking(enabled ? "pending" : "all");
+      if (enabled) {
+        setSelectedDate(null);
+        setFilterMonth("all");
+      } else {
+        const now = new Date();
+        setFilterMonth(now.getMonth().toString());
+        setFilterYear(now.getFullYear().toString());
+        setCalendarMonthDate(new Date(now.getFullYear(), now.getMonth(), 1));
+      }
+      syncBookingQuery(enabled);
+    },
+    [syncBookingQuery]
+  );
+
+  useEffect(() => {
+    if (searchParams.get("booking") === "pending" && canApproveBookings) {
+      setFilterBooking("pending");
+      setSelectedDate(null);
+      setFilterMonth("all");
+    }
+  }, [searchParams, canApproveBookings]);
 
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
@@ -229,6 +310,12 @@ export default function EventsPage() {
       filtered = filtered.filter((item) => item.event.type === filterType);
     }
 
+    if (filterBooking === "pending") {
+      filtered = filtered.filter(
+        (item) => item.event.booking_status === "pending"
+      );
+    }
+
     const yearValue = Number(filterYear);
     if (!Number.isNaN(yearValue)) {
       filtered = filtered.filter((item) => {
@@ -252,7 +339,7 @@ export default function EventsPage() {
       const dateB = new Date(b.occurrence.start_date).getTime();
       return dateA - dateB;
     });
-  }, [debouncedSearchQuery, eventCardItems, filterType, filterMonth, filterYear]);
+  }, [debouncedSearchQuery, eventCardItems, filterType, filterBooking, filterMonth, filterYear]);
 
   const filteredCalendarEvents = useMemo(
     () =>
@@ -289,6 +376,7 @@ export default function EventsPage() {
   const hasActiveFilters =
     Boolean(searchQuery) ||
     filterType !== "all" ||
+    filterBooking === "pending" ||
     selectedDate !== null ||
     filterMonth === "all" ||
     filterYear !== currentYear ||
@@ -313,8 +401,15 @@ export default function EventsPage() {
       setViewOccurrenceDate(null);
       const title = result?.title || eventData.title;
       toast.success(
-        title ? `Event "${title}" has been created.` : "Event created successfully."
+        result?.booking_status === "pending"
+          ? title
+            ? `Booking "${title}" submitted for approval.`
+            : "Booking submitted for Events Coordinator approval."
+          : title
+            ? `Event "${title}" has been created.`
+            : "Event created successfully."
       );
+      requestNotificationsRefetch();
       return result;
     } catch (err) {
       console.error(err);
@@ -348,6 +443,7 @@ export default function EventsPage() {
       setViewOccurrenceDate(null);
       setViewMode("edit");
       setEditScope(null);
+      const previousStatus = viewEditEvent.booking_status;
       const title =
         (result && "created_event" in result
           ? result.created_event.title
@@ -356,9 +452,23 @@ export default function EventsPage() {
             : null) ||
         eventData.title ||
         viewEditEvent.title;
+      const updated =
+        result && "created_event" in result ? result.created_event : result;
+      const nowPending =
+        updated &&
+        "booking_status" in updated &&
+        updated.booking_status === "pending" &&
+        previousStatus === "approved";
       toast.success(
-        title ? `Event "${title}" has been updated.` : "Event updated successfully."
+        nowPending
+          ? title
+            ? `Booking "${title}" submitted for approval.`
+            : "Booking submitted for Events Coordinator approval."
+          : title
+            ? `Event "${title}" has been updated.`
+            : "Event updated successfully."
       );
+      requestNotificationsRefetch();
       return result && "created_event" in result ? result.created_event : result;
     } catch (err) {
       console.error(err);
@@ -366,6 +476,68 @@ export default function EventsPage() {
       throw err;
     }
   };
+
+  const closeEventModal = () => {
+    setIsModalOpen(false);
+    setViewEditEvent(null);
+    setViewOccurrenceDate(null);
+    setViewMode("edit");
+    setEditScope(null);
+  };
+
+  const handleApproveBooking = async () => {
+    if (!viewEditEvent) return;
+    try {
+      setReviewLoading(true);
+      const result = await approveEvent(viewEditEvent.id);
+      closeEventModal();
+      toast.success(
+        result?.title
+          ? `Booking "${result.title}" approved.`
+          : "Booking approved."
+      );
+      requestNotificationsRefetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(getErrorMessage(err, "Failed to approve booking."));
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const handleRejectBooking = async () => {
+    if (!viewEditEvent) return;
+    try {
+      setReviewLoading(true);
+      const result = await rejectEvent(viewEditEvent.id);
+      closeEventModal();
+      toast.success(
+        result?.title
+          ? `Booking "${result.title}" rejected.`
+          : "Booking rejected."
+      );
+      requestNotificationsRefetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(getErrorMessage(err, "Failed to reject booking."));
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const isOwnViewEvent = Boolean(
+    viewEditEvent && user && viewEditEvent.created_by === user.id
+  );
+  const canEditViewEvent =
+    Boolean(viewEditEvent) &&
+    (canWriteEventsAccess || (canRequestBooking && isOwnViewEvent));
+  const canDeleteViewEvent =
+    Boolean(viewEditEvent) &&
+    (userCanHardDelete ||
+      (Boolean(viewEditEvent?.is_recurring) && canWriteEventsAccess) ||
+      (canRequestBooking &&
+        isOwnViewEvent &&
+        viewEditEvent?.booking_status === "pending"));
 
   const handleConfirmDelete = async (scope: EventDeleteScope) => {
     if (!deleteConfirmation.event) return;
@@ -539,6 +711,11 @@ export default function EventsPage() {
     setFilterMonth(now.getMonth().toString());
     setFilterYear(now.getFullYear().toString());
     setCalendarMonthDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    if (filterBooking === "pending") {
+      setPendingQueue(false);
+    } else {
+      setFilterBooking("all");
+    }
   };
 
   const openCreateModal = () => {
@@ -652,6 +829,14 @@ export default function EventsPage() {
       });
     }
 
+    if (filterBooking === "pending") {
+      chips.push({
+        id: "booking",
+        label: "Pending approval",
+        onRemove: () => setPendingQueue(false),
+      });
+    }
+
     if (filterMonth === "all") {
       chips.push({
         id: "month",
@@ -686,6 +871,7 @@ export default function EventsPage() {
   }, [
     searchQuery,
     filterType,
+    filterBooking,
     filterMonth,
     filterYear,
     selectedDate,
@@ -693,11 +879,13 @@ export default function EventsPage() {
     currentYear,
     eventTypeFilterOptions,
     handleSearchChange,
+    setPendingQueue,
   ]);
 
   const showClearAll =
     Boolean(searchQuery) ||
     filterType !== "all" ||
+    filterBooking !== "all" ||
     selectedDate !== null ||
     filterMonth === "all" ||
     filterYear !== currentYear ||
@@ -709,6 +897,18 @@ export default function EventsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-foreground">Church Events</h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {canApproveBookings && (
+            <Button
+              variant={filterBooking === "pending" ? "primary" : "tertiary"}
+              onClick={() => setPendingQueue(filterBooking !== "pending")}
+              aria-pressed={filterBooking === "pending"}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              {pendingBookingCount > 0
+                ? `Manage Pending (${pendingBookingCount})`
+                : "Manage Pending"}
+            </Button>
+          )}
           {canManageRooms && (
             <Button
               variant="tertiary"
@@ -727,7 +927,7 @@ export default function EventsPage() {
               Manage Types
             </Button>
           )}
-          {canWriteEventsAccess && (
+          {canCreateEventsAccess && (
             <Button onClick={openCreateModal} className="w-full sm:w-auto min-h-[44px]">
               Add Event
             </Button>
@@ -747,6 +947,7 @@ export default function EventsPage() {
         filterType={filterType}
         typeOptions={eventTypeFilterOptions}
         onTypeChange={setFilterType}
+        filterBooking={filterBooking}
         filterMonth={filterMonth}
         monthOptions={monthFilterOptions}
         onMonthChange={handleMonthFilterChange}
@@ -812,7 +1013,7 @@ export default function EventsPage() {
           selectedDate={selectedDate}
           onView={handleViewItem}
           onClearDate={clearDateFilter}
-          onCreateEvent={canWriteEventsAccess ? openCreateModal : undefined}
+          onCreateEvent={canCreateEventsAccess ? openCreateModal : undefined}
         />
       </div>
 
@@ -840,24 +1041,26 @@ export default function EventsPage() {
             event={viewEditEvent}
             initialOccurrenceDate={viewOccurrenceDate}
             showAuditMetadata={canWriteEventsAccess}
-            onEdit={({ occurrenceDate }) => {
-              if (viewEditEvent.is_recurring && canWriteEventsAccess) {
-                setViewOccurrenceDate(occurrenceDate);
-                setEditChooser({
-                  isOpen: true,
-                  event: viewEditEvent,
-                  occurrenceDate,
-                });
-                return;
-              }
-              setEditScope(null);
-              setViewOccurrenceDate(occurrenceDate);
-              setViewMode("edit");
-            }}
+            onEdit={
+              canEditViewEvent
+                ? ({ occurrenceDate }) => {
+                    if (viewEditEvent.is_recurring && canWriteEventsAccess) {
+                      setViewOccurrenceDate(occurrenceDate);
+                      setEditChooser({
+                        isOpen: true,
+                        event: viewEditEvent,
+                        occurrenceDate,
+                      });
+                      return;
+                    }
+                    setEditScope(null);
+                    setViewOccurrenceDate(occurrenceDate);
+                    setViewMode("edit");
+                  }
+                : undefined
+            }
             onDelete={
-              viewEditEvent &&
-              (userCanHardDelete ||
-                (viewEditEvent.is_recurring && canWriteEventsAccess))
+              canDeleteViewEvent
                 ? ({ occurrenceDate }) => {
                     setDeleteConfirmation({
                       isOpen: true,
@@ -868,6 +1071,17 @@ export default function EventsPage() {
                   }
                 : undefined
             }
+            onApprove={
+              canApproveBookings && viewEditEvent.booking_status === "pending"
+                ? handleApproveBooking
+                : undefined
+            }
+            onReject={
+              canApproveBookings && viewEditEvent.booking_status === "pending"
+                ? handleRejectBooking
+                : undefined
+            }
+            reviewLoading={reviewLoading}
             onCancel={() => {
               setIsModalOpen(false);
               setViewEditEvent(null);
@@ -910,6 +1124,18 @@ export default function EventsPage() {
                     ? "Editing the entire series."
                     : undefined
             }
+            existingEvents={events}
+            ignoreOccurrenceDate={
+              editScope === "occurrence"
+                ? toLocalDayKey(viewOccurrenceDate)
+                : null
+            }
+            ignoreDatesGte={
+              editScope === "following"
+                ? toLocalDayKey(viewOccurrenceDate)
+                : null
+            }
+            isBookingRequest={canRequestBooking && !canWriteEventsAccess}
             onClose={() => {
               setIsModalOpen(false);
               setViewEditEvent(null);

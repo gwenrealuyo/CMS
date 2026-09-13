@@ -7,7 +7,10 @@ from rest_framework.exceptions import ValidationError
 
 from apps.attendance.serializers import AttendanceRecordSerializer
 from .models import Event, EventRoom, EventType, EventSetting
-from .services.conflicts import validate_sunday_service_uniqueness
+from .services.conflicts import (
+    validate_room_booking,
+    validate_sunday_service_uniqueness,
+)
 from .services.recurrence import (
     RecurrencePatternError,
     clean_recurrence_pattern,
@@ -148,6 +151,7 @@ class EventSerializer(serializers.ModelSerializer):
     attendee_badges = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
     updated_by_name = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -181,6 +185,11 @@ class EventSerializer(serializers.ModelSerializer):
             "branch_is_headquarters",
             "is_recurring",
             "recurrence_pattern",
+            "booking_status",
+            "reviewed_by",
+            "reviewed_by_name",
+            "reviewed_at",
+            "review_note",
             "expected_include_active",
             "expected_include_semiactive",
             "expected_include_inactive",
@@ -207,6 +216,11 @@ class EventSerializer(serializers.ModelSerializer):
             "updated_by",
             "updated_by_name",
             "updated_at",
+            "booking_status",
+            "reviewed_by",
+            "reviewed_by_name",
+            "reviewed_at",
+            "review_note",
         ]
 
     def get_created_by_name(self, obj):
@@ -218,6 +232,11 @@ class EventSerializer(serializers.ModelSerializer):
         if not obj.updated_by:
             return None
         return obj.updated_by.get_full_name() or obj.updated_by.username
+
+    def get_reviewed_by_name(self, obj):
+        if not obj.reviewed_by:
+            return None
+        return obj.reviewed_by.get_full_name() or obj.reviewed_by.username
 
     def _parse_dt(self, value: Optional[str]):
         if not value:
@@ -328,20 +347,29 @@ class EventSerializer(serializers.ModelSerializer):
             attrs["location"] = location_text
 
         context = self.context or {}
-        ignore_dates = context.get("sunday_service_ignore_dates")
-        validate_sunday_service_uniqueness(
-            event_type=attrs.get(
-                "event_type", getattr(instance, "event_type", None)
-            ),
+        ignore_dates = context.get("schedule_ignore_dates")
+        conflict_kwargs = dict(
             start=start_date,
             end=end_date,
             is_recurring=is_recurring,
             recurrence_pattern=attrs.get("recurrence_pattern"),
-            branch=attrs.get("branch"),
             exclude_event_id=getattr(instance, "pk", None),
-            ignore_event_id=context.get("sunday_service_ignore_event_id"),
+            ignore_event_id=context.get("schedule_ignore_event_id"),
             ignore_dates=set(ignore_dates) if ignore_dates else None,
-            ignore_dates_gte=context.get("sunday_service_ignore_dates_gte"),
+            ignore_dates_gte=context.get("schedule_ignore_dates_gte"),
+        )
+        validate_sunday_service_uniqueness(
+            event_type=attrs.get(
+                "event_type", getattr(instance, "event_type", None)
+            ),
+            branch=attrs.get("branch"),
+            **conflict_kwargs,
+        )
+        validate_room_booking(
+            room=attrs.get("room") if "room" in attrs else getattr(
+                instance, "room", None
+            ),
+            **conflict_kwargs,
         )
 
         return super().validate(attrs)

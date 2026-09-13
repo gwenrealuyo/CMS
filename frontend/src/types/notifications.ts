@@ -11,7 +11,10 @@ export type NotificationType =
   | "follow_up_overdue"
   | "follow_up_due_soon"
   | "cluster_report_submitted"
-  | "evangelism_report_submitted";
+  | "evangelism_report_submitted"
+  | "event_booking_pending"
+  | "event_booking_approved"
+  | "event_booking_rejected";
 
 export interface NotificationItem {
   key: string;

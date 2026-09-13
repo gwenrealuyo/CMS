@@ -8,6 +8,18 @@ ROOM_MANAGE_LEVELS = (
     ModuleCoordinator.CoordinatorLevel.COORDINATOR,
     ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
 )
+REQUEST_BOOKING_LEVELS = (
+    ModuleCoordinator.CoordinatorLevel.COORDINATOR,
+    ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
+)
+NON_EVENTS_MODULES = (
+    ModuleCoordinator.ModuleType.CLUSTER,
+    ModuleCoordinator.ModuleType.FINANCE,
+    ModuleCoordinator.ModuleType.EVANGELISM,
+    ModuleCoordinator.ModuleType.SUNDAY_SCHOOL,
+    ModuleCoordinator.ModuleType.LESSONS,
+    ModuleCoordinator.ModuleType.MINISTRIES,
+)
 
 
 def can_manage_event_rooms(user) -> bool:
@@ -23,6 +35,38 @@ def can_manage_event_rooms(user) -> bool:
         module=EVENTS,
         level__in=ROOM_MANAGE_LEVELS,
     ).exists()
+
+
+def can_publish_events(user) -> bool:
+    """Admin, Pastor, and Events Coordinator / Senior Coordinator."""
+    return can_manage_event_rooms(user)
+
+
+def can_approve_event_booking(user) -> bool:
+    return can_publish_events(user)
+
+
+def has_events_write(user) -> bool:
+    """Create/update live events. Same people who can publish."""
+    return can_publish_events(user)
+
+
+def can_request_event_booking(user) -> bool:
+    """Other-module Coordinator / Senior Coordinator, when they are not Events leadership."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if can_publish_events(user):
+        return False
+    if not is_module_enabled(EVENTS):
+        return False
+    return user.module_coordinator_assignments.filter(
+        module__in=NON_EVENTS_MODULES,
+        level__in=REQUEST_BOOKING_LEVELS,
+    ).exists()
+
+
+def can_create_event(user) -> bool:
+    return has_events_write(user) or can_request_event_booking(user)
 
 
 def apply_event_room_branch_scope(queryset, user, branch_param=None):
@@ -52,3 +96,45 @@ class CanManageEventRooms(permissions.BasePermission):
         if user.can_see_all_branches():
             return True
         return getattr(obj, "branch_id", None) == user.branch_id
+
+
+class CanCreateOrUpdateEvent(permissions.BasePermission):
+    """Events publishers, or other-module coordinators requesting a booking."""
+
+    def has_permission(self, request, view):
+        action = getattr(view, "action", None)
+        user = request.user
+        if action == "create":
+            return can_create_event(user)
+        if action in ("update", "partial_update"):
+            return can_create_event(user)
+        if action == "destroy":
+            if getattr(user, "role", None) == "ADMIN":
+                return True
+            return can_request_event_booking(user)
+        return has_events_write(user)
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        action = getattr(view, "action", None)
+        if action == "destroy":
+            if getattr(user, "role", None) == "ADMIN":
+                return True
+            return (
+                can_request_event_booking(user)
+                and obj.created_by_id == user.pk
+                and obj.booking_status == obj.BookingStatus.PENDING
+            )
+        if has_events_write(user):
+            return True
+        if can_request_event_booking(user):
+            return obj.created_by_id == user.pk
+        return False
+
+
+class CanApproveEventBooking(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return can_approve_event_booking(request.user)
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)

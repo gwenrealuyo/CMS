@@ -19,6 +19,14 @@ function shouldShowTypeChip(event: Event): boolean {
   return typeLabel !== event.title.trim().toLowerCase();
 }
 
+function PendingChip({ size = "sm" }: { size?: "sm" | "md" }) {
+  const className =
+    size === "sm"
+      ? "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200"
+      : "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-50 text-amber-800 border border-amber-200";
+  return <span className={className}>Pending</span>;
+}
+
 function EventMeta({
   event,
   size = "compact",
@@ -44,6 +52,7 @@ function EventMeta({
           pattern={event.recurrence_pattern}
         />
       )}
+      {event.booking_status === "pending" && <PendingChip />}
       {event.location && (
         <span
           className={`${metaTextClass} text-gray-500 truncate max-w-[140px] sm:max-w-[180px] lg:max-w-none`}
@@ -98,6 +107,7 @@ function EventComfortableDetails({
             pattern={event.recurrence_pattern}
           />
         )}
+        {event.booking_status === "pending" && <PendingChip />}
       </div>
 
       {event.description?.trim() && (

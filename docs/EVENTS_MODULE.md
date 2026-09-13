@@ -47,7 +47,7 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 
 - `EventForm` (React) defaults new events to Sunday 9–11 AM Manila time, converts local picks to UTC before posting, and manages recurrence (weekly, every 2 weeks, or monthly by date / weekday).
 - `EventCard`, `EventView`, and `EventCalendar` render dates in the viewer’s locale via `toLocaleDateString` / `toLocaleTimeString`.
-- The Events page filters support search, type, year, and month. Month defaults to the calendar’s current view and includes an “All Months” option; “All Months” requires a specific year (Year cannot be “All”).
+- The Events page filters support search, type, year, and month. Approvers also get a **Manage Pending** button (count of pending bookings, `?booking=pending`). While that queue is open, month is set to All Months so requests are not hidden by the calendar. Month defaults to the calendar’s current view and includes an “All Months” option; “All Months” requires a specific year (Year cannot be “All”).
 - Deleting or editing a recurring event from the detail view asks what to apply:
   - **This occurrence** — delete uses `POST /api/events/{id}/exclude-occurrence/`; edit uses `POST /api/events/{id}/split-edit/` with `scope=occurrence` (that week becomes its own event; the date is excluded from the original series).
   - **This and following occurrences** — delete uses `POST /api/events/{id}/end-recurrence/`; edit uses `split-edit` with `scope=following` (original series ends the day before; a new event continues from the selected date).
@@ -98,7 +98,7 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 
 Mobile-first page at `/events/self-check-in` (authenticated, no sidebar). Complements the staff station; both write the same `AttendanceRecord` + `EVENT_ATTENDANCE` journey.
 
-- **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have a `SUNDAY_SERVICE` occurrence. If none, the page is unavailable (no last-week fallback). Prefer the user’s branch; admins / HQ pastors get a picker when more than one branch or time matches.
+- **Availability:** church-local today (`CHURCH_TIME_ZONE`) must have an **approved** `SUNDAY_SERVICE` occurrence. Pending room bookings do not open check-in. If none, the page is unavailable (no last-week fallback). Prefer the user’s branch; admins / HQ pastors get a picker when more than one branch or time matches.
 - **Who can use it:** **Member self-check-in** in Admin Settings → Module controls is off by default. While off, only admins and Events coordinators (coordinator / senior coordinator) see the banner and page. Turn the switch on to open it to all logged-in members.
 - **Members:** any allowed authenticated non-visitor can check in themselves and household members on the same `Family` record(s). Deceased and other admin accounts are skipped. Does **not** require Events write.
 - **Visitors:** search by name first (existing `VISITOR` records **and Invited prospects** in the event branch), select a match, then confirm check-in. Encode if none match. Encode is limited to people who can add visitors (`user_can_add_visitor`) **or** Events write (Events coordinators). Inviter defaults to the logged-in user and is editable. Phone is not used for matching. Duplicate first+last name in the branch returns 409 with matches (people and Invited prospects) instead of creating a second person.
@@ -127,9 +127,37 @@ Available from Event Details and the check-in page when the selected occurrence 
 
 Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; other types use the full eligible pool as expected (same as check-in). Deceased people are excluded from Expected / Remaining in all cases.
 
+## Room booking and approvals
+
+Rooms are bookable resources. Create, update, approve, and split-edit all run two hard checks (approved **and** pending bookings occupy the slot; rejected does not):
+
+1. **Sunday Service uniqueness** — a branch cannot have two overlapping Sunday Services, even in different rooms or offsite. Evening services that do not overlap are still allowed. Other branches can run at the same time.
+2. **Room booking** — an `EventRoom` cannot be double-booked. Any overlapping event in the same room is rejected. Offsite events (`room` is null) do not occupy a room. Back-to-back times (`11:00` end vs `11:00` start) are allowed.
+
+Recurring series use `generate_occurrences` (including `excluded_dates`). Split-edit still ignores the parent series dates being vacated.
+
+### Who publishes vs who requests
+
+- **Publish immediately** (`booking_status=approved`): Admin, Pastor, Events Coordinator, Events Senior Coordinator.
+- **Submit for approval** (`pending`): Coordinator or Senior Coordinator of a **non-Events** module (Cluster, Evangelism, Sunday School, Lessons, Ministries, Finance). Toast copy: booking submitted for Events Coordinator approval.
+- **Approve / reject**: same people who publish immediately. `POST /api/events/{id}/approve/` re-runs conflict checks; `POST /api/events/{id}/reject/` frees the slot. Optional `review_note`.
+
+If someone has **both** Events Coordinator/Senior **and** another module, Events leadership wins: they publish immediately and can approve.
+
+Events does **not** use Teacher or Bible Sharer. Reporters, Teachers, Bible Sharers, and plain members cannot create events.
+
+Pending events:
+
+- Visible to the requester and to approvers; hidden from ordinary members on the agenda/calendar.
+- Do not open Sunday Service self-check-in until approved.
+- Requester may edit or cancel their own pending request (still conflict-checked). They cannot edit other people’s events, manage types/rooms, or split-edit someone else’s series.
+- If a requester changes room or time on an event they created that is already approved, it returns to `pending`. Approvers can edit approved events without re-approval.
+
+Existing rows migrated as `approved`. Duplicate historical Sunday Services are not auto-merged.
+
 ## Testing
 
-Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`.
+Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

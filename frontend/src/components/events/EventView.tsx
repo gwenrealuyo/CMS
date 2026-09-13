@@ -34,8 +34,11 @@ interface EventViewProps {
   event: Event;
   initialOccurrenceDate?: string | null;
   showAuditMetadata?: boolean;
-  onEdit: (payload: { occurrenceDate: string }) => void;
+  onEdit?: (payload: { occurrenceDate: string }) => void;
   onDelete?: (payload: { occurrenceDate: string }) => void;
+  onApprove?: () => void;
+  onReject?: () => void;
+  reviewLoading?: boolean;
   onCancel?: () => void;
   onClose: () => void;
   listAttendance: (
@@ -61,6 +64,9 @@ export default function EventView({
   showAuditMetadata = false,
   onEdit,
   onDelete,
+  onApprove,
+  onReject,
+  reviewLoading = false,
   onCancel,
   onClose,
   listAttendance,
@@ -382,6 +388,11 @@ export default function EventView({
                   pattern={event.recurrence_pattern}
                 />
               )}
+              {event.booking_status === "pending" && (
+                <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-amber-800 bg-amber-50 rounded-full border border-amber-200">
+                  Pending approval
+                </span>
+              )}
               {totalAttendanceCount > 0 && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 text-sm text-gray-600 bg-gray-50 rounded-full border border-gray-200">
                     <svg
@@ -558,6 +569,7 @@ export default function EventView({
                 </p>
               </div>
               <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+                {event.booking_status !== "pending" && (
                 <Button
                   onClick={() => {
                     if (!selectedOccurrenceDate) return;
@@ -595,6 +607,7 @@ export default function EventView({
                     />
                   </svg>
                 </Button>
+                )}
                 {canGenerateReport ? (
                   <Button
                     variant="tertiary"
@@ -831,6 +844,25 @@ export default function EventView({
           <div className="hidden sm:block" />
         )}
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          {event.booking_status === "pending" && onReject && (
+            <Button
+              onClick={onReject}
+              variant="secondary"
+              disabled={reviewLoading}
+              className="!text-red-600 min-h-[44px] px-6 text-sm font-normal bg-white border border-red-200 hover:bg-red-50 flex items-center justify-center w-full sm:w-auto"
+            >
+              Reject
+            </Button>
+          )}
+          {event.booking_status === "pending" && onApprove && (
+            <Button
+              onClick={onApprove}
+              disabled={reviewLoading}
+              className="min-h-[44px] px-6 text-sm font-normal flex items-center justify-center w-full sm:w-auto"
+            >
+              {reviewLoading ? "Saving..." : "Approve"}
+            </Button>
+          )}
           <Button
             onClick={onCancel ? onCancel : onClose}
             variant="secondary"
@@ -851,6 +883,7 @@ export default function EventView({
             </svg>
             <span>{onCancel ? "Back" : "Close"}</span>
           </Button>
+          {onEdit && (
           <Button
             onClick={() =>
               onEdit({
@@ -878,6 +911,7 @@ export default function EventView({
             </svg>
             <span>Edit</span>
           </Button>
+          )}
         </div>
       </div>
 

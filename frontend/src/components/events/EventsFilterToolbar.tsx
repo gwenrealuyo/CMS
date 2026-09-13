@@ -41,6 +41,7 @@ interface EventsFilterToolbarProps {
   showClearAll: boolean;
   resultCount?: number;
   totalCount?: number;
+  filterBooking?: string;
 }
 
 export default function EventsFilterToolbar({
@@ -61,13 +62,15 @@ export default function EventsFilterToolbar({
   showClearAll,
   resultCount,
   totalCount,
+  filterBooking,
 }: EventsFilterToolbarProps) {
   const showResultCount =
     resultCount !== undefined &&
     (searchQuery ||
       filterType !== "all" ||
+      filterBooking === "pending" ||
       chips.some(
-        (c) => c.id === "date" || c.id === "month" || c.id === "year"
+        (c) => c.id === "date" || c.id === "month" || c.id === "year" || c.id === "booking"
       ));
 
   return (

@@ -87,6 +87,26 @@ function RosterRow({ person }: { person: AttendanceReportPerson }) {
       {person.memberId ? (
         <span className="chip-sky-sm shrink-0">{person.memberId}</span>
       ) : null}
+      <span
+        className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+          person.attendanceMode === "ONLINE"
+            ? "bg-sky-100 text-sky-800"
+            : "bg-emerald-100 text-emerald-800"
+        }`}
+      >
+        {person.attendanceModeLabel}
+      </span>
+      {person.venueLabel ? (
+        <span
+          className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+          style={{
+            borderColor: person.venueColor || "#0ea5e9",
+            color: person.venueColor || "#0369a1",
+          }}
+        >
+          {person.venueLabel}
+        </span>
+      ) : null}
       {person.status ? (
         <span
           className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonStatusColor(
@@ -119,9 +139,21 @@ function RosterRow({ person }: { person: AttendanceReportPerson }) {
 function filterRoster(
   people: AttendanceReportPerson[],
   query: string,
-  clusterFilter: string
+  clusterFilter: string,
+  modeFilter: string,
+  venueFilter: string
 ): AttendanceReportPerson[] {
   let filtered = people;
+
+  if (modeFilter === "ONSITE" || modeFilter === "ONLINE") {
+    filtered = filtered.filter(
+      (person) => person.attendanceMode === modeFilter
+    );
+  }
+
+  if (venueFilter) {
+    filtered = filtered.filter((person) => person.venueCode === venueFilter);
+  }
 
   if (clusterFilter === "NO_CLUSTER") {
     filtered = filtered.filter(
@@ -147,7 +179,9 @@ function filterRoster(
       (withoutLamp.length > 0 &&
         (memberId.includes(withoutLamp) || displayId.includes(withoutLamp))) ||
       person.statusLabel.toLowerCase().includes(trimmed) ||
-      person.role.toLowerCase().includes(trimmed)
+      person.role.toLowerCase().includes(trimmed) ||
+      person.attendanceModeLabel.toLowerCase().includes(trimmed) ||
+      person.venueLabel.toLowerCase().includes(trimmed)
     );
   });
 }
@@ -162,6 +196,8 @@ export default function EventAttendanceReportModal({
 }: EventAttendanceReportModalProps) {
   const [rosterSearch, setRosterSearch] = useState("");
   const [clusterFilter, setClusterFilter] = useState("");
+  const [modeFilter, setModeFilter] = useState("");
+  const [venueFilter, setVenueFilter] = useState("");
 
   const report = useMemo(
     () => buildAttendanceReport(people, event, attendanceRecords),
@@ -195,9 +231,30 @@ export default function EventAttendanceReportModal({
     return options;
   }, [clusterFilterOptions]);
 
+  const venueSelectOptions = useMemo(() => {
+    const options = [{ value: "", label: "All venues" }];
+    for (const venue of report.onlineByVenue) {
+      options.push({ value: venue.code, label: venue.label });
+    }
+    return options;
+  }, [report.onlineByVenue]);
+
   const filteredCheckedIn = useMemo(
-    () => filterRoster(report.checkedInRoster, rosterSearch, clusterFilter),
-    [report.checkedInRoster, rosterSearch, clusterFilter]
+    () =>
+      filterRoster(
+        report.checkedInRoster,
+        rosterSearch,
+        clusterFilter,
+        modeFilter,
+        venueFilter
+      ),
+    [
+      report.checkedInRoster,
+      rosterSearch,
+      clusterFilter,
+      modeFilter,
+      venueFilter,
+    ]
   );
 
   return (
@@ -246,6 +303,26 @@ export default function EventAttendanceReportModal({
             </p>
             <p className="text-xs text-muted-foreground">Checked In</p>
           </div>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-3">
+            <p
+              className={`text-2xl font-semibold ${
+                report.onsiteCount > 0 ? "text-emerald-700" : "text-gray-400"
+              }`}
+            >
+              {report.onsiteCount}
+            </p>
+            <p className="text-xs text-muted-foreground">Onsite</p>
+          </div>
+          <div className="rounded-lg border border-sky-200 bg-sky-50/80 p-3">
+            <p
+              className={`text-2xl font-semibold ${
+                report.onlineCount > 0 ? "text-sky-700" : "text-gray-400"
+              }`}
+            >
+              {report.onlineCount}
+            </p>
+            <p className="text-xs text-muted-foreground">Online</p>
+          </div>
           <div
             className={`rounded-lg border p-3 ${
               report.remainingCount > 0
@@ -280,6 +357,35 @@ export default function EventAttendanceReportModal({
           </div>
         </div>
 
+        {report.onlineByVenue.length > 0 ? (
+          <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-sky-900">
+              Online by venue
+            </h4>
+            <ul className="mt-2 space-y-1.5">
+              {report.onlineByVenue.map((venue) => (
+                <li
+                  key={venue.code}
+                  className="flex items-center justify-between gap-2 text-sm"
+                >
+                  <span
+                    className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                    style={{
+                      borderColor: venue.color,
+                      color: venue.color,
+                    }}
+                  >
+                    {venue.label}
+                  </span>
+                  <span className="font-semibold text-lighthouse-navy">
+                    {venue.count}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <StatusBreakdown
             title="Checked in by status"
@@ -313,7 +419,7 @@ export default function EventAttendanceReportModal({
             <h4 className="text-sm font-semibold text-lighthouse-navy">
               Checked-in roster
             </h4>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:flex-wrap sm:justify-end">
               <input
                 type="text"
                 value={rosterSearch}
@@ -321,6 +427,28 @@ export default function EventAttendanceReportModal({
                 placeholder="Search checked-in..."
                 className="input-field h-11 min-h-[44px] w-full text-sm sm:max-w-xs md:min-h-[44px] md:py-0"
               />
+              <select
+                value={modeFilter}
+                onChange={(e) => setModeFilter(e.target.value)}
+                aria-label="Filter by attendance mode"
+                className="input-field h-11 min-h-[44px] w-full text-sm sm:w-36 md:min-h-[44px] md:py-0"
+              >
+                <option value="">All modes</option>
+                <option value="ONSITE">Onsite</option>
+                <option value="ONLINE">Online</option>
+              </select>
+              <div className="w-full sm:w-52">
+                <ScalableSelect
+                  options={venueSelectOptions}
+                  value={venueFilter}
+                  onChange={setVenueFilter}
+                  placeholder="All venues"
+                  searchPlaceholder="Search venues..."
+                  emptyMessage="No matching venues"
+                  showSearch
+                  className="w-full"
+                />
+              </div>
               <div className="w-full sm:w-64">
                 <ScalableSelect
                   options={clusterSelectOptions}

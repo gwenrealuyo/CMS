@@ -26,7 +26,9 @@ import {
 import {
   Event,
   EventAttendanceRecord,
+  AttendanceMode,
   AttendanceStatus,
+  AttendanceVenueOption,
   EventTypeOption,
   EventRoom,
 } from "@/src/types/event";
@@ -941,11 +943,14 @@ export const eventsApi = {
       occurrence_date: string;
       status?: AttendanceStatus;
       notes?: string;
+      attendance_mode?: AttendanceMode;
+      attendance_venue?: string | null;
     }
   ) =>
     api.post<{
       attendance_record: EventAttendanceRecord;
       event: Event;
+      detail?: string;
     }>(`/events/${id}/attendance/`, payload),
   removeAttendance: (id: string, attendanceId: number | string) =>
     api.delete<{ event: Event }>(`/events/${id}/attendance/${attendanceId}/`),
@@ -956,6 +961,7 @@ export const eventsApi = {
   selfCheckIn: (payload: {
     person_ids: Array<number | string>;
     event_id?: number | string;
+    attendance_venue: string;
   }) =>
     api.post<SelfCheckInSessionResponse>("/events/self-check-in/", payload),
   undoSelfCheckIn: (payload: {
@@ -1018,6 +1024,33 @@ export const eventTypesApi = {
   ) => api.patch<EventTypeOption>(`/event-types/${encodeURIComponent(code)}/`, data),
   delete: (code: string) =>
     api.delete(`/event-types/${encodeURIComponent(code)}/`),
+};
+
+export const attendanceVenuesApi = {
+  list: (params?: { active?: boolean | string }) =>
+    api.get<AttendanceVenueOption[]>("/attendance-venues/", { params }),
+  create: (data: {
+    code: string;
+    label: string;
+    color: string;
+    sort_order: number;
+    is_active?: boolean;
+  }) => api.post<AttendanceVenueOption>("/attendance-venues/", data),
+  update: (
+    code: string,
+    data: Partial<{
+      label: string;
+      color: string;
+      sort_order: number;
+      is_active: boolean;
+    }>
+  ) =>
+    api.patch<AttendanceVenueOption>(
+      `/attendance-venues/${encodeURIComponent(code)}/`,
+      data
+    ),
+  delete: (code: string) =>
+    api.delete(`/attendance-venues/${encodeURIComponent(code)}/`),
 };
 
 export type EventRoomWrite = {

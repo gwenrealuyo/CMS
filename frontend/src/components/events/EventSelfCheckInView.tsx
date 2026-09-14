@@ -25,6 +25,7 @@ import { CheckIcon } from "@heroicons/react/24/solid";
 import AppLogo from "@/src/components/brand/AppLogo";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { eventsApi } from "@/src/lib/api";
 import { formatApiErrorMessage } from "@/src/lib/apiErrors";
@@ -38,6 +39,7 @@ import {
 import { formatLampIdDisplay } from "@/src/lib/events/checkInUtils";
 import { formatPersonName } from "@/src/lib/name";
 import { getPersonRoleColor } from "@/src/lib/personRole";
+import { AttendanceVenueOption } from "@/src/types/event";
 import {
   SelfCheckInAgeGroup,
   SelfCheckInEventOption,
@@ -145,6 +147,55 @@ function ServiceCard({ event }: { event: SelfCheckInEventOption }) {
       )}
     </div>
   );
+}
+
+function OnlineVenuePicker({
+  venues,
+  value,
+  onChange,
+  disabled,
+}: {
+  venues: AttendanceVenueOption[];
+  value: string;
+  onChange: (code: string) => void;
+  disabled?: boolean;
+}) {
+  const options = venues.map((venue) => ({
+    value: venue.code,
+    label: venue.label,
+  }));
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-lighthouse-navy">
+        Online venue *
+      </label>
+      <ScalableSelect
+        options={options}
+        value={value}
+        onChange={onChange}
+        placeholder="Select where you are joining from…"
+        searchPlaceholder="Search venues…"
+        emptyMessage="No active online venues"
+        showSearch
+        disabled={disabled}
+        className="w-full"
+      />
+      <p className="mt-1 text-xs text-muted-foreground">
+        Required (Home altar, Cluster house, etc.). Self check-in is online
+        only.
+      </p>
+    </div>
+  );
+}
+
+function axiosStatus(err: unknown): number | undefined {
+  return (err as { response?: { status?: number } })?.response?.status;
+}
+
+function axiosDetail(err: unknown): string | undefined {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })
+    ?.response?.data?.detail;
+  return typeof detail === "string" ? detail : undefined;
 }
 
 function PersonRow({
@@ -269,10 +320,19 @@ export default function EventSelfCheckInView() {
   const [duplicateMatches, setDuplicateMatches] = useState<
     SelfCheckInVisitorMatch[]
   >([]);
+  const [attendanceVenue, setAttendanceVenue] = useState("");
 
   const session: SelfCheckInSessionDetails | null = payload?.session ?? null;
   const selectedEventId =
     eventParam || (session ? String(eventIdFromOption(session.event)) : "");
+
+  const activeVenues = useMemo(() => {
+    const venues = payload?.attendance_venues ?? [];
+    return venues
+      .filter((venue) => venue.is_active !== false)
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label));
+  }, [payload?.attendance_venues]);
 
   const applySession = useCallback((data: SelfCheckInSessionResponse) => {
     setPayload(data);
@@ -413,6 +473,7 @@ export default function EventSelfCheckInView() {
     setVisitorResults([]);
     setSelectedMatch(null);
     setDuplicateMatches([]);
+    setAttendanceVenue("");
     setError(null);
     setEncode({
       first_name: "",
@@ -423,6 +484,12 @@ export default function EventSelfCheckInView() {
     });
     setPhoneDialCountry(DEFAULT_COUNTRY);
     setPhoneLocal("");
+  };
+
+  const requireVenue = () => {
+    if (attendanceVenue.trim()) return true;
+    setError("Select an online venue before checking in.");
+    return false;
   };
 
   const togglePerson = (id: number) => {
@@ -442,19 +509,30 @@ export default function EventSelfCheckInView() {
 
   const handleHouseholdCheckIn = async () => {
     if (!session || selectedHousehold.length === 0) return;
+    if (!requireVenue()) return;
     setSubmitting(true);
     setError(null);
     try {
       const response = await eventsApi.selfCheckIn({
         person_ids: selectedHousehold.map((person) => person.id),
         event_id: eventIdFromOption(session.event),
+        attendance_venue: attendanceVenue,
       });
       applySession(response.data);
       setLastCheckInIds(selectedHousehold.map((person) => person.id));
       setSuccessNames(selectedHousehold.map((person) => person.full_name));
+      setAttendanceVenue("");
       setStep("success");
     } catch (err) {
-      setError(formatApiErrorMessage(err, "Unable to check in."));
+      if (axiosStatus(err) === 409) {
+        setError(
+          axiosDetail(err) ||
+            "Already checked in. Mode and venue cannot be changed.",
+        );
+        await loadSession({ silent: true });
+      } else {
+        setError(formatApiErrorMessage(err, "Unable to check in."));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -465,6 +543,7 @@ export default function EventSelfCheckInView() {
       toast.success(`${person.full_name} is already checked in.`);
       return;
     }
+    if (!requireVenue()) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -474,6 +553,7 @@ export default function EventSelfCheckInView() {
           ? { prospect_id: person.prospect_id ?? person.id }
           : { person_id: person.id }),
         event_id: selectedEventId ? Number(selectedEventId) : undefined,
+        attendance_venue: attendanceVenue,
       });
       const checkedPerson = response.data.person;
       setSuccessNames([checkedPerson?.full_name || person.full_name]);
@@ -481,10 +561,22 @@ export default function EventSelfCheckInView() {
         checkedPerson?.id ? [checkedPerson.id] : isProspect ? [] : [person.id],
       );
       setSelectedMatch(null);
+      setAttendanceVenue("");
       setStep("success");
       await loadSession({ silent: true });
     } catch (err) {
-      setError(formatApiErrorMessage(err, "Unable to check in this visitor."));
+      if (axiosStatus(err) === 409) {
+        const detail =
+          axiosDetail(err) ||
+          `${person.full_name} is already checked in. Mode and venue cannot be changed.`;
+        setError(detail);
+        toast.success(
+          `${person.full_name} is already checked in.`,
+        );
+        await loadSession({ silent: true });
+      } else {
+        setError(formatApiErrorMessage(err, "Unable to check in this visitor."));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -535,6 +627,7 @@ export default function EventSelfCheckInView() {
       setError("Gender and age group are required.");
       return;
     }
+    if (!requireVenue()) return;
     setSubmitting(true);
     setError(null);
     setDuplicateMatches([]);
@@ -548,16 +641,23 @@ export default function EventSelfCheckInView() {
         email: encode.email.trim() || undefined,
         inviter_id: inviter?.id,
         event_id: selectedEventId ? Number(selectedEventId) : undefined,
+        attendance_venue: attendanceVenue,
       });
       setSuccessNames([response.data.person.full_name]);
       setLastCheckInIds([response.data.person.id]);
+      setAttendanceVenue("");
       setStep("success");
       await loadSession({ silent: true });
     } catch (err) {
       const axiosErr = err as {
         response?: {
           status?: number;
-          data?: { matches?: SelfCheckInVisitorMatch[]; detail?: string };
+          data?: {
+            matches?: SelfCheckInVisitorMatch[];
+            detail?: string;
+            already_checked_in?: boolean;
+            person?: SelfCheckInVisitorMatch;
+          };
         };
       };
       if (
@@ -570,6 +670,19 @@ export default function EventSelfCheckInView() {
           axiosErr.response.data.detail ||
             "A person with this name already exists. Select them, then check in.",
         );
+      } else if (
+        axiosErr.response?.status === 409 &&
+        axiosErr.response.data?.already_checked_in
+      ) {
+        const name =
+          axiosErr.response.data.person?.full_name ||
+          formatPersonName(encode);
+        setError(
+          axiosErr.response.data.detail ||
+            `${name} is already checked in. Mode and venue cannot be changed.`,
+        );
+        toast.success(`${name} is already checked in.`);
+        await loadSession({ silent: true });
       } else {
         setError(formatApiErrorMessage(err, "Unable to encode this visitor."));
       }
@@ -764,10 +877,23 @@ export default function EventSelfCheckInView() {
             />
           ))}
         </div>
+        <OnlineVenuePicker
+          venues={activeVenues}
+          value={attendanceVenue}
+          disabled={submitting}
+          onChange={(code) => {
+            setAttendanceVenue(code);
+            setError(null);
+          }}
+        />
         {actionError}
         <Button
           className="w-full min-h-12"
-          disabled={submitting || selectedHousehold.length === 0}
+          disabled={
+            submitting ||
+            selectedHousehold.length === 0 ||
+            !attendanceVenue
+          }
           onClick={() => void handleHouseholdCheckIn()}
         >
           {submitting
@@ -835,17 +961,28 @@ export default function EventSelfCheckInView() {
           ))}
         </div>
         {visitorResults.some((person) => !person.already_checked_in) && (
-          <Button
-            className="w-full min-h-12"
-            disabled={submitting || !selectedVisitor}
-            onClick={() => void handleConfirmVisitorCheckIn()}
-          >
-            {submitting
-              ? "Checking in…"
-              : selectedVisitor
-                ? `Check in ${selectedVisitor.full_name}`
-                : "Select a visitor to check in"}
-          </Button>
+          <>
+            <OnlineVenuePicker
+              venues={activeVenues}
+              value={attendanceVenue}
+              disabled={submitting}
+              onChange={(code) => {
+                setAttendanceVenue(code);
+                setError(null);
+              }}
+            />
+            <Button
+              className="w-full min-h-12"
+              disabled={submitting || !selectedVisitor || !attendanceVenue}
+              onClick={() => void handleConfirmVisitorCheckIn()}
+            >
+              {submitting
+                ? "Checking in…"
+                : selectedVisitor
+                  ? `Check in ${selectedVisitor.full_name}`
+                  : "Select a visitor to check in"}
+            </Button>
+          </>
         )}
         {showEncode && (
           <Button
@@ -1066,6 +1203,15 @@ export default function EventSelfCheckInView() {
             </div>
           )}
         </label>
+        <OnlineVenuePicker
+          venues={activeVenues}
+          value={attendanceVenue}
+          disabled={submitting}
+          onChange={(code) => {
+            setAttendanceVenue(code);
+            setError(null);
+          }}
+        />
         {duplicateMatches.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium">Existing matches</p>
@@ -1088,7 +1234,7 @@ export default function EventSelfCheckInView() {
               <Button
                 type="button"
                 className="w-full min-h-12"
-                disabled={submitting || !selectedVisitor}
+                disabled={submitting || !selectedVisitor || !attendanceVenue}
                 onClick={() => void handleConfirmVisitorCheckIn()}
               >
                 {submitting
@@ -1101,7 +1247,11 @@ export default function EventSelfCheckInView() {
           </div>
         )}
         {actionError}
-        <Button type="submit" className="w-full min-h-12" disabled={submitting}>
+        <Button
+          type="submit"
+          className="w-full min-h-12"
+          disabled={submitting || !attendanceVenue}
+        >
           {submitting ? "Saving…" : "Check in as visitor"}
         </Button>
       </form>,
@@ -1117,7 +1267,11 @@ export default function EventSelfCheckInView() {
       >
         <button
           type="button"
-          onClick={() => setStep("member")}
+          onClick={() => {
+            setAttendanceVenue("");
+            setError(null);
+            setStep("member");
+          }}
           className="flex min-h-[7.5rem] flex-col items-center justify-center gap-2 rounded-2xl border border-gray-200 px-3 py-4 text-center hover:border-primary/40"
         >
           <UserGroupIcon className="h-8 w-8 text-primary" />
@@ -1131,6 +1285,8 @@ export default function EventSelfCheckInView() {
             type="button"
             onClick={() => {
               setSelectedMatch(null);
+              setAttendanceVenue("");
+              setError(null);
               setStep("visitor-search");
             }}
             className="flex min-h-[7.5rem] flex-col items-center justify-center gap-2 rounded-2xl border border-gray-200 px-3 py-4 text-center hover:border-primary/40"

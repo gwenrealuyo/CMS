@@ -1,3 +1,5 @@
+import type { AttendanceVenueOption } from "@/src/types/event";
+
 export type SelfCheckInAgeGroup = "ADULT" | "YOUTH" | "CHILD";
 
 export interface SelfCheckInEventOption {
@@ -46,6 +48,7 @@ export interface SelfCheckInSessionResponse {
   can_encode_visitors: boolean;
   session: SelfCheckInSessionDetails | null;
   options: SelfCheckInEventOption[];
+  attendance_venues?: AttendanceVenueOption[];
   detail?: string;
   attendance_records?: unknown[];
   removed_person_ids?: number[];
@@ -87,4 +90,5 @@ export interface SelfCheckInVisitorWrite {
   email?: string;
   inviter_id?: number;
   event_id?: number;
+  attendance_venue: string;
 }

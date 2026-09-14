@@ -5,7 +5,17 @@
 - `apps.events.models.Event` persists event start/end times in UTC (`DateTimeField` with `USE_TZ=True`).
 - Frontend forms submit local timestamps; the form converts them to ISO-8601 UTC before sending to the API, so the backend always stores aware datetimes.
 - Responses (serializer) return ISO-8601 strings; the frontend renders them in the viewer’s locale (e.g., Manila) using `Date.prototype.toLocaleString`.
-- `apps.attendance.models.AttendanceRecord` links an `Event` to a `Person` for a specific occurrence (`occurrence_date`) and stores the attendance `status` (`PRESENT`, `ABSENT`, `EXCUSED`). Each record automatically synchronises with a `Journey` of type `EVENT_ATTENDANCE`, ensuring the person’s timeline reflects their event participation.
+- `apps.attendance.models.AttendanceRecord` links an `Event` to a `Person` for a specific occurrence (`occurrence_date`) and stores the attendance `status` (`PRESENT`, `ABSENT`, `EXCUSED`). Each record also stores **how** they attended: `attendance_mode` (`ONSITE` | `ONLINE`) and optional `attendance_venue` (FK to `AttendanceVenue`, required when online). Each record automatically synchronises with a `Journey` of type `EVENT_ATTENDANCE`, ensuring the person’s timeline reflects their event participation.
+
+### Attendance mode and online venues
+
+- **Onsite** — physical church check-in (staff QR / manual station). No venue subtype.
+- **Online** — remote check-in (self-check-in or staff Online station). Requires an active `AttendanceVenue` (e.g. Home altar, Cluster house).
+- Venues are admin-managed at `/api/attendance-venues/` (seeded system rows: `HOME_ALTAR`, `CLUSTER_HOUSE`). Admins can add/edit labels, colors, sort order, and active flag; system venues and venues in use cannot be deleted.
+- **First check-in is final** for mode/venue: a second Present write for the same person/occurrence returns **409** and does not change mode/venue. Staff can delete the attendance record and check in again if a correction is needed.
+- Staff check-in station: **Onsite** (default, QR + manual) or **Online** (manual only + required venue picker).
+- Self-check-in is always **Online** and requires `attendance_venue` on every POST (household and visitor flows). Session payloads include `attendance_venues` for the picker.
+- Manage venues in **Admin Settings → Events → Manage venues**.
 
 ## Recurrence Pattern Format
 
@@ -90,7 +100,8 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
   - **Remaining** — expected people not yet checked in (not `Total − Checked In` when extras are present).
 - Manual Entry and Camera Scan look up anyone in the broader check-in candidate pool (non-admin, branch-scoped), so people outside Total can still check in.
 - **Manual Entry** tab accepts name or LAMP ID; Enter key submits.
-- **Camera Scan** tab uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in; unknown IDs and already-checked-in people show an error. Camera access requires HTTPS or localhost.
+- **Camera Scan** tab (Onsite station only) uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in; unknown IDs and already-checked-in people show an error. Camera access requires HTTPS or localhost.
+- Station toggle: **Onsite** (default) posts `attendance_mode: ONSITE`; **Online** requires a venue and posts `ONLINE` + venue. Recent Check-Ins show mode/venue chips and can filter by mode and cluster.
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
 - For **today or past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
 
@@ -110,20 +121,21 @@ Mobile-first page at `/events/self-check-in` (authenticated, no sidebar). Comple
 API (all authenticated, non-visitor):
 
 - `GET|PATCH /api/events/settings/` — ADMIN. `member_self_checkin_enabled` opens self-check-in to all members (default off).
-- `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`. `?event=` selects among options. Members get `available: false`, `reason: restricted` while the setting is off.
-- `POST /api/events/self-check-in/` — `{ person_ids, event_id? }` household Present upsert.
+- `GET|POST|PATCH|DELETE /api/attendance-venues/` — list/manage online venues (`?active=true` for pickers). Write/delete is ADMIN.
+- `GET /api/events/self-check-in/session/` — today’s session, household, `can_encode_visitors`, `attendance_venues`. `?event=` selects among options. Members get `available: false`, `reason: restricted` while the setting is off.
+- `POST /api/events/self-check-in/` — `{ person_ids, attendance_venue, event_id? }` household Present upsert as **Online**.
 - `POST /api/events/self-check-in/undo/` — `{ person_ids, event_id? }` remove today’s Present records you are allowed to undo.
-- `GET|POST /api/events/self-check-in/visitors/` — name search (visitors + Invited prospects) / check in existing person, check in prospect (`prospect_id`), or encode.
+- `GET|POST /api/events/self-check-in/visitors/` — name search (visitors + Invited prospects) / check in existing person, check in prospect (`prospect_id`), or encode. POSTs require `attendance_venue`.
 - `GET /api/events/self-check-in/inviters/` — inviter search for encode.
 
 ### Attendance Report (today and past occurrences)
 
 Available from Event Details and the check-in page when the selected occurrence date is today or earlier (local calendar day). Future occurrences keep Open Check-In only. No new backend report API — the report is computed in the browser from people + attendance for that occurrence.
 
-- **Summary:** Expected (same rules as check-in Total), Checked In (unique attendance), Remaining (expected not checked in), Surprises (checked in but not in the expected pool).
+- **Summary:** Expected, Checked In, **Onsite**, **Online**, Remaining, Surprises; optional **Online by venue** breakdown.
 - **Breakdowns:** Checked-in and remaining counts by person status (Active, Semi-active, Inactive, Ongoing, No Response, etc.).
-- **Surprises list** and a searchable **checked-in roster** (LAMP ID without prefix, status, role, cluster / NO CLUSTER).
-- **Download CSV** with event title, occurrence date, summary counts, and rows for checked-in / remaining / surprises (name, LAMP ID, role, status, cluster, category, check-in time when present).
+- **Surprises list** and a searchable **checked-in roster** with mode/venue chips (filters for mode, venue, and cluster).
+- **Download CSV** with event title, occurrence date, summary counts (including Onsite/Online), and rows for checked-in / remaining / surprises (name, LAMP ID, role, status, cluster, attendance mode, online venue, category, check-in time when present).
 
 Sunday Service uses expected-attendee flags for Expected/Remaining/Surprises; other types use the full eligible pool as expected (same as check-in). Deceased people are excluded from Expected / Remaining in all cases.
 
@@ -157,7 +169,7 @@ Existing rows migrated as `approved`. Duplicate historical Sunday Services are n
 
 ## Testing
 
-Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`.
+Recurring frequencies, skip/end/split, and series `DELETE` are covered by `apps.events.tests.test_recurrence` and `apps.events.tests.test_recurrence_delete`. Self check-in is covered by `apps.events.tests.test_self_checkin`. Attendance mode/venues are covered by `apps.events.tests.test_attendance_mode_venues`. Sunday Service uniqueness is covered by `apps.events.tests.test_sunday_service_uniqueness`. Room booking, requester permissions, and approve/reject are covered by `apps.events.tests.test_room_booking`.
 
 Run them (uses SQLite to avoid Postgres permissions):
 

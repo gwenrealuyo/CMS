@@ -7,6 +7,7 @@ import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import EventAttendanceReportModal from "@/src/components/events/EventAttendanceReportModal";
 import { usePeople } from "@/src/hooks/usePeople";
 import {
+  AttendanceMode,
   AttendanceStatus,
   Event,
   EventAttendanceRecord,
@@ -28,6 +29,8 @@ interface AddAttendanceInput {
   occurrence_date: string;
   status?: AttendanceStatus;
   notes?: string;
+  attendance_mode?: AttendanceMode;
+  attendance_venue?: string | null;
 }
 
 interface EventViewProps {
@@ -276,6 +279,7 @@ export default function EventView({
         person_id: personId,
         occurrence_date: selectedOccurrenceDate,
         status: selectedStatus,
+        attendance_mode: "ONSITE",
       });
       await fetchAttendance(selectedOccurrenceDate);
       setSelectedPersonId("");

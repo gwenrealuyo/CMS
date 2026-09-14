@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from django.db.models import Count
 from rest_framework import status
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
@@ -14,10 +15,10 @@ from apps.authentication.permissions import (
     IsMemberOrAbove,
     IsAdmin,
 )
-from apps.events.models import EventSetting, EventType
+from apps.events.models import AttendanceVenue, EventSetting, EventType
 from apps.evangelism.models import Prospect
 from apps.evangelism.services import mark_prospect_attended
-from apps.events.serializers import EventSettingSerializer
+from apps.events.serializers import AttendanceVenueSerializer, EventSettingSerializer
 from apps.events.services.self_checkin import (
     AGE_GROUP_LABELS,
     REASON_RESTRICTED,
@@ -48,6 +49,37 @@ from apps.people.models import Journey, Person
 from apps.people.name_formatting import title_case_name
 from apps.people.usernames import generate_unique_username
 from core.datetime_utils import church_today
+
+
+def _active_venues_payload():
+    venues = AttendanceVenue.objects.filter(is_active=True).annotate(
+        attendance_count=Count("attendance_records")
+    ).order_by("sort_order", "code")
+    return AttendanceVenueSerializer(venues, many=True).data
+
+
+def _resolve_online_venue(request):
+    raw = None
+    if hasattr(request, "data"):
+        raw = request.data.get("attendance_venue")
+    if raw in (None, ""):
+        return None, {
+            "attendance_venue": ["Select an online venue (e.g. Home altar or Cluster house)."]
+        }
+    code = str(raw).strip().upper()
+    try:
+        venue = AttendanceVenue.objects.get(code=code, is_active=True)
+    except AttendanceVenue.DoesNotExist:
+        return None, {
+            "attendance_venue": ["Selected online venue is invalid or inactive."]
+        }
+    return venue, None
+
+
+def _with_venues(payload: dict) -> dict:
+    payload = dict(payload)
+    payload["attendance_venues"] = _active_venues_payload()
+    return payload
 
 
 class CanEncodeSelfCheckInVisitors(BasePermission):
@@ -84,46 +116,56 @@ def _event_id_from_request(request) -> int | None:
 
 
 def _unavailable_payload(resolved) -> dict:
-    return {
-        "available": False,
-        "reason": resolved.reason or "no_service_today",
-        "occurrence_date": (
-            resolved.occurrence_date.isoformat() if resolved.occurrence_date else None
-        ),
-        "needs_selection": False,
-        "can_encode_visitors": resolved.can_encode_visitors,
-        "session": None,
-        "options": [],
-    }
+    return _with_venues(
+        {
+            "available": False,
+            "reason": resolved.reason or "no_service_today",
+            "occurrence_date": (
+                resolved.occurrence_date.isoformat()
+                if resolved.occurrence_date
+                else None
+            ),
+            "needs_selection": False,
+            "can_encode_visitors": resolved.can_encode_visitors,
+            "session": None,
+            "options": [],
+        }
+    )
 
 
 def _restricted_payload() -> dict:
-    return {
-        "available": False,
-        "reason": REASON_RESTRICTED,
-        "occurrence_date": None,
-        "needs_selection": False,
-        "can_encode_visitors": False,
-        "session": None,
-        "options": [],
-        "detail": "Self check-in is not open to members yet.",
-    }
+    return _with_venues(
+        {
+            "available": False,
+            "reason": REASON_RESTRICTED,
+            "occurrence_date": None,
+            "needs_selection": False,
+            "can_encode_visitors": False,
+            "session": None,
+            "options": [],
+            "detail": "Self check-in is not open to members yet.",
+        }
+    )
 
 
 def _options_payload(resolved) -> dict:
-    return {
-        "available": True,
-        "reason": None,
-        "occurrence_date": (
-            resolved.occurrence_date.isoformat() if resolved.occurrence_date else None
-        ),
-        "needs_selection": True,
-        "can_encode_visitors": resolved.can_encode_visitors,
-        "session": None,
-        "options": [
-            serialize_event_option(event, occ) for event, occ in resolved.options
-        ],
-    }
+    return _with_venues(
+        {
+            "available": True,
+            "reason": None,
+            "occurrence_date": (
+                resolved.occurrence_date.isoformat()
+                if resolved.occurrence_date
+                else None
+            ),
+            "needs_selection": True,
+            "can_encode_visitors": resolved.can_encode_visitors,
+            "session": None,
+            "options": [
+                serialize_event_option(event, occ) for event, occ in resolved.options
+            ],
+        }
+    )
 
 
 def _session_payload(resolved, user, request) -> dict:
@@ -140,22 +182,24 @@ def _session_payload(resolved, user, request) -> dict:
         )
         for person in household_queryset(user)
     ]
-    return {
-        "available": True,
-        "reason": None,
-        "occurrence_date": occurrence_date.isoformat(),
-        "needs_selection": False,
-        "can_encode_visitors": resolved.can_encode_visitors,
-        "session": {
-            "event": serialize_session_event(event, occ),
+    return _with_venues(
+        {
+            "available": True,
+            "reason": None,
             "occurrence_date": occurrence_date.isoformat(),
-            "start": occ.start.isoformat(),
-            "end": occ.end.isoformat(),
-            "already_checked_in_ids": sorted(checked),
-            "household": household,
-        },
-        "options": [serialize_event_option(event, occ)],
-    }
+            "needs_selection": False,
+            "can_encode_visitors": resolved.can_encode_visitors,
+            "session": {
+                "event": serialize_session_event(event, occ),
+                "occurrence_date": occurrence_date.isoformat(),
+                "start": occ.start.isoformat(),
+                "end": occ.end.isoformat(),
+                "already_checked_in_ids": sorted(checked),
+                "household": household,
+            },
+            "options": [serialize_event_option(event, occ)],
+        }
+    )
 
 
 def build_session_response(request, resolved):
@@ -171,19 +215,21 @@ def build_session_response(request, resolved):
     return Response(_session_payload(resolved, request.user, request))
 
 
-def _upsert_present(event, person, occurrence_date, request):
+def _upsert_present(event, person, occurrence_date, request, venue: AttendanceVenue):
     serializer = AttendanceRecordSerializer(
         data={
             "event_id": event.pk,
             "person_id": person.pk,
             "occurrence_date": occurrence_date.isoformat(),
             "status": "PRESENT",
+            "attendance_mode": AttendanceRecord.AttendanceMode.ONLINE,
+            "attendance_venue": venue.code,
         },
         context={"request": request},
     )
     serializer.is_valid(raise_exception=True)
     record = serializer.save()
-    return record, serializer.was_created
+    return record, serializer.was_created, serializer.already_checked_in
 
 
 class SelfCheckInSessionView(APIView):
@@ -221,6 +267,10 @@ class SelfCheckInView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        venue, venue_errors = _resolve_online_venue(request)
+        if venue_errors:
+            return Response(venue_errors, status=status.HTTP_400_BAD_REQUEST)
+
         allowed = household_person_ids(request.user)
         rejected = [pk for pk in person_ids if pk not in allowed]
         if rejected:
@@ -234,18 +284,28 @@ class SelfCheckInView(APIView):
 
         people = {p.pk: p for p in Person.objects.filter(pk__in=person_ids)}
         records = []
+        already = []
         for pk in person_ids:
             person = people.get(pk)
             if person is None:
                 continue
-            record, _created = _upsert_present(
-                resolved.event, person, resolved.occurrence_date, request
+            record, _created, was_already = _upsert_present(
+                resolved.event, person, resolved.occurrence_date, request, venue
             )
-            records.append(AttendanceRecordSerializer(record, context={"request": request}).data)
+            records.append(
+                AttendanceRecordSerializer(record, context={"request": request}).data
+            )
+            if was_already:
+                already.append(pk)
 
         refreshed = resolve_session(request.user, event_id=resolved.event.pk)
         body = _session_payload(refreshed, request.user, request)
         body["attendance_records"] = records
+        if already and len(already) == len(records):
+            body["detail"] = (
+                "Already checked in. Mode and venue cannot be changed."
+            )
+            return Response(body, status=status.HTTP_409_CONFLICT)
         return Response(body, status=status.HTTP_200_OK)
 
 
@@ -383,13 +443,16 @@ class SelfCheckInVisitorsView(APIView):
 
         person_id = parse_event_id(request.data.get("person_id"))
         prospect_id = parse_event_id(request.data.get("prospect_id"))
+        venue, venue_errors = _resolve_online_venue(request)
+        if venue_errors:
+            return Response(venue_errors, status=status.HTTP_400_BAD_REQUEST)
         if prospect_id:
-            return self._check_in_prospect(request, resolved, prospect_id)
+            return self._check_in_prospect(request, resolved, prospect_id, venue)
         if person_id:
-            return self._check_in_existing(request, resolved, person_id)
-        return self._create_and_check_in(request, resolved)
+            return self._check_in_existing(request, resolved, person_id, venue)
+        return self._create_and_check_in(request, resolved, venue)
 
-    def _check_in_prospect(self, request, resolved, prospect_id: int):
+    def _check_in_prospect(self, request, resolved, prospect_id: int, venue: AttendanceVenue):
         qs = invited_prospect_scope_for_event(resolved.event)
         try:
             prospect = qs.get(pk=prospect_id)
@@ -420,13 +483,13 @@ class SelfCheckInVisitorsView(APIView):
             person.branch = branch
             person.save(update_fields=["branch"])
 
-        record, created = _upsert_present(
-            resolved.event, person, resolved.occurrence_date, request
+        record, created, already = _upsert_present(
+            resolved.event, person, resolved.occurrence_date, request, venue
         )
         return Response(
             {
                 "created_person": True,
-                "already_checked_in": not created,
+                "already_checked_in": already or not created,
                 "person": serialize_person_slim(
                     person,
                     already_checked_in=True,
@@ -436,10 +499,10 @@ class SelfCheckInVisitorsView(APIView):
                     record, context={"request": request}
                 ).data,
             },
-            status=status.HTTP_200_OK,
+            status=status.HTTP_409_CONFLICT if already else status.HTTP_200_OK,
         )
 
-    def _check_in_existing(self, request, resolved, person_id: int):
+    def _check_in_existing(self, request, resolved, person_id: int, venue: AttendanceVenue):
         qs = visitor_scope_for_event(request.user, resolved.event)
         try:
             person = qs.get(pk=person_id)
@@ -448,13 +511,13 @@ class SelfCheckInVisitorsView(APIView):
                 {"detail": "Person not found for this service."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        record, created = _upsert_present(
-            resolved.event, person, resolved.occurrence_date, request
+        record, created, already = _upsert_present(
+            resolved.event, person, resolved.occurrence_date, request, venue
         )
         return Response(
             {
                 "created_person": False,
-                "already_checked_in": not created,
+                "already_checked_in": already or not created,
                 "person": serialize_person_slim(
                     person,
                     already_checked_in=True,
@@ -464,10 +527,10 @@ class SelfCheckInVisitorsView(APIView):
                     record, context={"request": request}
                 ).data,
             },
-            status=status.HTTP_200_OK,
+            status=status.HTTP_409_CONFLICT if already else status.HTTP_200_OK,
         )
 
-    def _create_and_check_in(self, request, resolved):
+    def _create_and_check_in(self, request, resolved, venue: AttendanceVenue):
         data = request.data or {}
         first_name = title_case_name(str(data.get("first_name") or "").strip())
         last_name = title_case_name(str(data.get("last_name") or "").strip())
@@ -555,8 +618,8 @@ class SelfCheckInVisitorsView(APIView):
             verified_by=None,
         )
 
-        record, _created = _upsert_present(
-            resolved.event, person, resolved.occurrence_date, request
+        record, _created, _already = _upsert_present(
+            resolved.event, person, resolved.occurrence_date, request, venue
         )
         return Response(
             {
@@ -573,7 +636,6 @@ class SelfCheckInVisitorsView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
-
 
 class SelfCheckInInvitersView(APIView):
     permission_classes = ENCODE_PERMISSIONS

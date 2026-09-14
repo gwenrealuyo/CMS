@@ -23,7 +23,7 @@ from apps.authentication.permissions import (
 )
 from apps.people.models import ModuleCoordinator
 from core.datetime_utils import church_calendar_date
-from .models import Event, EventRoom, EventType
+from .models import AttendanceVenue, Event, EventRoom, EventType
 from .permissions import (
     CanApproveEventBooking,
     CanCreateOrUpdateEvent,
@@ -31,7 +31,12 @@ from .permissions import (
     apply_event_room_branch_scope,
     can_approve_event_booking,
 )
-from .serializers import EventRoomSerializer, EventSerializer, EventTypeSerializer
+from .serializers import (
+    AttendanceVenueSerializer,
+    EventRoomSerializer,
+    EventSerializer,
+    EventTypeSerializer,
+)
 from .services.booking import (
     booking_status_for_update,
     initial_booking_status,
@@ -89,6 +94,56 @@ class EventTypeViewSet(viewsets.ModelViewSet):
                     "detail": (
                         "Cannot delete an event type that is used as a person's "
                         "first activity attended."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
+class AttendanceVenueViewSet(viewsets.ModelViewSet):
+    queryset = AttendanceVenue.objects.annotate(
+        attendance_count=Count("attendance_records")
+    ).order_by("sort_order", "code")
+    serializer_class = AttendanceVenueSerializer
+    lookup_field = "code"
+    permission_classes = [IsAuthenticatedAndNotVisitor]
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    search_fields = ["code", "label"]
+    filterset_fields = ["is_active"]
+
+    def get_queryset(self):
+        queryset = AttendanceVenue.objects.annotate(
+            attendance_count=Count("attendance_records")
+        ).order_by("sort_order", "code")
+        active_param = self.request.query_params.get("active")
+        if active_param is not None:
+            truthy = active_param.strip().lower() in {"1", "true", "yes"}
+            queryset = queryset.filter(is_active=truthy)
+        return queryset
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+        if self.action == "destroy":
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        if self.action in ["create", "update", "partial_update"]:
+            return [IsAuthenticatedAndNotVisitor(), IsAdmin()]
+        return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_system:
+            return Response(
+                {"detail": "System attendance venues cannot be deleted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if instance.attendance_records.exists():
+            return Response(
+                {
+                    "detail": (
+                        "Cannot delete an attendance venue that is used by "
+                        "existing attendance records."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -392,7 +447,9 @@ class EventViewSet(viewsets.ModelViewSet):
     def attendance(self, request, pk=None):
         event = self.get_object()
         occurrence_date_param = request.query_params.get("occurrence_date")
-        records = event.attendance_records.select_related("person", "journey")
+        records = event.attendance_records.select_related(
+            "person", "journey", "attendance_venue"
+        )
         if occurrence_date_param:
             parsed_date = parse_date(occurrence_date_param)
             if not parsed_date:
@@ -418,11 +475,7 @@ class EventViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         record = serializer.save()
-        status_code = (
-            status.HTTP_201_CREATED if serializer.was_created else status.HTTP_200_OK
-        )
 
-        # Refresh event serializer context to surface updated counts
         event.refresh_from_db()
         event_serializer = self.get_serializer(event)
         response_payload = {
@@ -431,6 +484,15 @@ class EventViewSet(viewsets.ModelViewSet):
             ).data,
             "event": event_serializer.data,
         }
+        if serializer.already_checked_in:
+            response_payload["detail"] = (
+                "Person is already checked in. Mode and venue cannot be changed."
+            )
+            return Response(response_payload, status=status.HTTP_409_CONFLICT)
+
+        status_code = (
+            status.HTTP_201_CREATED if serializer.was_created else status.HTTP_200_OK
+        )
         return Response(response_payload, status=status_code)
 
     @action(

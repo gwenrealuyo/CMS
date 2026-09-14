@@ -26,6 +26,17 @@ export interface RecurrencePattern {
 export type WeeklyRecurrencePattern = RecurrencePattern;
 
 export type AttendanceStatus = "PRESENT" | "ABSENT" | "EXCUSED";
+export type AttendanceMode = "ONSITE" | "ONLINE";
+
+export interface AttendanceVenueOption {
+  code: string;
+  label: string;
+  color: string;
+  sort_order: number;
+  is_active: boolean;
+  is_system?: boolean;
+  attendance_count?: number;
+}
 
 export interface EventAttendancePerson {
   id: string;
@@ -47,6 +58,10 @@ export interface EventAttendanceRecord {
   id: number;
   occurrence_date: string;
   status: AttendanceStatus;
+  attendance_mode?: AttendanceMode;
+  attendance_venue?: string | null;
+  attendance_venue_label?: string | null;
+  attendance_venue_color?: string | null;
   notes?: string;
   journey_id?: number | null;
   recorded_at: string;

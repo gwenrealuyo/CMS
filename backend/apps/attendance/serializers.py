@@ -1,6 +1,7 @@
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
-from apps.events.models import Event
+from apps.events.models import AttendanceVenue, Event
 from apps.people.models import Person
 from core.datetime_utils import church_calendar_date
 
@@ -63,6 +64,17 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     journey_id = serializers.IntegerField(source="journey.id", read_only=True)
+    attendance_venue = serializers.PrimaryKeyRelatedField(
+        queryset=AttendanceVenue.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+    attendance_venue_label = serializers.CharField(
+        source="attendance_venue.label", read_only=True, allow_null=True
+    )
+    attendance_venue_color = serializers.CharField(
+        source="attendance_venue.color", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = AttendanceRecord
@@ -74,20 +86,84 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "person_id",
             "occurrence_date",
             "status",
+            "attendance_mode",
+            "attendance_venue",
+            "attendance_venue_label",
+            "attendance_venue_color",
             "notes",
             "journey_id",
             "recorded_at",
             "updated_at",
         ]
-        read_only_fields = ["event", "journey_id", "recorded_at", "updated_at"]
+        read_only_fields = [
+            "event",
+            "journey_id",
+            "recorded_at",
+            "updated_at",
+            "attendance_venue_label",
+            "attendance_venue_color",
+        ]
         validators = []
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        # Remove write-only identifiers in responses
         representation.pop("event_id", None)
         representation.pop("person_id", None)
+        venue = representation.get("attendance_venue")
+        if venue is not None and hasattr(venue, "code"):
+            representation["attendance_venue"] = venue.code
+        elif instance.attendance_venue_id:
+            representation["attendance_venue"] = instance.attendance_venue_id
         return representation
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        mode = attrs.get(
+            "attendance_mode",
+            getattr(self.instance, "attendance_mode", None)
+            or AttendanceRecord.AttendanceMode.ONSITE,
+        )
+        venue = attrs.get(
+            "attendance_venue",
+            getattr(self.instance, "attendance_venue", None)
+            if self.instance
+            else None,
+        )
+        # Distinguish omitted vs explicitly null for create
+        if self.instance is None and "attendance_venue" not in attrs:
+            venue = None
+        if "attendance_mode" not in attrs and self.instance is None:
+            mode = AttendanceRecord.AttendanceMode.ONSITE
+
+        if mode == AttendanceRecord.AttendanceMode.ONSITE:
+            if venue is not None:
+                raise ValidationError(
+                    {
+                        "attendance_venue": (
+                            "Onsite attendance cannot have an online venue."
+                        )
+                    }
+                )
+            attrs["attendance_venue"] = None
+        elif mode == AttendanceRecord.AttendanceMode.ONLINE:
+            if venue is None:
+                raise ValidationError(
+                    {
+                        "attendance_venue": (
+                            "Online attendance requires an online venue."
+                        )
+                    }
+                )
+            if not venue.is_active:
+                raise ValidationError(
+                    {
+                        "attendance_venue": (
+                            "Selected online venue is not active."
+                        )
+                    }
+                )
+        attrs["attendance_mode"] = mode
+        return attrs
 
     def create(self, validated_data):
         defaults = {
@@ -95,6 +171,10 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                 "status", AttendanceRecord.AttendanceStatus.PRESENT
             ),
             "notes": validated_data.get("notes", ""),
+            "attendance_mode": validated_data.get(
+                "attendance_mode", AttendanceRecord.AttendanceMode.ONSITE
+            ),
+            "attendance_venue": validated_data.get("attendance_venue"),
         }
         event = validated_data["event"]
         person = validated_data["person"]
@@ -110,15 +190,16 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                 )
             )
             if existing:
+                # First check-in is final for mode/venue; keep existing row.
                 record = existing[0]
                 AttendanceRecord.objects.filter(event=event, person=person).exclude(
                     pk=record.pk
                 ).delete()
-                record.occurrence_date = target_date
-                record.status = defaults["status"]
-                record.notes = defaults["notes"]
-                record.save()
+                if record.occurrence_date != target_date:
+                    record.occurrence_date = target_date
+                    record.save(update_fields=["occurrence_date", "updated_at"])
                 self._was_created = False
+                self._already_checked_in = True
                 return record
             record = AttendanceRecord.objects.create(
                 event=event,
@@ -127,26 +208,46 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                 **defaults,
             )
             self._was_created = True
+            self._already_checked_in = False
             return record
 
-        record, created = AttendanceRecord.objects.update_or_create(
+        existing = AttendanceRecord.objects.filter(
             event=event,
             person=person,
             occurrence_date=validated_data["occurrence_date"],
-            defaults=defaults,
+        ).first()
+        if existing:
+            self._was_created = False
+            self._already_checked_in = True
+            return existing
+
+        record = AttendanceRecord.objects.create(
+            event=event,
+            person=person,
+            occurrence_date=validated_data["occurrence_date"],
+            **defaults,
         )
-        self._was_created = created
+        self._was_created = True
+        self._already_checked_in = False
         return record
 
     def update(self, instance, validated_data):
+        # First check-in final: never overwrite mode/venue via update.
+        validated_data.pop("attendance_mode", None)
+        validated_data.pop("attendance_venue", None)
         for attr, value in validated_data.items():
             if attr in {"event", "person"}:
                 continue
             setattr(instance, attr, value)
         instance.save()
         self._was_created = False
+        self._already_checked_in = False
         return instance
 
     @property
     def was_created(self) -> bool:
         return getattr(self, "_was_created", False)
+
+    @property
+    def already_checked_in(self) -> bool:
+        return getattr(self, "_already_checked_in", False)

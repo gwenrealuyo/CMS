@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Event,
   EventAttendanceRecord,
+  AttendanceMode,
   AttendanceStatus,
   EventTypeOption,
 } from "@/src/types/event";
@@ -295,6 +296,8 @@ export const useEvents = () => {
         occurrence_date: string;
         status?: AttendanceStatus;
         notes?: string;
+        attendance_mode?: AttendanceMode;
+        attendance_venue?: string | null;
       }
     ) => {
       const response = await eventsApi.addAttendance(id, payload);

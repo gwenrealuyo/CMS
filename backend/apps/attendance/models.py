@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -7,6 +8,10 @@ class AttendanceRecord(models.Model):
         PRESENT = "PRESENT", "Present"
         ABSENT = "ABSENT", "Absent"
         EXCUSED = "EXCUSED", "Excused"
+
+    class AttendanceMode(models.TextChoices):
+        ONSITE = "ONSITE", "Onsite"
+        ONLINE = "ONLINE", "Online"
 
     event = models.ForeignKey(
         "events.Event",
@@ -26,6 +31,18 @@ class AttendanceRecord(models.Model):
         choices=AttendanceStatus.choices,
         default=AttendanceStatus.PRESENT,
     )
+    attendance_mode = models.CharField(
+        max_length=20,
+        choices=AttendanceMode.choices,
+        default=AttendanceMode.ONSITE,
+    )
+    attendance_venue = models.ForeignKey(
+        "events.AttendanceVenue",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="attendance_records",
+    )
     notes = models.TextField(blank=True)
     journey = models.OneToOneField(
         "people.Journey",
@@ -42,6 +59,37 @@ class AttendanceRecord(models.Model):
         ordering = ("-occurrence_date", "-recorded_at")
         verbose_name = "Attendance Record"
         verbose_name_plural = "Attendance Records"
+
+    def clean(self):
+        super().clean()
+        mode = self.attendance_mode or self.AttendanceMode.ONSITE
+        if mode == self.AttendanceMode.ONSITE:
+            if self.attendance_venue_id:
+                raise ValidationError(
+                    {
+                        "attendance_venue": (
+                            "Onsite attendance cannot have an online venue."
+                        )
+                    }
+                )
+        elif mode == self.AttendanceMode.ONLINE:
+            if not self.attendance_venue_id:
+                raise ValidationError(
+                    {
+                        "attendance_venue": (
+                            "Online attendance requires an online venue."
+                        )
+                    }
+                )
+            venue = self.attendance_venue
+            if venue is not None and not venue.is_active:
+                raise ValidationError(
+                    {
+                        "attendance_venue": (
+                            "Selected online venue is not active."
+                        )
+                    }
+                )
 
     def __str__(self):
         return (

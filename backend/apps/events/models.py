@@ -30,6 +30,29 @@ class EventType(models.Model):
         return self.label
 
 
+class AttendanceVenue(models.Model):
+    """Admin-managed online attendance venues (Home altar, Cluster house, etc.)."""
+
+    code = models.CharField(max_length=50, primary_key=True)
+    label = models.CharField(max_length=100)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    color = models.CharField(
+        max_length=7,
+        default=DEFAULT_EVENT_TYPE_COLOR,
+        validators=[hex_color_validator],
+    )
+    is_active = models.BooleanField(default=True)
+    is_system = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["sort_order", "code"]
+        verbose_name = "Attendance Venue"
+        verbose_name_plural = "Attendance Venues"
+
+    def __str__(self):
+        return self.label
+
+
 class EventRoom(models.Model):
     branch = models.ForeignKey(
         "people.Branch",

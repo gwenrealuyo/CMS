@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import AttendanceVenuesManager from "@/src/components/events/AttendanceVenuesManager";
 import { eventSettingsApi } from "@/src/lib/api";
 import { EventSetting } from "@/src/types/eventSettings";
 import Modal from "@/src/components/ui/Modal";
+import Button from "@/src/components/ui/Button";
 
 export default function EventSettingsManager() {
   const [setting, setSetting] = useState<EventSetting | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [pendingToggle, setPendingToggle] = useState<boolean | null>(null);
+  const [venuesOpen, setVenuesOpen] = useState(false);
 
   const fetchSetting = async () => {
     setLoading(true);
@@ -103,8 +106,28 @@ export default function EventSettingsManager() {
           Events
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Control who can use Sunday Service self-check-in.
+          Control Sunday Service self-check-in and online attendance venues.
         </p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md border border-gray-100">
+        <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
+          <div>
+            <h3 className="font-medium text-gray-900">Online venues</h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-xl">
+              Manage Home altar, Cluster house, and other online venues used
+              when people check in remotely.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="tertiary"
+            onClick={() => setVenuesOpen(true)}
+            className="shrink-0"
+          >
+            Manage venues
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md border border-gray-100">
@@ -198,6 +221,11 @@ export default function EventSettingsManager() {
           </div>
         )}
       </Modal>
+
+      <AttendanceVenuesManager
+        isOpen={venuesOpen}
+        onClose={() => setVenuesOpen(false)}
+      />
     </div>
   );
 }

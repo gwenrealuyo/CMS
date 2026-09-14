@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 from apps.attendance.models import AttendanceRecord
 from apps.clusters.models import Cluster
 from apps.evangelism.models import Prospect
-from apps.events.models import Event, EventSetting, EventType
+from apps.events.models import AttendanceVenue, Event, EventSetting, EventType
 from apps.people.models import Branch, Family, ModuleCoordinator, Person
 
 
@@ -27,6 +27,26 @@ class SelfCheckInAPITests(APITestCase):
                 "label": "Sunday Service",
                 "sort_order": 10,
                 "color": "#1e40af",
+                "is_system": True,
+            },
+        )
+        AttendanceVenue.objects.get_or_create(
+            code="HOME_ALTAR",
+            defaults={
+                "label": "Home altar",
+                "sort_order": 10,
+                "color": "#0EA5E9",
+                "is_active": True,
+                "is_system": True,
+            },
+        )
+        AttendanceVenue.objects.get_or_create(
+            code="CLUSTER_HOUSE",
+            defaults={
+                "label": "Cluster house",
+                "sort_order": 20,
+                "color": "#8B5CF6",
+                "is_active": True,
                 "is_system": True,
             },
         )
@@ -150,14 +170,26 @@ class SelfCheckInAPITests(APITestCase):
             "apps.events.self_checkin_views.church_today",
             return_value=TODAY,
         )
+        self.people_utils_today_patch = patch(
+            "apps.people.utils.church_today",
+            return_value=TODAY,
+        )
         self.church_today_patch.start()
         self.views_today_patch.start()
+        self.people_utils_today_patch.start()
         self.addCleanup(self.church_today_patch.stop)
         self.addCleanup(self.views_today_patch.stop)
+        self.addCleanup(self.people_utils_today_patch.stop)
         EventSetting.get_solo()
         EventSetting.objects.filter(pk=EventSetting.SOLO_PK).update(
             member_self_checkin_enabled=True
         )
+        from apps.people.models import PeopleAutomationSetting
+
+        PeopleAutomationSetting.get_solo()
+        PeopleAutomationSetting.objects.filter(
+            pk=PeopleAutomationSetting.SOLO_PK
+        ).update(auto_status_updates_enabled=False)
 
     def test_unauthenticated_rejected(self):
         response = self.client.get("/api/events/self-check-in/session/")
@@ -174,7 +206,7 @@ class SelfCheckInAPITests(APITestCase):
         self.assertEqual(session.data["reason"], "restricted")
         blocked = self.client.post(
             "/api/events/self-check-in/",
-            {"person_ids": [self.member.id]},
+            {"person_ids": [self.member.id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(blocked.status_code, 403)
@@ -259,7 +291,7 @@ class SelfCheckInAPITests(APITestCase):
         self.client.force_authenticate(self.member)
         response = self.client.post(
             "/api/events/self-check-in/",
-            {"person_ids": [self.member.id, self.spouse.id]},
+            {"person_ids": [self.member.id, self.spouse.id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.data)
@@ -275,10 +307,10 @@ class SelfCheckInAPITests(APITestCase):
 
         again = self.client.post(
             "/api/events/self-check-in/",
-            {"person_ids": [self.member.id]},
+            {"person_ids": [self.member.id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
-        self.assertEqual(again.status_code, 200, again.data)
+        self.assertEqual(again.status_code, 409, again.data)
         self.assertEqual(
             AttendanceRecord.objects.filter(
                 event=self.event, person=self.member, occurrence_date=TODAY
@@ -290,7 +322,7 @@ class SelfCheckInAPITests(APITestCase):
         self.client.force_authenticate(self.member)
         response = self.client.post(
             "/api/events/self-check-in/",
-            {"person_ids": [self.outsider.id]},
+            {"person_ids": [self.outsider.id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(response.status_code, 403)
@@ -334,7 +366,9 @@ class SelfCheckInAPITests(APITestCase):
 
         blocked = self.client.post(
             "/api/events/self-check-in/visitors/",
-            {"person_id": self.member.id},
+            {"person_id": self.member.id,
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(blocked.status_code, 404)
@@ -420,7 +454,9 @@ class SelfCheckInAPITests(APITestCase):
         self.client.force_authenticate(self.member)
         blocked = self.client.post(
             "/api/events/self-check-in/visitors/",
-            {"prospect_id": prospect.id},
+            {"prospect_id": prospect.id,
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(blocked.status_code, 403)
@@ -428,7 +464,9 @@ class SelfCheckInAPITests(APITestCase):
         self.client.force_authenticate(self.coordinator)
         response = self.client.post(
             "/api/events/self-check-in/visitors/",
-            {"prospect_id": prospect.id},
+            {"prospect_id": prospect.id,
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.data)
@@ -471,7 +509,8 @@ class SelfCheckInAPITests(APITestCase):
                 "last_name": "Invite",
                 "gender": "FEMALE",
                 "age_group": "ADULT",
-            },
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(response.status_code, 409, response.data)
@@ -503,7 +542,8 @@ class SelfCheckInAPITests(APITestCase):
                 "gender": "FEMALE",
                 "age_group": "ADULT",
                 "inviter_id": self.member.id,
-            },
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(create.status_code, 201, create.data)
@@ -532,7 +572,8 @@ class SelfCheckInAPITests(APITestCase):
                 "last_name": "fdsafds",
                 "gender": "FEMALE",
                 "age_group": "ADULT",
-            },
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.data)
@@ -560,7 +601,8 @@ class SelfCheckInAPITests(APITestCase):
                 "last_name": "Guest",
                 "gender": "FEMALE",
                 "age_group": "YOUTH",
-            },
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(response.status_code, 409, response.data)
@@ -569,7 +611,9 @@ class SelfCheckInAPITests(APITestCase):
 
         check_existing = self.client.post(
             "/api/events/self-check-in/visitors/",
-            {"person_id": existing.id},
+            {"person_id": existing.id,
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(check_existing.status_code, 200, check_existing.data)
@@ -589,6 +633,7 @@ class SelfCheckInAPITests(APITestCase):
                 "gender": "FEMALE",
                 "age_group": "ADULT",
                 "inviter_id": self.admin.id,
+                "attendance_venue": "HOME_ALTAR",
             },
             format="json",
         )
@@ -613,13 +658,13 @@ class SelfCheckInAPITests(APITestCase):
         self.assertTrue(session.data["needs_selection"])
         response = self.client.post(
             "/api/events/self-check-in/",
-            {"person_ids": [self.member.id]},
+            {"person_ids": [self.member.id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(response.status_code, 400)
         chosen = self.client.post(
             "/api/events/self-check-in/",
-            {"person_ids": [self.member.id], "event_id": self.event.id},
+            {"person_ids": [self.member.id], "event_id": self.event.id, "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(chosen.status_code, 200, chosen.data)
@@ -628,12 +673,12 @@ class SelfCheckInAPITests(APITestCase):
         self.client.force_authenticate(self.member)
         self.client.post(
             "/api/events/self-check-in/",
-            {"person_ids": [self.member.id, self.spouse.id]},
+            {"person_ids": [self.member.id, self.spouse.id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         response = self.client.post(
             "/api/events/self-check-in/undo/",
-            {"person_ids": [self.member.id, self.spouse.id]},
+            {"person_ids": [self.member.id, self.spouse.id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.data)
@@ -656,7 +701,7 @@ class SelfCheckInAPITests(APITestCase):
         self.client.force_authenticate(self.member)
         response = self.client.post(
             "/api/events/self-check-in/undo/",
-            {"person_ids": [self.outsider.id]},
+            {"person_ids": [self.outsider.id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(response.status_code, 403)
@@ -675,7 +720,8 @@ class SelfCheckInAPITests(APITestCase):
                 "last_name": "Guest",
                 "gender": "FEMALE",
                 "age_group": "ADULT",
-            },
+            "attendance_venue": "HOME_ALTAR",
+        },
             format="json",
         )
         self.assertEqual(create.status_code, 201, create.data)
@@ -689,7 +735,7 @@ class SelfCheckInAPITests(APITestCase):
         self.client.force_authenticate(self.member)
         blocked = self.client.post(
             "/api/events/self-check-in/undo/",
-            {"person_ids": [visitor_id]},
+            {"person_ids": [visitor_id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(blocked.status_code, 403)
@@ -697,7 +743,7 @@ class SelfCheckInAPITests(APITestCase):
         self.client.force_authenticate(self.coordinator)
         undo = self.client.post(
             "/api/events/self-check-in/undo/",
-            {"person_ids": [visitor_id]},
+            {"person_ids": [visitor_id], "attendance_venue": "HOME_ALTAR"},
             format="json",
         )
         self.assertEqual(undo.status_code, 200, undo.data)

@@ -1,11 +1,26 @@
 from django.contrib import admin
 
-from .models import Event, EventRoom, EventType
+from .models import AttendanceVenue, Event, EventRoom, EventType
 
 
 @admin.register(EventType)
 class EventTypeAdmin(admin.ModelAdmin):
     list_display = ["code", "label", "color", "sort_order", "is_system"]
+    ordering = ["sort_order", "code"]
+    readonly_fields = ["is_system"]
+
+
+@admin.register(AttendanceVenue)
+class AttendanceVenueAdmin(admin.ModelAdmin):
+    list_display = [
+        "code",
+        "label",
+        "color",
+        "sort_order",
+        "is_active",
+        "is_system",
+    ]
+    list_filter = ["is_active", "is_system"]
     ordering = ["sort_order", "code"]
     readonly_fields = ["is_system"]
 

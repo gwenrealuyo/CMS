@@ -6,7 +6,11 @@ import {
 } from "@/src/lib/events/checkInUtils";
 import { startOfLocalDay } from "@/src/lib/events/agenda";
 import { formatPersonStatusLabel } from "@/src/lib/personStatus";
-import { Event, EventAttendanceRecord } from "@/src/types/event";
+import {
+  AttendanceMode,
+  Event,
+  EventAttendanceRecord,
+} from "@/src/types/event";
 import { Person } from "@/src/types/person";
 
 export type AttendanceReportPerson = {
@@ -17,6 +21,11 @@ export type AttendanceReportPerson = {
   status: string;
   statusLabel: string;
   clusterLabel: string;
+  attendanceMode: AttendanceMode;
+  attendanceModeLabel: string;
+  venueCode: string;
+  venueLabel: string;
+  venueColor: string;
   recordedAt?: string;
 };
 
@@ -26,11 +35,21 @@ export type StatusCount = {
   count: number;
 };
 
+export type VenueCount = {
+  code: string;
+  label: string;
+  color: string;
+  count: number;
+};
+
 export type AttendanceReport = {
   expectedCount: number;
   checkedInCount: number;
   remainingCount: number;
   surpriseCount: number;
+  onsiteCount: number;
+  onlineCount: number;
+  onlineByVenue: VenueCount[];
   checkedInByStatus: StatusCount[];
   remainingByStatus: StatusCount[];
   surprises: AttendanceReportPerson[];
@@ -40,6 +59,10 @@ export type AttendanceReport = {
 
 function normalizeStatus(status?: string | null): string {
   return (status || "").trim().toUpperCase() || "UNSET";
+}
+
+function modeFromRecord(record?: EventAttendanceRecord): AttendanceMode {
+  return record?.attendance_mode === "ONLINE" ? "ONLINE" : "ONSITE";
 }
 
 function toReportPersonFromPerson(person: Person): AttendanceReportPerson {
@@ -52,6 +75,11 @@ function toReportPersonFromPerson(person: Person): AttendanceReportPerson {
     status,
     statusLabel: formatPersonStatusLabel(person.status),
     clusterLabel: person.cluster_codes?.[0] || "NO CLUSTER",
+    attendanceMode: "ONSITE",
+    attendanceModeLabel: "Onsite",
+    venueCode: "",
+    venueLabel: "",
+    venueColor: "",
   };
 }
 
@@ -60,6 +88,7 @@ function toReportPersonFromRecord(
 ): AttendanceReportPerson {
   const person = record.person;
   const status = normalizeStatus(person.status);
+  const mode = modeFromRecord(record);
   return {
     id: String(person.id),
     name: formatPersonName(person),
@@ -68,6 +97,11 @@ function toReportPersonFromRecord(
     status,
     statusLabel: formatPersonStatusLabel(person.status),
     clusterLabel: person.cluster_codes?.[0] || "NO CLUSTER",
+    attendanceMode: mode,
+    attendanceModeLabel: mode === "ONLINE" ? "Online" : "Onsite",
+    venueCode: record.attendance_venue || "",
+    venueLabel: record.attendance_venue_label || "",
+    venueColor: record.attendance_venue_color || "",
     recordedAt: record.recorded_at,
   };
 }
@@ -103,6 +137,28 @@ function countByStatus(people: AttendanceReportPerson[]): StatusCount[] {
       if (ao !== bo) return ao - bo;
       return a.label.localeCompare(b.label);
     });
+}
+
+function countOnlineByVenue(people: AttendanceReportPerson[]): VenueCount[] {
+  const map = new Map<string, VenueCount>();
+  for (const person of people) {
+    if (person.attendanceMode !== "ONLINE") continue;
+    const code = person.venueCode || "UNKNOWN";
+    const existing = map.get(code);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      map.set(code, {
+        code,
+        label: person.venueLabel || code,
+        color: person.venueColor || "#0EA5E9",
+        count: 1,
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    a.label.localeCompare(b.label)
+  );
 }
 
 /** Clear labels for report breakdowns (members vs visitors). */
@@ -178,11 +234,21 @@ export function buildAttendanceReport(
     .map(toReportPersonFromPerson)
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const onsiteCount = checkedInRoster.filter(
+    (person) => person.attendanceMode === "ONSITE"
+  ).length;
+  const onlineCount = checkedInRoster.filter(
+    (person) => person.attendanceMode === "ONLINE"
+  ).length;
+
   return {
     expectedCount: expectedMembers.length,
     checkedInCount: checkedInRoster.length,
     remainingCount: remainingRoster.length,
     surpriseCount: surprises.length,
+    onsiteCount,
+    onlineCount,
+    onlineByVenue: countOnlineByVenue(checkedInRoster),
     checkedInByStatus: countByStatus(checkedInRoster),
     remainingByStatus: countByStatus(remainingRoster),
     surprises,
@@ -209,10 +275,22 @@ export function buildAttendanceReportCsv(
     ["Occurrence", occurrenceDate].map(escapeCsvValue).join(","),
     ["Expected", String(report.expectedCount)].map(escapeCsvValue).join(","),
     ["Checked In", String(report.checkedInCount)].map(escapeCsvValue).join(","),
+    ["Onsite", String(report.onsiteCount)].map(escapeCsvValue).join(","),
+    ["Online", String(report.onlineCount)].map(escapeCsvValue).join(","),
     ["Remaining", String(report.remainingCount)].map(escapeCsvValue).join(","),
     ["Surprises", String(report.surpriseCount)].map(escapeCsvValue).join(","),
     "",
-    ["Category", "Name", "LAMP ID", "Role", "Status", "Cluster", "Checked In At"]
+    [
+      "Category",
+      "Name",
+      "LAMP ID",
+      "Role",
+      "Status",
+      "Cluster",
+      "Attendance mode",
+      "Online venue",
+      "Checked In At",
+    ]
       .map(escapeCsvValue)
       .join(","),
   ];
@@ -230,6 +308,8 @@ export function buildAttendanceReportCsv(
           person.role,
           person.statusLabel,
           person.clusterLabel,
+          person.attendanceModeLabel,
+          person.venueLabel,
           person.recordedAt
             ? new Date(person.recordedAt).toLocaleString()
             : "",

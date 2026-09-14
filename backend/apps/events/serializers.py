@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.attendance.serializers import AttendanceRecordSerializer
-from .models import Event, EventRoom, EventType, EventSetting
+from .models import AttendanceVenue, Event, EventRoom, EventType, EventSetting
 from .services.conflicts import (
     validate_room_booking,
     validate_sunday_service_uniqueness,
@@ -20,6 +20,7 @@ from .services.recurrence import (
 import re
 
 EVENT_TYPE_CODE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_/]*$")
+ATTENDANCE_VENUE_CODE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 
 class EventTypeSerializer(serializers.ModelSerializer):
@@ -51,6 +52,50 @@ class EventTypeSerializer(serializers.ModelSerializer):
         if not re.fullmatch(r"#[0-9A-F]{6}", normalized):
             raise ValidationError("Color must be a hex value like #RRGGBB.")
         return normalized
+
+    def validate(self, attrs):
+        if self.instance:
+            attrs.pop("code", None)
+        return super().validate(attrs)
+
+
+class AttendanceVenueSerializer(serializers.ModelSerializer):
+    attendance_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = AttendanceVenue
+        fields = [
+            "code",
+            "label",
+            "color",
+            "sort_order",
+            "is_active",
+            "is_system",
+            "attendance_count",
+        ]
+        read_only_fields = ["is_system", "attendance_count"]
+
+    def validate_code(self, value):
+        normalized = value.strip().upper()
+        if not ATTENDANCE_VENUE_CODE_PATTERN.match(normalized):
+            raise ValidationError(
+                "Code must start with a letter and contain only uppercase letters, numbers, or underscores."
+            )
+        if self.instance and normalized != self.instance.code:
+            raise ValidationError("Attendance venue code cannot be changed.")
+        return normalized
+
+    def validate_color(self, value):
+        normalized = value.strip().upper()
+        if not re.fullmatch(r"#[0-9A-F]{6}", normalized):
+            raise ValidationError("Color must be a hex value like #RRGGBB.")
+        return normalized
+
+    def validate_label(self, value):
+        label = (value or "").strip()
+        if not label:
+            raise ValidationError("Label is required.")
+        return label
 
     def validate(self, attrs):
         if self.instance:

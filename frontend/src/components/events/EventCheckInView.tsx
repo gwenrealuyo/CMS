@@ -11,7 +11,7 @@ import EventAttendanceReportModal from "@/src/components/events/EventAttendanceR
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { usePeople } from "@/src/hooks/usePeople";
-import { eventsApi } from "@/src/lib/api";
+import { attendanceVenuesApi, eventsApi } from "@/src/lib/api";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import { isAttendanceReportAvailable } from "@/src/lib/events/attendanceReportUtils";
 import {
@@ -30,10 +30,16 @@ import {
   formatPersonStatusLabel,
   getPersonStatusColor,
 } from "@/src/lib/personStatus";
-import { Event, EventAttendanceRecord } from "@/src/types/event";
+import {
+  AttendanceMode,
+  AttendanceVenueOption,
+  Event,
+  EventAttendanceRecord,
+} from "@/src/types/event";
 import { Person } from "@/src/types/person";
 
 type EntryTab = "manual" | "camera";
+type StationMode = AttendanceMode;
 
 const SCAN_COOLDOWN_MS = 2000;
 
@@ -107,9 +113,13 @@ export default function EventCheckInView({
   >([]);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
   const [entryTab, setEntryTab] = useState<EntryTab>("manual");
+  const [stationMode, setStationMode] = useState<StationMode>("ONSITE");
+  const [onlineVenueCode, setOnlineVenueCode] = useState("");
+  const [venues, setVenues] = useState<AttendanceVenueOption[]>([]);
   const [entryValue, setEntryValue] = useState("");
   const [checkInSearchTerm, setCheckInSearchTerm] = useState("");
   const [clusterFilter, setClusterFilter] = useState("");
+  const [modeFilter, setModeFilter] = useState<"" | AttendanceMode>("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -159,6 +169,40 @@ export default function EventCheckInView({
   useEffect(() => {
     fetchAttendance();
   }, [fetchAttendance]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await attendanceVenuesApi.list({ active: true });
+        if (!cancelled) {
+          setVenues(response.data);
+        }
+      } catch {
+        if (!cancelled) {
+          setVenues([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (stationMode === "ONLINE" && entryTab === "camera") {
+      setEntryTab("manual");
+    }
+  }, [stationMode, entryTab]);
+
+  const venueSelectOptions = useMemo(
+    () =>
+      venues.map((venue) => ({
+        value: venue.code,
+        label: venue.label,
+      })),
+    [venues]
+  );
 
   const checkInCandidates = useMemo(() => {
     if (!event) return [];
@@ -230,6 +274,12 @@ export default function EventCheckInView({
   const filteredRecentCheckIns = useMemo(() => {
     let filtered = recentCheckIns;
 
+    if (modeFilter) {
+      filtered = filtered.filter(
+        (record) => (record.attendance_mode || "ONSITE") === modeFilter
+      );
+    }
+
     if (clusterFilter === "NO_CLUSTER") {
       filtered = filtered.filter(
         (record) => !record.person.cluster_codes?.[0]
@@ -259,7 +309,7 @@ export default function EventCheckInView({
             displayId.includes(termWithoutLampPrefix)))
       );
     });
-  }, [recentCheckIns, checkInSearchTerm, clusterFilter]);
+  }, [recentCheckIns, checkInSearchTerm, clusterFilter, modeFilter]);
 
   const suggestions = useMemo(
     () => filterEligibleMembersByQuery(checkInCandidates, entryValue),
@@ -293,6 +343,11 @@ export default function EventCheckInView({
       return;
     }
 
+    if (stationMode === "ONLINE" && !onlineVenueCode) {
+      setActionError("Select an online venue before checking in.");
+      return;
+    }
+
     setSubmitting(true);
     setActionError(null);
     try {
@@ -300,6 +355,9 @@ export default function EventCheckInView({
         person_id: String(person.id),
         occurrence_date: occurrenceDate,
         status: "PRESENT",
+        attendance_mode: stationMode,
+        attendance_venue:
+          stationMode === "ONLINE" ? onlineVenueCode : null,
       });
       await fetchAttendance();
       setEntryValue("");
@@ -308,8 +366,22 @@ export default function EventCheckInView({
       if (entryTab === "manual") {
         inputRef.current?.focus();
       }
-    } catch {
-      setActionError("Unable to check in this person. Please try again.");
+    } catch (error: unknown) {
+      const statusCode = (
+        error as { response?: { status?: number; data?: { detail?: string } } }
+      )?.response?.status;
+      const detail = (
+        error as { response?: { data?: { detail?: string } } }
+      )?.response?.data?.detail;
+      if (statusCode === 409) {
+        setActionError(
+          detail ||
+            `${formatPersonName(person)} is already checked in. Mode and venue cannot be changed.`
+        );
+        await fetchAttendance();
+      } else {
+        setActionError("Unable to check in this person. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -547,6 +619,52 @@ export default function EventCheckInView({
         <div className="mb-5 flex rounded-lg border border-primary/10 bg-muted p-1">
           <button
             type="button"
+            onClick={() => setStationMode("ONSITE")}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              stationMode === "ONSITE"
+                ? "bg-white text-primary shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Onsite
+          </button>
+          <button
+            type="button"
+            onClick={() => setStationMode("ONLINE")}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              stationMode === "ONLINE"
+                ? "bg-white text-primary shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Online
+          </button>
+        </div>
+
+        {stationMode === "ONLINE" ? (
+          <div className="mb-5 rounded-xl border border-primary/20 bg-white p-4 shadow-sm">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Online venue
+            </label>
+            <ScalableSelect
+              options={venueSelectOptions}
+              value={onlineVenueCode}
+              onChange={setOnlineVenueCode}
+              placeholder="Select venue..."
+              searchPlaceholder="Search venues..."
+              emptyMessage="No active online venues"
+              showSearch
+              className="w-full"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Required for online check-in (Home altar, Cluster house, etc.).
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mb-5 flex rounded-lg border border-primary/10 bg-muted p-1">
+          <button
+            type="button"
             onClick={() => {
               setEntryTab("manual");
               setActionError(null);
@@ -572,6 +690,7 @@ export default function EventCheckInView({
             </svg>
             Manual Entry
           </button>
+          {stationMode === "ONSITE" ? (
           <button
             type="button"
             onClick={() => {
@@ -605,6 +724,7 @@ export default function EventCheckInView({
             </svg>
             Camera Scan
           </button>
+          ) : null}
         </div>
 
         <div className="mb-5 rounded-xl border border-primary/20 bg-white p-6 shadow-sm">
@@ -770,6 +890,26 @@ export default function EventCheckInView({
                     </svg>
                   </div>
                 </div>
+                <div className="sm:w-40 sm:shrink-0">
+                  <label
+                    htmlFor="check-in-mode-filter"
+                    className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    Mode
+                  </label>
+                  <select
+                    id="check-in-mode-filter"
+                    value={modeFilter}
+                    onChange={(event) =>
+                      setModeFilter(event.target.value as "" | AttendanceMode)
+                    }
+                    className="input-field h-11 min-h-[44px] w-full text-sm md:min-h-[44px] md:py-0"
+                  >
+                    <option value="">All modes</option>
+                    <option value="ONSITE">Onsite</option>
+                    <option value="ONLINE">Online</option>
+                  </select>
+                </div>
                 <div className="sm:w-52 sm:shrink-0">
                   <label
                     htmlFor="check-in-cluster-filter"
@@ -822,6 +962,29 @@ export default function EventCheckInView({
                           {formatLampIdDisplay(record.person.member_id)}
                         </span>
                       )}
+                      <span
+                        className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          (record.attendance_mode || "ONSITE") === "ONLINE"
+                            ? "bg-sky-100 text-sky-800"
+                            : "bg-emerald-100 text-emerald-800"
+                        }`}
+                      >
+                        {(record.attendance_mode || "ONSITE") === "ONLINE"
+                          ? "Online"
+                          : "Onsite"}
+                      </span>
+                      {record.attendance_venue_label ? (
+                        <span
+                          className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                          style={{
+                            borderColor:
+                              record.attendance_venue_color || "#0ea5e9",
+                            color: record.attendance_venue_color || "#0369a1",
+                          }}
+                        >
+                          {record.attendance_venue_label}
+                        </span>
+                      ) : null}
                       {record.person.status && (
                         <span
                           className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonStatusColor(record.person.status)}`}

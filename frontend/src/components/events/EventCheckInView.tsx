@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -40,8 +47,28 @@ import { Person } from "@/src/types/person";
 
 type EntryTab = "manual" | "camera";
 type StationMode = AttendanceMode;
+type CheckInFlash = "success" | "already" | "error";
 
 const SCAN_COOLDOWN_MS = 2000;
+const FLASH_DURATION_MS = 700;
+const CHECK_IN_TOAST = {
+  duration: 4500,
+  style: {
+    fontSize: "1.125rem",
+    fontWeight: 600,
+    lineHeight: "1.4",
+    maxWidth: "28rem",
+    padding: "1rem 1.25rem",
+  },
+};
+
+function showCheckInToast(kind: CheckInFlash, message: string) {
+  if (kind === "error") {
+    toast.error(message, CHECK_IN_TOAST);
+    return;
+  }
+  toast.success(message, CHECK_IN_TOAST);
+}
 
 const CheckInQrScanner = dynamic(() => import("./CheckInQrScanner"), {
   ssr: false,
@@ -63,6 +90,45 @@ function formatOccurrenceLabel(dateValue: string) {
     month: "long",
     day: "numeric",
   });
+}
+
+function CheckInStatusBanner({
+  kind,
+  message,
+  onClose,
+}: {
+  kind: CheckInFlash;
+  message: string;
+  onClose: () => void;
+}) {
+  const styles =
+    kind === "success"
+      ? "border-green-200 bg-green-50 text-green-800"
+      : kind === "already"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-red-200 bg-red-50 text-red-700";
+  const closeStyles =
+    kind === "success"
+      ? "text-green-700 hover:bg-green-100"
+      : kind === "already"
+        ? "text-amber-800 hover:bg-amber-100"
+        : "text-red-700 hover:bg-red-100";
+  return (
+    <div
+      role="status"
+      className={`mt-4 flex items-center gap-2 rounded-lg border px-4 py-3.5 text-base font-medium leading-snug ${styles}`}
+    >
+      <p className="min-w-0 flex-1">{message}</p>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Dismiss"
+        className={`-mr-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded ${closeStyles}`}
+      >
+        <XMarkIcon className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
 }
 
 function StatCard({
@@ -121,7 +187,11 @@ export default function EventCheckInView({
   const [clusterFilter, setClusterFilter] = useState("");
   const [modeFilter, setModeFilter] = useState<"" | AttendanceMode>("");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionBanner, setActionBanner] = useState<{
+    kind: CheckInFlash;
+    message: string;
+  } | null>(null);
+  const [flash, setFlash] = useState<CheckInFlash | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [removeConfirmation, setRemoveConfirmation] = useState<{
     isOpen: boolean;
@@ -133,6 +203,26 @@ export default function EventCheckInView({
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const scanCooldownUntilRef = useRef(0);
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerFlash = useCallback((kind: CheckInFlash) => {
+    if (flashTimeoutRef.current) {
+      clearTimeout(flashTimeoutRef.current);
+    }
+    setFlash(kind);
+    flashTimeoutRef.current = setTimeout(() => {
+      setFlash(null);
+      flashTimeoutRef.current = null;
+    }, FLASH_DURATION_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (flashTimeoutRef.current) {
+        clearTimeout(flashTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const fetchEvent = useCallback(async () => {
     setEventLoading(true);
@@ -154,9 +244,15 @@ export default function EventCheckInView({
         occurrence_date: occurrenceDate,
       });
       setAttendanceRecords(response.data);
-      setActionError(null);
     } catch {
-      setActionError("Unable to load attendance for this occurrence.");
+      setActionBanner({
+        kind: "error",
+        message: "Unable to load attendance for this occurrence.",
+      });
+      showCheckInToast(
+        "error",
+        "Unable to load attendance for this occurrence.",
+      );
     } finally {
       setAttendanceLoading(false);
     }
@@ -195,13 +291,18 @@ export default function EventCheckInView({
     }
   }, [stationMode, entryTab]);
 
+  const handleStationModeChange = (mode: StationMode) => {
+    setStationMode(mode);
+    setModeFilter(mode);
+  };
+
   const venueSelectOptions = useMemo(
     () =>
       venues.map((venue) => ({
         value: venue.code,
         label: venue.label,
       })),
-    [venues]
+    [venues],
   );
 
   const checkInCandidates = useMemo(() => {
@@ -216,18 +317,18 @@ export default function EventCheckInView({
 
   const checkedInIds = useMemo(
     () => getCheckedInPersonIds(attendanceRecords),
-    [attendanceRecords]
+    [attendanceRecords],
   );
 
   const expectedIds = useMemo(
     () => new Set(expectedMembers.map((person) => String(person.id))),
-    [expectedMembers]
+    [expectedMembers],
   );
 
   const totalCount = expectedMembers.length;
   const checkedInCount = checkedInIds.size;
   const remainingCount = Array.from(expectedIds).filter(
-    (id) => !checkedInIds.has(id)
+    (id) => !checkedInIds.has(id),
   ).length;
   const ongoingVisitorExpectedCount = useMemo(() => {
     if (!event) return 0;
@@ -238,9 +339,9 @@ export default function EventCheckInView({
     () =>
       [...attendanceRecords].sort(
         (a, b) =>
-          new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+          new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime(),
       ),
-    [attendanceRecords]
+    [attendanceRecords],
   );
 
   const clusterFilterOptions = useMemo(() => {
@@ -276,17 +377,15 @@ export default function EventCheckInView({
 
     if (modeFilter) {
       filtered = filtered.filter(
-        (record) => (record.attendance_mode || "ONSITE") === modeFilter
+        (record) => (record.attendance_mode || "ONSITE") === modeFilter,
       );
     }
 
     if (clusterFilter === "NO_CLUSTER") {
-      filtered = filtered.filter(
-        (record) => !record.person.cluster_codes?.[0]
-      );
+      filtered = filtered.filter((record) => !record.person.cluster_codes?.[0]);
     } else if (clusterFilter) {
       filtered = filtered.filter(
-        (record) => record.person.cluster_codes?.[0] === clusterFilter
+        (record) => record.person.cluster_codes?.[0] === clusterFilter,
       );
     }
 
@@ -299,7 +398,9 @@ export default function EventCheckInView({
     return filtered.filter((record) => {
       const name = formatPersonName(record.person).toLowerCase();
       const memberId = (record.person.member_id || "").toLowerCase();
-      const displayId = formatLampIdDisplay(record.person.member_id).toLowerCase();
+      const displayId = formatLampIdDisplay(
+        record.person.member_id,
+      ).toLowerCase();
       return (
         name.includes(term) ||
         memberId.includes(term) ||
@@ -313,7 +414,7 @@ export default function EventCheckInView({
 
   const suggestions = useMemo(
     () => filterEligibleMembersByQuery(checkInCandidates, entryValue),
-    [checkInCandidates, entryValue]
+    [checkInCandidates, entryValue],
   );
 
   useEffect(() => {
@@ -339,30 +440,47 @@ export default function EventCheckInView({
     if (!event || submitting) return;
 
     if (checkedInIds.has(String(person.id))) {
-      setActionError(`${formatPersonName(person)} is already checked in.`);
+      setActionBanner({
+        kind: "already",
+        message: `${formatPersonName(person)} is already checked in.`,
+      });
+      showCheckInToast(
+        "already",
+        `${formatPersonName(person)} is already checked in.`,
+      );
+      triggerFlash("already");
       return;
     }
 
     if (stationMode === "ONLINE" && !onlineVenueCode) {
-      setActionError("Select an online venue before checking in.");
+      setActionBanner({
+        kind: "error",
+        message: "Select an online venue before checking in.",
+      });
+      showCheckInToast("error", "Select an online venue before checking in.");
+      triggerFlash("error");
       return;
     }
 
     setSubmitting(true);
-    setActionError(null);
+    setActionBanner(null);
     try {
       await eventsApi.addAttendance(eventId, {
         person_id: String(person.id),
         occurrence_date: occurrenceDate,
         status: "PRESENT",
         attendance_mode: stationMode,
-        attendance_venue:
-          stationMode === "ONLINE" ? onlineVenueCode : null,
+        attendance_venue: stationMode === "ONLINE" ? onlineVenueCode : null,
       });
       await fetchAttendance();
       setEntryValue("");
       setShowSuggestions(false);
-      toast.success(`${formatPersonName(person)} checked in`);
+      setActionBanner({
+        kind: "success",
+        message: `${formatPersonName(person)} checked in.`,
+      });
+      showCheckInToast("success", `${formatPersonName(person)} checked in.`);
+      triggerFlash("success");
       if (entryTab === "manual") {
         inputRef.current?.focus();
       }
@@ -370,17 +488,32 @@ export default function EventCheckInView({
       const statusCode = (
         error as { response?: { status?: number; data?: { detail?: string } } }
       )?.response?.status;
-      const detail = (
-        error as { response?: { data?: { detail?: string } } }
-      )?.response?.data?.detail;
+      const detail = (error as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
       if (statusCode === 409) {
-        setActionError(
+        setActionBanner({
+          kind: "already",
+          message:
+            detail ||
+            `${formatPersonName(person)} is already checked in. Mode and venue cannot be changed.`,
+        });
+        showCheckInToast(
+          "already",
           detail ||
-            `${formatPersonName(person)} is already checked in. Mode and venue cannot be changed.`
+            `${formatPersonName(person)} is already checked in. Mode and venue cannot be changed.`,
         );
+        triggerFlash("already");
         await fetchAttendance();
       } else {
-        setActionError("Unable to check in this person. Please try again.");
+        setActionBanner({
+          kind: "error",
+          message: "Unable to check in this person. Please try again.",
+        });
+        showCheckInToast(
+          "error",
+          "Unable to check in this person. Please try again.",
+        );
+        triggerFlash("error");
       }
     } finally {
       setSubmitting(false);
@@ -392,7 +525,9 @@ export default function EventCheckInView({
 
     const resolved = resolvePersonFromEntry(entryValue, checkInCandidates);
     if (!resolved.ok) {
-      setActionError(resolved.error);
+      setActionBanner({ kind: "error", message: resolved.error });
+      showCheckInToast("error", resolved.error);
+      triggerFlash("error");
       return;
     }
 
@@ -407,7 +542,9 @@ export default function EventCheckInView({
 
     const resolved = resolvePersonFromMemberId(text, checkInCandidates);
     if (!resolved.ok) {
-      setActionError(resolved.error);
+      setActionBanner({ kind: "error", message: resolved.error });
+      showCheckInToast("error", resolved.error);
+      triggerFlash("error");
       return;
     }
 
@@ -416,7 +553,15 @@ export default function EventCheckInView({
 
   const handleSelectSuggestion = (person: Person) => {
     if (checkedInIds.has(String(person.id))) {
-      setActionError(`${formatPersonName(person)} is already checked in.`);
+      setActionBanner({
+        kind: "already",
+        message: `${formatPersonName(person)} is already checked in.`,
+      });
+      showCheckInToast(
+        "already",
+        `${formatPersonName(person)} is already checked in.`,
+      );
+      triggerFlash("already");
       return;
     }
     setEntryValue(formatPersonName(person));
@@ -447,13 +592,24 @@ export default function EventCheckInView({
     try {
       await eventsApi.removeAttendance(eventId, record.id);
       await fetchAttendance();
-      setActionError(null);
-      toast.success(
-        `${formatPersonName(record.person)} removed from check-in`
+      setActionBanner({
+        kind: "success",
+        message: `${formatPersonName(record.person)} removed from check-in.`,
+      });
+      showCheckInToast(
+        "success",
+        `${formatPersonName(record.person)} removed from check-in.`,
       );
       closeRemoveConfirmation();
     } catch {
-      setActionError("Unable to remove this check-in. Please try again.");
+      setActionBanner({
+        kind: "error",
+        message: "Unable to remove this check-in. Please try again.",
+      });
+      showCheckInToast(
+        "error",
+        "Unable to remove this check-in. Please try again.",
+      );
       setRemoveConfirmation((prev) => ({ ...prev, loading: false }));
     }
   };
@@ -469,7 +625,9 @@ export default function EventCheckInView({
   if (eventError || !event) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center">
-        <p className="text-sm text-red-600">{eventError ?? "Event not found."}</p>
+        <p className="text-sm text-red-600">
+          {eventError ?? "Event not found."}
+        </p>
         <Link
           href="/events"
           className="mt-4 text-sm font-medium text-primary hover:text-lighthouse-navy hover:underline"
@@ -482,13 +640,27 @@ export default function EventCheckInView({
 
   return (
     <div className="min-h-screen bg-background">
+      {flash && (
+        <div
+          aria-hidden
+          className={`pointer-events-none fixed inset-0 z-[100] transition-opacity duration-150 ${
+            flash === "success"
+              ? "bg-green-500/40"
+              : flash === "already"
+                ? "bg-yellow-400/40"
+                : "bg-red-500/40"
+          }`}
+        />
+      )}
       <header className="border-b border-primary/10 bg-gradient-to-r from-lighthouse-navy to-primary">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-lighthouse-gold">
               The Lighthouse
             </p>
-            <p className="text-[11px] text-white/70">LAMP Church Management System</p>
+            <p className="text-[11px] text-white/70">
+              LAMP Church Management System
+            </p>
           </div>
           <Link
             href="/events"
@@ -619,7 +791,7 @@ export default function EventCheckInView({
         <div className="mb-5 flex rounded-lg border border-primary/10 bg-muted p-1">
           <button
             type="button"
-            onClick={() => setStationMode("ONSITE")}
+            onClick={() => handleStationModeChange("ONSITE")}
             className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
               stationMode === "ONSITE"
                 ? "bg-white text-primary shadow-sm"
@@ -630,7 +802,7 @@ export default function EventCheckInView({
           </button>
           <button
             type="button"
-            onClick={() => setStationMode("ONLINE")}
+            onClick={() => handleStationModeChange("ONLINE")}
             className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
               stationMode === "ONLINE"
                 ? "bg-white text-primary shadow-sm"
@@ -667,7 +839,7 @@ export default function EventCheckInView({
             type="button"
             onClick={() => {
               setEntryTab("manual");
-              setActionError(null);
+              setActionBanner(null);
             }}
             className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors ${
               entryTab === "manual"
@@ -691,39 +863,39 @@ export default function EventCheckInView({
             Manual Entry
           </button>
           {stationMode === "ONSITE" ? (
-          <button
-            type="button"
-            onClick={() => {
-              setEntryTab("camera");
-              setActionError(null);
-            }}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors ${
-              entryTab === "camera"
-                ? "bg-white text-primary shadow-sm ring-1 ring-primary/10"
-                : "text-muted-foreground hover:text-lighthouse-navy"
-            }`}
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <button
+              type="button"
+              onClick={() => {
+                setEntryTab("camera");
+                setActionBanner(null);
+              }}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors ${
+                entryTab === "camera"
+                  ? "bg-white text-primary shadow-sm ring-1 ring-primary/10"
+                  : "text-muted-foreground hover:text-lighthouse-navy"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-            Camera Scan
-          </button>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              Camera Scan
+            </button>
           ) : null}
         </div>
 
@@ -737,116 +909,119 @@ export default function EventCheckInView({
               : "Enter a name or LAMP ID."}
           </p>
 
-          {actionError && (
-            <div className="mt-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {actionError}
-            </div>
+          {actionBanner && (
+            <CheckInStatusBanner
+              kind={actionBanner.kind}
+              message={actionBanner.message}
+              onClose={() => setActionBanner(null)}
+            />
           )}
 
           {entryTab === "camera" ? (
             <CheckInQrScanner onScan={handleQrScan} paused={submitting} />
           ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <div className="relative" ref={suggestionsRef}>
-              <label
-                htmlFor="check-in-entry"
-                className="mb-1 block text-sm font-medium text-lighthouse-navy"
-              >
-                Attendee
-              </label>
-              <input
-                ref={inputRef}
-                id="check-in-entry"
-                type="text"
-                value={entryValue}
-                onChange={(e) => {
-                  setEntryValue(e.target.value);
-                  setShowSuggestions(true);
-                  setActionError(null);
-                }}
-                onFocus={() => {
-                  if (entryValue.trim()) {
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+              <div className="relative" ref={suggestionsRef}>
+                <label
+                  htmlFor="check-in-entry"
+                  className="mb-1 block text-sm font-medium text-lighthouse-navy"
+                >
+                  Attendee
+                </label>
+                <input
+                  ref={inputRef}
+                  id="check-in-entry"
+                  type="text"
+                  value={entryValue}
+                  onChange={(e) => {
+                    setEntryValue(e.target.value);
                     setShowSuggestions(true);
-                  }
-                }}
-                placeholder="Name or LAMP ID..."
-                autoComplete="off"
-                className="input-field text-base"
-              />
-
-              {showSuggestions && entryValue.trim() && (
-                <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-primary/20 bg-white shadow-lg">
-                  {suggestions.length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-muted-foreground">
-                      No matching members found.
-                    </p>
-                  ) : (
-                    <ul className="max-h-60 overflow-y-auto">
-                      {suggestions.map((person) => {
-                        const alreadyCheckedIn = checkedInIds.has(
-                          String(person.id)
-                        );
-                        return (
-                          <li key={person.id}>
-                            <button
-                              type="button"
-                              disabled={alreadyCheckedIn || submitting}
-                              onClick={() => handleSelectSuggestion(person)}
-                              className={`flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm transition-colors ${
-                                alreadyCheckedIn
-                                  ? "cursor-not-allowed bg-muted/50 text-muted-foreground"
-                                  : "hover:bg-primary/5"
-                              }`}
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-lighthouse-navy">
-                                  {formatPersonName(person)}
-                                </p>
-                                {person.member_id && (
-                                  <p className="truncate text-xs text-muted-foreground">
-                                    LAMP ID: {formatLampIdDisplay(person.member_id)}
-                                  </p>
-                                )}
-                              </div>
-                              {alreadyCheckedIn ? (
-                                <span className="shrink-0 text-xs font-medium text-lighthouse-olive">
-                                  Checked in
-                                </span>
-                              ) : person.cluster_codes?.[0] ? (
-                                <span className="chip-primary-sm shrink-0">
-                                  {person.cluster_codes[0]}
-                                </span>
-                              ) : null}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-            <Button
-              type="submit"
-              disabled={submitting || !entryValue.trim()}
-              className="w-full gap-2 bg-primary hover:bg-lighthouse-navy"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                    setActionBanner(null);
+                  }}
+                  onFocus={() => {
+                    if (entryValue.trim()) {
+                      setShowSuggestions(true);
+                    }
+                  }}
+                  placeholder="Name or LAMP ID..."
+                  autoComplete="off"
+                  className="input-field text-base"
                 />
-              </svg>
-              Check In
-            </Button>
-          </form>
+
+                {showSuggestions && entryValue.trim() && (
+                  <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-primary/20 bg-white shadow-lg">
+                    {suggestions.length === 0 ? (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">
+                        No matching members found.
+                      </p>
+                    ) : (
+                      <ul className="max-h-60 overflow-y-auto">
+                        {suggestions.map((person) => {
+                          const alreadyCheckedIn = checkedInIds.has(
+                            String(person.id),
+                          );
+                          return (
+                            <li key={person.id}>
+                              <button
+                                type="button"
+                                disabled={alreadyCheckedIn || submitting}
+                                onClick={() => handleSelectSuggestion(person)}
+                                className={`flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm transition-colors ${
+                                  alreadyCheckedIn
+                                    ? "cursor-not-allowed bg-muted/50 text-muted-foreground"
+                                    : "hover:bg-primary/5"
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-lighthouse-navy">
+                                    {formatPersonName(person)}
+                                  </p>
+                                  {person.member_id && (
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      LAMP ID:{" "}
+                                      {formatLampIdDisplay(person.member_id)}
+                                    </p>
+                                  )}
+                                </div>
+                                {alreadyCheckedIn ? (
+                                  <span className="shrink-0 text-xs font-medium text-lighthouse-olive">
+                                    Checked in
+                                  </span>
+                                ) : person.cluster_codes?.[0] ? (
+                                  <span className="chip-primary-sm shrink-0">
+                                    {person.cluster_codes[0]}
+                                  </span>
+                                ) : null}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Button
+                type="submit"
+                disabled={submitting || !entryValue.trim()}
+                className="w-full gap-2 bg-primary hover:bg-lighthouse-navy"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                  />
+                </svg>
+                Check In
+              </Button>
+            </form>
           )}
         </div>
 
@@ -948,86 +1123,86 @@ export default function EventCheckInView({
             ) : (
               <div className="max-h-80 overflow-y-auto pr-1">
                 <ul className="divide-y divide-primary/10">
-                {filteredRecentCheckIns.map((record) => (
-                  <li
-                    key={record.id}
-                    className="group flex items-center justify-between gap-3 py-3.5 first:pt-0 last:pb-0"
-                  >
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-medium text-lighthouse-navy">
-                        {formatPersonName(record.person)}
-                      </p>
-                      {record.person.member_id && (
-                        <span className="chip-sky-sm shrink-0">
-                          {formatLampIdDisplay(record.person.member_id)}
-                        </span>
-                      )}
-                      <span
-                        className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          (record.attendance_mode || "ONSITE") === "ONLINE"
-                            ? "bg-sky-100 text-sky-800"
-                            : "bg-emerald-100 text-emerald-800"
-                        }`}
-                      >
-                        {(record.attendance_mode || "ONSITE") === "ONLINE"
-                          ? "Online"
-                          : "Onsite"}
-                      </span>
-                      {record.attendance_venue_label ? (
+                  {filteredRecentCheckIns.map((record) => (
+                    <li
+                      key={record.id}
+                      className="group flex items-center justify-between gap-3 py-3.5 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-medium text-lighthouse-navy">
+                          {formatPersonName(record.person)}
+                        </p>
+                        {record.person.member_id && (
+                          <span className="chip-sky-sm shrink-0">
+                            {formatLampIdDisplay(record.person.member_id)}
+                          </span>
+                        )}
                         <span
-                          className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-                          style={{
-                            borderColor:
-                              record.attendance_venue_color || "#0ea5e9",
-                            color: record.attendance_venue_color || "#0369a1",
-                          }}
+                          className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            (record.attendance_mode || "ONSITE") === "ONLINE"
+                              ? "bg-sky-100 text-sky-800"
+                              : "bg-emerald-100 text-emerald-800"
+                          }`}
                         >
-                          {record.attendance_venue_label}
+                          {(record.attendance_mode || "ONSITE") === "ONLINE"
+                            ? "Online"
+                            : "Onsite"}
                         </span>
-                      ) : null}
-                      {record.person.status && (
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonStatusColor(record.person.status)}`}
+                        {record.attendance_venue_label ? (
+                          <span
+                            className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                            style={{
+                              borderColor:
+                                record.attendance_venue_color || "#0ea5e9",
+                              color: record.attendance_venue_color || "#0369a1",
+                            }}
+                          >
+                            {record.attendance_venue_label}
+                          </span>
+                        ) : null}
+                        {record.person.status && (
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonStatusColor(record.person.status)}`}
+                          >
+                            {formatPersonStatusLabel(record.person.status)}
+                          </span>
+                        )}
+                        {record.person.role && (
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonRoleColor(record.person.role)}`}
+                          >
+                            {record.person.role}
+                          </span>
+                        )}
+                        {record.person.cluster_codes?.[0] ? (
+                          <span className="chip-primary-sm shrink-0">
+                            {record.person.cluster_codes[0]}
+                          </span>
+                        ) : (
+                          <span className="inline-flex shrink-0 items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                            NO CLUSTER
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <span className="text-xs text-muted-foreground transition-transform duration-200 group-hover:-translate-x-1">
+                          {new Date(record.recorded_at).toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openRemoveConfirmation(record)}
+                          disabled={submitting || removeConfirmation.loading}
+                          aria-label={`Remove ${formatPersonName(record.person)} from check-in`}
+                          className="flex h-8 w-8 translate-x-2 items-center justify-center rounded-full text-red-600 opacity-100 transition-all duration-200 hover:bg-red-50 md:translate-x-3 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
                         >
-                          {formatPersonStatusLabel(record.person.status)}
-                        </span>
-                      )}
-                      {record.person.role && (
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getPersonRoleColor(record.person.role)}`}
-                        >
-                          {record.person.role}
-                        </span>
-                      )}
-                      {record.person.cluster_codes?.[0] ? (
-                        <span className="chip-primary-sm shrink-0">
-                          {record.person.cluster_codes[0]}
-                        </span>
-                      ) : (
-                        <span className="inline-flex shrink-0 items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-                          NO CLUSTER
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="text-xs text-muted-foreground transition-transform duration-200 group-hover:-translate-x-1">
-                        {new Date(record.recorded_at).toLocaleTimeString([], {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => openRemoveConfirmation(record)}
-                        disabled={submitting || removeConfirmation.loading}
-                        aria-label={`Remove ${formatPersonName(record.person)} from check-in`}
-                        className="flex h-8 w-8 translate-x-2 items-center justify-center rounded-full text-red-600 opacity-100 transition-all duration-200 hover:bg-red-50 md:translate-x-3 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
-                      >
-                        <XMarkIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </li>
-                ))}
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}

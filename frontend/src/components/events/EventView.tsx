@@ -14,6 +14,7 @@ import {
 } from "@/src/types/event";
 import { formatPersonName } from "@/src/lib/name";
 import { isAttendanceReportAvailable } from "@/src/lib/events/attendanceReportUtils";
+import { formatLampIdDisplay } from "@/src/lib/events/checkInUtils";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { getPersonRoleColor } from "@/src/lib/personRole";
 import {
@@ -23,6 +24,10 @@ import {
 import { useEventTypeStyles } from "@/src/contexts/EventTypeStylesContext";
 import EventRecurringChip from "@/src/components/events/EventRecurringChip";
 import { formatRecurrenceSummary } from "@/src/lib/events/recurrenceLabel";
+
+function recordAttendanceMode(record: EventAttendanceRecord): AttendanceMode {
+  return record.attendance_mode || "ONSITE";
+}
 
 interface AddAttendanceInput {
   person_id: string;
@@ -180,6 +185,7 @@ export default function EventView({
   const [selectedPersonId, setSelectedPersonId] = useState("");
   const [selectedStatus] = useState<AttendanceStatus>("PRESENT");
   const [attendanceSearchTerm, setAttendanceSearchTerm] = useState("");
+  const [modeFilter, setModeFilter] = useState<"" | AttendanceMode>("");
   const [removeConfirmation, setRemoveConfirmation] = useState<{
     isOpen: boolean;
     record: EventAttendanceRecord | null;
@@ -236,14 +242,24 @@ export default function EventView({
   const totalAttendanceCount = attendanceRecords.length;
 
   const filteredAttendanceRecords = useMemo(() => {
-    if (!attendanceSearchTerm.trim()) {
-      return attendanceRecords;
-    }
-    const term = attendanceSearchTerm.toLowerCase();
-    return attendanceRecords.filter((record) =>
-      formatPersonName(record.person).toLowerCase().includes(term)
-    );
-  }, [attendanceRecords, attendanceSearchTerm]);
+    const term = attendanceSearchTerm.trim().toLowerCase();
+    return attendanceRecords.filter((record) => {
+      if (modeFilter && recordAttendanceMode(record) !== modeFilter) {
+        return false;
+      }
+      if (!term) {
+        return true;
+      }
+      const name = formatPersonName(record.person).toLowerCase();
+      const memberId = (record.person.member_id || "").toLowerCase();
+      const displayId = formatLampIdDisplay(record.person.member_id).toLowerCase();
+      return (
+        name.includes(term) ||
+        memberId.includes(term) ||
+        displayId.includes(term)
+      );
+    });
+  }, [attendanceRecords, attendanceSearchTerm, modeFilter]);
 
   const fetchAttendance = useCallback(
     async (targetDate: string) => {
@@ -662,36 +678,62 @@ export default function EventView({
             <div className="mt-6">
               {attendanceRecords.length > 0 && (
                 <div className="mb-3">
-                  <label
-                    htmlFor="attendance-search"
-                    className="block text-xs font-semibold uppercase tracking-wide text-gray-600 mb-1"
-                  >
-                    Filter attendees in this event
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="attendance-search"
-                      type="text"
-                      value={attendanceSearchTerm}
-                      onChange={(event) =>
-                        setAttendanceSearchTerm(event.target.value)
-                      }
-                      placeholder="Search attendees for this date..."
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <svg
-                      className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
-                      />
-                    </svg>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="min-w-0 flex-1">
+                      <label
+                        htmlFor="attendance-search"
+                        className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600"
+                      >
+                        Filter attendees in this event
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="attendance-search"
+                          type="text"
+                          value={attendanceSearchTerm}
+                          onChange={(event) =>
+                            setAttendanceSearchTerm(event.target.value)
+                          }
+                          placeholder="Search attendees for this date..."
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <svg
+                          className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="sm:w-36 sm:shrink-0">
+                      <label
+                        htmlFor="attendance-mode-filter"
+                        className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600"
+                      >
+                        Mode
+                      </label>
+                      <select
+                        id="attendance-mode-filter"
+                        value={modeFilter}
+                        onChange={(event) =>
+                          setModeFilter(
+                            event.target.value as "" | AttendanceMode,
+                          )
+                        }
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">All modes</option>
+                        <option value="ONSITE">Onsite</option>
+                        <option value="ONLINE">Online</option>
+                      </select>
+                    </div>
                   </div>
                   <p className="mt-1 text-[11px] text-gray-500">
                     This search only filters the attendees listed below.
@@ -700,17 +742,28 @@ export default function EventView({
               )}
               {attendanceLoading ? (
                 <LoadingSpinner />
-              ) : filteredAttendanceRecords.length === 0 ? (
+              ) : attendanceRecords.length === 0 ? (
                 <p className="text-sm text-gray-500">
                   No attendees recorded for this occurrence yet.
+                </p>
+              ) : filteredAttendanceRecords.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No matching attendees
                 </p>
               ) : (
                 <div className="max-h-80 overflow-y-auto pr-1">
                   <ul className="space-y-3">
-                    {filteredAttendanceRecords.map((record) => (
+                    {filteredAttendanceRecords.map((record) => {
+                      const mode = recordAttendanceMode(record);
+                      const isOnline = mode === "ONLINE";
+                      return (
                       <li
                         key={record.id}
-                        className="flex flex-col gap-3 rounded-lg border border-gray-200 px-3 py-3 tablet:flex-row tablet:items-center tablet:justify-between"
+                        className={`flex flex-col gap-3 rounded-lg border px-3 py-3 tablet:flex-row tablet:items-center tablet:justify-between ${
+                          isOnline
+                            ? "border-sky-100 bg-sky-50"
+                            : "border-emerald-100 bg-emerald-50"
+                        }`}
                       >
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
@@ -719,9 +772,31 @@ export default function EventView({
                             </span>
                             {record.person.member_id && (
                               <span className="chip-sky-sm">
-                                {record.person.member_id}
+                                {formatLampIdDisplay(record.person.member_id)}
                               </span>
                             )}
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                isOnline
+                                  ? "bg-sky-100 text-sky-800"
+                                  : "bg-emerald-100 text-emerald-800"
+                              }`}
+                            >
+                              {isOnline ? "Online" : "Onsite"}
+                            </span>
+                            {record.attendance_venue_label ? (
+                              <span
+                                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                                style={{
+                                  borderColor:
+                                    record.attendance_venue_color || "#0ea5e9",
+                                  color:
+                                    record.attendance_venue_color || "#0369a1",
+                                }}
+                              >
+                                {record.attendance_venue_label}
+                              </span>
+                            ) : null}
                             <span className="inline-flex items-center gap-1">
                               {record.person.cluster_codes &&
                               record.person.cluster_codes.length > 0 ? (
@@ -778,7 +853,8 @@ export default function EventView({
                           </Button>
                         </div>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 </div>
               )}

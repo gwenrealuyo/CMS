@@ -73,7 +73,8 @@ The recurrence service expands this pattern on demand in `apps.events.services.r
 - `DELETE /api/events/{id}/attendance/{attendance_id}/` removes the attendance record and its journey.
 - The generic `/api/attendance/` endpoints provide CRUD access plus `/api/attendance/by-event/{event_id}/` for reporting scenarios.
 - On the frontend, `EventView` includes an Attendance panel that:
-  - shows attendees for the selected occurrence, with the derived badges for quick context;
+  - shows attendees for the selected occurrence, with derived badges (cluster, family, LAMP ID without the `LAMP` prefix, **Onsite** / **Online**, and online venue when set);
+  - tints attendee cards (emerald onsite, sky online) and filters the list by name/LAMP ID plus All / Onsite / Online beside the search bar;
   - lets coordinators add/remove attendees; status defaults to “Present” and edits sync journeys automatically;
   - surfaces the total recorded attendees and highlights whether journeys are logged;
   - provides an **Open Check-In** action that opens `/events/check-in?event={id}&occurrence=YYYY-MM-DD` in a new tab for a focused check-in station UI;
@@ -100,8 +101,8 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
   - **Remaining** — expected people not yet checked in (not `Total − Checked In` when extras are present).
 - Manual Entry and Camera Scan look up anyone in the broader check-in candidate pool (non-admin, branch-scoped), so people outside Total can still check in.
 - **Manual Entry** tab accepts name or LAMP ID; Enter key submits.
-- **Camera Scan** tab (Onsite station only) uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in; unknown IDs and already-checked-in people show an error. Camera access requires HTTPS or localhost.
-- Station toggle: **Onsite** (default) posts `attendance_mode: ONSITE`; **Online** requires a venue and posts `ONLINE` + venue. Recent Check-Ins show mode/venue chips and can filter by mode and cluster.
+- **Camera Scan** tab (Onsite station only) uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in. Success, already-checked-in, and unknown IDs show a large status banner on the page (green / amber / red) **and** a larger toast. Camera access requires HTTPS or localhost.
+- Station toggle: **Onsite** (default) posts `attendance_mode: ONSITE`; **Online** requires a venue and posts `ONLINE` + venue. Switching the station also sets the Recent Check-Ins mode filter to Onsite or Online. Recent Check-Ins show mode/venue chips and can still filter by mode and cluster.
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
 - For **today or past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
 

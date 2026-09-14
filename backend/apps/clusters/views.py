@@ -13,7 +13,12 @@ from django.utils import timezone
 from core.datetime_utils import church_today
 import csv
 import io
-from .models import Cluster, ClusterWeeklyReport, ClusterComplianceNote
+from .models import (
+    Cluster,
+    ClusterComplianceNote,
+    ClusterWeeklyReport,
+    member_attendance_rate_q,
+)
 from .filters import ClusterFilter
 from .roster_counts import annotate_cluster_roster_counts
 from .report_membership import sync_report_visitors_to_cluster_members
@@ -625,7 +630,8 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             )
         }
 
-        # Non-ADMIN roster sizes and attended counts (match member_attendance_rate).
+        # Roster sizes and attended counts matching member_attendance_rate
+        # (non-ADMIN + ACTIVE/SEMIACTIVE/INACTIVE only).
         cluster_ids = list(queryset.values_list("cluster_id", flat=True).distinct())
         roster_by_cluster = {
             row["id"]: row["mc"]
@@ -633,22 +639,22 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             .annotate(
                 mc=Count(
                     "members",
-                    filter=~Q(members__role="ADMIN"),
+                    filter=member_attendance_rate_q("members__"),
                     distinct=True,
                 )
             )
             .values("id", "mc")
         }
-        non_admin_member_links = member_links.exclude(person__role="ADMIN")
+        rate_member_links = member_links.filter(member_attendance_rate_q("person__"))
         attended_per_report = {
             row["clusterweeklyreport_id"]: row["c"]
-            for row in non_admin_member_links.values(
-                "clusterweeklyreport_id"
-            ).annotate(c=Count("id"))
+            for row in rate_member_links.values("clusterweeklyreport_id").annotate(
+                c=Count("id")
+            )
         }
-        non_admin_attended_by_cluster = {
+        rate_attended_by_cluster = {
             row["clusterweeklyreport__cluster_id"]: row["sum_members_attended"]
-            for row in non_admin_member_links.values(
+            for row in rate_member_links.values(
                 "clusterweeklyreport__cluster_id"
             ).annotate(sum_members_attended=Count("id"))
         }
@@ -686,12 +692,10 @@ class ClusterWeeklyReportViewSet(viewsets.ModelViewSet):
             rc = row["report_count"]
             member_count = int(roster_by_cluster.get(cid, 0) or 0)
             sum_attended = int(member_counts_by_cluster.get(cid, 0))
-            non_admin_sum = int(non_admin_attended_by_cluster.get(cid, 0))
+            rate_sum = int(rate_attended_by_cluster.get(cid, 0))
             denom = member_count * rc
             attendance_rate = (
-                min(100.0, round((non_admin_sum / denom) * 100, 1))
-                if denom > 0
-                else 0.0
+                min(100.0, round((rate_sum / denom) * 100, 1)) if denom > 0 else 0.0
             )
             cluster_comparison.append(
                 {

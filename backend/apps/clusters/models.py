@@ -1,4 +1,18 @@
 from django.db import models
+from django.db.models import Q
+
+
+# Person statuses counted in member_attendance_rate (roster and attended).
+MEMBER_ATTENDANCE_RATE_STATUSES = ("ACTIVE", "SEMIACTIVE", "INACTIVE")
+
+
+def member_attendance_rate_q(prefix=""):
+    """Q() for people counted in member_attendance_rate (non-ADMIN + counted statuses)."""
+    role_field = f"{prefix}role"
+    status_field = f"{prefix}status"
+    return ~Q(**{role_field: "ADMIN"}) & Q(
+        **{f"{status_field}__in": MEMBER_ATTENDANCE_RATE_STATUSES}
+    )
 
 
 class Cluster(models.Model):
@@ -125,13 +139,19 @@ class ClusterWeeklyReport(models.Model):
 
     @property
     def member_attendance_rate(self):
-        """Returns the percentage of cluster members who attended the meeting."""
-        # Exclude ADMIN users from both total and attended counts
-        total_members = self.cluster.members.exclude(role="ADMIN").count()
+        """Percentage of counted cluster members who attended (0-100).
+
+        Counts only non-ADMIN people whose status is ACTIVE, SEMIACTIVE, or
+        INACTIVE, on both the current roster (denominator) and attended list
+        (numerator). Other statuses (DORMANT, FALLAWAY, DECEASED, etc.) are
+        excluded. Caps at 100% when attended exceeds the current roster.
+        """
+        total_members = self.cluster.members.filter(member_attendance_rate_q()).count()
         if total_members == 0:
-            return 0.0  # Avoid division by zero
-        members_attended_count = self.members_attended.exclude(role="ADMIN").count()
-        # Cap at 100% when attended exceeds current roster (stale membership, etc.)
+            return 0.0
+        members_attended_count = self.members_attended.filter(
+            member_attendance_rate_q()
+        ).count()
         return min(100.0, round((members_attended_count / total_members) * 100, 2))
 
     class Meta:

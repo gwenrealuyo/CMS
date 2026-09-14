@@ -64,7 +64,7 @@ See also: [`docs/cluster-family-member-relationship-rules.md`](cluster-family-me
   - `members_present`: Returns count of `members_attended`
   - `visitors_present`: Returns count of `visitors_attended` (attendance only — does **not** include prospects invited)
   - `prospects_invited_count`: Returns count of `prospects_invited`
-  - `member_attendance_rate`: Returns percentage of cluster members who attended (0-100)
+  - `member_attendance_rate`: Percentage of counted cluster members who attended (0-100). Counts only non-ADMIN people with status ACTIVE, SEMIACTIVE, or INACTIVE on both the current roster and the attended list; other statuses (DORMANT, FALLAWAY, DECEASED, etc.) are excluded. Capped at 100%
 - Default ordering: by `-year`, then `-week_number`
 - Unique constraint: `unique_together = ["cluster", "year", "week_number"]` – prevents duplicate reports for the same cluster/week
 
@@ -458,6 +458,7 @@ All cluster models are registered in Django admin (`apps.clusters.admin`):
   - Analytics endpoint (with various filters)
   - Overdue endpoint
   - Computed properties (members_present, visitors_present, member_attendance_rate)
+  - Member attendance rate (`test_member_attendance_rate.py`): counts only ACTIVE / SEMIACTIVE / INACTIVE (non-ADMIN); analytics average matches
   - Cross-app ForeignKey relationships
   - Unique constraint on cluster/year/week_number
   - Pagination for reports

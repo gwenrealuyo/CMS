@@ -1290,7 +1290,7 @@ export default function ClusterWeeklyReportForm({
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  className="text-sm text-primary hover:text-primary font-medium border border-primary/30 hover:border-primary rounded-lg px-3 py-1.5 transition-colors"
+                  className="text-sm text-white bg-primary hover:bg-blue-700 font-medium rounded-lg px-3 py-1.5 transition-colors"
                 >
                   + Add New Visitor
                 </button>
@@ -1327,7 +1327,7 @@ export default function ClusterWeeklyReportForm({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="text-sm text-primary hover:text-primary font-medium border border-primary/30 hover:border-primary rounded-lg px-3 py-1.5 transition-colors"
+                className="text-sm text-white bg-orange-600 hover:bg-orange-700 font-medium rounded-lg px-3 py-1.5 transition-colors"
               >
                 + Add Prospect
               </button>

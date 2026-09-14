@@ -1950,6 +1950,9 @@ class ConversionViewSet(viewsets.ModelViewSet):
         if not conversion.converted_by_id:
             conversion.converted_by = self.request.user
             updates.append("converted_by")
+        if not conversion.lesson_start_date and conversion.person.lessons_started_at:
+            conversion.lesson_start_date = conversion.person.lessons_started_at
+            updates.append("lesson_start_date")
         if not conversion.conversion_date:
             conversion.conversion_date = (
                 conversion.water_baptism_date
@@ -1978,14 +1981,13 @@ class ConversionViewSet(viewsets.ModelViewSet):
         """Update person milestones, prospect pipeline, and conversion completion."""
         date_first_invited = serializer.validated_data.pop("date_first_invited", None)
         date_first_attended = serializer.validated_data.pop("date_first_attended", None)
-        lesson_start_date = serializer.validated_data.get("lesson_start_date")
+        serializer.validated_data.pop("lesson_start_date", None)
         serializer.validated_data.pop("is_complete", None)
         conversion = serializer.save()
         sync_conversion_pipeline(
             conversion,
             date_first_invited=date_first_invited,
             date_first_attended=date_first_attended,
-            lesson_start_date=lesson_start_date,
         )
 
 

@@ -176,6 +176,7 @@ Key features include:
   - `evangelism_group` (ForeignKey to EvangelismGroup, nullable) – associated group
   - `cluster` (ForeignKey to `clusters.Cluster`, nullable) – cluster for tracking (from inviter or endorsed cluster)
   - `conversion_date` (DateField) – date of conversion journey
+  - `lesson_start_date` (DateField, nullable) – NCC lessons start date. Set automatically from the first NCC teacher session report (`LessonSessionReport.session_date`) going forward, in sync with `Person.lessons_started_at`. Not backfilled for legacy records or people with `has_finished_lessons=True`. Writable on create (and copied from `Person.lessons_started_at` when omitted); ignored on update. Read-only on the Update Conversion form.
   - `water_baptism_date` (DateField, nullable) – date of water baptism
   - `spirit_baptism_date` (DateField, nullable) – date they received the Holy Ghost
   - `verified_by` (ForeignKey to `people.Person`, nullable) – who verified the conversion (unused by the baptism/HG person pickers)
@@ -188,6 +189,7 @@ Key features include:
 - **Validation**: Check if commitment form is signed.
 - **Auto-updates**:
   - Update Person's `water_baptism_date` and `spirit_baptism_date` when conversion is created/updated
+  - Copy `Person.lessons_started_at` onto `lesson_start_date` on create when the client omits it
   - Update prospect `pipeline_stage` (BAPTIZED, RECEIVED_HG, CONVERTED)
   - Update monthly tracking when conversion journeys are recorded
   - Update Each1Reach1Goal when conversion is completed (cluster-based)
@@ -409,6 +411,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `POST` – Create a new conversion (requires `person_id`, optional `lesson_start_date`, optional `water_baptism_date`, `spirit_baptism_date`)
     - `converted_by` defaults to the request user
     - `conversion_date` is derived if not supplied
+    - If `lesson_start_date` is omitted, it is copied from `Person.lessons_started_at` when that date is already set (first NCC session report)
     - **Validation**: Check if lessons are completed before baptism.
     - **Validation**: Check if commitment form is signed.
     - If notes are provided, related Journey entries (BAPTISM/SPIRIT) use those notes
@@ -417,8 +420,8 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Auto-update monthly tracking
     - Auto-update Each1Reach1Goal
   - `GET /{id}/` – Retrieve a specific conversion
-  - `PUT /{id}/` – Update a conversion (full update)
-  - `PATCH /{id}/` – Partial update
+  - `PUT /{id}/` – Update a conversion (full update). `lesson_start_date` is ignored; it is not editable after create.
+  - `PATCH /{id}/` – Partial update. `lesson_start_date` is ignored; it is not editable after create.
   - `DELETE /{id}/` – Delete a conversion
 
 ### Monthly Conversion Tracking
@@ -515,6 +518,7 @@ Serializers (`apps.evangelism.serializers`) expose:
   - `baptized_by` / `hg_witnessed_by` – nested person objects from the member's BAPTISM / SPIRIT journeys (read-only)
   - `baptized_by_id` / `hg_witnessed_by_id` – write-only Person IDs; optional (`null` = unknown baptizer/witness)
   - `baptized_by_first_name` / `baptized_by_last_name` / `hg_witnessed_by_first_name` / `hg_witnessed_by_last_name` – optional former names when the baptizer/witness is not in the directory
+  - `lesson_start_date` – writable on create; ignored on update
   - All conversion fields
 
 - `MonthlyConversionTrackingSerializer`:

@@ -20,9 +20,11 @@ import {
 /** Label for invites without a linked Person. */
 function prospectInviteDisplayName(prospect: Prospect): string {
   if (prospect.display_name?.trim()) return prospect.display_name;
-  const parts = [prospect.first_name, prospect.middle_name, prospect.last_name].filter(
-    Boolean
-  ) as string[];
+  const parts = [
+    prospect.first_name,
+    prospect.middle_name,
+    prospect.last_name,
+  ].filter(Boolean) as string[];
   let base = parts.join(" ");
   if (prospect.suffix?.trim())
     base = base ? `${base}, ${prospect.suffix}` : prospect.suffix!;
@@ -145,7 +147,7 @@ export default function EvangelismWeeklyReportForm({
     setFormData((prev) =>
       prev.evangelism_group_id === groupId
         ? prev
-        : { ...prev, evangelism_group_id: groupId }
+        : { ...prev, evangelism_group_id: groupId },
     );
 
     const cached = rosterCacheRef.current[groupId];
@@ -288,7 +290,9 @@ export default function EvangelismWeeklyReportForm({
       .map((prospect) => {
         const invitedBy = prospect.invited_by?.full_name || "Unknown";
         const stageLabel =
-          prospect.pipeline_stage_display || prospect.pipeline_stage || "INVITED";
+          prospect.pipeline_stage_display ||
+          prospect.pipeline_stage ||
+          "INVITED";
         return {
           id: `prospect:${prospect.id}`,
           name: `${prospectInviteDisplayName(prospect)} (${stageLabel.toLowerCase()})`,
@@ -372,7 +376,7 @@ export default function EvangelismWeeklyReportForm({
   };
 
   const handleAddVisitor = async (
-    visitorData: Partial<Person> & { note?: string }
+    visitorData: Partial<Person> & { note?: string },
   ) => {
     const tempId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -470,7 +474,8 @@ export default function EvangelismWeeklyReportForm({
             onChange={(e) =>
               setFormData((prev) => ({
                 ...prev,
-                gathering_type: e.target.value as EvangelismWeeklyReportFormValues["gathering_type"],
+                gathering_type: e.target
+                  .value as EvangelismWeeklyReportFormValues["gathering_type"],
               }))
             }
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
@@ -515,7 +520,7 @@ export default function EvangelismWeeklyReportForm({
           <Button
             type="button"
             variant="secondary"
-            className="!text-orange-600 bg-white border border-orange-200 hover:bg-orange-50 hover:border-orange-300 text-xs py-1 px-2"
+            className="!text-white !bg-orange-600 hover:!bg-orange-700 text-sm py-1.5 px-3"
             onClick={() => setShowAddVisitorModal(true)}
           >
             Add New Visitor
@@ -565,7 +570,10 @@ export default function EvangelismWeeklyReportForm({
           <textarea
             value={formData.activities_held || ""}
             onChange={(e) =>
-              setFormData((prev) => ({ ...prev, activities_held: e.target.value }))
+              setFormData((prev) => ({
+                ...prev,
+                activities_held: e.target.value,
+              }))
             }
             rows={2}
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
@@ -578,7 +586,10 @@ export default function EvangelismWeeklyReportForm({
           <textarea
             value={formData.prayer_requests || ""}
             onChange={(e) =>
-              setFormData((prev) => ({ ...prev, prayer_requests: e.target.value }))
+              setFormData((prev) => ({
+                ...prev,
+                prayer_requests: e.target.value,
+              }))
             }
             rows={2}
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"

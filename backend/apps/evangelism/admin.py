@@ -71,6 +71,7 @@ class EvangelismWeeklyReportAdmin(admin.ModelAdmin):
 @admin.register(Prospect)
 class ProspectAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "first_name",
         "last_name",
         "invited_by",
@@ -87,7 +88,13 @@ class ProspectAdmin(admin.ModelAdmin):
     )
     search_fields = ("first_name", "middle_name", "last_name", "contact_info", "notes")
     date_hierarchy = "last_activity_date"
-    raw_id_fields = ("invited_by", "inviter_cluster", "evangelism_group", "endorsed_cluster", "person")
+    raw_id_fields = (
+        "invited_by",
+        "inviter_cluster",
+        "evangelism_group",
+        "endorsed_cluster",
+        "person",
+    )
 
 
 @admin.register(FollowUpTask)
@@ -143,7 +150,14 @@ class ConversionAdmin(admin.ModelAdmin):
         "notes",
     )
     date_hierarchy = "conversion_date"
-    raw_id_fields = ("person", "prospect", "converted_by", "evangelism_group", "cluster", "verified_by")
+    raw_id_fields = (
+        "person",
+        "prospect",
+        "converted_by",
+        "evangelism_group",
+        "cluster",
+        "verified_by",
+    )
 
 
 @admin.register(MonthlyConversionTracking)
@@ -175,4 +189,3 @@ class Each1Reach1GoalAdmin(admin.ModelAdmin):
     list_filter = ("cluster", "year", "status")
     search_fields = ("cluster__name",)
     raw_id_fields = ("cluster",)
-

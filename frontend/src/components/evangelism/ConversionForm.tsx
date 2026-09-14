@@ -7,7 +7,6 @@ import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import BaptismVerifierPicker from "@/src/components/people/BaptismVerifierPicker";
 import { Conversion } from "@/src/types/evangelism";
 import { Person } from "@/src/types/person";
-import { lessonsApi } from "@/src/lib/api";
 import {
   BAPTIZED_BY_HINT,
   BAPTIZED_BY_LABEL,
@@ -122,8 +121,6 @@ export default function ConversionForm({
     date_first_attended: initialDateFirstAttended(initialData),
     notes: initialData?.notes || "",
   });
-  const [lessonDateTouched, setLessonDateTouched] = useState(false);
-  const [loadingLessonDate, setLoadingLessonDate] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [baptizerMode, setBaptizerMode] = useState<VerifierEntryMode>(() =>
     initialVerifierMode(
@@ -241,44 +238,19 @@ export default function ConversionForm({
   );
 
   useEffect(() => {
-    const fetchLessonStartDate = async () => {
-      if (!values.person_id) {
-        setValues((prev) => ({ ...prev, lesson_start_date: "" }));
-        return;
-      }
-      try {
-        setLoadingLessonDate(true);
-        const response = await lessonsApi.getProgress({
-          person: values.person_id,
-        });
-        const progress = response.data;
-        if (!progress.length) {
-          if (!lessonDateTouched) {
-            setValues((prev) => ({ ...prev, lesson_start_date: "" }));
-          }
-          return;
-        }
-        const earliest = [...progress]
-          .sort((a, b) => a.assigned_at.localeCompare(b.assigned_at))[0];
-        const assignedDate = earliest.assigned_at
-          ? new Date(earliest.assigned_at).toISOString().split("T")[0]
-          : "";
-        if (!lessonDateTouched) {
-          setValues((prev) => ({
-            ...prev,
-            lesson_start_date: assignedDate,
-          }));
-        }
-      } catch (error) {
-        console.error("Error loading lesson start date:", error);
-      } finally {
-        setLoadingLessonDate(false);
-      }
-    };
-
-    fetchLessonStartDate();
-    setLessonDateTouched(false);
-  }, [values.person_id]);
+    if (lockPersonSelection) {
+      return;
+    }
+    const selected = selectablePeople.find(
+      (person) => String(person.id) === values.person_id,
+    );
+    const started = selected?.lessons_started_at
+      ? isoDateInputValue(selected.lessons_started_at)
+      : "";
+    setValues((prev) => ({ ...prev, lesson_start_date: started }));
+    // Prefill only when the selected person changes so manual create-form
+    // edits are not wiped if the people list identity changes.
+  }, [values.person_id, lockPersonSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
@@ -337,21 +309,28 @@ export default function ConversionForm({
         }
       >
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="conversion-lesson-start-date"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Lesson Start Date
           </label>
           <input
+            id="conversion-lesson-start-date"
             type="date"
             value={values.lesson_start_date || ""}
-            onChange={(event) => {
-              setLessonDateTouched(true);
-              handleChange("lesson_start_date")(event);
-            }}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            onChange={handleChange("lesson_start_date")}
+            readOnly={lockPersonSelection}
+            disabled={lockPersonSelection}
+            className={
+              lockPersonSelection
+                ? "w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-700"
+                : "w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            }
           />
-          {loadingLessonDate && (
-            <p className="text-xs text-gray-500">Loading lesson assignment...</p>
-          )}
+          <p className="text-xs text-gray-500">
+            Set automatically when an NCC teacher submits a session report.
+          </p>
         </div>
         {lockPersonSelection && (
           <div className="space-y-1">

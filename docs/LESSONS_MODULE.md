@@ -31,11 +31,13 @@ This drops all `lessons_*` tables and re-migrates (clears lesson progress, enrol
 - Commitment form signatures are tracked on `LessonStudentEnrollment` and create a `NOTE`-type journey titled “Commitment Form Signed”. Clearing the signature removes that journey entry.
 - **LESSON session reports** call `_sync_progress` inside `LessonSessionReportViewSet`: if a matching `PersonLessonProgress` does not exist it is created, then completion is applied via `mark_progress_completed`.
 - **PRE_LESSON session reports** (Introduction and Other) do not complete catalog progress. They upsert a `LESSON` journey on the student via `sync_pre_lesson_session_journey`: title is the pre-lesson kind label (`Introduction` / `Other`), description is the session remarks, and date is `session_date`. The report stores a OneToOne link on `LessonSessionReport.journey`.
+- **Creating a session report** (API or Django admin, LESSON or PRE_LESSON) also set-once fills `Person.lessons_started_at` and any empty `Conversion.lesson_start_date` for that student with `session_date`. Existing start dates are not overwritten. People with `has_finished_lessons=True` (legacy completers) are skipped. Edits to existing reports do not backfill.
 - **Deleting a session report** (API or Django admin) first clears any linked pre-lesson journey, then calls `reconcile_student_progress_from_reports(student, force_report_rules=True)`, which realigns progress with remaining LESSON-type reports. Students with zero LESSON reports keep legacy completion via `has_finished_lessons` / `lessons_finished_at` when applicable.
 
 ### Person profile sync
 
 - When a person has `PersonLessonProgress` rows for active latest lessons, completing or reverting lessons via `mark_progress_completed` / `revert_progress_completion` updates `people.Person.has_finished_lessons` and `lessons_finished_at`.
+- **First NCC session report:** `apps.lessons.services.sync_person_lessons_started_from_report` sets `Person.lessons_started_at` (and empty `Conversion.lesson_start_date` rows) from `session_date` unless the person already finished lessons or already has a start date.
 - **All complete:** `has_finished_lessons=True` and `lessons_finished_at` is the latest `completed_at` date across those progress rows.
 - **Not all complete:** both fields are cleared (same direction as commitment-form eligibility).
 - Persons with no module progress rows are left unchanged (pure legacy manual flags).

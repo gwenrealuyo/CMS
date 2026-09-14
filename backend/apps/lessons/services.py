@@ -76,6 +76,33 @@ def _get_or_create_journey_config(lesson: Lesson) -> LessonJourney:
     return journey_config
 
 
+def sync_person_lessons_started_from_report(report: LessonSessionReport) -> None:
+    """
+    Set-once Person.lessons_started_at and empty Conversion.lesson_start_date
+    from a newly created NCC session report.
+
+    Skips people who already finished lessons (legacy completers) and does not
+    overwrite an existing start date.
+    """
+    student = report.student
+    if student is None or report.session_date is None:
+        return
+    if student.has_finished_lessons:
+        return
+    if student.lessons_started_at:
+        return
+
+    student.lessons_started_at = report.session_date
+    student.save(update_fields=["lessons_started_at"])
+
+    from apps.evangelism.models import Conversion
+
+    Conversion.objects.filter(
+        person=student,
+        lesson_start_date__isnull=True,
+    ).update(lesson_start_date=report.session_date)
+
+
 def sync_person_lessons_finished_from_progress(person: Person) -> None:
     """
     Mirror module lesson completion onto Person.has_finished_lessons /

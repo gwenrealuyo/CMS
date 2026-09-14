@@ -770,13 +770,11 @@ export default function EvangelismPage() {
       setFormError(null);
       const invited = values.date_first_invited?.trim() ?? "";
       const attended = values.date_first_attended?.trim() ?? "";
-      const lessonStart = values.lesson_start_date?.trim() ?? "";
       const w = values.water_baptism_date?.trim() ?? "";
       const s = values.spirit_baptism_date?.trim() ?? "";
       await updateConversion(editingConversion.id, {
         date_first_invited: invited || null,
         date_first_attended: attended || null,
-        lesson_start_date: lessonStart || null,
         notes: values.notes ?? "",
         water_baptism_date: w ? w : null,
         spirit_baptism_date: s ? s : null,

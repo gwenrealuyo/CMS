@@ -161,11 +161,8 @@ export default function AttendanceSelector({
   const isPersonSelected = (personId: string | number) =>
     selectedIds.some((id) => personIdsMatch(id, personId));
 
-  // Get active members/visitors (for visitors, also include ATTENDED status)
-  const activePeople = peopleByRole.filter((person) =>
-    filterRole === "MEMBER"
-      ? person.status === "ACTIVE"
-      : person.status === "ACTIVE" || person.status === "ONGOING"
+  const activePeople = peopleByRole.filter(
+    (person) => person.status === "ACTIVE"
   );
 
   const togglePerson = (personId: string | number) => {
@@ -281,12 +278,7 @@ export default function AttendanceSelector({
 
         if (idsToSelect.length > 0) {
           onSelectionChange(idsToSelect);
-          // Highlight "Select All Previously Attended" if using mostRecentAttendedIds
-          setLastClickedButton(
-            mostRecentAttendedIds.length > 0
-              ? "selectAllClusterMembers"
-              : "selectAllActive"
-          );
+          setLastClickedButton("selectAllClusterMembers");
           hasAutoSelectedRef.current = clusterKey;
         }
         // If no previous attendance, don't auto-select anything - let user choose manually
@@ -331,20 +323,20 @@ export default function AttendanceSelector({
         return;
       }
 
-      // Check if selection matches "Select All Active"
-      const activePeople = peopleByRole.filter((person) =>
-        filterRole === "MEMBER"
-          ? person.status === "ACTIVE"
-          : person.status === "ACTIVE" || person.status === "ONGOING"
-      );
-      const activeIds = activePeople.map((p) => normalizePersonId(p.id));
-      const activeIdsSet = new Set(activeIds);
-      if (
-        selectedIds.length === activeIds.length &&
-        selectedIds.every((id) => activeIdsSet.has(normalizePersonId(id)))
-      ) {
-        setLastClickedButton("selectAllActive");
-        return;
+      // Check if selection matches "Select All Active" (members only)
+      if (filterRole === "MEMBER") {
+        const activePeople = peopleByRole.filter(
+          (person) => person.status === "ACTIVE"
+        );
+        const activeIds = activePeople.map((p) => normalizePersonId(p.id));
+        const activeIdsSet = new Set(activeIds);
+        if (
+          selectedIds.length === activeIds.length &&
+          selectedIds.every((id) => activeIdsSet.has(normalizePersonId(id)))
+        ) {
+          setLastClickedButton("selectAllActive");
+          return;
+        }
       }
 
       // Check if selection matches "Select All Previously Attended"
@@ -509,17 +501,19 @@ export default function AttendanceSelector({
               >
                 Deselect All
               </button>
-              <button
-                type="button"
-                onClick={selectAllActive}
-                className={`text-xs px-2 py-1 border rounded transition-colors ${
-                  lastClickedButton === "selectAllActive"
-                    ? "bg-green-600 text-white border-green-600 font-semibold"
-                    : "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                }`}
-              >
-                Select All Active
-              </button>
+              {filterRole === "MEMBER" && (
+                <button
+                  type="button"
+                  onClick={selectAllActive}
+                  className={`text-xs px-2 py-1 border rounded transition-colors ${
+                    lastClickedButton === "selectAllActive"
+                      ? "bg-green-600 text-white border-green-600 font-semibold"
+                      : "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                  }`}
+                >
+                  Select All Active
+                </button>
+              )}
               {filterRole === "VISITOR" &&
                 selectedCluster &&
                 clusterVisitors.length > 0 && (

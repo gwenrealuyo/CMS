@@ -31,6 +31,7 @@ import {
   clustersForReportSubmission,
   canAccessClusterReports,
   userCanAccessMemberCare,
+  userCanExportClusterData,
 } from "@/src/lib/clusterPermissions";
 import { countClusterMembersFromDetails } from "@/src/lib/clusterRoster";
 
@@ -679,8 +680,15 @@ export default function ClustersPageContainer() {
     }
   };
 
+  const canExportClusterData = userCanExportClusterData({
+    role: user?.role,
+    isSeniorCoordinator,
+  });
+
   // Bulk export handlers
   const handleBulkExport = async (format: "excel" | "pdf" | "csv") => {
+    if (!canExportClusterData) return;
+
     const clustersToExport = clusters.filter((c) =>
       selectedClusters.has(c.id.toString())
     );
@@ -1614,7 +1622,7 @@ export default function ClustersPageContainer() {
         setBulkMarkInactiveConfirmation({ isOpen: false, loading: false })
       }
       onBulkDelete={canHardDelete(user) ? handleBulkDelete : undefined}
-      onBulkExport={handleBulkExport}
+      onBulkExport={canExportClusterData ? handleBulkExport : undefined}
       bulkDeleteConfirmation={bulkDeleteConfirmation}
       selectedClustersCount={selectedClusters.size}
       onConfirmBulkDeleteClusters={confirmBulkDeleteClusters}

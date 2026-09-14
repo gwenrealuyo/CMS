@@ -178,6 +178,19 @@ export function userCanEditVitalDatesOnCreate(auth: ManageClusterAuth): boolean 
 }
 
 /**
+ * Who may export cluster directory rows or weekly reports.
+ * Admin, Pastor, and Cluster Senior Coordinator.
+ */
+export function userCanExportClusterData(auth: {
+  role: string | undefined;
+  isSeniorCoordinator: (module?: ModuleCoordinator["module"]) => boolean;
+}): boolean {
+  const { role, isSeniorCoordinator } = auth;
+  if (role === "ADMIN" || role === "PASTOR") return true;
+  return isSeniorCoordinator("CLUSTER");
+}
+
+/**
  * Who may view and edit the member care caseload (pastoral notes).
  * Mirrors backend `can_access_member_care`. Not reporters or plain members.
  */

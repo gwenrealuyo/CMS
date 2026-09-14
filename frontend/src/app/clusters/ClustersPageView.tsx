@@ -199,7 +199,7 @@ interface ClustersPageViewProps {
   onCreateReport: (data: ClusterWeeklyReportInput) => Promise<void>;
   onUpdateReport: (
     id: number,
-    data: Partial<ClusterWeeklyReportInput>
+    data: Partial<ClusterWeeklyReportInput>,
   ) => Promise<void>;
   onDeleteReport: (report: ClusterWeeklyReport) => void;
   reportDeleteConfirmation: {
@@ -221,7 +221,7 @@ interface ClustersPageViewProps {
   onSelectAllClusters: () => void;
   onBulkDelete?: () => void;
   onBulkMarkInactive: () => void;
-  onBulkExport: (format: "excel" | "pdf" | "csv") => void;
+  onBulkExport?: (format: "excel" | "pdf" | "csv") => void;
   bulkDeleteConfirmation: {
     isOpen: boolean;
     loading: boolean;
@@ -375,9 +375,9 @@ export default function ClustersPageView({
   onConfirmBulkMarkInactiveClusters,
   onCloseBulkMarkInactiveConfirmation,
 }: ClustersPageViewProps) {
-  const [clusterListViewMode, setClusterListViewMode] = useState<"cards" | "table">(
-    "cards"
-  );
+  const [clusterListViewMode, setClusterListViewMode] = useState<
+    "cards" | "table"
+  >("cards");
 
   const { user, isSeniorCoordinator, isModuleCoordinator } = useAuth();
   const { branches } = useBranches();
@@ -501,10 +501,9 @@ export default function ClustersPageView({
       clusterBranchesLoading && clusterBranchCanChangeFilter ? (
         <option value="">Loading…</option>
       ) : (
-        (
-          clusterBranchCanChangeFilter
-            ? clusterBranchEditableOptions
-            : clusterBranchReadonlyOptions
+        (clusterBranchCanChangeFilter
+          ? clusterBranchEditableOptions
+          : clusterBranchReadonlyOptions
         ).map((opt) => (
           <option
             key={opt.value === "" ? "__all_branches__" : opt.value}
@@ -543,9 +542,7 @@ export default function ClustersPageView({
       <LockedControlTooltip
         label={clusterBranchHoverHint}
         wrapperClassName={
-          fullWidth
-            ? "block w-full min-w-0 cursor-default"
-            : undefined
+          fullWidth ? "block w-full min-w-0 cursor-default" : undefined
         }
       >
         {selectEl}
@@ -566,13 +563,15 @@ export default function ClustersPageView({
 
   const renderClusterFlow = (isPanel: boolean) => {
     const currentViewCluster = isPanel ? panelCluster : viewCluster;
-    const isViewMode = isPanel ? panelMode === "view" : clusterViewMode === "view";
+    const isViewMode = isPanel
+      ? panelMode === "view"
+      : clusterViewMode === "view";
     const currentEditCluster =
       isPanel && panelMode === "edit"
         ? panelCluster
         : !isPanel
-        ? editCluster
-        : null;
+          ? editCluster
+          : null;
 
     const manageCluster =
       !!currentViewCluster &&
@@ -584,14 +583,14 @@ export default function ClustersPageView({
           cluster={currentViewCluster as any}
           clusterMembers={resolveClusterRosterPeople(
             currentViewCluster as Cluster,
-            peopleUI
+            peopleUI,
           )}
           clusterFamilies={resolveClusterRosterFamilies(
             currentViewCluster as Cluster,
-            families
+            families,
           )}
           coordinator={peopleUI.find(
-            (p) => p.id === currentViewCluster.coordinator?.id?.toString()
+            (p) => p.id === currentViewCluster.coordinator?.id?.toString(),
           )}
           onEdit={() => onEditCluster(currentViewCluster)}
           onDelete={() => onMarkInactiveCluster(currentViewCluster)}
@@ -618,9 +617,7 @@ export default function ClustersPageView({
               : undefined
           }
           showTopHeader={!isPanel}
-          showSubmitReportButton={
-            !hasClusterModuleWideAccess && manageCluster
-          }
+          showSubmitReportButton={!hasClusterModuleWideAccess && manageCluster}
           canManageCluster={manageCluster}
           onPersonStatusChanged={(person) =>
             onPersonStatusChanged?.(person, Number(currentViewCluster.id))
@@ -803,9 +800,7 @@ export default function ClustersPageView({
                 : Number(clusterBranchSelectedId)
             }
             onBranchChange={(nextBranch) =>
-              onClusterBranchChange(
-                nextBranch === "" ? "" : String(nextBranch),
-              )
+              onClusterBranchChange(nextBranch === "" ? "" : String(nextBranch))
             }
             branchOptions={
               clusterBranchCanChangeFilter
@@ -831,202 +826,176 @@ export default function ClustersPageView({
             }
           >
             <div className="space-y-6 min-w-0">
-            {/* Stats Cards */}
-            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
-              <div
-                className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
-                role="region"
-                aria-label="Total Clusters"
-              >
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div
-                      className="p-1.5 chip-primary-surface rounded-lg"
-                      aria-hidden="true"
-                    >
-                      <svg
-                        className="w-5 h-5 text-primary"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
+              {/* Stats Cards */}
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
+                <div
+                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
+                  role="region"
+                  aria-label="Total Clusters"
+                >
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div
+                        className="p-1.5 chip-primary-surface rounded-lg"
+                        aria-hidden="true"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                        />
-                      </svg>
+                        <svg
+                          className="w-5 h-5 text-primary"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-3 min-w-0">
+                      <p
+                        className="text-sm font-medium text-gray-600"
+                        aria-label="Metric label"
+                      >
+                        Total Clusters
+                      </p>
+                      <p
+                        className="text-2xl font-semibold text-gray-900"
+                        aria-label="Total clusters value"
+                      >
+                        {summaryClusterCount}
+                      </p>
+                      <p
+                        className="text-xs text-gray-500 mt-1"
+                        aria-label="Metric description"
+                      >
+                        Total number of clusters
+                      </p>
                     </div>
                   </div>
-                  <div className="ml-3 min-w-0">
-                    <p
-                      className="text-sm font-medium text-gray-600"
-                      aria-label="Metric label"
-                    >
-                      Total Clusters
-                    </p>
-                    <p
-                      className="text-2xl font-semibold text-gray-900"
-                      aria-label="Total clusters value"
-                    >
-                      {summaryClusterCount}
-                    </p>
-                    <p
-                      className="text-xs text-gray-500 mt-1"
-                      aria-label="Metric description"
-                    >
-                      Total number of clusters
-                    </p>
+                </div>
+                <div
+                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
+                  role="region"
+                  aria-label="Total Members"
+                >
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div
+                        className="p-1.5 chip-green-surface rounded-lg"
+                        aria-hidden="true"
+                      >
+                        <svg
+                          className="w-5 h-5 text-green-600"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M16 14a4 4 0 10-8 0m8 0v1a2 2 0 002 2h1m-11-3v1a2 2 0 01-2 2H5m11-10a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-3 min-w-0">
+                      <p
+                        className="text-sm font-medium text-gray-600"
+                        aria-label="Metric label"
+                      >
+                        Total Members
+                      </p>
+                      <p
+                        className="text-2xl font-semibold text-gray-900"
+                        aria-label="Total members value"
+                      >
+                        {totalMembers}
+                      </p>
+                      <p
+                        className="text-xs text-gray-500 mt-1"
+                        aria-label="Metric description"
+                      >
+                        Members across all clusters
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
+                  role="region"
+                  aria-label="Unassigned Members"
+                >
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div
+                        className="p-1.5 chip-orange-surface rounded-lg"
+                        aria-hidden="true"
+                      >
+                        <svg
+                          className="w-5 h-5 text-orange-600"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-3 min-w-0">
+                      <p
+                        className="text-sm font-medium text-gray-600"
+                        aria-label="Metric label"
+                      >
+                        Unassigned Members
+                      </p>
+                      <p
+                        className="text-2xl font-semibold text-gray-900"
+                        aria-label="Unassigned members value"
+                      >
+                        {unassignedMembers}
+                      </p>
+                      <p
+                        className="text-xs text-gray-500 mt-1"
+                        aria-label="Metric description"
+                      >
+                        Members not in any cluster
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div
-                className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
-                role="region"
-                aria-label="Total Members"
-              >
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div
-                      className="p-1.5 chip-green-surface rounded-lg"
-                      aria-hidden="true"
-                    >
-                      <svg
-                        className="w-5 h-5 text-green-600"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M16 14a4 4 0 10-8 0m8 0v1a2 2 0 002 2h1m-11-3v1a2 2 0 01-2 2H5m11-10a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="ml-3 min-w-0">
-                    <p
-                      className="text-sm font-medium text-gray-600"
-                      aria-label="Metric label"
-                    >
-                      Total Members
-                    </p>
-                    <p
-                      className="text-2xl font-semibold text-gray-900"
-                      aria-label="Total members value"
-                    >
-                      {totalMembers}
-                    </p>
-                    <p
-                      className="text-xs text-gray-500 mt-1"
-                      aria-label="Metric description"
-                    >
-                      Members across all clusters
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div
-                className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
-                role="region"
-                aria-label="Unassigned Members"
-              >
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div
-                      className="p-1.5 chip-orange-surface rounded-lg"
-                      aria-hidden="true"
-                    >
-                      <svg
-                        className="w-5 h-5 text-orange-600"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="ml-3 min-w-0">
-                    <p
-                      className="text-sm font-medium text-gray-600"
-                      aria-label="Metric label"
-                    >
-                      Unassigned Members
-                    </p>
-                    <p
-                      className="text-2xl font-semibold text-gray-900"
-                      aria-label="Unassigned members value"
-                    >
-                      {unassignedMembers}
-                    </p>
-                    <p
-                      className="text-xs text-gray-500 mt-1"
-                      aria-label="Metric description"
-                    >
-                      Members not in any cluster
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Search + branch + actions (Families-style toolbar) */}
-            <div className={TOOLBAR_CARD_CLASS}>
-              {/* Search+branch row (desktop + panel), stacked toolbar (mobile) */}
-              <div
-                className={
-                  useStackedToolbar
-                    ? TOOLBAR_PANEL_COMPACT_CLASS
-                    : "flex flex-col gap-3 tablet:hidden"
-                }
-              >
-                <ToolbarSearch
-                  fullWidth
-                  value={clusterSearchQuery}
-                  onChange={onClusterSearchChange}
-                  placeholder="Search clusters…"
-                  ariaLabel="Search clusters"
-                />
-
-                {useStackedToolbar && (
-                  <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
-                    <div className="min-w-0 flex-1">
-                      {renderClusterBranchSelect()}
-                    </div>
-                    <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={showInactiveClusters}
-                        onChange={(e) =>
-                          onShowInactiveClustersChange(e.target.checked)
-                        }
-                        className="rounded border-gray-300 text-primary focus:ring-ring"
-                      />
-                      Show inactive
-                    </label>
-                  </div>
-                )}
-
+              {/* Search + branch + actions (Families-style toolbar) */}
+              <div className={TOOLBAR_CARD_CLASS}>
+                {/* Search+branch row (desktop + panel), stacked toolbar (mobile) */}
                 <div
                   className={
                     useStackedToolbar
-                      ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
-                      : TOOLBAR_STACKED_CONTROLS_CLASS
+                      ? TOOLBAR_PANEL_COMPACT_CLASS
+                      : "flex flex-col gap-3 tablet:hidden"
                   }
                 >
-                  {!useStackedToolbar && (
-                    <div className="flex w-full items-center gap-3">
+                  <ToolbarSearch
+                    fullWidth
+                    value={clusterSearchQuery}
+                    onChange={onClusterSearchChange}
+                    placeholder="Search clusters…"
+                    ariaLabel="Search clusters"
+                  />
+
+                  {useStackedToolbar && (
+                    <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
                       <div className="min-w-0 flex-1">
-                        {renderClusterBranchSelect(true)}
+                        {renderClusterBranchSelect()}
                       </div>
                       <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
                         <input
@@ -1042,174 +1011,67 @@ export default function ClustersPageView({
                     </div>
                   )}
 
-                  <ViewModeToggle
-                    fullWidth
-                    viewMode={clusterListViewMode}
-                    onViewModeChange={setClusterListViewMode}
-                  />
-                </div>
-
-                <div
-                  className={
-                    useStackedToolbar
-                      ? TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS
-                      : "relative"
-                  }
-                >
-                  <div
-                    className={
-                      hasClusterModuleWideAccess
-                        ? TOOLBAR_STACKED_ACTIONS_ROW_CLASS
-                        : "grid grid-cols-2 gap-2"
-                    }
-                  >
-                    {hasClusterModuleWideAccess && (
-                      <button
-                        type="button"
-                        onClick={onToggleSelectionMode}
-                        className={`${TOOLBAR_STACKED_ACTION_BUTTON_CLASS} ${
-                          isSelectionMode
-                            ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                            : ""
-                        }`}
-                      >
-                        <svg
-                          className={`mr-1 h-4 w-4 shrink-0 ${
-                            isSelectionMode ? "text-primary" : "text-gray-500"
-                          }`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        <span className="truncate">
-                          {isSelectionMode ? "Cancel" : "Select"}
-                        </span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => onClusterSortDropdown("mobile")}
-                      className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
-                    >
-                      <svg
-                        className="w-4 h-4 mr-1 shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                        />
-                      </svg>
-                      <span className="truncate">
-                        Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => onClusterAddFilter("mobile")}
-                      className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
-                    >
-                      <svg
-                        className="w-4 h-4 mr-1 shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                      Filter
-                    </button>
-                  </div>
-
-                  {clusterSortMenuAnchor === "mobile" && (
-                    <ClusterSortDropdown
-                      isOpen={showClusterSortDropdown}
-                      onClose={onCloseClusterSortDropdown}
-                      onSelectSort={onClusterSelectSort}
-                      currentSortBy={clusterSortBy}
-                      currentSortOrder={clusterSortOrder}
-                      anchored
-                    />
-                  )}
-
-                  {clusterFilterMenuAnchor === "mobile" && (
-                    <>
-                      <ClusterFilterDropdown
-                        isOpen={showClusterFilterDropdown}
-                        onClose={onCloseClusterFilterDropdown}
-                        onSelectField={onClusterSelectField}
-                        anchored
-                      />
-                      {selectedClusterField && (
-                        <ClusterFilterCard
-                          field={selectedClusterField}
-                          isOpen={showClusterFilterCard}
-                          onClose={onCloseClusterFilterCard}
-                          onApplyFilter={onClusterApplyFilter}
-                          anchored
-                        />
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {hasClusterModuleWideAccess &&
-                  isSelectionMode &&
-                  selectedClusters.size > 0 && (
-                    <div
-                      className={useStackedToolbar ? "col-span-full" : undefined}
-                    >
-                    <BulkActionsMenu
-                      onBulkMarkInactive={onBulkMarkInactive}
-                      onBulkDelete={onBulkDelete}
-                      onBulkExport={onBulkExport}
-                      selectedCount={selectedClusters.size}
-                    />
-                    </div>
-                  )}
-
-                {clusterActiveFilters.length > 0 && (
                   <div
                     className={
                       useStackedToolbar
-                        ? "col-span-full flex w-full flex-wrap items-center gap-2"
-                        : "flex w-full flex-wrap items-center gap-2"
+                        ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
+                        : TOOLBAR_STACKED_CONTROLS_CLASS
                     }
                   >
-                    {clusterActiveFilters.map((filter) => (
-                      <span
-                        key={filter.id}
-                        className="inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium chip-primary"
-                      >
-                        <span className="max-w-[150px] truncate">
-                          {filter.label}
-                        </span>
+                    {!useStackedToolbar && (
+                      <div className="flex w-full items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          {renderClusterBranchSelect(true)}
+                        </div>
+                        <label className="flex shrink-0 items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={showInactiveClusters}
+                            onChange={(e) =>
+                              onShowInactiveClustersChange(e.target.checked)
+                            }
+                            className="rounded border-gray-300 text-primary focus:ring-ring"
+                          />
+                          Show inactive
+                        </label>
+                      </div>
+                    )}
+
+                    <ViewModeToggle
+                      fullWidth
+                      viewMode={clusterListViewMode}
+                      onViewModeChange={setClusterListViewMode}
+                    />
+                  </div>
+
+                  <div
+                    className={
+                      useStackedToolbar
+                        ? TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS
+                        : "relative"
+                    }
+                  >
+                    <div
+                      className={
+                        hasClusterModuleWideAccess
+                          ? TOOLBAR_STACKED_ACTIONS_ROW_CLASS
+                          : "grid grid-cols-2 gap-2"
+                      }
+                    >
+                      {hasClusterModuleWideAccess && (
                         <button
                           type="button"
-                          onClick={() => onClusterFilterRemove(filter.id)}
-                          className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
-                          aria-label="Remove filter"
+                          onClick={onToggleSelectionMode}
+                          className={`${TOOLBAR_STACKED_ACTION_BUTTON_CLASS} ${
+                            isSelectionMode
+                              ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                              : ""
+                          }`}
                         >
                           <svg
-                            className="w-3 h-3"
+                            className={`mr-1 h-4 w-4 shrink-0 ${
+                              isSelectionMode ? "text-primary" : "text-gray-500"
+                            }`}
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1218,74 +1080,22 @@ export default function ClustersPageView({
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                             />
                           </svg>
+                          <span className="truncate">
+                            {isSelectionMode ? "Cancel" : "Select"}
+                          </span>
                         </button>
-                      </span>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={onClusterClearFilters}
-                      className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      Clear All
-                    </button>
-                  </div>
-                )}
-              </div>
+                      )}
 
-              {/* Desktop — single-row toolbar */}
-              <div
-                className={
-                  useStackedToolbar
-                    ? "hidden"
-                    : "hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2"
-                }
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <ToolbarSearch
-                    value={clusterSearchQuery}
-                    onChange={onClusterSearchChange}
-                    placeholder="Search clusters…"
-                    ariaLabel="Search clusters"
-                  />
-                  <div className="min-w-0 flex-1 max-w-xs">
-                    {renderClusterBranchSelect()}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={showInactiveClusters}
-                      onChange={(e) =>
-                        onShowInactiveClustersChange(e.target.checked)
-                      }
-                      className="rounded border-gray-300 text-primary focus:ring-ring"
-                    />
-                    Show inactive
-                  </label>
-                  <ViewModeToggle
-                    compact
-                    viewMode={clusterListViewMode}
-                    onViewModeChange={setClusterListViewMode}
-                  />
-                  {hasClusterModuleWideAccess && (
-                    <>
                       <button
                         type="button"
-                        onClick={onToggleSelectionMode}
-                        className={`inline-flex shrink-0 items-center rounded-lg border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ${
-                          isSelectionMode
-                            ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
+                        onClick={() => onClusterSortDropdown("mobile")}
+                        className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
                       >
                         <svg
-                          className={`mr-1 h-4 w-4 shrink-0 ${
-                            isSelectionMode ? "text-primary" : "text-gray-500"
-                          }`}
+                          className="w-4 h-4 mr-1 shrink-0"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1294,29 +1104,101 @@ export default function ClustersPageView({
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
                           />
                         </svg>
-                        {isSelectionMode ? "Cancel Selection" : "Select"}
+                        <span className="truncate">
+                          Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
+                        </span>
                       </button>
-                      {isSelectionMode && selectedClusters.size > 0 && (
+
+                      <button
+                        type="button"
+                        onClick={() => onClusterAddFilter("mobile")}
+                        className={TOOLBAR_STACKED_ACTION_BUTTON_CLASS}
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                        Filter
+                      </button>
+                    </div>
+
+                    {clusterSortMenuAnchor === "mobile" && (
+                      <ClusterSortDropdown
+                        isOpen={showClusterSortDropdown}
+                        onClose={onCloseClusterSortDropdown}
+                        onSelectSort={onClusterSelectSort}
+                        currentSortBy={clusterSortBy}
+                        currentSortOrder={clusterSortOrder}
+                        anchored
+                      />
+                    )}
+
+                    {clusterFilterMenuAnchor === "mobile" && (
+                      <>
+                        <ClusterFilterDropdown
+                          isOpen={showClusterFilterDropdown}
+                          onClose={onCloseClusterFilterDropdown}
+                          onSelectField={onClusterSelectField}
+                          anchored
+                        />
+                        {selectedClusterField && (
+                          <ClusterFilterCard
+                            field={selectedClusterField}
+                            isOpen={showClusterFilterCard}
+                            onClose={onCloseClusterFilterCard}
+                            onApplyFilter={onClusterApplyFilter}
+                            anchored
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {hasClusterModuleWideAccess &&
+                    isSelectionMode &&
+                    selectedClusters.size > 0 && (
+                      <div
+                        className={
+                          useStackedToolbar ? "col-span-full" : undefined
+                        }
+                      >
                         <BulkActionsMenu
                           onBulkMarkInactive={onBulkMarkInactive}
                           onBulkDelete={onBulkDelete}
                           onBulkExport={onBulkExport}
                           selectedCount={selectedClusters.size}
                         />
-                      )}
-                    </>
-                  )}
+                      </div>
+                    )}
+
                   {clusterActiveFilters.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div
+                      className={
+                        useStackedToolbar
+                          ? "col-span-full flex w-full flex-wrap items-center gap-2"
+                          : "flex w-full flex-wrap items-center gap-2"
+                      }
+                    >
                       {clusterActiveFilters.map((filter) => (
                         <span
                           key={filter.id}
                           className="inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium chip-primary"
                         >
-                          <span className="max-w-none truncate">{filter.label}</span>
+                          <span className="max-w-[150px] truncate">
+                            {filter.label}
+                          </span>
                           <button
                             type="button"
                             onClick={() => onClusterFilterRemove(filter.id)}
@@ -1342,347 +1224,478 @@ export default function ClustersPageView({
                       <button
                         type="button"
                         onClick={onClusterClearFilters}
-                        className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                        className="min-h-[32px] px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
                       >
                         Clear All
                       </button>
                     </div>
                   )}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => onClusterSortDropdown("desktop")}
-                      className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
-                    >
-                      <svg
-                        className="w-4 h-4 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                        />
-                      </svg>
-                      Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
-                    </button>
-                    {clusterSortMenuAnchor === "desktop" && (
-                      <ClusterSortDropdown
-                        isOpen={showClusterSortDropdown}
-                        onClose={onCloseClusterSortDropdown}
-                        onSelectSort={onClusterSelectSort}
-                        currentSortBy={clusterSortBy}
-                        currentSortOrder={clusterSortOrder}
-                        anchored
-                      />
-                    )}
+                </div>
+
+                {/* Desktop — single-row toolbar */}
+                <div
+                  className={
+                    useStackedToolbar
+                      ? "hidden"
+                      : "hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2"
+                  }
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <ToolbarSearch
+                      value={clusterSearchQuery}
+                      onChange={onClusterSearchChange}
+                      placeholder="Search clusters…"
+                      ariaLabel="Search clusters"
+                    />
+                    <div className="min-w-0 flex-1 max-w-xs">
+                      {renderClusterBranchSelect()}
+                    </div>
                   </div>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => onClusterAddFilter("desktop")}
-                      className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
-                    >
-                      <svg
-                        className="w-4 h-4 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                      Filter
-                    </button>
-                    {clusterFilterMenuAnchor === "desktop" && (
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={showInactiveClusters}
+                        onChange={(e) =>
+                          onShowInactiveClustersChange(e.target.checked)
+                        }
+                        className="rounded border-gray-300 text-primary focus:ring-ring"
+                      />
+                      Show inactive
+                    </label>
+                    <ViewModeToggle
+                      compact
+                      viewMode={clusterListViewMode}
+                      onViewModeChange={setClusterListViewMode}
+                    />
+                    {hasClusterModuleWideAccess && (
                       <>
-                        <ClusterFilterDropdown
-                          isOpen={showClusterFilterDropdown}
-                          onClose={onCloseClusterFilterDropdown}
-                          onSelectField={onClusterSelectField}
-                          anchored
-                        />
-                        {selectedClusterField && (
-                          <ClusterFilterCard
-                            field={selectedClusterField}
-                            isOpen={showClusterFilterCard}
-                            onClose={onCloseClusterFilterCard}
-                            onApplyFilter={onClusterApplyFilter}
-                            anchored
+                        <button
+                          type="button"
+                          onClick={onToggleSelectionMode}
+                          className={`inline-flex shrink-0 items-center rounded-lg border px-3 py-2 text-sm font-medium leading-4 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ${
+                            isSelectionMode
+                              ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <svg
+                            className={`mr-1 h-4 w-4 shrink-0 ${
+                              isSelectionMode ? "text-primary" : "text-gray-500"
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          {isSelectionMode ? "Cancel" : "Select"}
+                        </button>
+                        {isSelectionMode && selectedClusters.size > 0 && (
+                          <BulkActionsMenu
+                            onBulkMarkInactive={onBulkMarkInactive}
+                            onBulkDelete={onBulkDelete}
+                            onBulkExport={onBulkExport}
+                            selectedCount={selectedClusters.size}
                           />
                         )}
                       </>
                     )}
+                    {clusterActiveFilters.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {clusterActiveFilters.map((filter) => (
+                          <span
+                            key={filter.id}
+                            className="inline-flex min-h-[32px] items-center rounded-full px-2 py-1.5 text-xs font-medium chip-primary"
+                          >
+                            <span className="max-w-none truncate">
+                              {filter.label}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => onClusterFilterRemove(filter.id)}
+                              className="ml-1 flex min-h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center text-primary hover:text-primary"
+                              aria-label="Remove filter"
+                            >
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          </span>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={onClusterClearFilters}
+                          className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    )}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => onClusterSortDropdown("desktop")}
+                        className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+                          />
+                        </svg>
+                        Sort {clusterSortOrder === "asc" ? "↑" : "↓"}
+                      </button>
+                      {clusterSortMenuAnchor === "desktop" && (
+                        <ClusterSortDropdown
+                          isOpen={showClusterSortDropdown}
+                          onClose={onCloseClusterSortDropdown}
+                          onSelectSort={onClusterSelectSort}
+                          currentSortBy={clusterSortBy}
+                          currentSortOrder={clusterSortOrder}
+                          anchored
+                        />
+                      )}
+                    </div>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => onClusterAddFilter("desktop")}
+                        className={TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS}
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                        Filter
+                      </button>
+                      {clusterFilterMenuAnchor === "desktop" && (
+                        <>
+                          <ClusterFilterDropdown
+                            isOpen={showClusterFilterDropdown}
+                            onClose={onCloseClusterFilterDropdown}
+                            onSelectField={onClusterSelectField}
+                            anchored
+                          />
+                          {selectedClusterField && (
+                            <ClusterFilterCard
+                              field={selectedClusterField}
+                              isOpen={showClusterFilterCard}
+                              onClose={onCloseClusterFilterCard}
+                              onApplyFilter={onClusterApplyFilter}
+                              anchored
+                            />
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Divider */}
-            <div className="border-t border-gray-200"></div>
+              {/* Divider */}
+              <div className="border-t border-gray-200"></div>
 
-            {/* Clusters Grid */}
-            {clustersLoading ? (
-              <LoadingSpinner />
-            ) : clusterTotalCount === 0 ? (
-              <div className="text-center py-12">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                  />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
-                  No clusters found
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {clusterSearchQuery || clusterActiveFilters.length > 0
-                    ? "Try adjusting your search or filters to find clusters."
-                    : hasClusterModuleWideAccess
-                    ? "Get started by creating your first cluster."
-                    : "Submit your weekly cluster report. If you need a new cluster created, contact your pastor or cluster leadership."}
-                </p>
-                {!clusterSearchQuery && clusterActiveFilters.length === 0 && (
-                  <div className="mt-6 flex flex-col gap-2 items-center sm:flex-row sm:justify-center">
-                    {hasClusterModuleWideAccess ? (
-                      <Button onClick={onCreateCluster}>Create Cluster</Button>
-                    ) : (
-                      showGlobalSubmitReport && (
-                        <Button onClick={() => onOpenReportForm()}>
-                          Submit Report
-                        </Button>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                {/* Select All Checkbox - Only show in selection mode */}
-                {hasClusterModuleWideAccess &&
-                  isSelectionMode &&
-                  clusterPaginatedData.length > 0 && (
-                  <div className="mb-4 flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer min-h-[44px]">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedClusters.size ===
-                            clusterPaginatedData.length &&
-                          clusterPaginatedData.length > 0
-                        }
-                        onChange={onSelectAllClusters}
-                        className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-ring"
-                      />
-                      Select All ({selectedClusters.size} selected)
-                    </label>
-                  </div>
-                )}
-                {clusterListViewMode === "table" ? (
-                  <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          {hasClusterModuleWideAccess && isSelectionMode && (
-                            <th className="px-4 py-3 text-left">
-                              <input
-                                type="checkbox"
-                                checked={
-                                  selectedClusters.size === clusterPaginatedData.length &&
-                                  clusterPaginatedData.length > 0
-                                }
-                                onChange={onSelectAllClusters}
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
-                              />
-                            </th>
-                          )}
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">
-                            Cluster
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">
-                            Branch
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">
-                            Coordinator
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">
-                            Members
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">
-                            Visitors
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">
-                            Families
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">
-                            Location / Schedule
-                          </th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-600">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {clusterPaginatedData.map((c) => {
-                          const coordinatorName = c.coordinator
-                            ? `${c.coordinator.first_name} ${c.coordinator.last_name}`.trim()
-                            : null;
-                          const { memberCount, visitorCount } =
-                            countClusterMembersFromDetails(c, peopleUI);
-                          const clusterBranch =
-                            c.branch != null ?
-                              branchById.get(Number(c.branch)) ?? null
-                            : null;
-
-                          return (
-                            <tr key={c.id} className="hover:bg-gray-50">
-                              {hasClusterModuleWideAccess && isSelectionMode && (
-                                <td className="px-4 py-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedClusters.has(c.id.toString())}
-                                    onChange={() => onSelectCluster(c.id.toString())}
-                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
-                                  />
-                                </td>
-                              )}
-                              <td className="px-4 py-3">
-                                <button
-                                  type="button"
-                                  onClick={() => onViewCluster(c)}
-                                  className={TABLE_ENTITY_LINK_CLASS}
-                                >
-                                  {c.name || "Untitled Cluster"}
-                                </button>
-                                <div className="mt-1 text-xs text-gray-500">
-                                  {c.code || "—"}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                {clusterBranch ?
-                                  <span
-                                    className="font-medium"
-                                    style={{
-                                      color: getBranchChipStyle(
-                                        clusterBranch.id,
-                                        clusterBranch.is_headquarters,
-                                      ).color,
-                                    }}
-                                  >
-                                    {getBranchDisplayCode(clusterBranch)}
-                                  </span>
-                                : <span className="text-gray-700">—</span>}
-                              </td>
-                              <td className="px-4 py-3 text-gray-700">
-                                {coordinatorName || "Unknown Coordinator"}
-                              </td>
-                              <td className="px-4 py-3 text-gray-700">{memberCount}</td>
-                              <td className="px-4 py-3 text-gray-700">{visitorCount}</td>
-                              <td className="px-4 py-3 text-gray-700">
-                                {c.family_count ?? c.families?.length ?? 0}
-                              </td>
-                              <td className="px-4 py-3 text-gray-700">
-                                <div className="space-y-1">
-                                  <div>{c.location || "—"}</div>
-                                  <div className="text-xs text-gray-500">
-                                    {c.meeting_schedule || "No schedule"}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center justify-end">
-                                  <ActionMenu
-                                    onView={() => onViewCluster(c)}
-                                    onEdit={() => onEditCluster(c)}
-                                    onDelete={() => onMarkInactiveCluster(c)}
-                                    onHardDelete={
-                                      onHardDeleteCluster
-                                        ? () => onHardDeleteCluster(c)
-                                        : undefined
-                                    }
-                                    showEditDelete={userCanManageCluster(
-                                      c as Cluster,
-                                      clusterAuthCtx,
-                                    )}
-                                    labels={{
-                                      view: "View Cluster",
-                                      edit: "Edit Cluster",
-                                      delete: "Mark Inactive",
-                                      hardDelete: "Delete Cluster",
-                                      title: "Cluster Actions",
-                                    }}
-                                  />
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div
-                    className={
-                      panelOpen
-                        ? "grid grid-cols-1 gap-4"
-                        : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                    }
+              {/* Clusters Grid */}
+              {clustersLoading ? (
+                <LoadingSpinner />
+              ) : clusterTotalCount === 0 ? (
+                <div className="text-center py-12">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
                   >
-                    {clusterPaginatedData.map((c) => (
-                      <ClusterCard
-                        key={c.id}
-                        cluster={c as any}
-                        peopleUI={peopleUI}
-                        isSelected={selectedClusters.has(c.id.toString())}
-                        isSelectionMode={
-                          hasClusterModuleWideAccess && isSelectionMode
-                        }
-                        canManageCluster={userCanManageCluster(
-                          c as Cluster,
-                          clusterAuthCtx,
-                        )}
-                        onSelect={() => onSelectCluster(c.id.toString())}
-                        onView={() => onViewCluster(c)}
-                        onEdit={() => onEditCluster(c)}
-                        onDelete={() => onMarkInactiveCluster(c)}
-                        onHardDelete={
-                          onHardDeleteCluster
-                            ? () => onHardDeleteCluster(c)
-                            : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    No clusters found
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {clusterSearchQuery || clusterActiveFilters.length > 0
+                      ? "Try adjusting your search or filters to find clusters."
+                      : hasClusterModuleWideAccess
+                        ? "Get started by creating your first cluster."
+                        : "Submit your weekly cluster report. If you need a new cluster created, contact your pastor or cluster leadership."}
+                  </p>
+                  {!clusterSearchQuery && clusterActiveFilters.length === 0 && (
+                    <div className="mt-6 flex flex-col gap-2 items-center sm:flex-row sm:justify-center">
+                      {hasClusterModuleWideAccess ? (
+                        <Button onClick={onCreateCluster}>
+                          Create Cluster
+                        </Button>
+                      ) : (
+                        showGlobalSubmitReport && (
+                          <Button onClick={() => onOpenReportForm()}>
+                            Submit Report
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  {/* Select All Checkbox - Only show in selection mode */}
+                  {hasClusterModuleWideAccess &&
+                    isSelectionMode &&
+                    clusterPaginatedData.length > 0 && (
+                      <div className="mb-4 flex items-center gap-2">
+                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer min-h-[44px]">
+                          <input
+                            type="checkbox"
+                            checked={
+                              selectedClusters.size ===
+                                clusterPaginatedData.length &&
+                              clusterPaginatedData.length > 0
+                            }
+                            onChange={onSelectAllClusters}
+                            className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-ring"
+                          />
+                          Select All ({selectedClusters.size} selected)
+                        </label>
+                      </div>
+                    )}
+                  {clusterListViewMode === "table" ? (
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+                      <table className="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {hasClusterModuleWideAccess && isSelectionMode && (
+                              <th className="px-4 py-3 text-left">
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    selectedClusters.size ===
+                                      clusterPaginatedData.length &&
+                                    clusterPaginatedData.length > 0
+                                  }
+                                  onChange={onSelectAllClusters}
+                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+                                />
+                              </th>
+                            )}
+                            <th className="px-4 py-3 text-left font-medium text-gray-600">
+                              Cluster
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium text-gray-600">
+                              Branch
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium text-gray-600">
+                              Coordinator
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium text-gray-600">
+                              Members
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium text-gray-600">
+                              Visitors
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium text-gray-600">
+                              Families
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium text-gray-600">
+                              Location / Schedule
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium text-gray-600">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {clusterPaginatedData.map((c) => {
+                            const coordinatorName = c.coordinator
+                              ? `${c.coordinator.first_name} ${c.coordinator.last_name}`.trim()
+                              : null;
+                            const { memberCount, visitorCount } =
+                              countClusterMembersFromDetails(c, peopleUI);
+                            const clusterBranch =
+                              c.branch != null
+                                ? (branchById.get(Number(c.branch)) ?? null)
+                                : null;
 
-            {/* Pagination */}
-            {clusterTotalCount > 0 && (
-              <Pagination
-                currentPage={clusterCurrentPage}
-                totalPages={clusterTotalPages}
-                onPageChange={onClusterPageChange}
-                itemsPerPage={clusterItemsPerPage}
-                totalItems={clusterTotalCount}
-                onItemsPerPageChange={onClusterItemsPerPageChange}
-                showItemsPerPage={true}
-              />
-            )}
+                            return (
+                              <tr key={c.id} className="hover:bg-gray-50">
+                                {hasClusterModuleWideAccess &&
+                                  isSelectionMode && (
+                                    <td className="px-4 py-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedClusters.has(
+                                          c.id.toString(),
+                                        )}
+                                        onChange={() =>
+                                          onSelectCluster(c.id.toString())
+                                        }
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-ring"
+                                      />
+                                    </td>
+                                  )}
+                                <td className="px-4 py-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => onViewCluster(c)}
+                                    className={TABLE_ENTITY_LINK_CLASS}
+                                  >
+                                    {c.name || "Untitled Cluster"}
+                                  </button>
+                                  <div className="mt-1 text-xs text-gray-500">
+                                    {c.code || "—"}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {clusterBranch ? (
+                                    <span
+                                      className="font-medium"
+                                      style={{
+                                        color: getBranchChipStyle(
+                                          clusterBranch.id,
+                                          clusterBranch.is_headquarters,
+                                        ).color,
+                                      }}
+                                    >
+                                      {getBranchDisplayCode(clusterBranch)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-700">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  {coordinatorName || "Unknown Coordinator"}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  {memberCount}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  {visitorCount}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  {c.family_count ?? c.families?.length ?? 0}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  <div className="space-y-1">
+                                    <div>{c.location || "—"}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {c.meeting_schedule || "No schedule"}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center justify-end">
+                                    <ActionMenu
+                                      onView={() => onViewCluster(c)}
+                                      onEdit={() => onEditCluster(c)}
+                                      onDelete={() => onMarkInactiveCluster(c)}
+                                      onHardDelete={
+                                        onHardDeleteCluster
+                                          ? () => onHardDeleteCluster(c)
+                                          : undefined
+                                      }
+                                      showEditDelete={userCanManageCluster(
+                                        c as Cluster,
+                                        clusterAuthCtx,
+                                      )}
+                                      labels={{
+                                        view: "View Cluster",
+                                        edit: "Edit Cluster",
+                                        delete: "Mark Inactive",
+                                        hardDelete: "Delete Cluster",
+                                        title: "Cluster Actions",
+                                      }}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div
+                      className={
+                        panelOpen
+                          ? "grid grid-cols-1 gap-4"
+                          : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                      }
+                    >
+                      {clusterPaginatedData.map((c) => (
+                        <ClusterCard
+                          key={c.id}
+                          cluster={c as any}
+                          peopleUI={peopleUI}
+                          isSelected={selectedClusters.has(c.id.toString())}
+                          isSelectionMode={
+                            hasClusterModuleWideAccess && isSelectionMode
+                          }
+                          canManageCluster={userCanManageCluster(
+                            c as Cluster,
+                            clusterAuthCtx,
+                          )}
+                          onSelect={() => onSelectCluster(c.id.toString())}
+                          onView={() => onViewCluster(c)}
+                          onEdit={() => onEditCluster(c)}
+                          onDelete={() => onMarkInactiveCluster(c)}
+                          onHardDelete={
+                            onHardDeleteCluster
+                              ? () => onHardDeleteCluster(c)
+                              : undefined
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {clusterTotalCount > 0 && (
+                <Pagination
+                  currentPage={clusterCurrentPage}
+                  totalPages={clusterTotalPages}
+                  onPageChange={onClusterPageChange}
+                  itemsPerPage={clusterItemsPerPage}
+                  totalItems={clusterTotalCount}
+                  onItemsPerPageChange={onClusterItemsPerPageChange}
+                  showItemsPerPage={true}
+                />
+              )}
             </div>
 
             {isDesktop && panelOpen && (
@@ -1741,65 +1754,66 @@ export default function ClustersPageView({
           <ClusterComplianceTab />
         )}
 
-
         {canAccessClusterReports &&
           (activeTab === "reports" || isReportFormOpen) && (
-          <div
-            className={activeTab !== "reports" ? "hidden" : undefined}
-            aria-hidden={activeTab !== "reports"}
-          >
-            {isOnlyNonSeniorClusterCoordinator && !isClusterReporterOnlyUser && (
-              <p className="mb-4 text-sm text-gray-600">
-                You can browse all clusters in your branch on the Clusters tab.
-                Weekly reports here are limited to clusters you coordinate.
-              </p>
-            )}
-            {isClusterReporterOnlyUser && (
-              <p className="mb-4 text-sm text-gray-600">
-                You can view and submit weekly reports only for your assigned
-                cluster(s).
-              </p>
-            )}
-            <ClusterReportsDashboard
-              clusters={reportFormClusters as any}
-              clustersForReportForm={reportFormClusters as any}
-              externalShowForm={isReportFormOpen}
-              externalSelectedCluster={reportSelectedCluster}
-              externalEditingReport={editingReport}
-              onFormClose={onCloseReportForm}
-              onEditReport={onEditReport}
-              onSetReportSelectedCluster={onSetReportSelectedCluster}
-              onSubmitReport={async (data) => {
-                const reportData: ClusterWeeklyReportInput = {
-                  cluster: data.cluster,
-                  year: data.year,
-                  week_number: data.week_number,
-                  meeting_date: data.meeting_date,
-                  gathering_type: data.gathering_type,
-                  members_attended: data.members_attended || [],
-                  visitors_attended: data.visitors_attended || [],
-                  prospects_invited: data.prospects_invited || [],
-                  new_prospects: data.new_prospects || [],
-                  new_visitors: data.new_visitors || [],
-                  prospects_attended: data.prospects_attended || [],
-                  activities_held: data.activities_held || "",
-                  prayer_requests: data.prayer_requests || "",
-                  testimonies: data.testimonies || "",
-                  offerings: String(data.offerings || 0),
-                  highlights: data.highlights || "",
-                  lowlights: data.lowlights || "",
-                  submitted_by: data.submitted_by ?? undefined,
-                };
+            <div
+              className={activeTab !== "reports" ? "hidden" : undefined}
+              aria-hidden={activeTab !== "reports"}
+            >
+              {isOnlyNonSeniorClusterCoordinator &&
+                !isClusterReporterOnlyUser && (
+                  <p className="mb-4 text-sm text-gray-600">
+                    You can browse all clusters in your branch on the Clusters
+                    tab. Weekly reports here are limited to clusters you
+                    coordinate.
+                  </p>
+                )}
+              {isClusterReporterOnlyUser && (
+                <p className="mb-4 text-sm text-gray-600">
+                  You can view and submit weekly reports only for your assigned
+                  cluster(s).
+                </p>
+              )}
+              <ClusterReportsDashboard
+                clusters={reportFormClusters as any}
+                clustersForReportForm={reportFormClusters as any}
+                externalShowForm={isReportFormOpen}
+                externalSelectedCluster={reportSelectedCluster}
+                externalEditingReport={editingReport}
+                onFormClose={onCloseReportForm}
+                onEditReport={onEditReport}
+                onSetReportSelectedCluster={onSetReportSelectedCluster}
+                onSubmitReport={async (data) => {
+                  const reportData: ClusterWeeklyReportInput = {
+                    cluster: data.cluster,
+                    year: data.year,
+                    week_number: data.week_number,
+                    meeting_date: data.meeting_date,
+                    gathering_type: data.gathering_type,
+                    members_attended: data.members_attended || [],
+                    visitors_attended: data.visitors_attended || [],
+                    prospects_invited: data.prospects_invited || [],
+                    new_prospects: data.new_prospects || [],
+                    new_visitors: data.new_visitors || [],
+                    prospects_attended: data.prospects_attended || [],
+                    activities_held: data.activities_held || "",
+                    prayer_requests: data.prayer_requests || "",
+                    testimonies: data.testimonies || "",
+                    offerings: String(data.offerings || 0),
+                    highlights: data.highlights || "",
+                    lowlights: data.lowlights || "",
+                    submitted_by: data.submitted_by ?? undefined,
+                  };
 
-                if (editingReport) {
-                  await onUpdateReport(editingReport.id, reportData);
-                } else {
-                  await onCreateReport(reportData);
-                }
-              }}
-            />
-          </div>
-        )}
+                  if (editingReport) {
+                    await onUpdateReport(editingReport.id, reportData);
+                  } else {
+                    await onCreateReport(reportData);
+                  }
+                }}
+              />
+            </div>
+          )}
 
         {/* Cluster Modal */}
         <Modal
@@ -1809,8 +1823,8 @@ export default function ClustersPageView({
             clusterViewMode === "view"
               ? ""
               : editCluster
-              ? "Edit Cluster"
-              : "Create Cluster"
+                ? "Edit Cluster"
+                : "Create Cluster"
           }
           hideHeader={clusterViewMode === "view" && !!viewCluster}
           closeOnOutsideClick={clusterViewMode === "view" && !!viewCluster}
@@ -1871,17 +1885,17 @@ export default function ClustersPageView({
         />
 
         {onBulkDelete && (
-        <ConfirmationModal
-          isOpen={bulkDeleteConfirmation.isOpen}
-          onClose={onCloseBulkDeleteConfirmation}
-          onConfirm={onConfirmBulkDeleteClusters}
-          title="Delete Selected Clusters"
-          message={`Are you sure you want to permanently delete ${selectedClustersCount} selected cluster(s)? This will also delete all associated weekly reports. This action cannot be undone.`}
-          confirmText="Delete Clusters"
-          cancelText="Cancel"
-          variant="danger"
-          loading={bulkDeleteConfirmation.loading}
-        />
+          <ConfirmationModal
+            isOpen={bulkDeleteConfirmation.isOpen}
+            onClose={onCloseBulkDeleteConfirmation}
+            onConfirm={onConfirmBulkDeleteClusters}
+            title="Delete Selected Clusters"
+            message={`Are you sure you want to permanently delete ${selectedClustersCount} selected cluster(s)? This will also delete all associated weekly reports. This action cannot be undone.`}
+            confirmText="Delete Clusters"
+            cancelText="Cancel"
+            variant="danger"
+            loading={bulkDeleteConfirmation.loading}
+          />
         )}
 
         {/* Assign Members Modal */}
@@ -1910,14 +1924,14 @@ export default function ClustersPageView({
               cluster={clusterOverPerson as any}
               clusterMembers={resolveClusterRosterPeople(
                 clusterOverPerson as Cluster,
-                peopleUI
+                peopleUI,
               )}
               clusterFamilies={resolveClusterRosterFamilies(
                 clusterOverPerson as Cluster,
-                families
+                families,
               )}
               coordinator={peopleUI.find(
-                (p) => p.id === clusterOverPerson.coordinator?.id?.toString()
+                (p) => p.id === clusterOverPerson.coordinator?.id?.toString(),
               )}
               onEdit={() => {
                 onOpenEditClusterOverlay(clusterOverPerson);

@@ -53,7 +53,10 @@ import {
 } from "recharts";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
-import { userCanAttemptClusterWeeklyReportMutation } from "@/src/lib/clusterPermissions";
+import {
+  userCanAttemptClusterWeeklyReportMutation,
+  userCanExportClusterData,
+} from "@/src/lib/clusterPermissions";
 import { formatLocaleDate } from "@/src/lib/date";
 
 const MEMBER_RATE_TOOLTIP =
@@ -402,6 +405,10 @@ export default function ClusterReportsDashboard({
     ],
   );
   const userCanHardDeleteReports = canHardDelete(user);
+  const canExportReports = userCanExportClusterData({
+    role: user?.role,
+    isSeniorCoordinator,
+  });
 
   // Handle sorting
   const handleSort = (field: string) => {
@@ -1039,6 +1046,7 @@ export default function ClusterReportsDashboard({
   };
 
   const handleExport = (format: "excel" | "pdf" | "csv") => {
+    if (!canExportReports) return;
     switch (format) {
       case "excel":
         exportToExcel();
@@ -1285,10 +1293,11 @@ export default function ClusterReportsDashboard({
                     </div>
                     <div className="ml-4">
                       <p
-                        className="text-sm font-medium text-gray-600"
+                        className="text-sm font-medium text-gray-600 inline-flex items-center gap-1"
                         aria-label="Metric label"
                       >
                         Member Attendance Rate
+                        <MemberRateHelpButton label={MEMBER_RATE_AVG_TOOLTIP} />
                       </p>
                       <p
                         className="text-2xl font-semibold text-gray-900"
@@ -1901,15 +1910,16 @@ export default function ClusterReportsDashboard({
                 Columns
               </button>
             </div>
-            <div className="relative shrink-0">
-              <button
-                ref={exportButtonRef}
-                onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="inline-flex items-center px-3 sm:px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
-              >
-                <DocumentArrowDownIcon className="w-4 h-4 mr-2 shrink-0" />
-                Export
-              </button>
+            {canExportReports && (
+              <div className="relative shrink-0">
+                <button
+                  ref={exportButtonRef}
+                  onClick={() => setShowExportDropdown(!showExportDropdown)}
+                  className="inline-flex items-center px-3 sm:px-4 py-2 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+                >
+                  <DocumentArrowDownIcon className="w-4 h-4 mr-2 shrink-0" />
+                  Export
+                </button>
               {showExportDropdown && (
                 <div
                   ref={exportDropdownRef}
@@ -1985,7 +1995,8 @@ export default function ClusterReportsDashboard({
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
         {sortedReports.length === 0 ? (

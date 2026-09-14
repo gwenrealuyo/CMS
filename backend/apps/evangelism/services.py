@@ -9,7 +9,7 @@ from apps.people.models import Person, Journey
 from apps.people.baptism_verifiers import UNSET, stash_baptism_verifiers
 from apps.people.name_formatting import title_case_name
 from apps.people.usernames import generate_unique_username
-from apps.clusters.models import Cluster
+from apps.clusters.models import Cluster, member_attendance_rate_q
 from apps.events.models import EventType
 from core.datetime_utils import church_today
 
@@ -1148,10 +1148,45 @@ def sync_conversion_pipeline(
 def get_default_each1reach1_target(cluster: Cluster) -> int:
     """
     Compute default target conversions for a cluster.
-    Business rule: target is 2x all non-admin cluster members.
+    Business rule: target is 2x non-admin cluster members whose status is
+    ACTIVE, SEMIACTIVE, or INACTIVE (same roster as member_attendance_rate).
     """
-    member_count = cluster.members.exclude(role="ADMIN").count()
+    member_count = cluster.members.filter(member_attendance_rate_q()).count()
     return member_count * 2
+
+
+def _each1reach1_status_for_progress(achieved: int, target: int) -> str:
+    if achieved <= 0:
+        return Each1Reach1Goal.Status.NOT_STARTED
+    if achieved >= target:
+        return Each1Reach1Goal.Status.COMPLETED
+    return Each1Reach1Goal.Status.IN_PROGRESS
+
+
+def recalculate_each1reach1_goal_targets() -> int:
+    """
+    Reset every Each 1 Reach 1 goal target to the current default rule and
+    recompute status from achieved vs the new target. Returns rows updated.
+    """
+    updated = 0
+    goals = Each1Reach1Goal.objects.select_related("cluster").all()
+    for goal in goals:
+        if goal.cluster_id is None:
+            continue
+        new_target = get_default_each1reach1_target(goal.cluster)
+        new_status = _each1reach1_status_for_progress(
+            goal.achieved_conversions, new_target
+        )
+        if (
+            goal.target_conversions == new_target
+            and goal.status == new_status
+        ):
+            continue
+        goal.target_conversions = new_target
+        goal.status = new_status
+        goal.save(update_fields=["target_conversions", "status", "updated_at"])
+        updated += 1
+    return updated
 
 
 def update_each1reach1_goal(conversion: Conversion) -> None:

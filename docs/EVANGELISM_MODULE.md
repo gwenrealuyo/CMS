@@ -218,7 +218,7 @@ Key features include:
 - `apps.evangelism.models.Each1Reach1Goal` tracks cluster-based conversion goals with:
   - `cluster` (ForeignKey to `clusters.Cluster`) – cluster with the goal (cluster-level tracking)
   - `year` (IntegerField) – year for the goal
-  - `target_conversions` (IntegerField) – target conversions for the cluster (defaults to `2 ×` cluster members with `role=MEMBER`)
+  - `target_conversions` (IntegerField) – target conversions for the cluster (defaults to `2 ×` non-admin cluster members whose status is Active, Semi-active, or Inactive)
   - `achieved_conversions` (IntegerField, default 0) – actual conversions this year for cluster members
   - `status` (CharField, choices: IN_PROGRESS, COMPLETED, NOT_STARTED) – goal status
   - `created_at`, `updated_at` (DateTimeFields)
@@ -443,7 +443,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?status={status}` – filter by status
     - Query params: `?search={term}` – searches cluster name and related evangelism group names on that cluster (DRF `search` param)
     - Lazy provisioning: ensures each cluster has one goal for requested year (defaults to current year if omitted)
-  - `POST` – Create a new goal (requires `cluster_id`, `year`; `target_conversions` is optional and defaults to `2 × non-admin cluster member` count)
+  - `POST` – Create a new goal (requires `cluster_id`, `year`; `target_conversions` is optional and defaults to `2 ×` non-admin cluster members with status Active, Semi-active, or Inactive)
   - `GET /default_target/?cluster_id={cluster_id}&year={year}` – Returns computed default target for Create Goal UI prefill
   - `GET /{id}/` – Retrieve a specific goal
   - `PUT /{id}/` – Update a goal (full update)
@@ -699,7 +699,7 @@ The Groups tab toolbar mirrors the clusters page layout:
 
 - **`Each1Reach1Dashboard`**: Main dashboard
   - Create Goal modal (cluster, year, target conversions)
-  - Target is auto-prefilled from backend default rule (`2 × non-admin cluster member` count), but remains editable before save
+  - Target is auto-prefilled from backend default rule (`2 ×` non-admin cluster members with status Active, Semi-active, or Inactive), but remains editable before save
   - Search box filters goals by cluster name **or evangelism group name tied to that cluster** (placeholder “Search group…” with debounced querying)
   - Cluster cards with progress indicators
   - Overall statistics
@@ -897,6 +897,7 @@ All Evangelism models are registered in Django admin (`apps.evangelism.admin`):
   - Monthly tracking with proper unique person counting
   - CONVERTED count logic (both journeys within same year)
   - Each1Reach1Goal auto-updates (cluster-based)
+  - Each 1 Reach 1 default target (`2 ×` non-admin Active / Semi-active / Inactive members)
   - Cluster visitor tracking (inviter cluster vs endorsed cluster)
   - Weekly report submission
   - Reporting calculations

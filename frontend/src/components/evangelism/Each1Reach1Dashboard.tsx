@@ -812,8 +812,8 @@ export default function Each1Reach1Dashboard({
               min={0}
             />
             <p className="mt-1 text-xs text-gray-500">
-              Default is 2x the cluster non-admin member count. You can adjust
-              before saving.
+              Default is 2x cluster members with Active, Semi-active, or
+              Inactive status. You can adjust before saving.
             </p>
             {suggestedTarget !== null && (
               <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">

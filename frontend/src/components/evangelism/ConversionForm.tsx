@@ -211,6 +211,19 @@ export default function ConversionForm({
 
   const lockPersonSelection = Boolean(initialData);
 
+  const nccTeacherDisplayName = useMemo(() => {
+    const fromConversion = initialData?.person?.lesson_teacher_display_name;
+    if (fromConversion) return fromConversion;
+    const selected = selectablePeople.find(
+      (person) => String(person.id) === values.person_id,
+    );
+    return selected?.lesson_teacher_display_name || "No teacher";
+  }, [
+    initialData?.person?.lesson_teacher_display_name,
+    selectablePeople,
+    values.person_id,
+  ]);
+
   const formatPersonLabel = (person: Person) => {
     const name = `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
     return name || person.email || person.username;
@@ -318,21 +331,55 @@ export default function ConversionForm({
         </div>
       </div>
 
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Lesson Start Date
-        </label>
-        <input
-          type="date"
-          value={values.lesson_start_date || ""}
-          onChange={(event) => {
-            setLessonDateTouched(true);
-            handleChange("lesson_start_date")(event);
-          }}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-        />
-        {loadingLessonDate && (
-          <p className="text-xs text-gray-500">Loading lesson assignment...</p>
+      <div
+        className={
+          lockPersonSelection ? "grid grid-cols-1 md:grid-cols-2 gap-4" : ""
+        }
+      >
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Lesson Start Date
+          </label>
+          <input
+            type="date"
+            value={values.lesson_start_date || ""}
+            onChange={(event) => {
+              setLessonDateTouched(true);
+              handleChange("lesson_start_date")(event);
+            }}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          {loadingLessonDate && (
+            <p className="text-xs text-gray-500">Loading lesson assignment...</p>
+          )}
+        </div>
+        {lockPersonSelection && (
+          <div className="space-y-1">
+            <label
+              htmlFor="conversion-ncc-teacher"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              NCC teacher
+            </label>
+            <input
+              id="conversion-ncc-teacher"
+              type="text"
+              readOnly
+              disabled
+              value={nccTeacherDisplayName}
+              className="w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-700"
+            />
+            <p className="text-xs text-gray-500">
+              Assigned in Lessons. To change the teacher, use the{" "}
+              <a
+                href="/lessons"
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                Lessons
+              </a>{" "}
+              page.
+            </p>
+          </div>
         )}
       </div>
 

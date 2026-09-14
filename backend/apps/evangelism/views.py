@@ -254,7 +254,20 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
     def conversions(self, request, pk=None):
         """List conversions for a group."""
         evangelism_group = self.get_object()
-        conversions = evangelism_group.conversions.all().order_by("-conversion_date")
+        conversions = (
+            evangelism_group.conversions.select_related(
+                "person",
+                "person__lesson_enrollment",
+                "person__lesson_enrollment__teacher",
+                "prospect",
+                "converted_by",
+                "evangelism_group",
+                "cluster",
+                "verified_by",
+            )
+            .all()
+            .order_by("-conversion_date")
+        )
 
         serializer = ConversionSerializer(conversions, many=True)
         return Response(serializer.data)
@@ -1909,6 +1922,8 @@ class ConversionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor, IsMemberOrAbove]
     queryset = Conversion.objects.select_related(
         "person",
+        "person__lesson_enrollment",
+        "person__lesson_enrollment__teacher",
         "prospect",
         "converted_by",
         "evangelism_group",

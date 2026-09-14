@@ -89,11 +89,20 @@ class PersonSummarySerializer(serializers.ModelSerializer):
 class PersonConversionNestedSerializer(PersonSummarySerializer):
     """Person fields needed on Conversion responses without widening all PersonSummary uses."""
 
+    lesson_teacher_display_name = serializers.SerializerMethodField()
+
     class Meta(PersonSummarySerializer.Meta):
         fields = tuple(PersonSummarySerializer.Meta.fields) + (
             "date_first_invited",
             "date_first_attended",
+            "lesson_teacher_display_name",
         )
+
+    def get_lesson_teacher_display_name(self, obj):
+        enrollment = getattr(obj, "lesson_enrollment", None)
+        if not enrollment:
+            return None
+        return enrollment.teacher_display_name()
 
 
 class ClusterSummarySerializer(serializers.ModelSerializer):

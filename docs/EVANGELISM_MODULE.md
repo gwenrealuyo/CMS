@@ -74,12 +74,13 @@ Key features include:
   - `meeting_date` (DateField) – actual date the meeting was held
   - `members_attended` (ManyToMany to `people.Person`, filtered to role="MEMBER") – members who attended
   - `visitors_attended` (ManyToMany to `people.Person`, filtered to role="VISITOR") – visitors who attended
+  - `prospects_invited` (ManyToMany to `evangelism.Prospect`, blank, `related_name="evangelism_reports_invited_to"`) – invited visitors recorded on this report who have **not** attended yet (no Person required)
   - `gathering_type` (CharField, choices: PHYSICAL, ONLINE, HYBRID) – how the meeting was conducted
   - `topic` (string, max 200 chars, blank) – Bible study topic
   - `activities_held` (TextField, blank) – activities/events during the meeting
   - `prayer_requests` (TextField, blank) – prayer requests shared
   - `testimonies` (TextField, blank) – testimonies shared
-  - `new_prospects` (IntegerField, default 0) – new prospects this week
+  - `new_prospects` (IntegerField, default 0) – derived count of `prospects_invited` (kept for tally `SUM`; not user-editable)
   - `conversions_this_week` (IntegerField, default 0) – legacy field (UI always submits 0)
   - `notes` (TextField, blank) – additional notes
   - `submitted_by` (ForeignKey to `people.Person`, nullable) – person who submitted the report
@@ -88,8 +89,9 @@ Key features include:
 - Default ordering: by `-year`, then `-week_number`
 - Unique constraint: `unique_together = ["evangelism_group", "year", "week_number"]` – prevents duplicate reports
 - **Report Submission Notes**:
-  - Visitors selected from prospects are marked as ATTENDED before the report is saved
-  - The report stores only Person IDs for attendees
+  - Visitors selected from prospects (`prospect:{id}`) are marked as ATTENDED via client `markAttended` before the report is saved
+  - The report stores Person IDs for attendees and Prospect IDs for `prospects_invited`
+  - Form helper copy lives on the UI only (not Django `help_text`)
 
 ### Prospect Model
 
@@ -132,6 +134,13 @@ Key features include:
   - Soft dedupe (`find_duplicate_invited_prospects`) blocks creating a similar INVITED prospect for the same cluster
   - Attending a prospect from a cluster report uses `prospects_attended` → `mark_prospect_attended` (same Person + monthly tracking path as `POST /prospects/{id}/mark_attended/`)
   - After attend, the prospect leaves INVITED pickers (has a linked Person / stage ATTENDED); Prospect row is retained for history
+- **Evangelism weekly report integration**:
+  - Named invites use `prospects_invited` (existing Prospect IDs for this group, INVITED or a linked visitor, not dropped off)
+  - Nested creates use write-only `new_invited_prospects` (not `new_prospects` — that integer is the derived tally count). Creates INVITED Prospects with `evangelism_group` set to the report’s group; does **not** copy inviter cluster
+  - Soft dedupe (`find_duplicate_invited_prospects_for_group`) blocks creating a similar INVITED prospect for the same group
+  - Dual-list validation rejects an invited prospect whose linked `person` is also in `visitors_attended`
+  - Attending a prospect from an evangelism report still uses client `markAttended` (reporters have EVANGELISM write)
+  - After save, `new_prospects` is set to `prospects_invited.count()`
 - **Future: walk-in visitors** — v1 requires `invited_by`. Walk-ins with no inviter are deferred; see Clusters module docs. Do not invent a fake inviter.
 
 ### FollowUpTask Model
@@ -240,6 +249,7 @@ All ForeignKey relationships use string references to avoid circular imports:
 ### Migrations
 
 - `apps.evangelism.migrations.0001_initial` – Creates all Evangelism tables with relationships
+- `apps.evangelism.migrations.0004_recalculate_each1reach1_targets` – Recalculates Each 1 Reach 1 targets; adds `prospects_invited` M2M on `EvangelismWeeklyReport`
 
 ## API Surface
 
@@ -305,6 +315,10 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?gathering_type={type}` – filter by gathering type
   - `POST` – Create a new report (requires `evangelism_group`, `year`, `week_number`, `meeting_date`, `gathering_type`)
     - **Members attended** may include active group members, the group’s **coordinator** (even if not enrolled as a group member), but not arbitrary people (validated server-side)
+    - `prospects_invited` – existing Prospect IDs to link to this report’s invite list (must belong to the report’s group)
+    - `new_invited_prospects` – write-only nested creates (`first_name`, `last_name`, required `invited_by_id`, optional contact/facebook/notes/`date_first_invited`); appends created Prospects to `prospects_invited`
+    - `new_prospects` is **read-only**; persisted as the length of `prospects_invited` after create/update
+    - Dual-list: a prospect cannot be both invited and attended on the same report
   - `GET /{id}/` – Retrieve a specific report
   - `PUT /{id}/` – Update a report (full update)
   - `PATCH /{id}/` – Partial update
@@ -480,6 +494,9 @@ Serializers (`apps.evangelism.serializers`) expose:
   - `evangelism_group` – nested group object (read-only)
   - `members_attended_details` – read-only full person details for members
   - `visitors_attended_details` – read-only full person details for visitors
+  - `prospects_invited` / `prospects_invited_details` – invited prospects linked to this report (read details include name, stage, inviter)
+  - `new_invited_prospects` – write-only nested creates (see Prospect model evangelism weekly report integration)
+  - `new_prospects` – read-only derived count of `prospects_invited` (tally still `SUM`s this integer)
   - `submitted_by_details` – read-only full person details for submitter
   - All report fields
 
@@ -635,10 +652,15 @@ The Groups tab toolbar mirrors the clusters page layout:
 
 - **`EvangelismWeeklyReportForm`**: Form for submitting/editing weekly reports
   - Meeting date, week number, gathering type
-  - Members attended (from evangelism group members)
-  - Visitors attended (attended persons + invited prospects)
-  - New visitors count and notes
-  - "Add Visitor" flow with prefilled evangelism group
+  - **Section order**: Members Attended → Visitors Attended (+ Add New Visitor) → **Prospects Invited** (+ Add Prospect)
+  - **Visitors Attended helper copy**: People who came this week; search returning visitors or invited prospects first; Add New Visitor only if they came and are not in the list
+  - **Prospects Invited helper copy**: Invited visitors only — not yet attended / not in People until they attend
+  - **Visitors Attended grouping** (`groupByVisitorKind` on `AttendanceSelector`): list/search/chips split returning visitors, invited prospects (first visit), new walk-ins added this report, and other visitors. Empty search points to Add New Visitor vs Prospects Invited
+  - **Visitors Attended search** includes group-scoped INVITED prospects (no Person yet) as `prospect:{id}`; selecting them promotes via client `markAttended` on submit
+  - **Dual-list blocking**: the same prospect cannot be on Prospects Invited and Visitors Attended together
+  - Named invite count replaces the numeric New Visitors input; `new_prospects` is derived from the list
+  - Submit builds payload in `frontend/src/lib/evangelismWeeklyReportSubmit.ts` (`prospects_invited` + `new_invited_prospects`; no user-entered integer)
+- **`ViewEvangelismWeeklyReportModal`**: Shows Prospects Invited separately from Visitors Attended (names, inviter, stage); attendance totals stay members + visitors only; prospects invited count uses the derived list length
 
 #### Prospects
 
@@ -855,6 +877,7 @@ All Evangelism models are registered in Django admin (`apps.evangelism.admin`):
   - List display: evangelism_group, year, week_number, meeting_date, gathering_type
   - Filterable by group, year, week_number, gathering_type
   - Searchable by group name
+  - Filter horizontal for members_attended, visitors_attended, and prospects_invited
 
 - **ProspectAdmin**:
   - List display: name, invited_by, pipeline_stage, last_activity_date, is_dropped_off

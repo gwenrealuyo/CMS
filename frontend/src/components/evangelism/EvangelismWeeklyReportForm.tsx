@@ -2,10 +2,15 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/src/components/ui/Button";
+import Modal from "@/src/components/ui/Modal";
 import AttendanceSelector from "@/src/components/reports/AttendanceSelector";
 import AddVisitorModal from "@/src/components/reports/AddVisitorModal";
+import ProspectForm, {
+  type ProspectFormValues,
+} from "@/src/components/evangelism/ProspectForm";
 import {
   EvangelismGroup,
+  EvangelismReportNewInvitedProspectInput,
   EvangelismWeeklyReport,
   Prospect,
 } from "@/src/types/evangelism";
@@ -16,10 +21,17 @@ import {
   getIsoWeekParts,
   getIsoWeekPartsFromDateString,
 } from "@/src/lib/isoWeek";
+import { formatPersonName } from "@/src/lib/name";
+import {
+  isProspectAttendanceId,
+  prospectIdFromAttendanceId,
+  toPendingNewProspectId,
+  toProspectAttendanceId,
+} from "@/src/lib/clusterWeeklyReportSubmit";
 
 /** Label for invites without a linked Person. */
 function prospectInviteDisplayName(prospect: Prospect): string {
-  if (prospect.display_name?.trim()) return prospect.display_name;
+  if (prospect.display_name?.trim()) return prospect.display_name.trim();
   const parts = [
     prospect.first_name,
     prospect.middle_name,
@@ -29,6 +41,67 @@ function prospectInviteDisplayName(prospect: Prospect): string {
   if (prospect.suffix?.trim())
     base = base ? `${base}, ${prospect.suffix}` : prospect.suffix!;
   return base || "Unknown";
+}
+
+function inviterDisplayNameFromPeople(
+  inviterId: string | number | null | undefined,
+  people: PersonUI[],
+): string {
+  if (inviterId == null || String(inviterId).trim() === "") return "";
+  const found = people.find((p) => String(p.id) === String(inviterId));
+  if (!found) return "";
+  const formatted = formatPersonName(found);
+  if (formatted && formatted !== "Unknown person") return formatted;
+  return found.name?.trim() || "";
+}
+
+function prospectToPersonUI(
+  prospect: Prospect,
+  people: PersonUI[] = [],
+): PersonUI {
+  let invitedBy = "";
+  if (
+    prospect.invited_by &&
+    typeof prospect.invited_by === "object" &&
+    "first_name" in prospect.invited_by
+  ) {
+    invitedBy =
+      prospect.invited_by.full_name?.trim() ||
+      `${prospect.invited_by.first_name ?? ""} ${
+        prospect.invited_by.last_name ?? ""
+      }`.trim();
+  }
+  if (!invitedBy) {
+    invitedBy = inviterDisplayNameFromPeople(
+      prospect.invited_by_id || prospect.invited_by?.id,
+      people,
+    );
+  }
+  const stageLabel =
+    prospect.pipeline_stage_display || prospect.pipeline_stage || "INVITED";
+  return {
+    id: toProspectAttendanceId(prospect.id),
+    name: `${prospectInviteDisplayName(prospect)} (${stageLabel.toLowerCase()})`,
+    role: "VISITOR",
+    status: "NO_RESPONSE",
+    inviter: prospect.invited_by?.id || prospect.invited_by_id,
+    inviter_display_name: invitedBy || null,
+    username: "",
+    email: "",
+    first_name: prospect.first_name || "",
+    last_name: prospect.last_name || "",
+  } as unknown as PersonUI;
+}
+
+function isInvitableProspect(prospect: Prospect, groupId: string): boolean {
+  if (prospect.person) return false;
+  if (prospect.is_dropped_off) return false;
+  if (prospect.pipeline_stage && prospect.pipeline_stage !== "INVITED") {
+    return false;
+  }
+  const gid = prospect.evangelism_group_id ?? prospect.evangelism_group?.id;
+  if (gid != null && String(gid) !== String(groupId)) return false;
+  return true;
 }
 
 /** True when members is a (possibly empty) person roster, not omitted or PK-only. */
@@ -46,12 +119,16 @@ export interface EvangelismWeeklyReportFormValues {
   meeting_date: string;
   members_attended: string[];
   visitors_attended: string[];
+  prospects_invited: string[];
+  pending_new_prospects?: Record<
+    string,
+    EvangelismReportNewInvitedProspectInput
+  >;
   gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID";
   topic?: string;
   activities_held?: string;
   prayer_requests?: string;
   testimonies?: string;
-  new_prospects: number;
   notes?: string;
 }
 
@@ -97,8 +174,16 @@ export default function EvangelismWeeklyReportForm({
   const [people, setPeople] = useState<PersonUI[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [showAddVisitorModal, setShowAddVisitorModal] = useState(false);
+  const [showAddProspectModal, setShowAddProspectModal] = useState(false);
+  const [prospectSubmitting, setProspectSubmitting] = useState(false);
+  const [prospectFormError, setProspectFormError] = useState<string | null>(
+    null,
+  );
   const [pendingNewVisitors, setPendingNewVisitors] = useState<
     Record<string, Partial<Person> & { note?: string }>
+  >({});
+  const [pendingNewProspects, setPendingNewProspects] = useState<
+    Record<string, EvangelismReportNewInvitedProspectInput>
   >({});
   const [rosterGroup, setRosterGroup] = useState<EvangelismGroup>(group);
   const [loadingRoster, setLoadingRoster] = useState(false);
@@ -113,12 +198,12 @@ export default function EvangelismWeeklyReportForm({
     meeting_date: defaultDate,
     members_attended: [],
     visitors_attended: [],
+    prospects_invited: [],
     gathering_type: "PHYSICAL",
     topic: "",
     activities_held: "",
     prayer_requests: "",
     testimonies: "",
-    new_prospects: 0,
     notes: "",
   });
 
@@ -131,12 +216,12 @@ export default function EvangelismWeeklyReportForm({
       meeting_date: initialData.meeting_date,
       members_attended: (initialData.members_attended || []).map(String),
       visitors_attended: (initialData.visitors_attended || []).map(String),
+      prospects_invited: (initialData.prospects_invited || []).map(String),
       gathering_type: initialData.gathering_type,
       topic: initialData.topic || "",
       activities_held: initialData.activities_held || "",
       prayer_requests: initialData.prayer_requests || "",
       testimonies: initialData.testimonies || "",
-      new_prospects: initialData.new_prospects || 0,
       notes: initialData.notes || "",
     });
   }, [group.id, initialData]);
@@ -259,83 +344,296 @@ export default function EvangelismWeeklyReportForm({
     });
   }, [coordinatorOption, rosterGroup.members, people]);
 
+  const invitedProspectIdsSelected = useMemo(
+    () => new Set((formData.prospects_invited || []).map(String)),
+    [formData.prospects_invited],
+  );
+
+  const groupInvitedProspects = useMemo(
+    () =>
+      prospects.filter((prospect) =>
+        isInvitableProspect(prospect, String(group.id)),
+      ),
+    [prospects, group.id],
+  );
+
+  const previouslyAttendedVisitorIds = useMemo(
+    () =>
+      prospects
+        .filter(
+          (prospect) =>
+            prospect.person && Boolean(prospect.person.date_first_attended),
+        )
+        .map((prospect) => String(prospect.person!.id)),
+    [prospects],
+  );
+
   const visitorOptions = useMemo(() => {
-    const attendedVisitors = prospects
-      .filter((prospect) => prospect.person)
-      .map((prospect) => prospect.person as Person)
-      .filter(
-        (person) =>
-          person.role === "VISITOR" && Boolean(person.date_first_attended),
-      )
-      .map((person) => {
-        const middleInitial = person.middle_name
-          ? ` ${person.middle_name.trim().charAt(0)}.`
-          : "";
-        const suffixPart =
-          person.suffix && person.suffix.trim().length > 0
-            ? ` ${person.suffix.trim()}`
-            : "";
-        const name = `${person.first_name ?? ""}${middleInitial} ${
-          person.last_name ?? ""
-        }${suffixPart}`.trim();
-        return {
+    const attendedById = new Map<string, PersonUI>();
+    const stampInviter = (person: PersonUI): PersonUI => {
+      if (person.inviter_display_name?.trim()) return person;
+      const name = inviterDisplayNameFromPeople(person.inviter, people);
+      return name ? { ...person, inviter_display_name: name } : person;
+    };
+
+    const addAttendedPerson = (person: Person) => {
+      if (person.role !== "VISITOR" || !person.date_first_attended) return;
+      const id = person.id?.toString() || "";
+      if (!id || attendedById.has(id)) return;
+      attendedById.set(
+        id,
+        stampInviter({
           ...person,
-          name,
+          name: formatPersonName(person),
           dateFirstAttended: person.date_first_attended,
-          id: person.id?.toString() || "",
-        } as PersonUI;
-      });
-    const invitedProspects = prospects
-      .filter((prospect) => !prospect.person)
-      .map((prospect) => {
-        const invitedBy = prospect.invited_by?.full_name || "Unknown";
-        const stageLabel =
-          prospect.pipeline_stage_display ||
-          prospect.pipeline_stage ||
-          "INVITED";
-        return {
-          id: `prospect:${prospect.id}`,
-          name: `${prospectInviteDisplayName(prospect)} (${stageLabel.toLowerCase()})`,
-          role: "VISITOR" as const,
-          status: "NO_RESPONSE" as const,
-          inviter: prospect.invited_by?.id,
-          inviterName: invitedBy,
-        };
-      });
+          id,
+        } as PersonUI),
+      );
+    };
+
+    for (const prospect of prospects) {
+      if (prospect.person) addAttendedPerson(prospect.person as Person);
+    }
+    for (const detail of initialData?.visitors_attended_details || []) {
+      addAttendedPerson(detail as Person);
+    }
+
+    const prospectOptions = groupInvitedProspects
+      .filter((p) => !invitedProspectIdsSelected.has(String(p.id)))
+      .map((p) => prospectToPersonUI(p, people));
+
+    const pendingVisitorOptions: PersonUI[] = Object.entries(
+      pendingNewVisitors,
+    ).map(([tempId, payload]) => {
+      const middleInitial = payload.middle_name
+        ? ` ${payload.middle_name.trim().charAt(0)}.`
+        : "";
+      const suffixPart =
+        payload.suffix && payload.suffix.trim().length > 0
+          ? ` ${payload.suffix.trim()}`
+          : "";
+      const name = `${payload.first_name ?? ""}${middleInitial} ${
+        payload.last_name ?? ""
+      }${suffixPart} (new)`.trim();
+      return {
+        id: `newvisitor:${tempId}`,
+        name,
+        role: "VISITOR" as const,
+        status: "ONGOING" as const,
+        first_name: payload.first_name || "",
+        last_name: payload.last_name || "",
+        middle_name: payload.middle_name || "",
+        suffix: payload.suffix || "",
+        inviter: payload.inviter,
+        inviter_display_name:
+          inviterDisplayNameFromPeople(payload.inviter, people) || null,
+        username: "",
+        email: "",
+      } as PersonUI;
+    });
 
     return [
-      ...attendedVisitors,
-      ...invitedProspects,
-      ...Object.entries(pendingNewVisitors).map(([tempId, payload]) => {
-        const middleInitial = payload.middle_name
-          ? ` ${payload.middle_name.trim().charAt(0)}.`
+      ...Array.from(attendedById.values()),
+      ...prospectOptions,
+      ...pendingVisitorOptions,
+    ];
+  }, [
+    prospects,
+    groupInvitedProspects,
+    invitedProspectIdsSelected,
+    pendingNewVisitors,
+    people,
+    initialData?.visitors_attended_details,
+  ]);
+
+  const prospectInviteOptions = useMemo(() => {
+    const attendedProspectIds = new Set(
+      (formData.visitors_attended || [])
+        .filter((id) => isProspectAttendanceId(String(id)))
+        .map((id) => prospectIdFromAttendanceId(String(id))),
+    );
+    const byId = new Map<string, PersonUI>();
+
+    for (const p of groupInvitedProspects) {
+      if (attendedProspectIds.has(String(p.id))) continue;
+      const ui = prospectToPersonUI(p, people);
+      byId.set(String(ui.id), ui);
+    }
+
+    for (const detail of initialData?.prospects_invited_details || []) {
+      const attendanceId = toProspectAttendanceId(detail.id);
+      if (attendedProspectIds.has(String(detail.id))) continue;
+      if (byId.has(attendanceId)) continue;
+      const nestedInviterName =
+        detail.invited_by != null
+          ? `${detail.invited_by.first_name ?? ""} ${
+              detail.invited_by.last_name ?? ""
+            }`.trim()
           : "";
-        const suffixPart =
-          payload.suffix && payload.suffix.trim().length > 0
-            ? ` ${payload.suffix.trim()}`
-            : "";
-        const name = `${payload.first_name ?? ""}${middleInitial} ${
-          payload.last_name ?? ""
-        }${suffixPart} (new)`.trim();
-        return {
-          id: `newvisitor:${tempId}`,
-          name,
-          role: "VISITOR" as const,
-          status: "ONGOING" as const,
-          first_name: payload.first_name || "",
-          last_name: payload.last_name || "",
-          middle_name: payload.middle_name || "",
-          suffix: payload.suffix || "",
-          inviter: payload.inviter,
+      const invitedBy =
+        nestedInviterName ||
+        inviterDisplayNameFromPeople(detail.invited_by?.id, people);
+      const stageLabel =
+        detail.pipeline_stage_display || detail.pipeline_stage || "INVITED";
+      let displayName = detail.display_name?.trim() || "";
+      if (!displayName) {
+        displayName = formatPersonName(detail);
+      }
+      byId.set(attendanceId, {
+        id: attendanceId,
+        name: `${displayName || "Unknown"} (${stageLabel.toLowerCase()})`,
+        role: "VISITOR",
+        status: "NO_RESPONSE",
+        inviter: detail.invited_by?.id,
+        inviter_display_name: invitedBy || null,
+        username: "",
+        email: "",
+        first_name: detail.first_name || "",
+        last_name: detail.last_name || "",
+      } as unknown as PersonUI);
+    }
+
+    const pendingOptions: PersonUI[] = Object.entries(pendingNewProspects).map(
+      ([tempId, payload]) =>
+        ({
+          id: toPendingNewProspectId(tempId),
+          name: `${payload.first_name} ${payload.last_name} (new invite)`.trim(),
+          role: "VISITOR",
+          status: "NO_RESPONSE",
+          inviter: payload.invited_by_id,
+          inviter_display_name:
+            inviterDisplayNameFromPeople(payload.invited_by_id, people) ||
+            null,
           username: "",
           email: "",
-        } as PersonUI;
-      }),
-    ] as PersonUI[];
-  }, [prospects, pendingNewVisitors]);
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+        }) as unknown as PersonUI,
+    );
+    for (const opt of pendingOptions) {
+      byId.set(String(opt.id), opt);
+    }
+    return Array.from(byId.values());
+  }, [
+    groupInvitedProspects,
+    formData.visitors_attended,
+    pendingNewProspects,
+    initialData?.prospects_invited_details,
+    people,
+  ]);
+
+  const prospectAllowedIds = useMemo(
+    () => prospectInviteOptions.map((p) => String(p.id)),
+    [prospectInviteOptions],
+  );
+
+  const invitersForProspectForm = useMemo(
+    () =>
+      memberOptions.filter((p) => p.role !== "VISITOR" && p.role !== "ADMIN"),
+    [memberOptions],
+  );
+
+  const prospectOptionsForForm = useMemo(() => {
+    const fromPending: Prospect[] = Object.entries(pendingNewProspects).map(
+      ([tempId, payload]) =>
+        ({
+          id: `pending:${tempId}`,
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+          middle_name: payload.middle_name || "",
+          contact_info: payload.contact_info || "",
+          facebook_name: payload.facebook_name || "",
+          pipeline_stage: "INVITED",
+          pipeline_stage_display: "Invited",
+          is_dropped_off: false,
+          is_attending_cluster: false,
+          has_finished_lessons: false,
+          commitment_form_signed: false,
+          invited_by: {} as Person,
+          invited_by_id: String(payload.invited_by_id || ""),
+          created_at: "",
+          updated_at: "",
+          display_name: `${payload.first_name} ${payload.last_name}`.trim(),
+        }) as Prospect,
+    );
+    return [...groupInvitedProspects, ...fromPending];
+  }, [groupInvitedProspects, pendingNewProspects]);
+
+  const handleVisitorsChange = (ids: string[]) => {
+    const prospectIdsSelected = ids
+      .filter((id) => isProspectAttendanceId(id))
+      .map((id) => prospectIdFromAttendanceId(id));
+    setFormData((prev) => ({
+      ...prev,
+      visitors_attended: ids,
+      prospects_invited: (prev.prospects_invited || []).filter(
+        (id) => !prospectIdsSelected.includes(String(id)),
+      ),
+    }));
+  };
+
+  const handleProspectsInvitedChange = (ids: string[]) => {
+    const numericOrPending = ids.map((id) =>
+      isProspectAttendanceId(id) ? prospectIdFromAttendanceId(id) : id,
+    );
+    const blockedFromVisitors = new Set(
+      numericOrPending
+        .filter((id) => !String(id).startsWith("new:"))
+        .map((id) => toProspectAttendanceId(id)),
+    );
+    setFormData((prev) => ({
+      ...prev,
+      prospects_invited: numericOrPending,
+      visitors_attended: (prev.visitors_attended || []).filter(
+        (id) => !blockedFromVisitors.has(String(id)),
+      ),
+    }));
+  };
+
+  const handleAddProspect = async (values: ProspectFormValues) => {
+    setProspectSubmitting(true);
+    setProspectFormError(null);
+    try {
+      const tempId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `tmp-${Date.now()}`;
+      const payload: EvangelismReportNewInvitedProspectInput = {
+        first_name: values.first_name,
+        last_name: values.last_name,
+        middle_name: values.middle_name || "",
+        suffix: values.suffix || "",
+        gender: values.gender || "",
+        contact_info: values.contact_info || "",
+        facebook_name: values.facebook_name || "",
+        notes: values.notes || "",
+        invited_by_id: values.invited_by_id,
+        date_first_invited:
+          values.date_first_invited || formData.meeting_date || null,
+      };
+      setPendingNewProspects((prev) => ({ ...prev, [tempId]: payload }));
+      setFormData((prev) => ({
+        ...prev,
+        prospects_invited: [
+          ...(prev.prospects_invited || []),
+          toPendingNewProspectId(tempId),
+        ],
+      }));
+      setShowAddProspectModal(false);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to add prospect to this report";
+      setProspectFormError(message);
+    } finally {
+      setProspectSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (showAddVisitorModal || showAddProspectModal) {
+      return;
+    }
     const pendingEntries = Object.entries(pendingNewVisitors);
     let visitorsAttended = [...formData.visitors_attended];
 
@@ -372,6 +670,7 @@ export default function EvangelismWeeklyReportForm({
     await onSubmit({
       ...formData,
       visitors_attended: visitorsAttended,
+      pending_new_prospects: pendingNewProspects,
     });
   };
 
@@ -513,53 +812,77 @@ export default function EvangelismWeeklyReportForm({
           allowedIds={allowedMemberIds}
           isLoadingRoster={loadingRoster}
         />
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">
-            Visitors Attended
-          </label>
-          <Button
-            type="button"
-            variant="secondary"
-            className="!text-white !bg-orange-600 hover:!bg-orange-700 text-sm py-1.5 px-3"
-            onClick={() => setShowAddVisitorModal(true)}
-          >
-            Add New Visitor
-          </Button>
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-gray-700">
+              Visitors Attended
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              className="!text-white !bg-orange-600 hover:!bg-orange-700 text-sm py-1.5 px-3"
+              onClick={() => setShowAddVisitorModal(true)}
+            >
+              Add New Visitor
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500 mb-2">
+            People who came this week. Search returning visitors or invited
+            prospects first. Use Add New Visitor only if they came and are not
+            in the list.
+          </p>
+          <AttendanceSelector
+            label=""
+            selectedIds={formData.visitors_attended}
+            availablePeople={visitorOptions}
+            filterRole="VISITOR"
+            onSelectionChange={handleVisitorsChange}
+            className="mt-0"
+            previouslyAttendedIds={previouslyAttendedVisitorIds}
+            groupByVisitorKind
+          />
         </div>
-        <AttendanceSelector
-          label=""
-          selectedIds={formData.visitors_attended}
-          availablePeople={visitorOptions}
-          filterRole="VISITOR"
-          onSelectionChange={(ids) =>
-            setFormData((prev) => ({ ...prev, visitors_attended: ids }))
-          }
-          className="mt-0"
-        />
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-gray-700">
+              Prospects Invited
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              className="!text-white !bg-orange-600 hover:!bg-orange-700 text-sm py-1.5 px-3"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAddProspectModal(true);
+              }}
+            >
+              + Add Prospect
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500 mb-2">
+            Invited visitors only — not yet attended. They are not added to
+            People until they attend.
+          </p>
+          <AttendanceSelector
+            label=""
+            selectedIds={(formData.prospects_invited || []).map((id) => {
+              const sid = String(id);
+              if (sid.startsWith("new:")) return sid;
+              return toProspectAttendanceId(sid);
+            })}
+            availablePeople={prospectInviteOptions}
+            filterRole="VISITOR"
+            onSelectionChange={handleProspectsInvitedChange}
+            className="mt-0"
+            allowedIds={prospectAllowedIds}
+          />
+        </div>
         {(loadingPeople || loadingRoster) && (
           <div className="text-xs text-gray-500">
             {loadingRoster ? "Loading members…" : "Loading people..."}
           </div>
         )}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            New Visitors
-          </label>
-          <input
-            type="number"
-            value={formData.new_prospects}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                new_prospects: Number(e.target.value),
-              }))
-            }
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          />
-        </div>
       </div>
 
       <div className="space-y-4">
@@ -650,6 +973,36 @@ export default function EvangelismWeeklyReportForm({
         defaultDateFirstAttended={formData.meeting_date}
         defaultFirstActivityAttended="BS/CLUSTER_EVANGELISM"
       />
+
+      <Modal
+        isOpen={showAddProspectModal}
+        onClose={() => {
+          setShowAddProspectModal(false);
+          setProspectFormError(null);
+        }}
+        title="Add Prospect"
+        closeOnOutsideClick={false}
+      >
+        <p className="text-sm text-gray-600 mb-4">
+          Invited visitors only — not yet attended. They are not added to People
+          until they attend.
+        </p>
+        <ProspectForm
+          inviters={invitersForProspectForm as unknown as Person[]}
+          groups={[group]}
+          prospectOptions={prospectOptionsForForm}
+          selectedBibleStudyGroup={group}
+          defaultGroupId={String(group.id)}
+          onSubmit={handleAddProspect}
+          onCancel={() => {
+            setShowAddProspectModal(false);
+            setProspectFormError(null);
+          }}
+          isSubmitting={prospectSubmitting}
+          error={prospectFormError}
+          submitLabel="Add Prospect"
+        />
+      </Modal>
     </form>
   );
 }

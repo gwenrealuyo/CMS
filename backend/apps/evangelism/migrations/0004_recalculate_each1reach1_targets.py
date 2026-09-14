@@ -1,6 +1,7 @@
 # Recalculate Each 1 Reach 1 targets using counted roster (ACTIVE / SEMIACTIVE / INACTIVE).
+# Also adds EvangelismWeeklyReport.prospects_invited.
 
-from django.db import migrations
+from django.db import migrations, models
 
 
 def forwards(apps, schema_editor):
@@ -20,5 +21,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AddField(
+            model_name="evangelismweeklyreport",
+            name="prospects_invited",
+            field=models.ManyToManyField(
+                blank=True,
+                related_name="evangelism_reports_invited_to",
+                to="evangelism.prospect",
+            ),
+        ),
         migrations.RunPython(forwards, backwards),
     ]

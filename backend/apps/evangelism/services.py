@@ -216,6 +216,98 @@ def create_invited_prospect_for_cluster(
     return prospect
 
 
+def find_duplicate_invited_prospects_for_group(
+    group: EvangelismGroup,
+    first_name: str,
+    last_name: str,
+    *,
+    contact_info: str = "",
+    facebook_name: str = "",
+    exclude_prospect_id: Optional[int] = None,
+) -> List[Prospect]:
+    """Soft-match INVITED (non-dropped) prospects for an evangelism group by name."""
+    fn = (first_name or "").strip()
+    ln = (last_name or "").strip()
+    if not fn or not ln or not group:
+        return []
+
+    qs = Prospect.objects.filter(
+        is_dropped_off=False,
+        pipeline_stage=Prospect.PipelineStage.INVITED,
+        evangelism_group=group,
+    ).filter(first_name__iexact=fn, last_name__iexact=ln)
+
+    contact = (contact_info or "").strip()
+    facebook = (facebook_name or "").strip()
+    if contact or facebook:
+        extra = Q()
+        if contact:
+            extra |= Q(contact_info__iexact=contact)
+        if facebook:
+            extra |= Q(facebook_name__iexact=facebook)
+        name_matches = list(qs)
+        contact_matches = list(qs.filter(extra))
+        matches = contact_matches if contact_matches else name_matches
+    else:
+        matches = list(qs)
+
+    if exclude_prospect_id is not None:
+        matches = [p for p in matches if p.pk != exclude_prospect_id]
+    return matches
+
+
+def create_invited_prospect_for_evangelism_group(
+    group: EvangelismGroup,
+    *,
+    first_name: str,
+    last_name: str,
+    invited_by: Person,
+    middle_name: str = "",
+    suffix: str = "",
+    gender: str = "",
+    contact_info: str = "",
+    facebook_name: str = "",
+    notes: str = "",
+    date_first_invited: Optional[date] = None,
+) -> Prospect:
+    """
+    Create an INVITED Prospect attributed to an evangelism group (weekly report).
+    Does not copy the inviter's cluster. Does not create a Person.
+    """
+    if not group:
+        raise ValueError("evangelism_group is required")
+    if not invited_by:
+        raise ValueError("invited_by is required")
+
+    invite_date = date_first_invited or church_today()
+    prospect = Prospect.objects.create(
+        first_name=title_case_name(first_name),
+        last_name=title_case_name(last_name),
+        middle_name=title_case_name(middle_name),
+        suffix=title_case_name(suffix),
+        gender=gender or "",
+        contact_info=(contact_info or "").strip(),
+        facebook_name=(facebook_name or "").strip(),
+        notes=(notes or "").strip(),
+        invited_by=invited_by,
+        evangelism_group=group,
+        pipeline_stage=Prospect.PipelineStage.INVITED,
+        date_first_invited=invite_date,
+        last_activity_date=invite_date,
+    )
+    if group.cluster_id:
+        try:
+            update_monthly_tracking(
+                prospect,
+                MonthlyConversionTracking.Stage.INVITED,
+                group.cluster,
+                invite_date,
+            )
+        except ValueError:
+            pass
+    return prospect
+
+
 def mark_prospect_attended(
     prospect: Prospect,
     *,

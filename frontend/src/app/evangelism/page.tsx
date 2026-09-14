@@ -352,6 +352,12 @@ export default function EvangelismPage() {
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
+  const conversionFormPeople = useMemo(() => {
+    const byId = new Map(people.map((person) => [String(person.id), person]));
+    return conversionVisitors.map(
+      (visitor) => byId.get(String(visitor.id)) ?? visitor,
+    );
+  }, [conversionVisitors, people]);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isProspectModalOpen, setIsProspectModalOpen] = useState(false);
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
@@ -2084,7 +2090,7 @@ export default function EvangelismPage() {
           >
             <ConversionForm
               key={editingConversion?.id ?? "create-conversion"}
-              people={conversionVisitors}
+              people={conversionFormPeople}
               initialData={editingConversion ?? undefined}
               onSubmit={
                 editingConversion

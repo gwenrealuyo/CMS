@@ -65,7 +65,7 @@ class EvangelismWeeklyReportAdmin(admin.ModelAdmin):
     search_fields = ("evangelism_group__name", "topic", "notes")
     date_hierarchy = "meeting_date"
     raw_id_fields = ("evangelism_group", "submitted_by")
-    filter_horizontal = ("members_attended", "visitors_attended")
+    filter_horizontal = ("members_attended", "visitors_attended", "prospects_invited")
 
 
 @admin.register(Prospect)

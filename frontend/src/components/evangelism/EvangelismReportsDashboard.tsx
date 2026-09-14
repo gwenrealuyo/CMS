@@ -392,7 +392,7 @@ export default function EvangelismReportsDashboard({
       if (!cancelled) setFormGroupDetail(res.data);
     });
     evangelismApi
-      .listProspects({ evangelism_group: gid })
+      .listProspects({ evangelism_group: gid, page_size: 500 })
       .then((res) => {
         const raw = res.data;
         const arr = Array.isArray(raw)

@@ -113,6 +113,11 @@ class EvangelismWeeklyReport(models.Model):
         related_name="evangelism_reports_as_visitor",
         limit_choices_to={"role": "VISITOR"},
     )
+    prospects_invited = models.ManyToManyField(
+        "Prospect",
+        blank=True,
+        related_name="evangelism_reports_invited_to",
+    )
     gathering_type = models.CharField(
         max_length=20,
         choices=[

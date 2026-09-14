@@ -52,6 +52,7 @@ export default function ViewEvangelismWeeklyReportModal({
 
   const membersDetails = report.members_attended_details ?? [];
   const visitorsDetails = report.visitors_attended_details ?? [];
+  const prospectsInvitedDetails = report.prospects_invited_details ?? [];
   const memberCount =
     Array.isArray(report.members_attended) ?
       report.members_attended.length
@@ -60,6 +61,11 @@ export default function ViewEvangelismWeeklyReportModal({
     Array.isArray(report.visitors_attended) ?
       report.visitors_attended.length
     : visitorsDetails.length;
+  const prospectsInvitedCount =
+    prospectsInvitedDetails.length ||
+    (Array.isArray(report.prospects_invited)
+      ? report.prospects_invited.length
+      : report.new_prospects ?? 0);
   const totalAttendance = memberCount + visitorCount;
 
   const formatDate = (dateString: string) => {
@@ -246,9 +252,9 @@ export default function ViewEvangelismWeeklyReportModal({
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">New Prospects</p>
+                  <p className="text-sm text-gray-600">Prospects Invited</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {report.new_prospects ?? 0}
+                    {prospectsInvitedCount}
                   </p>
                 </div>
                 <div>
@@ -380,6 +386,63 @@ export default function ViewEvangelismWeeklyReportModal({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {prospectsInvitedDetails.length > 0 && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Prospects Invited ({prospectsInvitedDetails.length})
+                </h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Invited visitors only — not yet attended.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {prospectsInvitedDetails.map((prospect) => {
+                    const inviter = prospect.invited_by;
+                    const inviterName = inviter
+                      ? `${inviter.first_name ?? ""} ${
+                          inviter.last_name ?? ""
+                        }`.trim() || inviter.username
+                      : null;
+                    const prospectName =
+                      prospect.display_name ||
+                      `${prospect.first_name} ${prospect.last_name}`.trim();
+                    const isLongWrappedName = prospectName.length > 20;
+                    return (
+                      <div
+                        key={prospect.id}
+                        className="flex items-start gap-3 p-3 bg-amber-50/50 border border-amber-100 rounded-md"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`font-medium text-gray-900 break-words ${
+                              isLongWrappedName
+                                ? "text-xs leading-5"
+                                : "text-sm leading-5"
+                            }`}
+                          >
+                            <span className="min-w-0 break-words">
+                              {prospectName}
+                            </span>
+                          </p>
+                          {inviterName ? (
+                            <p className="text-xs text-gray-600 break-words mt-0.5">
+                              Invited by {inviterName}
+                            </p>
+                          ) : null}
+                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                            <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium bg-amber-100 text-amber-800">
+                              {prospect.pipeline_stage_display ||
+                                prospect.pipeline_stage ||
+                                "Invited"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

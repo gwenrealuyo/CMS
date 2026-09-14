@@ -595,7 +595,11 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         EvangelismWeeklyReport.objects.select_related(
             "evangelism_group", "submitted_by"
         )
-        .prefetch_related("members_attended", "visitors_attended")
+        .prefetch_related(
+            "members_attended",
+            "visitors_attended",
+            "prospects_invited__invited_by",
+        )
         .all()
     )
     serializer_class = EvangelismWeeklyReportSerializer

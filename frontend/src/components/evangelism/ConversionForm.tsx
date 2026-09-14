@@ -303,11 +303,7 @@ export default function ConversionForm({
         </div>
       </div>
 
-      <div
-        className={
-          lockPersonSelection ? "grid grid-cols-1 md:grid-cols-2 gap-4" : ""
-        }
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
           <label
             htmlFor="conversion-lesson-start-date"
@@ -319,47 +315,40 @@ export default function ConversionForm({
             id="conversion-lesson-start-date"
             type="date"
             value={values.lesson_start_date || ""}
-            onChange={handleChange("lesson_start_date")}
-            readOnly={lockPersonSelection}
-            disabled={lockPersonSelection}
-            className={
-              lockPersonSelection
-                ? "w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-700"
-                : "w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-            }
+            readOnly
+            disabled
+            className="w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-700"
           />
           <p className="text-xs text-gray-500">
             Set automatically when an NCC teacher submits a session report.
           </p>
         </div>
-        {lockPersonSelection && (
-          <div className="space-y-1">
-            <label
-              htmlFor="conversion-ncc-teacher"
-              className="block text-sm font-medium text-gray-700 mb-1"
+        <div className="space-y-1">
+          <label
+            htmlFor="conversion-ncc-teacher"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            NCC teacher
+          </label>
+          <input
+            id="conversion-ncc-teacher"
+            type="text"
+            readOnly
+            disabled
+            value={nccTeacherDisplayName}
+            className="w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-700"
+          />
+          <p className="text-xs text-gray-500">
+            Assigned in Lessons. To change the teacher, use the{" "}
+            <a
+              href="/lessons"
+              className="text-primary underline-offset-2 hover:underline"
             >
-              NCC teacher
-            </label>
-            <input
-              id="conversion-ncc-teacher"
-              type="text"
-              readOnly
-              disabled
-              value={nccTeacherDisplayName}
-              className="w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-700"
-            />
-            <p className="text-xs text-gray-500">
-              Assigned in Lessons. To change the teacher, use the{" "}
-              <a
-                href="/lessons"
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                Lessons
-              </a>{" "}
-              page.
-            </p>
-          </div>
-        )}
+              Lessons
+            </a>{" "}
+            page.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

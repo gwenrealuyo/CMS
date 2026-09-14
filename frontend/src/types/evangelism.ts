@@ -54,6 +54,8 @@ export interface EvangelismWeeklyReport {
   visitors_attended: string[];
   members_attended_details?: Person[];
   visitors_attended_details?: Person[];
+  prospects_invited?: number[];
+  prospects_invited_details?: EvangelismProspectInvitedDetail[];
   gathering_type: "PHYSICAL" | "ONLINE" | "HYBRID";
   topic?: string;
   activities_held?: string;
@@ -65,6 +67,37 @@ export interface EvangelismWeeklyReport {
   submitted_by?: Person;
   submitted_at: string;
   updated_at: string;
+}
+
+export interface EvangelismProspectInvitedDetail {
+  id: number;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  suffix?: string;
+  display_name?: string;
+  pipeline_stage?: string;
+  pipeline_stage_display?: string;
+  invited_by?: {
+    id: number | string;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+  } | null;
+  person_id?: number | null;
+}
+
+export interface EvangelismReportNewInvitedProspectInput {
+  first_name: string;
+  last_name: string;
+  invited_by_id: number | string;
+  middle_name?: string;
+  suffix?: string;
+  gender?: string;
+  contact_info?: string;
+  facebook_name?: string;
+  notes?: string;
+  date_first_invited?: string | null;
 }
 
 export interface EvangelismTallyRow {

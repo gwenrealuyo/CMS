@@ -76,6 +76,8 @@ interface AttendanceSelectorProps {
   isLoadingRoster?: boolean;
   /** Cluster Visitors Attended: group returning / first-visit prospects / new walk-ins. */
   groupByVisitorKind?: boolean;
+  /** Empty-search copy when groupByVisitorKind is on. */
+  noMatchHint?: string;
 }
 
 export default function AttendanceSelector({
@@ -91,6 +93,7 @@ export default function AttendanceSelector({
   mostRecentAttendedIds = [],
   isLoadingRoster = false,
   groupByVisitorKind = false,
+  noMatchHint = "No match. If they came, use Add New Visitor. If they were invited and did not come, use Prospects Invited.",
 }: AttendanceSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -758,7 +761,7 @@ export default function AttendanceSelector({
               ) : (
                 <div className="px-3 py-2 text-gray-500 text-sm">
                   {useVisitorKindGroups
-                    ? "No match. If they came, use Add New Visitor. If they were invited and did not come, use Prospects Invited."
+                    ? noMatchHint
                     : filterRole === "MEMBER" && hasMemberSource
                       ? "No members found"
                       : `No ${filterRole.toLowerCase()}s found`}

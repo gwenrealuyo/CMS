@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.people.models import ModuleCoordinator, Person
@@ -20,6 +21,8 @@ from apps.people.name_formatting import (
 )
 from apps.clusters.models import Cluster
 
+from core.datetime_utils import church_today
+
 from .coordinator_assignments import (
     prune_evangelism_role_assignments_to_members,
     sync_evangelism_bible_sharer_assignments,
@@ -37,7 +40,11 @@ from .models import (
     MonthlyConversionTracking,
     Each1Reach1Goal,
 )
-from .services import get_default_each1reach1_target
+from .services import (
+    create_invited_prospect_for_evangelism_group,
+    find_duplicate_invited_prospects_for_group,
+    get_default_each1reach1_target,
+)
 
 User = get_user_model()
 
@@ -474,6 +481,32 @@ class EvangelismRecurringSessionSerializer(serializers.Serializer):
         return attrs
 
 
+class EvangelismReportNewInvitedProspectSerializer(serializers.Serializer):
+    """Write-only payload for creating an INVITED prospect on an evangelism weekly report."""
+
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    invited_by_id = serializers.PrimaryKeyRelatedField(
+        source="invited_by",
+        queryset=Person.objects.exclude(role="ADMIN"),
+    )
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    suffix = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    gender = serializers.ChoiceField(
+        choices=[("MALE", "Male"), ("FEMALE", "Female"), ("", "")],
+        required=False,
+        allow_blank=True,
+    )
+    contact_info = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    facebook_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    date_first_invited = serializers.DateField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        apply_title_case_name_fields(attrs, PROSPECT_NAME_FIELDS)
+        return attrs
+
+
 class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     evangelism_group = EvangelismGroupSerializer(read_only=True)
     evangelism_group_id = serializers.PrimaryKeyRelatedField(
@@ -483,6 +516,15 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     )
     members_attended_details = serializers.SerializerMethodField()
     visitors_attended_details = serializers.SerializerMethodField()
+    prospects_invited = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Prospect.objects.all(),
+        required=False,
+    )
+    new_invited_prospects = EvangelismReportNewInvitedProspectSerializer(
+        many=True, required=False, write_only=True
+    )
+    prospects_invited_details = serializers.SerializerMethodField()
     submitted_by_details = PersonSummarySerializer(source="submitted_by", read_only=True)
 
     class Meta:
@@ -496,8 +538,11 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             "meeting_date",
             "members_attended",
             "visitors_attended",
+            "prospects_invited",
+            "new_invited_prospects",
             "members_attended_details",
             "visitors_attended_details",
+            "prospects_invited_details",
             "gathering_type",
             "topic",
             "activities_held",
@@ -511,30 +556,129 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             "submitted_at",
             "updated_at",
         )
-        read_only_fields = ("submitted_at", "updated_at")
+        read_only_fields = ("submitted_at", "updated_at", "new_prospects")
 
     def validate(self, attrs):
         group = attrs.get("evangelism_group")
         if group is None and self.instance:
             group = self.instance.evangelism_group
         members = attrs.get("members_attended")
-        if group is None or members is None:
-            return attrs
+        if group is not None and members is not None:
+            allowed_ids = set(group.members.values_list("id", flat=True))
+            if group.coordinator_id:
+                allowed_ids.add(group.coordinator_id)
 
-        allowed_ids = set(group.members.values_list("id", flat=True))
-        if group.coordinator_id:
-            allowed_ids.add(group.coordinator_id)
+            invalid = [p.pk for p in members if p.pk not in allowed_ids]
+            if invalid:
+                raise serializers.ValidationError(
+                    {
+                        "members_attended": (
+                            "Members attended must be active group members or the group coordinator. "
+                            f"Invalid IDs: {invalid}"
+                        )
+                    }
+                )
 
-        invalid = [p.pk for p in members if p.pk not in allowed_ids]
-        if invalid:
-            raise serializers.ValidationError(
-                {
-                    "members_attended": (
-                        "Members attended must be active group members or the group coordinator. "
-                        f"Invalid IDs: {invalid}"
-                    )
-                }
+        new_invited = attrs.get("new_invited_prospects") or []
+        prospects_invited = attrs.get("prospects_invited", serializers.empty)
+        visitors_attended = attrs.get("visitors_attended", serializers.empty)
+
+        if prospects_invited is serializers.empty and self.instance is not None:
+            invited_ids = set(
+                self.instance.prospects_invited.values_list("id", flat=True)
             )
+        elif prospects_invited is serializers.empty:
+            invited_ids = set()
+        else:
+            invited_ids = {p.pk for p in prospects_invited}
+
+        if visitors_attended is serializers.empty and self.instance is not None:
+            visitor_person_ids = set(
+                self.instance.visitors_attended.values_list("id", flat=True)
+            )
+        elif visitors_attended is serializers.empty:
+            visitor_person_ids = set()
+        else:
+            visitor_person_ids = {p.pk for p in visitors_attended}
+
+        if invited_ids:
+            overlap_qs = Prospect.objects.filter(
+                pk__in=invited_ids, person_id__in=visitor_person_ids
+            ).values_list("id", flat=True)
+            overlap = list(overlap_qs)
+            if overlap:
+                raise serializers.ValidationError(
+                    {
+                        "prospects_invited": (
+                            "A prospect cannot be both invited and attended on the same report. "
+                            f"Conflicting prospect ids: {sorted(overlap)}"
+                        )
+                    }
+                )
+
+        if group and prospects_invited is not serializers.empty:
+            for prospect in prospects_invited:
+                if prospect.evangelism_group_id != group.pk:
+                    raise serializers.ValidationError(
+                        {
+                            "prospects_invited": (
+                                f"Prospect {prospect.pk} is not attributed to this evangelism group."
+                            )
+                        }
+                    )
+                if prospect.is_dropped_off:
+                    raise serializers.ValidationError(
+                        {
+                            "prospects_invited": (
+                                f"Prospect {prospect.pk} is dropped off and cannot be invited."
+                            )
+                        }
+                    )
+                person = prospect.person
+                is_invited = prospect.pipeline_stage == Prospect.PipelineStage.INVITED
+                is_linked_visitor = bool(person and person.role == "VISITOR")
+                if not is_invited and not is_linked_visitor:
+                    raise serializers.ValidationError(
+                        {
+                            "prospects_invited": (
+                                f"Prospect {prospect.pk} cannot be recorded as invited "
+                                "(must be INVITED or a linked visitor)."
+                            )
+                        }
+                    )
+
+        if group and new_invited:
+            for idx, payload in enumerate(new_invited):
+                duplicates = find_duplicate_invited_prospects_for_group(
+                    group,
+                    payload.get("first_name", ""),
+                    payload.get("last_name", ""),
+                    contact_info=payload.get("contact_info", ""),
+                    facebook_name=payload.get("facebook_name", ""),
+                )
+                if duplicates:
+                    raise serializers.ValidationError(
+                        {
+                            "new_invited_prospects": {
+                                idx: {
+                                    "non_field_errors": [
+                                        "A similar invited prospect already exists for this group. "
+                                        "Select the existing prospect instead of creating a duplicate."
+                                    ],
+                                    "matches": [
+                                        {
+                                            "id": d.id,
+                                            "display_name": d.display_name,
+                                            "first_name": d.first_name,
+                                            "last_name": d.last_name,
+                                        }
+                                        for d in duplicates
+                                    ],
+                                }
+                            }
+                        }
+                    )
+
         return attrs
 
     def get_members_attended_details(self, obj):
@@ -542,6 +686,122 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
 
     def get_visitors_attended_details(self, obj):
         return PersonSummarySerializer(obj.visitors_attended.all(), many=True).data
+
+    def get_prospects_invited_details(self, obj):
+        details = []
+        for prospect in obj.prospects_invited.select_related("invited_by").all():
+            inviter = prospect.invited_by
+            details.append(
+                {
+                    "id": prospect.id,
+                    "first_name": prospect.first_name,
+                    "last_name": prospect.last_name,
+                    "middle_name": prospect.middle_name,
+                    "suffix": prospect.suffix,
+                    "display_name": prospect.display_name,
+                    "pipeline_stage": prospect.pipeline_stage,
+                    "pipeline_stage_display": prospect.get_pipeline_stage_display(),
+                    "invited_by": (
+                        {
+                            "id": inviter.id,
+                            "first_name": inviter.first_name,
+                            "last_name": inviter.last_name,
+                            "username": inviter.username,
+                        }
+                        if inviter
+                        else None
+                    ),
+                    "person_id": prospect.person_id,
+                }
+            )
+        return details
+
+    def _create_new_invited_prospects(self, group, meeting_date, payloads):
+        created = []
+        for payload in payloads:
+            invite_date = payload.get("date_first_invited") or meeting_date or church_today()
+            created.append(
+                create_invited_prospect_for_evangelism_group(
+                    group,
+                    first_name=payload["first_name"],
+                    last_name=payload["last_name"],
+                    invited_by=payload["invited_by"],
+                    middle_name=payload.get("middle_name", ""),
+                    suffix=payload.get("suffix", ""),
+                    gender=payload.get("gender", "") or "",
+                    contact_info=payload.get("contact_info", ""),
+                    facebook_name=payload.get("facebook_name", ""),
+                    notes=payload.get("notes", ""),
+                    date_first_invited=invite_date,
+                )
+            )
+        return created
+
+    def _sync_derived_new_prospects(self, report):
+        count = report.prospects_invited.count()
+        if report.new_prospects != count:
+            report.new_prospects = count
+            report.save(update_fields=["new_prospects"])
+
+    @transaction.atomic
+    def create(self, validated_data):
+        new_invited_data = validated_data.pop("new_invited_prospects", [])
+        prospects_invited = validated_data.pop("prospects_invited", [])
+        members_attended = validated_data.pop("members_attended", [])
+        visitors_attended = validated_data.pop("visitors_attended", [])
+        group = validated_data["evangelism_group"]
+        meeting_date = validated_data.get("meeting_date")
+
+        created_prospects = self._create_new_invited_prospects(
+            group, meeting_date, new_invited_data
+        )
+
+        report = EvangelismWeeklyReport.objects.create(**validated_data)
+        if members_attended:
+            report.members_attended.set(members_attended)
+        if visitors_attended:
+            report.visitors_attended.set(visitors_attended)
+
+        invited_set = list(prospects_invited) + created_prospects
+        if invited_set:
+            report.prospects_invited.set(invited_set)
+        self._sync_derived_new_prospects(report)
+        return report
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        new_invited_data = validated_data.pop("new_invited_prospects", None)
+        prospects_invited = validated_data.pop("prospects_invited", serializers.empty)
+        members_attended = validated_data.pop("members_attended", serializers.empty)
+        visitors_attended = validated_data.pop("visitors_attended", serializers.empty)
+        group = validated_data.get("evangelism_group", instance.evangelism_group)
+        meeting_date = validated_data.get("meeting_date", instance.meeting_date)
+
+        created_prospects = []
+        if new_invited_data:
+            created_prospects = self._create_new_invited_prospects(
+                group, meeting_date, new_invited_data
+            )
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if members_attended is not serializers.empty:
+            instance.members_attended.set(members_attended)
+        if visitors_attended is not serializers.empty:
+            instance.visitors_attended.set(visitors_attended)
+
+        if prospects_invited is not serializers.empty or created_prospects:
+            if prospects_invited is serializers.empty:
+                current_invited = list(instance.prospects_invited.all())
+            else:
+                current_invited = list(prospects_invited)
+            invited_set = current_invited + created_prospects
+            instance.prospects_invited.set(invited_set)
+
+        self._sync_derived_new_prospects(instance)
+        return instance
 
 
 class EvangelismTallySerializer(serializers.Serializer):

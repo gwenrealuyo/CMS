@@ -138,7 +138,7 @@ Open **Evangelism** for Bible study groups, visitor follow-up, and conversion tr
 |-----|---------|
 | **Groups** | Bible study / evangelism groups (leaders, members, cluster link) |
 | **Each 1 Reach 1** | Annual conversion goals by cluster |
-| **Tally** | Monthly people tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC). A person who hits several stages in one month counts in each of those columns, and once under Unique HC. Click a count to see names; Unique HC highlights the stages achieved that month. |
+| **Tally** | People tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC). **By cluster** (default) lists every cluster in the selected branch for All year, YTD, a quarter, or chosen months. **By month** is the year grid. A person who hits several stages in the window counts in each of those columns, and once under Unique HC. Click a count to see names; Unique HC highlights the stages achieved in the selected months. |
 | **Reports** | Weekly evangelism reports |
 | **Bible Sharers** | Which clusters have assigned Bible Sharer facilitators |
 
@@ -232,7 +232,7 @@ Use date filters on the overview to review giving for a period.
 
 ## Analytics
 
-**Analytics** (Admins and Pastors) provides charts and reports on engagement, demographics, baptism milestones, and more. Some sections are still being expanded; **Engagement** and **People** tabs have live data. The **E1R1** tab shows the same monthly people tally as Evangelism → Tally (including Unique HC).
+**Analytics** (Admins and Pastors) provides charts and reports on engagement, demographics, baptism milestones, and more. Some sections are still being expanded; **Engagement** and **People** tabs have live data. The **E1R1** tab shows the same people tally as Evangelism → Tally (By cluster / By month, including Unique HC).
 
 ---
 

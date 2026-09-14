@@ -5,6 +5,7 @@ import Card from "@/src/components/ui/Card";
 import Button from "@/src/components/ui/Button";
 import Table from "@/src/components/ui/Table";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
+import SegmentedControl from "@/src/components/ui/SegmentedControl";
 import {
   EvangelismPeopleTallyRow,
   EvangelismTallyDrilldownMetric,
@@ -20,24 +21,16 @@ import {
   EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
 import TallyDrilldownModal from "@/src/components/evangelism/TallyDrilldownModal";
+import TallyMonthFilter from "@/src/components/evangelism/TallyMonthFilter";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
-
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+import {
+  MONTH_NAMES,
+  defaultMonthsForYear,
+  formatMonthsLabel,
+  monthsQueryParam,
+} from "@/src/lib/tallyMonthWindow";
 
 export interface TallyScopeParams {
   cluster?: number;
@@ -85,6 +78,8 @@ type PeopleTallyMetric = Extract<
   | "unique_hc"
 >;
 
+type TallyLayoutMode = "cluster" | "month";
+
 export default function PeopleTallyReport({
   year,
   onYearChange,
@@ -101,8 +96,14 @@ export default function PeopleTallyReport({
 }: PeopleTallyReportProps) {
   const selectedYear = year || new Date().getFullYear();
   const selectedBranch = branch === "" ? "" : Number(branch);
+  const [layoutMode, setLayoutMode] = useState<TallyLayoutMode>("cluster");
+  const [months, setMonths] = useState<number[]>(() =>
+    defaultMonthsForYear(selectedYear),
+  );
 
   const scopeParams = useMemo(() => parseTallyScope(tallyScope), [tallyScope]);
+  const isClusterLayout = layoutMode === "cluster";
+  const needsBranchForClusters = isClusterLayout && selectedBranch === "";
 
   const [yearOptions, setYearOptions] = useState<number[]>([]);
   const [yearsLoading, setYearsLoading] = useState(false);
@@ -112,6 +113,10 @@ export default function PeopleTallyReport({
   const [evangelismGroups, setEvangelismGroups] = useState<EvangelismGroup[]>(
     [],
   );
+
+  useEffect(() => {
+    setMonths(defaultMonthsForYear(selectedYear));
+  }, [selectedYear]);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,13 +188,19 @@ export default function PeopleTallyReport({
   const { rows, loading, error } = useEvangelismPeopleTally({
     year: selectedYear,
     branch: selectedBranch === "" ? undefined : selectedBranch,
-    ...scopeParams,
+    ...(isClusterLayout ? {} : scopeParams),
+    group_by: isClusterLayout ? "cluster" : undefined,
+    months: isClusterLayout ? monthsQueryParam(months) : undefined,
+    enabled: !needsBranchForClusters,
   });
 
   const [drilldown, setDrilldown] = useState<{
-    month: number;
+    months: number[];
     metric: PeopleTallyMetric;
     label: string;
+    clusterId?: number | "unassigned" | null;
+    rowKind?: EvangelismPeopleTallyRow["row_kind"];
+    clusterName?: string | null;
   } | null>(null);
 
   /** Cards on mobile by default; table uses horizontal scroll on small screens. */
@@ -216,7 +227,32 @@ export default function PeopleTallyReport({
     if (!value) {
       return;
     }
-    setDrilldown({ month: row.month, metric, label });
+    if (isClusterLayout) {
+      const clusterId =
+        row.row_kind === "unassigned"
+          ? "unassigned"
+          : row.row_kind === "cluster"
+            ? row.cluster_id ?? null
+            : null;
+      setDrilldown({
+        months,
+        metric,
+        label,
+        clusterId,
+        rowKind: row.row_kind,
+        clusterName: row.cluster_name,
+      });
+      return;
+    }
+    if (!row.month) {
+      return;
+    }
+    setDrilldown({
+      months: [row.month],
+      metric,
+      label,
+      clusterName: null,
+    });
   };
 
   const renderDrilldownCell = (
@@ -227,13 +263,14 @@ export default function PeopleTallyReport({
     const count = Number(
       row[`${metric}_count` as keyof EvangelismPeopleTallyRow] ?? 0,
     );
+    const isTotal = row.row_kind === "total";
     if (count <= 0) {
       return (
         <span
           className={
             emphasizeCountCells
               ? "text-sm font-semibold text-gray-400"
-              : "text-sm text-gray-400"
+              : `text-sm text-gray-400 ${isTotal ? "font-semibold" : ""}`
           }
         >
           {count}
@@ -247,7 +284,9 @@ export default function PeopleTallyReport({
         className={
           emphasizeCountCells
             ? "text-base font-medium text-primary hover:text-primary hover:underline"
-            : "text-sm font-medium text-primary hover:text-primary hover:underline"
+            : `text-sm font-medium text-primary hover:text-primary hover:underline ${
+                isTotal ? "font-semibold" : ""
+              }`
         }
         onClick={() => openDrilldown(row, metric, label, count)}
       >
@@ -256,12 +295,50 @@ export default function PeopleTallyReport({
     );
   };
 
+  const renderClusterName = (row: EvangelismPeopleTallyRow) => {
+    const name = (row.cluster_name || row.cluster_code || "Cluster").trim();
+    const isTotal = row.row_kind === "total";
+    if (
+      row.row_kind === "cluster" &&
+      row.cluster_id != null &&
+      onTallyScopeChange
+    ) {
+      return (
+        <button
+          type="button"
+          className="text-sm font-medium text-primary hover:underline"
+          onClick={() => {
+            onTallyScopeChange(`cluster:${row.cluster_id}`);
+            setLayoutMode("month");
+          }}
+        >
+          {name}
+        </button>
+      );
+    }
+    return (
+      <span
+        className={`text-sm text-gray-700 ${isTotal ? "font-semibold" : ""}`}
+      >
+        {name}
+      </span>
+    );
+  };
+
   const drilldownTitle = useMemo(() => {
     if (!drilldown) {
       return "Tally Records";
     }
-    return `${drilldown.label} - ${MONTH_NAMES[drilldown.month - 1]} ${selectedYear}`;
-  }, [drilldown, selectedYear]);
+    const windowLabel = isClusterLayout
+      ? formatMonthsLabel(drilldown.months, selectedYear)
+      : `${MONTH_NAMES[(drilldown.months[0] || 1) - 1]} ${selectedYear}`;
+    const scopeLabel = isClusterLayout
+      ? drilldown.clusterName || "All clusters"
+      : null;
+    return scopeLabel
+      ? `${drilldown.label} — ${windowLabel} — ${scopeLabel}`
+      : `${drilldown.label} - ${windowLabel}`;
+  }, [drilldown, isClusterLayout, selectedYear]);
 
   useEffect(() => {
     const fetchAvailableYears = async () => {
@@ -269,7 +346,7 @@ export default function PeopleTallyReport({
         setYearsLoading(true);
         const response = await evangelismApi.getPeopleTallyYears({
           branch: selectedBranch === "" ? undefined : selectedBranch,
-          ...scopeParams,
+          ...(isClusterLayout ? {} : scopeParams),
         });
         const years = response.data.years || [];
         const fallbackYear =
@@ -285,7 +362,7 @@ export default function PeopleTallyReport({
     };
 
     fetchAvailableYears();
-  }, [selectedBranch, scopeParams]);
+  }, [selectedBranch, scopeParams, isClusterLayout]);
 
   useEffect(() => {
     if (!onYearChange || yearOptions.length === 0) {
@@ -304,15 +381,32 @@ export default function PeopleTallyReport({
       const response = await evangelismApi.getPeopleTallyDetail({
         year: selectedYear,
         branch: selectedBranch === "" ? undefined : selectedBranch,
-        ...scopeParams,
-        month: drilldown.month,
+        ...(isClusterLayout
+          ? {
+              months: monthsQueryParam(drilldown.months),
+              ...(drilldown.rowKind === "unassigned"
+                ? { cluster: "unassigned" }
+                : drilldown.rowKind === "cluster" && drilldown.clusterId != null
+                  ? { cluster: drilldown.clusterId }
+                  : {}),
+            }
+          : {
+              ...scopeParams,
+              month: drilldown.months[0],
+            }),
         metric: drilldown.metric,
         page,
         page_size: 20,
       });
       return response.data;
     },
-    [drilldown, selectedYear, selectedBranch, scopeParams],
+    [
+      drilldown,
+      selectedYear,
+      selectedBranch,
+      scopeParams,
+      isClusterLayout,
+    ],
   );
 
   const handleResetFilters = () => {
@@ -331,15 +425,95 @@ export default function PeopleTallyReport({
     if (onYearChange) {
       const fallbackYear = yearOptions[0] || new Date().getFullYear();
       onYearChange(fallbackYear);
+      setMonths(defaultMonthsForYear(fallbackYear));
+    } else {
+      setMonths(defaultMonthsForYear(selectedYear));
     }
   };
+
+  const metricColumns = [
+    {
+      header: "Invited",
+      accessor: "invited_count" as keyof EvangelismPeopleTallyRow,
+      render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+        renderDrilldownCell(row, "invited", "Invited"),
+    },
+    {
+      header: "Attended",
+      accessor: "attended_count" as keyof EvangelismPeopleTallyRow,
+      render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+        renderDrilldownCell(row, "attended", "Attended"),
+    },
+    {
+      header: "NCC",
+      accessor: "students_count" as keyof EvangelismPeopleTallyRow,
+      render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+        renderDrilldownCell(row, "students", "NCC"),
+    },
+    {
+      header: "Baptized",
+      accessor: "baptized_count" as keyof EvangelismPeopleTallyRow,
+      render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+        renderDrilldownCell(row, "baptized", "Baptized"),
+    },
+    {
+      header: "Received HG",
+      accessor: "received_hg_count" as keyof EvangelismPeopleTallyRow,
+      render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+        renderDrilldownCell(row, "received_hg", "Received HG"),
+    },
+    {
+      header: "REACHED",
+      accessor: "reached_count" as keyof EvangelismPeopleTallyRow,
+      render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+        renderDrilldownCell(row, "reached", "Reached"),
+    },
+    {
+      header: "UNIQUE HC",
+      accessor: "unique_hc_count" as keyof EvangelismPeopleTallyRow,
+      render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+        renderDrilldownCell(row, "unique_hc", "Unique HC"),
+    },
+  ];
+
+  const columns = isClusterLayout
+    ? [
+        {
+          header: "Cluster",
+          accessor: "cluster_name" as keyof EvangelismPeopleTallyRow,
+          render: (_value: unknown, row: EvangelismPeopleTallyRow) =>
+            renderClusterName(row),
+        },
+        ...metricColumns,
+      ]
+    : [
+        {
+          header: "Month",
+          accessor: "month" as keyof EvangelismPeopleTallyRow,
+          render: (_value: unknown, row: EvangelismPeopleTallyRow) => (
+            <span className="text-sm text-gray-700">
+              {row.month ? MONTH_NAMES[row.month - 1] : "—"}
+            </span>
+          ),
+        },
+        ...metricColumns,
+      ];
 
   return (
     <Card>
       <div className="">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">
-          Monthly People Tally
-        </h3>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">People Tally</h3>
+          <SegmentedControl
+            value={layoutMode}
+            onChange={setLayoutMode}
+            fullWidthOnMobile
+            options={[
+              { id: "cluster", label: "By cluster" },
+              { id: "month", label: "By month" },
+            ]}
+          />
+        </div>
         {hasFilterControls && (
           <div className={filterGridClass}>
             {onYearChange && (
@@ -427,24 +601,32 @@ export default function PeopleTallyReport({
                   </LockedControlTooltip>
                 );
               })()}
-            {onTallyScopeChange && (
-              <div className="min-w-0">
-                <label className="sr-only">Cluster or evangelism group</label>
-                <ScalableSelect
-                  options={scopeSelectOptions}
-                  value={tallyScope}
-                  onChange={onTallyScopeChange}
-                  placeholder={
-                    groupsLoading ? "Loading groups…" : "Cluster or group..."
-                  }
-                  searchPlaceholder="Search..."
-                  loading={groupsLoading}
-                  disabled={groupsLoading && scopeSelectOptions.length === 0}
-                  emptyMessage="No clusters or groups match"
-                  virtualizeThreshold={80}
-                  className="w-full text-sm"
-                />
-              </div>
+            {isClusterLayout ? (
+              <TallyMonthFilter
+                year={selectedYear}
+                months={months}
+                onChange={setMonths}
+              />
+            ) : (
+              onTallyScopeChange && (
+                <div className="min-w-0">
+                  <label className="sr-only">Cluster or evangelism group</label>
+                  <ScalableSelect
+                    options={scopeSelectOptions}
+                    value={tallyScope}
+                    onChange={onTallyScopeChange}
+                    placeholder={
+                      groupsLoading ? "Loading groups…" : "Cluster or group..."
+                    }
+                    searchPlaceholder="Search..."
+                    loading={groupsLoading}
+                    disabled={groupsLoading && scopeSelectOptions.length === 0}
+                    emptyMessage="No clusters or groups match"
+                    virtualizeThreshold={80}
+                    className="w-full text-sm"
+                  />
+                </div>
+              )
             )}
             <Button
               variant="tertiary"
@@ -455,7 +637,11 @@ export default function PeopleTallyReport({
             </Button>
           </div>
         )}
-        {loading ? (
+        {needsBranchForClusters ? (
+          <div className="text-center py-8 text-gray-500">
+            Select a branch to compare clusters.
+          </div>
+        ) : loading ? (
           <div className="text-center py-8 text-gray-500">Loading tally...</div>
         ) : error ? (
           <div className="text-center py-8 text-red-500">Error: {error}</div>
@@ -478,60 +664,7 @@ export default function PeopleTallyReport({
             </div>
             <Table
               mobileCardView={effectiveViewMode === "cards"}
-              columns={[
-                {
-                  header: "Month",
-                  accessor: "month" as keyof EvangelismPeopleTallyRow,
-                  render: (_value, row) => (
-                    <span className="text-sm text-gray-700">
-                      {MONTH_NAMES[row.month - 1]}
-                    </span>
-                  ),
-                },
-                {
-                  header: "Invited",
-                  accessor: "invited_count" as keyof EvangelismPeopleTallyRow,
-                  render: (_value, row) =>
-                    renderDrilldownCell(row, "invited", "Invited"),
-                },
-                {
-                  header: "Attended",
-                  accessor: "attended_count" as keyof EvangelismPeopleTallyRow,
-                  render: (_value, row) =>
-                    renderDrilldownCell(row, "attended", "Attended"),
-                },
-                {
-                  header: "NCC",
-                  accessor: "students_count" as keyof EvangelismPeopleTallyRow,
-                  render: (_value, row) =>
-                    renderDrilldownCell(row, "students", "NCC"),
-                },
-                {
-                  header: "Baptized",
-                  accessor: "baptized_count" as keyof EvangelismPeopleTallyRow,
-                  render: (_value, row) =>
-                    renderDrilldownCell(row, "baptized", "Baptized"),
-                },
-                {
-                  header: "Received HG",
-                  accessor:
-                    "received_hg_count" as keyof EvangelismPeopleTallyRow,
-                  render: (_value, row) =>
-                    renderDrilldownCell(row, "received_hg", "Received HG"),
-                },
-                {
-                  header: "REACHED",
-                  accessor: "reached_count" as keyof EvangelismPeopleTallyRow,
-                  render: (_value, row) =>
-                    renderDrilldownCell(row, "reached", "Reached"),
-                },
-                {
-                  header: "UNIQUE HC",
-                  accessor: "unique_hc_count" as keyof EvangelismPeopleTallyRow,
-                  render: (_value, row) =>
-                    renderDrilldownCell(row, "unique_hc", "Unique HC"),
-                },
-              ]}
+              columns={columns}
               data={rows}
             />
           </>
@@ -542,11 +675,13 @@ export default function PeopleTallyReport({
         title={drilldownTitle}
         requestKey={
           drilldown
-            ? `${selectedYear}-${drilldown.month}-${drilldown.metric}-${tallyScope || "all"}`
+            ? `${layoutMode}-${selectedYear}-${monthsQueryParam(drilldown.months)}-${drilldown.metric}-${
+                drilldown.rowKind || tallyScope || "all"
+              }-${drilldown.clusterId ?? ""}`
             : null
         }
-        highlightMonth={
-          drilldown?.metric === "unique_hc" ? drilldown.month : null
+        highlightMonths={
+          drilldown?.metric === "unique_hc" ? drilldown.months : null
         }
         highlightYear={drilldown?.metric === "unique_hc" ? selectedYear : null}
         onClose={() => setDrilldown(null)}

@@ -1,5 +1,6 @@
+from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence, Set
 
 from django.db.models import Q, Count
 from django.utils import timezone
@@ -428,6 +429,90 @@ def calculate_monthly_statistics(
     return [result]
 
 
+UNASSIGNED_CLUSTER_SENTINELS = frozenset({"null", "none", "unassigned"})
+PEOPLE_TALLY_GROUP_BY_MONTH = "month"
+PEOPLE_TALLY_GROUP_BY_CLUSTER = "cluster"
+PEOPLE_TALLY_ROW_CLUSTER = "cluster"
+PEOPLE_TALLY_ROW_UNASSIGNED = "unassigned"
+PEOPLE_TALLY_ROW_TOTAL = "total"
+
+
+def parse_people_tally_months(raw: Optional[str]) -> List[int]:
+    """Parse comma-separated months; empty/missing means the full year."""
+    if raw in (None, ""):
+        return list(range(1, 13))
+    months: List[int] = []
+    seen = set()
+    for part in str(raw).split(","):
+        token = part.strip()
+        if not token:
+            continue
+        try:
+            month = int(token)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("months must be comma-separated integers 1-12.") from exc
+        if month < 1 or month > 12:
+            raise ValueError("months must be comma-separated integers 1-12.")
+        if month not in seen:
+            seen.add(month)
+            months.append(month)
+    if not months:
+        return list(range(1, 13))
+    months.sort()
+    return months
+
+
+def parse_people_tally_group_by(raw: Optional[str]) -> str:
+    if raw in (None, "", PEOPLE_TALLY_GROUP_BY_MONTH):
+        return PEOPLE_TALLY_GROUP_BY_MONTH
+    if raw == PEOPLE_TALLY_GROUP_BY_CLUSTER:
+        return PEOPLE_TALLY_GROUP_BY_CLUSTER
+    raise ValueError("group_by must be month or cluster.")
+
+
+def is_unassigned_cluster_param(raw: Optional[str]) -> bool:
+    if raw in (None, ""):
+        return False
+    return str(raw).lower() in UNASSIGNED_CLUSTER_SENTINELS
+
+
+def person_ids_with_ncc_sessions_for_months(
+    *,
+    year: int,
+    months: Sequence[int],
+    branch_id: Optional[int] = None,
+    cluster_id: Optional[int] = None,
+    evangelism_group_id: Optional[int] = None,
+    group_person_ids: Optional[frozenset] = None,
+    unclustered: bool = False,
+) -> set:
+    """Distinct people with NCC lesson activity in any of the given months."""
+    from apps.lessons.models import LessonSessionReport
+
+    month_list = list(months)
+    if not month_list:
+        return set()
+
+    student_lsr = LessonSessionReport.objects.filter(
+        session_date__year=year,
+        session_date__month__in=month_list,
+    )
+    if branch_id is not None:
+        student_lsr = student_lsr.filter(student__branch_id=branch_id)
+    if unclustered:
+        student_lsr = student_lsr.filter(student__clusters__isnull=True)
+    elif cluster_id is not None:
+        student_lsr = student_lsr.filter(student__clusters__id=cluster_id)
+    elif evangelism_group_id is not None:
+        gp_ids = group_person_ids or frozenset()
+        if gp_ids:
+            student_lsr = student_lsr.filter(student_id__in=gp_ids)
+        else:
+            student_lsr = student_lsr.none()
+
+    return set(student_lsr.values_list("student_id", flat=True).distinct())
+
+
 def person_ids_with_ncc_sessions_for_month(
     *,
     year: int,
@@ -438,24 +523,237 @@ def person_ids_with_ncc_sessions_for_month(
     group_person_ids: Optional[frozenset] = None,
 ) -> set:
     """Distinct people with NCC lesson activity in a month (People Tally NCC rule)."""
-    from apps.lessons.models import LessonSessionReport
-
-    student_lsr = LessonSessionReport.objects.filter(
-        session_date__year=year,
-        session_date__month=month,
+    return person_ids_with_ncc_sessions_for_months(
+        year=year,
+        months=[month],
+        branch_id=branch_id,
+        cluster_id=cluster_id,
+        evangelism_group_id=evangelism_group_id,
+        group_person_ids=group_person_ids,
     )
-    if branch_id is not None:
-        student_lsr = student_lsr.filter(student__branch_id=branch_id)
-    if cluster_id is not None:
-        student_lsr = student_lsr.filter(student__clusters__id=cluster_id)
-    elif evangelism_group_id is not None:
-        gp_ids = group_person_ids or frozenset()
-        if gp_ids:
-            student_lsr = student_lsr.filter(student_id__in=gp_ids)
-        else:
-            student_lsr = student_lsr.none()
 
-    return set(student_lsr.values_list("student_id", flat=True).distinct())
+
+def people_tally_id_sets(
+    *,
+    year: int,
+    months: Sequence[int],
+    base_qs,
+    branch_id: Optional[int] = None,
+    cluster_id: Optional[int] = None,
+    evangelism_group_id: Optional[int] = None,
+    group_person_ids: Optional[frozenset] = None,
+    unclustered: bool = False,
+) -> Dict[str, Set[int]]:
+    """Person ID sets for each people-tally column over the given months."""
+    month_list = list(months)
+    scoped_qs = base_qs
+    if unclustered:
+        scoped_qs = scoped_qs.filter(clusters__isnull=True).distinct()
+
+    invited_ids = set(
+        scoped_qs.filter(
+            role="VISITOR",
+            date_joined__year=year,
+            date_joined__month__in=month_list,
+            date_first_attended__isnull=True,
+        ).values_list("id", flat=True)
+    )
+    attended_ids = set(
+        scoped_qs.filter(
+            role="VISITOR",
+            date_first_attended__year=year,
+            date_first_attended__month__in=month_list,
+        ).values_list("id", flat=True)
+    )
+    students_ids = person_ids_with_ncc_sessions_for_months(
+        year=year,
+        months=month_list,
+        branch_id=branch_id,
+        cluster_id=cluster_id,
+        evangelism_group_id=evangelism_group_id,
+        group_person_ids=group_person_ids,
+        unclustered=unclustered,
+    )
+    baptized_ids = set(
+        scoped_qs.filter(
+            water_baptism_date__year=year,
+            water_baptism_date__month__in=month_list,
+        ).values_list("id", flat=True)
+    )
+    received_hg_ids = set(
+        scoped_qs.filter(
+            spirit_baptism_date__year=year,
+            spirit_baptism_date__month__in=month_list,
+        ).values_list("id", flat=True)
+    )
+    reached_ids = set(
+        annotate_people_reached_date(people_meeting_reached_milestones(scoped_qs))
+        .filter(
+            reached_date__year=year,
+            reached_date__month__in=month_list,
+        )
+        .values_list("id", flat=True)
+    )
+    unique_hc_ids = (
+        invited_ids
+        | attended_ids
+        | students_ids
+        | baptized_ids
+        | received_hg_ids
+        | reached_ids
+    )
+    return {
+        "invited": invited_ids,
+        "attended": attended_ids,
+        "students": students_ids,
+        "baptized": baptized_ids,
+        "received_hg": received_hg_ids,
+        "reached": reached_ids,
+        "unique_hc": unique_hc_ids,
+    }
+
+
+def people_tally_counts_from_ids(id_sets: Dict[str, Set[int]]) -> Dict[str, int]:
+    return {
+        "invited_count": len(id_sets["invited"]),
+        "attended_count": len(id_sets["attended"]),
+        "students_count": len(id_sets["students"]),
+        "baptized_count": len(id_sets["baptized"]),
+        "received_hg_count": len(id_sets["received_hg"]),
+        "reached_count": len(id_sets["reached"]),
+        "unique_hc_count": len(id_sets["unique_hc"]),
+    }
+
+
+def build_people_tally_month_rows(
+    *,
+    year: int,
+    base_qs,
+    branch_id: Optional[int] = None,
+    cluster_id: Optional[int] = None,
+    evangelism_group_id: Optional[int] = None,
+    group_person_ids: Optional[frozenset] = None,
+    unclustered: bool = False,
+) -> List[dict]:
+    rows = []
+    for month in range(1, 13):
+        id_sets = people_tally_id_sets(
+            year=year,
+            months=[month],
+            base_qs=base_qs,
+            branch_id=branch_id,
+            cluster_id=cluster_id,
+            evangelism_group_id=evangelism_group_id,
+            group_person_ids=group_person_ids,
+            unclustered=unclustered,
+        )
+        rows.append(
+            {
+                "month": month,
+                "year": year,
+                **people_tally_counts_from_ids(id_sets),
+            }
+        )
+    return rows
+
+
+def _cluster_display_name(cluster: Cluster) -> str:
+    return (cluster.name or cluster.code or f"Cluster {cluster.id}").strip()
+
+
+def _subset_ids_for_clusters(
+    id_sets: Dict[str, Set[int]],
+    person_cluster_ids: Dict[int, Set[int]],
+    *,
+    cluster_id: Optional[int] = None,
+    unassigned: bool = False,
+) -> Dict[str, Set[int]]:
+    def matches(person_id: int) -> bool:
+        memberships = person_cluster_ids.get(person_id) or set()
+        if unassigned:
+            return not memberships
+        return cluster_id in memberships
+
+    return {key: {pid for pid in ids if matches(pid)} for key, ids in id_sets.items()}
+
+
+def build_people_tally_cluster_rows(
+    *,
+    year: int,
+    months: Sequence[int],
+    branch_id: int,
+    base_qs,
+) -> List[dict]:
+    """One row per active cluster, optional Unassigned, then a Total union row."""
+    clusters = list(
+        Cluster.objects.filter(branch_id=branch_id, is_active=True).order_by(
+            "name", "code", "id"
+        )
+    )
+    id_sets = people_tally_id_sets(
+        year=year,
+        months=months,
+        base_qs=base_qs,
+        branch_id=branch_id,
+    )
+    all_ids: Set[int] = set()
+    for ids in id_sets.values():
+        all_ids |= ids
+
+    person_cluster_ids: Dict[int, Set[int]] = defaultdict(set)
+    if clusters and all_ids:
+        memberships = Cluster.members.through.objects.filter(
+            cluster_id__in=[cluster.id for cluster in clusters],
+            person_id__in=all_ids,
+        ).values_list("person_id", "cluster_id")
+        for person_id, cluster_id in memberships:
+            person_cluster_ids[person_id].add(cluster_id)
+
+    rows: List[dict] = []
+    for cluster in clusters:
+        clustered = _subset_ids_for_clusters(
+            id_sets, person_cluster_ids, cluster_id=cluster.id
+        )
+        rows.append(
+            {
+                "month": None,
+                "year": year,
+                "cluster_id": cluster.id,
+                "cluster_name": _cluster_display_name(cluster),
+                "cluster_code": cluster.code,
+                "row_kind": PEOPLE_TALLY_ROW_CLUSTER,
+                **people_tally_counts_from_ids(clustered),
+            }
+        )
+
+    unassigned_sets = _subset_ids_for_clusters(
+        id_sets, person_cluster_ids, unassigned=True
+    )
+    if any(unassigned_sets.values()):
+        rows.append(
+            {
+                "month": None,
+                "year": year,
+                "cluster_id": None,
+                "cluster_name": "Unassigned",
+                "cluster_code": None,
+                "row_kind": PEOPLE_TALLY_ROW_UNASSIGNED,
+                **people_tally_counts_from_ids(unassigned_sets),
+            }
+        )
+
+    rows.append(
+        {
+            "month": None,
+            "year": year,
+            "cluster_id": None,
+            "cluster_name": "Total",
+            "cluster_code": None,
+            "row_kind": PEOPLE_TALLY_ROW_TOTAL,
+            **people_tally_counts_from_ids(id_sets),
+        }
+    )
+    return rows
 
 
 def count_taken_ncc_prospects_for_month(

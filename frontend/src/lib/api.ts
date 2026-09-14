@@ -1726,6 +1726,8 @@ export const evangelismApi = {
     branch?: number | string;
     cluster?: number | string;
     evangelism_group?: number | string;
+    group_by?: "month" | "cluster";
+    months?: string;
   }) =>
     api.get<EvangelismPeopleTallyRow[]>(
       "/evangelism/weekly-reports/people_tally/",
@@ -1745,7 +1747,8 @@ export const evangelismApi = {
     branch?: number | string;
     cluster?: number | string;
     evangelism_group?: number | string;
-    month: number;
+    month?: number;
+    months?: string;
     metric: "invited" | "attended" | "students" | "baptized" | "received_hg" | "reached" | "unique_hc";
     page?: number;
     page_size?: number;

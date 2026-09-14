@@ -552,7 +552,7 @@ class EvangelismTallySerializer(serializers.Serializer):
 
 
 class EvangelismPeopleTallySerializer(serializers.Serializer):
-    month = serializers.IntegerField()
+    month = serializers.IntegerField(required=False, allow_null=True)
     year = serializers.IntegerField()
     invited_count = serializers.IntegerField()
     attended_count = serializers.IntegerField()
@@ -561,6 +561,18 @@ class EvangelismPeopleTallySerializer(serializers.Serializer):
     received_hg_count = serializers.IntegerField()
     reached_count = serializers.IntegerField()
     unique_hc_count = serializers.IntegerField()
+    cluster_id = serializers.IntegerField(required=False, allow_null=True)
+    cluster_name = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+    cluster_code = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+    row_kind = serializers.ChoiceField(
+        choices=["cluster", "unassigned", "total"],
+        required=False,
+        allow_null=True,
+    )
 
 
 class EvangelismTallyDrilldownSerializer(serializers.Serializer):

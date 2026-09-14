@@ -84,7 +84,7 @@ export interface EvangelismTallyRow {
 }
 
 export interface EvangelismPeopleTallyRow {
-  month: number;
+  month?: number | null;
   year: number;
   invited_count: number;
   attended_count: number;
@@ -93,6 +93,10 @@ export interface EvangelismPeopleTallyRow {
   received_hg_count: number;
   reached_count: number;
   unique_hc_count: number;
+  cluster_id?: number | null;
+  cluster_name?: string | null;
+  cluster_code?: string | null;
+  row_kind?: "cluster" | "unassigned" | "total" | null;
 }
 
 export type EvangelismTallyDrilldownMetric =

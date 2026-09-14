@@ -17,8 +17,8 @@ interface TallyDrilldownModalProps {
   fetchPage: (
     page: number,
   ) => Promise<PaginatedResponse<EvangelismTallyDrilldownRow>>;
-  /** When set (Unique HC), emphasize milestone chips whose date falls in this month. */
-  highlightMonth?: number | null;
+  /** When set (Unique HC), emphasize milestone chips whose date falls in these months. */
+  highlightMonths?: number[] | null;
   highlightYear?: number | null;
 }
 
@@ -28,7 +28,7 @@ export default function TallyDrilldownModal({
   requestKey,
   onClose,
   fetchPage,
-  highlightMonth = null,
+  highlightMonths = null,
   highlightYear = null,
 }: TallyDrilldownModalProps) {
   const [rows, setRows] = useState<EvangelismTallyDrilldownRow[]>([]);
@@ -67,7 +67,7 @@ export default function TallyDrilldownModal({
   const formatDate = (value?: string | null) => formatLocaleDate(value);
 
   const isInHighlightMonth = (value?: string | null) => {
-    if (highlightMonth == null || highlightYear == null || !value) {
+    if (!highlightMonths?.length || highlightYear == null || !value) {
       return false;
     }
     const datePart = value.slice(0, 10);
@@ -77,7 +77,7 @@ export default function TallyDrilldownModal({
     }
     const year = Number(match[1]);
     const month = Number(match[2]);
-    return year === highlightYear && month === highlightMonth;
+    return year === highlightYear && highlightMonths.includes(month);
   };
 
   const chipClassName = (base: string, value?: string | null) =>

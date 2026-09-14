@@ -73,7 +73,13 @@ from .services import (
     REPORT_BACKED_FIRST_ACTIVITIES,
     update_monthly_tracking,
     calculate_monthly_statistics,
-    person_ids_with_ncc_sessions_for_month,
+    parse_people_tally_months,
+    parse_people_tally_group_by,
+    is_unassigned_cluster_param,
+    build_people_tally_month_rows,
+    build_people_tally_cluster_rows,
+    people_tally_id_sets,
+    PEOPLE_TALLY_GROUP_BY_CLUSTER,
     check_conversion_completion,
     endorse_visitor_to_cluster,
     get_cluster_visitors,
@@ -772,6 +778,32 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
 
         return branch_id, cluster_id, eg_id, group_person_ids
 
+    def _people_tally_scope(self):
+        """Like `_branch_cluster_group_scope`, plus `cluster=unassigned`."""
+        cluster_raw = self.request.query_params.get("cluster")
+        if is_unassigned_cluster_param(cluster_raw):
+            branch_id = self._resolve_branch_id()
+            eg_id = self._resolve_evangelism_group_id()
+            if eg_id is not None:
+                raise ValidationError(
+                    {"detail": "Specify at most one of cluster or evangelism_group."}
+                )
+            return branch_id, None, None, None, True
+        branch_id, cluster_id, eg_id, group_person_ids = (
+            self._branch_cluster_group_scope()
+        )
+        return branch_id, cluster_id, eg_id, group_person_ids, False
+
+    def _parse_people_tally_months(self) -> list:
+        months_raw = self.request.query_params.get("months")
+        month_raw = self.request.query_params.get("month")
+        if months_raw in (None, "") and month_raw not in (None, ""):
+            months_raw = month_raw
+        try:
+            return parse_people_tally_months(months_raw)
+        except ValueError as exc:
+            raise ValidationError({"months": str(exc)}) from exc
+
     @staticmethod
     def _person_display_name(person: Person) -> str:
         if hasattr(person, "get_full_name"):
@@ -1139,86 +1171,61 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         year = request.query_params.get("year")
         year_int = int(year) if year else timezone.now().year
 
-        branch_id, cluster_id, eg_id, group_person_ids = self._branch_cluster_group_scope()
+        try:
+            group_by = parse_people_tally_group_by(
+                request.query_params.get("group_by")
+            )
+        except ValueError as exc:
+            raise ValidationError({"group_by": str(exc)}) from exc
+
+        branch_id, cluster_id, eg_id, group_person_ids, unclustered = (
+            self._people_tally_scope()
+        )
+
+        if group_by == PEOPLE_TALLY_GROUP_BY_CLUSTER:
+            if eg_id is not None:
+                raise ValidationError(
+                    {
+                        "evangelism_group": (
+                            "Do not send evangelism_group with group_by=cluster."
+                        )
+                    }
+                )
+            if branch_id is None:
+                raise ValidationError(
+                    {"branch": "branch is required when group_by=cluster."}
+                )
+            months = self._parse_people_tally_months()
+            base_qs = Person.objects.exclude(role="ADMIN").filter(branch_id=branch_id)
+            rows = build_people_tally_cluster_rows(
+                year=year_int,
+                months=months,
+                branch_id=branch_id,
+                base_qs=base_qs,
+            )
+            serializer = EvangelismPeopleTallySerializer(rows, many=True)
+            return Response(serializer.data)
 
         base_qs = Person.objects.exclude(role="ADMIN")
         if branch_id is not None:
             base_qs = base_qs.filter(branch_id=branch_id)
-        if cluster_id is not None:
+        if unclustered:
+            base_qs = base_qs.filter(clusters__isnull=True).distinct()
+        elif cluster_id is not None:
             base_qs = base_qs.filter(clusters__id=cluster_id)
         elif eg_id is not None:
             gp_ids = group_person_ids or frozenset()
             base_qs = base_qs.filter(id__in=gp_ids) if gp_ids else base_qs.none()
 
-        rows = []
-        for month in range(1, 13):
-            invited_ids = set(
-                base_qs.filter(
-                    role="VISITOR",
-                    date_joined__year=year_int,
-                    date_joined__month=month,
-                    date_first_attended__isnull=True,
-                ).values_list("id", flat=True)
-            )
-            attended_ids = set(
-                base_qs.filter(
-                    role="VISITOR",
-                    date_first_attended__year=year_int,
-                    date_first_attended__month=month,
-                ).values_list("id", flat=True)
-            )
-            students_ids = person_ids_with_ncc_sessions_for_month(
-                year=year_int,
-                month=month,
-                branch_id=branch_id,
-                cluster_id=cluster_id,
-                evangelism_group_id=eg_id,
-                group_person_ids=group_person_ids,
-            )
-            baptized_ids = set(
-                base_qs.filter(
-                    water_baptism_date__year=year_int,
-                    water_baptism_date__month=month,
-                ).values_list("id", flat=True)
-            )
-            received_hg_ids = set(
-                base_qs.filter(
-                    spirit_baptism_date__year=year_int,
-                    spirit_baptism_date__month=month,
-                ).values_list("id", flat=True)
-            )
-            reached_ids = set(
-                annotate_people_reached_date(
-                    people_meeting_reached_milestones(base_qs)
-                )
-                .filter(
-                    reached_date__year=year_int,
-                    reached_date__month=month,
-                )
-                .values_list("id", flat=True)
-            )
-            unique_hc_ids = (
-                invited_ids
-                | attended_ids
-                | students_ids
-                | baptized_ids
-                | received_hg_ids
-                | reached_ids
-            )
-            rows.append(
-                {
-                    "month": month,
-                    "year": year_int,
-                    "invited_count": len(invited_ids),
-                    "attended_count": len(attended_ids),
-                    "students_count": len(students_ids),
-                    "baptized_count": len(baptized_ids),
-                    "received_hg_count": len(received_hg_ids),
-                    "reached_count": len(reached_ids),
-                    "unique_hc_count": len(unique_hc_ids),
-                }
-            )
-
+        rows = build_people_tally_month_rows(
+            year=year_int,
+            base_qs=base_qs,
+            branch_id=branch_id,
+            cluster_id=cluster_id,
+            evangelism_group_id=eg_id,
+            group_person_ids=group_person_ids,
+            unclustered=unclustered,
+        )
         serializer = EvangelismPeopleTallySerializer(rows, many=True)
         return Response(serializer.data)
 
@@ -1278,9 +1285,10 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="people_tally_detail")
     def people_tally_detail(self, request):
         year = request.query_params.get("year")
-        month = request.query_params.get("month")
         metric = request.query_params.get("metric")
-        branch_id, cluster_id, eg_id, group_person_ids = self._branch_cluster_group_scope()
+        branch_id, cluster_id, eg_id, group_person_ids, unclustered = (
+            self._people_tally_scope()
+        )
 
         valid_metrics = {
             "invited",
@@ -1302,36 +1310,44 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            year_int = int(year) if year else timezone.now().year
-            month_int = int(month)
-        except (TypeError, ValueError):
+        if request.query_params.get("months") in (None, "") and request.query_params.get(
+            "month"
+        ) in (None, ""):
             return Response(
-                {"detail": "year and month must be valid integers."},
+                {"detail": "year and month (or months) must be provided."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if month_int < 1 or month_int > 12:
+        try:
+            year_int = int(year) if year else timezone.now().year
+            months = self._parse_people_tally_months()
+        except (TypeError, ValueError, ValidationError) as exc:
+            if isinstance(exc, ValidationError):
+                raise
             return Response(
-                {"detail": "month must be between 1 and 12."},
+                {"detail": "year and month must be valid integers."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         base_people = Person.objects.exclude(role="ADMIN")
         if branch_id is not None:
             base_people = base_people.filter(branch_id=branch_id)
-        if cluster_id is not None:
+        if unclustered:
+            base_people = base_people.filter(clusters__isnull=True).distinct()
+        elif cluster_id is not None:
             base_people = base_people.filter(clusters__id=cluster_id)
         elif eg_id is not None:
             gp_ids = group_person_ids or frozenset()
-            base_people = base_people.filter(id__in=gp_ids) if gp_ids else base_people.none()
+            base_people = (
+                base_people.filter(id__in=gp_ids) if gp_ids else base_people.none()
+            )
 
         if metric == "invited":
             rows = self._serialize_people_rows(
                 base_people.filter(
                     role="VISITOR",
                     date_joined__year=year_int,
-                    date_joined__month=month_int,
+                    date_joined__month__in=months,
                     date_first_attended__isnull=True,
                 ).order_by("first_name", "last_name", "username"),
                 metric,
@@ -1342,7 +1358,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 base_people.filter(
                     role="VISITOR",
                     date_first_attended__year=year_int,
-                    date_first_attended__month=month_int,
+                    date_first_attended__month__in=months,
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="date_first_attended",
@@ -1350,11 +1366,13 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         elif metric == "students":
             lesson_base = LessonSessionReport.objects.filter(
                 session_date__year=year_int,
-                session_date__month=month_int,
+                session_date__month__in=months,
             )
             if branch_id is not None:
                 lesson_base = lesson_base.filter(student__branch_id=branch_id)
-            if cluster_id is not None:
+            if unclustered:
+                lesson_base = lesson_base.filter(student__clusters__isnull=True)
+            elif cluster_id is not None:
                 lesson_base = lesson_base.filter(student__clusters__id=cluster_id)
             elif eg_id is not None:
                 gp_ids = group_person_ids or frozenset()
@@ -1386,7 +1404,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             rows = self._serialize_people_rows(
                 base_people.filter(
                     water_baptism_date__year=year_int,
-                    water_baptism_date__month=month_int,
+                    water_baptism_date__month__in=months,
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="water_baptism_date",
@@ -1395,7 +1413,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
             rows = self._serialize_people_rows(
                 base_people.filter(
                     spirit_baptism_date__year=year_int,
-                    spirit_baptism_date__month=month_int,
+                    spirit_baptism_date__month__in=months,
                 ).order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="spirit_baptism_date",
@@ -1407,67 +1425,24 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 )
                 .filter(
                     reached_date__year=year_int,
-                    reached_date__month=month_int,
+                    reached_date__month__in=months,
                 )
                 .order_by("first_name", "last_name", "username"),
                 metric,
                 date_attr="reached_date",
             )
         else:
-            # unique_hc: union of all stage memberships for the month
-            invited_ids = set(
-                base_people.filter(
-                    role="VISITOR",
-                    date_joined__year=year_int,
-                    date_joined__month=month_int,
-                    date_first_attended__isnull=True,
-                ).values_list("id", flat=True)
-            )
-            attended_ids = set(
-                base_people.filter(
-                    role="VISITOR",
-                    date_first_attended__year=year_int,
-                    date_first_attended__month=month_int,
-                ).values_list("id", flat=True)
-            )
-            students_ids = person_ids_with_ncc_sessions_for_month(
+            id_sets = people_tally_id_sets(
                 year=year_int,
-                month=month_int,
+                months=months,
+                base_qs=base_people,
                 branch_id=branch_id,
                 cluster_id=cluster_id,
                 evangelism_group_id=eg_id,
                 group_person_ids=group_person_ids,
+                unclustered=unclustered,
             )
-            baptized_ids = set(
-                base_people.filter(
-                    water_baptism_date__year=year_int,
-                    water_baptism_date__month=month_int,
-                ).values_list("id", flat=True)
-            )
-            received_hg_ids = set(
-                base_people.filter(
-                    spirit_baptism_date__year=year_int,
-                    spirit_baptism_date__month=month_int,
-                ).values_list("id", flat=True)
-            )
-            reached_ids = set(
-                annotate_people_reached_date(
-                    people_meeting_reached_milestones(base_people)
-                )
-                .filter(
-                    reached_date__year=year_int,
-                    reached_date__month=month_int,
-                )
-                .values_list("id", flat=True)
-            )
-            unique_ids = (
-                invited_ids
-                | attended_ids
-                | students_ids
-                | baptized_ids
-                | received_hg_ids
-                | reached_ids
-            )
+            unique_ids = id_sets["unique_hc"]
             rows = self._serialize_people_rows(
                 base_people.filter(id__in=unique_ids).order_by(
                     "first_name", "last_name", "username"
@@ -1483,9 +1458,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
                 )
             }
             for row in rows:
-                row["reached_date"] = self._to_date(
-                    reached_by_id.get(row["id"])
-                )
+                row["reached_date"] = self._to_date(reached_by_id.get(row["id"]))
 
         return self._paginated_drilldown_response(rows)
 

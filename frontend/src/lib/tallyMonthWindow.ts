@@ -58,6 +58,17 @@ export function defaultMonthsForYear(
   return canUseYtd(year, now) ? ytdMonths(year, now) : allYearMonths();
 }
 
+/** Current calendar month for this year; all months for other years. */
+export function currentMonthMonths(
+  year: number,
+  now: Date = new Date(),
+): number[] {
+  if (year === now.getFullYear()) {
+    return [now.getMonth() + 1];
+  }
+  return allYearMonths();
+}
+
 export function monthsEqual(left: number[], right: number[]): boolean {
   if (left.length !== right.length) {
     return false;

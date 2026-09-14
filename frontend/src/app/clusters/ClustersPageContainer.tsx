@@ -983,6 +983,10 @@ export default function ClustersPageContainer() {
       return;
     }
 
+    if (tab === "tally") {
+      setActiveTab("tally");
+    }
+
     if (tab === "reports") {
       setActiveTab("reports");
     }

@@ -1,4 +1,5 @@
 from rest_framework import viewsets, filters, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
@@ -23,7 +24,22 @@ from .serializers import (
     ClusterComplianceSerializer,
     ComplianceSummarySerializer,
     ClusterComplianceNoteSerializer,
+    ClusterStatusTallySerializer,
+    ClusterStatusTallyDetailSerializer,
 )
+from .status_tally import (
+    MEMBER_STATUSES,
+    build_status_tally_rows,
+    people_ids_for_status_tally_detail,
+    should_include_unassigned,
+    snapshot_change_in_window,
+    status_tally_years,
+)
+from apps.evangelism.services import (
+    is_unassigned_cluster_param,
+    parse_people_tally_months,
+)
+from apps.people.name_formatting import format_person_display_name
 from .utils import (
     calculate_cluster_compliance,
     calculate_trend,
@@ -47,6 +63,7 @@ from apps.clusters.permissions import (
     ClusterReportMutationAttemptPermission,
     ClusterReportReadPermission,
     ClusterWeeklyReportScopedPermission,
+    can_pick_cluster_branch,
     apply_cluster_branch_scope,
     apply_report_branch_scope,
     clusters_for_overdue,
@@ -175,6 +192,159 @@ class ClusterViewSet(viewsets.ModelViewSet):
         else:
             # Read operations (list, retrieve, summary, unassigned_people)
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("CLUSTER", "read")]
+
+    class StatusTallyDetailPagination(PageNumberPagination):
+        page_size = 20
+        page_size_query_param = "page_size"
+        max_page_size = 100
+
+    def _status_tally_branch_id(self):
+        raw = self.request.query_params.get(
+            "branch_id"
+        ) or self.request.query_params.get("branch")
+        if raw in (None, ""):
+            raise ValidationError({"branch": "branch is required."})
+        try:
+            branch_id = int(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"branch": "branch must be an integer."}) from exc
+        user = self.request.user
+        if not can_pick_cluster_branch(user):
+            if not user.branch_id:
+                raise ValidationError({"branch": "branch is required."})
+            return user.branch_id
+        return branch_id
+
+    def _status_tally_year(self):
+        raw = self.request.query_params.get("year")
+        if raw in (None, ""):
+            return church_today().year
+        try:
+            return int(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"year": "year must be an integer."}) from exc
+
+    def _status_tally_months(self):
+        raw = self.request.query_params.get("months")
+        if raw in (None, "") and self.request.query_params.get("month") not in (
+            None,
+            "",
+        ):
+            raw = self.request.query_params.get("month")
+        try:
+            return parse_people_tally_months(raw)
+        except ValueError as exc:
+            raise ValidationError({"months": str(exc)}) from exc
+
+    def _status_tally_clusters(self, branch_id: int):
+        queryset = Cluster.objects.filter(is_active=True, branch_id=branch_id)
+        queryset = filter_clusters_for_read(self.request.user, queryset)
+        queryset = apply_cluster_branch_scope(
+            queryset, self.request.user, str(branch_id)
+        )
+        return list(queryset.order_by("name", "id"))
+
+    @action(detail=False, methods=["get"], url_path="status_tally")
+    def status_tally(self, request):
+        branch_id = self._status_tally_branch_id()
+        year = self._status_tally_year()
+        months = self._status_tally_months()
+        clusters = self._status_tally_clusters(branch_id)
+        rows = build_status_tally_rows(
+            year=year,
+            months=months,
+            branch_id=branch_id,
+            clusters=clusters,
+            include_unassigned=should_include_unassigned(request.user),
+        )
+        serializer = ClusterStatusTallySerializer(rows, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="status_tally_years")
+    def status_tally_years_action(self, request):
+        branch_id = self._status_tally_branch_id()
+        years = status_tally_years(branch_id)
+        default_year = church_today().year
+        if default_year not in years:
+            years = [default_year, *years]
+        return Response({"years": years, "default_year": default_year})
+
+    @action(detail=False, methods=["get"], url_path="status_tally_detail")
+    def status_tally_detail(self, request):
+        branch_id = self._status_tally_branch_id()
+        year = self._status_tally_year()
+        months = self._status_tally_months()
+        status_param = (request.query_params.get("status") or "").strip()
+        valid_statuses = set(MEMBER_STATUSES) | {"members"}
+        if status_param not in valid_statuses:
+            raise ValidationError(
+                {
+                    "status": (
+                        "status must be one of ACTIVE, SEMIACTIVE, INACTIVE, "
+                        "DORMANT, FALLAWAY, DECEASED, or members."
+                    )
+                }
+            )
+
+        cluster_raw = request.query_params.get("cluster")
+        unassigned = is_unassigned_cluster_param(cluster_raw)
+        cluster_id = None
+        if cluster_raw not in (None, "") and not unassigned:
+            try:
+                cluster_id = int(cluster_raw)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError(
+                    {"cluster": "cluster must be an id or unassigned."}
+                ) from exc
+
+        include_unassigned = should_include_unassigned(request.user)
+        if unassigned and not include_unassigned:
+            raise ValidationError({"cluster": "Unassigned is not available."})
+
+        clusters = self._status_tally_clusters(branch_id)
+        person_ids, snapshots, _as_of = people_ids_for_status_tally_detail(
+            year=year,
+            months=months,
+            branch_id=branch_id,
+            clusters=clusters,
+            include_unassigned=include_unassigned,
+            cluster_id=cluster_id,
+            unassigned=unassigned,
+            status=status_param,
+        )
+        people = Person.objects.filter(id__in=person_ids).order_by(
+            "first_name", "last_name", "id"
+        )
+        rows = []
+        for person in people:
+            snapshot = snapshots.get(person.id) or {}
+            changed_at = snapshot.get("changed_at")
+            rows.append(
+                {
+                    "id": person.id,
+                    "display_name": format_person_display_name(person)
+                    or person.username,
+                    "first_name": person.first_name,
+                    "middle_name": person.middle_name,
+                    "last_name": person.last_name,
+                    "suffix": person.suffix,
+                    "nickname": person.nickname,
+                    "username": person.username,
+                    "role": person.role,
+                    "status": snapshot.get("status") or person.status,
+                    "from_status": snapshot.get("from_status"),
+                    "to_status": snapshot.get("to_status"),
+                    "changed_at": changed_at,
+                    "source": snapshot.get("source"),
+                    "in_window": snapshot_change_in_window(
+                        changed_at, year, months
+                    ),
+                }
+            )
+        paginator = self.StatusTallyDetailPagination()
+        page = paginator.paginate_queryset(rows, request, view=self)
+        serializer = ClusterStatusTallyDetailSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def _scoped_people_for_unassigned(self, request):
         person_view = PersonViewSet()

@@ -2,6 +2,9 @@ import axios, { type AxiosResponse } from "axios";
 import { Person, Family, Journey, ModuleCoordinator, MemberCareCase } from "@/src/types/person";
 import {
   Cluster,
+  ClusterStatusTallyDetailRow,
+  ClusterStatusTallyRow,
+  ClusterStatusTallyStatus,
   ClusterWeeklyReport,
   ClusterInput,
   ClusterWeeklyReportInput,
@@ -778,6 +781,32 @@ export const clustersApi = {
     include_inactive?: boolean | string;
   }) =>
     api.get<ClustersSummary>("/clusters/clusters/summary/", { params }),
+  getStatusTally: (params: {
+    year?: number;
+    branch_id?: number | string;
+    months?: string;
+  }) =>
+    api.get<ClusterStatusTallyRow[]>("/clusters/clusters/status_tally/", {
+      params,
+    }),
+  getStatusTallyYears: (params: { branch_id?: number | string }) =>
+    api.get<{ years: number[]; default_year: number }>(
+      "/clusters/clusters/status_tally_years/",
+      { params },
+    ),
+  getStatusTallyDetail: (params: {
+    year?: number;
+    branch_id?: number | string;
+    months?: string;
+    status: ClusterStatusTallyStatus;
+    cluster?: number | string;
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<ClusterStatusTallyDetailRow>>(
+      "/clusters/clusters/status_tally_detail/",
+      { params },
+    ),
   getById: (id: string | number) =>
     api.get<Cluster>(`/clusters/clusters/${id}/`),
   create: (data: ClusterInput) =>

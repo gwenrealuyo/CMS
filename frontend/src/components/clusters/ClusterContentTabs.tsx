@@ -1,6 +1,11 @@
 import SegmentedControl from "@/src/components/ui/SegmentedControl";
 
-export type ClusterContentTab = "clusters" | "reports" | "compliance" | "care";
+export type ClusterContentTab =
+  | "clusters"
+  | "tally"
+  | "reports"
+  | "compliance"
+  | "care";
 
 interface ClusterContentTabsProps {
   activeTab: ClusterContentTab;
@@ -22,6 +27,7 @@ export default function ClusterContentTabs({
     label: string;
   }> = [
     { id: "clusters", label: "Clusters" },
+    { id: "tally", label: "Tally" },
     ...(showCareTab ? [{ id: "care" as const, label: "Care" }] : []),
     ...(showReportsTab ? [{ id: "reports" as const, label: "Reports" }] : []),
     ...(showComplianceTab ? [{ id: "compliance" as const, label: "Compliance" }] : []),

@@ -20,6 +20,51 @@ export interface ClusterFamilyDetail {
   member_count: number;
 }
 
+export type ClusterStatusTallyRowKind = "cluster" | "unassigned" | "total";
+
+export type ClusterStatusTallyStatus =
+  | "ACTIVE"
+  | "SEMIACTIVE"
+  | "INACTIVE"
+  | "DORMANT"
+  | "FALLAWAY"
+  | "DECEASED"
+  | "members";
+
+export interface ClusterStatusTallyRow {
+  year: number;
+  as_of: string;
+  cluster_id: number | null;
+  cluster_name: string | null;
+  cluster_code: string | null;
+  row_kind: ClusterStatusTallyRowKind;
+  active_count: number;
+  semiactive_count: number;
+  inactive_count: number;
+  dormant_count: number;
+  fallaway_count: number;
+  deceased_count: number;
+  members_count: number;
+}
+
+export interface ClusterStatusTallyDetailRow {
+  id: number;
+  display_name: string;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
+  suffix?: string | null;
+  nickname?: string | null;
+  username?: string | null;
+  role?: string | null;
+  status: string;
+  from_status?: string | null;
+  to_status?: string | null;
+  changed_at?: string | null;
+  source?: string | null;
+  in_window: boolean;
+}
+
 export interface Cluster {
   id: number;
   code: string | null;

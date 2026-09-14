@@ -7,6 +7,7 @@ import ClusterContentTabs, {
 } from "@/src/components/clusters/ClusterContentTabs";
 import ClusterComplianceTab from "@/src/components/clusters/ClusterComplianceTab";
 import ClusterCareRoster from "@/src/components/clusters/ClusterCareRoster";
+import ClusterStatusTallyReport from "@/src/components/clusters/ClusterStatusTallyReport";
 import CareCaseForm from "@/src/components/clusters/CareCaseForm";
 import ClusterCard from "@/src/components/clusters/ClusterCard";
 import ClusterView from "@/src/components/clusters/ClusterView";
@@ -793,6 +794,33 @@ export default function ClustersPageView({
           showReportsTab={canAccessClusterReports}
           showCareTab={canAccessMemberCare}
         />
+
+        {activeTab === "tally" && (
+          <ClusterStatusTallyReport
+            branch={
+              clusterBranchSelectedId === ""
+                ? ""
+                : Number(clusterBranchSelectedId)
+            }
+            onBranchChange={(nextBranch) =>
+              onClusterBranchChange(
+                nextBranch === "" ? "" : String(nextBranch),
+              )
+            }
+            branchOptions={
+              clusterBranchCanChangeFilter
+                ? clusterBranchEditableOptions
+                : clusterBranchReadonlyOptions
+            }
+            branchSelectionLocked={!clusterBranchCanChangeFilter}
+            branchLockedHint={clusterBranchHoverHint}
+            defaultLockedBranch={
+              user?.branch != null && user.branch !== undefined
+                ? Number(user.branch)
+                : ""
+            }
+          />
+        )}
 
         {activeTab === "clusters" && (
           <div

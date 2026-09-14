@@ -98,6 +98,7 @@ Clusters are your church's small groups. Open **Clusters** in the sidebar.
 | Tab | Purpose |
 |-----|---------|
 | **Clusters** | View and manage cluster details (members, families, coordinator, schedule) |
+| **Tally** | Snapshot of member statuses per cluster at the end of the selected months (default: this month). Click a count to see names and the status change that produced that snapshot. |
 | **Care** | Cluster Care caseload: follow up members who are semi-active, inactive, dormant, or fall away (coordinators, pastors, admins) |
 | **Reports** | Browse submitted weekly reports |
 | **Compliance** | Oversight view for senior cluster coordinators |

@@ -1128,3 +1128,41 @@ class ComplianceSummarySerializer(serializers.Serializer):
     partial_compliant_clusters = serializers.IntegerField()
     compliance_rate = serializers.FloatField()
     period = serializers.DictField()
+
+
+class ClusterStatusTallySerializer(serializers.Serializer):
+    year = serializers.IntegerField()
+    as_of = serializers.DateField()
+    cluster_id = serializers.IntegerField(required=False, allow_null=True)
+    cluster_name = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+    cluster_code = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+    row_kind = serializers.ChoiceField(choices=["cluster", "unassigned", "total"])
+    active_count = serializers.IntegerField()
+    semiactive_count = serializers.IntegerField()
+    inactive_count = serializers.IntegerField()
+    dormant_count = serializers.IntegerField()
+    fallaway_count = serializers.IntegerField()
+    deceased_count = serializers.IntegerField()
+    members_count = serializers.IntegerField()
+
+
+class ClusterStatusTallyDetailSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    display_name = serializers.CharField()
+    first_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    middle_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    last_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    suffix = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    nickname = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    username = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    role = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    status = serializers.CharField()
+    from_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    to_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    changed_at = serializers.DateTimeField(required=False, allow_null=True)
+    source = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    in_window = serializers.BooleanField()

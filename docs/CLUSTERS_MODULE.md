@@ -228,6 +228,9 @@ All cluster CRUD and weekly reports live under `/api/clusters/` (namespaced in `
   - `PUT /{id}/` – Update a cluster (full update)
   - `PATCH /{id}/` – Partial update
   - `DELETE /{id}/` – Delete a cluster (cascades to reports)
+  - `GET /status_tally/?year=&branch_id=&months=` – Snapshot of member statuses per cluster at the end of the selected months. `branch` / `branch_id` is required. Rows are active clusters in that branch (zeros included), optional **Unassigned** (branch members with no cluster; omitted for reporter-only users), and **Total** (union of people, not a sum of cluster cells). Counts reconstruct status from `PersonStatusChange` as of the last day of the latest selected month, capped at today.
+  - `GET /status_tally_years/?branch_id=` – Years present in status-change history for the branch, plus the current year
+  - `GET /status_tally_detail/?year=&months=&status=&cluster=` – Paginated people behind a tally cell. `status` is `ACTIVE`, `SEMIACTIVE`, `INACTIVE`, `DORMANT`, `FALLAWAY`, `DECEASED`, or `members`. `cluster={id}` for one cluster, `cluster=unassigned` for Unassigned, omit `cluster` for Total. Each row includes the snapshot transition (`from_status`, `to_status`, `changed_at`, `source`) and `in_window` when that change falls in the selected months.
 
 ### Cluster Weekly Reports
 
@@ -259,6 +262,7 @@ Serializers (`apps.clusters.serializers`) expose:
 
 - `ClusterListSerializer`:
   - Directory list payload with annotated `member_count` (MEMBER + PASTOR), `visitor_count` (VISITOR), and `family_count`. Admins are excluded from both people counts.
+- `ClusterStatusTallySerializer` / `ClusterStatusTallyDetailSerializer`: snapshot counts and drill-down people for the Clusters Tally tab (`apps.clusters.status_tally`).
 - `ClusterSerializer`:
   - `coordinator` – nested object with id, first_name, last_name, username (read-only)
   - `coordinator_id` – write-only field for setting coordinator
@@ -311,12 +315,14 @@ Implemented in `frontend/src/app/clusters/ClustersPageView.tsx` (derived from `u
 The page uses tabs similar to the Lessons page:
 
 - **Clusters Tab**: Manage clusters (list, create, edit, delete)
+- **Tally Tab**: Snapshot of each cluster’s member statuses (Active, Semi-active, Inactive, Dormant, Fall Away, Deceased, Members) as of the end of the selected months. Default window is the current month. Deep link: `/clusters?tab=tally`.
 - **Care Tab**: Cluster Care caseload (spreadsheet grouped by cluster) for coordinators, pastors, and admins. Not shown to reporters or plain members.
 - **Reports Tab**: View and manage cluster weekly reports
 
 ### Components Overview
 
 - **`ClusterContentTabs`**: Tab navigation component (similar to LessonContentTabs)
+- **Tally Tab** (`ClusterStatusTallyReport`): Year, branch (same lock/default as the Clusters page), and month picker (All / YTD / quarters / checkboxes; default **current month** for this year). Rows are clusters in the selected branch, Unassigned, and Total. Click a count to open names plus the status transition that produced the snapshot (`from → to`, date, source), with emphasis when that change falls in the selected months. Visitors and admins are excluded; membership is the current roster.
 - **Clusters Tab**:
   - Grid display of cluster cards showing:
     - Cluster name/code
@@ -455,6 +461,7 @@ All cluster models are registered in Django admin (`apps.clusters.admin`):
   - Cross-app ForeignKey relationships
   - Unique constraint on cluster/year/week_number
   - Pagination for reports
+  - Status tally snapshot (`test_status_tally.py`): current-month as-of, changes after as_of keep the old status, Total is a union, Q1 vs a single month, `cluster=unassigned` detail, 400 without branch
 - Run clusters tests with SQLite settings to avoid Postgres permissions:
 
 ```bash

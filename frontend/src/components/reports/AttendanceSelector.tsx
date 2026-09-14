@@ -3,6 +3,10 @@ import { Person, PersonUI } from "@/src/types/person";
 import { X } from "lucide-react";
 import { Cluster } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
+import {
+  isPendingNewVisitorId,
+  isProspectAttendanceId,
+} from "@/src/lib/clusterWeeklyReportSubmit";
 
 const normalizePersonId = (id: string | number): string => String(id);
 
@@ -10,6 +14,34 @@ const personIdsMatch = (
   a: string | number,
   b: string | number
 ): boolean => normalizePersonId(a) === normalizePersonId(b);
+
+type VisitorKind = "returning" | "firstVisit" | "new" | "other";
+
+function visitorKindForPerson(
+  person: PersonUI,
+  previouslyAttendedIds: string[]
+): VisitorKind {
+  const id = String(person.id);
+  if (isProspectAttendanceId(id)) return "firstVisit";
+  if (isPendingNewVisitorId(id)) return "new";
+  if (previouslyAttendedIds.some((prev) => personIdsMatch(prev, id))) {
+    return "returning";
+  }
+  return "other";
+}
+
+function visitorKindLabel(kind: VisitorKind): string | null {
+  switch (kind) {
+    case "returning":
+      return "Returning";
+    case "firstVisit":
+      return "First visit";
+    case "new":
+      return "New";
+    default:
+      return null;
+  }
+}
 
 function attendancePersonLabel(person: PersonUI): string {
   const formatted = formatPersonName(person);
@@ -42,6 +74,8 @@ interface AttendanceSelectorProps {
   mostRecentAttendedIds?: string[]; // Visitors from most recent report only (for auto-selection)
   /** True while the selected cluster roster is being fetched. */
   isLoadingRoster?: boolean;
+  /** Cluster Visitors Attended: group returning / first-visit prospects / new walk-ins. */
+  groupByVisitorKind?: boolean;
 }
 
 export default function AttendanceSelector({
@@ -56,6 +90,7 @@ export default function AttendanceSelector({
   previouslyAttendedIds = [],
   mostRecentAttendedIds = [],
   isLoadingRoster = false,
+  groupByVisitorKind = false,
 }: AttendanceSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -147,6 +182,29 @@ export default function AttendanceSelector({
         )
       : peopleByRole;
 
+  const useVisitorKindGroups = groupByVisitorKind && filterRole === "VISITOR";
+  const returningVisitors = useVisitorKindGroups
+    ? peopleByRole.filter(
+        (person) => visitorKindForPerson(person, previouslyAttendedIds) === "returning"
+      )
+    : [];
+  const firstVisitProspects = useVisitorKindGroups
+    ? peopleByRole.filter(
+        (person) =>
+          visitorKindForPerson(person, previouslyAttendedIds) === "firstVisit"
+      )
+    : [];
+  const newWalkInVisitors = useVisitorKindGroups
+    ? peopleByRole.filter(
+        (person) => visitorKindForPerson(person, previouslyAttendedIds) === "new"
+      )
+    : [];
+  const otherKindVisitors = useVisitorKindGroups
+    ? peopleByRole.filter(
+        (person) => visitorKindForPerson(person, previouslyAttendedIds) === "other"
+      )
+    : [];
+
   // Filter by search term (already filtered by role and cluster membership in peopleByRole)
   const filteredPeople = peopleByRole.filter((person) => {
     if (searchTerm.trim().length === 0) return false;
@@ -160,6 +218,58 @@ export default function AttendanceSelector({
 
   const isPersonSelected = (personId: string | number) =>
     selectedIds.some((id) => personIdsMatch(id, personId));
+
+  const visitorKindBadge = (person: PersonUI) => {
+    if (!useVisitorKindGroups) return null;
+    const label = visitorKindLabel(
+      visitorKindForPerson(person, previouslyAttendedIds)
+    );
+    if (!label) return null;
+    return (
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">
+        {label}
+      </span>
+    );
+  };
+
+  const visitorInviterLine = (person: PersonUI) => {
+    const fromField = person.inviter_display_name?.trim();
+    const inviter =
+      !fromField && person.inviter
+        ? availablePeople.find((p) => personIdsMatch(p.id, person.inviter!))
+        : undefined;
+    const inviterName =
+      fromField ||
+      (inviter ? attendancePersonLabel(inviter) : "") ||
+      "Unknown";
+    const statusLabel = person.status ? person.status.toLowerCase() : "";
+    return `invited by ${inviterName} • ${statusLabel}`;
+  };
+
+  const renderVisitorListRow = (person: PersonUI) => (
+    <label
+      key={person.id}
+      className={`flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
+        isPersonSelected(person.id) ? "bg-primary/10" : ""
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={isPersonSelected(person.id)}
+        onChange={() => togglePerson(person.id)}
+        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="font-medium text-gray-900 text-sm truncate">
+            {attendancePersonLabel(person)}
+          </div>
+          {visitorKindBadge(person)}
+        </div>
+        <div className="text-xs text-gray-500">{visitorInviterLine(person)}</div>
+      </div>
+    </label>
+  );
 
   const activePeople = peopleByRole.filter(
     (person) => person.status === "ACTIVE"
@@ -515,6 +625,7 @@ export default function AttendanceSelector({
                 </button>
               )}
               {filterRole === "VISITOR" &&
+                !useVisitorKindGroups &&
                 selectedCluster &&
                 clusterVisitors.length > 0 && (
                   <button
@@ -568,6 +679,7 @@ export default function AttendanceSelector({
                 className="chip-primary inline-flex items-center gap-1.5 max-w-full shadow-sm text-sm"
               >
                 <span className="truncate">{displayName}</span>
+                {visitorKindBadge(person)}
                 <button
                   type="button"
                   onClick={() => removePerson(person.id)}
@@ -625,25 +737,15 @@ export default function AttendanceSelector({
                         personSelected ? "bg-primary/10" : ""
                       }`}
                     >
-                      <div className="font-medium text-gray-900">
-                        {attendancePersonLabel(person)}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-medium text-gray-900 truncate">
+                          {attendancePersonLabel(person)}
+                        </div>
+                        {visitorKindBadge(person)}
                       </div>
                       {filterRole === "VISITOR" ? (
                         <div className="text-sm text-gray-500">
-                          {(() => {
-                            const inviter = person.inviter
-                              ? availablePeople.find(
-                                  (p) => p.id === person.inviter
-                                )
-                              : undefined;
-                            const inviterName = inviter
-                              ? attendancePersonLabel(inviter)
-                              : "Unknown";
-                            const statusLabel = person.status
-                              ? person.status.toLowerCase()
-                              : "";
-                            return `invited by ${inviterName} • ${statusLabel}`;
-                          })()}
+                          {visitorInviterLine(person)}
                         </div>
                       ) : (
                         <div className="text-sm text-gray-500">
@@ -655,9 +757,11 @@ export default function AttendanceSelector({
                 })
               ) : (
                 <div className="px-3 py-2 text-gray-500 text-sm">
-                  {filterRole === "MEMBER" && hasMemberSource
-                    ? "No members found"
-                    : `No ${filterRole.toLowerCase()}s found`}
+                  {useVisitorKindGroups
+                    ? "No match. If they came, use Add New Visitor. If they were invited and did not come, use Prospects Invited."
+                    : filterRole === "MEMBER" && hasMemberSource
+                      ? "No members found"
+                      : `No ${filterRole.toLowerCase()}s found`}
                 </div>
               )}
             </div>
@@ -760,8 +864,57 @@ export default function AttendanceSelector({
             </>
           )}
 
+          {/* Visitors grouped by kind (cluster weekly report) */}
+          {useVisitorKindGroups && (
+            <>
+              {returningVisitors.length > 0 && (
+                <>
+                  <div className="p-2 border-b sticky top-0 z-10 bg-purple-50 border-purple-200 shadow-sm">
+                    <div className="text-xs font-semibold text-purple-900">
+                      {`Came before (${returningVisitors.length})`}
+                    </div>
+                  </div>
+                  {returningVisitors.map(renderVisitorListRow)}
+                </>
+              )}
+              {firstVisitProspects.length > 0 && (
+                <>
+                  <div className="p-2 border-b sticky top-0 z-10 bg-orange-50 border-orange-200 shadow-sm">
+                    <div className="text-xs font-semibold text-orange-900">
+                      {`Invited prospects (${firstVisitProspects.length})`}
+                    </div>
+                  </div>
+                  {firstVisitProspects.map(renderVisitorListRow)}
+                </>
+              )}
+              {newWalkInVisitors.length > 0 && (
+                <>
+                  <div className="p-2 border-b sticky top-0 z-10 bg-green-50 border-green-200 shadow-sm">
+                    <div className="text-xs font-semibold text-green-900">
+                      {`Added this report (${newWalkInVisitors.length})`}
+                    </div>
+                  </div>
+                  {newWalkInVisitors.map(renderVisitorListRow)}
+                </>
+              )}
+              {otherKindVisitors.length > 0 && (
+                <>
+                  <div className="p-2 bg-gray-50 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+                    <div className="text-xs font-semibold text-gray-700">
+                      {`Other visitors (${otherKindVisitors.length})`}
+                    </div>
+                  </div>
+                  {otherKindVisitors.map(renderVisitorListRow)}
+                </>
+              )}
+            </>
+          )}
+
           {/* Visitors in selected cluster */}
-          {filterRole === "VISITOR" && selectedCluster && clusterVisitors.length > 0 && (
+          {!useVisitorKindGroups &&
+            filterRole === "VISITOR" &&
+            selectedCluster &&
+            clusterVisitors.length > 0 && (
             <>
               <div className="p-2 border-b sticky top-0 z-10 bg-blue-50 border-blue-200 shadow-sm">
                 <div className="text-xs font-semibold text-blue-900">
@@ -786,18 +939,7 @@ export default function AttendanceSelector({
                         {attendancePersonLabel(person)}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {(() => {
-                          const inviter = person.inviter
-                            ? availablePeople.find((p) => p.id === person.inviter)
-                            : undefined;
-                          const inviterName = inviter
-                            ? attendancePersonLabel(inviter)
-                            : "Unknown";
-                          const statusLabel = person.status
-                            ? person.status.toLowerCase()
-                            : "";
-                          return `invited by ${inviterName} • ${statusLabel}`;
-                        })()}
+                        {visitorInviterLine(person)}
                       </div>
                     </div>
                   </label>
@@ -806,7 +948,8 @@ export default function AttendanceSelector({
           )}
 
           {/* Other visitors */}
-          {filterRole === "VISITOR" &&
+          {!useVisitorKindGroups &&
+            filterRole === "VISITOR" &&
             ((selectedCluster && otherVisitors.length > 0) ||
               (!selectedCluster && otherVisitors.length > 0)) && (
               <>
@@ -835,18 +978,7 @@ export default function AttendanceSelector({
                           {attendancePersonLabel(person)}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {(() => {
-                            const inviter = person.inviter
-                              ? availablePeople.find((p) => p.id === person.inviter)
-                              : undefined;
-                            const inviterName = inviter
-                            ? attendancePersonLabel(inviter)
-                            : "Unknown";
-                            const statusLabel = person.status
-                              ? person.status.toLowerCase()
-                              : "";
-                            return `invited by ${inviterName} • ${statusLabel}`;
-                          })()}
+                          {visitorInviterLine(person)}
                         </div>
                       </div>
                     </label>

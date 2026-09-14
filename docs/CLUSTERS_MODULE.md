@@ -359,7 +359,10 @@ The page uses tabs similar to the Lessons page:
   - **Week-Based Filtering**: Previous reports are filtered to only include reports from earlier weeks/years than the current report being edited
   - **Current Report Exclusion**: When editing, the current report is excluded from the "previous reports" list
   - **Form Data Sync**: `formData` is automatically synced with `initialData` when editing to ensure correct week/year values
-  - **Section order**: Members Attended → Visitors Attended (+ Add New Visitor) → **Prospects Invited** (+ Add Prospect) with helper copy that invites are not yet attended / not in People until attend
+  - **Section order**: Members Attended → Visitors Attended (+ Add New Visitor) → **Prospects Invited** (+ Add Prospect)
+  - **Visitors Attended helper copy**: People who came this week; search returning visitors or invited prospects first; Add New Visitor only if they came and are not in the list
+  - **Prospects Invited helper copy**: Invited visitors only — not yet attended / not in People until they attend
+  - **Visitors Attended grouping** (`groupByVisitorKind` on `AttendanceSelector`): list/search/chips split returning visitors, invited prospects (first visit), new walk-ins added this report, and other visitors. Empty search points to Add New Visitor vs Prospects Invited
   - **Visitors Attended search** includes cluster-scoped INVITED prospects (no Person yet) as `prospect:{id}`; selecting them promotes via `prospects_attended` on submit (server-side)
   - **Dual-list blocking**: the same prospect cannot be on Prospects Invited and Visitors Attended together
   - Submit builds payload in `frontend/src/lib/clusterWeeklyReportSubmit.ts` (no client `markAttended` — reporters lack EVANGELISM write)
@@ -375,7 +378,7 @@ The page uses tabs similar to the Lessons page:
     - **For Visitors**: When a cluster is selected, automatically selects visitors from the most recent previous report (if available)
   - **Previously Attended Display**:
     - **For Members**: Shows members who attended in previous reports, separated from other members
-    - **For Visitors**: Shows visitors who attended in all previous reports of that cluster, separated from other visitors
+    - **For Visitors**: Default list separates cluster visitors from others. Cluster weekly report Visitors Attended uses `groupByVisitorKind` instead (returning / first-visit prospects / new walk-ins / other)
   - **Button Highlighting**: The active bulk selection button is highlighted to show which selection method is currently active
   - **Edit Mode Highlighting**: When editing a report, the button that matches the current selection is automatically highlighted
   - **List Mode**: Toggle between "Search Mode" and "List Mode" for easier multi-selection

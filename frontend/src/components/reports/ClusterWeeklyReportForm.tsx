@@ -175,15 +175,38 @@ function prospectInviteDisplayName(prospect: Prospect): string {
   }${suffixPart}`.trim();
 }
 
-function prospectToPersonUI(prospect: Prospect): PersonUI {
-  const invitedBy =
+function inviterDisplayNameFromPeople(
+  inviterId: string | number | null | undefined,
+  people: PersonUI[]
+): string {
+  if (inviterId == null || String(inviterId).trim() === "") return "";
+  const found = people.find((p) => String(p.id) === String(inviterId));
+  if (!found) return "";
+  const formatted = formatPersonName(found);
+  if (formatted && formatted !== "Unknown person") return formatted;
+  return found.name?.trim() || "";
+}
+
+function prospectToPersonUI(
+  prospect: Prospect,
+  people: PersonUI[] = []
+): PersonUI {
+  let invitedBy = "";
+  if (
     prospect.invited_by &&
     typeof prospect.invited_by === "object" &&
     "first_name" in prospect.invited_by
-      ? `${prospect.invited_by.first_name ?? ""} ${
-          prospect.invited_by.last_name ?? ""
-        }`.trim()
-      : "Unknown";
+  ) {
+    invitedBy = `${prospect.invited_by.first_name ?? ""} ${
+      prospect.invited_by.last_name ?? ""
+    }`.trim();
+  }
+  if (!invitedBy) {
+    invitedBy = inviterDisplayNameFromPeople(
+      prospect.invited_by_id || prospect.invited_by?.id,
+      people
+    );
+  }
   const stageLabel =
     prospect.pipeline_stage_display || prospect.pipeline_stage || "INVITED";
   return {
@@ -191,8 +214,8 @@ function prospectToPersonUI(prospect: Prospect): PersonUI {
     name: `${prospectInviteDisplayName(prospect)} (${stageLabel.toLowerCase()})`,
     role: "VISITOR",
     status: "NO_RESPONSE",
-    inviter: prospect.invited_by?.id,
-    inviterName: invitedBy || "Unknown",
+    inviter: prospect.invited_by?.id || prospect.invited_by_id,
+    inviter_display_name: invitedBy || null,
     username: "",
     email: "",
     first_name: prospect.first_name || "",
@@ -801,10 +824,16 @@ export default function ClusterWeeklyReportForm({
   );
 
   const visitorOptions = useMemo(() => {
-    const personVisitors = memberPeople.filter((p) => p.role === "VISITOR");
+    const personVisitors = memberPeople
+      .filter((p) => p.role === "VISITOR")
+      .map((p) => {
+        if (p.inviter_display_name?.trim()) return p;
+        const name = inviterDisplayNameFromPeople(p.inviter, memberPeople);
+        return name ? { ...p, inviter_display_name: name } : p;
+      });
     const prospectOptions = clusterProspects
       .filter((p) => !invitedProspectIdsSelected.has(String(p.id)))
-      .map(prospectToPersonUI);
+      .map((p) => prospectToPersonUI(p, memberPeople));
     const pendingVisitorOptions: PersonUI[] = Object.entries(
       pendingNewVisitors
     ).map(
@@ -815,6 +844,9 @@ export default function ClusterWeeklyReportForm({
           role: "VISITOR",
           status: "ONGOING",
           inviter: payload.inviter_id != null ? String(payload.inviter_id) : "",
+          inviter_display_name:
+            inviterDisplayNameFromPeople(payload.inviter_id, memberPeople) ||
+            null,
           username: "",
           email: "",
           first_name: payload.first_name,
@@ -839,7 +871,7 @@ export default function ClusterWeeklyReportForm({
 
     for (const p of clusterProspects) {
       if (attendedProspectIds.has(String(p.id))) continue;
-      const ui = prospectToPersonUI(p);
+      const ui = prospectToPersonUI(p, memberPeople);
       byId.set(String(ui.id), ui);
     }
 
@@ -848,12 +880,15 @@ export default function ClusterWeeklyReportForm({
       const attendanceId = toProspectAttendanceId(detail.id);
       if (attendedProspectIds.has(String(detail.id))) continue;
       if (byId.has(attendanceId)) continue;
-      const invitedBy =
+      const nestedInviterName =
         detail.invited_by != null
           ? `${detail.invited_by.first_name ?? ""} ${
               detail.invited_by.last_name ?? ""
             }`.trim()
-          : "Unknown";
+          : "";
+      const invitedBy =
+        nestedInviterName ||
+        inviterDisplayNameFromPeople(detail.invited_by?.id, memberPeople);
       const stageLabel =
         detail.pipeline_stage_display ||
         detail.pipeline_stage ||
@@ -877,7 +912,7 @@ export default function ClusterWeeklyReportForm({
         role: "VISITOR",
         status: "NO_RESPONSE",
         inviter: detail.invited_by?.id,
-        inviterName: invitedBy || "Unknown",
+        inviter_display_name: invitedBy || null,
         username: "",
         email: "",
         first_name: detail.first_name || "",
@@ -893,6 +928,11 @@ export default function ClusterWeeklyReportForm({
           role: "VISITOR",
           status: "NO_RESPONSE",
           inviter: payload.invited_by_id,
+          inviter_display_name:
+            inviterDisplayNameFromPeople(
+              payload.invited_by_id,
+              memberPeople
+            ) || null,
           username: "",
           email: "",
           first_name: payload.first_name,
@@ -908,6 +948,7 @@ export default function ClusterWeeklyReportForm({
     formData.visitors_attended,
     pendingNewProspects,
     initialData?.prospects_invited_details,
+    memberPeople,
   ]);
 
   const prospectAllowedIds = useMemo(
@@ -1296,6 +1337,11 @@ export default function ClusterWeeklyReportForm({
                 </button>
               )}
             </div>
+            <p className="text-xs text-gray-500 mb-2">
+              People who came this week. Search returning visitors or invited
+              prospects first. Use Add New Visitor only if they came and are not
+              in the list.
+            </p>
             <AttendanceSelector
               label=""
               selectedIds={(formData.visitors_attended || []).map((id) =>
@@ -1308,6 +1354,7 @@ export default function ClusterWeeklyReportForm({
               selectedCluster={rosterCluster || undefined}
               previouslyAttendedIds={previouslyAttendedVisitors}
               mostRecentAttendedIds={mostRecentAttendedVisitors}
+              groupByVisitorKind
             />
           </div>
 

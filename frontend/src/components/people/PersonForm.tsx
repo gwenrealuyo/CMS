@@ -188,6 +188,23 @@ function EntityBranchChip({
   );
 }
 
+function applyWaterBaptismRoleRules(
+  next: Partial<Person>,
+  waterBaptismDate: string,
+): Partial<Person> {
+  if (waterBaptismDate && next.role === "VISITOR") {
+    return { ...next, role: "MEMBER", status: "ACTIVE" };
+  }
+  if (!waterBaptismDate && next.role === "MEMBER") {
+    return {
+      ...next,
+      role: "VISITOR",
+      status: next.date_first_attended ? "ONGOING" : "NO_RESPONSE",
+    };
+  }
+  return next;
+}
+
 export default function PersonForm({
   onSubmit,
   onClose,
@@ -276,23 +293,30 @@ export default function PersonForm({
       .map((c) => String(c.id));
   }, [initialData?.cluster_ids, initialPersonId, clusterOptions]);
 
-  const [formData, setFormData] = useState<Partial<Person>>({
-    status: "ACTIVE",
-    journeys: [],
-    country: initialData?.country || DEFAULT_COUNTRY,
-    ...initialData,
-    role: defaultRole,
-    family_ids: initialFamilyIds,
-    cluster_ids: initialClusterIds,
-    // Create: show creator's branch (API sets it for plain members; editable roles can change it)
-    branch: isCreating
-      ? (initialData?.branch ?? user?.branch ?? undefined)
-      : initialData?.branch,
-    commitment_form_signed: Boolean(initialData?.commitment_form_signed),
-    commitment_signed_at: toDateOnly(initialData?.commitment_signed_at),
-    lesson_teacher_id: undefined,
-    historical_teacher_first_name: "",
-    historical_teacher_last_name: "",
+  const [formData, setFormData] = useState<Partial<Person>>(() => {
+    const next: Partial<Person> = {
+      status: "ACTIVE",
+      journeys: [],
+      country: initialData?.country || DEFAULT_COUNTRY,
+      ...initialData,
+      role: defaultRole,
+      family_ids: initialFamilyIds,
+      cluster_ids: initialClusterIds,
+      // Create: show creator's branch (API sets it for plain members; editable roles can change it)
+      branch: isCreating
+        ? (initialData?.branch ?? user?.branch ?? undefined)
+        : initialData?.branch,
+      commitment_form_signed: Boolean(initialData?.commitment_form_signed),
+      commitment_signed_at: toDateOnly(initialData?.commitment_signed_at),
+      lesson_teacher_id: undefined,
+      historical_teacher_first_name: "",
+      historical_teacher_last_name: "",
+    };
+    const baptismDate = next.water_baptism_date || "";
+    if (baptismDate && next.role === "VISITOR") {
+      return { ...next, role: "MEMBER", status: "ACTIVE" };
+    }
+    return next;
   });
   const [teacherMode, setTeacherMode] = useState<"select" | "historical">(
     "select",
@@ -322,7 +346,10 @@ export default function PersonForm({
     if (plainMember && editingSelf && initialData?.role) {
       return [initialData.role];
     }
-    const roles = getCreatableRoles(user, { forEdit: !isCreating });
+    const roles = getCreatableRoles(user, {
+      forEdit: !isCreating,
+      hasWaterBaptism: Boolean(formData.water_baptism_date),
+    });
     const currentRole = initialData?.role;
     if (
       !isCreating &&
@@ -332,7 +359,14 @@ export default function PersonForm({
       return [...roles, currentRole];
     }
     return roles;
-  }, [plainMember, editingSelf, user, initialData?.role, isCreating]);
+  }, [
+    plainMember,
+    editingSelf,
+    user,
+    initialData?.role,
+    isCreating,
+    formData.water_baptism_date,
+  ]);
 
   const roleSelectDisabled =
     visitorOnlyCreate ||
@@ -451,10 +485,14 @@ export default function PersonForm({
   }, [initialData?.cluster_ids, initialPersonId, initialClusterIds]);
 
   useEffect(() => {
-    if (visitorOnlyCreate && formData.role !== "VISITOR") {
+    if (
+      visitorOnlyCreate &&
+      formData.role !== "VISITOR" &&
+      !formData.water_baptism_date
+    ) {
       setFormData((prev) => ({ ...prev, role: "VISITOR" }));
     }
-  }, [formData.role, visitorOnlyCreate]);
+  }, [formData.role, visitorOnlyCreate, formData.water_baptism_date]);
   const [tabSwitchConfirmation, setTabSwitchConfirmation] = useState<{
     isOpen: boolean;
     targetTab: "basic" | "timeline" | null;
@@ -576,23 +614,6 @@ export default function PersonForm({
   );
   const journeyListRef = useRef<HTMLDivElement>(null);
 
-  const applyWaterBaptismRoleRules = (
-    next: Partial<Person>,
-    waterBaptismDate: string,
-  ): Partial<Person> => {
-    if (waterBaptismDate && next.role === "VISITOR") {
-      return { ...next, role: "MEMBER", status: "ACTIVE" };
-    }
-    if (!waterBaptismDate && next.role === "MEMBER") {
-      return {
-        ...next,
-        role: "VISITOR",
-        status: next.date_first_attended ? "ONGOING" : "NO_RESPONSE",
-      };
-    }
-    return next;
-  };
-
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -618,6 +639,11 @@ export default function PersonForm({
       }
       if (name === "water_baptism_date") {
         next = applyWaterBaptismRoleRules(next, value);
+      } else if (name === "role" && next.water_baptism_date) {
+        next = applyWaterBaptismRoleRules(
+          next,
+          String(next.water_baptism_date),
+        );
       }
       return next;
     });

@@ -880,6 +880,7 @@ class PersonSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         request = self.context.get("request")
         instance = getattr(self, "instance", None)
+        self._water_baptism_role_promotion = False
 
         # A "plain member" is a MEMBER with no ModuleCoordinator assignments.
         is_plain_member = bool(
@@ -930,10 +931,14 @@ class PersonSerializer(serializers.ModelSerializer):
         # Evangelism staff may create visitors only (not Members).
         if visitor_only_create:
             role = attrs.get("role")
+            baptism = attrs.get("water_baptism_date")
             if role and role != "VISITOR":
-                raise serializers.ValidationError(
-                    {"role": "You can only add visitors."}
-                )
+                # Form may send MEMBER after a baptism date is filled; still
+                # create as Visitor. The baptism signal promotes after save.
+                if not (role == "MEMBER" and baptism):
+                    raise serializers.ValidationError(
+                        {"role": "You can only add visitors."}
+                    )
             attrs["role"] = "VISITOR"
             if not request.user.branch:
                 raise serializers.ValidationError(
@@ -964,6 +969,30 @@ class PersonSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"role": "Cluster coordinators can only assign Member or Visitor roles."}
                 )
+
+        # Baptized people cannot remain visitors (except visitor-only create,
+        # which forces VISITOR above; the baptism signal promotes after save).
+        if not visitor_only_create:
+            merged_baptism = (
+                attrs["water_baptism_date"]
+                if "water_baptism_date" in attrs
+                else (instance.water_baptism_date if instance else None)
+            )
+            merged_role = (
+                attrs["role"]
+                if "role" in attrs
+                else (instance.role if instance else None)
+            )
+            if merged_baptism and merged_role == "VISITOR":
+                attrs["role"] = "MEMBER"
+                self._water_baptism_role_promotion = True
+                merged_status = (
+                    attrs["status"]
+                    if "status" in attrs
+                    else (instance.status if instance else None)
+                )
+                if merged_status in ("ONGOING", "NO_RESPONSE"):
+                    attrs["status"] = "ACTIVE"
 
         # App-layer required branch (DB column may still be null for legacy rows)
         branch_in_attrs = "branch" in attrs
@@ -1566,19 +1595,29 @@ class PersonSerializer(serializers.ModelSerializer):
 
         if old_status != updated_instance.status:
             request = self.context.get("request")
-            changed_by = (
-                request.user
-                if request and getattr(request, "user", None) and request.user.is_authenticated
-                else None
-            )
-            record_person_status_change(
-                person=updated_instance,
-                from_status=old_status,
-                to_status=updated_instance.status,
-                source=PersonStatusChange.Source.MANUAL,
-                reason=status_change_reason,
-                changed_by=changed_by,
-            )
+            baptism_promotion = getattr(self, "_water_baptism_role_promotion", False)
+            if baptism_promotion:
+                record_person_status_change(
+                    person=updated_instance,
+                    from_status=old_status,
+                    to_status=updated_instance.status,
+                    source=PersonStatusChange.Source.SYSTEM,
+                    reason="Status set after water baptism.",
+                )
+            else:
+                changed_by = (
+                    request.user
+                    if request and getattr(request, "user", None) and request.user.is_authenticated
+                    else None
+                )
+                record_person_status_change(
+                    person=updated_instance,
+                    from_status=old_status,
+                    to_status=updated_instance.status,
+                    source=PersonStatusChange.Source.MANUAL,
+                    reason=status_change_reason,
+                    changed_by=changed_by,
+                )
 
         return updated_instance
 

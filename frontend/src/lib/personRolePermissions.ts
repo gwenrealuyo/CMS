@@ -8,17 +8,31 @@ export type PersonRole = "MEMBER" | "VISITOR" | "PASTOR" | "ADMIN";
 
 export function getCreatableRoles(
   user: User | null,
-  options?: { forEdit?: boolean },
+  options?: { forEdit?: boolean; hasWaterBaptism?: boolean },
 ): PersonRole[] {
   if (!user) return [];
-  if (user.role === "ADMIN") return ["MEMBER", "VISITOR", "PASTOR", "ADMIN"];
-  if (user.role === "PASTOR") return ["MEMBER", "VISITOR"];
-  if (options?.forEdit) {
-    return ["MEMBER", "VISITOR"];
+  let roles: PersonRole[];
+  if (user.role === "ADMIN") {
+    roles = ["MEMBER", "VISITOR", "PASTOR", "ADMIN"];
+  } else if (user.role === "PASTOR") {
+    roles = ["MEMBER", "VISITOR"];
+  } else if (options?.forEdit) {
+    roles = ["MEMBER", "VISITOR"];
+  } else if (userCanAddPerson(user)) {
+    roles = ["MEMBER", "VISITOR"];
+  } else if (userCanAddVisitor(user)) {
+    roles = ["VISITOR"];
+  } else {
+    return [];
   }
-  if (userCanAddPerson(user)) return ["MEMBER", "VISITOR"];
-  if (userCanAddVisitor(user)) return ["VISITOR"];
-  return [];
+
+  if (options?.hasWaterBaptism) {
+    roles = roles.filter((role) => role !== "VISITOR");
+    if (!roles.includes("MEMBER")) {
+      roles = ["MEMBER", ...roles];
+    }
+  }
+  return roles;
 }
 
 export function isReporterOnlyUser(user: User | null): boolean {

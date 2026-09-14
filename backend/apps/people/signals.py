@@ -203,10 +203,9 @@ def _handle_baptism_date_journey(person, current_date, original_date, journey_ty
 
 
 def _handle_baptism_role_update(person, current_date, original_date):
-    date_set = original_date is None and current_date is not None
     date_cleared = original_date is not None and current_date is None
 
-    if date_set and person.role == "VISITOR":
+    if current_date is not None and person.role == "VISITOR":
         old_status = person.status
         person.role = "MEMBER"
         person.status = "ACTIVE"

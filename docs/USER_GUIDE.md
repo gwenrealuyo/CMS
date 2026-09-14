@@ -73,7 +73,7 @@ Use **People** in the sidebar to browse the church directory.
 | **Module coordinator** (any module) | Add and edit people in your scope |
 | **Member** (no coordinator assignment) | Add **Visitors** only; view self and family |
 
-Use **+ → Add Person** or the **Add Person** button on the People page. Optional fields include nickname and maiden name. For visitors, choose status **Ongoing**, **No Response**, or **Deceased** (not Invited/Attended — those labels apply only to evangelism prospects).
+Use **+ → Add Person** or the **Add Person** button on the People page. Optional fields include nickname and maiden name. For visitors, choose status **Ongoing**, **No Response**, or **Deceased** (not Invited/Attended — those labels apply only to evangelism prospects). Filling **Water baptism date** on a visitor automatically makes them a **Member** (status Active); Visitor is not available in the role list while that date is set.
 
 When creating someone who will log in, an admin sets a **temporary password**. Share username and password securely.
 

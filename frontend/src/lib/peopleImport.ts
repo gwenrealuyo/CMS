@@ -213,6 +213,13 @@ export function mapImportRowToPerson(
     }
   }
 
+  if (payload.water_baptism_date && payload.role === "VISITOR") {
+    payload.role = "MEMBER";
+    if (payload.status === "ONGOING" || payload.status === "NO_RESPONSE") {
+      payload.status = "ACTIVE";
+    }
+  }
+
   const activity = pickString(row, "first_activity_attended");
   if (activity) {
     const code =

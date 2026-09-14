@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
 import { peopleApi } from "@/src/lib/api";
+import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import { formatPersonName } from "@/src/lib/name";
 import {
   formatPersonStatusLabel,
@@ -22,22 +23,6 @@ type StatusPerson = Pick<
   suffix?: string;
   full_name?: string;
 };
-
-function apiErrorMessage(err: unknown): string {
-  const ax = err as {
-    response?: {
-      data?: {
-        message?: string;
-        details?: Record<string, string | string[]>;
-      };
-    };
-  };
-  const reason = ax.response?.data?.details?.status_change_reason;
-  if (reason) {
-    return Array.isArray(reason) ? String(reason[0]) : String(reason);
-  }
-  return ax.response?.data?.message || "Could not update status";
-}
 
 export default function ChangePersonStatusModal({
   person,
@@ -91,7 +76,7 @@ export default function ChangePersonStatusModal({
       onSaved(data);
       onClose();
     } catch (err) {
-      toast.error(apiErrorMessage(err));
+      toast.error(formatApiErrorMessage(err, "Could not update status"));
     } finally {
       setSaving(false);
     }

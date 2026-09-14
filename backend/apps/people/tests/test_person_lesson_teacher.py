@@ -133,6 +133,21 @@ class PersonLessonTeacherAPITests(APITestCase):
         self.assertEqual(response.status_code, 400, response.data)
         self.assertIn("lesson_teacher_id", self._error_details(response))
 
+    def test_unrelated_patch_skips_teacher_when_already_finished(self):
+        self.student.has_finished_lessons = True
+        self.student.lessons_finished_at = church_today()
+        self.student.save(
+            update_fields=["has_finished_lessons", "lessons_finished_at"]
+        )
+        response = self._patch_student(first_name="Samantha")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.first_name, "Samantha")
+        self.assertTrue(self.student.has_finished_lessons)
+        self.assertFalse(
+            LessonStudentEnrollment.objects.filter(student=self.student).exists()
+        )
+
     def test_finished_with_teacher_still_backfills_progress(self):
         finished_on = date(2024, 1, 15)
         response = self._patch_student(

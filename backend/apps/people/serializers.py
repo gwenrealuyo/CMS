@@ -1007,11 +1007,6 @@ class PersonSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"branch": "Branch cannot be cleared."}
                 )
-            merged_branch = attrs.get("branch") if branch_in_attrs else instance.branch
-            if merged_branch is None:
-                raise serializers.ValidationError(
-                    {"branch": "Branch is required."}
-                )
 
         has_finished_lessons = attrs.get(
             "has_finished_lessons",
@@ -1037,16 +1032,27 @@ class PersonSerializer(serializers.ModelSerializer):
                     }
                 )
 
-        existing_enrollment = None
-        if instance is not None:
-            existing_enrollment = getattr(instance, "lesson_enrollment", None)
-
-        self._validate_lesson_teacher_write(
-            attrs,
-            instance=instance,
-            existing_enrollment=existing_enrollment,
-            has_finished_lessons=has_finished_lessons,
+        lesson_teacher_keys = (
+            "lesson_teacher_id",
+            "historical_teacher_first_name",
+            "historical_teacher_last_name",
+            "has_finished_lessons",
         )
+        should_validate_lesson_teacher = (
+            not instance
+            or toggling_lessons_complete_on
+            or any(key in attrs for key in lesson_teacher_keys)
+        )
+        if should_validate_lesson_teacher:
+            existing_enrollment = None
+            if instance is not None:
+                existing_enrollment = getattr(instance, "lesson_enrollment", None)
+            self._validate_lesson_teacher_write(
+                attrs,
+                instance=instance,
+                existing_enrollment=existing_enrollment,
+                has_finished_lessons=has_finished_lessons,
+            )
 
         commitment_in_payload = "commitment_form_signed" in attrs
         if commitment_in_payload:

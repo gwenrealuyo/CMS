@@ -10,6 +10,7 @@ from apps.people.models import (
     PersonStatusChange,
 )
 from apps.people.utils import update_person_status
+from core.datetime_utils import church_today
 
 
 class PersonStatusChangeAPITests(APITestCase):
@@ -102,6 +103,21 @@ class PersonStatusChangeAPITests(APITestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.member.refresh_from_db()
         self.assertEqual(self.member.status, "SEMIACTIVE")
+
+    def test_status_patch_does_not_require_lesson_teacher(self):
+        self.member.has_finished_lessons = True
+        self.member.lessons_finished_at = church_today()
+        self.member.save(
+            update_fields=["has_finished_lessons", "lessons_finished_at"]
+        )
+        response = self._patch_member(
+            status="SEMIACTIVE",
+            status_change_reason="Irregular clustering this month.",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.status, "SEMIACTIVE")
+        self.assertTrue(self.member.has_finished_lessons)
 
     def test_active_reason_is_optional(self):
         self.member.status = "INACTIVE"

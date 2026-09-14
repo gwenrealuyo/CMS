@@ -20,12 +20,16 @@ import Modal from "@/src/components/ui/Modal";
 import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
-import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
+import {
+  HoverTooltip,
+  LockedControlTooltip,
+} from "@/src/components/ui/LockedControlTooltip";
 import Pagination from "@/src/components/ui/Pagination";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
   DocumentArrowDownIcon,
+  InformationCircleIcon,
   Squares2X2Icon,
   TableCellsIcon,
 } from "@heroicons/react/24/outline";
@@ -51,6 +55,36 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { canHardDelete } from "@/src/lib/canHardDelete";
 import { userCanAttemptClusterWeeklyReportMutation } from "@/src/lib/clusterPermissions";
 import { formatLocaleDate } from "@/src/lib/date";
+
+const MEMBER_RATE_TOOLTIP =
+  "Percent of the cluster roster who attended this meeting. Counts only Active, Semi-active, and Inactive members. Other statuses (Dormant, Fall Away, Deceased, etc.) are excluded.";
+
+const MEMBER_RATE_AVG_TOOLTIP =
+  "Average of each report's member rate. Each rate is attended ÷ current roster, counting only Active, Semi-active, and Inactive members. Other statuses are excluded.";
+
+function MemberRateHelpButton({
+  label,
+  iconClassName = "h-4 w-4",
+  onClick,
+}: {
+  label: string;
+  iconClassName?: string;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <HoverTooltip label={label}>
+      <button
+        type="button"
+        className="inline-flex shrink-0 rounded-full text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="How Member Rate is calculated"
+        onClick={onClick}
+        onMouseDown={onClick}
+      >
+        <InformationCircleIcon className={iconClassName} />
+      </button>
+    </HoverTooltip>
+  );
+}
 
 interface ClusterReportsDashboardProps {
   clusters: Cluster[];
@@ -316,12 +350,7 @@ export default function ClusterReportsDashboard({
     }
     const opt = branchPickerOptions.find((o) => o.value === selectedBranchId);
     return opt?.label ?? `Branch #${selectedBranchId}`;
-  }, [
-    selectedBranchId,
-    user?.branch,
-    user?.branch_name,
-    branchPickerOptions,
-  ]);
+  }, [selectedBranchId, user?.branch, user?.branch_name, branchPickerOptions]);
 
   const readonlyBranchSelectOptions = useMemo(() => {
     if (selectedBranchId) {
@@ -339,19 +368,13 @@ export default function ClusterReportsDashboard({
       return "Loading branches…";
     }
     return "Branch is limited to your assignment.";
-  }, [
-    reportsBranchSelectInteractive,
-    branchesLoading,
-    canChangeBranchFilter,
-  ]);
+  }, [reportsBranchSelectInteractive, branchesLoading, canChangeBranchFilter]);
 
   const clustersForFilters = useMemo(() => {
     if (!selectedBranchId) return clusters;
     const bid = Number(selectedBranchId);
     if (Number.isNaN(bid)) return clusters;
-    return clusters.filter(
-      (c) => c.branch != null && Number(c.branch) === bid,
-    );
+    return clusters.filter((c) => c.branch != null && Number(c.branch) === bid);
   }, [clusters, selectedBranchId]);
 
   useEffect(() => {
@@ -675,10 +698,8 @@ export default function ClusterReportsDashboard({
           visitors: 0,
         };
       }
-      monthlyData[monthKey].members +=
-        report.members_attended?.length || 0;
-      monthlyData[monthKey].visitors +=
-        report.visitors_attended?.length || 0;
+      monthlyData[monthKey].members += report.members_attended?.length || 0;
+      monthlyData[monthKey].visitors += report.visitors_attended?.length || 0;
     });
     return Object.values(monthlyData).sort((a, b) => {
       const dateA = new Date(a.month);
@@ -692,7 +713,9 @@ export default function ClusterReportsDashboard({
     if (rows?.length) {
       return rows
         .map((row) => {
-          const cluster = clustersForFilters.find((c) => c.id === row.cluster_id);
+          const cluster = clustersForFilters.find(
+            (c) => c.id === row.cluster_id,
+          );
           const rc = row.report_count;
           const sum = row.sum_members_attended;
           const attendanceRate =
@@ -718,7 +741,9 @@ export default function ClusterReportsDashboard({
     > = {};
     reports.forEach((report) => {
       const clusterId = report.cluster?.toString() || "";
-      const cluster = clustersForFilters.find((c) => c.id.toString() === clusterId);
+      const cluster = clustersForFilters.find(
+        (c) => c.id.toString() === clusterId,
+      );
       const clusterLabel =
         cluster?.code || cluster?.name || `Cluster ${clusterId}`;
       if (!clusterData[clusterId]) {
@@ -756,7 +781,11 @@ export default function ClusterReportsDashboard({
     return Object.values(clusterData)
       .sort((a, b) => b.attendanceRate - a.attendanceRate)
       .slice(0, 10);
-  }, [analytics?.chart_series?.cluster_comparison, clustersForFilters, reports]);
+  }, [
+    analytics?.chart_series?.cluster_comparison,
+    clustersForFilters,
+    reports,
+  ]);
 
   const chartGatheringPieData = useMemo(() => {
     const dist = analytics?.gathering_type_distribution;
@@ -826,10 +855,7 @@ export default function ClusterReportsDashboard({
 
       // Otherwise use internal handler
       if (formEditingReport) {
-        await clusterReportsApi.update(
-          formEditingReport.id.toString(),
-          data,
-        );
+        await clusterReportsApi.update(formEditingReport.id.toString(), data);
       } else {
         await clusterReportsApi.create(data);
         // Reset to first page when adding new report
@@ -1790,9 +1816,7 @@ export default function ClusterReportsDashboard({
                     ? selectedYear
                     : availableYears[0]
               }
-              onChange={(e) =>
-                setSelectedYear(parseInt(e.target.value, 10))
-              }
+              onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
               className="w-full px-2 py-2 min-h-[44px] border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
             >
               {yearsLoading ? (
@@ -2060,8 +2084,12 @@ export default function ClusterReportsDashboard({
                         )}
                         {visibleColumns.has("member_attendance_rate") && (
                           <div>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 inline-flex items-center gap-1">
                               Member Rate
+                              <MemberRateHelpButton
+                                label={MEMBER_RATE_TOOLTIP}
+                                iconClassName="h-3.5 w-3.5"
+                              />
                             </span>
                             <p className="text-sm text-gray-900">
                               {report.member_attendance_rate !== undefined
@@ -2161,6 +2189,12 @@ export default function ClusterReportsDashboard({
                         >
                           <div className="flex items-center space-x-1">
                             <span>{col.label}</span>
+                            {col.key === "member_attendance_rate" && (
+                              <MemberRateHelpButton
+                                label={MEMBER_RATE_TOOLTIP}
+                                onClick={(event) => event.stopPropagation()}
+                              />
+                            )}
                             <SortIcon field={col.key} />
                           </div>
                         </th>
@@ -2354,26 +2388,26 @@ export default function ClusterReportsDashboard({
                                 </svg>
                               </button>
                               {userCanHardDeleteReports && (
-                              <button
-                                onClick={() => handleDeleteReport(report)}
-                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                                title="Delete Report"
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                  xmlns="http://www.w3.org/2000/svg"
+                                <button
+                                  onClick={() => handleDeleteReport(report)}
+                                  className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                  title="Delete Report"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                  />
-                                </svg>
-                              </button>
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                </button>
                               )}
                             </>
                           )}
@@ -2486,64 +2520,64 @@ export default function ClusterReportsDashboard({
         onClose={() => setShowColumnsModal(false)}
         panelClassName="relative w-full max-w-md"
       >
-          <div className="flex max-h-[90vh] flex-col overflow-hidden rounded-lg bg-white shadow-xl">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Configure Columns
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Select which columns to display in the table
-              </p>
-            </div>
-            <div className="px-6 py-4 flex-1 overflow-y-auto">
-              <div className="space-y-2">
-                {availableColumns.map((col) => (
-                  <label
-                    key={col.key}
-                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.has(col.key)}
-                      onChange={(e) => {
-                        const newVisible = new Set(visibleColumns);
-                        if (e.target.checked) {
-                          newVisible.add(col.key);
-                        } else {
-                          newVisible.delete(col.key);
-                        }
-                        setVisibleColumns(newVisible);
-                      }}
-                      className="rounded border-gray-300 text-primary focus:ring-ring"
-                    />
-                    <span className="text-sm text-gray-700">{col.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-3">
-              <button
-                onClick={() => {
-                  setVisibleColumns(
-                    new Set(
-                      availableColumns
-                        .filter((col) => col.default)
-                        .map((col) => col.key),
-                    ),
-                  );
-                }}
-                className="px-4 py-2 min-h-[44px] text-sm font-medium text-gray-700 hover:text-gray-900"
-              >
-                Reset to Default
-              </button>
-              <button
-                onClick={() => setShowColumnsModal(false)}
-                className="px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-primary rounded-lg hover:bg-lighthouse-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
-              >
-                Done
-              </button>
+        <div className="flex max-h-[90vh] flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Configure Columns
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Select which columns to display in the table
+            </p>
+          </div>
+          <div className="px-6 py-4 flex-1 overflow-y-auto">
+            <div className="space-y-2">
+              {availableColumns.map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns.has(col.key)}
+                    onChange={(e) => {
+                      const newVisible = new Set(visibleColumns);
+                      if (e.target.checked) {
+                        newVisible.add(col.key);
+                      } else {
+                        newVisible.delete(col.key);
+                      }
+                      setVisibleColumns(newVisible);
+                    }}
+                    className="rounded border-gray-300 text-primary focus:ring-ring"
+                  />
+                  <span className="text-sm text-gray-700">{col.label}</span>
+                </label>
+              ))}
             </div>
           </div>
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-3">
+            <button
+              onClick={() => {
+                setVisibleColumns(
+                  new Set(
+                    availableColumns
+                      .filter((col) => col.default)
+                      .map((col) => col.key),
+                  ),
+                );
+              }}
+              className="px-4 py-2 min-h-[44px] text-sm font-medium text-gray-700 hover:text-gray-900"
+            >
+              Reset to Default
+            </button>
+            <button
+              onClick={() => setShowColumnsModal(false)}
+              className="px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-primary rounded-lg hover:bg-lighthouse-navy focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+            >
+              Done
+            </button>
+          </div>
+        </div>
       </ModalOverlay>
     </div>
   );

@@ -1358,6 +1358,10 @@ export default function ClusterWeeklyReportForm({
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Offerings (₱)
         </label>
+        <p className="text-xs text-gray-500 mb-2">
+          For this cluster's records only. This amount is not added to regular
+          church offerings.
+        </p>
         <input
           type="number"
           step="0.01"

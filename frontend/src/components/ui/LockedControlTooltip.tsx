@@ -3,22 +3,18 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import type { ReactNode } from "react";
 
-/** Hover hint when a control uses pointer-events-none (e.g. locked branch filter). */
-export function LockedControlTooltip({
+/** Radix hover/focus tooltip. Pass a single focusable element as `children` (Trigger asChild). */
+export function HoverTooltip({
   label,
   children,
-  wrapperClassName = "inline-block w-52 shrink-0 align-middle cursor-default",
 }: {
   label: string;
   children: ReactNode;
-  wrapperClassName?: string;
 }) {
   return (
     <Tooltip.Provider delayDuration={250}>
       <Tooltip.Root>
-        <Tooltip.Trigger asChild>
-          <span className={wrapperClassName}>{children}</span>
-        </Tooltip.Trigger>
+        <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content
             side="top"
@@ -31,5 +27,22 @@ export function LockedControlTooltip({
         </Tooltip.Portal>
       </Tooltip.Root>
     </Tooltip.Provider>
+  );
+}
+
+/** Hover hint when a control uses pointer-events-none (e.g. locked branch filter). */
+export function LockedControlTooltip({
+  label,
+  children,
+  wrapperClassName = "inline-block w-52 shrink-0 align-middle cursor-default",
+}: {
+  label: string;
+  children: ReactNode;
+  wrapperClassName?: string;
+}) {
+  return (
+    <HoverTooltip label={label}>
+      <span className={wrapperClassName}>{children}</span>
+    </HoverTooltip>
   );
 }

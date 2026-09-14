@@ -191,8 +191,13 @@ export function useGlobalSearch({
       tasks.push({
         entity: "prospect",
         run: async () => {
-          const response = await evangelismApi.listProspects(params);
-          return unwrapList(response.data).map(mapProspectToResult);
+          const response = await evangelismApi.listProspects({
+            ...params,
+            person_isnull: true,
+          });
+          return unwrapList(response.data)
+            .filter((prospect) => !prospect.person)
+            .map(mapProspectToResult);
         },
       });
     }

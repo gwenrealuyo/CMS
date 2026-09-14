@@ -14,6 +14,9 @@ class ProspectFilter(django_filters.FilterSet):
     endorsed_cluster = django_filters.NumberFilter(field_name="endorsed_cluster_id")
     pipeline_stage = django_filters.CharFilter(field_name="pipeline_stage")
     is_dropped_off = django_filters.BooleanFilter(field_name="is_dropped_off")
+    person_isnull = django_filters.BooleanFilter(
+        field_name="person", lookup_expr="isnull"
+    )
     branch = django_filters.NumberFilter(method="filter_branch")
     cluster = django_filters.NumberFilter(method="filter_cluster")
     source = django_filters.CharFilter(method="filter_source")

@@ -348,6 +348,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?pipeline_stage={stage}` – filter by pipeline stage
     - Query params: `?endorsed_cluster={cluster_id}` – filter by endorsed cluster
     - Query params: `?is_dropped_off=true` – filter by drop-off status
+    - Query params: `?person_isnull=true` – unlinked prospects only (global search uses this so people with a profile are not duplicated under Prospects)
   - `POST` – Create a new prospect (requires `first_name`, `last_name`, `invited_by_id`; optional `middle_name`, `suffix`, `gender`, `contact_info`, `evangelism_group_id`, `facebook_name`, `notes`, `date_first_invited`)
     - Does **not** set `inviter_cluster` from the inviter’s cluster membership; cluster attribution comes from cluster weekly reports
     - No automatic name/contact dedupe on this endpoint (cluster report nested create does soft dedupe)
@@ -554,7 +555,7 @@ The Evangelism hub lives at `frontend/src/app/evangelism/page.tsx` and provides 
 The main page includes tabs for different views:
 
 - **Groups Tab**: Manage evangelism groups (see [Groups tab listing](#groups-tab-listing) below)
-- **Prospects Tab**: Browse invited visitors (senior cluster/evangelism coordinators, pastors, admins). Default filter is Invited / not dropped off. Filters: branch, cluster, stage, source (**Cluster** = recorded on a cluster weekly report or endorsed; **Evangelism** = linked to an evangelism group; not copied from the inviter’s cluster). **Update** on Invited rows opens a **Mark attended** modal (activity date + first activity). Clustering / Bible Study / BS-Cluster Evangelism must be recorded on the matching weekly report instead. Rows show pipeline chips and a People profile link after attendance. Global search uses `?tab=prospects&open={id}`.
+- **Prospects Tab**: Browse invited visitors (senior cluster/evangelism coordinators, pastors, admins). Default filter is Invited / not dropped off. Filters: branch, cluster, stage, source (**Cluster** = recorded on a cluster weekly report or endorsed; **Evangelism** = linked to an evangelism group; not copied from the inviter’s cluster). **Update** on Invited rows opens a **Mark attended** modal (activity date + first activity). Clustering / Bible Study / BS-Cluster Evangelism must be recorded on the matching weekly report instead. Rows show pipeline chips and a People profile link after attendance. Global search uses `?tab=prospects&open={id}` and omits prospects that already have a People profile (`?person_isnull=true`).
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
 - **Tally Tab**: People tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC). Default **By cluster** compares clusters in the selected branch for All / YTD / quarter / custom months; **By month** is the year grid. Click a count to open the drill-down modal; click a cluster name to open By month for that cluster
 - **Reports Tab**: Weekly unified tally (evangelism + cluster weekly reports)

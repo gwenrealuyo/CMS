@@ -1844,6 +1844,7 @@ export const evangelismApi = {
     cluster?: number | string;
     source?: string;
     search?: string;
+    person_isnull?: boolean;
     page?: number;
     page_size?: number;
   }) => api.get<Prospect[]>("/evangelism/prospects/", { params }),

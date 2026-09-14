@@ -260,7 +260,7 @@ The top search bar finds:
 - People and families
 - Clusters and events
 - Ministries and evangelism groups
-- Sunday School classes and prospects
+- Sunday School classes and prospects (prospects who already have a People profile are omitted)
 
 Click a result to open that record.
 

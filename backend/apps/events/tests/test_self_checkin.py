@@ -257,7 +257,7 @@ class SelfCheckInAPITests(APITestCase):
         self.assertTrue(response.data["available"])
         self.assertFalse(response.data["needs_selection"])
         self.assertEqual(response.data["session"]["event"]["id"], self.event.id)
-        self.assertFalse(response.data["can_encode_visitors"])
+        self.assertTrue(response.data["can_encode_visitors"])
         household_ids = {row["id"] for row in response.data["session"]["household"]}
         self.assertIn(self.member.id, household_ids)
         self.assertIn(self.spouse.id, household_ids)
@@ -332,10 +332,11 @@ class SelfCheckInAPITests(APITestCase):
             ).exists()
         )
 
-    def test_plain_member_cannot_search_visitors(self):
+    def test_plain_member_can_search_visitors(self):
         self.client.force_authenticate(self.member)
         response = self.client.get("/api/events/self-check-in/visitors/?q=sam")
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["results"], [])
 
     def test_visitor_search_same_branch_visitors_only(self):
         same_branch = Person.objects.create_user(
@@ -452,16 +453,6 @@ class SelfCheckInAPITests(APITestCase):
             pipeline_stage=Prospect.PipelineStage.INVITED,
         )
         self.client.force_authenticate(self.member)
-        blocked = self.client.post(
-            "/api/events/self-check-in/visitors/",
-            {"prospect_id": prospect.id,
-            "attendance_venue": "HOME_ALTAR",
-        },
-            format="json",
-        )
-        self.assertEqual(blocked.status_code, 403)
-
-        self.client.force_authenticate(self.coordinator)
         response = self.client.post(
             "/api/events/self-check-in/visitors/",
             {"prospect_id": prospect.id,
@@ -550,7 +541,7 @@ class SelfCheckInAPITests(APITestCase):
         visitor = Person.objects.get(first_name="Vina", last_name="Guest")
         self.assertEqual(visitor.role, "VISITOR")
         self.assertEqual(visitor.status, "ONGOING")
-        self.assertEqual(visitor.inviter_id, self.member.id)
+        self.assertEqual(visitor.inviter_id, self.coordinator.id)
         self.assertEqual(visitor.date_first_attended, TODAY)
         self.assertTrue(
             AttendanceRecord.objects.filter(
@@ -623,13 +614,13 @@ class SelfCheckInAPITests(APITestCase):
             ).exists()
         )
 
-    def test_admin_can_use_self_as_inviter(self):
-        self.client.force_authenticate(self.admin)
+    def test_member_encode_locks_inviter_to_self(self):
+        self.client.force_authenticate(self.member)
         response = self.client.post(
-            f"/api/events/self-check-in/visitors/?event={self.event.id}",
+            "/api/events/self-check-in/visitors/",
             {
-                "first_name": "Ada",
-                "last_name": "Invitee",
+                "first_name": "Gia",
+                "last_name": "Guest",
                 "gender": "FEMALE",
                 "age_group": "ADULT",
                 "inviter_id": self.admin.id,
@@ -638,8 +629,63 @@ class SelfCheckInAPITests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.data)
-        visitor = Person.objects.get(first_name="Ada", last_name="Invitee")
-        self.assertEqual(visitor.inviter_id, self.admin.id)
+        visitor = Person.objects.get(pk=response.data["person"]["id"])
+        self.assertEqual(visitor.inviter_id, self.member.id)
+
+    def test_member_can_undo_own_guest_not_others(self):
+        self.client.force_authenticate(self.member)
+        mine = self.client.post(
+            "/api/events/self-check-in/visitors/",
+            {
+                "first_name": "Mia",
+                "last_name": "Guest",
+                "gender": "FEMALE",
+                "age_group": "ADULT",
+                "attendance_venue": "HOME_ALTAR",
+            },
+            format="json",
+        )
+        self.assertEqual(mine.status_code, 201, mine.data)
+        mine_id = mine.data["person"]["id"]
+
+        self.client.force_authenticate(self.coordinator)
+        theirs = self.client.post(
+            "/api/events/self-check-in/visitors/",
+            {
+                "first_name": "Tia",
+                "last_name": "Guest",
+                "gender": "FEMALE",
+                "age_group": "ADULT",
+                "attendance_venue": "HOME_ALTAR",
+            },
+            format="json",
+        )
+        self.assertEqual(theirs.status_code, 201, theirs.data)
+        theirs_id = theirs.data["person"]["id"]
+
+        self.client.force_authenticate(self.member)
+        blocked = self.client.post(
+            "/api/events/self-check-in/undo/",
+            {"person_ids": [theirs_id]},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 403)
+        undo_mine = self.client.post(
+            "/api/events/self-check-in/undo/",
+            {"person_ids": [mine_id]},
+            format="json",
+        )
+        self.assertEqual(undo_mine.status_code, 200, undo_mine.data)
+        self.assertFalse(
+            AttendanceRecord.objects.filter(
+                event=self.event, person_id=mine_id, occurrence_date=TODAY
+            ).exists()
+        )
+        self.assertTrue(
+            AttendanceRecord.objects.filter(
+                event=self.event, person_id=theirs_id, occurrence_date=TODAY
+            ).exists()
+        )
 
     def test_check_in_requires_service_selection_when_ambiguous(self):
         Event.objects.create(

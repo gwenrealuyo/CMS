@@ -143,7 +143,7 @@ def _restricted_payload() -> dict:
             "can_encode_visitors": False,
             "session": None,
             "options": [],
-            "detail": "Self check-in is not open to members yet.",
+            "detail": "Online self-check-in is not open to members yet.",
         }
     )
 
@@ -251,13 +251,13 @@ class SelfCheckInView(APIView):
             if resolved.needs_selection:
                 return Response(
                     {
-                        "detail": "Select a Sunday Service to check in.",
+                        "detail": "Select a Sunday Service to check in online.",
                         **_options_payload(resolved),
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             payload = _unavailable_payload(resolved)
-            payload["detail"] = "Self check-in is not available right now."
+            payload["detail"] = "Online self-check-in is not available right now."
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
         person_ids = parse_person_ids(request.data.get("person_ids") or [])
@@ -324,7 +324,7 @@ class SelfCheckInUndoView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             payload = _unavailable_payload(resolved)
-            payload["detail"] = "Self check-in is not available right now."
+            payload["detail"] = "Online self-check-in is not available right now."
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
         person_ids = parse_person_ids(request.data.get("person_ids") or [])
@@ -339,7 +339,7 @@ class SelfCheckInUndoView(APIView):
         if rejected:
             return Response(
                 {
-                    "detail": "You can only undo check-in for yourself, household members, or visitors you can encode.",
+                    "detail": "You can only undo check-in for yourself, household members, or guests you invited.",
                     "rejected_ids": rejected,
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -380,7 +380,7 @@ class SelfCheckInVisitorsView(APIView):
                 )
             return Response(
                 {
-                    "detail": "Self check-in is not available right now.",
+                    "detail": "Online self-check-in is not available right now.",
                     **_unavailable_payload(resolved),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -435,7 +435,7 @@ class SelfCheckInVisitorsView(APIView):
                 )
             return Response(
                 {
-                    "detail": "Self check-in is not available right now.",
+                    "detail": "Online self-check-in is not available right now.",
                     **_unavailable_payload(resolved),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -511,6 +511,9 @@ class SelfCheckInVisitorsView(APIView):
                 {"detail": "Person not found for this service."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        if not person.inviter_id:
+            person.inviter = request.user
+            person.save(update_fields=["inviter"])
         record, created, already = _upsert_present(
             resolved.event, person, resolved.occurrence_date, request, venue
         )
@@ -581,15 +584,6 @@ class SelfCheckInVisitorsView(APIView):
             )
 
         inviter = request.user
-        inviter_id = parse_event_id(data.get("inviter_id"))
-        if inviter_id and inviter_id != request.user.pk:
-            try:
-                inviter = Person.objects.exclude(role="ADMIN").get(pk=inviter_id)
-            except Person.DoesNotExist:
-                return Response(
-                    {"inviter_id": ["Inviter not found."]},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
         event_type = EventType.objects.filter(code=SUNDAY_SERVICE_TYPE).first()
         person = Person(
@@ -653,7 +647,7 @@ class SelfCheckInInvitersView(APIView):
                 )
             return Response(
                 {
-                    "detail": "Self check-in is not available right now.",
+                    "detail": "Online self-check-in is not available right now.",
                     **_unavailable_payload(resolved),
                 },
                 status=status.HTTP_400_BAD_REQUEST,

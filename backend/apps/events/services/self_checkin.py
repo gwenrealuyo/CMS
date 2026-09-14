@@ -56,42 +56,9 @@ def user_can_use_self_checkin(user) -> bool:
     return member_self_checkin_enabled()
 
 
-def user_has_events_write(user) -> bool:
-    """Match HasModuleAccess('EVENTS', 'write') without a request/view."""
-    from apps.authentication.permissions import is_module_enabled
-
-    if not getattr(user, "is_authenticated", False):
-        return False
-    if getattr(user, "role", None) == "ADMIN":
-        return True
-    if not is_module_enabled(ModuleCoordinator.ModuleType.EVENTS):
-        return False
-    if getattr(user, "role", None) == "PASTOR":
-        return True
-
-    assignments = user.module_coordinator_assignments.filter(
-        module=ModuleCoordinator.ModuleType.EVENTS
-    )
-    if assignments.filter(
-        level__in=(
-            ModuleCoordinator.CoordinatorLevel.COORDINATOR,
-            ModuleCoordinator.CoordinatorLevel.SENIOR_COORDINATOR,
-            ModuleCoordinator.CoordinatorLevel.TEACHER,
-        )
-    ).exists():
-        return True
-    if assignments.filter(
-        level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
-        resource_id__isnull=False,
-    ).exists():
-        return True
-    return False
-
-
 def user_can_encode_self_checkin_visitors(user) -> bool:
-    from apps.people.coordinator_assignment_validation import user_can_add_visitor
-
-    return user_can_add_visitor(user) or user_has_events_write(user)
+    """Online self-check-in hosts may find/encode a guest on this page only."""
+    return user_can_use_self_checkin(user)
 
 
 def _ensure_aware(dt: datetime) -> datetime:
@@ -273,9 +240,12 @@ def household_person_ids(user) -> set[int]:
 
 def undoable_person_ids(user, event: Event) -> set[int]:
     allowed = household_person_ids(user)
-    if user_can_encode_self_checkin_visitors(user):
+    visitors = visitor_scope_for_event(user, event)
+    if user_is_self_checkin_staff(user):
+        allowed.update(visitors.values_list("pk", flat=True))
+    else:
         allowed.update(
-            visitor_scope_for_event(user, event).values_list("pk", flat=True)
+            visitors.filter(inviter_id=user.pk).values_list("pk", flat=True)
         )
     return allowed
 

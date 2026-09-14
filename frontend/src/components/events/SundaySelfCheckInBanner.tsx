@@ -9,7 +9,7 @@ import { SelfCheckInSessionResponse } from "@/src/types/selfCheckIn";
 
 export default function SundaySelfCheckInBanner() {
   const [session, setSession] = useState<SelfCheckInSessionResponse | null>(
-    null
+    null,
   );
 
   useEffect(() => {
@@ -52,21 +52,22 @@ export default function SundaySelfCheckInBanner() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lighthouse-gold opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-lighthouse-gold" />
               </span>
-              Open now
+              Online only
             </p>
             <p className="text-sm font-semibold text-lighthouse-navy">
-              Sunday Service check-in is open
+              Sunday Service online check-in is open
             </p>
-            {title && (
-              <p className="text-sm text-amber-900/70">{title}</p>
-            )}
+            <p className="text-sm text-amber-900/70">
+              {/* {title ? `${title}. ` : ""} */}
+              Use this only if you are attending online.
+            </p>
           </div>
         </div>
         <Link
           href={href}
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md bg-lighthouse-navy px-4 py-2 text-sm font-medium text-white hover:bg-lighthouse-navy/90"
         >
-          Check in
+          Check in online
         </Link>
       </div>
     </div>

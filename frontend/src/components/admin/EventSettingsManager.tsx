@@ -48,8 +48,8 @@ export default function EventSettingsManager() {
       setSetting(response.data);
       toast.success(
         enabled
-          ? "Member self-check-in is now open to all members."
-          : "Member self-check-in is limited to admins and Events coordinators.",
+          ? "Online self-check-in is now open to all members."
+          : "Online self-check-in is limited to admins and Events coordinators.",
       );
     } catch (error: any) {
       setSetting({ ...setting, member_self_checkin_enabled: previous });
@@ -106,7 +106,8 @@ export default function EventSettingsManager() {
           Events
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Control Sunday Service self-check-in and online attendance venues.
+          Control Sunday Service online self-check-in and online attendance
+          venues.
         </p>
       </div>
 
@@ -133,11 +134,14 @@ export default function EventSettingsManager() {
       <div className="bg-white rounded-lg shadow-md border border-gray-100">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div>
-            <h3 className="font-medium text-gray-900">Member self-check-in</h3>
+            <h3 className="font-medium text-gray-900">
+              Member online self-check-in
+            </h3>
             <p className="text-xs text-gray-500 mt-1 max-w-xl">
-              When off, only admins and Events coordinators see the Sunday
-              check-in banner and page. Turn this on when you are ready for all
-              members to check themselves in.
+              For members attending Sunday Service online only (home altar,
+              cluster house, or another online venue). Onsite check-in stays on
+              the staff station. When off, only admins and Events coordinators
+              see the banner and page.
             </p>
             <p className="text-xs text-gray-500 mt-1">
               {isEnabled
@@ -157,7 +161,7 @@ export default function EventSettingsManager() {
               isEnabled ? "bg-green-600" : "bg-gray-300"
             } ${updating || pendingToggle !== null ? "opacity-60 cursor-not-allowed" : ""}`}
             aria-pressed={isEnabled}
-            aria-label="Toggle member self-check-in"
+            aria-label="Toggle member online self-check-in"
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -173,8 +177,8 @@ export default function EventSettingsManager() {
         onClose={closeToggleConfirmation}
         title={
           pendingToggle
-            ? "Open self-check-in to members"
-            : "Limit self-check-in to staff"
+            ? "Open online self-check-in to members"
+            : "Limit online self-check-in to staff"
         }
       >
         {pendingToggle !== null && (
@@ -182,13 +186,13 @@ export default function EventSettingsManager() {
             <div className="space-y-2">
               <p className="text-sm text-gray-700">
                 {pendingToggle
-                  ? "Let all logged-in members use Sunday self-check-in?"
-                  : "Hide Sunday self-check-in from members?"}
+                  ? "Let all logged-in members use Sunday online self-check-in?"
+                  : "Hide Sunday online self-check-in from members?"}
               </p>
               <p className="text-sm text-gray-500">
                 {pendingToggle
-                  ? "Members will see the check-in banner on the dashboard and My record when a Sunday Service is open."
-                  : "Only admins and Events coordinators will still see and use self-check-in."}
+                  ? "Members attending online will see the check-in banner on the dashboard and My record when a Sunday Service is open. Do not use this if they are onsite."
+                  : "Only admins and Events coordinators will still see and use online self-check-in."}
               </p>
             </div>
 

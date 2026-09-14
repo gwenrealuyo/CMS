@@ -26,7 +26,6 @@ import AppLogo from "@/src/components/brand/AppLogo";
 import Button from "@/src/components/ui/Button";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
-import { useAuth } from "@/src/contexts/AuthContext";
 import { eventsApi } from "@/src/lib/api";
 import { formatApiErrorMessage } from "@/src/lib/apiErrors";
 import {
@@ -43,7 +42,6 @@ import { AttendanceVenueOption } from "@/src/types/event";
 import {
   SelfCheckInAgeGroup,
   SelfCheckInEventOption,
-  SelfCheckInInviter,
   SelfCheckInPerson,
   SelfCheckInSessionDetails,
   SelfCheckInSessionResponse,
@@ -181,8 +179,8 @@ function OnlineVenuePicker({
         className="w-full"
       />
       <p className="mt-1 text-xs text-muted-foreground">
-        Required (Home altar, Cluster house, etc.). Self check-in is online
-        only.
+        Required (Home altar, Cluster house, etc.). Use this page only if
+        attending online.
       </p>
     </div>
   );
@@ -279,7 +277,6 @@ function PersonRow({
 }
 
 export default function EventSelfCheckInView() {
-  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventParam = searchParams.get("event") ?? "";
@@ -312,11 +309,6 @@ export default function EventSelfCheckInView() {
   const [phoneDialCountry, setPhoneDialCountry] = useState(DEFAULT_COUNTRY);
   const [phoneLocal, setPhoneLocal] = useState("");
   const phoneCountryCode = getCountryDialCode(phoneDialCountry);
-  const [inviter, setInviter] = useState<SelfCheckInInviter | null>(null);
-  const [inviterQuery, setInviterQuery] = useState("");
-  const [inviterResults, setInviterResults] = useState<SelfCheckInInviter[]>(
-    [],
-  );
   const [duplicateMatches, setDuplicateMatches] = useState<
     SelfCheckInVisitorMatch[]
   >([]);
@@ -331,7 +323,9 @@ export default function EventSelfCheckInView() {
     return venues
       .filter((venue) => venue.is_active !== false)
       .slice()
-      .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label));
+      .sort(
+        (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label),
+      );
   }, [payload?.attendance_venues]);
 
   const applySession = useCallback((data: SelfCheckInSessionResponse) => {
@@ -371,23 +365,6 @@ export default function EventSelfCheckInView() {
   useEffect(() => {
     void loadSession();
   }, [loadSession]);
-
-  useEffect(() => {
-    if (!user) return;
-    setInviter((current) =>
-      current
-        ? current
-        : {
-            id: user.id,
-            full_name:
-              user.full_name || `${user.first_name} ${user.last_name}`.trim(),
-            first_name: user.first_name,
-            last_name: user.last_name,
-            member_id: "",
-            is_self: true,
-          },
-    );
-  }, [user]);
 
   useEffect(() => {
     const query = visitorQuery.trim();
@@ -432,29 +409,6 @@ export default function EventSelfCheckInView() {
       window.clearTimeout(timer);
     };
   }, [step, visitorQuery, selectedEventId]);
-
-  useEffect(() => {
-    const query = inviterQuery.trim();
-    if (step !== "visitor-encode" || query.length < 2 || !selectedEventId) {
-      setInviterResults([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await eventsApi.searchSelfCheckInInviters(query, {
-          event: selectedEventId,
-        });
-        if (!cancelled) setInviterResults(response.data.results);
-      } catch {
-        if (!cancelled) setInviterResults([]);
-      }
-    }, 300);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [step, inviterQuery, selectedEventId]);
 
   const selectedHousehold = useMemo(() => {
     if (!session) return [];
@@ -570,12 +524,10 @@ export default function EventSelfCheckInView() {
           axiosDetail(err) ||
           `${person.full_name} is already checked in. Mode and venue cannot be changed.`;
         setError(detail);
-        toast.success(
-          `${person.full_name} is already checked in.`,
-        );
+        toast.success(`${person.full_name} is already checked in.`);
         await loadSession({ silent: true });
       } else {
-        setError(formatApiErrorMessage(err, "Unable to check in this visitor."));
+        setError(formatApiErrorMessage(err, "Unable to check in this guest."));
       }
     } finally {
       setSubmitting(false);
@@ -639,7 +591,6 @@ export default function EventSelfCheckInView() {
         age_group: encode.age_group,
         phone: phoneLocal ? `${phoneCountryCode}${phoneLocal}` : undefined,
         email: encode.email.trim() || undefined,
-        inviter_id: inviter?.id,
         event_id: selectedEventId ? Number(selectedEventId) : undefined,
         attendance_venue: attendanceVenue,
       });
@@ -675,8 +626,7 @@ export default function EventSelfCheckInView() {
         axiosErr.response.data?.already_checked_in
       ) {
         const name =
-          axiosErr.response.data.person?.full_name ||
-          formatPersonName(encode);
+          axiosErr.response.data.person?.full_name || formatPersonName(encode);
         setError(
           axiosErr.response.data.detail ||
             `${name} is already checked in. Mode and venue cannot be changed.`,
@@ -684,7 +634,7 @@ export default function EventSelfCheckInView() {
         toast.success(`${name} is already checked in.`);
         await loadSession({ silent: true });
       } else {
-        setError(formatApiErrorMessage(err, "Unable to encode this visitor."));
+        setError(formatApiErrorMessage(err, "Unable to add this guest."));
       }
     } finally {
       setSubmitting(false);
@@ -698,8 +648,11 @@ export default function EventSelfCheckInView() {
           <div className="mb-5 flex flex-col items-center text-center">
             <AppLogo imageClassName="h-12 w-auto object-contain" />
             <h1 className="mt-3 text-xl font-semibold text-lighthouse-navy">
-              Service Check-In
+              Online Check-In
             </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Only if you are attending Sunday Service online
+            </p>
           </div>
           {children}
         </div>
@@ -729,8 +682,8 @@ export default function EventSelfCheckInView() {
       <div className="text-center">
         <p className="text-sm text-muted-foreground">
           {payload?.reason === "restricted"
-            ? "Self check-in is not open to members yet."
-            : "Self check-in is only available on Sunday Service days."}
+            ? "Online check-in is not open to members yet."
+            : "Online check-in is only available on Sunday Service days."}
         </p>
         <Link href="/dashboard" className="mt-5 inline-block w-full">
           <Button className="w-full">Back to dashboard</Button>
@@ -743,7 +696,7 @@ export default function EventSelfCheckInView() {
     return shell(
       <div className="space-y-3">
         <p className="text-center text-sm text-muted-foreground">
-          Choose the service you are attending.
+          Choose the service you are attending online.
         </p>
         {payload.options.map((option) => (
           <button
@@ -779,7 +732,7 @@ export default function EventSelfCheckInView() {
         <div className="flex flex-col items-center gap-2 pt-2">
           <CheckCircleIcon className="h-14 w-14 text-emerald-600" />
           <p className="text-lg font-semibold text-lighthouse-navy">
-            You&apos;re checked in
+            You&apos;re checked in online
           </p>
           <p className="text-sm text-muted-foreground">
             {successNames.join(", ")}
@@ -825,7 +778,7 @@ export default function EventSelfCheckInView() {
             {successNames.join(", ") || "The people you just checked in"}
           </p>
           <p className="text-sm text-muted-foreground">
-            This removes them from today&apos;s service.
+            This removes their online check-in from today&apos;s service.
           </p>
         </div>
         {actionError}
@@ -863,6 +816,9 @@ export default function EventSelfCheckInView() {
             Your household
           </h2>
         </div>
+        <p className="text-sm text-muted-foreground">
+          Check in only if they are attending this service online.
+        </p>
         <div className="space-y-2">
           {session.household.map((person) => (
             <PersonRow
@@ -890,15 +846,13 @@ export default function EventSelfCheckInView() {
         <Button
           className="w-full min-h-12"
           disabled={
-            submitting ||
-            selectedHousehold.length === 0 ||
-            !attendanceVenue
+            submitting || selectedHousehold.length === 0 || !attendanceVenue
           }
           onClick={() => void handleHouseholdCheckIn()}
         >
           {submitting
             ? "Checking in…"
-            : `Check in${selectedHousehold.length ? ` (${selectedHousehold.length})` : ""}`}
+            : `Check in online${selectedHousehold.length ? ` (${selectedHousehold.length})` : ""}`}
         </Button>
       </div>,
     );
@@ -915,9 +869,13 @@ export default function EventSelfCheckInView() {
         <div className="flex items-center gap-3">
           <BackButton onClick={goLanding} />
           <h2 className="text-base font-semibold text-lighthouse-navy">
-            Find visitor
+            Find guest
           </h2>
         </div>
+        <p className="text-sm text-muted-foreground">
+          Someone attending online with you. Search first. Add visitor if not
+          found.
+        </p>
         <label className="block text-sm font-medium text-lighthouse-navy">
           Search by name
           <span className="relative mt-1 block">
@@ -980,7 +938,7 @@ export default function EventSelfCheckInView() {
                 ? "Checking in…"
                 : selectedVisitor
                   ? `Check in ${selectedVisitor.full_name}`
-                  : "Select a visitor to check in"}
+                  : "Select a guest to check in"}
             </Button>
           </>
         )}
@@ -998,7 +956,7 @@ export default function EventSelfCheckInView() {
               setStep("visitor-encode");
             }}
           >
-            No match — encode visitor
+            No match — add guest
           </Button>
         )}
         {!visitorSearching && visitorResults.length > 0 && (
@@ -1016,7 +974,7 @@ export default function EventSelfCheckInView() {
               setStep("visitor-encode");
             }}
           >
-            Not listed? Encode a new visitor
+            Not listed? Add a new guest
           </button>
         )}
         {actionError}
@@ -1031,7 +989,7 @@ export default function EventSelfCheckInView() {
         <div className="flex items-center gap-3">
           <BackButton onClick={() => setStep("visitor-search")} />
           <h2 className="text-base font-semibold text-lighthouse-navy">
-            Visitor check-in
+            Guest check-in
           </h2>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -1171,38 +1129,9 @@ export default function EventSelfCheckInView() {
             ))}
           </div>
         </fieldset>
-        <label className="block text-sm font-medium">
-          Inviter
-          <p className="mt-1 text-sm text-lighthouse-navy">
-            {inviter?.full_name || "You"}
-            {inviter?.is_self ? " (You)" : ""}
-          </p>
-          <input
-            className="mt-2 w-full rounded-full border border-gray-200 px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            placeholder="Search to change inviter"
-            value={inviterQuery}
-            onChange={(event) => setInviterQuery(event.target.value)}
-          />
-          {inviterResults.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {inviterResults.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-left text-sm"
-                  onClick={() => {
-                    setInviter(row);
-                    setInviterQuery("");
-                    setInviterResults([]);
-                  }}
-                >
-                  {row.full_name}
-                  {row.is_self ? " (You)" : ""}
-                </button>
-              ))}
-            </div>
-          )}
-        </label>
+        <p className="text-sm text-muted-foreground">
+          Inviter is you. This guest is recorded as attending online with you.
+        </p>
         <OnlineVenuePicker
           venues={activeVenues}
           value={attendanceVenue}
@@ -1252,7 +1181,7 @@ export default function EventSelfCheckInView() {
           className="w-full min-h-12"
           disabled={submitting || !attendanceVenue}
         >
-          {submitting ? "Saving…" : "Check in as visitor"}
+          {submitting ? "Saving…" : "Check in guest online"}
         </Button>
       </form>,
     );
@@ -1261,10 +1190,13 @@ export default function EventSelfCheckInView() {
   return shell(
     <div className="space-y-5">
       {eventCard}
-      <p className="text-center text-sm text-muted-foreground">I am a…</p>
-      <div
-        className={`grid gap-3 ${payload.can_encode_visitors ? "grid-cols-2" : "grid-cols-1"}`}
-      >
+      <p className="text-center text-sm text-muted-foreground">
+        Use this only if you are attending online.
+      </p>
+      <p className="text-center text-sm font-medium text-lighthouse-navy">
+        I am checking in…
+      </p>
+      <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={() => {
@@ -1275,35 +1207,28 @@ export default function EventSelfCheckInView() {
           className="flex min-h-[7.5rem] flex-col items-center justify-center gap-2 rounded-2xl border border-gray-200 px-3 py-4 text-center hover:border-primary/40"
         >
           <UserGroupIcon className="h-8 w-8 text-primary" />
-          <span className="font-medium text-lighthouse-navy">Member</span>
+          <span className="font-medium text-lighthouse-navy">My household</span>
           <span className="text-xs text-muted-foreground">
-            Yourself and family
+            Yourself and family attending online
           </span>
         </button>
-        {payload.can_encode_visitors && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedMatch(null);
-              setAttendanceVenue("");
-              setError(null);
-              setStep("visitor-search");
-            }}
-            className="flex min-h-[7.5rem] flex-col items-center justify-center gap-2 rounded-2xl border border-gray-200 px-3 py-4 text-center hover:border-primary/40"
-          >
-            <UserPlusIcon className="h-8 w-8 text-primary" />
-            <span className="font-medium text-lighthouse-navy">Visitor</span>
-            <span className="text-xs text-muted-foreground">
-              Search, then encode
-            </span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedMatch(null);
+            setAttendanceVenue("");
+            setError(null);
+            setStep("visitor-search");
+          }}
+          className="flex min-h-[7.5rem] flex-col items-center justify-center gap-2 rounded-2xl border border-gray-200 px-3 py-4 text-center hover:border-primary/40"
+        >
+          <UserPlusIcon className="h-8 w-8 text-primary" />
+          <span className="font-medium text-lighthouse-navy">A guest</span>
+          <span className="text-xs text-muted-foreground">
+            Someone attending online with you
+          </span>
+        </button>
       </div>
-      {!payload.can_encode_visitors && (
-        <p className="text-center text-xs text-muted-foreground">
-          Please see an usher to check in a visitor.
-        </p>
-      )}
       {actionError}
     </div>,
   );

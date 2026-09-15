@@ -371,8 +371,8 @@ export default function MinistriesPage() {
           </div>
 
           <Card title="Filter ministries">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end">
-              <div className="flex-1">
+            <div className="grid grid-cols-1 gap-4 tablet:grid-cols-2 tablet:items-end lg:grid-cols-3 xl:flex xl:flex-row xl:items-end">
+              <div className="min-w-0 tablet:col-span-2 xl:flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Search
                 </label>
@@ -385,7 +385,7 @@ export default function MinistriesPage() {
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Cadence
                 </label>
@@ -407,7 +407,7 @@ export default function MinistriesPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category
                 </label>
@@ -429,7 +429,7 @@ export default function MinistriesPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Scope
                 </label>
@@ -449,7 +449,7 @@ export default function MinistriesPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Branch
                 </label>
@@ -481,7 +481,7 @@ export default function MinistriesPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Status
                 </label>
@@ -509,11 +509,11 @@ export default function MinistriesPage() {
                 </select>
               </div>
 
-              <div className="w-full sm:w-auto md:ml-auto">
+              <div className="flex w-full items-end tablet:w-auto">
                 <Button
                   variant="tertiary"
                   onClick={handleResetFilters}
-                  className="w-full sm:w-auto min-h-[44px]"
+                  className="w-full tablet:w-auto min-h-[44px]"
                 >
                   Reset
                 </Button>
@@ -549,6 +549,7 @@ export default function MinistriesPage() {
               </div>
             ) : (
               <Table
+                cardBreakpoint="tablet"
                 data={visibleMinistries.map((ministry) => ({
                   ...ministry,
                   membersCount:
@@ -656,7 +657,7 @@ export default function MinistriesPage() {
                     header: "Actions",
                     accessor: "id" as const,
                     render: (_value, row: any) => (
-                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="flex items-center gap-2 flex-nowrap justify-end">
                         <button
                           type="button"
                           onClick={() => handleView(row as Ministry)}

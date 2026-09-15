@@ -665,7 +665,7 @@ export default function MinistryForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && <ErrorMessage message={error} />}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 tablet:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Ministry Name<span className="text-red-500">*</span>
@@ -709,7 +709,7 @@ export default function MinistryForm({
           </p>
         </div>
 
-        <div className="md:col-span-2">
+        <div className="tablet:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Description
           </label>
@@ -815,7 +815,7 @@ export default function MinistryForm({
           </div>
         )}
 
-        <div className="md:col-span-2">
+        <div className="tablet:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Primary Coordinator
           </label>
@@ -840,7 +840,7 @@ export default function MinistryForm({
           />
         </div>
 
-        <div className="md:col-span-2">
+        <div className="tablet:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Supporting Coordinators
           </label>
@@ -931,11 +931,11 @@ export default function MinistryForm({
           </p>
         </div>
 
-        <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+        <div className="tablet:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">
             Meeting Schedule
           </h3>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 tablet:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Typical Day
@@ -1013,14 +1013,14 @@ export default function MinistryForm({
         )}
 
         {/* Members Section */}
-        <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
+        <div className="tablet:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">
             Members ({values.members.length})
           </h3>
 
           {/* Add Member Search */}
           <div className="relative mb-4">
-            <div className="flex gap-2 mb-2">
+            <div className="flex flex-col gap-2 mb-2 tablet:flex-row">
               <div className="flex-1">
                 <input
                   type="text"
@@ -1039,7 +1039,7 @@ export default function MinistryForm({
                 onChange={(e) =>
                   setSelectedMemberRole(e.target.value as MinistryRole)
                 }
-                className="rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full tablet:w-auto rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 {ROLE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>

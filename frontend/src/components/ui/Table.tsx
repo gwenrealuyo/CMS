@@ -16,6 +16,8 @@ interface TableProps<T> {
   data: T[];
   columns: TableColumn<T>[];
   mobileCardView?: boolean;
+  /** Breakpoint at which card view switches to the desktop table. Default `md`. */
+  cardBreakpoint?: "md" | "tablet";
 }
 
 function renderDesktopThClasses<T>(
@@ -40,10 +42,23 @@ export default function Table<T>({
   data = [],
   columns = [],
   mobileCardView = true,
+  cardBreakpoint = "md",
 }: TableProps<T>) {
   if (!columns || columns.length === 0) {
     return null;
   }
+
+  const isTabletBp = cardBreakpoint === "tablet";
+  const cardsHiddenClass = isTabletBp ? "tablet:hidden" : "md:hidden";
+  const tableVisibleClass = isTabletBp
+    ? "hidden tablet:block"
+    : "hidden md:block";
+  const hideOnMobileCellClass = isTabletBp
+    ? "hidden tablet:table-cell"
+    : "hidden md:table-cell";
+  const hideOnMobileHeaderGroupClass = isTabletBp
+    ? "hidden tablet:table-header-group"
+    : "hidden md:table-header-group";
 
   /* Match Cluster reports / People table: muted uppercase headers, gray-50 strip */
   const desktopThCommon =
@@ -64,7 +79,7 @@ export default function Table<T>({
     return (
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50 hidden md:table-header-group">
+          <thead className={`bg-gray-50 ${hideOnMobileHeaderGroupClass}`}>
             <tr>
               {columns.map((column, i) => (
                 <th
@@ -100,7 +115,7 @@ export default function Table<T>({
     return (
       <>
         {/* Mobile card view */}
-        <div className="md:hidden space-y-4">
+        <div className={`${cardsHiddenClass} space-y-4`}>
           {data.map((row, i) => (
             <div
               key={i}
@@ -128,7 +143,7 @@ export default function Table<T>({
         </div>
 
         {/* Desktop table view */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className={`${tableVisibleClass} overflow-x-auto`}>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -185,7 +200,7 @@ export default function Table<T>({
                   className={`${renderDesktopThClasses(
                     column,
                     desktopThCommon,
-                  )} ${column.hideOnMobile ? "hidden md:table-cell" : ""}`}
+                  )} ${column.hideOnMobile ? hideOnMobileCellClass : ""}`}
                   onClick={column.onHeaderClick}
                   onKeyDown={(e) => handleHeaderKeyDown(e, column.onHeaderClick)}
                   tabIndex={column.onHeaderClick ? 0 : undefined}
@@ -205,7 +220,7 @@ export default function Table<T>({
                   <td
                     key={j}
                     className={`px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
-                      column.hideOnMobile ? "hidden md:table-cell" : ""
+                      column.hideOnMobile ? hideOnMobileCellClass : ""
                     }`}
                   >
                     {column.render

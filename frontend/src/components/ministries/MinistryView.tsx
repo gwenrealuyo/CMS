@@ -145,7 +145,7 @@ export default function MinistryView({
   return (
     <div className="flex flex-col h-full space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 md:p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-3 tablet:p-4 border-b border-gray-200">
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-medium text-gray-900">
             Ministry Details
@@ -176,7 +176,7 @@ export default function MinistryView({
       </div>
 
       {/* Content */}
-      <div className="p-4 md:p-5 overflow-y-auto flex-1">
+      <div className="p-4 tablet:p-5 overflow-y-auto flex-1">
         <div className="space-y-4 md:space-y-5">
           {/* Ministry Info Card */}
           <div className="bg-gradient-to-r from-lighthouse-ivory to-muted rounded-lg p-4 border border-primary/20">
@@ -624,7 +624,7 @@ export default function MinistryView({
 
       {/* Footer */}
       {(onDelete || onHardDelete || onEdit) && (
-        <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto p-3 md:p-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex flex-nowrap items-center gap-2 w-full overflow-x-auto p-3 tablet:p-4 border-t border-gray-200 bg-gray-50">
           <div className="flex flex-nowrap items-center gap-2 shrink-0">
             {onDelete && (
               <Button

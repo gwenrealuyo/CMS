@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import Modal from "@/src/components/ui/Modal";
+import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import AttendanceSelector from "@/src/components/reports/AttendanceSelector";
 import AddVisitorModal from "@/src/components/reports/AddVisitorModal";
 import ProspectForm, {
@@ -15,6 +16,7 @@ import {
   Prospect,
 } from "@/src/types/evangelism";
 import { Person, PersonUI } from "@/src/types/person";
+import { Cluster } from "@/src/types/cluster";
 import { evangelismApi, peopleApi } from "@/src/lib/api";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import {
@@ -112,6 +114,33 @@ function groupHasPersonRoster(g?: EvangelismGroup | null): boolean {
   return typeof first === "object" && first != null && "id" in first;
 }
 
+function groupClusterChip(
+  group: EvangelismGroup,
+  clusters: Cluster[] = [],
+): { clusterCode: string; clusterBranchId: number | null } {
+  const nested = group.cluster;
+  const clusterId = nested?.id ?? group.cluster_id ?? null;
+  if (clusterId == null || String(clusterId).trim() === "") {
+    return { clusterCode: "NO CLUSTER", clusterBranchId: null };
+  }
+  const fromList = clusters.find(
+    (cluster) => String(cluster.id) === String(clusterId),
+  );
+  const code = (
+    nested?.code ||
+    fromList?.code ||
+    nested?.name ||
+    fromList?.name ||
+    ""
+  ).trim();
+  const branchRaw = fromList?.branch ?? nested?.branch ?? clusterId;
+  const branchId = Number(branchRaw);
+  return {
+    clusterCode: code || String(clusterId),
+    clusterBranchId: Number.isFinite(branchId) ? branchId : null,
+  };
+}
+
 export interface EvangelismWeeklyReportFormValues {
   evangelism_group_id: string;
   year: number;
@@ -133,7 +162,14 @@ export interface EvangelismWeeklyReportFormValues {
 }
 
 interface EvangelismWeeklyReportFormProps {
-  group: EvangelismGroup;
+  /** Known group (group detail modal, or preselected from a deep link). */
+  group?: EvangelismGroup | null;
+  /** When set, group is chosen in the form (cluster weekly report pattern). */
+  availableGroups?: EvangelismGroup[];
+  /** Used to color cluster chips on the group picker. */
+  clusters?: Cluster[];
+  /** Group id to select before the matching object is available. */
+  initialGroupId?: string | null;
   initialData?: EvangelismWeeklyReport | null;
   prospects?: Prospect[];
   onSubmit: (values: EvangelismWeeklyReportFormValues) => Promise<void>;
@@ -163,7 +199,10 @@ function personToMemberOption(person: Person): PersonUI {
 }
 
 export default function EvangelismWeeklyReportForm({
-  group,
+  group = null,
+  availableGroups,
+  clusters = [],
+  initialGroupId = null,
   initialData,
   prospects = [],
   onSubmit,
@@ -185,14 +224,51 @@ export default function EvangelismWeeklyReportForm({
   const [pendingNewProspects, setPendingNewProspects] = useState<
     Record<string, EvangelismReportNewInvitedProspectInput>
   >({});
-  const [rosterGroup, setRosterGroup] = useState<EvangelismGroup>(group);
+  const [selectedGroupId, setSelectedGroupId] = useState(() =>
+    group?.id != null
+      ? String(group.id)
+      : initialGroupId
+        ? String(initialGroupId)
+        : "",
+  );
+  const [rosterGroup, setRosterGroup] = useState<EvangelismGroup | null>(
+    group ?? null,
+  );
   const [loadingRoster, setLoadingRoster] = useState(false);
+  const [groupProspects, setGroupProspects] = useState<Prospect[]>(prospects);
+  const [groupFieldError, setGroupFieldError] = useState<string | null>(null);
   const rosterCacheRef = useRef<Record<string, EvangelismGroup>>({});
+  const skipAttendanceResetRef = useRef(true);
+
+  const showGroupPicker = Array.isArray(availableGroups);
+  const groupPickerLocked = Boolean(initialData);
+
+  const groupSelectOptions = useMemo(
+    () => [
+      { value: "", label: "Select group..." },
+      ...(availableGroups ?? []).map((g) => ({
+        value: String(g.id),
+        label: g.name || `Group ${g.id}`,
+        ...groupClusterChip(g, clusters),
+      })),
+    ],
+    [availableGroups, clusters],
+  );
+
+  const selectedGroup = useMemo(() => {
+    if (!selectedGroupId) return null;
+    const fromAvailable = availableGroups?.find(
+      (g) => String(g.id) === selectedGroupId,
+    );
+    if (fromAvailable) return fromAvailable;
+    if (group && String(group.id) === selectedGroupId) return group;
+    return null;
+  }, [selectedGroupId, availableGroups, group]);
 
   const todayIsoParts = getIsoWeekParts(new Date());
   const defaultDate = new Date().toISOString().split("T")[0];
   const [formData, setFormData] = useState<EvangelismWeeklyReportFormValues>({
-    evangelism_group_id: String(group.id),
+    evangelism_group_id: group?.id != null ? String(group.id) : "",
     year: todayIsoParts.year,
     week_number: todayIsoParts.week,
     meeting_date: defaultDate,
@@ -208,9 +284,22 @@ export default function EvangelismWeeklyReportForm({
   });
 
   useEffect(() => {
+    if (group?.id != null) {
+      setSelectedGroupId(String(group.id));
+    } else if (initialGroupId) {
+      setSelectedGroupId(String(initialGroupId));
+    }
+  }, [group?.id, initialGroupId]);
+
+  useEffect(() => {
     if (!initialData) return;
+    const groupId =
+      group?.id != null
+        ? String(group.id)
+        : String(initialData.evangelism_group?.id ?? "");
+    if (groupId) setSelectedGroupId(groupId);
     setFormData({
-      evangelism_group_id: String(group.id),
+      evangelism_group_id: groupId,
       year: initialData.year,
       week_number: initialData.week_number,
       meeting_date: initialData.meeting_date,
@@ -224,38 +313,61 @@ export default function EvangelismWeeklyReportForm({
       testimonies: initialData.testimonies || "",
       notes: initialData.notes || "",
     });
-  }, [group.id, initialData]);
+  }, [group?.id, initialData]);
 
-  // Lazy-load full member roster when the passed group lacks person members.
   useEffect(() => {
-    const groupId = String(group.id);
+    if (skipAttendanceResetRef.current) {
+      skipAttendanceResetRef.current = false;
+      return;
+    }
+    if (initialData) return;
+    setFormData((prev) => ({
+      ...prev,
+      evangelism_group_id: selectedGroupId,
+      members_attended: [],
+      visitors_attended: [],
+      prospects_invited: [],
+    }));
+    setPendingNewVisitors({});
+    setPendingNewProspects({});
+    setGroupFieldError(null);
+  }, [selectedGroupId, initialData]);
+
+  // Lazy-load full member roster when the selected group lacks person members.
+  useEffect(() => {
     setFormData((prev) =>
-      prev.evangelism_group_id === groupId
+      prev.evangelism_group_id === selectedGroupId
         ? prev
-        : { ...prev, evangelism_group_id: groupId },
+        : { ...prev, evangelism_group_id: selectedGroupId },
     );
 
-    const cached = rosterCacheRef.current[groupId];
+    if (!selectedGroupId) {
+      setRosterGroup(null);
+      setLoadingRoster(false);
+      return;
+    }
+
+    const cached = rosterCacheRef.current[selectedGroupId];
     if (cached && groupHasPersonRoster(cached)) {
       setRosterGroup(cached);
       setLoadingRoster(false);
       return;
     }
 
-    if (groupHasPersonRoster(group)) {
-      rosterCacheRef.current[groupId] = group;
-      setRosterGroup(group);
+    if (selectedGroup && groupHasPersonRoster(selectedGroup)) {
+      rosterCacheRef.current[selectedGroupId] = selectedGroup;
+      setRosterGroup(selectedGroup);
       setLoadingRoster(false);
       return;
     }
 
     let cancelled = false;
     setLoadingRoster(true);
-    setRosterGroup(group);
+    if (selectedGroup) setRosterGroup(selectedGroup);
 
     (async () => {
       try {
-        const { data } = await evangelismApi.getGroup(groupId);
+        const { data } = await evangelismApi.getGroup(selectedGroupId);
         if (cancelled) return;
         rosterCacheRef.current[String(data.id)] = data;
         setRosterGroup(data);
@@ -269,7 +381,30 @@ export default function EvangelismWeeklyReportForm({
     return () => {
       cancelled = true;
     };
-  }, [group]);
+  }, [selectedGroupId, selectedGroup]);
+
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setGroupProspects([]);
+      return;
+    }
+    let cancelled = false;
+    evangelismApi
+      .listProspects({ evangelism_group: selectedGroupId, page_size: 500 })
+      .then((res) => {
+        const raw = res.data;
+        const arr = Array.isArray(raw)
+          ? raw
+          : ((raw as { results?: Prospect[] }).results ?? []);
+        if (!cancelled) setGroupProspects(arr);
+      })
+      .catch(() => {
+        if (!cancelled) setGroupProspects([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGroupId]);
 
   useEffect(() => {
     const fetchPeople = async () => {
@@ -308,24 +443,24 @@ export default function EvangelismWeeklyReportForm({
 
   const allowedMemberIds = useMemo(() => {
     const inlineIds =
-      rosterGroup.members?.map((member) => String(member.id)) || [];
-    const coordinatorIds = rosterGroup.coordinator?.id
+      rosterGroup?.members?.map((member) => String(member.id)) || [];
+    const coordinatorIds = rosterGroup?.coordinator?.id
       ? [String(rosterGroup.coordinator.id)]
       : [];
     return Array.from(new Set([...inlineIds, ...coordinatorIds]));
-  }, [rosterGroup.members, rosterGroup.coordinator?.id]);
+  }, [rosterGroup?.members, rosterGroup?.coordinator?.id]);
 
   const coordinatorOption = useMemo(
     () =>
-      rosterGroup.coordinator
+      rosterGroup?.coordinator
         ? personToMemberOption(rosterGroup.coordinator as Person)
         : null,
-    [rosterGroup.coordinator],
+    [rosterGroup?.coordinator],
   );
 
   const memberOptions = useMemo(() => {
     const inlineMembers =
-      rosterGroup.members?.map((member) => personToMemberOption(member)) || [];
+      rosterGroup?.members?.map((member) => personToMemberOption(member)) || [];
 
     const combined = [...people, ...inlineMembers];
     if (coordinatorOption) {
@@ -342,7 +477,7 @@ export default function EvangelismWeeklyReportForm({
       seen.add(person.id);
       return true;
     });
-  }, [coordinatorOption, rosterGroup.members, people]);
+  }, [coordinatorOption, rosterGroup?.members, people]);
 
   const invitedProspectIdsSelected = useMemo(
     () => new Set((formData.prospects_invited || []).map(String)),
@@ -351,21 +486,23 @@ export default function EvangelismWeeklyReportForm({
 
   const groupInvitedProspects = useMemo(
     () =>
-      prospects.filter((prospect) =>
-        isInvitableProspect(prospect, String(group.id)),
-      ),
-    [prospects, group.id],
+      selectedGroupId
+        ? groupProspects.filter((prospect) =>
+            isInvitableProspect(prospect, selectedGroupId),
+          )
+        : [],
+    [groupProspects, selectedGroupId],
   );
 
   const previouslyAttendedVisitorIds = useMemo(
     () =>
-      prospects
+      groupProspects
         .filter(
           (prospect) =>
             prospect.person && Boolean(prospect.person.date_first_attended),
         )
         .map((prospect) => String(prospect.person!.id)),
-    [prospects],
+    [groupProspects],
   );
 
   const visitorOptions = useMemo(() => {
@@ -391,7 +528,7 @@ export default function EvangelismWeeklyReportForm({
       );
     };
 
-    for (const prospect of prospects) {
+    for (const prospect of groupProspects) {
       if (prospect.person) addAttendedPerson(prospect.person as Person);
     }
     for (const detail of initialData?.visitors_attended_details || []) {
@@ -438,7 +575,7 @@ export default function EvangelismWeeklyReportForm({
       ...pendingVisitorOptions,
     ];
   }, [
-    prospects,
+    groupProspects,
     groupInvitedProspects,
     invitedProspectIdsSelected,
     pendingNewVisitors,
@@ -502,8 +639,7 @@ export default function EvangelismWeeklyReportForm({
           status: "NO_RESPONSE",
           inviter: payload.invited_by_id,
           inviter_display_name:
-            inviterDisplayNameFromPeople(payload.invited_by_id, people) ||
-            null,
+            inviterDisplayNameFromPeople(payload.invited_by_id, people) || null,
           username: "",
           email: "",
           first_name: payload.first_name,
@@ -622,7 +758,9 @@ export default function EvangelismWeeklyReportForm({
       setShowAddProspectModal(false);
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to add prospect to this report";
+        err instanceof Error
+          ? err.message
+          : "Failed to add prospect to this report";
       setProspectFormError(message);
     } finally {
       setProspectSubmitting(false);
@@ -634,6 +772,11 @@ export default function EvangelismWeeklyReportForm({
     if (showAddVisitorModal || showAddProspectModal) {
       return;
     }
+    if (!formData.evangelism_group_id) {
+      setGroupFieldError("Please select an evangelism group.");
+      return;
+    }
+    setGroupFieldError(null);
     const pendingEntries = Object.entries(pendingNewVisitors);
     let visitorsAttended = [...formData.visitors_attended];
 
@@ -703,6 +846,30 @@ export default function EvangelismWeeklyReportForm({
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
+        </div>
+      )}
+
+      {showGroupPicker && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Evangelism group *
+          </label>
+          <ScalableSelect
+            value={selectedGroupId}
+            options={groupSelectOptions}
+            onChange={(value) => {
+              setSelectedGroupId(value);
+              setGroupFieldError(null);
+            }}
+            disabled={groupPickerLocked}
+            placeholder="Select group..."
+            searchPlaceholder="Search groups…"
+            emptyMessage="No groups found"
+            className="w-full min-w-0 text-sm"
+          />
+          {groupFieldError && (
+            <p className="mt-1 text-sm text-red-600">{groupFieldError}</p>
+          )}
         </div>
       )}
 
@@ -795,7 +962,7 @@ export default function EvangelismWeeklyReportForm({
               setFormData((prev) => ({ ...prev, topic: e.target.value }))
             }
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-            placeholder="Weekly topic"
+            placeholder="Weekly topic or lesson..."
           />
         </div>
       </div>
@@ -810,7 +977,9 @@ export default function EvangelismWeeklyReportForm({
             setFormData((prev) => ({ ...prev, members_attended: ids }))
           }
           allowedIds={allowedMemberIds}
-          isLoadingRoster={loadingRoster}
+          isLoadingRoster={
+            loadingRoster || (showGroupPicker && !selectedGroupId)
+          }
         />
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -819,11 +988,12 @@ export default function EvangelismWeeklyReportForm({
             </label>
             <Button
               type="button"
-              variant="secondary"
-              className="!text-white !bg-orange-600 hover:!bg-orange-700 text-sm py-1.5 px-3"
+              variant="primary"
+              className="text-sm py-1.5 px-3"
               onClick={() => setShowAddVisitorModal(true)}
+              disabled={!selectedGroupId}
             >
-              Add New Visitor
+              + Add New Visitor
             </Button>
           </div>
           <p className="text-xs text-gray-500 mb-2">
@@ -850,7 +1020,8 @@ export default function EvangelismWeeklyReportForm({
             <Button
               type="button"
               variant="secondary"
-              className="!text-white !bg-orange-600 hover:!bg-orange-700 text-sm py-1.5 px-3"
+              className="!text-white !bg-orange-600 hover:!bg-orange-700 disabled:!bg-gray-300 disabled:!text-gray-500 disabled:hover:!bg-gray-300 text-sm py-1.5 px-3"
+              disabled={!selectedGroupId}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -899,6 +1070,7 @@ export default function EvangelismWeeklyReportForm({
               }))
             }
             rows={2}
+            placeholder="Describe activities or events held during the evangelism meeting..."
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
           />
         </div>
@@ -915,6 +1087,7 @@ export default function EvangelismWeeklyReportForm({
               }))
             }
             rows={2}
+            placeholder="List prayer requests shared during the meeting..."
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
           />
         </div>
@@ -928,6 +1101,7 @@ export default function EvangelismWeeklyReportForm({
               setFormData((prev) => ({ ...prev, testimonies: e.target.value }))
             }
             rows={2}
+            placeholder="Share testimonies or encouraging stories from members..."
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
           />
         </div>
@@ -941,6 +1115,7 @@ export default function EvangelismWeeklyReportForm({
               setFormData((prev) => ({ ...prev, notes: e.target.value }))
             }
             rows={3}
+            placeholder="Additional notes, highlights, or concerns..."
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
           />
         </div>
@@ -959,7 +1134,7 @@ export default function EvangelismWeeklyReportForm({
         <Button
           variant="primary"
           className="flex-1 min-h-[44px] rounded-md bg-[#2f68e6] px-4 py-2.5 text-sm font-medium text-white shadow-none hover:bg-[#255adb] md:min-h-0"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !formData.evangelism_group_id}
           type="submit"
         >
           {isSubmitting ? "Saving..." : "Submit Report"}
@@ -989,10 +1164,10 @@ export default function EvangelismWeeklyReportForm({
         </p>
         <ProspectForm
           inviters={invitersForProspectForm as unknown as Person[]}
-          groups={[group]}
+          groups={selectedGroup ? [selectedGroup] : []}
           prospectOptions={prospectOptionsForForm}
-          selectedBibleStudyGroup={group}
-          defaultGroupId={String(group.id)}
+          selectedBibleStudyGroup={selectedGroup ?? undefined}
+          defaultGroupId={selectedGroupId}
           onSubmit={handleAddProspect}
           onCancel={() => {
             setShowAddProspectModal(false);

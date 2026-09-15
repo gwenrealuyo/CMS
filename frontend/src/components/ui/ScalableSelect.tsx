@@ -26,6 +26,25 @@ interface SelectOption {
   typeLabel?: "cluster" | "group";
 }
 
+function ClusterCodeChip({ option }: { option: SelectOption }) {
+  if (!option.clusterCode) return null;
+  if (option.clusterCode === "NO CLUSTER") {
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+        NO CLUSTER
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+      style={getClusterCodeBadgeStyle(option.clusterBranchId)}
+    >
+      {option.clusterCode}
+    </span>
+  );
+}
+
 interface ScalableSelectProps {
   options: SelectOption[];
   value?: string;
@@ -294,14 +313,7 @@ export default function ScalableSelect({
                 {option.statusLabel}
               </span>
             )}
-            {option.clusterCode && (
-              <span
-                className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                style={getClusterCodeBadgeStyle(option.clusterBranchId)}
-              >
-                {option.clusterCode}
-              </span>
-            )}
+            <ClusterCodeChip option={option} />
             {option.typeLabel === "cluster" && (
               <span className="chip-primary-sm shrink-0">Cluster</span>
             )}
@@ -478,11 +490,12 @@ export default function ScalableSelect({
       >
         <div className="flex w-full min-w-0 items-center justify-between gap-2">
           <span
-            className={`block min-w-0 flex-1 truncate ${
+            className={`flex min-w-0 flex-1 items-center gap-2 ${
               hasSelection ? "text-gray-900" : "text-gray-500"
             }`}
           >
-            {triggerLabel}
+            <span className="min-w-0 truncate">{triggerLabel}</span>
+            {selectedOption ? <ClusterCodeChip option={selectedOption} /> : null}
           </span>
           <div className="flex shrink-0 items-center space-x-1">
             {hasSelection && !disabled && !interactionBlocked && (

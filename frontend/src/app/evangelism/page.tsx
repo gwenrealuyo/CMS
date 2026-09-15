@@ -386,6 +386,7 @@ export default function EvangelismPage() {
   const [reportsViewReportId, setReportsViewReportId] = useState<string | null>(
     null,
   );
+  const [reportsFormOpen, setReportsFormOpen] = useState(false);
   const [tallyYear, setTallyYear] = useState(currentYear);
   const [tallyBranch, setTallyBranch] = useState<number | "">("");
   const [tallyScope, setTallyScope] = useState("");
@@ -400,6 +401,13 @@ export default function EvangelismPage() {
     [pathname, router, searchParams],
   );
 
+  const handleReportsFormOpenChange = useCallback((open: boolean) => {
+    setReportsFormOpen(open);
+    if (!open) {
+      setReportsPresetGroupId(null);
+    }
+  }, []);
+
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     if (tabParam === "prospects" && !canBrowseProspectsTab) {
@@ -408,8 +416,6 @@ export default function EvangelismPage() {
     }
     if (isEvangelismPageTab(tabParam)) {
       setActiveTab(tabParam);
-    } else {
-      setActiveTab("groups");
     }
   }, [searchParams, canBrowseProspectsTab]);
 
@@ -419,12 +425,13 @@ export default function EvangelismPage() {
     if (action !== "submit-report") {
       return;
     }
-    selectTab("reports");
+    setActiveTab("reports");
+    setReportsFormOpen(true);
     setReportsPresetGroupId(null);
     setEditingReport(null);
     setReportsSubmitNonce((n) => n + 1);
     router.replace(pathname);
-  }, [action, pathname, router, selectTab]);
+  }, [action, pathname, router]);
 
   useEffect(() => {
     const groupId = searchParams.get("group");
@@ -434,9 +441,10 @@ export default function EvangelismPage() {
       return;
     }
 
-    selectTab("reports");
+    setActiveTab("reports");
 
     if (groupId) {
+      setReportsFormOpen(true);
       setReportsPresetGroupId(groupId);
       setReportsSubmitNonce((n) => n + 1);
     }
@@ -446,7 +454,7 @@ export default function EvangelismPage() {
     }
 
     router.replace(pathname);
-  }, [searchParams, pathname, router, selectTab]);
+  }, [searchParams, pathname, router]);
 
   useEffect(() => {
     if (!viewEditGroup) {
@@ -1184,7 +1192,11 @@ export default function EvangelismPage() {
             ) : activeTab === "reports" && canSubmitEvangelismReportAccess ? (
               <Button
                 variant="primary"
-                onClick={() => setReportsSubmitNonce((n) => n + 1)}
+                onClick={() => {
+                  setReportsPresetGroupId(null);
+                  setReportsFormOpen(true);
+                  setReportsSubmitNonce((n) => n + 1);
+                }}
                 className="w-full sm:w-auto min-h-[44px]"
               >
                 Submit Report
@@ -1828,16 +1840,22 @@ export default function EvangelismPage() {
         )}
 
         {/* Reports Tab */}
-        {activeTab === "reports" && (
-          <EvangelismReportsDashboard
-            groups={groups}
-            clusters={clusters}
-            branches={branches}
-            openSubmitNonce={reportsSubmitNonce}
-            refreshTrigger={reportsListRefresh}
-            presetGroupId={reportsPresetGroupId}
-            initialViewReportId={reportsViewReportId}
-          />
+        {(activeTab === "reports" || reportsFormOpen) && (
+          <div
+            className={activeTab !== "reports" ? "hidden" : undefined}
+            aria-hidden={activeTab !== "reports"}
+          >
+            <EvangelismReportsDashboard
+              groups={groups}
+              clusters={clusters}
+              branches={branches}
+              openSubmitNonce={reportsSubmitNonce}
+              refreshTrigger={reportsListRefresh}
+              presetGroupId={reportsPresetGroupId}
+              initialViewReportId={reportsViewReportId}
+              onFormOpenChange={handleReportsFormOpenChange}
+            />
+          </div>
         )}
 
         {/* Bible Sharers Tab */}

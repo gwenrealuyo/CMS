@@ -16,7 +16,6 @@ import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import {
   EvangelismGroup,
   EvangelismWeeklyReport,
-  Prospect,
 } from "@/src/types/evangelism";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
@@ -58,6 +57,8 @@ export interface EvangelismReportsDashboardProps {
   presetGroupId?: string | null;
   /** Open view modal for a report id from notification deep link */
   initialViewReportId?: string | null;
+  /** Lets the page keep this dashboard mounted while the submit modal is open. */
+  onFormOpenChange?: (open: boolean) => void;
 }
 
 const GATHERING_FILTER = [
@@ -97,6 +98,7 @@ export default function EvangelismReportsDashboard({
   refreshTrigger = 0,
   presetGroupId = null,
   initialViewReportId = null,
+  onFormOpenChange,
 }: EvangelismReportsDashboardProps) {
   const { user, isSeniorCoordinator } = useAuth();
   const canChangeBranchFilter = useMemo(
@@ -114,10 +116,6 @@ export default function EvangelismReportsDashboard({
   const [editingReport, setEditingReport] =
     useState<EvangelismWeeklyReport | null>(null);
 
-  const [formGroupDetail, setFormGroupDetail] =
-    useState<EvangelismGroup | null>(null);
-  const [groupPickerId, setGroupPickerId] = useState<string>("");
-  const [formProspects, setFormProspects] = useState<Prospect[]>([]);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -157,21 +155,38 @@ export default function EvangelismReportsDashboard({
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const lastNonceRef = useRef(0);
+  const notifiedFormOpenRef = useRef(false);
   useEffect(() => {
     if (openSubmitNonce > lastNonceRef.current) {
       lastNonceRef.current = openSubmitNonce;
       setEditingReport(null);
-      if (presetGroupId) {
-        const group = groups.find((g) => String(g.id) === presetGroupId);
-        setSelectedGroupForForm(group ?? null);
-        setGroupPickerId(presetGroupId);
-      } else {
-        setSelectedGroupForForm(null);
-        setGroupPickerId("");
-      }
       setShowReportModal(true);
     }
-  }, [openSubmitNonce, presetGroupId, groups]);
+  }, [openSubmitNonce]);
+
+  useEffect(() => {
+    if (showReportModal) {
+      notifiedFormOpenRef.current = true;
+      onFormOpenChange?.(true);
+      return;
+    }
+    if (notifiedFormOpenRef.current) {
+      notifiedFormOpenRef.current = false;
+      onFormOpenChange?.(false);
+    }
+  }, [showReportModal, onFormOpenChange]);
+
+  useEffect(() => {
+    if (!showReportModal || editingReport) {
+      return;
+    }
+    if (presetGroupId) {
+      const group = groups.find((g) => String(g.id) === presetGroupId);
+      setSelectedGroupForForm(group ?? null);
+      return;
+    }
+    setSelectedGroupForForm(null);
+  }, [showReportModal, presetGroupId, groups, editingReport]);
 
   useEffect(() => {
     if (!initialViewReportId) {
@@ -371,67 +386,15 @@ export default function EvangelismReportsDashboard({
     selectedGatheringType,
   ]);
 
-  useEffect(() => {
-    if (!showReportModal) {
-      setFormGroupDetail(null);
-      setGroupPickerId("");
-      setFormProspects([]);
-      setFormError(null);
-      return;
-    }
-
-    const creatingNeedsPickGroupOnly =
-      !editingReport && !selectedGroupForForm?.id;
-    if (creatingNeedsPickGroupOnly) return;
-
-    const gid = selectedGroupForForm?.id;
-    if (!gid) return;
-
-    let cancelled = false;
-    evangelismApi.getGroup(gid).then((res) => {
-      if (!cancelled) setFormGroupDetail(res.data);
-    });
-    evangelismApi
-      .listProspects({ evangelism_group: gid, page_size: 500 })
-      .then((res) => {
-        const raw = res.data;
-        const arr = Array.isArray(raw)
-          ? raw
-          : (raw as { results?: Prospect[] }).results ?? [];
-        if (!cancelled) setFormProspects(arr);
-      })
-      .catch(() => {
-        if (!cancelled) setFormProspects([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [showReportModal, selectedGroupForForm?.id, editingReport?.id]);
-
   const closeReportModal = () => {
     setShowReportModal(false);
     setEditingReport(null);
     setSelectedGroupForForm(null);
-    setFormGroupDetail(null);
     setFormError(null);
-  };
-
-  const handleContinueGroupPick = async () => {
-    if (!groupPickerId) {
-      setFormError("Please select an evangelism group.");
-      return;
-    }
-    setFormError(null);
-    try {
-      const res = await evangelismApi.getGroup(groupPickerId);
-      setSelectedGroupForForm(res.data);
-    } catch {
-      setFormError("Could not load group.");
-    }
   };
 
   const handleSubmitForm = async (values: EvangelismWeeklyReportFormValues) => {
-    if (!formGroupDetail) return;
+    if (!values.evangelism_group_id) return;
     try {
       setFormSubmitting(true);
       setFormError(null);
@@ -584,17 +547,16 @@ export default function EvangelismReportsDashboard({
     user?.branch_name,
   ]);
 
-  const groupPickerOptions = useMemo(
-    () =>
-      [
-        { value: "", label: "Choose…" },
-        ...evangelismGroupsScoped.map((g) => ({
-          value: String(g.id),
-          label: g.name,
-        })),
-      ],
-    [evangelismGroupsScoped]
-  );
+  const reportFormGroups = useMemo(() => {
+    const list = [...evangelismGroupsScoped];
+    if (
+      selectedGroupForForm &&
+      !list.some((g) => String(g.id) === String(selectedGroupForForm.id))
+    ) {
+      list.unshift(selectedGroupForForm);
+    }
+    return list;
+  }, [evangelismGroupsScoped, selectedGroupForForm]);
 
   const monthOptions = [{ value: "", label: "All months" }].concat(
     Array.from({ length: 12 }, (_, i) => {
@@ -612,9 +574,6 @@ export default function EvangelismReportsDashboard({
     if (availableYears.length > 0) return availableYears;
     return [new Date().getFullYear()];
   }, [availableYears]);
-
-  const needsPick =
-    showReportModal && !editingReport && !selectedGroupForForm?.id;
 
   const weeklyReportTableColumns = useMemo(() => {
     const cols: Parameters<typeof Table<EvangelismWeeklyReport>>[0]["columns"] =
@@ -1099,52 +1058,17 @@ export default function EvangelismReportsDashboard({
         }
         closeOnOutsideClick={false}
       >
-        {needsPick ? (
-          <div className="space-y-4">
-            {formError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
-                {formError}
-              </div>
-            )}
-            <label className="block text-sm font-medium text-gray-700">
-              Evangelism group
-            </label>
-            <ScalableSelect
-              value={groupPickerId}
-              options={groupPickerOptions}
-              onChange={(v) => setGroupPickerId(v)}
-            />
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-0"
-                onClick={closeReportModal}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-0"
-                onClick={() => void handleContinueGroupPick()}
-              >
-                Continue
-              </Button>
-            </div>
-          </div>
-        ) : formGroupDetail ? (
-          <EvangelismWeeklyReportForm
-            group={formGroupDetail}
-            prospects={formProspects}
-            initialData={editingReport ?? undefined}
-            onSubmit={handleSubmitForm}
-            onCancel={closeReportModal}
-            isSubmitting={formSubmitting}
-            error={formError}
-          />
-        ) : (
-          <div className="py-8 text-center text-gray-500">Loading…</div>
-        )}
+        <EvangelismWeeklyReportForm
+          group={selectedGroupForForm}
+          availableGroups={reportFormGroups}
+          clusters={clusters}
+          initialGroupId={presetGroupId}
+          initialData={editingReport ?? undefined}
+          onSubmit={handleSubmitForm}
+          onCancel={closeReportModal}
+          isSubmitting={formSubmitting}
+          error={formError}
+        />
       </Modal>
 
       <Modal

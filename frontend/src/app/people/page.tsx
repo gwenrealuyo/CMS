@@ -141,6 +141,7 @@ export default function PeoplePage() {
     viewEditPersonRef.current = viewEditPerson;
   }, [viewEditPerson]);
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
+  const [isPersonDetailExpanded, setIsPersonDetailExpanded] = useState(false);
   const [startOnTimelineTab, setStartOnTimelineTab] = useState(false);
   const [profileStartOnTimelineTab, setProfileStartOnTimelineTab] =
     useState(false);
@@ -183,6 +184,7 @@ export default function PeoplePage() {
     setPersonPanelInitialData(undefined);
     setStartOnTimelineTab(false);
     setProfileStartOnTimelineTab(false);
+    setIsPersonDetailExpanded(false);
     setIsModalOpen(true);
   }, []);
 
@@ -229,6 +231,7 @@ export default function PeoplePage() {
       }
 
       if (isDesktop) {
+        setIsPersonDetailExpanded(false);
         setPersonPanelMode(mode);
         setPersonPanelOpen(true);
         setPersonPanelPerson(resolved || null);
@@ -296,6 +299,18 @@ export default function PeoplePage() {
     setProfileStartOnTimelineTab(false);
     setViewMode("view");
     setViewEditPerson(null);
+    setIsPersonDetailExpanded(false);
+  }, []);
+
+  const expandPersonFromPanel = useCallback(() => {
+    if (personPanelMode === "create") return;
+    if (!viewEditPerson && !personPanelPerson) return;
+    setModalType("person");
+    setIsPersonDetailExpanded(true);
+  }, [personPanelMode, viewEditPerson, personPanelPerson]);
+
+  const collapsePersonModalToPanel = useCallback(() => {
+    setIsPersonDetailExpanded(false);
   }, []);
 
   const openPersonId = searchParams.get("open");
@@ -1269,6 +1284,7 @@ export default function PeoplePage() {
         setPersonPanelOpen(false);
         setPersonPanelPerson(null);
         setViewEditPerson(null);
+        setIsPersonDetailExpanded(false);
       } catch (error) {
         console.error("Failed to delete person:", error);
         toast.error(
@@ -1600,6 +1616,11 @@ export default function PeoplePage() {
         : personPanelPerson
           ? "Profile"
           : "Person Details";
+  const showDesktopPersonPanel =
+    personPanelOpen && !isPersonDetailExpanded;
+  const canExpandPersonPanel =
+    personPanelMode !== "create" &&
+    !!(viewEditPerson || personPanelPerson);
 
   const applyPersonToOpenViews = (personId: string, nextPerson: Person) => {
     const id = String(personId);
@@ -1686,7 +1707,7 @@ export default function PeoplePage() {
             onEdit={() => {
               setViewMode("edit");
               setProfileStartOnTimelineTab(false);
-              if (isPanel) setPersonPanelMode("edit");
+              if (isPanel || isDesktop) setPersonPanelMode("edit");
             }}
             onDelete={() => {
               setPersonDeleteConfirmation({
@@ -1698,11 +1719,13 @@ export default function PeoplePage() {
             onAddTimeline={() => {
               setViewMode("edit");
               setStartOnTimelineTab(true);
-              if (isPanel) setPersonPanelMode("edit");
+              if (isPanel || isDesktop) setPersonPanelMode("edit");
             }}
             onClose={() => {
               if (isPanel) {
                 closePersonPanel();
+              } else if (isPersonDetailExpanded) {
+                collapsePersonModalToPanel();
               } else {
                 setIsModalOpen(false);
                 setViewEditPerson(null);
@@ -1742,6 +1765,8 @@ export default function PeoplePage() {
           onClose={() => {
             if (isPanel) {
               closePersonPanel();
+            } else if (isPersonDetailExpanded) {
+              collapsePersonModalToPanel();
             } else {
               setIsModalOpen(false);
               setViewEditPerson(null);
@@ -1903,7 +1928,7 @@ export default function PeoplePage() {
         {activeTab === "people" && (
           <div
             className={
-              personPanelOpen
+              showDesktopPersonPanel
                 ? "lg:grid lg:grid-cols-[minmax(0,1fr)_500px] lg:gap-6 lg:items-start"
                 : ""
             }
@@ -2081,7 +2106,7 @@ export default function PeoplePage() {
                   defaultBranchCode={userBranchCode}
                   branches={visibleBranches}
                   canChangeBranchFilter={canChangeBranchFilter}
-                  sidePanelOpen={personPanelOpen}
+                  sidePanelOpen={showDesktopPersonPanel}
                   page={directoryPage}
                   pageSize={directoryPageSize}
                   totalCount={directoryTotalCount}
@@ -2100,11 +2125,14 @@ export default function PeoplePage() {
                 />
               )}
             </div>
-            {personPanelOpen && (
+            {showDesktopPersonPanel && (
               <PersonDetailPanel
                 isOpen={personPanelOpen}
                 title={personPanelTitle}
                 onClose={closePersonPanel}
+                onExpand={
+                  canExpandPersonPanel ? expandPersonFromPanel : undefined
+                }
               >
                 {renderPersonFlow(true)}
               </PersonDetailPanel>
@@ -2519,15 +2547,20 @@ export default function PeoplePage() {
       </div>
       <Modal
         isOpen={
-          isModalOpen &&
-          !(
-            isDesktop &&
-            modalType === "person" &&
-            activeTab === "people" &&
-            viewEditPerson !== null
-          )
+          isPersonDetailExpanded ||
+          (isModalOpen &&
+            !(
+              isDesktop &&
+              modalType === "person" &&
+              activeTab === "people" &&
+              viewEditPerson !== null
+            ))
         }
         onClose={() => {
+          if (isPersonDetailExpanded) {
+            collapsePersonModalToPanel();
+            return;
+          }
           setIsModalOpen(false);
           setViewEditPerson(null);
           setEditFamily(null);

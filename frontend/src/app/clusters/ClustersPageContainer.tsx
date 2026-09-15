@@ -518,13 +518,13 @@ export default function ClustersPageContainer() {
 
       setEditCluster(null);
       setClusterViewMode("view");
+      setViewCluster(updated);
 
       if (isDesktop && panelOpen && panelEntity === "cluster") {
         setPanelCluster(updated);
         setPanelMode("view");
         setPanelHistory((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
       } else {
-        setViewCluster(updated);
         setIsClusterModalOpen(true);
       }
 
@@ -838,6 +838,26 @@ export default function ClustersPageContainer() {
     setPanelHistory([]);
   }, []);
 
+  const dismissExpandedClusterModal = useCallback(() => {
+    setIsClusterModalOpen(false);
+    setViewCluster(null);
+    setEditCluster(null);
+    setClusterViewMode("view");
+  }, []);
+
+  const expandClusterFromPanel = useCallback(() => {
+    if (!panelCluster || panelMode === "create") return;
+    setViewCluster(panelCluster);
+    if (panelMode === "edit") {
+      setEditCluster(panelCluster);
+      setClusterViewMode("edit");
+    } else {
+      setEditCluster(null);
+      setClusterViewMode("view");
+    }
+    setIsClusterModalOpen(true);
+  }, [panelCluster, panelMode]);
+
   const pushCurrentPanelToHistory = useCallback(() => {
     if (!panelOpen) return;
     setPanelHistory((prev) => [
@@ -881,6 +901,12 @@ export default function ClustersPageContainer() {
 
   const handleCancelClusterEdit = useCallback(() => {
     if (isDesktop) {
+      if (isClusterModalOpen) {
+        setEditCluster(null);
+        setClusterViewMode("view");
+        setPanelMode("view");
+        return;
+      }
       goBackClusterPanel();
       return;
     }
@@ -892,7 +918,7 @@ export default function ClustersPageContainer() {
     setIsClusterModalOpen(false);
     setViewCluster(null);
     setClusterViewMode("view");
-  }, [isDesktop, goBackClusterPanel, viewCluster, editCluster]);
+  }, [isDesktop, isClusterModalOpen, goBackClusterPanel, viewCluster, editCluster]);
 
   const openClusterInteraction = useCallback(
     async (mode: PanelMode, cluster?: Cluster | null) => {
@@ -912,8 +938,17 @@ export default function ClustersPageContainer() {
       }
 
       if (isDesktop) {
+        if (isClusterModalOpen && mode === "edit" && resolved) {
+          setPanelMode("edit");
+          setPanelEntity("cluster");
+          setPanelCluster(resolved);
+          setViewCluster(resolved);
+          setEditCluster(resolved);
+          setClusterViewMode("edit");
+          return;
+        }
         pushCurrentPanelToHistory();
-        setIsClusterModalOpen(false);
+        dismissExpandedClusterModal();
         setPanelOpen(true);
         setPanelEntity("cluster");
         setPanelMode(mode);
@@ -939,7 +974,7 @@ export default function ClustersPageContainer() {
       }
       setIsClusterModalOpen(true);
     },
-    [isDesktop, pushCurrentPanelToHistory]
+    [isDesktop, isClusterModalOpen, pushCurrentPanelToHistory, dismissExpandedClusterModal]
   );
 
   const openClusterId = searchParams.get("open");
@@ -1078,6 +1113,7 @@ export default function ClustersPageContainer() {
         }
       }
       if (isDesktop) {
+        dismissExpandedClusterModal();
         pushCurrentPanelToHistory();
         setPanelOpen(true);
         setPanelEntity("person");
@@ -1091,7 +1127,7 @@ export default function ClustersPageContainer() {
       setPersonOverCluster(resolved);
       setShowPersonOverCluster(true);
     },
-    [isDesktop, pushCurrentPanelToHistory]
+    [isDesktop, pushCurrentPanelToHistory, dismissExpandedClusterModal]
   );
 
   const openFamilyInPanel = useCallback(
@@ -1107,6 +1143,7 @@ export default function ClustersPageContainer() {
         }
       }
       if (isDesktop) {
+        dismissExpandedClusterModal();
         pushCurrentPanelToHistory();
         setPanelOpen(true);
         setPanelEntity("family");
@@ -1120,7 +1157,7 @@ export default function ClustersPageContainer() {
       setFamilyOverCluster(resolved);
       setShowFamilyOverCluster(true);
     },
-    [isDesktop, pushCurrentPanelToHistory]
+    [isDesktop, pushCurrentPanelToHistory, dismissExpandedClusterModal]
   );
 
   const openCareInPanel = useCallback(
@@ -1139,6 +1176,7 @@ export default function ClustersPageContainer() {
         goBackClusterPanel();
         return;
       }
+      dismissExpandedClusterModal();
       pushCurrentPanelToHistory();
       setPanelOpen(true);
       setPanelEntity("care");
@@ -1156,6 +1194,7 @@ export default function ClustersPageContainer() {
       panelCareCase,
       goBackClusterPanel,
       pushCurrentPanelToHistory,
+      dismissExpandedClusterModal,
     ],
   );
 
@@ -1428,12 +1467,12 @@ export default function ClustersPageContainer() {
       clusterViewMode={clusterViewMode}
       isClusterModalOpen={isClusterModalOpen}
       onCloseClusterModal={() => {
-        setIsClusterModalOpen(false);
-        setViewCluster(null);
-        setEditCluster(null);
-        setClusterViewMode("view");
-        closeClusterPanel();
+        dismissExpandedClusterModal();
+        if (!isDesktop) {
+          closeClusterPanel();
+        }
       }}
+      onExpandClusterFromPanel={expandClusterFromPanel}
       onCancelClusterEdit={handleCancelClusterEdit}
       isDesktop={isDesktop}
       panelOpen={panelOpen}

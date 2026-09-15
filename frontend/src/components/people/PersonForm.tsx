@@ -228,7 +228,8 @@ export default function PersonForm({
   const { eventTypes } = useEventTypeOptions();
   const plainMember = isPlainMember();
   const peopleCreateAccess = getPeopleCreateAccess(user);
-  const visitorOnlyCreate = !initialData?.id && peopleCreateAccess === "visitor";
+  const visitorOnlyCreate =
+    !initialData?.id && peopleCreateAccess === "visitor";
   const isAdmin = user?.role === "ADMIN";
   const isCreating = !initialData?.id;
   const editingSelf = Boolean(
@@ -835,10 +836,7 @@ export default function PersonForm({
             user: created?.data?.user ?? existingUserId,
             id: created?.data?.id || crypto.randomUUID(),
           } as Journey;
-          const nextJourneys = [
-            ...(formData.journeys || []),
-            createdJourney,
-          ];
+          const nextJourneys = [...(formData.journeys || []), createdJourney];
           setFormData((prev) => ({
             ...prev,
             journeys: [...(prev.journeys || []), createdJourney],
@@ -945,14 +943,15 @@ export default function PersonForm({
             description: newJourney.description,
             ...journeyVerifierWrite(),
           });
-          const nextJourneys = (formData.journeys || []).map((journey, index) =>
-            index === editingJourneyIndex
-              ? ({
-                  ...journey,
-                  ...newJourney,
-                  ...(updated?.data || {}),
-                } as Journey)
-              : journey,
+          const nextJourneys = (formData.journeys || []).map(
+            (journey, index) =>
+              index === editingJourneyIndex
+                ? ({
+                    ...journey,
+                    ...newJourney,
+                    ...(updated?.data || {}),
+                  } as Journey)
+                : journey,
           );
           setFormData((prev) => ({
             ...prev,
@@ -2146,54 +2145,54 @@ export default function PersonForm({
                     </div>
                   )}
                   {!hasLessonEnrollment && canEditVitalDates && (
-                      <div className="md:col-span-2 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                        {!hasPersonBranch ? (
+                    <div className="md:col-span-2 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      {!hasPersonBranch ? (
+                        <p className="text-xs text-gray-600">
+                          Student must have a branch before assigning a lessons
+                          teacher.
+                        </p>
+                      ) : formData.has_finished_lessons ? (
+                        <>
                           <p className="text-xs text-gray-600">
-                            Student must have a branch before assigning a
-                            lessons teacher.
+                            No lessons enrollment yet. Choose their teacher, or
+                            enter a former / unknown teacher name.
                           </p>
-                        ) : formData.has_finished_lessons ? (
-                          <>
-                            <p className="text-xs text-gray-600">
-                              No lessons enrollment yet. Choose their teacher,
-                              or enter a former / unknown teacher name.
-                            </p>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                              <label className="inline-flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="teacher_mode"
-                                  checked={teacherMode === "select"}
-                                  onChange={() => setTeacherMode("select")}
-                                  className="text-primary border-gray-300 focus:ring-ring"
-                                />
-                                <span className="text-sm text-gray-700">
-                                  Select teacher
-                                </span>
-                              </label>
-                              <label className="inline-flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="teacher_mode"
-                                  checked={teacherMode === "historical"}
-                                  onChange={() => setTeacherMode("historical")}
-                                  className="text-primary border-gray-300 focus:ring-ring"
-                                />
-                                <span className="text-sm text-gray-700">
-                                  Former / not in system
-                                </span>
-                              </label>
-                            </div>
-                          </>
-                        ) : (
-                          <p className="text-xs text-gray-600">
-                            Optional. Leave blank if they do not have a teacher
-                            yet.
-                          </p>
-                        )}
-                        {hasPersonBranch &&
-                          (teacherMode === "select" ||
-                            !formData.has_finished_lessons) && (
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <label className="inline-flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="teacher_mode"
+                                checked={teacherMode === "select"}
+                                onChange={() => setTeacherMode("select")}
+                                className="text-primary border-gray-300 focus:ring-ring"
+                              />
+                              <span className="text-sm text-gray-700">
+                                Select teacher
+                              </span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="teacher_mode"
+                                checked={teacherMode === "historical"}
+                                onChange={() => setTeacherMode("historical")}
+                                className="text-primary border-gray-300 focus:ring-ring"
+                              />
+                              <span className="text-sm text-gray-700">
+                                Former / not in system
+                              </span>
+                            </label>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-xs text-gray-600">
+                          Optional. Leave blank if they do not have a teacher
+                          yet.
+                        </p>
+                      )}
+                      {hasPersonBranch &&
+                        (teacherMode === "select" ||
+                          !formData.has_finished_lessons) && (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               NCC teacher
@@ -2222,9 +2221,9 @@ export default function PersonForm({
                             />
                           </div>
                         )}
-                        {hasPersonBranch &&
-                          formData.has_finished_lessons &&
-                          teacherMode === "historical" && (
+                      {hasPersonBranch &&
+                        formData.has_finished_lessons &&
+                        teacherMode === "historical" && (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2270,8 +2269,8 @@ export default function PersonForm({
                             </div>
                           </div>
                         )}
-                      </div>
-                    )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2422,6 +2421,34 @@ export default function PersonForm({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      First Activity Attended
+                    </label>
+                    <LockedField
+                      locked={!canEditInviteAttendDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <select
+                        name="first_activity_attended"
+                        value={(formData as any).first_activity_attended || ""}
+                        onChange={handleChange}
+                        disabled={!canEditInviteAttendDates}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
+                          !canEditInviteAttendDates
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <option value="">Select activity</option>
+                        {eventTypes.map((type) => (
+                          <option key={type.code} value={type.code}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </LockedField>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Water Baptism Date
                     </label>
                     <LockedField
@@ -2433,6 +2460,24 @@ export default function PersonForm({
                         value={(formData as any).water_baptism_date || ""}
                         onChange={(next) =>
                           handleDateFieldChange("water_baptism_date", next)
+                        }
+                        disabled={!canEditVitalDates}
+                      />
+                    </LockedField>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Spirit Baptism Date
+                    </label>
+                    <LockedField
+                      locked={!canEditVitalDates}
+                      hint={VITAL_DATE_HINT}
+                    >
+                      <PersonDateField
+                        id="spirit_baptism_date"
+                        value={(formData as any).spirit_baptism_date || ""}
+                        onChange={(next) =>
+                          handleDateFieldChange("spirit_baptism_date", next)
                         }
                         disabled={!canEditVitalDates}
                       />
@@ -2499,24 +2544,7 @@ export default function PersonForm({
                       />
                     </LockedField>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Spirit Baptism Date
-                    </label>
-                    <LockedField
-                      locked={!canEditVitalDates}
-                      hint={VITAL_DATE_HINT}
-                    >
-                      <PersonDateField
-                        id="spirit_baptism_date"
-                        value={(formData as any).spirit_baptism_date || ""}
-                        onChange={(next) =>
-                          handleDateFieldChange("spirit_baptism_date", next)
-                        }
-                        disabled={!canEditVitalDates}
-                      />
-                    </LockedField>
-                  </div>
+
                   <div className="col-span-full">
                     <LockedField
                       locked={!canEditVitalDates}
@@ -2671,34 +2699,6 @@ export default function PersonForm({
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      First Activity Attended
-                    </label>
-                    <LockedField
-                      locked={!canEditInviteAttendDates}
-                      hint={VITAL_DATE_HINT}
-                    >
-                      <select
-                        name="first_activity_attended"
-                        value={(formData as any).first_activity_attended || ""}
-                        onChange={handleChange}
-                        disabled={!canEditInviteAttendDates}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent ${
-                          !canEditInviteAttendDates
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : ""
-                        }`}
-                      >
-                        <option value="">Select activity</option>
-                        {eventTypes.map((type) => (
-                          <option key={type.code} value={type.code}>
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
-                    </LockedField>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -3254,7 +3254,8 @@ export default function PersonForm({
                     setJourneyVerifierMode(mode);
                     setNewJourney((prev) => ({
                       ...prev,
-                      verified_by: mode === "historical" ? "" : prev.verified_by,
+                      verified_by:
+                        mode === "historical" ? "" : prev.verified_by,
                       historical_verified_first_name:
                         mode === "select"
                           ? ""

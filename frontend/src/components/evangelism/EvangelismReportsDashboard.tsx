@@ -37,6 +37,7 @@ import {
   DocumentArrowDownIcon,
 } from "@heroicons/react/24/outline";
 import { parseTallyScope } from "@/src/components/evangelism/PeopleTallyReport";
+import { resolveEvangelismGroupClusterMeta } from "@/src/lib/evangelismGroupDisplay";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -258,16 +259,34 @@ export default function EvangelismReportsDashboard({
   }, [groups, selectedBranch, clusters]);
 
   const scopeSelectOptions = useMemo(() => {
-    const opts = evangelismGroupsScoped.map((g) => ({
-      value: `group:${g.id}`,
-      label: g.name || `Group ${g.id}`,
-      typeLabel: "group" as const,
-    }));
+    const opts = evangelismGroupsScoped.map((g) => {
+      const { clusterBranch, clusterDisplayCode } =
+        resolveEvangelismGroupClusterMeta(g, clusters, branches);
+      let clusterCode =
+        clusterDisplayCode && clusterDisplayCode !== "—"
+          ? clusterDisplayCode
+          : null;
+      let clusterBranchId = clusterBranch?.id ?? null;
+      if (!clusterCode && g.cluster_id) {
+        const cl = clusters.find((c) => String(c.id) === String(g.cluster_id));
+        clusterCode = cl?.code?.trim() || null;
+        if (cl?.branch != null) clusterBranchId = Number(cl.branch);
+      }
+      return {
+        value: `group:${g.id}`,
+        label: g.name || `Group ${g.id}`,
+        clusterCode,
+        clusterBranchId,
+        hasBibleSharers:
+          (g.bible_sharer_ids?.length ?? 0) > 0 ||
+          Boolean(g.is_bible_sharers_group),
+      };
+    });
     opts.sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
     );
     return opts;
-  }, [evangelismGroupsScoped]);
+  }, [evangelismGroupsScoped, clusters, branches]);
 
   useEffect(() => {
     if (parseTallyScope(reportsScope).cluster != null) {

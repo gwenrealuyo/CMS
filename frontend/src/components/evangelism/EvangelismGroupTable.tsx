@@ -1,5 +1,6 @@
 import { memo } from "react";
 import ActionMenu from "@/src/components/families/ActionMenu";
+import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
 import {
   CLUSTER_CODE_BADGE_CLASSNAME,
   getBranchChipStyle,
@@ -17,7 +18,7 @@ import {
   STATUS_CHIP_CLASSNAME,
   getStatusChipStyle,
 } from "@/src/lib/statusChipStyle";
-import { TABLE_ENTITY_LINK_CLASS } from "@/src/lib/tableEntityLink";
+import ClusterBibleStudyChip from "@/src/components/evangelism/ClusterBibleStudyChip";
 import { Branch } from "@/src/types/branch";
 import { Cluster } from "@/src/types/cluster";
 import { EvangelismGroup } from "@/src/types/evangelism";

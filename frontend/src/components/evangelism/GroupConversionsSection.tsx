@@ -35,7 +35,7 @@ export default function GroupConversionsSection({
         {onAddConversion && (
           <Button
             onClick={onAddConversion}
-            className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto min-h-[44px]"
+            className="!bg-emerald-600 hover:!bg-emerald-700 w-full sm:w-auto min-h-[44px]"
           >
             Record Conversion
           </Button>
@@ -79,9 +79,7 @@ export default function GroupConversionsSection({
                   <span
                     className={`text-sm ${row.is_complete ? "text-green-600 font-medium" : "text-gray-700"}`}
                   >
-                    {value
-                      ? formatLocaleDate(value as string)
-                      : "N/A"}
+                    {value ? formatLocaleDate(value as string) : "N/A"}
                   </span>
                 ),
               },
@@ -92,9 +90,7 @@ export default function GroupConversionsSection({
                   <span
                     className={`text-sm ${row.is_complete ? "text-green-600 font-medium" : "text-gray-700"}`}
                   >
-                    {value
-                      ? formatLocaleDate(value as string)
-                      : "N/A"}
+                    {value ? formatLocaleDate(value as string) : "N/A"}
                   </span>
                 ),
               },

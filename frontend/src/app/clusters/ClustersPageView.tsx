@@ -131,6 +131,7 @@ interface ClustersPageViewProps {
   clusterViewMode: "view" | "edit";
   isClusterModalOpen: boolean;
   onCloseClusterModal: () => void;
+  onExpandClusterFromPanel: () => void;
   onCancelClusterEdit: () => void;
   isDesktop: boolean;
   panelOpen: boolean;
@@ -295,6 +296,7 @@ export default function ClustersPageView({
   clusterViewMode,
   isClusterModalOpen,
   onCloseClusterModal,
+  onExpandClusterFromPanel,
   onCancelClusterEdit,
   isDesktop,
   panelOpen,
@@ -479,7 +481,10 @@ export default function ClustersPageView({
   const totalMembers = summaryMemberCount;
   const unassignedMembers = summaryUnassignedCount;
 
-  const useStackedToolbar = isDesktop && panelOpen;
+  const showDesktopPanel = isDesktop && panelOpen && !isClusterModalOpen;
+  const useStackedToolbar = showDesktopPanel;
+  const canExpandClusterPanel =
+    panelEntity === "cluster" && panelMode !== "create" && !!panelCluster;
 
   const clusterBranchSelectInteractive =
     clusterBranchCanChangeFilter && !clusterBranchesLoading;
@@ -606,6 +611,8 @@ export default function ClustersPageView({
             onOpenReportForm(currentViewCluster);
             if (isPanel) {
               onCloseClusterPanel();
+            } else if (isDesktop) {
+              onCloseClusterModal();
             }
           }}
           onViewFamily={onViewFamily}
@@ -820,7 +827,7 @@ export default function ClustersPageView({
         {activeTab === "clusters" && (
           <div
             className={
-              isDesktop && panelOpen
+              showDesktopPanel
                 ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_500px]"
                 : ""
             }
@@ -829,7 +836,7 @@ export default function ClustersPageView({
               {/* Stats Cards */}
               <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
                 <div
-                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
+                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${showDesktopPanel ? "" : "md:p-6"}`}
                   role="region"
                   aria-label="Total Clusters"
                 >
@@ -877,7 +884,7 @@ export default function ClustersPageView({
                   </div>
                 </div>
                 <div
-                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
+                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${showDesktopPanel ? "" : "md:p-6"}`}
                   role="region"
                   aria-label="Total Members"
                 >
@@ -925,7 +932,7 @@ export default function ClustersPageView({
                   </div>
                 </div>
                 <div
-                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${panelOpen ? "" : "md:p-6"}`}
+                  className={`bg-white rounded-lg border border-gray-200 p-4 py-4 card-shadow ${showDesktopPanel ? "" : "md:p-6"}`}
                   role="region"
                   aria-label="Unassigned Members"
                 >
@@ -1650,7 +1657,7 @@ export default function ClustersPageView({
                   ) : (
                     <div
                       className={
-                        panelOpen
+                        showDesktopPanel
                           ? "grid grid-cols-1 gap-4"
                           : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
                       }
@@ -1698,11 +1705,14 @@ export default function ClustersPageView({
               )}
             </div>
 
-            {isDesktop && panelOpen && (
+            {showDesktopPanel && (
               <PersonDetailPanel
                 isOpen={panelOpen}
                 title={getPanelTitle()}
                 onClose={onBackClusterPanel}
+                onExpand={
+                  canExpandClusterPanel ? onExpandClusterFromPanel : undefined
+                }
               >
                 {panelEntity === "cluster" && renderClusterFlow(true)}
                 {panelEntity === "person" && renderPersonFlow(true)}
@@ -1716,7 +1726,7 @@ export default function ClustersPageView({
         {activeTab === "care" && canAccessMemberCare && (
           <div
             className={
-              isDesktop && panelOpen
+              showDesktopPanel
                 ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_500px]"
                 : ""
             }
@@ -1735,11 +1745,14 @@ export default function ClustersPageView({
                 reloadToken={careReloadToken}
               />
             </div>
-            {isDesktop && panelOpen && (
+            {showDesktopPanel && (
               <PersonDetailPanel
                 isOpen={panelOpen}
                 title={getPanelTitle()}
                 onClose={onBackClusterPanel}
+                onExpand={
+                  canExpandClusterPanel ? onExpandClusterFromPanel : undefined
+                }
               >
                 {panelEntity === "cluster" && renderClusterFlow(true)}
                 {panelEntity === "person" && renderPersonFlow(true)}
@@ -1817,7 +1830,7 @@ export default function ClustersPageView({
 
         {/* Cluster Modal */}
         <Modal
-          isOpen={!isDesktop && isClusterModalOpen}
+          isOpen={isClusterModalOpen}
           onClose={onCloseClusterModal}
           title={
             clusterViewMode === "view"

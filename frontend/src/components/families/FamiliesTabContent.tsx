@@ -115,7 +115,30 @@ export default function FamiliesTabContent({
     setViewFamily(null);
     setEditFamily(null);
     setFamilyViewMode("view");
+    setIsModalOpen(false);
   }, []);
+
+  const expandFamilyFromPanel = useCallback(() => {
+    if (panelEntity !== "family" || panelMode === "create") return;
+    const family = viewFamily || panelFamily || editFamily;
+    if (!family) return;
+    setViewFamily((current) => current || family);
+    if (panelMode === "edit" || familyViewMode === "edit") {
+      setEditFamily((current) => current || family);
+      setFamilyViewMode("edit");
+    }
+    setIsModalOpen(true);
+  }, [panelEntity, panelMode, viewFamily, panelFamily, editFamily, familyViewMode]);
+
+  const closeFamilyModal = useCallback(() => {
+    setIsModalOpen(false);
+    if (isDesktop && panelOpen) {
+      return;
+    }
+    setEditFamily(null);
+    setViewFamily(null);
+    setFamilyViewMode("view");
+  }, [isDesktop, panelOpen]);
 
   const closePersonOverFamily = useCallback(() => {
     setShowPersonOverFamily(false);
@@ -186,6 +209,7 @@ export default function FamiliesTabContent({
         }
       }
       if (isDesktop) {
+        setIsModalOpen(false);
         pushCurrentPanelToHistory();
         setPanelEntity("person");
         setPanelPerson(resolved);
@@ -405,6 +429,11 @@ export default function FamiliesTabContent({
             setViewFamily(updatedFamily);
           }
         }
+        if (panelFamily && panelFamily.id === addFamilyMemberModal.family.id) {
+          if (updatedFamily) {
+            setPanelFamily(updatedFamily);
+          }
+        }
 
         setAddFamilyMemberModal({ isOpen: false, family: null });
       } catch (error) {
@@ -426,7 +455,7 @@ export default function FamiliesTabContent({
               onNeedPeopleCatalog?.();
               setEditFamily(viewFamily);
               setFamilyViewMode("edit");
-              if (isPanel) {
+              if (isPanel || isDesktop) {
                 setPanelMode("edit");
               }
             }}
@@ -440,9 +469,7 @@ export default function FamiliesTabContent({
               if (isPanel) {
                 closeFamilyPanel();
               } else {
-                setIsModalOpen(false);
-                setViewFamily(null);
-                setFamilyViewMode("view");
+                closeFamilyModal();
               }
             }}
             hideEditButton={!userCanManageFamilies}
@@ -490,7 +517,7 @@ export default function FamiliesTabContent({
           onClose={() => {
             setFamilyViewMode("view");
             setEditFamily(null);
-            if (isPanel) {
+            if (isPanel || isDesktop) {
               setPanelMode("view");
             }
           }}
@@ -518,8 +545,7 @@ export default function FamiliesTabContent({
             if (isPanel) {
               closeFamilyPanel();
             } else {
-              setIsModalOpen(false);
-              setEditFamily(null);
+              closeFamilyModal();
             }
           }}
           onDelete={(family) => {
@@ -579,11 +605,17 @@ export default function FamiliesTabContent({
     );
   };
 
+  const showDesktopPanel = isDesktop && panelOpen && !isModalOpen;
+  const canExpandFamilyPanel =
+    panelEntity === "family" &&
+    panelMode !== "create" &&
+    !!(viewFamily || panelFamily || editFamily);
+
   return (
     <>
       <div
         className={
-          panelOpen
+          showDesktopPanel
             ? "lg:grid lg:grid-cols-[minmax(0,1fr)_500px] lg:gap-6 lg:items-start"
             : ""
         }
@@ -591,7 +623,7 @@ export default function FamiliesTabContent({
         <FamilyManagementDashboard
           people={peopleUI}
           isDesktop={isDesktop}
-          panelOpen={panelOpen}
+          panelOpen={showDesktopPanel}
           refetchKey={directoryRefetchKey}
           showWriteActions={userCanManageFamilies}
           onCreateFamily={() => {
@@ -608,11 +640,14 @@ export default function FamiliesTabContent({
             userCanHardDelete ? openHardDeleteConfirmation : undefined
           }
         />
-        {isDesktop && panelOpen && (
+        {showDesktopPanel && (
           <PersonDetailPanel
             isOpen={panelOpen}
             title={getPanelTitle()}
             onClose={goBackFamilyPanel}
+            onExpand={
+              canExpandFamilyPanel ? expandFamilyFromPanel : undefined
+            }
           >
             {panelEntity === "family" && renderFamilyFlow(true)}
             {panelEntity === "person" && renderPersonFlow(true)}
@@ -621,13 +656,8 @@ export default function FamiliesTabContent({
       </div>
 
       <Modal
-        isOpen={isModalOpen && !isDesktop}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditFamily(null);
-          setViewFamily(null);
-          setFamilyViewMode("view");
-        }}
+        isOpen={isModalOpen}
+        onClose={closeFamilyModal}
         title={
           viewFamily
             ? familyViewMode === "view"

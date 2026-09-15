@@ -44,21 +44,21 @@ export default function GroupMembersSection({
           </span>
         </h3>
         {canManage && (
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button
-            variant="secondary"
-            onClick={onBulkEnroll}
-            className="!text-green-600 bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 w-full sm:w-auto min-h-[44px]"
-          >
-            Bulk Enroll
-          </Button>
-          <Button
-            onClick={onAddMember}
-            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto min-h-[44px]"
-          >
-            Add Member
-          </Button>
-        </div>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              variant="secondary"
+              onClick={onBulkEnroll}
+              className="!text-green-600 bg-white border border-green-200 hover:bg-green-50 hover:border-green-300 w-full sm:w-auto min-h-[44px]"
+            >
+              Bulk Enroll
+            </Button>
+            <Button
+              onClick={onAddMember}
+              className="!bg-green-600 hover:!bg-green-700 w-full sm:w-auto min-h-[44px]"
+            >
+              Add Member
+            </Button>
+          </div>
         )}
       </div>
 
@@ -100,28 +100,32 @@ export default function GroupMembersSection({
                       </span>
                     )}
                     {String(row.id) !== String(coordinatorId) &&
-                      bibleSharerIds.some((id) => String(id) === String(row.id)) && (
-                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-800">
-                        Bible Sharer
-                      </span>
-                    )}
+                      bibleSharerIds.some(
+                        (id) => String(id) === String(row.id),
+                      ) && (
+                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-800">
+                          Bible Sharer
+                        </span>
+                      )}
                     {String(row.id) !== String(coordinatorId) &&
-                      reporterIds.some((id) => String(id) === String(row.id)) && (
-                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
-                        Reporter
-                      </span>
-                    )}
+                      reporterIds.some(
+                        (id) => String(id) === String(row.id),
+                      ) && (
+                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
+                          Reporter
+                        </span>
+                      )}
                   </span>
                   {canManage && (
-                  <div className="flex shrink-0 sm:justify-end">
-                    <Button
-                      variant="secondary"
-                      onClick={() => onRemoveMember(row)}
-                      className="!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 text-xs py-1 px-2 w-full sm:w-auto"
-                    >
-                      Remove
-                    </Button>
-                  </div>
+                    <div className="flex shrink-0 sm:justify-end">
+                      <Button
+                        variant="secondary"
+                        onClick={() => onRemoveMember(row)}
+                        className="!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 text-xs py-1 px-2 w-full sm:w-auto"
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))}

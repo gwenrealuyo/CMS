@@ -9,7 +9,7 @@ import { formatLocaleDate } from "@/src/lib/date";
 function prospectDisplayName(p: Prospect): string {
   if (p.display_name?.trim()) return p.display_name;
   const parts = [p.first_name, p.middle_name, p.last_name].filter(
-    Boolean
+    Boolean,
   ) as string[];
   let base = parts.join(" ");
   if (p.suffix?.trim()) base = base ? `${base}, ${p.suffix}` : p.suffix!;
@@ -55,12 +55,12 @@ export default function GroupProspectsSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h3 className="text-lg font-semibold text-gray-900">Visitors</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Prospects</h3>
         <Button
           onClick={onAddProspect}
-          className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto min-h-[44px]"
+          className="!text-white !bg-orange-600 hover:!text-white hover:!bg-orange-700 w-full sm:w-auto min-h-[44px]"
         >
-          Add Invited Visitor
+          + Add Invited Visitor
         </Button>
       </div>
 
@@ -87,7 +87,7 @@ export default function GroupProspectsSection({
                 render: (_value, row) => (
                   <span className="text-sm text-gray-700">
                     {formatPipelineStage(
-                      row.pipeline_stage_display || row.pipeline_stage
+                      row.pipeline_stage_display || row.pipeline_stage,
                     )}
                   </span>
                 ),
@@ -97,9 +97,7 @@ export default function GroupProspectsSection({
                 accessor: "last_activity_date" as keyof Prospect,
                 render: (value) => (
                   <span className="text-sm text-gray-700">
-                    {value
-                      ? formatLocaleDate(value as string)
-                      : "N/A"}
+                    {value ? formatLocaleDate(value as string) : "N/A"}
                   </span>
                 ),
               },

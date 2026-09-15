@@ -6,6 +6,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { getClusterCodeBadgeStyle } from "@/src/lib/branchChipColor";
+import BibleSharersChip from "@/src/components/evangelism/BibleSharersChip";
 
 interface SelectOption {
   value: string;
@@ -24,6 +25,8 @@ interface SelectOption {
   nickname?: string | null;
   /** When set, renders a small Cluster vs Group badge (distinct styling). */
   typeLabel?: "cluster" | "group";
+  /** Compact Bible Sharers marker (icon-only chip). */
+  hasBibleSharers?: boolean;
 }
 
 function ClusterCodeChip({ option }: { option: SelectOption }) {
@@ -314,6 +317,7 @@ export default function ScalableSelect({
               </span>
             )}
             <ClusterCodeChip option={option} />
+            {option.hasBibleSharers ? <BibleSharersChip /> : null}
             {option.typeLabel === "cluster" && (
               <span className="chip-primary-sm shrink-0">Cluster</span>
             )}
@@ -496,6 +500,7 @@ export default function ScalableSelect({
           >
             <span className="min-w-0 truncate">{triggerLabel}</span>
             {selectedOption ? <ClusterCodeChip option={selectedOption} /> : null}
+            {selectedOption?.hasBibleSharers ? <BibleSharersChip /> : null}
           </span>
           <div className="flex shrink-0 items-center space-x-1">
             {hasSelection && !disabled && !interactionBlocked && (

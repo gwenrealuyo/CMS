@@ -201,6 +201,7 @@ export default function EvangelismPage() {
     null
   );
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
+  const [isGroupDetailExpanded, setIsGroupDetailExpanded] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [groupListViewMode, setGroupListViewMode] = useState<"cards" | "table">(
     "cards"
@@ -406,6 +407,7 @@ export default function EvangelismPage() {
         setViewEditGroup(null);
         setViewMode("view");
         setFormError(null);
+        setIsGroupDetailExpanded(false);
       }
       setActiveTab(tab);
       const params = new URLSearchParams(searchParams.toString());
@@ -419,6 +421,16 @@ export default function EvangelismPage() {
     setViewEditGroup(null);
     setViewMode("view");
     setFormError(null);
+    setIsGroupDetailExpanded(false);
+  }, []);
+
+  const expandGroupFromPanel = useCallback(() => {
+    if (!viewEditGroup) return;
+    setIsGroupDetailExpanded(true);
+  }, [viewEditGroup]);
+
+  const collapseGroupModalToPanel = useCallback(() => {
+    setIsGroupDetailExpanded(false);
   }, []);
 
   useEffect(() => {
@@ -435,6 +447,7 @@ export default function EvangelismPage() {
       setViewEditGroup(null);
       setViewMode("view");
       setFormError(null);
+      setIsGroupDetailExpanded(false);
     }
   }, [activeTab]);
 
@@ -509,6 +522,7 @@ export default function EvangelismPage() {
           setActiveTab("groups");
           setViewEditGroup(response.data);
           setViewMode("view");
+          setIsGroupDetailExpanded(false);
         }
       } catch {
         // Group may be inaccessible; still clear the query param.
@@ -681,6 +695,7 @@ export default function EvangelismPage() {
       setSuccessMessage(`Group "${values.name}" has been updated.`);
       setViewEditGroup(null);
       setViewMode("view");
+      setIsGroupDetailExpanded(false);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
       const errorData = err.response?.data || {};
@@ -1252,7 +1267,10 @@ export default function EvangelismPage() {
   };
 
   const groupPanelOpen = Boolean(
-    isDesktop && viewEditGroup && activeTab === "groups",
+    isDesktop && viewEditGroup && activeTab === "groups" && !isGroupDetailExpanded,
+  );
+  const showGroupDetailModal = Boolean(
+    viewEditGroup && (!isDesktop || isGroupDetailExpanded),
   );
   const useStackedToolbar = groupPanelOpen;
 
@@ -1321,7 +1339,9 @@ export default function EvangelismPage() {
           setEditingConversion(c);
           setIsConversionModalOpen(true);
         }}
-        onEdit={() => setViewMode("edit")}
+        onEdit={() => {
+          setViewMode("edit");
+        }}
         canManageGroup={
           canWriteEvangelismAccess &&
           (evangelismPrivileged ||
@@ -1353,7 +1373,11 @@ export default function EvangelismPage() {
                 })
             : undefined
         }
-        onClose={closeGroupDetail}
+        onClose={
+          isPanel || !isGroupDetailExpanded
+            ? closeGroupDetail
+            : collapseGroupModalToPanel
+        }
         showTopHeader={!isPanel}
       />
     );
@@ -1976,10 +2000,12 @@ export default function EvangelismPage() {
                         onView={(group) => {
                           setViewEditGroup(group);
                           setViewMode("view");
+                          setIsGroupDetailExpanded(false);
                         }}
                         onEdit={(group) => {
                           setViewEditGroup(group);
                           setViewMode("edit");
+                          setIsGroupDetailExpanded(false);
                         }}
                         onDelete={(group) => {
                           setDeleteConfirmation({
@@ -2027,6 +2053,7 @@ export default function EvangelismPage() {
                               }
                               setViewEditGroup(group);
                               setViewMode("view");
+                              setIsGroupDetailExpanded(false);
                             }}
                           />
                         ))}
@@ -2046,6 +2073,7 @@ export default function EvangelismPage() {
                   : viewEditGroup?.name || "Group Details"
               }
               onClose={closeGroupDetail}
+              onExpand={expandGroupFromPanel}
             >
               {renderGroupDetail(true)}
             </PersonDetailPanel>
@@ -2156,11 +2184,15 @@ export default function EvangelismPage() {
           </Modal>
         )}
 
-        {/* View/Edit Group Modal (below desktop) */}
-        {!isDesktop && viewEditGroup && (
+        {/* View/Edit Group Modal */}
+        {showGroupDetailModal && (
           <Modal
-            isOpen={!!viewEditGroup}
-            onClose={closeGroupDetail}
+            isOpen={showGroupDetailModal}
+            onClose={
+              isDesktop && isGroupDetailExpanded
+                ? collapseGroupModalToPanel
+                : closeGroupDetail
+            }
             hideHeader={viewMode === "view"}
             title={viewMode === "edit" ? "Edit Group" : ""}
             closeOnOutsideClick={viewMode === "view"}
@@ -2344,6 +2376,7 @@ export default function EvangelismPage() {
                     loading: false,
                   });
                   setViewEditGroup(null);
+                  setIsGroupDetailExpanded(false);
                 } catch (error) {
                   console.error("Error marking group inactive:", error);
                   setDeleteConfirmation((prev) => ({
@@ -2396,6 +2429,7 @@ export default function EvangelismPage() {
                     loading: false,
                   });
                   setViewEditGroup(null);
+                  setIsGroupDetailExpanded(false);
                 } catch (error) {
                   console.error("Error deleting group:", error);
                   setHardDeleteConfirmation((prev) => ({

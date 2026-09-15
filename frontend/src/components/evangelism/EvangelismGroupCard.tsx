@@ -4,6 +4,8 @@ import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import {
   CLUSTER_CODE_BADGE_CLASSNAME,
+  getBranchOutlineBadgeStyle,
+  getBranchDisplayCode,
   getClusterCodeBadgeStyle,
 } from "@/src/lib/branchChipColor";
 import {
@@ -16,6 +18,7 @@ import {
   STATUS_CHIP_CLASSNAME,
   getStatusChipStyle,
 } from "@/src/lib/statusChipStyle";
+import BibleSharersChip from "@/src/components/evangelism/BibleSharersChip";
 
 interface EvangelismGroupCardProps {
   group: EvangelismGroup;
@@ -97,30 +100,6 @@ const EvangelismGroupCard = memo(
               <h4 className="truncate text-base font-semibold text-primary md:text-lg">
                 {group.name}
               </h4>
-              {isClusterBibleStudy(group) && (
-                <span
-                  className={STATUS_CHIP_CLASSNAME}
-                  style={getStatusChipStyle("clusterBs")}
-                >
-                  Cluster BS
-                </span>
-              )}
-              {((group.bible_sharer_ids?.length ?? 0) > 0) && (
-                <span
-                  className={STATUS_CHIP_CLASSNAME}
-                  style={getStatusChipStyle("primary")}
-                >
-                  Bible Sharers
-                </span>
-              )}
-              {!group.is_active && (
-                <span
-                  className={STATUS_CHIP_CLASSNAME}
-                  style={getStatusChipStyle("inactive")}
-                >
-                  Inactive
-                </span>
-              )}
               {group.is_active && clusterDisplayCode && (
                 <span
                   className={CLUSTER_CODE_BADGE_CLASSNAME}
@@ -130,6 +109,50 @@ const EvangelismGroupCard = memo(
                   )}
                 >
                   {clusterDisplayCode}
+                </span>
+              )}
+              {isClusterBibleStudy(group) && (
+                <span
+                  className={STATUS_CHIP_CLASSNAME}
+                  style={getStatusChipStyle("clusterBs")}
+                >
+                  Cluster BS
+                </span>
+              )}
+              {((group.bible_sharer_ids?.length ?? 0) > 0) && (
+                <BibleSharersChip />
+              )}
+              {!group.is_active && (
+                <span
+                  className={STATUS_CHIP_CLASSNAME}
+                  style={getStatusChipStyle("inactive")}
+                >
+                  Inactive
+                </span>
+              )}
+              {clusterBranch && (
+                <span
+                  className="inline-flex h-5 items-center gap-0.5 rounded-full border bg-transparent px-1.5 text-[10px] font-semibold leading-none"
+                  style={getBranchOutlineBadgeStyle(
+                    clusterBranch.id,
+                    clusterBranch.is_headquarters,
+                  )}
+                >
+                  <svg
+                    className="h-2.5 w-2.5 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                    />
+                  </svg>
+                  {getBranchDisplayCode(clusterBranch)}
                 </span>
               )}
             </div>

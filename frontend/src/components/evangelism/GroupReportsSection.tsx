@@ -27,9 +27,7 @@ export default function GroupReportsSection({
   const [showAll, setShowAll] = useState(false);
   const DEFAULT_LIMIT = 5;
 
-  const displayedReports = showAll
-    ? reports
-    : reports.slice(0, DEFAULT_LIMIT);
+  const displayedReports = showAll ? reports : reports.slice(0, DEFAULT_LIMIT);
   const hasMoreReports = reports.length > DEFAULT_LIMIT;
 
   return (
@@ -37,12 +35,13 @@ export default function GroupReportsSection({
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h3 className="text-lg font-semibold text-gray-900">Reports</h3>
         {canSubmit && (
-        <Button
-          onClick={onAddReport}
-          className="bg-primary hover:bg-lighthouse-navy w-full sm:w-auto min-h-[44px]"
-        >
-          Submit Report
-        </Button>
+          <Button
+            onClick={onAddReport}
+            variant="secondary"
+            className="w-full sm:w-auto min-h-[44px]"
+          >
+            Submit Report
+          </Button>
         )}
       </div>
 
@@ -80,9 +79,7 @@ export default function GroupReportsSection({
                     className="text-sm text-left text-primary hover:text-primary hover:underline cursor-pointer transition-colors duration-150 p-0 m-0 bg-transparent border-0 font-medium"
                     title="Click to view report details"
                   >
-                    {value ?
-                      formatLocaleDate(value as string)
-                    : "N/A"}
+                    {value ? formatLocaleDate(value as string) : "N/A"}
                   </button>
                 ),
               },
@@ -92,7 +89,7 @@ export default function GroupReportsSection({
                 render: (value) => (
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEvangelismGatheringTypeChipClass(
-                      value as string
+                      value as string,
                     )}`}
                   >
                     {(value as string) || "N/A"}

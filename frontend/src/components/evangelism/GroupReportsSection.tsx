@@ -33,7 +33,9 @@ export default function GroupReportsSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h3 className="text-lg font-semibold text-gray-900">Reports</h3>
+        <h3 className="text-base font-semibold text-gray-900 md:text-lg">
+          Reports
+        </h3>
         {canSubmit && (
           <Button
             onClick={onAddReport}
@@ -121,7 +123,7 @@ export default function GroupReportsSection({
                   <Button
                     variant="secondary"
                     onClick={() => onEditReport(row)}
-                    className="!text-primary bg-white border border-primary/20 hover:bg-primary/10 hover:border-primary/30 text-xs py-1 px-2"
+                    className="min-h-[44px] border border-primary/20 bg-white px-2 py-1 text-xs !text-primary hover:border-primary/30 hover:bg-primary/10 md:min-h-0"
                   >
                     Edit
                   </Button>
@@ -129,6 +131,7 @@ export default function GroupReportsSection({
               },
             ]}
             data={displayedReports}
+            mobileCardView={false}
           />
           {hasMoreReports && (
             <div className="flex justify-center pt-2">

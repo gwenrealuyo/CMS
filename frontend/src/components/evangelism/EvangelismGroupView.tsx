@@ -24,7 +24,6 @@ import {
   STATUS_CHIP_CLASSNAME,
   getStatusChipStyle,
 } from "@/src/lib/statusChipStyle";
-import ClusterBibleStudyChip from "@/src/components/evangelism/ClusterBibleStudyChip";
 import { Cluster } from "@/src/types/cluster";
 import { Branch } from "@/src/types/branch";
 import {
@@ -131,11 +130,7 @@ export default function EvangelismGroupView({
   const scheduleLine = formatGroupScheduleLine(displayGroup);
 
   return (
-    <div
-      className={`flex h-full min-h-0 flex-col ${
-        isPanelMode ? "" : "-m-4 md:-m-0"
-      }`}
-    >
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
       {showTopHeader && (
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 p-3 md:p-4">
           <div className="min-w-0 flex-1">
@@ -168,7 +163,7 @@ export default function EvangelismGroupView({
       )}
 
       <div
-        className={`flex-1 overflow-y-auto ${
+        className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${
           isPanelMode ? "p-3 sm:p-4" : "p-3 sm:p-4 md:p-5"
         }`}
       >
@@ -181,18 +176,18 @@ export default function EvangelismGroupView({
             }
           >
             <div
-              className={`rounded-lg border p-4 ${
+              className={`rounded-lg border p-3 sm:p-4 ${
                 isPanelMode
                   ? "border-gray-200 bg-white shadow-sm"
                   : "border-primary/20 bg-gradient-to-r from-lighthouse-ivory to-muted"
               }`}
             >
-              <div className="mb-3 flex flex-row items-start justify-between gap-3">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 flex-1 flex-row flex-wrap items-center gap-2 sm:gap-3">
                   <h2
                     className={`${
                       isPanelMode ? "text-xl" : "text-lg md:text-xl"
-                    } min-w-0 truncate font-bold text-gray-900`}
+                    } min-w-0 break-words font-bold text-gray-900`}
                   >
                     {displayGroup.name || "Untitled Group"}
                   </h2>
@@ -209,7 +204,7 @@ export default function EvangelismGroupView({
                   )}
                   {isClusterBibleStudy(displayGroup) && (
                     <span
-                      className={STATUS_CHIP_CLASSNAME}
+                      className={`${STATUS_CHIP_CLASSNAME} flex-shrink-0`}
                       style={getStatusChipStyle("clusterBs")}
                     >
                       Cluster BS
@@ -217,7 +212,7 @@ export default function EvangelismGroupView({
                   )}
                   {(displayGroup.bible_sharer_ids?.length ?? 0) > 0 && (
                     <span
-                      className={STATUS_CHIP_CLASSNAME}
+                      className={`${STATUS_CHIP_CLASSNAME} flex-shrink-0`}
                       style={getStatusChipStyle("primary")}
                     >
                       Bible Sharers
@@ -225,14 +220,14 @@ export default function EvangelismGroupView({
                   )}
                   {!displayGroup.is_active && (
                     <span
-                      className={STATUS_CHIP_CLASSNAME}
+                      className={`${STATUS_CHIP_CLASSNAME} flex-shrink-0`}
                       style={getStatusChipStyle("inactive")}
                     >
                       Inactive
                     </span>
                   )}
                 </div>
-                <div className="flex flex-shrink-0 flex-col items-start gap-1 text-gray-700">
+                <div className="flex flex-shrink-0 flex-row flex-wrap items-center gap-x-3 gap-y-1 text-gray-700 sm:flex-col sm:items-start sm:gap-1">
                   <div className="flex items-center gap-1">
                     <svg
                       className="h-4 w-4 shrink-0"
@@ -276,7 +271,7 @@ export default function EvangelismGroupView({
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-700">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm text-gray-700 sm:grid-cols-2">
                 {displayGroup.location && (
                   <div className="flex min-w-0 items-center gap-1">
                     <svg
@@ -375,7 +370,7 @@ export default function EvangelismGroupView({
                 <h3 className="mb-0.5 text-xs font-medium text-gray-500">
                   Description
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="break-words whitespace-pre-wrap text-sm text-gray-600">
                   {displayGroup.description}
                 </p>
               </div>
@@ -421,16 +416,16 @@ export default function EvangelismGroupView({
 
       {canManageGroup && (
         <div
-          className={`sticky bottom-0 z-10 flex-shrink-0 border-t border-gray-200 ${
-            isPanelMode ? "bg-white p-3" : "bg-gray-50 px-3 py-3 md:px-4"
+          className={`flex-shrink-0 border-t border-gray-200 ${
+            isPanelMode ? "bg-white p-3" : "bg-gray-50 p-3 md:p-4"
           }`}
         >
-          <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
-            <div className="flex flex-nowrap items-center gap-2 shrink-0">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-center gap-2">
               <Button
                 onClick={onDelete}
                 variant="secondary"
-                className="flex h-10 min-h-[44px] items-center justify-center space-x-2 border border-gray-200 bg-white px-4 text-sm font-medium !text-gray-700 hover:border-gray-300 hover:bg-gray-50 shrink-0"
+                className="flex h-10 min-h-[44px] flex-1 items-center justify-center space-x-2 border border-gray-200 bg-white px-4 text-sm font-medium !text-gray-700 hover:border-gray-300 hover:bg-gray-50 sm:flex-none"
               >
                 <svg
                   className="h-4 w-4"
@@ -454,7 +449,7 @@ export default function EvangelismGroupView({
                   variant="secondary"
                   aria-label="Delete group permanently"
                   title="Delete group permanently"
-                  className="flex h-10 min-h-[44px] items-center justify-center border border-red-200 bg-white px-4 text-sm font-medium !text-red-600 hover:border-red-300 hover:bg-red-50 shrink-0"
+                  className="flex h-10 min-h-[44px] shrink-0 items-center justify-center border border-red-200 bg-white px-4 text-sm font-medium !text-red-600 hover:border-red-300 hover:bg-red-50"
                 >
                   <svg
                     className="h-4 w-4"
@@ -473,11 +468,11 @@ export default function EvangelismGroupView({
                 </Button>
               )}
             </div>
-            <div className="ml-auto flex flex-nowrap items-center gap-2 shrink-0">
+            <div className="flex min-w-0 sm:ml-auto sm:shrink-0">
               <Button
                 onClick={onEdit}
                 variant="secondary"
-                className="flex h-10 min-h-[44px] items-center justify-center space-x-2 border border-primary/20 bg-white px-4 text-sm font-medium !text-primary hover:border-primary/30 hover:bg-primary/10 shrink-0"
+                className="flex h-10 min-h-[44px] w-full items-center justify-center space-x-2 border border-primary/20 bg-white px-4 text-sm font-medium !text-primary hover:border-primary/30 hover:bg-primary/10 sm:w-auto"
               >
                 <svg
                   className="h-4 w-4"

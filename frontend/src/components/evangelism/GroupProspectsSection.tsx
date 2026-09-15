@@ -55,7 +55,9 @@ export default function GroupProspectsSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h3 className="text-lg font-semibold text-gray-900">Visitors</h3>
+        <h3 className="text-base font-semibold text-gray-900 md:text-lg">
+          Visitors
+        </h3>
         <Button
           onClick={onAddProspect}
           className="!text-white !bg-orange-600 hover:!text-white hover:!bg-orange-700 w-full sm:w-auto min-h-[44px]"
@@ -118,7 +120,7 @@ export default function GroupProspectsSection({
                     <Button
                       variant="secondary"
                       onClick={() => onUpdateProgress(row)}
-                      className="!text-amber-600 bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 text-xs py-1 px-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
+                      className="min-h-[44px] border border-amber-200 bg-white px-2 py-1 text-xs !text-amber-600 hover:border-amber-300 hover:bg-amber-50 md:min-h-0"
                     >
                       Update
                     </Button>
@@ -126,6 +128,7 @@ export default function GroupProspectsSection({
               },
             ]}
             data={displayedProspects}
+            mobileCardView={false}
           />
           {hasMoreProspects && (
             <div className="flex justify-center pt-2">

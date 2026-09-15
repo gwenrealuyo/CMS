@@ -115,23 +115,23 @@ export default function Table<T>({
     return (
       <>
         {/* Mobile card view */}
-        <div className={`${cardsHiddenClass} space-y-4`}>
+        <div className={`${cardsHiddenClass} min-w-0 space-y-4`}>
           {data.map((row, i) => (
             <div
               key={i}
-              className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+              className="min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
             >
               {columns
                 .filter((col) => !col.hideOnMobile)
                 .map((column, j) => (
                   <div
                     key={j}
-                    className="flex flex-col mb-3 last:mb-0 border-b border-gray-100 last:border-0 pb-3 last:pb-0"
+                    className="mb-3 flex min-w-0 flex-col border-b border-gray-100 pb-3 last:mb-0 last:border-0 last:pb-0"
                   >
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                    <span className="mb-1 text-xs font-medium uppercase tracking-wider text-gray-500">
                       {column.header}
                     </span>
-                    <span className="text-sm text-gray-900">
+                    <span className="min-w-0 break-words text-sm text-gray-900">
                       {column.render
                         ? column.render(row[column.accessor], row)
                         : String(row[column.accessor] ?? "")}
@@ -188,51 +188,49 @@ export default function Table<T>({
 
   // Standard table with horizontal scroll on mobile
   return (
-    <div className="overflow-x-auto -mx-4 md:mx-0">
-      <div className="inline-block min-w-full align-middle md:px-0">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {columns.map((column, i) => (
-              <th
-                  key={i}
-                  scope="col"
-                  className={`${renderDesktopThClasses(
-                    column,
-                    desktopThCommon,
-                  )} ${column.hideOnMobile ? hideOnMobileCellClass : ""}`}
-                  onClick={column.onHeaderClick}
-                  onKeyDown={(e) => handleHeaderKeyDown(e, column.onHeaderClick)}
-                  tabIndex={column.onHeaderClick ? 0 : undefined}
+    <div className="min-w-0 overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {columns.map((column, i) => (
+            <th
+                key={i}
+                scope="col"
+                className={`${renderDesktopThClasses(
+                  column,
+                  desktopThCommon,
+                )} ${column.hideOnMobile ? hideOnMobileCellClass : ""}`}
+                onClick={column.onHeaderClick}
+                onKeyDown={(e) => handleHeaderKeyDown(e, column.onHeaderClick)}
+                tabIndex={column.onHeaderClick ? 0 : undefined}
+              >
+                {column.desktopHeader ?? column.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {data.map((row, i) => (
+            <tr
+              key={i}
+              className="transition-colors duration-150 hover:bg-gray-50"
+            >
+              {columns.map((column, j) => (
+                <td
+                  key={j}
+                  className={`px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
+                    column.hideOnMobile ? hideOnMobileCellClass : ""
+                  }`}
                 >
-                  {column.desktopHeader ?? column.header}
-                </th>
+                  {column.render
+                    ? column.render(row[column.accessor], row)
+                    : String(row[column.accessor] ?? "")}
+                </td>
               ))}
             </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {data.map((row, i) => (
-              <tr
-                key={i}
-                className="transition-colors duration-150 hover:bg-gray-50"
-              >
-                {columns.map((column, j) => (
-                  <td
-                    key={j}
-                    className={`px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
-                      column.hideOnMobile ? hideOnMobileCellClass : ""
-                    }`}
-                  >
-                    {column.render
-                      ? column.render(row[column.accessor], row)
-                      : String(row[column.accessor] ?? "")}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

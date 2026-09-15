@@ -65,6 +65,7 @@ Record Donation is intentionally not included (finance `?action=add-donation` ca
 - **Each 1 Reach 1:** `Each1Reach1Dashboard` uses the same toolbar pattern as Groups (search, branch, Table/Cards, year/status filters, Create Goal); defaults to cards; Table coerced to cards below `md`
 - **Add Visitor (`ProspectForm`)** and **weekly report modals** stack Cancel/Submit full-width on mobile (`flex-col-reverse sm:flex-row`, 44px touch targets)
 - **Tally / Reports:** people tally (`PeopleTallyReport`: default **By cluster** with All / YTD / quarter / custom months; **By month** year grid; Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC) and weekly unified tally; Unique HC drilldown highlights milestone chips in the selected months; gathering type badges use filled tonal styling in evangelism components. Same tally surface on Analytics **E1R1**.
+- **Bible Sharers:** `BibleSharersCoverage` — people directory (search, branch, status, Table/Cards) then cluster coverage. Idle HQ roster members and grant-only people appear for HQ/all; satellite branch shows facilitators on that branch’s groups. Click a name, group, or cluster to open People / Groups / Clusters. Roster editing stays in Ministries.
 - Deep link `?action=submit-report` opens weekly report submission flow
 - See [EVANGELISM_MODULE.md](./EVANGELISM_MODULE.md) for API, models, and full component map
 

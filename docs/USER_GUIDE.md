@@ -141,7 +141,7 @@ Open **Evangelism** for Bible study groups, visitor follow-up, and conversion tr
 | **Each 1 Reach 1** | Annual conversion goals by cluster |
 | **Tally** | People tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC). **By cluster** (default) lists every cluster in the selected branch for All year, YTD, a quarter, or chosen months. **By month** is the year grid. A person who hits several stages in the window counts in each of those columns, and once under Unique HC. Click a count to see names; Unique HC highlights the stages achieved in the selected months. |
 | **Reports** | Evangelism reports |
-| **Bible Sharers** | Which clusters have assigned Bible Sharer facilitators |
+| **Bible Sharers** | Who the Bible Sharers are (groups, roster vs assigned) and which clusters still need a facilitator |
 
 ### Common tasks
 

@@ -424,7 +424,7 @@ export interface EvangelismGroupFormValues {
 }
 
 export interface BibleSharersGroupInfo {
-  id: string;
+  id: string | number;
   name: string;
   coordinator: string | null;
   bible_sharers_count?: number;
@@ -437,21 +437,51 @@ export interface BibleSharerCoveragePerson {
   groups: string[];
 }
 
+export interface BibleSharersClusterSummary {
+  id: number | null;
+  name: string | null;
+  code: string | null;
+  branch: number | null;
+}
+
 export interface BibleSharersCoverageItem {
-  cluster: Cluster;
+  cluster: BibleSharersClusterSummary;
   has_bible_sharers: boolean;
   bible_sharers?: BibleSharerCoveragePerson[];
   bible_sharers_groups: BibleSharersGroupInfo[];
   bible_sharers_count: number;
 }
 
+export interface BibleSharerDirectoryGroup {
+  id: number;
+  name: string;
+  cluster: BibleSharersClusterSummary | null;
+}
+
+export interface BibleSharerDirectoryPerson {
+  id: number;
+  name: string;
+  on_hq_roster: boolean;
+  roster_active: boolean | null;
+  has_module_wide_grant: boolean;
+  assigned: boolean;
+  groups: BibleSharerDirectoryGroup[];
+  group_count: number;
+}
+
 export interface BibleSharersCoverage {
+  people?: BibleSharerDirectoryPerson[];
   coverage: BibleSharersCoverageItem[];
   summary: {
+    total_bible_sharers?: number;
+    assigned_count?: number;
+    unassigned_count?: number;
     total_clusters: number;
     clusters_with_bible_sharers: number;
     clusters_without_bible_sharers: number;
     clusters_without_names: string[];
     total_bible_sharers_groups: number;
+    bible_sharers_ministry_id?: number | null;
+    can_manage_roster?: boolean;
   };
 }

@@ -848,8 +848,8 @@ export default function EvangelismReportsDashboard({
   return (
     <div className="space-y-6">
       <Card>
-        <div className="grid min-w-0 w-full grid-cols-1 gap-4 tablet:grid-cols-2 xl:gap-4 xl:[grid-template-columns:minmax(0,1.15fr)_minmax(0,2.1fr)_minmax(6.5rem,0.68fr)_minmax(10.5rem,0.92fr)_minmax(10.5rem,0.88fr)]">
-          <div className="min-w-0">
+        <div className="grid min-w-0 w-full grid-cols-1 gap-4 tablet:grid-cols-12 xl:gap-4 xl:[grid-template-columns:minmax(0,1.15fr)_minmax(0,2.1fr)_minmax(6.5rem,0.68fr)_minmax(10.5rem,0.92fr)_minmax(10.5rem,0.88fr)]">
+          <div className="min-w-0 tablet:col-span-5 xl:col-span-1">
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Branch
             </label>
@@ -878,7 +878,7 @@ export default function EvangelismReportsDashboard({
               </LockedControlTooltip>
             )}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 tablet:col-span-7 xl:col-span-1">
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Evangelism group
             </label>
@@ -896,7 +896,7 @@ export default function EvangelismReportsDashboard({
               className="w-full min-w-0 text-sm"
             />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 tablet:col-span-4 xl:col-span-1">
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Year
             </label>
@@ -924,7 +924,7 @@ export default function EvangelismReportsDashboard({
               )}
             </select>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 tablet:col-span-4 xl:col-span-1">
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Month
             </label>
@@ -941,7 +941,7 @@ export default function EvangelismReportsDashboard({
               ))}
             </select>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 tablet:col-span-4 xl:col-span-1">
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Gathering type
             </label>

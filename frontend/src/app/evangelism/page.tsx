@@ -2235,6 +2235,11 @@ export default function EvangelismPage() {
             hideHeader={viewMode === "view"}
             title={viewMode === "edit" ? "Edit Group" : ""}
             closeOnOutsideClick={viewMode === "view"}
+            contentClassName={
+              viewMode === "view"
+                ? "overflow-hidden flex flex-col p-0"
+                : undefined
+            }
           >
             {renderGroupDetail(false)}
           </Modal>

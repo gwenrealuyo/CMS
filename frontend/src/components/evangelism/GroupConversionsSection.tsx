@@ -31,7 +31,9 @@ export default function GroupConversionsSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h3 className="text-lg font-semibold text-gray-900">Conversions</h3>
+        <h3 className="text-base font-semibold text-gray-900 md:text-lg">
+          Conversions
+        </h3>
         {onAddConversion && (
           <Button
             onClick={onAddConversion}
@@ -104,7 +106,7 @@ export default function GroupConversionsSection({
                           type="button"
                           variant="secondary"
                           onClick={() => onEditConversion(row)}
-                          className="!text-amber-600 bg-white border border-amber-200 hover:bg-amber-50 hover:border-amber-300 text-xs py-1 px-2"
+                          className="w-full min-h-[44px] border border-amber-200 bg-white px-2 py-1 text-xs !text-amber-600 hover:border-amber-300 hover:bg-amber-50 md:min-h-0 md:w-auto"
                         >
                           Update
                         </Button>

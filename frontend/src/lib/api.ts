@@ -1790,8 +1790,10 @@ export const evangelismApi = {
     api.get<Prospect[]>(`/evangelism/groups/${groupId}/visitors/`),
   getGroupSummary: (groupId: number | string) =>
     api.get<any>(`/evangelism/groups/${groupId}/summary/`),
-  getBibleSharersCoverage: () =>
-    api.get<BibleSharersCoverage>("/evangelism/groups/bible_sharers_coverage/"),
+  getBibleSharersCoverage: (params?: { branch?: number | string }) =>
+    api.get<BibleSharersCoverage>("/evangelism/groups/bible_sharers_coverage/", {
+      params,
+    }),
   getDashboardStats: (params?: { year?: number }) =>
     api.get<EvangelismSummary>("/evangelism/groups/dashboard-stats/", { params }),
 

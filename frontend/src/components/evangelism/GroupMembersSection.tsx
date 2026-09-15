@@ -37,7 +37,7 @@ export default function GroupMembersSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h3 className="text-lg font-semibold text-gray-900">
+        <h3 className="text-base font-semibold text-gray-900 md:text-lg">
           Members
           <span className="ml-2 text-sm font-normal text-gray-500">
             ({members.length})
@@ -90,38 +90,42 @@ export default function GroupMembersSection({
               {displayedMembers.map((row) => (
                 <div
                   key={row.id}
-                  className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 md:px-6"
+                  className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4 md:px-6"
                 >
-                  <span className="text-sm font-medium text-gray-900 sm:min-w-0 sm:flex-1 sm:truncate">
-                    {row.full_name || row.username || "N/A"}
-                    {String(row.id) === String(coordinatorId) && (
-                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
-                        Coordinator
-                      </span>
-                    )}
-                    {String(row.id) !== String(coordinatorId) &&
-                      bibleSharerIds.some(
-                        (id) => String(id) === String(row.id),
-                      ) && (
-                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-800">
-                          Bible Sharer
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                    <span className="min-w-0 break-words text-sm font-medium text-gray-900">
+                      {row.full_name || row.username || "N/A"}
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {String(row.id) === String(coordinatorId) && (
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          Coordinator
                         </span>
                       )}
-                    {String(row.id) !== String(coordinatorId) &&
-                      reporterIds.some(
-                        (id) => String(id) === String(row.id),
-                      ) && (
-                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
-                          Reporter
-                        </span>
-                      )}
-                  </span>
+                      {String(row.id) !== String(coordinatorId) &&
+                        bibleSharerIds.some(
+                          (id) => String(id) === String(row.id),
+                        ) && (
+                          <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-800">
+                            Bible Sharer
+                          </span>
+                        )}
+                      {String(row.id) !== String(coordinatorId) &&
+                        reporterIds.some(
+                          (id) => String(id) === String(row.id),
+                        ) && (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                            Reporter
+                          </span>
+                        )}
+                    </div>
+                  </div>
                   {canManage && (
                     <div className="flex shrink-0 sm:justify-end">
                       <Button
                         variant="secondary"
                         onClick={() => onRemoveMember(row)}
-                        className="!text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 text-xs py-1 px-2 w-full sm:w-auto"
+                        className="w-full min-h-[44px] border border-red-200 bg-white px-2 py-1 text-xs !text-red-600 hover:border-red-300 hover:bg-red-50 sm:w-auto md:min-h-0"
                       >
                         Remove
                       </Button>

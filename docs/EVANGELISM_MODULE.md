@@ -38,7 +38,7 @@ Key features include:
 - **Event Type Logic**: When sessions are created, event type is:
   - `CLUSTER_BS_EVANGELISM` if `cluster` is not null
   - `BIBLE_STUDY` if `cluster` is null
-- **Bible Sharers**: People assigned as Bible Sharers on one or more evangelism groups. They can facilitate studies and submit reports for those groups. Coverage monitoring counts unique assigned people per cluster (not a group flag). Ideally each cluster should have at least one Bible Sharer.
+- **Bible Sharers**: People assigned as Bible Sharers on one or more evangelism groups. They can facilitate studies and submit reports for those groups. Coverage monitoring counts unique assigned people per cluster (not a group flag). Ideally each cluster should have at least one Bible Sharer. The Evangelism **Bible Sharers** tab is a people directory (HQ roster, group assignments, grant-only) plus that cluster coverage.
   - **HQ roster**: Headquarters evangelism groups may only assign Bible Sharers who are on the system-managed **Bible Sharers** ministry (`code=BIBLE_SHARERS`, HQ branch). Add people under Ministries first. Inactive roster members remain selectable. Groups whose cluster is not on the headquarters branch keep the previous rule (any group member).
   - **Two-layer access**: **Grant Evangelism access** on the HQ roster (default on) creates a module-wide `BIBLE_SHARER` assignment (`resource_id` empty). That grant is **read-only** (open Evangelism; no group edits; no reports). Adding or editing reports still requires a **group-scoped** Bible Sharer (or Coordinator / Reporter) assignment. Unchecking the grant or marking the roster row inactive deletes only the module-wide row; group assignments stay. Being enrolled as a group member without a Bible Sharer / Reporter / Coordinator role does not allow reports.
 - **Evangelism Reporters**: Members who can submit reports for assigned groups without managing the group. Coordinator on a group replaces Bible Sharer and Reporter for that person.
@@ -277,11 +277,15 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `GET /{id}/conversions/` – List conversions for a group
   - `GET /{id}/visitors/` – List visitors associated with this group's cluster
   - `GET /{id}/summary/` – Group statistics
-  - `GET /bible_sharers_coverage/` – Get Bible Sharers coverage across clusters
-    - Counts unique people with `BIBLE_SHARER` assignments on groups linked to the cluster
+  - `GET /bible_sharers_coverage/` – Bible Sharers people directory plus cluster coverage
+    - Query: `?branch=` (same meaning as the group list; omit for all branches)
+    - Counts unique people with **group-scoped** `BIBLE_SHARER` assignments on **active** groups. Module-wide roster grants do not cover a cluster
+    - HQ roster members (and grant-only people) are included when the filter is HQ or all branches; a satellite branch omits the idle HQ roster
+    - Inactive groups do not count as assigned
     - Response includes:
-      - `coverage`: cluster items with `bible_sharers` (people and groups), group list, unique counts
-      - `summary`: total clusters, clusters with/without Bible Sharers, groups that have assigned sharers
+      - `people`: directory rows (`id`, `name`, `on_hq_roster`, `roster_active`, `has_module_wide_grant`, `assigned`, `groups[]` with id/name/cluster, `group_count`)
+      - `coverage`: cluster items with `bible_sharers` (people and groups), group list, unique counts; a **No cluster** row (`cluster.id` null) when in-scope unclustered groups have sharers
+      - `summary`: unique people, assigned/unassigned counts, total clusters, clusters with/without Bible Sharers, groups that have assigned sharers, `bible_sharers_ministry_id`, `can_manage_roster`
 
 ### Group membership (API)
 
@@ -582,7 +586,7 @@ The main page includes tabs for different views:
 - **Each 1 Reach 1 Tab**: Track conversion goals and progress
 - **Tally Tab**: People tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC). Default **By cluster** compares clusters in the selected branch for All / YTD / quarter / custom months; **By month** is the year grid. Click a count to open the drill-down modal; click a cluster name to open By month for that cluster
 - **Reports Tab**: Weekly unified tally (evangelism + cluster weekly reports)
-- **Bible Sharers Tab**: Monitor Bible Sharers coverage across clusters
+- **Bible Sharers Tab**: People directory of Bible Sharers (roster vs assigned vs grant-only) plus cluster coverage
 
 #### Groups tab listing
 
@@ -786,11 +790,13 @@ The Groups tab toolbar mirrors the clusters page layout:
   - Combines evangelism weekly reports with cluster weekly reports
   - Week format: `YYYY W#`
   - Gathering type badges
-- **`BibleSharersCoverage`**: Bible Sharers coverage monitoring
-  - Summary cards showing total clusters, clusters with/without Bible Sharers, coverage percentage
-  - Alert for clusters without Bible Sharers
-  - Detailed table showing each cluster's Bible Sharers (people names) and groups
-  - Helps identify which clusters need Bible Sharers assigned
+- **`BibleSharersCoverage`**: Bible Sharers people directory plus cluster coverage
+  - Toolbar: search, branch filter (locked to assignment like Groups), status filter (All / Assigned / Unassigned / Roster only / Grant only), Table / Cards
+  - Summary cards: unique Bible Sharers, assigned, unassigned, clusters uncovered
+  - People directory (primary): name (People profile link), status chips (Assigned/Unassigned, HQ roster, Inactive on roster, Evangelism access vs Roster only), group chips (`?tab=groups&openGroup=`), cluster code badges
+  - Includes HQ roster members with no group, grant-only people, and assignments on groups with no cluster
+  - Roster managers see a Ministries deep link to manage the HQ roster (editing stays in Ministries)
+  - Cluster coverage table: Covered / Not covered, people names, uncovered-cluster alert, cluster code click-through, **No cluster** row when needed
 
 ### Group Detail Modal
 
@@ -799,11 +805,11 @@ When viewing a group, a modal displays group details and related sections. Layou
 **View mode**
 
 - `Modal` uses `hideHeader`; [`EvangelismGroupView`](frontend/src/components/evangelism/EvangelismGroupView.tsx) renders its own header with truncated group name, status chips (Active/Inactive, Bible Sharers), and a 44px close control
-- Full-screen on mobile (`Modal` shell); scrollable body for info grid and sections; **sticky footer** with Edit, Cancel, and Delete (stacked full-width buttons on mobile; icon-only delete + Cancel/Edit on desktop)
+- Full-screen on mobile (`Modal` shell); scrollable body for info grid and sections; **footer** with Mark Inactive, optional hard-delete, and Edit (stacked full-width buttons on mobile; row layout on `sm+`)
 - **Group Information**: Coordinator, cluster, branch code, location, meeting time, meeting frequency, description
 - **Members Section**: List of enrolled members with management options
-- **Reports Section**: Evangelism reports (`Table` mobile cards on small screens)
-- **Visitors Section**: Prospects list (`Table` mobile cards)
+- **Reports Section**: Evangelism reports (table with horizontal scroll on small screens)
+- **Visitors Section**: Prospects list (table with horizontal scroll on small screens)
 - **Conversions Section**: Conversions list (`Table` mobile cards)
 
 **Edit mode**

@@ -334,113 +334,15 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticatedAndNotVisitor, IsMemberOrAbove])
     def bible_sharers_coverage(self, request):
-        """Bible Sharers coverage: unique people with BIBLE_SHARER assignments per cluster."""
-        from collections import defaultdict
+        """People directory + cluster coverage for Bible Sharers."""
+        from .bible_sharers_directory import (
+            build_bible_sharers_coverage,
+            parse_coverage_branch_id,
+        )
 
-        from apps.clusters.models import Cluster
-        from .serializers import ClusterSummarySerializer
-
-        assignments = ModuleCoordinator.objects.filter(
-            module=ModuleCoordinator.ModuleType.EVANGELISM,
-            level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
-            resource_id__isnull=False,
-        ).select_related("person")
-
-        group_ids = {a.resource_id for a in assignments if a.resource_id}
-        groups_by_id = {
-            g.id: g
-            for g in EvangelismGroup.objects.filter(
-                id__in=group_ids, is_active=True
-            ).select_related("cluster", "coordinator")
-        }
-
-        people_by_cluster = defaultdict(dict)
-        groups_by_cluster = defaultdict(dict)
-
-        for assignment in assignments:
-            group = groups_by_id.get(assignment.resource_id)
-            if not group or not group.cluster_id:
-                continue
-            cluster_id = group.cluster_id
-            person = assignment.person
-            person_entry = people_by_cluster[cluster_id].setdefault(
-                person.id,
-                {
-                    "id": person.id,
-                    "name": person.get_full_name() or person.username,
-                    "group_ids": [],
-                },
-            )
-            if group.id not in person_entry["group_ids"]:
-                person_entry["group_ids"].append(group.id)
-            groups_by_cluster[cluster_id].setdefault(
-                group.id,
-                {
-                    "id": group.id,
-                    "name": group.name,
-                    "coordinator": (
-                        group.coordinator.get_full_name()
-                        if group.coordinator
-                        else None
-                    ),
-                    "bible_sharers_count": 0,
-                },
-            )
-
-        for cluster_id, people in people_by_cluster.items():
-            for person_entry in people.values():
-                for gid in person_entry["group_ids"]:
-                    groups_by_cluster[cluster_id][gid]["bible_sharers_count"] += 1
-
-        all_clusters = Cluster.objects.all().order_by("name")
-        coverage = []
-        clusters_without = []
-        total_sharer_groups = set()
-
-        for cluster in all_clusters:
-            people = list(people_by_cluster.get(cluster.id, {}).values())
-            groups_data = list(groups_by_cluster.get(cluster.id, {}).values())
-            has_sharers = len(people) > 0
-            if has_sharers:
-                for g in groups_data:
-                    total_sharer_groups.add(g["id"])
-            else:
-                clusters_without.append(cluster.name)
-
-            coverage.append(
-                {
-                    "cluster": ClusterSummarySerializer(cluster).data,
-                    "has_bible_sharers": has_sharers,
-                    "bible_sharers": [
-                        {
-                            "id": p["id"],
-                            "name": p["name"],
-                            "groups": [
-                                groups_by_cluster[cluster.id][gid]["name"]
-                                for gid in p["group_ids"]
-                                if gid in groups_by_cluster[cluster.id]
-                            ],
-                        }
-                        for p in people
-                    ],
-                    "bible_sharers_groups": groups_data,
-                    "bible_sharers_count": len(people),
-                }
-            )
-
+        branch_id = parse_coverage_branch_id(request.query_params.get("branch"))
         return Response(
-            {
-                "coverage": coverage,
-                "summary": {
-                    "total_clusters": all_clusters.count(),
-                    "clusters_with_bible_sharers": sum(
-                        1 for item in coverage if item["has_bible_sharers"]
-                    ),
-                    "clusters_without_bible_sharers": len(clusters_without),
-                    "clusters_without_names": clusters_without,
-                    "total_bible_sharers_groups": len(total_sharer_groups),
-                },
-            }
+            build_bible_sharers_coverage(user=request.user, branch_id=branch_id)
         )
 
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/src/components/ui/Button";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
@@ -82,6 +82,34 @@ function personBelongsToCluster(
   );
 }
 
+function personRecordId(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "object") {
+    const id = (value as { id?: unknown }).id;
+    if (id == null || id === "") return null;
+    return String(id);
+  }
+  return String(value);
+}
+
+function formValuesFromGroup(group: EvangelismGroup): EvangelismGroupFormValues {
+  return {
+    name: group.name,
+    description: group.description || "",
+    coordinator_id: group.coordinator?.id ? String(group.coordinator.id) : "",
+    cluster_id: group.cluster?.id ? String(group.cluster.id) : "",
+    location: group.location || "",
+    meeting_time: toTimeInputValue(group.meeting_time),
+    meeting_day: group.meeting_day || "",
+    meeting_frequency: group.cluster?.id
+      ? "WEEKLY"
+      : group.meeting_frequency || "WEEKLY",
+    is_active: group.is_active,
+    reporter_ids: (group.reporter_ids || []).map(String),
+    bible_sharer_ids: (group.bible_sharer_ids || []).map(String),
+  };
+}
+
 export default function EvangelismGroupForm({
   coordinators = [],
   people = [],
@@ -96,29 +124,10 @@ export default function EvangelismGroupForm({
 }: EvangelismGroupFormProps) {
   const isCreate = !initialData;
   const [values, setValues] = useState<EvangelismGroupFormValues>(
-    initialData
-      ? {
-          name: initialData.name,
-          description: initialData.description || "",
-          coordinator_id: initialData.coordinator?.id
-            ? String(initialData.coordinator.id)
-            : "",
-          cluster_id: initialData.cluster?.id
-            ? String(initialData.cluster.id)
-            : "",
-          location: initialData.location || "",
-          meeting_time: toTimeInputValue(initialData.meeting_time),
-          meeting_day: initialData.meeting_day || "",
-          meeting_frequency:
-            initialData.cluster?.id
-              ? "WEEKLY"
-              : initialData.meeting_frequency || "WEEKLY",
-          is_active: initialData.is_active,
-          reporter_ids: (initialData.reporter_ids || []).map(String),
-          bible_sharer_ids: (initialData.bible_sharer_ids || []).map(String),
-        }
-      : DEFAULT_VALUES,
+    initialData ? formValuesFromGroup(initialData) : DEFAULT_VALUES,
   );
+  const syncedGroupIdRef = useRef<string | null>(null);
+  const syncedRosterRef = useRef(false);
 
   const [initialPickerValue, setInitialPickerValue] = useState("");
   const { branches } = useBranches();
@@ -129,6 +138,33 @@ export default function EvangelismGroupForm({
     () => (people.length ? people : coordinators).filter(isSelectablePerson),
     [people, coordinators],
   );
+
+  useEffect(() => {
+    if (!initialData) {
+      syncedGroupIdRef.current = null;
+      syncedRosterRef.current = false;
+      return;
+    }
+    const groupId = String(initialData.id);
+    const hasRoster = Array.isArray(initialData.members);
+    if (syncedGroupIdRef.current !== groupId) {
+      syncedGroupIdRef.current = groupId;
+      syncedRosterRef.current = hasRoster;
+      setValues(formValuesFromGroup(initialData));
+      return;
+    }
+    if (!syncedRosterRef.current && hasRoster) {
+      syncedRosterRef.current = true;
+      setValues((prev) => ({
+        ...prev,
+        reporter_ids: (initialData.reporter_ids || []).map(String),
+        bible_sharer_ids: (initialData.bible_sharer_ids || []).map(String),
+        coordinator_id: initialData.coordinator?.id
+          ? String(initialData.coordinator.id)
+          : prev.coordinator_id,
+      }));
+    }
+  }, [initialData]);
 
   const handleChange =
     (field: keyof EvangelismGroupFormValues) =>
@@ -187,6 +223,8 @@ export default function EvangelismGroupForm({
       initial_member_ids: (prev.initial_member_ids || []).filter(
         (x) => x !== id,
       ),
+      reporter_ids: (prev.reporter_ids || []).filter((x) => x !== id),
+      bible_sharer_ids: (prev.bible_sharer_ids || []).filter((x) => x !== id),
     }));
   };
 
@@ -319,30 +357,81 @@ export default function EvangelismGroupForm({
     };
   }, [isHqGroup]);
 
+  const groupMembersKnown = isCreate || Array.isArray(initialData?.members);
+
   const roleCandidateIds = useMemo(() => {
     if (isCreate) {
-      return new Set(values.initial_member_ids || []);
+      return new Set(
+        (values.initial_member_ids || [])
+          .map((id) => personRecordId(id))
+          .filter((id): id is string => Boolean(id)),
+      );
     }
-    return new Set((initialData?.members || []).map((p) => String(p.id)));
+    const ids = new Set<string>();
+    for (const member of initialData?.members || []) {
+      const id = personRecordId(member);
+      if (id) ids.add(id);
+    }
+    return ids;
   }, [isCreate, values.initial_member_ids, initialData?.members]);
 
+  const peopleById = useMemo(() => {
+    const map = new Map<string, Person>();
+    for (const person of memberPool) {
+      map.set(String(person.id), person);
+    }
+    if (!isCreate) {
+      for (const member of initialData?.members || []) {
+        const id = personRecordId(member);
+        if (!id || typeof member !== "object") continue;
+        if (!map.has(id)) {
+          map.set(id, member as Person);
+        }
+      }
+    }
+    return map;
+  }, [memberPool, isCreate, initialData?.members]);
+
   const roleCandidateOptions = useMemo(() => {
-    return memberPool
-      .filter((person) => {
-        const id = String(person.id);
-        if (!roleCandidateIds.has(id)) return false;
-        if (id === values.coordinator_id) return false;
-        return true;
+    return Array.from(roleCandidateIds)
+      .filter((id) => id !== values.coordinator_id)
+      .map((id) => {
+        const person = peopleById.get(id);
+        return {
+          label: person ? formatPersonName(person) : id,
+          value: id,
+        };
       })
-      .map((person) => ({
-        label: formatPersonName(person),
-        value: String(person.id),
-      }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [memberPool, roleCandidateIds, values.coordinator_id]);
+  }, [roleCandidateIds, peopleById, values.coordinator_id]);
+
+  useEffect(() => {
+    if (!groupMembersKnown) return;
+    setValues((prev) => {
+      const nextReporters = (prev.reporter_ids || []).filter(
+        (id) => roleCandidateIds.has(id) && id !== prev.coordinator_id,
+      );
+      const nextSharers = (prev.bible_sharer_ids || []).filter(
+        (id) => roleCandidateIds.has(id) && id !== prev.coordinator_id,
+      );
+      if (
+        nextReporters.length === (prev.reporter_ids || []).length &&
+        nextSharers.length === (prev.bible_sharer_ids || []).length &&
+        nextReporters.every((id, i) => id === (prev.reporter_ids || [])[i]) &&
+        nextSharers.every((id, i) => id === (prev.bible_sharer_ids || [])[i])
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        reporter_ids: nextReporters,
+        bible_sharer_ids: nextSharers,
+      };
+    });
+  }, [groupMembersKnown, roleCandidateIds]);
 
   const addRoleId = (field: "reporter_ids" | "bible_sharer_ids", id: string) => {
-    if (!id) return;
+    if (!id || !roleCandidateIds.has(id)) return;
     setValues((prev) => {
       const current = prev[field] || [];
       if (current.includes(id) || id === prev.coordinator_id) return prev;
@@ -365,7 +454,7 @@ export default function EvangelismGroupForm({
   };
 
   const personLabel = (id: string) => {
-    const personObj = memberPool.find((p) => String(p.id) === id);
+    const personObj = peopleById.get(id);
     return personObj ? formatPersonName(personObj) : id;
   };
 
@@ -666,7 +755,8 @@ export default function EvangelismGroupForm({
           Group roles
         </p>
         <p className="text-xs text-gray-500">
-          Bible Sharers and reporters must already be members
+          Bible Sharers and reporters must already be members of this
+          evangelism group
           {isCreate ? " (add them above first)" : ""}. The coordinator
           cannot hold either role on this group.
           {isHqGroup
@@ -686,7 +776,7 @@ export default function EvangelismGroupForm({
             {
               field: "reporter_ids" as const,
               label: "Reporters",
-              hint: "Can submit reports only",
+              hint: "Can submit reports only; limited to group members",
               chipClass: "bg-amber-50 text-amber-800 border-amber-200",
             },
           ] as const
@@ -730,7 +820,9 @@ export default function EvangelismGroupForm({
                 value=""
                 onChange={(value) => addRoleId(role.field, value)}
                 placeholder={
-                  roleCandidateIds.size === 0
+                  !groupMembersKnown
+                    ? "Loading members..."
+                    : roleCandidateIds.size === 0
                     ? "Add members first"
                     : hqRosterEmpty
                       ? BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE
@@ -738,6 +830,7 @@ export default function EvangelismGroupForm({
                 }
                 className="w-full"
                 showSearch
+                disabled={!groupMembersKnown || roleCandidateIds.size === 0}
               />
               {hqRosterEmpty && (
                 <p className="text-xs text-gray-500">

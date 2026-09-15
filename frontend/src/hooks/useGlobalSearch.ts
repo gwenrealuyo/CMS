@@ -182,7 +182,7 @@ export function useGlobalSearch({
         entity: "evangelism_group",
         run: async () => {
           const response = await evangelismApi.listGroups(params);
-          return response.data.map(mapEvangelismGroupToResult);
+          return unwrapList(response.data).map(mapEvangelismGroupToResult);
         },
       });
     }

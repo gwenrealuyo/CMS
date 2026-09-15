@@ -23,6 +23,7 @@ export interface EvangelismGroup {
   members_count?: number;
   visitors_count?: number;
   conversions_count?: number;
+  has_bible_sharers?: boolean;
 }
 
 export type EvangelismGroupWrite = Partial<Omit<EvangelismGroup, "members">> & {
@@ -387,6 +388,8 @@ export interface EvangelismSummary {
   total_reached: number;
   completed_conversions: number;
   year: number;
+  each1reach1_target?: number;
+  each1reach1_achieved?: number;
   monthly_statistics?: MonthlyStatistics[];
 }
 

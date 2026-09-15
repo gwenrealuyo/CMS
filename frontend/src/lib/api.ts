@@ -1674,28 +1674,96 @@ export const sundaySchoolApi = {
     ),
 };
 
+export type EvangelismGroupsListParams = {
+  search?: string;
+  page?: number;
+  page_size?: number;
+  ordering?: string;
+  cluster?: number | string;
+  branch?: number | string;
+  is_active?: boolean;
+  name?: string;
+  name__icontains?: string;
+  name__istartswith?: string;
+  name__iendswith?: string;
+  name_ne?: string;
+  description?: string;
+  description__icontains?: string;
+  description__istartswith?: string;
+  description__iendswith?: string;
+  location?: string;
+  location__icontains?: string;
+  meeting_schedule__icontains?: string;
+  coordinator?: string;
+  coordinator__icontains?: string;
+  cluster_code?: string;
+  cluster_code__icontains?: string;
+  cluster_code__istartswith?: string;
+  member_count?: number | string;
+  member_count_min?: number | string;
+  member_count_max?: number | string;
+  visitor_count?: number | string;
+  visitor_count_min?: number | string;
+  visitor_count_max?: number | string;
+  has_bible_sharers?: boolean;
+};
+
+export type EvangelismProspectsListParams = {
+  invited_by?: number | string;
+  inviter_cluster?: number | string;
+  evangelism_group?: number | string;
+  pipeline_stage?: string;
+  endorsed_cluster?: number | string;
+  is_dropped_off?: boolean;
+  branch?: number | string;
+  cluster?: number | string;
+  source?: string;
+  search?: string;
+  person_isnull?: boolean;
+  page?: number;
+  page_size?: number;
+};
+
+async function fetchAllPaginatedRows<T>(
+  path: string,
+  params: Record<string, unknown> = {},
+): Promise<T[]> {
+  const all: T[] = [];
+  let page = 1;
+  for (let i = 0; i < 500; i += 1) {
+    const { data } = await api.get<PaginatedResponse<T> | T[]>(path, {
+      params: { ...params, page, page_size: 100 },
+    });
+    if (Array.isArray(data)) {
+      return data;
+    }
+    all.push(...(data.results ?? []));
+    if (!data.next) {
+      break;
+    }
+    page += 1;
+  }
+  return all;
+}
+
 export const evangelismApi = {
   // Groups
-  listGroups: async (
-    params?: {
-      cluster?: number | string;
-      branch?: number | string;
-      is_active?: boolean;
-      search?: string;
-      page?: number;
-      page_size?: number;
-    },
+  listGroups: (
+    params?: EvangelismGroupsListParams,
     config?: { signal?: AbortSignal },
+  ) =>
+    api.get<PaginatedResponse<EvangelismGroup>>("/evangelism/groups/", {
+      params,
+      ...config,
+    }),
+  getAllGroups: async (
+    params?: EvangelismGroupsListParams,
   ): Promise<AxiosResponse<EvangelismGroup[]>> => {
-    const response = await api.get<
-      EvangelismGroup[] | { results: EvangelismGroup[] }
-    >("/evangelism/groups/", { params, ...config });
-    const raw = response.data;
-    const rows = Array.isArray(raw) ? raw : raw.results;
-    return {
-      ...response,
-      data: rows,
-    };
+    const data = await fetchAllPaginatedRows<EvangelismGroup>(
+      "/evangelism/groups/",
+      params ?? {},
+    );
+    return { data } as AxiosResponse<EvangelismGroup[]>;
   },
   getGroup: (id: number | string) =>
     api.get<EvangelismGroup>(`/evangelism/groups/${id}/`),
@@ -1769,6 +1837,23 @@ export const evangelismApi = {
         params,
       }
     ),
+  getAllWeeklyReports: async (params?: {
+    evangelism_group?: number | string;
+    cluster?: number | string;
+    branch?: number | string;
+    year?: number;
+    week_number?: number;
+    month?: number;
+    gathering_type?: string;
+    search?: string;
+    ordering?: string;
+  }): Promise<AxiosResponse<EvangelismWeeklyReport[]>> => {
+    const data = await fetchAllPaginatedRows<EvangelismWeeklyReport>(
+      "/evangelism/weekly-reports/",
+      params ?? {},
+    );
+    return { data } as AxiosResponse<EvangelismWeeklyReport[]>;
+  },
   weeklyReportsDistinctYears: (params?: {
     branch?: number | string;
     cluster?: number | string;
@@ -1847,21 +1932,17 @@ export const evangelismApi = {
     ),
 
   // Prospects
-  listProspects: (params?: {
-    invited_by?: number | string;
-    inviter_cluster?: number | string;
-    evangelism_group?: number | string;
-    pipeline_stage?: string;
-    endorsed_cluster?: number | string;
-    is_dropped_off?: boolean;
-    branch?: number | string;
-    cluster?: number | string;
-    source?: string;
-    search?: string;
-    person_isnull?: boolean;
-    page?: number;
-    page_size?: number;
-  }) => api.get<Prospect[]>("/evangelism/prospects/", { params }),
+  listProspects: (params?: EvangelismProspectsListParams) =>
+    api.get<PaginatedResponse<Prospect>>("/evangelism/prospects/", { params }),
+  getAllProspects: async (
+    params?: EvangelismProspectsListParams,
+  ): Promise<AxiosResponse<Prospect[]>> => {
+    const data = await fetchAllPaginatedRows<Prospect>(
+      "/evangelism/prospects/",
+      params ?? {},
+    );
+    return { data } as AxiosResponse<Prospect[]>;
+  },
   getProspect: (id: number | string) =>
     api.get<Prospect>(`/evangelism/prospects/${id}/`),
   createProspect: (data: Partial<Prospect>) =>
@@ -1949,7 +2030,28 @@ export const evangelismApi = {
     cluster?: number | string;
     evangelism_group?: number | string;
     year?: number;
-  }) => api.get<Conversion[]>("/evangelism/conversions/", { params }),
+    person?: number | string;
+    person_id__in?: string;
+    page?: number;
+    page_size?: number;
+  }) =>
+    api.get<PaginatedResponse<Conversion>>("/evangelism/conversions/", {
+      params,
+    }),
+  getAllConversions: async (params?: {
+    converted_by?: number | string;
+    cluster?: number | string;
+    evangelism_group?: number | string;
+    year?: number;
+    person?: number | string;
+    person_id__in?: string;
+  }): Promise<AxiosResponse<Conversion[]>> => {
+    const data = await fetchAllPaginatedRows<Conversion>(
+      "/evangelism/conversions/",
+      params ?? {},
+    );
+    return { data } as AxiosResponse<Conversion[]>;
+  },
   getConversion: (id: number | string) =>
     api.get<Conversion>(`/evangelism/conversions/${id}/`),
   createConversion: (data: ConversionWritePayload) =>

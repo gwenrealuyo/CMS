@@ -377,38 +377,23 @@ export default function ClusterWeeklyReportForm({
     let cancelled = false;
     const loadProspects = async () => {
       try {
-        const unwrapList = (data: unknown): Prospect[] => {
-          if (Array.isArray(data)) return data;
-          if (
-            data &&
-            typeof data === "object" &&
-            Array.isArray((data as { results?: Prospect[] }).results)
-          ) {
-            return (data as { results: Prospect[] }).results;
-          }
-          return [];
-        };
         const prospectParams = {
           pipeline_stage: "INVITED" as const,
           is_dropped_off: false,
-          page_size: 500,
         };
         const [byInviter, byEndorsed] = await Promise.all([
-          evangelismApi.listProspects({
+          evangelismApi.getAllProspects({
             ...prospectParams,
             inviter_cluster: clusterId,
           }),
-          evangelismApi.listProspects({
+          evangelismApi.getAllProspects({
             ...prospectParams,
             endorsed_cluster: clusterId,
           }),
         ]);
         if (cancelled) return;
         const byId = new Map<string, Prospect>();
-        for (const p of [
-          ...unwrapList(byInviter.data),
-          ...unwrapList(byEndorsed.data),
-        ]) {
+        for (const p of [...byInviter.data, ...byEndorsed.data]) {
           if (p.person) continue;
           byId.set(String(p.id), p);
         }

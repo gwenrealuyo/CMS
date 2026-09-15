@@ -393,7 +393,7 @@ export default function EvangelismWeeklyReportForm({
     }
     let cancelled = false;
     evangelismApi
-      .listProspects({ evangelism_group: selectedGroupId, page_size: 500 })
+      .getAllProspects({ evangelism_group: selectedGroupId })
       .then((res) => {
         const raw = res.data;
         const arr = Array.isArray(raw)

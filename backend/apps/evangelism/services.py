@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Set
 
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Sum
 from django.utils import timezone
 
 from apps.people.models import Person, Journey
@@ -1774,6 +1774,10 @@ def get_evangelism_dashboard_stats(year: int) -> Dict:
     )
 
     v2b = generate_branch_scoped_v2b_summary(branch_id=None, year=year)
+    goal_totals = Each1Reach1Goal.objects.filter(year=year).aggregate(
+        target=Sum("target_conversions"),
+        achieved=Sum("achieved_conversions"),
+    )
 
     return {
         "total_groups": total_groups,
@@ -1782,5 +1786,7 @@ def get_evangelism_dashboard_stats(year: int) -> Dict:
         "total_reached": v2b["summary"]["total_reached"],
         "completed_conversions": v2b["summary"]["completed_conversions"],
         "year": year,
+        "each1reach1_target": goal_totals["target"] or 0,
+        "each1reach1_achieved": goal_totals["achieved"] or 0,
     }
 

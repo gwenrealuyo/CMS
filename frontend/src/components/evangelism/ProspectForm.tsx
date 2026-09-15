@@ -277,259 +277,259 @@ export default function ProspectForm({
 
   return (
     <>
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      {shownError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-          {shownError}
-        </div>
-      )}
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        {shownError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {shownError}
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            First Name *
-          </label>
-          <input
-            type="text"
-            value={values.first_name}
-            onChange={handleChange("first_name")}
-            className={CLUSTER_VISITOR_CONTROL}
-            required
-            autoComplete="given-name"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              First Name *
+            </label>
+            <input
+              type="text"
+              value={values.first_name}
+              onChange={handleChange("first_name")}
+              className={CLUSTER_VISITOR_CONTROL}
+              required
+              autoComplete="given-name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Middle Name
+            </label>
+            <input
+              type="text"
+              value={values.middle_name}
+              onChange={handleChange("middle_name")}
+              className={CLUSTER_VISITOR_CONTROL}
+              autoComplete="additional-name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Last Name *
+            </label>
+            <input
+              type="text"
+              value={values.last_name}
+              onChange={handleChange("last_name")}
+              className={CLUSTER_VISITOR_CONTROL}
+              required
+              autoComplete="family-name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Suffix
+            </label>
+            <input
+              type="text"
+              value={values.suffix}
+              onChange={handleChange("suffix")}
+              placeholder="Jr., Sr., III, etc."
+              className={CLUSTER_VISITOR_CONTROL}
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Middle Name
-          </label>
-          <input
-            type="text"
-            value={values.middle_name}
-            onChange={handleChange("middle_name")}
-            className={CLUSTER_VISITOR_CONTROL}
-            autoComplete="additional-name"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Last Name *
-          </label>
-          <input
-            type="text"
-            value={values.last_name}
-            onChange={handleChange("last_name")}
-            className={CLUSTER_VISITOR_CONTROL}
-            required
-            autoComplete="family-name"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Suffix
-          </label>
-          <input
-            type="text"
-            value={values.suffix}
-            onChange={handleChange("suffix")}
-            placeholder="Jr., Sr., III, etc."
-            className={CLUSTER_VISITOR_CONTROL}
-          />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Facebook Name
-          </label>
-          <input
-            type="text"
-            value={values.facebook_name}
-            onChange={handleChange("facebook_name")}
-            className={CLUSTER_VISITOR_CONTROL}
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Facebook Name
+            </label>
+            <input
+              type="text"
+              value={values.facebook_name}
+              onChange={handleChange("facebook_name")}
+              className={CLUSTER_VISITOR_CONTROL}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gender
+            </label>
+            <select
+              value={values.gender}
+              onChange={handleChange("gender")}
+              className={CLUSTER_VISITOR_CONTROL}
+            >
+              <option value="">Select...</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Gender
-          </label>
-          <select
-            value={values.gender}
-            onChange={handleChange("gender")}
-            className={CLUSTER_VISITOR_CONTROL}
-          >
-            <option value="">Select...</option>
-            <option value="MALE">Male</option>
-            <option value="FEMALE">Female</option>
-          </select>
-        </div>
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Notes
-        </label>
-        <textarea
-          value={values.notes}
-          onChange={handleChange("notes")}
-          rows={3}
-          placeholder="Invitation notes (shown on timeline when visitor becomes a Person)…"
-          className={CLUSTER_VISITOR_CONTROL}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Date First Invited *
+            Notes
           </label>
-          <input
-            type="date"
-            value={values.date_first_invited}
-            onChange={handleChange("date_first_invited")}
-            className={CLUSTER_VISITOR_CONTROL}
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Contact Info
-          </label>
-          <input
-            type="text"
-            value={values.contact_info}
-            onChange={handleChange("contact_info")}
-            placeholder="Phone number"
+          <textarea
+            value={values.notes}
+            onChange={handleChange("notes")}
+            rows={3}
+            placeholder="Invitation notes (shown on timeline when visitor gets a Person profile)…"
             className={CLUSTER_VISITOR_CONTROL}
           />
         </div>
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Bible Study Group
-        </label>
-        <div className="relative" ref={groupDropdownRef}>
-          <input
-            type="text"
-            role="combobox"
-            aria-expanded={showGroupDropdown}
-            aria-autocomplete="list"
-            value={
-              groupSearch ||
-              (selectedGroup ? groupDisplayLabel(selectedGroup) : "")
-            }
-            onChange={(e) => {
-              setGroupSearch(e.target.value);
-              setShowGroupDropdown(true);
-            }}
-            onFocus={() => setShowGroupDropdown(true)}
-            placeholder="Search bible study groups..."
-            className={CLUSTER_VISITOR_CONTROL}
-          />
-          {showGroupDropdown && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              <button
-                type="button"
-                onClick={() => handleGroupSelect("")}
-                className="w-full px-3 py-2 text-left text-gray-600 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100"
-              >
-                Not set
-              </button>
-              {filteredGroups.length > 0 ? (
-                filteredGroups.map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => handleGroupSelect(String(g.id))}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                  >
-                    <div className="font-medium text-gray-900">
-                      {groupDisplayLabel(g)}
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-2 text-sm text-gray-500">
-                  {groupCandidates.length === 0
-                    ? "No bible study groups available"
-                    : "No groups match your search"}
-                </div>
-              )}
-            </div>
-          )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date First Invited *
+            </label>
+            <input
+              type="date"
+              value={values.date_first_invited}
+              onChange={handleChange("date_first_invited")}
+              className={CLUSTER_VISITOR_CONTROL}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Contact Info
+            </label>
+            <input
+              type="text"
+              value={values.contact_info}
+              onChange={handleChange("contact_info")}
+              placeholder="Phone number"
+              className={CLUSTER_VISITOR_CONTROL}
+            />
+          </div>
         </div>
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Inviter *
-        </label>
-        <SearchableSelect
-          value={values.invited_by_id ? String(values.invited_by_id) : ""}
-          onChange={(value) =>
-            setValues((prev) => ({ ...prev, invited_by_id: value }))
-          }
-          options={inviterCandidates.map((p) => ({
-            ...p,
-            id: p.id,
-            username: p.username || p.email || String(p.id),
-          }))}
-          placeholder="Search for inviter..."
-          emptyMessage="No inviter found"
-          showEmptyOption={false}
-        />
-      </div>
-
-      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
-        <Button
-          variant="tertiary"
-          className="flex-1 min-h-[44px] sm:min-h-0"
-          onClick={onCancel}
-          disabled={isSubmitting}
-          type="button"
-        >
-          Cancel
-        </Button>
-        <Button
-          className="flex-1 min-h-[44px] sm:min-h-0"
-          disabled={isSubmitting}
-          type="submit"
-        >
-          {isSubmitting ? "Saving..." : submitLabel}
-        </Button>
-      </div>
-    </form>
-
-    <ConfirmationModal
-      isOpen={duplicateNameConfirm.isOpen}
-      onClose={() => setDuplicateNameConfirm({ isOpen: false, matches: [] })}
-      onConfirm={() => {
-        setDuplicateNameConfirm({ isOpen: false, matches: [] });
-        void onSubmit(values);
-      }}
-      title="Possible duplicate"
-      message={
-        <div className="space-y-2">
-          <p>
-            An invited visitor with the same first and last name already exists.
-            Continue anyway only if this is a different person.
-          </p>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto">
-            {duplicateNameConfirm.matches.slice(0, 8).map((prospect) => (
-              <li key={prospect.id}>{describeDuplicateProspect(prospect)}</li>
-            ))}
-            {duplicateNameConfirm.matches.length > 8 && (
-              <li>…and {duplicateNameConfirm.matches.length - 8} more</li>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Bible Study Group
+          </label>
+          <div className="relative" ref={groupDropdownRef}>
+            <input
+              type="text"
+              role="combobox"
+              aria-expanded={showGroupDropdown}
+              aria-autocomplete="list"
+              value={
+                groupSearch ||
+                (selectedGroup ? groupDisplayLabel(selectedGroup) : "")
+              }
+              onChange={(e) => {
+                setGroupSearch(e.target.value);
+                setShowGroupDropdown(true);
+              }}
+              onFocus={() => setShowGroupDropdown(true)}
+              placeholder="Search bible study groups..."
+              className={CLUSTER_VISITOR_CONTROL}
+            />
+            {showGroupDropdown && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => handleGroupSelect("")}
+                  className="w-full px-3 py-2 text-left text-gray-600 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100"
+                >
+                  Not set
+                </button>
+                {filteredGroups.length > 0 ? (
+                  filteredGroups.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => handleGroupSelect(String(g.id))}
+                      className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                    >
+                      <div className="font-medium text-gray-900">
+                        {groupDisplayLabel(g)}
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    {groupCandidates.length === 0
+                      ? "No bible study groups available"
+                      : "No groups match your search"}
+                  </div>
+                )}
+              </div>
             )}
-          </ul>
+          </div>
         </div>
-      }
-      confirmText={initialData ? "Update anyway" : "Create anyway"}
-      cancelText="Go back"
-      variant="warning"
-      zIndex={80}
-    />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Inviter *
+          </label>
+          <SearchableSelect
+            value={values.invited_by_id ? String(values.invited_by_id) : ""}
+            onChange={(value) =>
+              setValues((prev) => ({ ...prev, invited_by_id: value }))
+            }
+            options={inviterCandidates.map((p) => ({
+              ...p,
+              id: p.id,
+              username: p.username || p.email || String(p.id),
+            }))}
+            placeholder="Search for inviter..."
+            emptyMessage="No inviter found"
+            showEmptyOption={false}
+          />
+        </div>
+
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+          <Button
+            variant="tertiary"
+            className="flex-1 min-h-[44px] sm:min-h-0"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            type="button"
+          >
+            Cancel
+          </Button>
+          <Button
+            className="flex-1 min-h-[44px] sm:min-h-0"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? "Saving..." : submitLabel}
+          </Button>
+        </div>
+      </form>
+
+      <ConfirmationModal
+        isOpen={duplicateNameConfirm.isOpen}
+        onClose={() => setDuplicateNameConfirm({ isOpen: false, matches: [] })}
+        onConfirm={() => {
+          setDuplicateNameConfirm({ isOpen: false, matches: [] });
+          void onSubmit(values);
+        }}
+        title="Possible duplicate"
+        message={
+          <div className="space-y-2">
+            <p>
+              An invited visitor with the same first and last name already
+              exists. Continue anyway only if this is a different person.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto">
+              {duplicateNameConfirm.matches.slice(0, 8).map((prospect) => (
+                <li key={prospect.id}>{describeDuplicateProspect(prospect)}</li>
+              ))}
+              {duplicateNameConfirm.matches.length > 8 && (
+                <li>…and {duplicateNameConfirm.matches.length - 8} more</li>
+              )}
+            </ul>
+          </div>
+        }
+        confirmText={initialData ? "Update anyway" : "Create anyway"}
+        cancelText="Go back"
+        variant="warning"
+        zIndex={80}
+      />
     </>
   );
 }

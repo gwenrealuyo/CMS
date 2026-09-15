@@ -19,30 +19,36 @@ export function resolveEvangelismGroupClusterMeta(
     group.cluster.name ||
     "—";
 
-  if (fullCluster?.branch == null) {
+  const nestedBranch = (group.cluster as Cluster & { branch?: number | null })
+    .branch;
+  const branchIdRaw = fullCluster?.branch ?? nestedBranch;
+  if (branchIdRaw == null) {
     return { clusterBranch: null, clusterDisplayCode };
   }
-  const branchId = Number(fullCluster.branch);
+  const branchId = Number(branchIdRaw);
   const clusterBranch = branches.find((b) => b.id === branchId) || null;
   return { clusterBranch, clusterDisplayCode };
 }
 
 export function getEvangelismGroupMemberCount(group: EvangelismGroup): number {
-  const base = group.members_count ?? 0;
-  const coordinator = group.coordinator;
-  if (!coordinator) return base;
-  const coordinatorInMembers = group.members?.some(
-    (member) => String(member.id) === String(coordinator.id)
-  );
-  if (coordinatorInMembers) return base;
-  if (coordinator.role === "ADMIN" || coordinator.role === "VISITOR") {
-    return base;
+  if (group.members_count != null) {
+    return group.members_count;
   }
-  return base + 1;
+  const members = (group.members ?? []).filter(
+    (member) => member.role !== "ADMIN" && member.role !== "VISITOR",
+  );
+  return members.length;
 }
 
 export function getEvangelismGroupCoordinatorName(group: EvangelismGroup): string {
-  return group.coordinator?.full_name?.trim() || "Unknown Coordinator";
+  const named = group.coordinator?.full_name?.trim();
+  if (named) return named;
+  const parts = [
+    group.coordinator?.first_name,
+    group.coordinator?.last_name,
+  ].filter(Boolean);
+  if (parts.length > 0) return parts.join(" ");
+  return group.coordinator?.username?.trim() || "Unknown Coordinator";
 }
 
 export function formatEvangelismGroupSchedule(group: EvangelismGroup): string {

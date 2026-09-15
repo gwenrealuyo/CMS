@@ -141,12 +141,11 @@ export default function PeopleTallyReport({
         setGroupsLoading(true);
         const params: Record<string, string | number | boolean | undefined> = {
           is_active: true,
-          page_size: 500,
         };
         if (selectedBranch !== "") {
           params.branch = selectedBranch;
         }
-        const res = await evangelismApi.listGroups(params);
+        const res = await evangelismApi.getAllGroups(params);
         if (!cancelled) setEvangelismGroups(res.data);
       } catch (e) {
         console.error(e);

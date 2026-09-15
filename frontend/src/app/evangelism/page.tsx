@@ -7,17 +7,17 @@ import Card from "@/src/components/ui/Card";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import Pagination from "@/src/components/ui/Pagination";
 import Modal from "@/src/components/ui/Modal";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import {
-  useEvangelismGroups,
   useEvangelismGroup,
   useEvangelismWeeklyReports,
   useProspects,
   useConversions,
-  useEach1Reach1Goals,
   useEvangelismSummary,
 } from "@/src/hooks/useEvangelism";
+import { useEvangelismGroupsDirectory } from "@/src/hooks/useEvangelismGroupsDirectory";
 import {
   branchesApi,
   clustersApi,
@@ -90,9 +90,9 @@ import {
   EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
 import {
-  applyEvangelismGroupFilters,
-  sortEvangelismGroups,
-} from "@/src/lib/evangelismGroupListUtils";
+  evangelismGroupOrdering,
+  filtersToEvangelismGroupsListParams,
+} from "@/src/lib/evangelismGroupDirectoryParams";
 import {
   formatEvangelismGroupSchedule,
   getEvangelismGroupCoordinatorName,
@@ -108,6 +108,7 @@ import { canBrowseProspects, canWriteEvangelism, canSubmitEvangelismReport, assi
 import ProspectsBrowse from "@/src/components/evangelism/ProspectsBrowse";
 import {
   canChangeEvangelismBranchFilter,
+  defaultEvangelismListBranch,
   EVANGELISM_BRANCH_LOCKED_HINT,
 } from "@/src/lib/evangelismBranchFilter";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -161,40 +162,15 @@ export default function EvangelismPage() {
   );
   const evangelismTallyUserIdRef = useRef<number | undefined>(undefined);
 
-  const {
-    groups,
-    loading: groupsLoading,
-    error: groupsError,
-    filters,
-    setFilter,
-    fetchGroups,
-    createGroup,
-    updateGroup,
-    deleteGroup,
-    bulkEnroll,
-  } = useEvangelismGroups();
-
-  const currentYear = new Date().getFullYear();
-  const {
-    summary,
-    loading: summaryLoading,
-    error: summaryError,
-    fetchSummary,
-  } = useEvangelismSummary(currentYear);
-  const each1Reach1Filters = useMemo(
-    () => ({ year: currentYear, page_size: 1000 }),
-    [currentYear]
-  );
-  const {
-    goals: each1Reach1Goals,
-    loading: each1Reach1Loading,
-    error: each1Reach1Error,
-  } = useEach1Reach1Goals(each1Reach1Filters);
-
-  const [searchValue, setSearchValue] = useState(filters.search ?? "");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(
-    filters.search ?? ""
-  );
+  const [groupSearchQuery, setGroupSearchQuery] = useState("");
+  const [groupListBranch, setGroupListBranch] = useState<
+    number | string | "all"
+  >("all");
+  const [groupCurrentPage, setGroupCurrentPage] = useState(1);
+  const [groupItemsPerPage, setGroupItemsPerPage] = useState(25);
+  const [pickerGroups, setPickerGroups] = useState<EvangelismGroup[]>([]);
+  const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewEditGroup, setViewEditGroup] = useState<EvangelismGroup | null>(
@@ -216,6 +192,49 @@ export default function EvangelismPage() {
   >([]);
   const [groupSortBy, setGroupSortBy] = useState("name");
   const [groupSortOrder, setGroupSortOrder] = useState<"asc" | "desc">("asc");
+
+  const currentYear = new Date().getFullYear();
+  const {
+    summary,
+    loading: summaryLoading,
+    error: summaryError,
+  } = useEvangelismSummary(currentYear);
+
+  const directoryFilterParams = useMemo(() => {
+    const fromBar = filtersToEvangelismGroupsListParams(groupActiveFilters);
+    const params = { ...fromBar };
+    if (groupListBranch !== "all" && groupListBranch !== "") {
+      params.branch = groupListBranch;
+    }
+    if (params.is_active === undefined) {
+      params.is_active = true;
+    }
+    return params;
+  }, [groupActiveFilters, groupListBranch]);
+
+  const directoryOrdering = useMemo(
+    () => evangelismGroupOrdering(groupSortBy, groupSortOrder),
+    [groupSortBy, groupSortOrder],
+  );
+
+  const {
+    groups,
+    totalCount: groupTotalCount,
+    loading: groupsLoading,
+    error: groupsError,
+    refetch: fetchGroups,
+  } = useEvangelismGroupsDirectory({
+    search: groupSearchQuery,
+    filters: directoryFilterParams,
+    page: groupCurrentPage,
+    pageSize: groupItemsPerPage,
+    ordering: directoryOrdering,
+  });
+
+  const groupTotalPages = Math.max(
+    1,
+    Math.ceil(groupTotalCount / groupItemsPerPage) || 1,
+  );
   const [showGroupFilterDropdown, setShowGroupFilterDropdown] = useState(false);
   const [showGroupFilterCard, setShowGroupFilterCard] = useState(false);
   const [showGroupSortDropdown, setShowGroupSortDropdown] = useState(false);
@@ -306,30 +325,25 @@ export default function EvangelismPage() {
     fetchProspects,
     createProspect,
     updateProspect,
-  } = useProspects(prospectsFilters);
+  } = useProspects(prospectsFilters, {
+    fetchAll: true,
+    enabled: Boolean(viewEditGroup),
+  });
   const {
     conversions,
     loading: conversionsLoading,
     fetchConversions,
     createConversion,
     updateConversion,
-  } = useConversions(conversionsFilters);
-
-  /** All conversions (any group) so "Record conversion" only lists people with no conversion row yet. */
-  const { conversions: conversionsGlobally } = useConversions();
+  } = useConversions(conversionsFilters, { enabled: Boolean(viewEditGroup) });
 
   const personIdsWithAnyConversion = useMemo(() => {
     const ids = new Set<string>();
-    for (const c of conversionsGlobally) {
-      if (c.person?.id != null) ids.add(String(c.person.id));
-    }
-    // Include group-scoped list so a newly created conversion excludes immediately
-    // before the global list refetches.
     for (const c of conversions) {
       if (c.person?.id != null) ids.add(String(c.person.id));
     }
     return ids;
-  }, [conversionsGlobally, conversions]);
+  }, [conversions]);
 
   const conversionVisitors = useMemo(() => {
     const visitors = prospects
@@ -346,17 +360,11 @@ export default function EvangelismPage() {
   }, [prospects, personIdsWithAnyConversion]);
 
   const each1Reach1Totals = useMemo(() => {
-    const totals = each1Reach1Goals.reduce(
-      (acc, goal) => ({
-        target: acc.target + (goal.target_conversions || 0),
-        achieved: acc.achieved + (goal.achieved_conversions || 0),
-      }),
-      { target: 0, achieved: 0 }
-    );
-    const percentage =
-      totals.target > 0 ? (totals.achieved / totals.target) * 100 : 0;
-    return { ...totals, percentage };
-  }, [each1Reach1Goals]);
+    const target = summary?.each1reach1_target ?? 0;
+    const achieved = summary?.each1reach1_achieved ?? 0;
+    const percentage = target > 0 ? (achieved / target) * 100 : 0;
+    return { target, achieved, percentage };
+  }, [summary]);
 
   const [coordinators, setCoordinators] = useState<Person[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
@@ -556,10 +564,10 @@ export default function EvangelismPage() {
       }
       searchTimeoutRef.current = setTimeout(() => {
         setDebouncedSearchQuery(query);
-        setFilter("search", query);
+        setGroupSearchQuery(query);
       }, 300);
     },
-    [setFilter]
+    []
   );
 
   useEffect(() => {
@@ -570,18 +578,38 @@ export default function EvangelismPage() {
     };
   }, []);
 
-  // Load coordinators, clusters, branches, and people for forms
+  // Load clusters and branches for chips/forms. People catalogs load when a form opens.
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [clustersRes, branchesRes, peopleRes] = await Promise.all([
+        const [clustersRes, branchesRes] = await Promise.all([
           clustersApi.getAll(),
           branchesApi.getAll(),
-          peopleApi.getAll(),
         ]);
-        const selectablePeople = peopleRes.data.filter(isSelectablePerson);
         setClusters(clustersRes.data);
         setBranches(branchesRes.data);
+      } catch (err) {
+        console.error("Error loading form data:", err);
+      }
+    };
+    loadData();
+  }, []);
+
+  const needsPeopleCatalog =
+    isCreateOpen ||
+    viewMode === "edit" ||
+    isAddMemberModalOpen ||
+    isBulkEnrollModalOpen ||
+    isProspectModalOpen;
+
+  useEffect(() => {
+    if (!needsPeopleCatalog || people.length > 0) return;
+    let cancelled = false;
+    const loadPeople = async () => {
+      try {
+        const peopleRes = await peopleApi.getAll();
+        if (cancelled) return;
+        const selectablePeople = peopleRes.data.filter(isSelectablePerson);
         setPeople(selectablePeople);
         setCoordinators(
           selectablePeople.filter((person) =>
@@ -591,11 +619,65 @@ export default function EvangelismPage() {
           ),
         );
       } catch (err) {
-        console.error("Error loading form data:", err);
+        console.error("Error loading people catalog:", err);
       }
     };
-    loadData();
-  }, []);
+    void loadPeople();
+    return () => {
+      cancelled = true;
+    };
+  }, [needsPeopleCatalog, people.length]);
+
+  useEffect(() => {
+    if (!user) return;
+    setGroupListBranch(defaultEvangelismListBranch(user));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user || canChangeEvangelismBranch) return;
+    const expected = user.branch;
+    if (expected == null) return;
+    if (String(groupListBranch) !== String(expected)) {
+      setGroupListBranch(expected);
+    }
+  }, [user, canChangeEvangelismBranch, groupListBranch]);
+
+  useEffect(() => {
+    setGroupCurrentPage(1);
+  }, [
+    groupSearchQuery,
+    groupActiveFilters,
+    groupSortBy,
+    groupSortOrder,
+    groupListBranch,
+    groupItemsPerPage,
+  ]);
+
+  useEffect(() => {
+    if (activeTab !== "reports" && !reportsFormOpen && !isProspectModalOpen) {
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const params: {
+          branch?: number | string;
+          is_active?: boolean;
+        } = { is_active: true };
+        if (groupListBranch !== "all" && groupListBranch !== "") {
+          params.branch = groupListBranch;
+        }
+        const res = await evangelismApi.getAllGroups(params);
+        if (!cancelled) setPickerGroups(res.data);
+      } catch (e) {
+        console.error("Failed to load evangelism group pickers", e);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, reportsFormOpen, isProspectModalOpen, groupListBranch]);
 
   useEffect(() => {
     if (!user) {
@@ -636,7 +718,7 @@ export default function EvangelismPage() {
       const memberIds =
         values.initial_member_ids?.map((id) => Number(id)).filter(Number.isFinite) ??
         [];
-      await createGroup({
+      await evangelismApi.createGroup({
         name: values.name,
         description: values.description,
         ...(values.coordinator_id
@@ -654,6 +736,7 @@ export default function EvangelismPage() {
         reporter_ids: (values.reporter_ids || []).map(Number),
         bible_sharer_ids: (values.bible_sharer_ids || []).map(Number),
       });
+      await fetchGroups();
       setSuccessMessage(`Group "${values.name}" has been created.`);
       setIsCreateOpen(false);
       setTimeout(() => setSuccessMessage(null), 5000);
@@ -675,7 +758,7 @@ export default function EvangelismPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
-      await updateGroup(viewEditGroup.id, {
+      await evangelismApi.updateGroup(viewEditGroup.id, {
         name: values.name,
         description: values.description,
         ...(values.coordinator_id
@@ -692,6 +775,7 @@ export default function EvangelismPage() {
         reporter_ids: (values.reporter_ids || []).map(Number),
         bible_sharer_ids: (values.bible_sharer_ids || []).map(Number),
       });
+      await fetchGroups();
       setSuccessMessage(`Group "${values.name}" has been updated.`);
       setViewEditGroup(null);
       setViewMode("view");
@@ -924,67 +1008,7 @@ export default function EvangelismPage() {
     }
   };
 
-  const filteredGroups = useMemo(() => {
-    let result = groups.filter((group) => {
-      if (
-        filters.search &&
-        !group.name.toLowerCase().includes(filters.search.toLowerCase())
-      ) {
-        return false;
-      }
-      if (
-        filters.cluster &&
-        filters.cluster !== "all" &&
-        group.cluster?.id !== filters.cluster
-      ) {
-        return false;
-      }
-      if (
-        filters.branch &&
-        filters.branch !== "all" &&
-        filters.branch !== ""
-      ) {
-        const cid = group.cluster_id;
-        if (!cid) return false;
-        const cl = clusters.find((c) => String(c.id) === String(cid));
-        if (
-          cl?.branch == null ||
-          String(cl.branch) !== String(filters.branch)
-        ) {
-          return false;
-        }
-      }
-      if (
-        filters.is_active !== "all" &&
-        group.is_active !== filters.is_active
-      ) {
-        return false;
-      }
-      return true;
-    });
-
-    result = applyEvangelismGroupFilters(
-      result,
-      groupActiveFilters,
-      clusters,
-      branches
-    );
-    return sortEvangelismGroups(
-      result,
-      groupSortBy,
-      groupSortOrder,
-      clusters,
-      branches
-    );
-  }, [
-    groups,
-    filters,
-    clusters,
-    branches,
-    groupActiveFilters,
-    groupSortBy,
-    groupSortOrder,
-  ]);
+  const filteredGroups = groups;
 
   const hasGroupListFilters =
     Boolean(searchValue.trim()) || groupActiveFilters.length > 0;
@@ -1113,7 +1137,9 @@ export default function EvangelismPage() {
     try {
       setBulkDeleteConfirmation((prev) => ({ ...prev, loading: true }));
       await Promise.all(
-        Array.from(selectedGroups).map((groupId) => deleteGroup(groupId))
+        Array.from(selectedGroups).map((groupId) =>
+          evangelismApi.deleteGroup(groupId),
+        )
       );
       await fetchGroups();
       setSelectedGroups(new Set());
@@ -1124,7 +1150,7 @@ export default function EvangelismPage() {
       alert("Failed to delete some groups. Please try again.");
       setBulkDeleteConfirmation((prev) => ({ ...prev, loading: false }));
     }
-  }, [selectedGroups, deleteGroup, fetchGroups]);
+  }, [selectedGroups, fetchGroups]);
 
   const handleBulkMarkInactive = useCallback(() => {
     if (selectedGroups.size === 0) return;
@@ -1138,7 +1164,7 @@ export default function EvangelismPage() {
       setMarkInactiveConfirmation((prev) => ({ ...prev, loading: true }));
       await Promise.all(
         Array.from(selectedGroups).map((groupId) =>
-          updateGroup(groupId, { is_active: false })
+          evangelismApi.updateGroup(groupId, { is_active: false }),
         )
       );
       await fetchGroups();
@@ -1150,7 +1176,7 @@ export default function EvangelismPage() {
       alert("Failed to mark some groups as inactive. Please try again.");
       setMarkInactiveConfirmation((prev) => ({ ...prev, loading: false }));
     }
-  }, [selectedGroups, updateGroup, fetchGroups]);
+  }, [selectedGroups, fetchGroups]);
 
   const handleBulkExportGroups = useCallback(
     async (format: "excel" | "pdf" | "csv") => {
@@ -1208,11 +1234,11 @@ export default function EvangelismPage() {
         aria-disabled={!evangelismBranchSelectInteractive}
         tabIndex={evangelismBranchSelectInteractive ? 0 : -1}
         value={
-          filters.branch === undefined ? "" : String(filters.branch)
+          groupListBranch === undefined ? "" : String(groupListBranch)
         }
         onChange={(e) => {
           if (!evangelismBranchSelectInteractive) return;
-          setFilter("branch", e.target.value || "all");
+          setGroupListBranch(e.target.value || "all");
         }}
         className={`${
           evangelismBranchSelectInteractive
@@ -1437,8 +1463,8 @@ export default function EvangelismPage() {
             achieved: each1Reach1Totals.achieved,
             target: each1Reach1Totals.target,
             percentage: each1Reach1Totals.percentage,
-            loading: each1Reach1Loading,
-            error: each1Reach1Error,
+            loading: summaryLoading,
+            error: summaryError,
           }}
         />
 
@@ -2059,6 +2085,19 @@ export default function EvangelismPage() {
                         ))}
                       </div>
                     )}
+                    {groupTotalCount > 0 && (
+                      <div className="mt-4">
+                        <Pagination
+                          currentPage={groupCurrentPage}
+                          totalPages={groupTotalPages}
+                          onPageChange={setGroupCurrentPage}
+                          itemsPerPage={groupItemsPerPage}
+                          totalItems={groupTotalCount}
+                          onItemsPerPageChange={setGroupItemsPerPage}
+                          showItemsPerPage
+                        />
+                      </div>
+                    )}
                   </>
                 )}
               </Card>
@@ -2139,7 +2178,7 @@ export default function EvangelismPage() {
             aria-hidden={activeTab !== "reports"}
           >
             <EvangelismReportsDashboard
-              groups={groups}
+              groups={pickerGroups}
               clusters={clusters}
               branches={branches}
               openSubmitNonce={reportsSubmitNonce}
@@ -2273,7 +2312,7 @@ export default function EvangelismPage() {
               inviters={(people.length > 0 ? people : coordinators).filter(
                 isSelectablePerson
               )}
-              groups={groups}
+              groups={pickerGroups.length > 0 ? pickerGroups : groups}
               prospectOptions={prospects}
               selectedBibleStudyGroup={
                 groupData ?? viewEditGroup ?? undefined
@@ -2366,7 +2405,7 @@ export default function EvangelismPage() {
               (async () => {
                 try {
                   setDeleteConfirmation((prev) => ({ ...prev, loading: true }));
-                  await updateGroup(deleteConfirmation.group!.id, {
+                  await evangelismApi.updateGroup(deleteConfirmation.group!.id, {
                     is_active: false,
                   });
                   await fetchGroups();
@@ -2421,7 +2460,7 @@ export default function EvangelismPage() {
                     ...prev,
                     loading: true,
                   }));
-                  await deleteGroup(hardDeleteConfirmation.group!.id);
+                  await evangelismApi.deleteGroup(hardDeleteConfirmation.group!.id);
                   await fetchGroups();
                   setHardDeleteConfirmation({
                     isOpen: false,

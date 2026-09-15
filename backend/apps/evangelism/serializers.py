@@ -117,7 +117,69 @@ class PersonConversionNestedSerializer(PersonSummarySerializer):
 class ClusterSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Cluster
-        fields = ("id", "name", "code")
+        fields = ("id", "name", "code", "branch")
+
+
+class EvangelismGroupListSerializer(serializers.ModelSerializer):
+    """Slim read-only serializer for the paginated groups directory."""
+
+    coordinator = serializers.SerializerMethodField()
+    cluster = ClusterSummarySerializer(read_only=True)
+    cluster_id = serializers.IntegerField(read_only=True)
+    members_count = serializers.IntegerField(read_only=True, default=0)
+    visitors_count = serializers.IntegerField(read_only=True, default=0)
+    conversions_count = serializers.IntegerField(read_only=True, default=0)
+    bible_sharer_ids = serializers.SerializerMethodField()
+    has_bible_sharers = serializers.BooleanField(read_only=True, default=False)
+
+    class Meta:
+        model = EvangelismGroup
+        fields = (
+            "id",
+            "name",
+            "description",
+            "coordinator",
+            "cluster",
+            "cluster_id",
+            "location",
+            "meeting_time",
+            "meeting_day",
+            "meeting_frequency",
+            "is_active",
+            "is_bible_sharers_group",
+            "created_at",
+            "updated_at",
+            "members_count",
+            "visitors_count",
+            "conversions_count",
+            "bible_sharer_ids",
+            "has_bible_sharers",
+        )
+
+    def get_coordinator(self, obj):
+        coordinator = obj.coordinator
+        if not coordinator:
+            return None
+        full_name = (coordinator.get_full_name() or "").strip() or coordinator.username
+        return {
+            "id": coordinator.id,
+            "first_name": coordinator.first_name,
+            "last_name": coordinator.last_name,
+            "username": coordinator.username,
+            "full_name": full_name,
+        }
+
+    def get_bible_sharer_ids(self, obj):
+        assignment_map = self.context.get("evangelism_bible_sharer_ids_map")
+        if assignment_map is not None:
+            return assignment_map.get(obj.id, [])
+        return list(
+            ModuleCoordinator.objects.filter(
+                module=ModuleCoordinator.ModuleType.EVANGELISM,
+                level=ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER,
+                resource_id=obj.id,
+            ).values_list("person_id", flat=True)
+        )
 
 
 class EvangelismGroupSerializer(serializers.ModelSerializer):
@@ -400,15 +462,24 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
         )
 
     def get_members_count(self, obj):
+        annotated = getattr(obj, "members_count", None)
+        if annotated is not None and not callable(annotated):
+            return annotated
         return obj.members.exclude(role__in=["ADMIN", "VISITOR"]).count()
 
     def get_visitors_count(self, obj):
+        annotated = getattr(obj, "visitors_count", None)
+        if annotated is not None and not callable(annotated):
+            return annotated
         return (
             obj.prospects.filter(is_dropped_off=False).count()
             + obj.members.filter(role="VISITOR").count()
         )
 
     def get_conversions_count(self, obj):
+        annotated = getattr(obj, "conversions_count", None)
+        if annotated is not None and not callable(annotated):
+            return annotated
         return obj.conversions.count()
 
 
@@ -1442,6 +1513,8 @@ class EvangelismDashboardStatsSerializer(serializers.Serializer):
     total_reached = serializers.IntegerField()
     completed_conversions = serializers.IntegerField()
     year = serializers.IntegerField()
+    each1reach1_target = serializers.IntegerField()
+    each1reach1_achieved = serializers.IntegerField()
 
 
 class VisitorProgressSerializer(serializers.Serializer):

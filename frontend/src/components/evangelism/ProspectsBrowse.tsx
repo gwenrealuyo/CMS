@@ -8,6 +8,7 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
+import Pagination from "@/src/components/ui/Pagination";
 import { LockedControlTooltip } from "@/src/components/ui/LockedControlTooltip";
 import { getInitialListViewMode, useIsMdUp } from "@/src/lib/listViewMode";
 import ProspectsTable from "@/src/components/evangelism/ProspectsTable";
@@ -76,6 +77,8 @@ export default function ProspectsBrowse({
   const [progressProspect, setProgressProspect] = useState<Prospect | null>(
     null,
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
     getInitialListViewMode("cards"),
   );
@@ -138,7 +141,28 @@ export default function ProspectsBrowse({
     return filters;
   }, [stageFilter, branchFilter, clusterFilter, sourceFilter, debouncedSearch]);
 
-  const { prospects, loading, error, fetchProspects } = useProspects(apiFilters);
+  const {
+    prospects,
+    totalCount,
+    loading,
+    error,
+    fetchProspects,
+  } = useProspects(apiFilters, {
+    page: currentPage,
+    pageSize: itemsPerPage,
+    fetchAll: false,
+  });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    stageFilter,
+    branchFilter,
+    clusterFilter,
+    sourceFilter,
+    debouncedSearch,
+    itemsPerPage,
+  ]);
 
   useEffect(() => {
     if (!highlightProspectId) return;
@@ -307,14 +331,27 @@ export default function ProspectsBrowse({
           No prospects match these filters.
         </p>
       ) : (
-        <ProspectsTable
-          prospects={prospects}
-          highlightId={highlightProspectId}
-          mobileCardView={effectiveViewMode === "cards"}
-          onUpdateProgress={
-            canWrite ? (prospect) => setProgressProspect(prospect) : undefined
-          }
-        />
+        <>
+          <ProspectsTable
+            prospects={prospects}
+            highlightId={highlightProspectId}
+            mobileCardView={effectiveViewMode === "cards"}
+            onUpdateProgress={
+              canWrite ? (prospect) => setProgressProspect(prospect) : undefined
+            }
+          />
+          {totalCount > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.max(1, Math.ceil(totalCount / itemsPerPage) || 1)}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={totalCount}
+              onItemsPerPageChange={setItemsPerPage}
+              showItemsPerPage
+            />
+          )}
+        </>
       )}
 
       {progressProspect && (

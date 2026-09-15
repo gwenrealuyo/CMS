@@ -8,7 +8,6 @@ import {
 } from "react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { evangelismApi } from "@/src/lib/api";
-import { unwrapList } from "@/src/lib/globalSearchUtils";
 import {
   canChangeEvangelismBranchFilter,
   defaultEvangelismListBranch,
@@ -124,9 +123,7 @@ export const useEvangelismGroups = () => {
         params.is_active = filters.is_active ?? undefined;
       }
 
-      const response = await evangelismApi.listGroups(params, {
-        signal: ac.signal,
-      });
+      const response = await evangelismApi.getAllGroups(params);
       if (gen !== fetchGenRef.current) return;
       setGroups(response.data);
       setError(null);
@@ -304,14 +301,11 @@ export const useEvangelismWeeklyReports = (groupId: number | string | null) => {
       if (!groupId) return;
       try {
         setLoading(true);
-        const response = await evangelismApi.listWeeklyReports({
+        const response = await evangelismApi.getAllWeeklyReports({
           evangelism_group: groupId,
           ...params,
-          page_size: 500,
         });
-        const data = response.data;
-        const rows = Array.isArray(data) ? data : data.results ?? [];
-        setReports(rows);
+        setReports(response.data);
         setError(null);
       } catch (err) {
         console.error(err);
@@ -360,24 +354,31 @@ export const useEvangelismWeeklyReports = (groupId: number | string | null) => {
   };
 };
 
-export const useProspects = (filters?: {
-  invited_by?: number | string;
-  inviter_cluster?: number | string;
-  endorsed_cluster?: number | string;
-  evangelism_group?: number | string;
-  pipeline_stage?: string;
-  is_dropped_off?: boolean;
-  branch?: number | string;
-  cluster?: number | string;
-  source?: string;
-  search?: string;
-}) => {
+export const useProspects = (
+  filters?: {
+    invited_by?: number | string;
+    inviter_cluster?: number | string;
+    endorsed_cluster?: number | string;
+    evangelism_group?: number | string;
+    pipeline_stage?: string;
+    is_dropped_off?: boolean;
+    branch?: number | string;
+    cluster?: number | string;
+    source?: string;
+    search?: string;
+  },
+  options?: {
+    page?: number;
+    pageSize?: number;
+    fetchAll?: boolean;
+    enabled?: boolean;
+  },
+) => {
   const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Extract individual filter values to use as dependencies
-  // This prevents the callback from being recreated when the filters object reference changes
   const invited_by = filters?.invited_by;
   const inviter_cluster = filters?.inviter_cluster;
   const endorsed_cluster = filters?.endorsed_cluster;
@@ -388,8 +389,19 @@ export const useProspects = (filters?: {
   const cluster = filters?.cluster;
   const source = filters?.source;
   const search = filters?.search;
+  const page = options?.page;
+  const pageSize = options?.pageSize ?? 25;
+  const fetchAll = options?.fetchAll ?? page == null;
+  const enabled = options?.enabled !== false;
 
   const fetchProspects = useCallback(async () => {
+    if (!enabled) {
+      setProspects([]);
+      setTotalCount(0);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     try {
       setLoading(true);
       const rawFilters = {
@@ -409,8 +421,21 @@ export const useProspects = (filters?: {
           ([, value]) => value !== undefined && value !== "" && value !== "all",
         ),
       );
-      const response = await evangelismApi.listProspects(apiFilters);
-      setProspects(unwrapList(response.data));
+      if (fetchAll) {
+        const response = await evangelismApi.getAllProspects(apiFilters);
+        setProspects(response.data);
+        setTotalCount(response.data.length);
+      } else {
+        const response = await evangelismApi.listProspects({
+          ...apiFilters,
+          page,
+          page_size: pageSize,
+        });
+        const data = response.data;
+        const rows = Array.isArray(data) ? data : data.results ?? [];
+        setProspects(rows);
+        setTotalCount(Array.isArray(data) ? data.length : data.count ?? rows.length);
+      }
       setError(null);
     } catch (err) {
       console.error(err);
@@ -429,6 +454,10 @@ export const useProspects = (filters?: {
     cluster,
     source,
     search,
+    page,
+    pageSize,
+    fetchAll,
+    enabled,
   ]);
 
   useEffect(() => {
@@ -483,6 +512,7 @@ export const useProspects = (filters?: {
 
   return {
     prospects,
+    totalCount,
     loading,
     error,
     fetchProspects,
@@ -494,29 +524,36 @@ export const useProspects = (filters?: {
   };
 };
 
-export const useConversions = (filters?: {
-  converted_by?: number | string;
-  cluster?: number | string;
-  evangelism_group?: number | string;
-  year?: number;
-}) => {
+export const useConversions = (
+  filters?: {
+    converted_by?: number | string;
+    cluster?: number | string;
+    evangelism_group?: number | string;
+    year?: number;
+  },
+  options?: { enabled?: boolean },
+) => {
   const [conversions, setConversions] = useState<Conversion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Extract individual filter values to use as dependencies
-  // This prevents the callback from being recreated when the filters object reference changes
   const converted_by = filters?.converted_by;
   const cluster = filters?.cluster;
   const evangelism_group = filters?.evangelism_group;
   const year = filters?.year;
+  const enabled = options?.enabled !== false;
 
   const fetchConversions = useCallback(async () => {
+    if (!enabled) {
+      setConversions([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     try {
       setLoading(true);
-      // Reconstruct filters object from individual values
       const apiFilters = { converted_by, cluster, evangelism_group, year };
-      const response = await evangelismApi.listConversions(apiFilters);
+      const response = await evangelismApi.getAllConversions(apiFilters);
       setConversions(response.data);
       setError(null);
     } catch (err) {
@@ -525,7 +562,7 @@ export const useConversions = (filters?: {
     } finally {
       setLoading(false);
     }
-  }, [converted_by, cluster, evangelism_group, year]);
+  }, [converted_by, cluster, evangelism_group, year, enabled]);
 
   useEffect(() => {
     fetchConversions();

@@ -180,7 +180,7 @@ async function fetchCoordinatorResourcesForModule(
       return clusters.data.map(clusterApiRowToResourceOption);
     }
     case "EVANGELISM": {
-      const groups = await evangelismApi.listGroups(
+      const groups = await evangelismApi.getAllGroups(
         branchId != null ? { branch: branchId } : undefined,
       );
       return groups.data.map((g) => ({

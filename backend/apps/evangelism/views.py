@@ -26,7 +26,8 @@ from apps.authentication.permissions import (
     IsAdmin,
 )
 
-from .filters import ProspectFilter
+from .filters import ConversionFilter, EvangelismGroupFilter, ProspectFilter
+from .group_counts import annotate_evangelism_group_counts
 from .permissions import (
     HasEvangelismGroupWrite,
     HasEvangelismReportWrite,
@@ -47,6 +48,7 @@ from .models import (
     Each1Reach1Goal,
 )
 from .serializers import (
+    EvangelismGroupListSerializer,
     EvangelismGroupSerializer,
     EvangelismBulkEnrollSerializer,
     EvangelismSessionSerializer,
@@ -101,23 +103,49 @@ from .services import (
 )
 
 
+class EvangelismGroupPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class EvangelismRelatedPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class EvangelismGroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndNotVisitor]
-    queryset = (
-        EvangelismGroup.objects.select_related("coordinator", "cluster")
-        .prefetch_related("members")
-        .all()
-    )
+    queryset = EvangelismGroup.objects.select_related(
+        "coordinator", "cluster", "cluster__branch"
+    ).all()
     serializer_class = EvangelismGroupSerializer
+    pagination_class = EvangelismGroupPagination
     filter_backends = (
         DjangoFilterBackend,
         filters.SearchFilter,
         filters.OrderingFilter,
     )
-    filterset_fields = ("cluster", "is_active")
-    search_fields = ("name", "description", "location")
-    ordering_fields = ("name", "created_at")
-    ordering = ("name",)
+    filterset_class = EvangelismGroupFilter
+    search_fields = (
+        "name",
+        "description",
+        "location",
+        "coordinator__first_name",
+        "coordinator__last_name",
+        "cluster__code",
+        "cluster__name",
+    )
+    ordering_fields = (
+        "name",
+        "created_at",
+        "members_count",
+        "visitors_count",
+        "cluster__code",
+        "id",
+    )
+    ordering = ("name", "id")
 
     @staticmethod
     def _assignment_ids_map(group_ids, level):
@@ -142,38 +170,50 @@ class EvangelismGroupViewSet(viewsets.ModelViewSet):
         if (
             instance is not None
             and kwargs.get("data") is None
-            and "evangelism_reporter_ids_map" not in kwargs["context"]
-            and self.get_serializer_class() is EvangelismGroupSerializer
+            and "evangelism_bible_sharer_ids_map" not in kwargs["context"]
+            and self.get_serializer_class()
+            in (EvangelismGroupSerializer, EvangelismGroupListSerializer)
         ):
             if kwargs.get("many"):
                 group_ids = [g.id for g in instance]
             else:
                 group_ids = [instance.id]
-            kwargs["context"]["evangelism_reporter_ids_map"] = (
-                self._assignment_ids_map(
-                    group_ids, ModuleCoordinator.CoordinatorLevel.REPORTER
-                )
-            )
             kwargs["context"]["evangelism_bible_sharer_ids_map"] = (
                 self._assignment_ids_map(
                     group_ids, ModuleCoordinator.CoordinatorLevel.BIBLE_SHARER
                 )
             )
+            if self.get_serializer_class() is EvangelismGroupSerializer:
+                kwargs["context"]["evangelism_reporter_ids_map"] = (
+                    self._assignment_ids_map(
+                        group_ids, ModuleCoordinator.CoordinatorLevel.REPORTER
+                    )
+                )
         return super().get_serializer(*args, **kwargs)
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return EvangelismGroupListSerializer
+        return EvangelismGroupSerializer
 
     def get_queryset(self):
         user = self.request.user
-        queryset = super().get_queryset()
+        queryset = annotate_evangelism_group_counts(super().get_queryset())
         branch_id = self.request.query_params.get("branch")
         if branch_id:
             queryset = queryset.filter(cluster__branch=branch_id)
 
         accessible = accessible_evangelism_group_ids(user)
         if accessible is None:
-            return queryset
-        if not accessible:
-            return queryset.none()
-        return queryset.filter(id__in=accessible).distinct()
+            queryset = queryset
+        elif not accessible:
+            queryset = queryset.none()
+        else:
+            queryset = queryset.filter(id__in=accessible)
+
+        if getattr(self, "action", None) != "list":
+            queryset = queryset.prefetch_related("members")
+        return queryset
 
     def get_permissions(self):
         if self.action in [
@@ -584,6 +624,12 @@ class EvangelismSessionViewSet(viewsets.ModelViewSet):
         )
 
 
+class EvangelismWeeklyReportPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
     class DrilldownPagination(PageNumberPagination):
         page_size = 20
@@ -603,6 +649,7 @@ class EvangelismWeeklyReportViewSet(viewsets.ModelViewSet):
         .all()
     )
     serializer_class = EvangelismWeeklyReportSerializer
+    pagination_class = EvangelismWeeklyReportPagination
     filter_backends = (
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -1579,6 +1626,7 @@ class ProspectViewSet(viewsets.ModelViewSet):
         "person",
     ).all()
     serializer_class = ProspectSerializer
+    pagination_class = EvangelismRelatedPagination
     filter_backends = (
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -1935,12 +1983,13 @@ class ConversionViewSet(viewsets.ModelViewSet):
         "verified_by",
     ).all()
     serializer_class = ConversionSerializer
+    pagination_class = EvangelismRelatedPagination
     filter_backends = (
         DjangoFilterBackend,
         filters.SearchFilter,
         filters.OrderingFilter,
     )
-    filterset_fields = ("converted_by", "cluster", "evangelism_group")
+    filterset_class = ConversionFilter
     search_fields = ("person__first_name", "person__last_name", "notes")
     ordering_fields = ("conversion_date", "created_at")
     ordering = ("-conversion_date",)

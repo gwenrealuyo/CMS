@@ -164,7 +164,7 @@ export const faqCategories: FaqCategory[] = [
         id: "evangelism",
         question: "What can I do in Evangelism?",
         answer:
-          "Evangelism covers Bible study groups, visitor follow-up, and conversion tracking. Coordinators manage groups and prospects, record baptisms and Holy Ghost reception, and submit weekly evangelism reports. Use + → Submit Evangelism Report when available for your role.",
+          "Evangelism covers Bible study groups, visitor follow-up, and conversion tracking. Coordinators manage groups and prospects, record baptisms and Holy Ghost reception, and submit evangelism reports. Use + → Submit Evangelism Report when available for your role.",
       },
       {
         id: "sunday-school",

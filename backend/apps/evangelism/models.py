@@ -37,6 +37,19 @@ class EvangelismGroup(models.Model):
             ("SUNDAY", "Sunday"),
         ],
     )
+
+    class MeetingFrequency(models.TextChoices):
+        WEEKLY = "WEEKLY", "Weekly"
+        BIWEEKLY = "BIWEEKLY", "Biweekly"
+        MONTHLY = "MONTHLY", "Monthly"
+        IRREGULAR = "IRREGULAR", "Irregular"
+
+    meeting_frequency = models.CharField(
+        max_length=20,
+        choices=MeetingFrequency.choices,
+        default=MeetingFrequency.WEEKLY,
+        help_text="How often this group meets. Drives report due reminders.",
+    )
     is_active = models.BooleanField(default=True)
     is_bible_sharers_group = models.BooleanField(
         default=False,
@@ -99,7 +112,7 @@ class EvangelismWeeklyReport(models.Model):
     year = models.IntegerField(help_text="Year of the report (e.g., 2025)")
     week_number = models.IntegerField(help_text="ISO week number (1-53)")
     meeting_date = models.DateField(
-        help_text="Actual date the meeting was held this week"
+        help_text="Date the meeting was held"
     )
     members_attended = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -144,12 +157,17 @@ class EvangelismWeeklyReport(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ["evangelism_group", "year", "week_number"]
         ordering = ["-year", "-week_number"]
         verbose_name = "Evangelism Weekly Report"
         verbose_name_plural = "Evangelism Weekly Reports"
         indexes = [
             models.Index(fields=["year", "week_number"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["evangelism_group", "meeting_date"],
+                name="evangelism_report_group_meeting_date_uniq",
+            ),
         ]
 
     def __str__(self):

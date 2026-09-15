@@ -226,27 +226,67 @@ def _build_evangelism_report_due(user) -> List[NotificationItem]:
     if not group_ids:
         return []
 
+    today = church_today()
     year, week = current_iso_week()
-    submitted_ids = set(
-        EvangelismWeeklyReport.objects.filter(
-            year=year, week_number=week, evangelism_group_id__in=group_ids
+    reports = EvangelismWeeklyReport.objects.filter(
+        evangelism_group_id__in=group_ids
+    )
+    weekly_submitted = set(
+        reports.filter(year=year, week_number=week).values_list(
+            "evangelism_group_id", flat=True
+        )
+    )
+    biweekly_since = today - timedelta(days=13)
+    biweekly_submitted = set(
+        reports.filter(meeting_date__gte=biweekly_since).values_list(
+            "evangelism_group_id", flat=True
+        )
+    )
+    monthly_submitted = set(
+        reports.filter(
+            meeting_date__year=today.year, meeting_date__month=today.month
         ).values_list("evangelism_group_id", flat=True)
     )
 
     severity = submission_severity()
     items: List[NotificationItem] = []
+    Frequency = EvangelismGroup.MeetingFrequency
+    month_label = today.strftime("%B %Y")
+    href_base = "/evangelism?tab=reports&group="
+
     for group in groups:
-        if group.id in submitted_ids:
+        frequency = group.meeting_frequency or Frequency.WEEKLY
+        if frequency == Frequency.IRREGULAR:
+            continue
+        if frequency == Frequency.WEEKLY:
+            if group.id in weekly_submitted:
+                continue
+            key = f"evangelism_report_due:{group.id}:{year}:{week}"
+            title = f"Submit evangelism report — Week {week}"
+            body = f"{group.name} has no report for this week yet"
+        elif frequency == Frequency.BIWEEKLY:
+            if group.id in biweekly_submitted:
+                continue
+            key = f"evangelism_report_due:{group.id}:biweekly:{year}:{week}"
+            title = "Submit evangelism report"
+            body = f"{group.name} has no report in the last 2 weeks"
+        elif frequency == Frequency.MONTHLY:
+            if group.id in monthly_submitted:
+                continue
+            key = f"evangelism_report_due:{group.id}:{today.year}:{today.month}"
+            title = "Submit evangelism report"
+            body = f"{group.name} has no report for {month_label} yet"
+        else:
             continue
         items.append(
             NotificationItem(
-                key=f"evangelism_report_due:{group.id}:{year}:{week}",
+                key=key,
                 category="alert",
                 type="evangelism_report_due",
                 severity=severity,
-                title=f"Submit evangelism report — Week {week}",
-                body=f"{group.name} has no report for this week yet",
-                href=f"/evangelism?tab=reports&group={group.id}&week={week}",
+                title=title,
+                body=body,
+                href=f"{href_base}{group.id}",
                 occurred_at=timezone.now(),
             )
         )

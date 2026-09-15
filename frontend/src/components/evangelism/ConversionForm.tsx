@@ -147,7 +147,7 @@ export default function ConversionForm({
     (
       event: ChangeEvent<
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-      >
+      >,
     ) => {
       setValues((prev) => ({
         ...prev,
@@ -234,7 +234,7 @@ export default function ConversionForm({
           value: String(person.id),
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [selectablePeople]
+    [selectablePeople],
   );
 
   useEffect(() => {
@@ -364,6 +364,17 @@ export default function ConversionForm({
           />
         </div>
         <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Holy Ghost Reception Date
+          </label>
+          <input
+            type="date"
+            value={values.spirit_baptism_date}
+            onChange={handleChange("spirit_baptism_date")}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+        <div className="space-y-1">
           <BaptismVerifierPicker
             label={BAPTIZED_BY_LABEL}
             hint={BAPTIZED_BY_HINT}
@@ -373,7 +384,8 @@ export default function ConversionForm({
               setBaptizerMode(mode);
               setValues((prev) => ({
                 ...prev,
-                baptized_by_id: mode === "historical" ? "" : prev.baptized_by_id,
+                baptized_by_id:
+                  mode === "historical" ? "" : prev.baptized_by_id,
                 baptized_by_first_name:
                   mode === "select" ? "" : prev.baptized_by_first_name,
                 baptized_by_last_name:
@@ -398,17 +410,7 @@ export default function ConversionForm({
             showClusterCodes={false}
           />
         </div>
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Holy Ghost Reception Date
-          </label>
-          <input
-            type="date"
-            value={values.spirit_baptism_date}
-            onChange={handleChange("spirit_baptism_date")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
+
         <div className="space-y-1">
           <BaptismVerifierPicker
             label={HG_WITNESSED_BY_LABEL}
@@ -452,7 +454,7 @@ export default function ConversionForm({
         </div>
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 hidden">
         Reached status requires first invited, first attended, at least one NCC
         lesson session (not lesson start date alone), and both baptism dates.
       </p>

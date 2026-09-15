@@ -150,7 +150,7 @@ export default function ViewEvangelismWeeklyReportModal({
         <div className="flex items-center justify-between border-b border-gray-200 py-3 pl-3 sm:pl-6 pr-2 shrink-0">
           <div>
             <h2 className="text-sm font-medium text-gray-900">
-              Weekly Report Details
+              Report Details
             </h2>
             <p className="text-[11px] text-gray-600 mt-0.5">
               {groupTitle} - {report.year} Week {report.week_number}

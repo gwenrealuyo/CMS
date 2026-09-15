@@ -31,6 +31,16 @@ interface EvangelismGroupFormProps {
   initialData?: EvangelismGroup;
 }
 
+const MEETING_FREQUENCY_OPTIONS: {
+  value: EvangelismGroupFormValues["meeting_frequency"];
+  label: string;
+}[] = [
+  { value: "WEEKLY", label: "Weekly" },
+  { value: "BIWEEKLY", label: "Biweekly" },
+  { value: "MONTHLY", label: "Monthly" },
+  { value: "IRREGULAR", label: "Irregular" },
+];
+
 const DEFAULT_VALUES: EvangelismGroupFormValues = {
   name: "",
   description: "",
@@ -39,6 +49,7 @@ const DEFAULT_VALUES: EvangelismGroupFormValues = {
   location: "",
   meeting_time: "",
   meeting_day: "",
+  meeting_frequency: "WEEKLY",
   is_active: true,
   initial_member_ids: [],
   reporter_ids: [],
@@ -77,6 +88,7 @@ export default function EvangelismGroupForm({
           location: initialData.location || "",
           meeting_time: toTimeInputValue(initialData.meeting_time),
           meeting_day: initialData.meeting_day || "",
+          meeting_frequency: initialData.meeting_frequency || "WEEKLY",
           is_active: initialData.is_active,
           reporter_ids: (initialData.reporter_ids || []).map(String),
           bible_sharer_ids: (initialData.bible_sharer_ids || []).map(String),
@@ -383,7 +395,7 @@ export default function EvangelismGroupForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
             Location
@@ -424,6 +436,23 @@ export default function EvangelismGroupForm({
             onChange={handleChange("meeting_time")}
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Meeting Frequency
+          </label>
+          <select
+            value={values.meeting_frequency}
+            onChange={handleChange("meeting_frequency")}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {MEETING_FREQUENCY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <p className="text-xs text-gray-500">
@@ -526,13 +555,13 @@ export default function EvangelismGroupForm({
               label: "Bible Sharers",
               hint: isHqGroup
                 ? "Must be on the HQ Bible Sharers roster"
-                : "Can facilitate and submit weekly reports",
+                : "Can facilitate and submit reports",
               chipClass: "bg-rose-50 text-rose-800 border-rose-200",
             },
             {
               field: "reporter_ids" as const,
               label: "Reporters",
-              hint: "Can submit weekly reports only",
+              hint: "Can submit reports only",
               chipClass: "bg-amber-50 text-amber-800 border-amber-200",
             },
           ] as const

@@ -140,7 +140,7 @@ Open **Evangelism** for Bible study groups, visitor follow-up, and conversion tr
 | **Groups** | Bible study / evangelism groups (leaders, members, cluster link) |
 | **Each 1 Reach 1** | Annual conversion goals by cluster |
 | **Tally** | People tally (Invited, Attended, NCC, Baptized, Received HG, Reached, Unique HC). **By cluster** (default) lists every cluster in the selected branch for All year, YTD, a quarter, or chosen months. **By month** is the year grid. A person who hits several stages in the window counts in each of those columns, and once under Unique HC. Click a count to see names; Unique HC highlights the stages achieved in the selected months. |
-| **Reports** | Weekly evangelism reports |
+| **Reports** | Evangelism reports |
 | **Bible Sharers** | Which clusters have assigned Bible Sharer facilitators |
 
 ### Common tasks
@@ -148,7 +148,7 @@ Open **Evangelism** for Bible study groups, visitor follow-up, and conversion tr
 - **Create or update a group** — coordinators add leaders, members, and meeting details.
 - **Track prospects** — invited visitors until they attend; mark **Attended** when they come.
 - **Record conversions** — water baptism and Holy Ghost reception dates update the person's profile and Journey.
-- **Submit a weekly report** — evangelism coordinators use **Reports** or **+ → Submit Evangelism Report**.
+- **Submit a report** — evangelism coordinators use **Reports** or **+ → Submit Evangelism Report**. Due reminders follow the group's meeting frequency (weekly, biweekly, monthly, or never for irregular).
 
 ---
 

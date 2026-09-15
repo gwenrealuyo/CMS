@@ -25,6 +25,7 @@ import {
   peopleApi,
 } from "@/src/lib/api";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
+import { isDuplicateMeetingReportError } from "@/src/lib/apiErrors";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
   EvangelismGroup,
@@ -564,6 +565,7 @@ export default function EvangelismPage() {
           ? { meeting_time: values.meeting_time }
           : { meeting_time: null }),
         ...(values.meeting_day ? { meeting_day: values.meeting_day } : {}),
+        meeting_frequency: values.meeting_frequency || "WEEKLY",
         is_active: values.is_active,
         ...(memberIds.length > 0 ? { members: memberIds } : {}),
         reporter_ids: (values.reporter_ids || []).map(Number),
@@ -602,6 +604,7 @@ export default function EvangelismPage() {
           ? { meeting_time: values.meeting_time }
           : { meeting_time: null }),
         ...(values.meeting_day ? { meeting_day: values.meeting_day } : {}),
+        meeting_frequency: values.meeting_frequency || "WEEKLY",
         is_active: values.is_active,
         reporter_ids: (values.reporter_ids || []).map(Number),
         bible_sharer_ids: (values.bible_sharer_ids || []).map(Number),
@@ -645,6 +648,9 @@ export default function EvangelismPage() {
       requestNotificationsRefetch();
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
+      if (isDuplicateMeetingReportError(err)) {
+        throw err;
+      }
       const errorData = err.response?.data || {};
       const firstError = Object.values(errorData)[0] as string[] | undefined;
       setFormError(
@@ -2055,7 +2061,7 @@ export default function EvangelismPage() {
         <ConfirmationModal
           isOpen={pendingDeleteGroupReport !== null}
           title="Delete report"
-          message="Delete this evangelism weekly report? This action cannot be undone."
+          message="Delete this evangelism report? This action cannot be undone."
           confirmText="Delete"
           cancelText="Cancel"
           variant="danger"

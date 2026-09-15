@@ -12,6 +12,7 @@ export interface EvangelismGroup {
   location?: string;
   meeting_time?: string | null;
   meeting_day?: string;
+  meeting_frequency?: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "IRREGULAR";
   is_active: boolean;
   is_bible_sharers_group?: boolean;
   reporter_ids?: number[];
@@ -411,6 +412,7 @@ export interface EvangelismGroupFormValues {
   location: string;
   meeting_time: string;
   meeting_day: string;
+  meeting_frequency: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "IRREGULAR";
   is_active: boolean;
   /** Person IDs to add on create (optional) */
   initial_member_ids?: string[];

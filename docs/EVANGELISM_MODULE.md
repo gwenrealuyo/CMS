@@ -8,7 +8,7 @@ Key features include:
 
 - **Group Management**: Create/manage Bible Study groups with leaders, members, and optional cluster affiliation
 - **Session Scheduling**: Schedule one-time or recurring Bible study sessions with automatic event creation
-- **Weekly Reports**: Submit weekly evangelism reports and aggregate them with cluster weekly reports for unified weekly tallies
+- **Reports**: Submit evangelism reports (one per meeting date) and aggregate them with cluster weekly reports for unified weekly tallies
 - **Visitor Pipeline**: Track visitors through stages (UI focuses on INVITED → ATTENDED; conversion journeys are recorded via Person baptism dates)
 - **Prospect Tracking**: Track invited visitors separately until they attend; creating a Person happens on ATTENDED
 - **Follow-up Workflow**: Create and assign follow-up tasks, track completion, auto-generate tasks for inactive visitors
@@ -30,6 +30,7 @@ Key features include:
   - `location` (string, max 200 chars, blank) – meeting location
   - `meeting_time` (TimeField, nullable) – regular meeting time
   - `meeting_day` (CharField, choices: MONDAY-SUNDAY, blank) – day of week
+  - `meeting_frequency` (CharField, choices: WEEKLY, BIWEEKLY, MONTHLY, IRREGULAR, default WEEKLY) – how often the group meets; drives report due reminders
   - `is_active` (BooleanField, default True) – whether the group is active
   - `is_bible_sharers_group` (BooleanField, default False) – unused for coverage; kept for compatibility. Bible Sharers are **people** with an `EVANGELISM` + `BIBLE_SHARER` assignment.
   - `members` (ManyToManyField to `people.Person`, blank) – people enrolled in the group; reverse accessor on Person is `person.evangelism_groups`
@@ -37,10 +38,10 @@ Key features include:
 - **Event Type Logic**: When sessions are created, event type is:
   - `CLUSTER_BS_EVANGELISM` if `cluster` is not null
   - `BIBLE_STUDY` if `cluster` is null
-- **Bible Sharers**: People assigned as Bible Sharers on one or more evangelism groups. They can facilitate studies and submit weekly reports for those groups. Coverage monitoring counts unique assigned people per cluster (not a group flag). Ideally each cluster should have at least one Bible Sharer.
+- **Bible Sharers**: People assigned as Bible Sharers on one or more evangelism groups. They can facilitate studies and submit reports for those groups. Coverage monitoring counts unique assigned people per cluster (not a group flag). Ideally each cluster should have at least one Bible Sharer.
   - **HQ roster**: Headquarters evangelism groups may only assign Bible Sharers who are on the system-managed **Bible Sharers** ministry (`code=BIBLE_SHARERS`, HQ branch). Add people under Ministries first. Inactive roster members remain selectable. Groups whose cluster is not on the headquarters branch keep the previous rule (any group member).
-  - **Two-layer access**: **Grant Evangelism access** on the HQ roster (default on) creates a module-wide `BIBLE_SHARER` assignment (`resource_id` empty). That grant is **read-only** (open Evangelism; no group edits; no weekly reports). Adding or editing weekly reports still requires a **group-scoped** Bible Sharer (or Coordinator / Reporter) assignment. Unchecking the grant or marking the roster row inactive deletes only the module-wide row; group assignments stay. Being enrolled as a group member without a Bible Sharer / Reporter / Coordinator role does not allow reports.
-- **Evangelism Reporters**: Members who can submit weekly reports for assigned groups without managing the group. Coordinator on a group replaces Bible Sharer and Reporter for that person.
+  - **Two-layer access**: **Grant Evangelism access** on the HQ roster (default on) creates a module-wide `BIBLE_SHARER` assignment (`resource_id` empty). That grant is **read-only** (open Evangelism; no group edits; no reports). Adding or editing reports still requires a **group-scoped** Bible Sharer (or Coordinator / Reporter) assignment. Unchecking the grant or marking the roster row inactive deletes only the module-wide row; group assignments stay. Being enrolled as a group member without a Bible Sharer / Reporter / Coordinator role does not allow reports.
+- **Evangelism Reporters**: Members who can submit reports for assigned groups without managing the group. Coordinator on a group replaces Bible Sharer and Reporter for that person.
 
 ### Evangelism group membership (`members`)
 
@@ -67,11 +68,11 @@ Key features include:
 
 ### EvangelismWeeklyReport Model
 
-- `apps.evangelism.models.EvangelismWeeklyReport` tracks weekly group meeting reports with:
+- `apps.evangelism.models.EvangelismWeeklyReport` tracks group meeting reports with:
   - `evangelism_group` (ForeignKey to EvangelismGroup, CASCADE delete) – the group this report is for
-  - `year` (IntegerField) – year of the report (e.g., 2025)
-  - `week_number` (IntegerField) – ISO week number (1-53)
-  - `meeting_date` (DateField) – actual date the meeting was held
+  - `year` (IntegerField) – ISO year derived from `meeting_date` (tally/filter bucket)
+  - `week_number` (IntegerField) – ISO week number (1-53) derived from `meeting_date`
+  - `meeting_date` (DateField) – actual date the meeting was held (unique with group)
   - `members_attended` (ManyToMany to `people.Person`, filtered to role="MEMBER") – members who attended
   - `visitors_attended` (ManyToMany to `people.Person`, filtered to role="VISITOR") – visitors who attended
   - `prospects_invited` (ManyToMany to `evangelism.Prospect`, blank, `related_name="evangelism_reports_invited_to"`) – invited visitors recorded on this report who have **not** attended yet (no Person required)
@@ -87,7 +88,8 @@ Key features include:
   - `submitted_at` (DateTimeField, auto_now_add) – when the report was submitted
   - `updated_at` (DateTimeField, auto_now) – when the report was last updated
 - Default ordering: by `-year`, then `-week_number`
-- Unique constraint: `unique_together = ["evangelism_group", "year", "week_number"]` – prevents duplicate reports
+- Unique constraint: `(evangelism_group, meeting_date)` – one report per meeting date; two meetings in the same ISO week with different dates are allowed
+- Serializer always overwrites `year` / `week_number` from `meeting_date`; a duplicate date returns **409** (`duplicate_meeting_report`)
 - **Report Submission Notes**:
   - Visitors selected from prospects (`prospect:{id}`) are marked as ATTENDED via client `markAttended` before the report is saved
   - The report stores Person IDs for attendees and Prospect IDs for `prospects_invited`
@@ -305,7 +307,7 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
   - `POST /create_recurring/` – Create recurring sessions
     - Payload: `{ "evangelism_group_id": 1, "start_date": "2024-01-07", "end_date": "2024-11-03", "session_time": "09:00:00", "topic": "Weekly Study" }`
 
-### Weekly Reports
+### Reports
 
 - `/api/evangelism/weekly-reports/` – EvangelismWeeklyReportViewSet CRUD
   - `GET` – List reports with filtering:
@@ -313,7 +315,8 @@ All routes live under `/api/evangelism/` (namespaced in `core.urls`):
     - Query params: `?year={year}` – filter by year
     - Query params: `?week_number={week}` – filter by week number
     - Query params: `?gathering_type={type}` – filter by gathering type
-  - `POST` – Create a new report (requires `evangelism_group`, `year`, `week_number`, `meeting_date`, `gathering_type`)
+  - `POST` – Create a new report (requires `evangelism_group`, `meeting_date`, `gathering_type`; `year` / `week_number` are optional and overwritten from `meeting_date`)
+    - Duplicate `(group, meeting_date)` returns **409** `duplicate_meeting_report`
     - **Members attended** may include active group members, the group’s **coordinator** (even if not enrolled as a group member), but not arbitrary people (validated server-side)
     - `prospects_invited` – existing Prospect IDs to link to this report’s invite list (must belong to the report’s group)
     - `new_invited_prospects` – write-only nested creates (`first_name`, `last_name`, required `invited_by_id`, optional contact/facebook/notes/`date_first_invited`); appends created Prospects to `prospects_invited`
@@ -483,6 +486,7 @@ Serializers (`apps.evangelism.serializers`) expose:
   - `cluster` – nested cluster object (read-only); `cluster_id` for writes
   - `members` – nested person summaries on **read**; **write** with list of Person PKs (same pattern as `ClusterSerializer.members`)
   - `members_count`, `conversions_count` – computed
+  - `meeting_frequency` – WEEKLY (default), BIWEEKLY, MONTHLY, or IRREGULAR
 
 - `EvangelismSessionSerializer`:
   - `evangelism_group` – nested group object (read-only)
@@ -498,6 +502,8 @@ Serializers (`apps.evangelism.serializers`) expose:
   - `new_invited_prospects` – write-only nested creates (see Prospect model evangelism weekly report integration)
   - `new_prospects` – read-only derived count of `prospects_invited` (tally still `SUM`s this integer)
   - `submitted_by_details` – read-only full person details for submitter
+  - `year` / `week_number` – derived from `meeting_date` on save
+  - Duplicate `(evangelism_group, meeting_date)` raises 409 `duplicate_meeting_report`
   - All report fields
 
 - `ProspectSerializer`:
@@ -648,10 +654,10 @@ The Groups tab toolbar mirrors the clusters page layout:
 - **`GroupConversionsSection`**: Section displaying conversions
   - Table of conversions with dates, converter, verification status
 
-#### Weekly Reports
+#### Reports
 
-- **`EvangelismWeeklyReportForm`**: Form for submitting/editing weekly reports
-  - Meeting date, week number, gathering type
+- **`EvangelismWeeklyReportForm`**: Form for submitting/editing reports
+  - Meeting date (required); year and week are read-only, filled from the meeting date for tallies
   - **Section order**: Members Attended → Visitors Attended (+ Add New Visitor) → **Prospects Invited** (+ Add Prospect)
   - **Visitors Attended helper copy**: People who came this week; search returning visitors or invited prospects first; Add New Visitor only if they came and are not in the list
   - **Prospects Invited helper copy**: Invited visitors only — not yet attended / not in People until they attend
@@ -794,9 +800,9 @@ When viewing a group, a modal displays group details and related sections. Layou
 
 - `Modal` uses `hideHeader`; [`EvangelismGroupView`](frontend/src/components/evangelism/EvangelismGroupView.tsx) renders its own header with truncated group name, status chips (Active/Inactive, Bible Sharers), and a 44px close control
 - Full-screen on mobile (`Modal` shell); scrollable body for info grid and sections; **sticky footer** with Edit, Cancel, and Delete (stacked full-width buttons on mobile; icon-only delete + Cancel/Edit on desktop)
-- **Group Information**: Coordinator, cluster, branch code, location, meeting time, description
+- **Group Information**: Coordinator, cluster, branch code, location, meeting time, meeting frequency, description
 - **Members Section**: List of enrolled members with management options
-- **Reports Section**: Weekly evangelism reports (`Table` mobile cards on small screens)
+- **Reports Section**: Evangelism reports (`Table` mobile cards on small screens)
 - **Visitors Section**: Prospects list (`Table` mobile cards)
 - **Conversions Section**: Conversions list (`Table` mobile cards)
 
@@ -864,9 +870,9 @@ When viewing a group, a modal displays group details and related sections. Layou
 All Evangelism models are registered in Django admin (`apps.evangelism.admin`):
 
 - **EvangelismGroupAdmin**:
-  - List display: name, coordinator, cluster, location, meeting_time, is_active
+  - List display: name, coordinator, cluster, location, meeting_time, meeting_frequency, is_active
   - `filter_horizontal` for **members** (M2M widget)
-  - Filterable by cluster, is_active
+  - Filterable by cluster, is_active, meeting_frequency
 
 - **EvangelismSessionAdmin**:
   - List display: evangelism_group, session_date, session_time, topic, event

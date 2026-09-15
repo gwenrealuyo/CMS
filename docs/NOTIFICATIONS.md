@@ -121,7 +121,7 @@ Returns the same shape as `GET` (typically empty `items`).
 | `password_reset_pending` | `ADMIN` | `PasswordResetRequest` with `status=PENDING` |
 | `account_locked` | `ADMIN` | `AccountLockout` indicating an active lock |
 | `cluster_report_due` | Users who **manage** at least one cluster; CLUSTER module enabled | No `ClusterWeeklyReport` for managed cluster for **current ISO week** |
-| `evangelism_report_due` | Users who **manage** at least one evangelism group; EVANGELISM module enabled | No `EvangelismWeeklyReport` for managed group for current ISO week |
+| `evangelism_report_due` | Users who **manage** at least one evangelism group; EVANGELISM module enabled | Cadence from `EvangelismGroup.meeting_frequency`: **WEEKLY** — no report whose ISO week is the current week; **BIWEEKLY** — no report with `meeting_date` in the last 14 days (inclusive); **MONTHLY** — no report with `meeting_date` in the current church calendar month; **IRREGULAR** — never. Inactive groups are skipped. |
 | `cluster_report_overdue` | `ADMIN`, `PASTOR`, or cluster **senior coordinator** | Clusters in oversight scope missing this week’s report (excludes clusters the user already gets as `cluster_report_due`) |
 | `follow_up_overdue` | User assigned on `FollowUpTask` | `due_date` before today; status `PENDING` or `IN_PROGRESS` |
 | `follow_up_due_soon` | Same | Due within the next **3 days**; same statuses |
@@ -134,7 +134,9 @@ Returns the same shape as `GET` (typically empty `items`).
 **Stable keys (examples):**
 
 - `cluster_report_due:{cluster_id}:{year}:{week_number}`
-- `evangelism_report_due:{group_id}:{year}:{week_number}`
+- `evangelism_report_due:{group_id}:{year}:{week_number}` (weekly)
+- `evangelism_report_due:{group_id}:biweekly:{year}:{week_number}` (biweekly)
+- `evangelism_report_due:{group_id}:{year}:{month}` (monthly)
 - `event_booking_pending:{event_id}`
 - `activity:cluster_report_submitted:{report_id}`
 - `activity:event_booking_approved:{event_id}` / `activity:event_booking_rejected:{event_id}`
@@ -199,7 +201,7 @@ Implementation:
 - Initial fetch when the user is authenticated and not a visitor.
 - Poll every **60s** when `document.visibilityState === "visible"`.
 - Refetch when the dropdown opens.
-- After a successful cluster or evangelism weekly report create/update, or after submitting / reviewing an event booking, call `requestNotificationsRefetch()` from [`notificationsEvents.ts`](../frontend/src/lib/notificationsEvents.ts) so activity appears without waiting for the poll.
+- After a successful cluster weekly report or evangelism report create/update, or after submitting / reviewing an event booking, call `requestNotificationsRefetch()` from [`notificationsEvents.ts`](../frontend/src/lib/notificationsEvents.ts) so activity appears without waiting for the poll.
 
 ### UI
 

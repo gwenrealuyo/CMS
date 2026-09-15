@@ -30,6 +30,8 @@ import {
   toPendingNewProspectId,
   toProspectAttendanceId,
 } from "@/src/lib/clusterWeeklyReportSubmit";
+import { isDuplicateMeetingReportError } from "@/src/lib/apiErrors";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 
 /** Label for invites without a linked Person. */
 function prospectInviteDisplayName(prospect: Prospect): string {
@@ -218,6 +220,7 @@ export default function EvangelismWeeklyReportForm({
   const [prospectFormError, setProspectFormError] = useState<string | null>(
     null,
   );
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [pendingNewVisitors, setPendingNewVisitors] = useState<
     Record<string, Partial<Person> & { note?: string }>
   >({});
@@ -769,7 +772,7 @@ export default function EvangelismWeeklyReportForm({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (showAddVisitorModal || showAddProspectModal) {
+    if (showAddVisitorModal || showAddProspectModal || duplicateDialogOpen) {
       return;
     }
     if (!formData.evangelism_group_id) {
@@ -810,11 +813,19 @@ export default function EvangelismWeeklyReportForm({
       setPendingNewVisitors({});
     }
 
-    await onSubmit({
-      ...formData,
-      visitors_attended: visitorsAttended,
-      pending_new_prospects: pendingNewProspects,
-    });
+    try {
+      await onSubmit({
+        ...formData,
+        visitors_attended: visitorsAttended,
+        pending_new_prospects: pendingNewProspects,
+      });
+    } catch (err: unknown) {
+      if (isDuplicateMeetingReportError(err)) {
+        setDuplicateDialogOpen(true);
+        return;
+      }
+      throw err;
+    }
   };
 
   const handleAddVisitor = async (
@@ -842,342 +853,364 @@ export default function EvangelismWeeklyReportForm({
   };
 
   return (
-    <form className="space-y-6" onSubmit={handleSubmit}>
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      {showGroupPicker && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Evangelism group *
-          </label>
-          <ScalableSelect
-            value={selectedGroupId}
-            options={groupSelectOptions}
-            onChange={(value) => {
-              setSelectedGroupId(value);
-              setGroupFieldError(null);
-            }}
-            disabled={groupPickerLocked}
-            placeholder="Select group..."
-            searchPlaceholder="Search groups…"
-            emptyMessage="No groups found"
-            className="w-full min-w-0 text-sm"
-          />
-          {groupFieldError && (
-            <p className="mt-1 text-sm text-red-600">{groupFieldError}</p>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Year
-          </label>
-          <input
-            type="number"
-            value={formData.year}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                year: Number(e.target.value),
-              }))
-            }
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Week Number
-          </label>
-          <input
-            type="number"
-            value={formData.week_number}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                week_number: Number(e.target.value),
-              }))
-            }
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Meeting Date
-          </label>
-          <input
-            type="date"
-            value={formData.meeting_date}
-            onChange={(e) => {
-              const value = e.target.value;
-              setFormData((prev) => {
-                const next = { ...prev, meeting_date: value };
-                const parts = getIsoWeekPartsFromDateString(value);
-                if (parts) {
-                  next.year = parts.year;
-                  next.week_number = parts.week;
-                }
-                return next;
-              });
-            }}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Gathering Type
-          </label>
-          <select
-            value={formData.gathering_type}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                gathering_type: e.target
-                  .value as EvangelismWeeklyReportFormValues["gathering_type"],
-              }))
-            }
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          >
-            <option value="PHYSICAL">Physical</option>
-            <option value="ONLINE">Online</option>
-            <option value="HYBRID">Hybrid</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Topic
-          </label>
-          <input
-            type="text"
-            value={formData.topic || ""}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, topic: e.target.value }))
-            }
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-            placeholder="Weekly topic or lesson..."
-          />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <AttendanceSelector
-          label="Members Attended"
-          selectedIds={formData.members_attended}
-          availablePeople={memberOptions}
-          filterRole="MEMBER"
-          onSelectionChange={(ids) =>
-            setFormData((prev) => ({ ...prev, members_attended: ids }))
+    <>
+      <form
+        className="space-y-6"
+        onSubmit={handleSubmit}
+        onKeyDown={(e) => {
+          if (
+            e.key === "Enter" &&
+            (showAddVisitorModal || showAddProspectModal || duplicateDialogOpen)
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
           }
-          allowedIds={allowedMemberIds}
-          isLoadingRoster={
-            loadingRoster || (showGroupPicker && !selectedGroupId)
-          }
-        />
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700">
-              Visitors Attended
-            </label>
-            <Button
-              type="button"
-              variant="primary"
-              className="text-sm py-1.5 px-3"
-              onClick={() => setShowAddVisitorModal(true)}
-              disabled={!selectedGroupId}
-            >
-              + Add New Visitor
-            </Button>
-          </div>
-          <p className="text-xs text-gray-500 mb-2">
-            People who came this week. Search returning visitors or invited
-            prospects first. Use Add New Visitor only if they came and are not
-            in the list.
-          </p>
-          <AttendanceSelector
-            label=""
-            selectedIds={formData.visitors_attended}
-            availablePeople={visitorOptions}
-            filterRole="VISITOR"
-            onSelectionChange={handleVisitorsChange}
-            className="mt-0"
-            previouslyAttendedIds={previouslyAttendedVisitorIds}
-            groupByVisitorKind
-          />
-        </div>
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700">
-              Prospects Invited
-            </label>
-            <Button
-              type="button"
-              variant="secondary"
-              className="!text-white !bg-orange-600 hover:!bg-orange-700 disabled:!bg-gray-300 disabled:!text-gray-500 disabled:hover:!bg-gray-300 text-sm py-1.5 px-3"
-              disabled={!selectedGroupId}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowAddProspectModal(true);
-              }}
-            >
-              + Add Prospect
-            </Button>
-          </div>
-          <p className="text-xs text-gray-500 mb-2">
-            Invited visitors only — not yet attended. They are not added to
-            People until they attend.
-          </p>
-          <AttendanceSelector
-            label=""
-            selectedIds={(formData.prospects_invited || []).map((id) => {
-              const sid = String(id);
-              if (sid.startsWith("new:")) return sid;
-              return toProspectAttendanceId(sid);
-            })}
-            availablePeople={prospectInviteOptions}
-            filterRole="VISITOR"
-            onSelectionChange={handleProspectsInvitedChange}
-            className="mt-0"
-            allowedIds={prospectAllowedIds}
-          />
-        </div>
-        {(loadingPeople || loadingRoster) && (
-          <div className="text-xs text-gray-500">
-            {loadingRoster ? "Loading members…" : "Loading people..."}
+        }}
+      >
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
           </div>
         )}
-      </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Activities Held
-          </label>
-          <textarea
-            value={formData.activities_held || ""}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                activities_held: e.target.value,
-              }))
-            }
-            rows={2}
-            placeholder="Describe activities or events held during the evangelism meeting..."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Prayer Requests
-          </label>
-          <textarea
-            value={formData.prayer_requests || ""}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                prayer_requests: e.target.value,
-              }))
-            }
-            rows={2}
-            placeholder="List prayer requests shared during the meeting..."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Testimonies
-          </label>
-          <textarea
-            value={formData.testimonies || ""}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, testimonies: e.target.value }))
-            }
-            rows={2}
-            placeholder="Share testimonies or encouraging stories from members..."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Notes
-          </label>
-          <textarea
-            value={formData.notes || ""}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, notes: e.target.value }))
-            }
-            rows={3}
-            placeholder="Additional notes, highlights, or concerns..."
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
-          />
-        </div>
-      </div>
+        {showGroupPicker && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Evangelism group *
+            </label>
+            <ScalableSelect
+              value={selectedGroupId}
+              options={groupSelectOptions}
+              onChange={(value) => {
+                setSelectedGroupId(value);
+                setGroupFieldError(null);
+              }}
+              disabled={groupPickerLocked}
+              placeholder="Select group..."
+              searchPlaceholder="Search groups…"
+              emptyMessage="No groups found"
+              className="w-full min-w-0 text-sm"
+            />
+            {groupFieldError && (
+              <p className="mt-1 text-sm text-red-600">{groupFieldError}</p>
+            )}
+          </div>
+        )}
 
-      <div className="mt-8 flex w-full flex-col-reverse sm:flex-row gap-3 border-t border-gray-200 pt-4">
-        <Button
-          variant="tertiary"
-          className="flex-1 min-h-[44px] rounded-md border border-[#d9d9d9] bg-white px-4 py-2.5 text-sm font-medium text-[#262626] shadow-none hover:bg-gray-50 md:min-h-0"
-          onClick={onCancel}
-          disabled={isSubmitting}
-          type="button"
-        >
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          className="flex-1 min-h-[44px] rounded-md bg-[#2f68e6] px-4 py-2.5 text-sm font-medium text-white shadow-none hover:bg-[#255adb] md:min-h-0"
-          disabled={isSubmitting || !formData.evangelism_group_id}
-          type="submit"
-        >
-          {isSubmitting ? "Saving..." : "Submit Report"}
-        </Button>
-      </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Year
+            </label>
+            <input
+              type="number"
+              value={formData.year}
+              readOnly
+              tabIndex={-1}
+              className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-600"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Week Number
+            </label>
+            <input
+              type="number"
+              value={formData.week_number}
+              readOnly
+              tabIndex={-1}
+              className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 min-h-[44px] text-sm text-gray-600"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Meeting Date
+            </label>
+            <input
+              type="date"
+              value={formData.meeting_date}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData((prev) => {
+                  const next = { ...prev, meeting_date: value };
+                  const parts = getIsoWeekPartsFromDateString(value);
+                  if (parts) {
+                    next.year = parts.year;
+                    next.week_number = parts.week;
+                  }
+                  return next;
+                });
+              }}
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
+            />
+          </div>
+        </div>
 
-      <AddVisitorModal
-        isOpen={showAddVisitorModal}
-        onClose={() => setShowAddVisitorModal(false)}
-        onAdd={handleAddVisitor}
-        defaultDateFirstAttended={formData.meeting_date}
-        defaultFirstActivityAttended="BS/CLUSTER_EVANGELISM"
-      />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gathering Type
+            </label>
+            <select
+              value={formData.gathering_type}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  gathering_type: e.target
+                    .value as EvangelismWeeklyReportFormValues["gathering_type"],
+                }))
+              }
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
+            >
+              <option value="PHYSICAL">Physical</option>
+              <option value="ONLINE">Online</option>
+              <option value="HYBRID">Hybrid</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Topic
+            </label>
+            <input
+              type="text"
+              value={formData.topic || ""}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, topic: e.target.value }))
+              }
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
+              placeholder="Topic or lesson..."
+            />
+          </div>
+        </div>
 
-      <Modal
-        isOpen={showAddProspectModal}
-        onClose={() => {
-          setShowAddProspectModal(false);
-          setProspectFormError(null);
-        }}
-        title="Add Prospect"
-        closeOnOutsideClick={false}
-      >
-        <p className="text-sm text-gray-600 mb-4">
-          Invited visitors only — not yet attended. They are not added to People
-          until they attend.
-        </p>
-        <ProspectForm
-          inviters={invitersForProspectForm as unknown as Person[]}
-          groups={selectedGroup ? [selectedGroup] : []}
-          prospectOptions={prospectOptionsForForm}
-          selectedBibleStudyGroup={selectedGroup ?? undefined}
-          defaultGroupId={selectedGroupId}
-          onSubmit={handleAddProspect}
-          onCancel={() => {
+        <div className="space-y-4">
+          <AttendanceSelector
+            label="Members Attended"
+            selectedIds={formData.members_attended}
+            availablePeople={memberOptions}
+            filterRole="MEMBER"
+            onSelectionChange={(ids) =>
+              setFormData((prev) => ({ ...prev, members_attended: ids }))
+            }
+            allowedIds={allowedMemberIds}
+            isLoadingRoster={
+              loadingRoster || (showGroupPicker && !selectedGroupId)
+            }
+          />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">
+                Visitors Attended
+              </label>
+              <Button
+                type="button"
+                variant="primary"
+                className="text-sm py-1.5 px-3"
+                onClick={() => setShowAddVisitorModal(true)}
+                disabled={!selectedGroupId}
+              >
+                + Add New Visitor
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              People who came this week. Search returning visitors or invited
+              prospects first. Use Add New Visitor only if they came and are not
+              in the list.
+            </p>
+            <AttendanceSelector
+              label=""
+              selectedIds={formData.visitors_attended}
+              availablePeople={visitorOptions}
+              filterRole="VISITOR"
+              onSelectionChange={handleVisitorsChange}
+              className="mt-0"
+              previouslyAttendedIds={previouslyAttendedVisitorIds}
+              groupByVisitorKind
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">
+                Prospects Invited
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                className="!text-white !bg-orange-600 hover:!bg-orange-700 disabled:!bg-gray-300 disabled:!text-gray-500 disabled:hover:!bg-gray-300 text-sm py-1.5 px-3"
+                disabled={!selectedGroupId}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowAddProspectModal(true);
+                }}
+              >
+                + Add Prospect
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              Invited visitors only — not yet attended. They are not added to
+              People until they attend.
+            </p>
+            <AttendanceSelector
+              label=""
+              selectedIds={(formData.prospects_invited || []).map((id) => {
+                const sid = String(id);
+                if (sid.startsWith("new:")) return sid;
+                return toProspectAttendanceId(sid);
+              })}
+              availablePeople={prospectInviteOptions}
+              filterRole="VISITOR"
+              onSelectionChange={handleProspectsInvitedChange}
+              className="mt-0"
+              allowedIds={prospectAllowedIds}
+            />
+          </div>
+          {(loadingPeople || loadingRoster) && (
+            <div className="text-xs text-gray-500">
+              {loadingRoster ? "Loading members…" : "Loading people..."}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Activities Held
+            </label>
+            <textarea
+              value={formData.activities_held || ""}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  activities_held: e.target.value,
+                }))
+              }
+              rows={2}
+              placeholder="Describe activities or events held during the evangelism meeting..."
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Prayer Requests
+            </label>
+            <textarea
+              value={formData.prayer_requests || ""}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  prayer_requests: e.target.value,
+                }))
+              }
+              rows={2}
+              placeholder="List prayer requests shared during the meeting..."
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Testimonies
+            </label>
+            <textarea
+              value={formData.testimonies || ""}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  testimonies: e.target.value,
+                }))
+              }
+              rows={2}
+              placeholder="Share testimonies or encouraging stories..."
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes || ""}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, notes: e.target.value }))
+              }
+              rows={3}
+              placeholder="Additional notes, highlights, or concerns..."
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="mt-8 flex w-full flex-col-reverse sm:flex-row gap-3 border-t border-gray-200 pt-4">
+          <Button
+            variant="tertiary"
+            className="flex-1 min-h-[44px] rounded-md border border-[#d9d9d9] bg-white px-4 py-2.5 text-sm font-medium text-[#262626] shadow-none hover:bg-gray-50 md:min-h-0"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            type="button"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            className="flex-1 min-h-[44px] rounded-md bg-[#2f68e6] px-4 py-2.5 text-sm font-medium text-white shadow-none hover:bg-[#255adb] md:min-h-0"
+            disabled={isSubmitting || !formData.evangelism_group_id}
+            type="submit"
+          >
+            {isSubmitting ? "Saving..." : "Submit Report"}
+          </Button>
+        </div>
+
+        <AddVisitorModal
+          isOpen={showAddVisitorModal}
+          onClose={() => setShowAddVisitorModal(false)}
+          onAdd={handleAddVisitor}
+          defaultDateFirstAttended={formData.meeting_date}
+          defaultFirstActivityAttended="BS/CLUSTER_EVANGELISM"
+        />
+
+        <Modal
+          isOpen={showAddProspectModal}
+          onClose={() => {
             setShowAddProspectModal(false);
             setProspectFormError(null);
           }}
-          isSubmitting={prospectSubmitting}
-          error={prospectFormError}
-          submitLabel="Add Prospect"
-        />
-      </Modal>
-    </form>
+          title="Add Prospect"
+          closeOnOutsideClick={false}
+        >
+          <p className="text-sm text-gray-600 mb-4">
+            Invited visitors only — not yet attended. They are not added to
+            People until they attend.
+          </p>
+          <ProspectForm
+            inviters={invitersForProspectForm as unknown as Person[]}
+            groups={selectedGroup ? [selectedGroup] : []}
+            prospectOptions={prospectOptionsForForm}
+            selectedBibleStudyGroup={selectedGroup ?? undefined}
+            defaultGroupId={selectedGroupId}
+            onSubmit={handleAddProspect}
+            onCancel={() => {
+              setShowAddProspectModal(false);
+              setProspectFormError(null);
+            }}
+            isSubmitting={prospectSubmitting}
+            error={prospectFormError}
+            submitLabel="Add Prospect"
+          />
+        </Modal>
+      </form>
+      <ConfirmationModal
+        isOpen={duplicateDialogOpen}
+        onClose={() => setDuplicateDialogOpen(false)}
+        onConfirm={() => setDuplicateDialogOpen(false)}
+        title="Report already submitted"
+        message={`A report for ${
+          selectedGroup?.name?.trim() || "this evangelism group"
+        } on ${formData.meeting_date || "this date"} already exists. Choose a different date.`}
+        confirmText="OK"
+        cancelText="Go back"
+        variant="warning"
+        zIndex={80}
+      />
+    </>
   );
 }

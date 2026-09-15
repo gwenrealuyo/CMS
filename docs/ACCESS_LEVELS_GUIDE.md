@@ -89,7 +89,7 @@ A person can hold **multiple assignments** across different modules. Access is c
 | **Senior Coordinator** | Module-wide oversight; can delete records; sees branch-wide (or all branches at HQ); compliance and stats views |
 | **Coordinator** | Leadership within a module; create and edit; may be scoped to specific clusters, groups, or classes |
 | **Teacher** | Sunday School or Lessons instruction; edit own classes/students; generally cannot delete |
-| **Bible Sharer** | Evangelism group facilitation and weekly reports for assigned groups; cannot manage group members. A **module-wide** Bible Sharer row (from the HQ Ministries roster grant) is read-only Evangelism access until they are assigned to a group. |
+| **Bible Sharer** | Evangelism group facilitation and reports for assigned groups; cannot manage group members. A **module-wide** Bible Sharer row (from the HQ Ministries roster grant) is read-only Evangelism access until they are assigned to a group. |
 | **Reporter** | Weekly reports only (Cluster and Evangelism) |
 
 ### Per-module levels available
@@ -158,7 +158,7 @@ Coordinators and pastors should **mark records inactive** or update status inste
 **Clusters**
 
 - **Cluster Reporter** (CLUSTER): see **assigned cluster card(s) only**; submit weekly reports for those clusters; cannot edit cluster members or settings; cannot add people.
-- **Evangelism Reporter**: submit weekly reports for assigned evangelism groups; cannot manage group members; cannot add people.
+- **Evangelism Reporter**: submit reports for assigned evangelism groups; cannot manage group members; cannot add people.
 - Non-senior **Cluster Coordinators** can **browse all cluster cards in their branch** (read-only for clusters they do not manage).
 - **Weekly reports** (list, analytics, year filters, create/edit) are limited to **managed clusters** (FK coordinator and/or resource-specific Cluster → Coordinator assignment). **Deleting** reports is **admin-only**; coordinators correct via edit.
 - **Compliance** tab is for senior cluster coordinators only.
@@ -166,9 +166,9 @@ Coordinators and pastors should **mark records inactive** or update status inste
 
 **Evangelism**
 
-- **Bible Sharers** can submit weekly reports for assigned groups; they cannot manage group members. Coordinators manage assigned groups (and that Coordinator assignment replaces Bible Sharer or Reporter on the same group).
-- A **module-wide** Bible Sharer grant (HQ Ministries roster checkbox, default on) lets them open Evangelism **read-only**. It does not unlock group edits or weekly reports.
-- Weekly evangelism reports can be submitted by Evangelism Coordinators, Bible Sharers, and Evangelism Reporters for their assigned groups. Plain group members cannot file reports.
+- **Bible Sharers** can submit reports for assigned groups; they cannot manage group members. Coordinators manage assigned groups (and that Coordinator assignment replaces Bible Sharer or Reporter on the same group).
+- A **module-wide** Bible Sharer grant (HQ Ministries roster checkbox, default on) lets them open Evangelism **read-only**. It does not unlock group edits or reports.
+- Evangelism reports can be submitted by Evangelism Coordinators, Bible Sharers, and Evangelism Reporters for their assigned groups. Plain group members cannot file reports. Groups have a meeting frequency (weekly, biweekly, monthly, or irregular) that controls due reminders; uniqueness is one report per meeting date.
 
 **Lessons**
 

@@ -27,6 +27,7 @@ import { evangelismApi, PaginatedResponse } from "@/src/lib/api";
 import { buildEvangelismWeeklyReportPayloadFromFormValues } from "@/src/lib/evangelismWeeklyReportSubmit";
 import { getEvangelismGatheringTypeChipClass } from "@/src/lib/evangelismGatheringTypeStyles";
 import { requestNotificationsRefetch } from "@/src/lib/notificationsEvents";
+import { isDuplicateMeetingReportError } from "@/src/lib/apiErrors";
 import Table from "@/src/components/ui/Table";
 import {
   ChevronDownIcon,
@@ -408,6 +409,9 @@ export default function EvangelismReportsDashboard({
       await refetchReports();
       requestNotificationsRefetch();
     } catch (err: unknown) {
+      if (isDuplicateMeetingReportError(err)) {
+        throw err;
+      }
       const e = err as { response?: { data?: Record<string, unknown> } };
       const data = e.response?.data;
       let msg = "Failed to save report.";
@@ -965,7 +969,7 @@ export default function EvangelismReportsDashboard({
         </div>
       ) : (
         <Card
-          title={`Weekly reports (${totalCount})`}
+          title={`Reports (${totalCount})`}
           headerAction={reportListToolbar}
           className="min-w-0"
         >
@@ -1054,7 +1058,7 @@ export default function EvangelismReportsDashboard({
         isOpen={showReportModal}
         onClose={closeReportModal}
         title={
-          editingReport ? "Edit weekly report" : "Submit weekly report"
+          editingReport ? "Edit report" : "Submit report"
         }
         closeOnOutsideClick={false}
       >
@@ -1150,7 +1154,7 @@ export default function EvangelismReportsDashboard({
       <ConfirmationModal
         isOpen={pendingDeleteReport !== null}
         title="Delete report"
-        message="Delete this evangelism weekly report? This action cannot be undone."
+        message="Delete this evangelism report? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"

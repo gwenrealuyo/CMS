@@ -56,7 +56,7 @@ const QUICK_ACTIONS: QuickActionDefinition[] = [
     label: "Submit Evangelism Report",
     href: "/evangelism?action=submit-report",
     icon: MegaphoneIcon,
-    blurb: "Submit the weekly evangelism group report.",
+    blurb: "Submit the evangelism group report.",
   },
   {
     key: "lesson-session",

@@ -124,6 +124,15 @@ export function isDuplicateWeekReportError(error: unknown): boolean {
   return err.response?.data?.error === "duplicate_week_report";
 }
 
+/** Evangelism report unique group/meeting_date (API 409). */
+export function isDuplicateMeetingReportError(error: unknown): boolean {
+  const err = error as {
+    response?: { status?: number; data?: { error?: string } };
+  };
+  if (err.response?.status === 409) return true;
+  return err.response?.data?.error === "duplicate_meeting_report";
+}
+
 /**
  * Prefer field-level `details` so users know what to fix; fall back to message.
  */

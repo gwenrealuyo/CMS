@@ -23,6 +23,8 @@ from apps.clusters.models import Cluster
 
 from core.datetime_utils import church_today
 
+from .exceptions import DuplicateMeetingReport
+
 from .coordinator_assignments import (
     prune_evangelism_role_assignments_to_members,
     sync_evangelism_bible_sharer_assignments,
@@ -160,6 +162,7 @@ class EvangelismGroupSerializer(serializers.ModelSerializer):
             "location",
             "meeting_time",
             "meeting_day",
+            "meeting_frequency",
             "is_active",
             "is_bible_sharers_group",
             "created_at",
@@ -507,6 +510,11 @@ class EvangelismReportNewInvitedProspectSerializer(serializers.Serializer):
         return attrs
 
 
+def _iso_year_week_from_meeting_date(meeting_date):
+    iso = meeting_date.isocalendar()
+    return iso[0], iso[1]
+
+
 class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
     evangelism_group = EvangelismGroupSerializer(read_only=True)
     evangelism_group_id = serializers.PrimaryKeyRelatedField(
@@ -557,11 +565,43 @@ class EvangelismWeeklyReportSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("submitted_at", "updated_at", "new_prospects")
+        extra_kwargs = {
+            "year": {"required": False},
+            "week_number": {"required": False},
+        }
+
+    def get_unique_together_validators(self):
+        return []
 
     def validate(self, attrs):
         group = attrs.get("evangelism_group")
         if group is None and self.instance:
             group = self.instance.evangelism_group
+        meeting_date = attrs.get("meeting_date") or getattr(
+            self.instance, "meeting_date", None
+        )
+        if meeting_date is not None:
+            year, week_number = _iso_year_week_from_meeting_date(meeting_date)
+            attrs["year"] = year
+            attrs["week_number"] = week_number
+
+        if group is not None and meeting_date is not None:
+            existing = EvangelismWeeklyReport.objects.filter(
+                evangelism_group=group, meeting_date=meeting_date
+            )
+            if self.instance is not None:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                group_label = (getattr(group, "name", None) or "").strip() or (
+                    "this evangelism group"
+                )
+                raise DuplicateMeetingReport(
+                    detail=(
+                        f"A report for {group_label} on {meeting_date.isoformat()} "
+                        "already exists. Choose a different date."
+                    )
+                )
+
         members = attrs.get("members_attended")
         if group is not None and members is not None:
             allowed_ids = set(group.members.values_list("id", flat=True))

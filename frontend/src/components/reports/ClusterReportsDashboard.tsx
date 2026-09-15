@@ -21,7 +21,7 @@ import ModalOverlay from "@/src/components/ui/ModalOverlay";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
-  HoverTooltip,
+  HintTooltip,
   LockedControlTooltip,
 } from "@/src/components/ui/LockedControlTooltip";
 import Pagination from "@/src/components/ui/Pagination";
@@ -62,9 +62,6 @@ import { formatLocaleDate } from "@/src/lib/date";
 const MEMBER_RATE_TOOLTIP =
   "Percent of the cluster roster who attended this meeting. Counts only Active, Semi-active, and Inactive members. Other statuses (Dormant, Fall Away, Deceased, etc.) are excluded.";
 
-const MEMBER_RATE_AVG_TOOLTIP =
-  "Average of each report's member rate. Each rate is attended ÷ current roster, counting only Active, Semi-active, and Inactive members. Other statuses are excluded.";
-
 function MemberRateHelpButton({
   label,
   iconClassName = "h-4 w-4",
@@ -75,7 +72,7 @@ function MemberRateHelpButton({
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <HoverTooltip label={label}>
+    <HintTooltip label={label}>
       <button
         type="button"
         className="inline-flex shrink-0 rounded-full text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -85,7 +82,7 @@ function MemberRateHelpButton({
       >
         <InformationCircleIcon className={iconClassName} />
       </button>
-    </HoverTooltip>
+    </HintTooltip>
   );
 }
 
@@ -1293,11 +1290,10 @@ export default function ClusterReportsDashboard({
                     </div>
                     <div className="ml-4">
                       <p
-                        className="text-sm font-medium text-gray-600 inline-flex items-center gap-1"
+                        className="text-sm font-medium text-gray-600"
                         aria-label="Metric label"
                       >
                         Member Attendance Rate
-                        <MemberRateHelpButton label={MEMBER_RATE_AVG_TOOLTIP} />
                       </p>
                       <p
                         className="text-2xl font-semibold text-gray-900"

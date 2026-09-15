@@ -96,6 +96,17 @@ const EvangelismGroupCard = memo(
               <h4 className="truncate text-base font-semibold text-primary md:text-lg">
                 {group.name}
               </h4>
+              {group.is_active && clusterDisplayCode && (
+                <span
+                  className={CLUSTER_CODE_BADGE_CLASSNAME}
+                  style={getClusterCodeBadgeStyle(
+                    clusterBranch?.id,
+                    clusterBranch?.is_headquarters
+                  )}
+                >
+                  {clusterDisplayCode}
+                </span>
+              )}
               {((group.bible_sharer_ids?.length ?? 0) > 0) && (
                 <span
                   className={STATUS_CHIP_CLASSNAME}
@@ -110,17 +121,6 @@ const EvangelismGroupCard = memo(
                   style={getStatusChipStyle("inactive")}
                 >
                   Inactive
-                </span>
-              )}
-              {group.is_active && clusterDisplayCode && (
-                <span
-                  className={CLUSTER_CODE_BADGE_CLASSNAME}
-                  style={getClusterCodeBadgeStyle(
-                    clusterBranch?.id,
-                    clusterBranch?.is_headquarters
-                  )}
-                >
-                  {clusterDisplayCode}
                 </span>
               )}
             </div>

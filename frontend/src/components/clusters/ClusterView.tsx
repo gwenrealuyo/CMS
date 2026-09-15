@@ -768,11 +768,11 @@ export default function ClusterView({
 
           {/* Description */}
           {cluster.description && (
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">
+            <div className="bg-gray-50 rounded-lg px-3 py-2">
+              <h3 className="text-xs font-medium text-gray-500 mb-0.5">
                 Description
               </h3>
-              <p className="text-gray-600">{cluster.description}</p>
+              <p className="text-sm text-gray-600">{cluster.description}</p>
             </div>
           )}
 

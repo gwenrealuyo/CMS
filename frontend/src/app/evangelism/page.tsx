@@ -65,12 +65,17 @@ import EvangelismGroupFilterDropdown, {
 import EvangelismGroupSortDropdown from "@/src/components/evangelism/EvangelismGroupSortDropdown";
 import ClusterFilterCard from "@/src/components/clusters/ClusterFilterCard";
 import BulkActionsMenu from "@/src/components/people/BulkActionsMenu";
+import PersonDetailPanel from "@/src/components/people/PersonDetailPanel";
 import { FilterCondition } from "@/src/components/people/FilterBar";
 import ToolbarSearch from "@/src/components/ui/ToolbarSearch";
 import ViewModeToggle from "@/src/components/ui/ViewModeToggle";
 import {
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
+  TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS,
+  TOOLBAR_PANEL_COMPACT_BRANCH_CLASS,
+  TOOLBAR_PANEL_COMPACT_CLASS,
+  TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS,
   TOOLBAR_STACKED_ACTION_BUTTON_CLASS,
   TOOLBAR_STACKED_ACTIONS_ROW_CLASS,
 } from "@/src/lib/toolbarStyles";
@@ -78,8 +83,10 @@ import {
   effectiveListViewMode,
   useIsTabletUp,
 } from "@/src/lib/listViewMode";
+import { DESKTOP_MIN } from "@/src/lib/breakpoints";
 import {
   EVANGELISM_BRANCH_SELECT_CLASS,
+  EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS,
   EVANGELISM_BRANCH_SELECT_LOCKED_CLASS,
 } from "@/src/components/evangelism/EvangelismToolbarSearch";
 import {
@@ -194,6 +201,7 @@ export default function EvangelismPage() {
     null
   );
   const [viewMode, setViewMode] = useState<"view" | "edit">("view");
+  const [isDesktop, setIsDesktop] = useState(false);
   const [groupListViewMode, setGroupListViewMode] = useState<"cards" | "table">(
     "cards"
   );
@@ -394,6 +402,11 @@ export default function EvangelismPage() {
 
   const selectTab = useCallback(
     (tab: EvangelismPageTab) => {
+      if (tab !== "groups") {
+        setViewEditGroup(null);
+        setViewMode("view");
+        setFormError(null);
+      }
       setActiveTab(tab);
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", tab);
@@ -401,6 +414,29 @@ export default function EvangelismPage() {
     },
     [pathname, router, searchParams],
   );
+
+  const closeGroupDetail = useCallback(() => {
+    setViewEditGroup(null);
+    setViewMode("view");
+    setFormError(null);
+  }, []);
+
+  useEffect(() => {
+    const syncViewport = () => {
+      setIsDesktop(window.innerWidth >= DESKTOP_MIN);
+    };
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "groups") {
+      setViewEditGroup(null);
+      setViewMode("view");
+      setFormError(null);
+    }
+  }, [activeTab]);
 
   const handleReportsFormOpenChange = useCallback((open: boolean) => {
     setReportsFormOpen(open);
@@ -456,6 +492,39 @@ export default function EvangelismPage() {
 
     router.replace(pathname);
   }, [searchParams, pathname, router]);
+
+  const openGroupId = searchParams.get("openGroup");
+
+  useEffect(() => {
+    if (!openGroupId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const openFromGlobalSearch = async () => {
+      try {
+        const response = await evangelismApi.getGroup(openGroupId);
+        if (!cancelled && response.data) {
+          setActiveTab("groups");
+          setViewEditGroup(response.data);
+          setViewMode("view");
+        }
+      } catch {
+        // Group may be inaccessible; still clear the query param.
+      } finally {
+        if (!cancelled) {
+          router.replace(pathname);
+        }
+      }
+    };
+
+    openFromGlobalSearch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openGroupId, pathname, router]);
 
   useEffect(() => {
     if (!viewEditGroup) {
@@ -1116,7 +1185,7 @@ export default function EvangelismPage() {
     [filteredGroups, selectedGroups, buildGroupExportRows]
   );
 
-  const renderEvangelismGroupsBranchSelect = () => {
+  const renderEvangelismGroupsBranchSelect = (fullWidth = false) => {
     const evangelismBranchSelectInteractive = canChangeEvangelismBranch;
     const branchSelectEl = (
       <select
@@ -1130,11 +1199,13 @@ export default function EvangelismPage() {
           if (!evangelismBranchSelectInteractive) return;
           setFilter("branch", e.target.value || "all");
         }}
-        className={
+        className={`${
           evangelismBranchSelectInteractive
-            ? EVANGELISM_BRANCH_SELECT_CLASS
+            ? fullWidth
+              ? EVANGELISM_BRANCH_SELECT_FULL_WIDTH_CLASS
+              : EVANGELISM_BRANCH_SELECT_CLASS
             : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
-        }
+        }${fullWidth ? " h-full min-h-[44px]" : ""}`}
       >
         {canChangeEvangelismBranch ? (
           <>
@@ -1169,9 +1240,122 @@ export default function EvangelismPage() {
     return evangelismBranchSelectInteractive ? (
       branchSelectEl
     ) : (
-      <LockedControlTooltip label={EVANGELISM_BRANCH_LOCKED_HINT}>
+      <LockedControlTooltip
+        label={EVANGELISM_BRANCH_LOCKED_HINT}
+        wrapperClassName={
+          fullWidth ? "block h-full w-full min-w-0 cursor-default" : undefined
+        }
+      >
         {branchSelectEl}
       </LockedControlTooltip>
+    );
+  };
+
+  const groupPanelOpen = Boolean(
+    isDesktop && viewEditGroup && activeTab === "groups",
+  );
+  const useStackedToolbar = groupPanelOpen;
+
+  const renderGroupDetail = (isPanel: boolean) => {
+    if (!viewEditGroup) return null;
+    if (viewMode === "edit") {
+      return (
+        <EvangelismGroupForm
+          coordinators={coordinators}
+          people={people}
+          clusters={clusters}
+          onSubmit={handleUpdateGroup}
+          onCancel={() => {
+            setViewMode("view");
+            setFormError(null);
+          }}
+          isSubmitting={isSubmitting}
+          error={formError}
+          submitLabel="Update Group"
+          initialData={groupData || viewEditGroup}
+          panelLayout={isPanel}
+        />
+      );
+    }
+    return (
+      <EvangelismGroupView
+        group={viewEditGroup}
+        groupData={groupData}
+        clusters={clusters}
+        branches={branches}
+        groupLoading={groupLoading}
+        reports={reports}
+        reportsLoading={reportsLoading}
+        prospects={prospects}
+        prospectsLoading={prospectsLoading}
+        conversions={conversions}
+        conversionsLoading={conversionsLoading}
+        onAddMember={() => setIsAddMemberModalOpen(true)}
+        onBulkEnroll={() => setIsBulkEnrollModalOpen(true)}
+        onRemoveMember={(person) => {
+          const memberName =
+            person.full_name || person.username || "this member";
+          setRemoveMemberConfirmation({
+            isOpen: true,
+            personId: String(person.id),
+            memberName,
+            loading: false,
+          });
+        }}
+        onAddReport={() => setIsReportModalOpen(true)}
+        onViewReport={(r) => void openGroupReportView(r)}
+        onEditReport={(report) => {
+          setEditingReport(report);
+          setIsReportModalOpen(true);
+        }}
+        onAddProspect={() => setIsProspectModalOpen(true)}
+        onUpdateProgress={(prospect) => {
+          setSelectedProspect(prospect);
+          setIsUpdateProgressModalOpen(true);
+        }}
+        onAddConversion={() => {
+          setEditingConversion(null);
+          setIsConversionModalOpen(true);
+        }}
+        onEditConversion={(c) => {
+          setEditingConversion(c);
+          setIsConversionModalOpen(true);
+        }}
+        onEdit={() => setViewMode("edit")}
+        canManageGroup={
+          canWriteEvangelismAccess &&
+          (evangelismPrivileged ||
+            Number(viewEditGroup.coordinator?.id) === Number(user?.id) ||
+            assignedEvangelismGroupIds(user, ["COORDINATOR"]).includes(
+              Number(viewEditGroup.id),
+            ))
+        }
+        canSubmitReport={
+          canSubmitEvangelismReportAccess &&
+          (evangelismPrivileged ||
+            Number(viewEditGroup.coordinator?.id) === Number(user?.id) ||
+            assignedEvangelismGroupIds(user).includes(Number(viewEditGroup.id)))
+        }
+        onDelete={() =>
+          setDeleteConfirmation({
+            isOpen: true,
+            group: viewEditGroup,
+            loading: false,
+          })
+        }
+        onHardDelete={
+          userCanHardDelete
+            ? () =>
+                setHardDeleteConfirmation({
+                  isOpen: true,
+                  group: viewEditGroup,
+                  loading: false,
+                })
+            : undefined
+        }
+        onClose={closeGroupDetail}
+        showTopHeader={!isPanel}
+      />
     );
   };
 
@@ -1306,11 +1490,24 @@ export default function EvangelismPage() {
 
         {/* Groups Tab */}
         {activeTab === "groups" && (
-          <div className="space-y-6">
+          <div
+            className={
+              groupPanelOpen
+                ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_500px]"
+                : ""
+            }
+          >
+          <div className="min-w-0 space-y-6">
             {/* Filters */}
             <div className={TOOLBAR_CARD_CLASS}>
-              {/* Mobile — stacked 3-row toolbar */}
-              <div className="flex flex-col gap-3 tablet:hidden">
+              {/* Stacked toolbar (mobile), or search+branch row (desktop + panel) */}
+              <div
+                className={
+                  useStackedToolbar
+                    ? TOOLBAR_PANEL_COMPACT_CLASS
+                    : "flex flex-col gap-3 xl:hidden"
+                }
+              >
                 <ToolbarSearch
                   fullWidth
                   value={searchValue}
@@ -1319,15 +1516,43 @@ export default function EvangelismPage() {
                   ariaLabel="Search groups"
                 />
 
-                <div className="flex items-center justify-between gap-3">
-                  {renderEvangelismGroupsBranchSelect()}
-                  <ViewModeToggle
-                    viewMode={groupListViewMode}
-                    onViewModeChange={setGroupListViewMode}
-                  />
+                {useStackedToolbar && (
+                  <div className={TOOLBAR_PANEL_COMPACT_BRANCH_CLASS}>
+                    {renderEvangelismGroupsBranchSelect()}
+                  </div>
+                )}
+
+                <div
+                  className={
+                    useStackedToolbar
+                      ? TOOLBAR_PANEL_COMPACT_CONTROLS_CLASS
+                      : "grid grid-cols-2 items-stretch gap-3"
+                  }
+                >
+                  {!useStackedToolbar && (
+                    <div className="min-w-0">
+                      {renderEvangelismGroupsBranchSelect(true)}
+                    </div>
+                  )}
+                  <div className={useStackedToolbar ? undefined : "min-w-0"}>
+                    <ViewModeToggle
+                      fullWidth
+                      className={
+                        useStackedToolbar ? undefined : "h-full items-stretch"
+                      }
+                      viewMode={groupListViewMode}
+                      onViewModeChange={setGroupListViewMode}
+                    />
+                  </div>
                 </div>
 
-                <div className="relative">
+                <div
+                  className={
+                    useStackedToolbar
+                      ? TOOLBAR_PANEL_COMPACT_ACTIONS_CLASS
+                      : "relative"
+                  }
+                >
                   <div className={TOOLBAR_STACKED_ACTIONS_ROW_CLASS}>
                     <button
                       type="button"
@@ -1401,21 +1626,6 @@ export default function EvangelismPage() {
                     </button>
                   </div>
 
-                  {isGroupSelectionMode && selectedGroups.size > 0 && (
-                    <div className="mt-2">
-                      <BulkActionsMenu
-                        onBulkMarkInactive={handleBulkMarkInactive}
-                        onBulkDelete={
-                          userCanHardDelete ? handleBulkDeleteGroups : undefined
-                        }
-                        onBulkExport={(format) =>
-                          void handleBulkExportGroups(format)
-                        }
-                        selectedCount={selectedGroups.size}
-                      />
-                    </div>
-                  )}
-
                   {groupSortMenuAnchor === "mobile" && (
                     <EvangelismGroupSortDropdown
                       isOpen={showGroupSortDropdown}
@@ -1451,8 +1661,31 @@ export default function EvangelismPage() {
                   )}
                 </div>
 
+                {isGroupSelectionMode && selectedGroups.size > 0 && (
+                  <div
+                    className={useStackedToolbar ? "col-span-full" : undefined}
+                  >
+                    <BulkActionsMenu
+                      onBulkMarkInactive={handleBulkMarkInactive}
+                      onBulkDelete={
+                        userCanHardDelete ? handleBulkDeleteGroups : undefined
+                      }
+                      onBulkExport={(format) =>
+                        void handleBulkExportGroups(format)
+                      }
+                      selectedCount={selectedGroups.size}
+                    />
+                  </div>
+                )}
+
                 {groupActiveFilters.length > 0 && (
-                  <div className="flex w-full flex-wrap items-center gap-2">
+                  <div
+                    className={
+                      useStackedToolbar
+                        ? "col-span-full flex w-full flex-wrap items-center gap-2"
+                        : "flex w-full flex-wrap items-center gap-2"
+                    }
+                  >
                     {groupActiveFilters.map((filter) => (
                       <span
                         key={filter.id}
@@ -1499,7 +1732,13 @@ export default function EvangelismPage() {
               </div>
 
               {/* Desktop — single-row toolbar */}
-              <div className="hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2">
+              <div
+                className={
+                  useStackedToolbar
+                    ? "hidden"
+                    : "hidden xl:flex xl:flex-wrap xl:items-center xl:justify-between xl:gap-2"
+                }
+              >
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <ToolbarSearch
                     value={searchValue}
@@ -1514,7 +1753,7 @@ export default function EvangelismPage() {
                     onViewModeChange={setGroupListViewMode}
                   />
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={handleToggleGroupSelectionMode}
@@ -1762,7 +2001,13 @@ export default function EvangelismPage() {
                         }
                       />
                     ) : (
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div
+                        className={
+                          groupPanelOpen
+                            ? "grid grid-cols-1 gap-4"
+                            : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        }
+                      >
                         {filteredGroups.map((group) => (
                           <EvangelismGroupCard
                             key={group.id}
@@ -1791,6 +2036,20 @@ export default function EvangelismPage() {
                 )}
               </Card>
             )}
+          </div>
+          {groupPanelOpen && (
+            <PersonDetailPanel
+              isOpen
+              title={
+                viewMode === "edit"
+                  ? "Edit Group"
+                  : viewEditGroup?.name || "Group Details"
+              }
+              onClose={closeGroupDetail}
+            >
+              {renderGroupDetail(true)}
+            </PersonDetailPanel>
+          )}
           </div>
         )}
 
@@ -1897,118 +2156,16 @@ export default function EvangelismPage() {
           </Modal>
         )}
 
-        {/* View/Edit Group Modal */}
-        {viewEditGroup && (
+        {/* View/Edit Group Modal (below desktop) */}
+        {!isDesktop && viewEditGroup && (
           <Modal
             isOpen={!!viewEditGroup}
-            onClose={() => {
-              setViewEditGroup(null);
-              setViewMode("view");
-              setFormError(null);
-            }}
+            onClose={closeGroupDetail}
             hideHeader={viewMode === "view"}
             title={viewMode === "edit" ? "Edit Group" : ""}
             closeOnOutsideClick={viewMode === "view"}
           >
-            {viewMode === "edit" ? (
-              <EvangelismGroupForm
-                coordinators={coordinators}
-                people={people}
-                clusters={clusters}
-                onSubmit={handleUpdateGroup}
-                onCancel={() => {
-                  setViewMode("view");
-                  setFormError(null);
-                }}
-                isSubmitting={isSubmitting}
-                error={formError}
-                submitLabel="Update Group"
-                initialData={groupData || viewEditGroup}
-              />
-            ) : (
-              <EvangelismGroupView
-                group={viewEditGroup}
-                groupData={groupData}
-                clusters={clusters}
-                branches={branches}
-                groupLoading={groupLoading}
-                reports={reports}
-                reportsLoading={reportsLoading}
-                prospects={prospects}
-                prospectsLoading={prospectsLoading}
-                conversions={conversions}
-                conversionsLoading={conversionsLoading}
-                onAddMember={() => setIsAddMemberModalOpen(true)}
-                onBulkEnroll={() => setIsBulkEnrollModalOpen(true)}
-                onRemoveMember={(person) => {
-                  const memberName =
-                    person.full_name || person.username || "this member";
-                  setRemoveMemberConfirmation({
-                    isOpen: true,
-                    personId: String(person.id),
-                    memberName,
-                    loading: false,
-                  });
-                }}
-                onAddReport={() => setIsReportModalOpen(true)}
-                onViewReport={(r) => void openGroupReportView(r)}
-                onEditReport={(report) => {
-                  setEditingReport(report);
-                  setIsReportModalOpen(true);
-                }}
-                onAddProspect={() => setIsProspectModalOpen(true)}
-                onUpdateProgress={(prospect) => {
-                  setSelectedProspect(prospect);
-                  setIsUpdateProgressModalOpen(true);
-                }}
-                onAddConversion={() => {
-                  setEditingConversion(null);
-                  setIsConversionModalOpen(true);
-                }}
-                onEditConversion={(c) => {
-                  setEditingConversion(c);
-                  setIsConversionModalOpen(true);
-                }}
-                onEdit={() => setViewMode("edit")}
-                canManageGroup={
-                  canWriteEvangelismAccess &&
-                  (evangelismPrivileged ||
-                    Number(viewEditGroup.coordinator?.id) === Number(user?.id) ||
-                    assignedEvangelismGroupIds(user, [
-                      "COORDINATOR",
-                    ]).includes(Number(viewEditGroup.id)))
-                }
-                canSubmitReport={
-                  canSubmitEvangelismReportAccess &&
-                  (evangelismPrivileged ||
-                    Number(viewEditGroup.coordinator?.id) === Number(user?.id) ||
-                    assignedEvangelismGroupIds(user).includes(
-                      Number(viewEditGroup.id),
-                    ))
-                }
-                onDelete={() =>
-                  setDeleteConfirmation({
-                    isOpen: true,
-                    group: viewEditGroup,
-                    loading: false,
-                  })
-                }
-                onHardDelete={
-                  userCanHardDelete
-                    ? () =>
-                        setHardDeleteConfirmation({
-                          isOpen: true,
-                          group: viewEditGroup,
-                          loading: false,
-                        })
-                    : undefined
-                }
-                onClose={() => {
-                  setViewEditGroup(null);
-                  setViewMode("view");
-                }}
-              />
-            )}
+            {renderGroupDetail(false)}
           </Modal>
         )}
 

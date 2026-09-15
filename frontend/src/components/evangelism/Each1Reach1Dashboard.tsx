@@ -35,6 +35,7 @@ import {
   TOOLBAR_ACTIONS_ROW_CLASS,
   TOOLBAR_ACTION_BUTTON_CLASS,
   TOOLBAR_BRANCH_SELECT_CLASS,
+  TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS,
   TOOLBAR_CARD_CLASS,
   TOOLBAR_DESKTOP_ACTION_BUTTON_CLASS,
 } from "@/src/lib/toolbarStyles";
@@ -405,9 +406,11 @@ export default function Each1Reach1Dashboard({
         disabled={canChangeBranchFilter && branchesLoading}
         className={`${
           each1BranchInteractive
-            ? TOOLBAR_BRANCH_SELECT_CLASS
+            ? touchTarget
+              ? TOOLBAR_BRANCH_SELECT_FULL_WIDTH_CLASS
+              : TOOLBAR_BRANCH_SELECT_CLASS
             : EVANGELISM_BRANCH_SELECT_LOCKED_CLASS
-        } ${touchTarget ? "min-h-[44px]" : ""} ${
+        } ${touchTarget ? "h-full min-h-[44px]" : ""} ${
           canChangeBranchFilter && branchesLoading
             ? "cursor-wait bg-gray-50 text-gray-500"
             : ""
@@ -446,7 +449,7 @@ export default function Each1Reach1Dashboard({
       <LockedControlTooltip
         label={EVANGELISM_BRANCH_LOCKED_HINT}
         wrapperClassName={`block min-w-0 w-full cursor-default ${
-          touchTarget ? "" : "md:w-52 md:shrink-0"
+          touchTarget ? "h-full" : "md:w-52 md:shrink-0"
         }`}
       >
         {branchSelectEl}
@@ -460,7 +463,7 @@ export default function Each1Reach1Dashboard({
     <div className="space-y-6">
       <div className={TOOLBAR_CARD_CLASS}>
         {/* Mobile — stacked 3-row toolbar */}
-        <div className="flex flex-col gap-3 md:hidden">
+        <div className="flex flex-col gap-3 xl:hidden">
           <EvangelismToolbarSearch
             value={searchInput}
             onChange={setSearchInput}
@@ -469,9 +472,18 @@ export default function Each1Reach1Dashboard({
             fullWidth
           />
 
-          <div className="flex items-center justify-between gap-3">
-            {renderEach1BranchSelect(true)}
-            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          <div className="grid grid-cols-2 items-stretch gap-3">
+            <div className="min-w-0">
+              {renderEach1BranchSelect(true)}
+            </div>
+            <div className="min-w-0">
+              <ViewModeToggle
+                fullWidth
+                className="h-full items-stretch"
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
+            </div>
           </div>
 
           <div className={TOOLBAR_ACTIONS_ROW_CLASS}>
@@ -516,7 +528,7 @@ export default function Each1Reach1Dashboard({
         </div>
 
         {/* Desktop — single-row toolbar */}
-        <div className="hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-2">
+        <div className="hidden xl:flex xl:flex-wrap xl:items-center xl:justify-between xl:gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <EvangelismToolbarSearch
               value={searchInput}
@@ -531,7 +543,7 @@ export default function Each1Reach1Dashboard({
               onViewModeChange={setViewMode}
             />
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <input
               type="number"
               value={filterYear}

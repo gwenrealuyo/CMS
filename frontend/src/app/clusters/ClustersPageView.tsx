@@ -981,7 +981,7 @@ export default function ClustersPageView({
                   className={
                     useStackedToolbar
                       ? TOOLBAR_PANEL_COMPACT_CLASS
-                      : "flex flex-col gap-3 tablet:hidden"
+                      : "flex flex-col gap-3 xl:hidden"
                   }
                 >
                   <ToolbarSearch
@@ -1237,7 +1237,7 @@ export default function ClustersPageView({
                   className={
                     useStackedToolbar
                       ? "hidden"
-                      : "hidden tablet:flex tablet:flex-wrap tablet:items-center tablet:justify-between tablet:gap-2"
+                      : "hidden xl:flex xl:flex-wrap xl:items-center xl:justify-between xl:gap-2"
                   }
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1251,7 +1251,7 @@ export default function ClustersPageView({
                       {renderClusterBranchSelect()}
                     </div>
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
                       <input
                         type="checkbox"

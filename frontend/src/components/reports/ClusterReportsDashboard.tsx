@@ -62,6 +62,9 @@ import { formatLocaleDate } from "@/src/lib/date";
 const MEMBER_RATE_TOOLTIP =
   "Percent of the cluster roster who attended this meeting. Counts only Active, Semi-active, and Inactive members. Other statuses (Dormant, Fall Away, Deceased, etc.) are excluded.";
 
+const STAT_CARDS_GRID =
+  "grid grid-cols-1 tablet:grid-cols-2 xl:grid-cols-4 gap-4";
+
 function MemberRateHelpButton({
   label,
   iconClassName = "h-4 w-4",
@@ -1159,7 +1162,7 @@ export default function ClusterReportsDashboard({
 
         {analyticsLoading && !analytics ? (
           <div
-            className="grid grid-cols-1 md:grid-cols-4 gap-4"
+            className={STAT_CARDS_GRID}
             aria-busy="true"
             aria-label="Loading statistics"
           >
@@ -1204,7 +1207,7 @@ export default function ClusterReportsDashboard({
 
             return (
               <div
-                className={`grid grid-cols-1 md:grid-cols-4 gap-4 transition-shadow duration-300 rounded-lg p-0.5 -m-0.5 ${
+                className={`${STAT_CARDS_GRID} transition-shadow duration-300 rounded-lg p-0.5 -m-0.5 ${
                   analyticsHighlightFlash
                     ? "ring-2 ring-primary/30 ring-offset-2 ring-offset-gray-50"
                     : ""
@@ -1219,9 +1222,9 @@ export default function ClusterReportsDashboard({
                   role="region"
                   aria-label="Report Frequency"
                 >
-                  <div className="flex items-center">
+                  <div className="flex items-center min-w-0">
                     <div
-                      className="p-1.5 chip-primary-surface rounded-lg"
+                      className="p-1.5 chip-primary-surface rounded-lg shrink-0"
                       aria-hidden="true"
                     >
                       <svg
@@ -1238,7 +1241,7 @@ export default function ClusterReportsDashboard({
                         />
                       </svg>
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 min-w-0">
                       <p
                         className="text-sm font-medium text-gray-600"
                         aria-label="Metric label"
@@ -1269,9 +1272,9 @@ export default function ClusterReportsDashboard({
                   role="region"
                   aria-label="Member Attendance Rate"
                 >
-                  <div className="flex items-center">
+                  <div className="flex items-center min-w-0">
                     <div
-                      className="p-1.5 chip-green-surface rounded-lg"
+                      className="p-1.5 chip-green-surface rounded-lg shrink-0"
                       aria-hidden="true"
                     >
                       <svg
@@ -1288,7 +1291,7 @@ export default function ClusterReportsDashboard({
                         />
                       </svg>
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 min-w-0">
                       <p
                         className="text-sm font-medium text-gray-600"
                         aria-label="Metric label"
@@ -1317,9 +1320,9 @@ export default function ClusterReportsDashboard({
                   role="region"
                   aria-label="Visitor Count per Month"
                 >
-                  <div className="flex items-center">
+                  <div className="flex items-center min-w-0">
                     <div
-                      className="p-1.5 chip-yellow-surface rounded-lg"
+                      className="p-1.5 chip-yellow-surface rounded-lg shrink-0"
                       aria-hidden="true"
                     >
                       <svg
@@ -1341,7 +1344,7 @@ export default function ClusterReportsDashboard({
                         />
                       </svg>
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 min-w-0">
                       <p
                         className="text-sm font-medium text-gray-600"
                         aria-label="Metric label"
@@ -1372,9 +1375,9 @@ export default function ClusterReportsDashboard({
                   role="region"
                   aria-label="Average Member Attendance"
                 >
-                  <div className="flex items-center">
+                  <div className="flex items-center min-w-0">
                     <div
-                      className="p-1.5 chip-purple-surface rounded-lg"
+                      className="p-1.5 chip-purple-surface rounded-lg shrink-0"
                       aria-hidden="true"
                     >
                       <svg
@@ -1391,7 +1394,7 @@ export default function ClusterReportsDashboard({
                         />
                       </svg>
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 min-w-0">
                       <p
                         className="text-sm font-medium text-gray-600"
                         aria-label="Metric label"

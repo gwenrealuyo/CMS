@@ -29,6 +29,7 @@ interface EvangelismGroupFormProps {
   error?: string | null;
   submitLabel?: string;
   initialData?: EvangelismGroup;
+  panelLayout?: boolean;
 }
 
 const MEETING_FREQUENCY_OPTIONS: {
@@ -72,6 +73,7 @@ export default function EvangelismGroupForm({
   error,
   submitLabel = "Create Group",
   initialData,
+  panelLayout = false,
 }: EvangelismGroupFormProps) {
   const isCreate = !initialData;
   const [values, setValues] = useState<EvangelismGroupFormValues>(
@@ -321,7 +323,10 @@ export default function EvangelismGroupForm({
   };
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form
+      className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
+      onSubmit={handleSubmit}
+    >
       {error && <ErrorMessage message={error} />}
 
       <div className="space-y-1">
@@ -351,7 +356,11 @@ export default function EvangelismGroupForm({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div
+        className={
+          panelLayout ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"
+        }
+      >
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
             Coordinator
@@ -395,7 +404,13 @@ export default function EvangelismGroupForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div
+        className={
+          panelLayout
+            ? "space-y-4"
+            : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+        }
+      >
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
             Location
@@ -651,7 +666,7 @@ export default function EvangelismGroupForm({
           onClick={onCancel}
           disabled={isSubmitting}
         >
-          Cancel
+          {panelLayout ? "Back" : "Cancel"}
         </Button>
         <Button
           className="w-full sm:flex-1 min-h-[44px]"

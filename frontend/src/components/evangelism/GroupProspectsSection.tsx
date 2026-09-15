@@ -55,14 +55,12 @@ export default function GroupProspectsSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Prospects/Invited Visitors
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900">Visitors</h3>
         <Button
           onClick={onAddProspect}
           className="!text-white !bg-orange-600 hover:!text-white hover:!bg-orange-700 w-full sm:w-auto min-h-[44px]"
         >
-          + Add Prospect
+          + Add New Visitor
         </Button>
       </div>
 

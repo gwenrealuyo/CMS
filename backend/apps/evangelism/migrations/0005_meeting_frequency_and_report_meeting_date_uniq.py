@@ -18,6 +18,13 @@ def dedupe_reports_same_meeting_date(apps, schema_editor):
         EvangelismWeeklyReport.objects.filter(pk__in=to_delete).delete()
 
 
+def force_cluster_bs_weekly(apps, schema_editor):
+    EvangelismGroup = apps.get_model("evangelism", "EvangelismGroup")
+    EvangelismGroup.objects.filter(cluster_id__isnull=False).exclude(
+        meeting_frequency="WEEKLY"
+    ).update(meeting_frequency="WEEKLY")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -39,6 +46,10 @@ class Migration(migrations.Migration):
                 help_text="How often this group meets. Drives report due reminders.",
                 max_length=20,
             ),
+        ),
+        migrations.RunPython(
+            force_cluster_bs_weekly,
+            migrations.RunPython.noop,
         ),
         migrations.RunPython(
             dedupe_reports_same_meeting_date,

@@ -77,11 +77,41 @@ class EvangelismReportCadenceTests(APITestCase):
     def test_group_create_accepts_meeting_frequency(self):
         response = self.client.post(
             "/api/evangelism/groups/",
-            self._group_payload(meeting_frequency="MONTHLY"),
+            self._group_payload(cluster_id=None, meeting_frequency="MONTHLY"),
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["meeting_frequency"], "MONTHLY")
+
+    def test_cluster_linked_create_forces_weekly_frequency(self):
+        response = self.client.post(
+            "/api/evangelism/groups/",
+            self._group_payload(meeting_frequency="MONTHLY"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["meeting_frequency"], "WEEKLY")
+        group = EvangelismGroup.objects.get(pk=response.data["id"])
+        self.assertEqual(group.meeting_frequency, EvangelismGroup.MeetingFrequency.WEEKLY)
+
+    def test_linking_cluster_on_update_forces_weekly_frequency(self):
+        create = self.client.post(
+            "/api/evangelism/groups/",
+            self._group_payload(cluster_id=None, meeting_frequency="BIWEEKLY"),
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        self.assertEqual(create.data["meeting_frequency"], "BIWEEKLY")
+        group_id = create.data["id"]
+        update = self.client.patch(
+            f"/api/evangelism/groups/{group_id}/",
+            {"cluster_id": self.cluster.id, "meeting_frequency": "MONTHLY"},
+            format="json",
+        )
+        self.assertEqual(update.status_code, 200, update.data)
+        self.assertEqual(update.data["meeting_frequency"], "WEEKLY")
+        group = EvangelismGroup.objects.get(pk=group_id)
+        self.assertEqual(group.meeting_frequency, EvangelismGroup.MeetingFrequency.WEEKLY)
 
     def test_two_reports_same_week_different_dates_are_allowed(self):
         group = EvangelismGroup.objects.create(

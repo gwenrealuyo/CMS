@@ -49,3 +49,8 @@ export function formatEvangelismGroupSchedule(group: EvangelismGroup): string {
   const parts = [group.meeting_day, group.meeting_time].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : "No schedule";
 }
+
+export function isClusterBibleStudy(group: EvangelismGroup): boolean {
+  const id = group.cluster?.id ?? group.cluster_id;
+  return id != null && String(id).trim() !== "";
+}

@@ -38,7 +38,6 @@ class EvangelismReportDueCadenceTests(TestCase):
     def _group(self, name, frequency, **kwargs):
         defaults = {
             "name": name,
-            "cluster": self.cluster,
             "coordinator": self.coordinator,
             "is_active": True,
             "meeting_frequency": frequency,
@@ -59,7 +58,11 @@ class EvangelismReportDueCadenceTests(TestCase):
 
     @patch("apps.notifications.services.church_today", return_value=CHURCH_TODAY)
     def test_weekly_due_when_missing_current_iso_week(self, _today):
-        group = self._group("Weekly Group", EvangelismGroup.MeetingFrequency.WEEKLY)
+        group = self._group(
+            "Weekly Group",
+            EvangelismGroup.MeetingFrequency.WEEKLY,
+            cluster=self.cluster,
+        )
         items = _build_evangelism_report_due(self.coordinator)
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].type, "evangelism_report_due")
@@ -110,6 +113,19 @@ class EvangelismReportDueCadenceTests(TestCase):
             "Irregular Group", EvangelismGroup.MeetingFrequency.IRREGULAR
         )
         self.assertEqual(_build_evangelism_report_due(self.coordinator), [])
+
+    @patch("apps.notifications.services.church_today", return_value=CHURCH_TODAY)
+    def test_cluster_linked_monthly_is_treated_as_weekly(self, _today):
+        group = self._group(
+            "Cluster Monthly",
+            EvangelismGroup.MeetingFrequency.MONTHLY,
+            cluster=self.cluster,
+        )
+        self.assertEqual(group.meeting_frequency, EvangelismGroup.MeetingFrequency.WEEKLY)
+        items = _build_evangelism_report_due(self.coordinator)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].key, f"evangelism_report_due:{group.id}:2026:38")
+        self.assertIn("this week", items[0].body)
 
     @patch("apps.notifications.services.church_today", return_value=CHURCH_TODAY)
     def test_inactive_group_skipped(self, _today):

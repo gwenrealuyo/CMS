@@ -63,6 +63,25 @@ function toTimeInputValue(apiTime: string | null | undefined): string {
   return apiTime.length >= 5 ? apiTime.slice(0, 5) : "";
 }
 
+function clusterBibleStudyName(cluster: Cluster | undefined): string {
+  const code = cluster?.code?.trim();
+  return code ? `${code} BS` : "";
+}
+
+function clusterCoordinatorId(cluster: Cluster | undefined): string {
+  const id = cluster?.coordinator?.id ?? cluster?.coordinator_id;
+  return id != null && String(id).trim() !== "" ? String(id) : "";
+}
+
+function personBelongsToCluster(
+  person: Person,
+  clusterId: string,
+): boolean {
+  return (person.cluster_ids ?? []).some(
+    (id) => String(id) === String(clusterId),
+  );
+}
+
 export default function EvangelismGroupForm({
   coordinators = [],
   people = [],
@@ -90,7 +109,10 @@ export default function EvangelismGroupForm({
           location: initialData.location || "",
           meeting_time: toTimeInputValue(initialData.meeting_time),
           meeting_day: initialData.meeting_day || "",
-          meeting_frequency: initialData.meeting_frequency || "WEEKLY",
+          meeting_frequency:
+            initialData.cluster?.id
+              ? "WEEKLY"
+              : initialData.meeting_frequency || "WEEKLY",
           is_active: initialData.is_active,
           reporter_ids: (initialData.reporter_ids || []).map(String),
           bible_sharer_ids: (initialData.bible_sharer_ids || []).map(String),
@@ -179,17 +201,6 @@ export default function EvangelismGroupForm({
     { value: "SUNDAY", label: "Sunday" },
   ];
 
-  const coordinatorOptions = useMemo(() => {
-    const base = people.length > 0 ? people : coordinators;
-    return base
-      .filter(isSelectablePerson)
-      .map((person) => ({
-        label: formatPersonName(person),
-        value: String(person.id),
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [people, coordinators]);
-
   const clusterOptions = useMemo(
     () => [
       { label: "No cluster", value: "" },
@@ -214,6 +225,42 @@ export default function EvangelismGroupForm({
       clusters.find((cluster) => String(cluster.id) === values.cluster_id),
     [clusters, values.cluster_id],
   );
+
+  const coordinatorOptions = useMemo(() => {
+    const base = people.length > 0 ? people : coordinators;
+    let filtered = base.filter(isSelectablePerson);
+    if (values.cluster_id) {
+      const clusterId = String(values.cluster_id);
+      filtered = filtered.filter((person) =>
+        personBelongsToCluster(person, clusterId),
+      );
+      const ensureIds = [
+        clusterCoordinatorId(selectedCluster),
+        values.coordinator_id,
+      ].filter(Boolean);
+      for (const id of ensureIds) {
+        if (filtered.some((person) => String(person.id) === String(id))) {
+          continue;
+        }
+        const extra = base.find((person) => String(person.id) === String(id));
+        if (extra && isSelectablePerson(extra)) {
+          filtered = [extra, ...filtered];
+        }
+      }
+    }
+    return filtered
+      .map((person) => ({
+        label: formatPersonName(person),
+        value: String(person.id),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [
+    people,
+    coordinators,
+    values.cluster_id,
+    values.coordinator_id,
+    selectedCluster,
+  ]);
   const isHqGroup = useMemo(() => {
     const branchId = selectedCluster?.branch;
     if (branchId == null) return false;
@@ -382,6 +429,11 @@ export default function EvangelismGroupForm({
             className="w-full"
             showSearch
           />
+          {values.cluster_id ? (
+            <p className="text-xs text-gray-500">
+              Limited to members of this cluster.
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-1">
@@ -392,10 +444,62 @@ export default function EvangelismGroupForm({
             options={clusterOptions}
             value={values.cluster_id || ""}
             onChange={(value) =>
-              setValues((prev) => ({
-                ...prev,
-                cluster_id: value,
-              }))
+              setValues((prev) => {
+                const nextCluster = clusters.find(
+                  (cluster) => String(cluster.id) === String(value),
+                );
+                const prevCluster = clusters.find(
+                  (cluster) => String(cluster.id) === String(prev.cluster_id),
+                );
+                const suggested = clusterBibleStudyName(nextCluster);
+                const previousSuggested = clusterBibleStudyName(prevCluster);
+                const currentName = prev.name.trim();
+                const shouldPrefillName =
+                  Boolean(suggested) &&
+                  (!currentName || currentName === previousSuggested);
+
+                const suggestedCoordinator = clusterCoordinatorId(nextCluster);
+                const previousSuggestedCoordinator =
+                  clusterCoordinatorId(prevCluster);
+                const roster = people.length > 0 ? people : coordinators;
+                const stillInCluster =
+                  Boolean(value) &&
+                  Boolean(prev.coordinator_id) &&
+                  roster.some(
+                    (person) =>
+                      String(person.id) === String(prev.coordinator_id) &&
+                      personBelongsToCluster(person, String(value)),
+                  );
+                const shouldPrefillCoordinator =
+                  Boolean(value) &&
+                  Boolean(suggestedCoordinator) &&
+                  (!prev.coordinator_id ||
+                    prev.coordinator_id === previousSuggestedCoordinator ||
+                    !stillInCluster);
+                const nextCoordinatorId = shouldPrefillCoordinator
+                  ? suggestedCoordinator
+                  : prev.coordinator_id;
+
+                return {
+                  ...prev,
+                  cluster_id: value,
+                  meeting_frequency: value
+                    ? "WEEKLY"
+                    : prev.meeting_frequency,
+                  name: shouldPrefillName ? suggested : prev.name,
+                  coordinator_id: nextCoordinatorId,
+                  reporter_ids: nextCoordinatorId
+                    ? (prev.reporter_ids || []).filter(
+                        (id) => id !== nextCoordinatorId,
+                      )
+                    : prev.reporter_ids,
+                  bible_sharer_ids: nextCoordinatorId
+                    ? (prev.bible_sharer_ids || []).filter(
+                        (id) => id !== nextCoordinatorId,
+                      )
+                    : prev.bible_sharer_ids,
+                };
+              })
             }
             placeholder="Select cluster"
             className="w-full"
@@ -460,7 +564,8 @@ export default function EvangelismGroupForm({
           <select
             value={values.meeting_frequency}
             onChange={handleChange("meeting_frequency")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            disabled={Boolean(values.cluster_id)}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
           >
             {MEETING_FREQUENCY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -468,6 +573,11 @@ export default function EvangelismGroupForm({
               </option>
             ))}
           </select>
+          {values.cluster_id ? (
+            <p className="text-xs text-gray-500">
+              Cluster Bible Studies report weekly.
+            </p>
+          ) : null}
         </div>
       </div>
       <p className="text-xs text-gray-500">

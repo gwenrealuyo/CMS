@@ -71,6 +71,11 @@ class EvangelismGroup(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        if self.cluster_id:
+            self.meeting_frequency = self.MeetingFrequency.WEEKLY
+        super().save(*args, **kwargs)
+
 
 class EvangelismSession(models.Model):
     evangelism_group = models.ForeignKey(

@@ -17,6 +17,7 @@ import {
   formatEvangelismGroupSchedule,
   getEvangelismGroupCoordinatorName,
   getEvangelismGroupMemberCount,
+  isClusterBibleStudy,
   resolveEvangelismGroupClusterMeta,
 } from "@/src/lib/evangelismGroupDisplay";
 import {
@@ -206,6 +207,14 @@ export default function EvangelismGroupView({
                       )}
                     >
                       {clusterDisplayCode}
+                    </span>
+                  )}
+                  {isClusterBibleStudy(displayGroup) && (
+                    <span
+                      className={STATUS_CHIP_CLASSNAME}
+                      style={getStatusChipStyle("clusterBs")}
+                    >
+                      Cluster BS
                     </span>
                   )}
                   {(displayGroup.bible_sharer_ids?.length ?? 0) > 0 && (

@@ -1,4 +1,4 @@
-export type StatusChipVariant = "active" | "inactive" | "primary";
+export type StatusChipVariant = "active" | "inactive" | "primary" | "clusterBs";
 
 export type StatusChipStyle = {
   borderColor: string;
@@ -9,6 +9,7 @@ const STATUS_CHIP_STYLES: Record<StatusChipVariant, StatusChipStyle> = {
   active: { borderColor: "#16a34a", color: "#15803d" },
   inactive: { borderColor: "#9ca3af", color: "#4b5563" },
   primary: { borderColor: "#2563eb", color: "#1d4ed8" },
+  clusterBs: { borderColor: "#d97706", color: "#b45309" },
 };
 
 export const STATUS_CHIP_CLASSNAME =

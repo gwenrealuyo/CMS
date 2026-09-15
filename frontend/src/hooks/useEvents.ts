@@ -317,6 +317,28 @@ export const useEvents = () => {
     [findAndReplaceEvent]
   );
 
+  const updateAttendance = useCallback(
+    async (
+      id: string,
+      attendanceId: number | string,
+      payload: {
+        attendance_mode?: AttendanceMode;
+        attendance_venue?: string | null;
+        status?: AttendanceStatus;
+        notes?: string;
+      }
+    ) => {
+      const response = await eventsApi.updateAttendance(
+        id,
+        attendanceId,
+        payload
+      );
+      findAndReplaceEvent(response.data.event);
+      return response.data;
+    },
+    [findAndReplaceEvent]
+  );
+
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
@@ -339,6 +361,7 @@ export const useEvents = () => {
     listAttendance,
     addAttendance,
     removeAttendance,
+    updateAttendance,
     refreshEvents: fetchEvents,
     refreshEventTypes,
     createEventType,

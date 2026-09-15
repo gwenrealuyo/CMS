@@ -289,11 +289,13 @@ class EventViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedAndNotVisitor(), CanApproveEventBooking()]
         elif self.action in [
             "add_attendance",
+            "remove_attendance",
             "exclude_occurrence",
             "end_recurrence",
             "split_edit",
         ]:
             # Write operations: ADMIN, PASTOR, Events Coordinator, or Senior Coordinator (with restrictions)
+            # remove_attendance also handles PATCH (mode/venue correction).
             return [IsAuthenticatedAndNotVisitor(), HasModuleAccess("EVENTS", "write")]
         return [IsAuthenticatedAndNotVisitor(), IsMemberOrAbove()]
 
@@ -497,18 +499,42 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=["delete"],
+        methods=["delete", "patch"],
         url_path="attendance/(?P<attendance_id>[^/.]+)",
     )
     def remove_attendance(self, request, pk=None, attendance_id=None):
         event = self.get_object()
         try:
-            record = event.attendance_records.get(pk=attendance_id)
+            record = event.attendance_records.select_related(
+                "person", "journey", "attendance_venue"
+            ).get(pk=attendance_id)
         except AttendanceRecord.DoesNotExist:
             return Response(
                 {"detail": "Attendance record not found for this event."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        if request.method.lower() == "patch":
+            serializer = AttendanceRecordSerializer(
+                record,
+                data=request.data,
+                partial=True,
+                context={"request": request},
+            )
+            serializer.is_valid(raise_exception=True)
+            updated = serializer.save()
+            event.refresh_from_db()
+            event_serializer = self.get_serializer(event)
+            return Response(
+                {
+                    "attendance_record": AttendanceRecordSerializer(
+                        updated, context={"request": request}
+                    ).data,
+                    "event": event_serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
         record.delete()
         event.refresh_from_db()
         event_serializer = self.get_serializer(event)

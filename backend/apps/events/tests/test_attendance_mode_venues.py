@@ -197,11 +197,88 @@ class AttendanceModeVenueAPITests(APITestCase):
         self.assertEqual(record.attendance_mode, "ONSITE")
         self.assertIsNone(record.attendance_venue_id)
         self.assertEqual(
-            AttendanceRecord.objects.filter(
-                event=self.event, person=self.member, occurrence_date=TODAY
-            ).count(),
-            1,
+            second.data.get("detail"),
+            "Person is already checked in. Mode and venue cannot be changed.",
         )
+
+    def test_patch_can_change_mode_and_venue(self):
+        self.client.force_authenticate(self.admin)
+        created = self.client.post(
+            f"/api/events/{self.event.id}/attendance/",
+            {
+                "person_id": self.member.id,
+                "occurrence_date": TODAY.isoformat(),
+                "status": "PRESENT",
+                "attendance_mode": "ONSITE",
+            },
+            format="json",
+        )
+        self.assertIn(created.status_code, (200, 201), created.data)
+        attendance_id = created.data["attendance_record"]["id"]
+
+        to_online = self.client.patch(
+            f"/api/events/{self.event.id}/attendance/{attendance_id}/",
+            {
+                "attendance_mode": "ONLINE",
+                "attendance_venue": "HOME_ALTAR",
+            },
+            format="json",
+        )
+        self.assertEqual(to_online.status_code, 200, to_online.data)
+        record = AttendanceRecord.objects.get(pk=attendance_id)
+        self.assertEqual(record.attendance_mode, "ONLINE")
+        self.assertEqual(record.attendance_venue_id, "HOME_ALTAR")
+        self.assertEqual(
+            to_online.data["attendance_record"]["attendance_mode"], "ONLINE"
+        )
+        self.assertEqual(
+            to_online.data["attendance_record"]["attendance_venue"], "HOME_ALTAR"
+        )
+
+        missing_venue = self.client.patch(
+            f"/api/events/{self.event.id}/attendance/{attendance_id}/",
+            {
+                "attendance_mode": "ONLINE",
+                "attendance_venue": None,
+            },
+            format="json",
+        )
+        self.assertEqual(missing_venue.status_code, 400, missing_venue.data)
+
+        to_onsite = self.client.patch(
+            f"/api/events/{self.event.id}/attendance/{attendance_id}/",
+            {"attendance_mode": "ONSITE"},
+            format="json",
+        )
+        self.assertEqual(to_onsite.status_code, 200, to_onsite.data)
+        record.refresh_from_db()
+        self.assertEqual(record.attendance_mode, "ONSITE")
+        self.assertIsNone(record.attendance_venue_id)
+        self.assertIsNone(to_onsite.data["attendance_record"]["attendance_venue"])
+
+    def test_patch_online_without_venue_rejected_from_onsite(self):
+        self.client.force_authenticate(self.admin)
+        created = self.client.post(
+            f"/api/events/{self.event.id}/attendance/",
+            {
+                "person_id": self.member.id,
+                "occurrence_date": TODAY.isoformat(),
+                "status": "PRESENT",
+                "attendance_mode": "ONSITE",
+            },
+            format="json",
+        )
+        self.assertIn(created.status_code, (200, 201), created.data)
+        attendance_id = created.data["attendance_record"]["id"]
+
+        bad = self.client.patch(
+            f"/api/events/{self.event.id}/attendance/{attendance_id}/",
+            {"attendance_mode": "ONLINE"},
+            format="json",
+        )
+        self.assertEqual(bad.status_code, 400, bad.data)
+        record = AttendanceRecord.objects.get(pk=attendance_id)
+        self.assertEqual(record.attendance_mode, "ONSITE")
 
     def test_cannot_delete_venue_in_use(self):
         used = AttendanceVenue.objects.create(

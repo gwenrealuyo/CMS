@@ -136,7 +136,9 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             mode = AttendanceRecord.AttendanceMode.ONSITE
 
         if mode == AttendanceRecord.AttendanceMode.ONSITE:
-            if venue is not None:
+            # Explicit non-null venue with Onsite is invalid; otherwise clear venue
+            # (including when switching Online → Onsite without sending venue).
+            if "attendance_venue" in attrs and attrs.get("attendance_venue") is not None:
                 raise ValidationError(
                     {
                         "attendance_venue": (
@@ -232,9 +234,8 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         return record
 
     def update(self, instance, validated_data):
-        # First check-in final: never overwrite mode/venue via update.
-        validated_data.pop("attendance_mode", None)
-        validated_data.pop("attendance_venue", None)
+        # Explicit staff PATCH may correct mode/venue; create/POST still
+        # keeps first check-in final via create().
         for attr, value in validated_data.items():
             if attr in {"event", "person"}:
                 continue

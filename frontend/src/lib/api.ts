@@ -983,6 +983,20 @@ export const eventsApi = {
     }>(`/events/${id}/attendance/`, payload),
   removeAttendance: (id: string, attendanceId: number | string) =>
     api.delete<{ event: Event }>(`/events/${id}/attendance/${attendanceId}/`),
+  updateAttendance: (
+    id: string,
+    attendanceId: number | string,
+    payload: {
+      attendance_mode?: AttendanceMode;
+      attendance_venue?: string | null;
+      status?: AttendanceStatus;
+      notes?: string;
+    }
+  ) =>
+    api.patch<{
+      attendance_record: EventAttendanceRecord;
+      event: Event;
+    }>(`/events/${id}/attendance/${attendanceId}/`, payload),
   selfCheckInSession: (params?: { event?: number | string }) =>
     api.get<SelfCheckInSessionResponse>("/events/self-check-in/session/", {
       params: params?.event ? { event: params.event } : undefined,

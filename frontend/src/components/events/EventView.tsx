@@ -5,10 +5,15 @@ import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import EventAttendanceReportModal from "@/src/components/events/EventAttendanceReportModal";
+import EditAttendanceModeControl, {
+  AttendanceModeVenueFields,
+} from "@/src/components/events/EditAttendanceModeControl";
 import { usePeople } from "@/src/hooks/usePeople";
+import { attendanceVenuesApi } from "@/src/lib/api";
 import {
   AttendanceMode,
   AttendanceStatus,
+  AttendanceVenueOption,
   Event,
   EventAttendanceRecord,
 } from "@/src/types/event";
@@ -184,6 +189,10 @@ export default function EventView({
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState("");
   const [selectedStatus] = useState<AttendanceStatus>("PRESENT");
+  const [addAttendanceMode, setAddAttendanceMode] =
+    useState<AttendanceMode>("ONSITE");
+  const [addAttendanceVenue, setAddAttendanceVenue] = useState("");
+  const [venues, setVenues] = useState<AttendanceVenueOption[]>([]);
   const [attendanceSearchTerm, setAttendanceSearchTerm] = useState("");
   const [modeFilter, setModeFilter] = useState<"" | AttendanceMode>("");
   const [removeConfirmation, setRemoveConfirmation] = useState<{
@@ -198,6 +207,25 @@ export default function EventView({
   const canGenerateReport = Boolean(
     selectedOccurrenceDate && isAttendanceReportAvailable(selectedOccurrenceDate)
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await attendanceVenuesApi.list({ active: true });
+        if (!cancelled) {
+          setVenues(response.data);
+        }
+      } catch {
+        if (!cancelled) {
+          setVenues([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setSelectedOccurrenceDate(initialOccurrenceKey);
@@ -289,13 +317,19 @@ export default function EventView({
 
   const addAttendeeById = async (personId: string) => {
     if (!selectedOccurrenceDate || !personId || actionLoading) return;
+    if (addAttendanceMode === "ONLINE" && !addAttendanceVenue) {
+      setActionError("Select an online venue before adding attendance.");
+      return;
+    }
     setActionLoading(true);
     try {
       await addAttendance(event.id, {
         person_id: personId,
         occurrence_date: selectedOccurrenceDate,
         status: selectedStatus,
-        attendance_mode: "ONSITE",
+        attendance_mode: addAttendanceMode,
+        attendance_venue:
+          addAttendanceMode === "ONLINE" ? addAttendanceVenue : null,
       });
       await fetchAttendance(selectedOccurrenceDate);
       setSelectedPersonId("");
@@ -648,7 +682,7 @@ export default function EventView({
             )}
 
             <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end md:gap-4">
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 space-y-3">
                 <ScalableSelect
                   options={attendeeOptions}
                   value={selectedPersonId}
@@ -660,11 +694,27 @@ export default function EventView({
                   emptyMessage="No matching people"
                   showSearch
                 />
+                <AttendanceModeVenueFields
+                  mode={addAttendanceMode}
+                  venueCode={addAttendanceVenue}
+                  venues={venues}
+                  onModeChange={(next) => {
+                    setAddAttendanceMode(next);
+                    if (next === "ONSITE") {
+                      setAddAttendanceVenue("");
+                    }
+                  }}
+                  onVenueChange={setAddAttendanceVenue}
+                  disabled={actionLoading}
+                />
               </div>
               <Button
                 onClick={handleAddAttendance}
                 disabled={
-                  actionLoading || !selectedOccurrenceDate || !selectedPersonId
+                  actionLoading ||
+                  !selectedOccurrenceDate ||
+                  !selectedPersonId ||
+                  (addAttendanceMode === "ONLINE" && !addAttendanceVenue)
                 }
                 className="w-full sm:w-auto min-h-[44px] md:self-center md:px-6"
               >
@@ -843,6 +893,17 @@ export default function EventView({
                           </div>
                         </div>
                         <div className="flex items-center gap-3 w-full sm:w-auto">
+                          <EditAttendanceModeControl
+                            eventId={String(event.id)}
+                            record={record}
+                            venues={venues}
+                            disabled={actionLoading || removeConfirmation.loading}
+                            onSaved={async () => {
+                              if (selectedOccurrenceDate) {
+                                await fetchAttendance(selectedOccurrenceDate);
+                              }
+                            }}
+                          />
                           <Button
                             variant="tertiary"
                             className="w-full sm:w-auto min-h-[44px] text-xs px-3 py-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"

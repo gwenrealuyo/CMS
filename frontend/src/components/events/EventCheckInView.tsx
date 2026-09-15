@@ -15,6 +15,7 @@ import toast from "react-hot-toast";
 import Button from "@/src/components/ui/Button";
 import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import EventAttendanceReportModal from "@/src/components/events/EventAttendanceReportModal";
+import EditAttendanceModeControl from "@/src/components/events/EditAttendanceModeControl";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import { usePeople } from "@/src/hooks/usePeople";
@@ -1191,6 +1192,17 @@ export default function EventCheckInView({
                             minute: "2-digit",
                           })}
                         </span>
+                        <EditAttendanceModeControl
+                          eventId={eventId}
+                          record={record}
+                          venues={venues}
+                          disabled={submitting || removeConfirmation.loading}
+                          iconOnly
+                          buttonClassName="flex h-8 w-8 translate-x-2 items-center justify-center rounded-full text-blue-600 opacity-100 transition-all duration-200 hover:bg-blue-50 disabled:opacity-50 md:translate-x-3 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100"
+                          onSaved={async () => {
+                            await fetchAttendance();
+                          }}
+                        />
                         <button
                           type="button"
                           onClick={() => openRemoveConfirmation(record)}

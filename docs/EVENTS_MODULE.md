@@ -12,8 +12,10 @@
 - **Onsite** — physical church check-in (staff QR / manual station). No venue subtype.
 - **Online** — remote check-in (self-check-in or staff Online station). Requires an active `AttendanceVenue` (e.g. Home altar, Cluster house).
 - Venues are admin-managed at `/api/attendance-venues/` (seeded system rows: `HOME_ALTAR`, `CLUSTER_HOUSE`). Admins can add/edit labels, colors, sort order, and active flag; system venues and venues in use cannot be deleted.
-- **First check-in is final** for mode/venue: a second Present write for the same person/occurrence returns **409** and does not change mode/venue. Staff can delete the attendance record and check in again if a correction is needed.
+- **First check-in is final** for mode/venue on **POST** (QR, self-check-in, re-add): a second Present write for the same person/occurrence returns **409** and does not change mode/venue.
+- Staff can **correct** mode/venue afterward via `PATCH /api/events/{id}/attendance/{attendance_id}/` with `attendance_mode` and (when Online) `attendance_venue`. UI: **Edit mode** on the Event attendance list and on Check-In Recent Check-Ins. Switching to Onsite clears venue; Online requires an active venue.
 - Staff check-in station: **Onsite** (default, QR + manual) or **Online** (manual only + required venue picker).
+- Event detail **Add attendee** also accepts Onsite/Online (+ venue when Online).
 - Self-check-in is always **Online** and requires `attendance_venue` on every POST (household and visitor flows). Session payloads include `attendance_venues` for the picker.
 - Manage venues in **Admin Settings → Events → Manage venues**.
 
@@ -102,7 +104,7 @@ The Event form shows these toggles only when the type is Sunday Service. Other e
 - Manual Entry and Camera Scan look up anyone in the broader check-in candidate pool (non-admin, branch-scoped), so people outside Total can still check in.
 - **Manual Entry** tab accepts name or LAMP ID; Enter key submits.
 - **Camera Scan** tab (Onsite station only) uses the device camera (`@zxing/browser`) to read a QR code whose payload is the LAMP ID (`member_id`), for example `LAMP00001`. A match auto-checks the person in. Success, already-checked-in, and unknown IDs show a large status banner on the page (green / amber / red) **and** a larger toast. Camera access requires HTTPS or localhost.
-- Station toggle: **Onsite** (default) posts `attendance_mode: ONSITE`; **Online** requires a venue and posts `ONLINE` + venue. Switching the station also sets the Recent Check-Ins mode filter to Onsite or Online. Recent Check-Ins show mode/venue chips and can still filter by mode and cluster.
+- Station toggle: **Onsite** (default) posts `attendance_mode: ONSITE`; **Online** requires a venue and posts `ONLINE` + venue. Switching the station also sets the Recent Check-Ins mode filter to Onsite or Online. Recent Check-Ins show mode/venue chips, **Edit mode** (PATCH correction), and can still filter by mode and cluster.
 - Reuses `POST /api/events/{id}/attendance/` with `status: PRESENT` and refreshes the recent check-ins list after each success.
 - For **today or past** occurrences, **Generate Report** opens the same client-side attendance report as Event Details.
 

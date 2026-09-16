@@ -1,7 +1,16 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Button from "@/src/components/ui/Button";
+import ConfirmationModal from "@/src/components/ui/ConfirmationModal";
 import ErrorMessage from "@/src/components/ui/ErrorMessage";
 import ScalableSelect from "@/src/components/ui/ScalableSelect";
 import {
@@ -13,7 +22,15 @@ import { Cluster } from "@/src/types/cluster";
 import { formatPersonName } from "@/src/lib/name";
 import { isSelectablePerson } from "@/src/lib/peopleSelectors";
 import { useBranches } from "@/src/hooks/useBranches";
-import { ministriesApi, ministryMembersApi } from "@/src/lib/api";
+import {
+  evangelismApi,
+  ministriesApi,
+  ministryMembersApi,
+} from "@/src/lib/api";
+import {
+  describeDuplicateEvangelismGroup,
+  findPossibleEvangelismGroupNameDuplicates,
+} from "@/src/lib/evangelismGroupDuplicates";
 import {
   BIBLE_SHARERS_MINISTRY_CODE,
   BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE,
@@ -91,10 +108,7 @@ function groupBranchIdFromRecord(group: EvangelismGroup): string {
   return clusterBranchId(group.cluster);
 }
 
-function personBelongsToCluster(
-  person: Person,
-  clusterId: string,
-): boolean {
+function personBelongsToCluster(person: Person, clusterId: string): boolean {
   return (person.cluster_ids ?? []).some(
     (id) => String(id) === String(clusterId),
   );
@@ -116,7 +130,9 @@ function groupMemberIds(group: EvangelismGroup): string[] {
     .filter((id): id is string => Boolean(id));
 }
 
-function formValuesFromGroup(group: EvangelismGroup): EvangelismGroupFormValues {
+function formValuesFromGroup(
+  group: EvangelismGroup,
+): EvangelismGroupFormValues {
   return {
     name: group.name,
     description: group.description || "",
@@ -159,6 +175,11 @@ export default function EvangelismGroupForm({
   const syncedGroupIdRef = useRef<string | null>(null);
   const syncedRosterRef = useRef(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [duplicateNameConfirm, setDuplicateNameConfirm] = useState<{
+    isOpen: boolean;
+    matches: EvangelismGroup[];
+  }>({ isOpen: false, matches: [] });
+  const [duplicateCheckLoading, setDuplicateCheckLoading] = useState(false);
 
   const [initialPickerValue, setInitialPickerValue] = useState("");
   const { branches } = useBranches();
@@ -215,14 +236,45 @@ export default function EvangelismGroupForm({
       }));
     };
 
+  const performSubmit = useCallback(() => {
+    setLocalError(null);
+    void onSubmit(values);
+  }, [onSubmit, values]);
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!values.branch_id) {
       setLocalError("Branch is required.");
       return;
     }
+    const searchTerm = values.name.trim();
     setLocalError(null);
-    await onSubmit(values);
+    setDuplicateCheckLoading(true);
+    try {
+      let candidateGroups: EvangelismGroup[] = [];
+      if (searchTerm) {
+        const response = await evangelismApi.listGroups({
+          name: searchTerm,
+          page_size: 10,
+        });
+        candidateGroups = response.data.results ?? [];
+      }
+      const nameMatches = findPossibleEvangelismGroupNameDuplicates(
+        candidateGroups,
+        {
+          name: searchTerm,
+          branch: values.branch_id ? Number(values.branch_id) : null,
+          excludeId: initialData?.id,
+        },
+      );
+      if (nameMatches.length > 0) {
+        setDuplicateNameConfirm({ isOpen: true, matches: nameMatches });
+        return;
+      }
+      performSubmit();
+    } finally {
+      setDuplicateCheckLoading(false);
+    }
   };
 
   const initialMemberOptions = useMemo(
@@ -301,15 +353,21 @@ export default function EvangelismGroupForm({
   );
 
   const selectedCluster = useMemo(
-    () =>
-      clusters.find((cluster) => String(cluster.id) === values.cluster_id),
+    () => clusters.find((cluster) => String(cluster.id) === values.cluster_id),
     [clusters, values.cluster_id],
   );
+  const suggestedClusterName = clusterBibleStudyName(selectedCluster);
+  const showClusterNameSuggestion =
+    Boolean(suggestedClusterName) &&
+    values.name.trim() !== suggestedClusterName;
 
   const branchOptions = useMemo(
     () =>
       branches
-        .filter((branch) => branch.is_active || String(branch.id) === values.branch_id)
+        .filter(
+          (branch) =>
+            branch.is_active || String(branch.id) === values.branch_id,
+        )
         .map((branch) => ({
           label: branch.code?.trim()
             ? `${branch.name} (${branch.code})`
@@ -390,16 +448,18 @@ export default function EvangelismGroupForm({
         const membersData = membersRes.data as unknown;
         const members = Array.isArray(membersData)
           ? membersData
-          : ((membersData as { results?: { member?: { id: number }; member_id?: number }[] })
-              ?.results ?? []);
+          : ((
+              membersData as {
+                results?: { member?: { id: number }; member_id?: number }[];
+              }
+            )?.results ?? []);
         if (!cancelled) {
           setBibleSharerRosterIds(
             new Set(
               members.map((m) =>
                 String(
                   (m as { member?: { id: number }; member_id?: number }).member
-                    ?.id ??
-                    (m as { member_id?: number }).member_id,
+                    ?.id ?? (m as { member_id?: number }).member_id,
                 ),
               ),
             ),
@@ -479,7 +539,10 @@ export default function EvangelismGroupForm({
     });
   }, [groupMembersKnown, roleCandidateIds]);
 
-  const addRoleId = (field: "reporter_ids" | "bible_sharer_ids", id: string) => {
+  const addRoleId = (
+    field: "reporter_ids" | "bible_sharer_ids",
+    id: string,
+  ) => {
     if (!id || !roleCandidateIds.has(id)) return;
     setValues((prev) => {
       const current = prev[field] || [];
@@ -488,14 +551,20 @@ export default function EvangelismGroupForm({
       if (field === "bible_sharer_ids") {
         next.reporter_ids = (prev.reporter_ids || []).filter((x) => x !== id);
       }
-      if (field === "reporter_ids" && (prev.bible_sharer_ids || []).includes(id)) {
+      if (
+        field === "reporter_ids" &&
+        (prev.bible_sharer_ids || []).includes(id)
+      ) {
         return prev;
       }
       return next;
     });
   };
 
-  const removeRoleId = (field: "reporter_ids" | "bible_sharer_ids", id: string) => {
+  const removeRoleId = (
+    field: "reporter_ids" | "bible_sharer_ids",
+    id: string,
+  ) => {
     setValues((prev) => ({
       ...prev,
       [field]: (prev[field] || []).filter((x) => x !== id),
@@ -508,272 +577,293 @@ export default function EvangelismGroupForm({
   };
 
   return (
-    <form
-      className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
-      onSubmit={handleSubmit}
-    >
-      {error && <ErrorMessage message={error} />}
-      {!error && localError && <ErrorMessage message={localError} />}
-
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Group Name <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={values.name}
-          onChange={handleChange("name")}
-          required
-          placeholder="e.g., North Bible Study"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-        />
-      </div>
-
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Description
-        </label>
-        <textarea
-          value={values.description}
-          onChange={handleChange("description")}
-          placeholder="Group description..."
-          rows={3}
-          className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-        />
-      </div>
-
-      <div
-        className={
-          panelLayout ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"
-        }
+    <>
+      <form
+        className={panelLayout ? "p-4 sm:p-5 space-y-4" : "space-y-4"}
+        onSubmit={handleSubmit}
       >
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Branch <span className="text-red-500">*</span>
-          </label>
-          <ScalableSelect
-            options={[
-              { label: "Select branch", value: "" },
-              ...branchOptions,
-            ]}
-            value={values.branch_id || ""}
-            onChange={(value) =>
-              setValues((prev) => {
-                const currentCluster = clusters.find(
-                  (cluster) => String(cluster.id) === String(prev.cluster_id),
-                );
-                const clusterStillValid =
-                  Boolean(prev.cluster_id) &&
-                  (!clusterBranchId(currentCluster) ||
-                    clusterBranchId(currentCluster) === String(value));
-                return {
-                  ...prev,
-                  branch_id: value,
-                  cluster_id: clusterStillValid ? prev.cluster_id : "",
-                };
-              })
-            }
-            placeholder="Select branch"
-            className="w-full"
-            showSearch
-            disabled={branchLocked}
-          />
-          {values.cluster_id ? (
-            <p className="text-xs text-gray-500">
-              Branch is set from the selected cluster.
-            </p>
-          ) : !canChangeBranch ? (
-            <p className="text-xs text-gray-500">
-              Branch is limited to your assignment.
-            </p>
-          ) : (
-            <p className="text-xs text-gray-500">
-              Required even when the group has no cluster.
-            </p>
-          )}
-        </div>
+        {error && <ErrorMessage message={error} />}
+        {!error && localError && <ErrorMessage message={localError} />}
 
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
-            Cluster (Optional)
-          </label>
-          <ScalableSelect
-            options={clusterOptions}
-            value={values.cluster_id || ""}
-            onChange={(value) =>
-              setValues((prev) => {
-                const nextCluster = clusters.find(
-                  (cluster) => String(cluster.id) === String(value),
-                );
-                const prevCluster = clusters.find(
-                  (cluster) => String(cluster.id) === String(prev.cluster_id),
-                );
-                const suggested = clusterBibleStudyName(nextCluster);
-                const previousSuggested = clusterBibleStudyName(prevCluster);
-                const currentName = prev.name.trim();
-                const shouldPrefillName =
-                  Boolean(suggested) &&
-                  (!currentName || currentName === previousSuggested);
-
-                const suggestedCoordinator = clusterCoordinatorId(nextCluster);
-                const previousSuggestedCoordinator =
-                  clusterCoordinatorId(prevCluster);
-                const roster = people.length > 0 ? people : coordinators;
-                const stillInCluster =
-                  Boolean(value) &&
-                  Boolean(prev.coordinator_id) &&
-                  roster.some(
-                    (person) =>
-                      String(person.id) === String(prev.coordinator_id) &&
-                      personBelongsToCluster(person, String(value)),
-                  );
-                const shouldPrefillCoordinator =
-                  Boolean(value) &&
-                  Boolean(suggestedCoordinator) &&
-                  (!prev.coordinator_id ||
-                    prev.coordinator_id === previousSuggestedCoordinator ||
-                    !stillInCluster);
-                const nextCoordinatorId = shouldPrefillCoordinator
-                  ? suggestedCoordinator
-                  : prev.coordinator_id;
-                const nextBranchId = value
-                  ? clusterBranchId(nextCluster) || prev.branch_id
-                  : prev.branch_id;
-
-                return {
-                  ...prev,
-                  cluster_id: value,
-                  branch_id: nextBranchId,
-                  meeting_frequency: value
-                    ? "WEEKLY"
-                    : prev.meeting_frequency,
-                  name: shouldPrefillName ? suggested : prev.name,
-                  coordinator_id: nextCoordinatorId,
-                  reporter_ids: nextCoordinatorId
-                    ? (prev.reporter_ids || []).filter(
-                        (id) => id !== nextCoordinatorId,
-                      )
-                    : prev.reporter_ids,
-                  bible_sharer_ids: nextCoordinatorId
-                    ? (prev.bible_sharer_ids || []).filter(
-                        (id) => id !== nextCoordinatorId,
-                      )
-                    : prev.bible_sharer_ids,
-                };
-              })
-            }
-            placeholder="Select cluster"
-            className="w-full"
-            showSearch
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Coordinator
-          </label>
-          <ScalableSelect
-            options={[{ label: "Not set", value: "" }, ...coordinatorOptions]}
-            value={values.coordinator_id || ""}
-            onChange={(value) =>
-              setValues((prev) => ({
-                ...prev,
-                coordinator_id: value,
-                reporter_ids: (prev.reporter_ids || []).filter((id) => id !== value),
-                bible_sharer_ids: (prev.bible_sharer_ids || []).filter(
-                  (id) => id !== value,
-                ),
-              }))
-            }
-            placeholder="Select coordinator"
-            className="w-full"
-            showSearch
-          />
-          {values.cluster_id ? (
-            <p className="text-xs text-gray-500">
-              Limited to members of this cluster.
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      <div
-        className={
-          panelLayout
-            ? "space-y-4"
-            : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-        }
-      >
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Location
+            Group Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
-            value={values.location}
-            onChange={handleChange("location")}
-            placeholder="Meeting location"
+            value={values.name}
+            onChange={handleChange("name")}
+            required
+            placeholder="e.g., North Bible Study"
             className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           />
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Meeting Day
-          </label>
-          <select
-            value={values.meeting_day}
-            onChange={handleChange("meeting_day")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            {dayOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Meeting Time
-          </label>
-          <input
-            type="time"
-            value={values.meeting_time || ""}
-            onChange={handleChange("meeting_time")}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Meeting Frequency
-          </label>
-          <select
-            value={values.meeting_frequency}
-            onChange={handleChange("meeting_frequency")}
-            disabled={Boolean(values.cluster_id)}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
-          >
-            {MEETING_FREQUENCY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {values.cluster_id ? (
+          {showClusterNameSuggestion ? (
             <p className="text-xs text-gray-500">
-              Cluster Bible Studies report weekly.
+              You can use{" "}
+              <button
+                type="button"
+                className="font-medium text-primary hover:underline"
+                onClick={() =>
+                  setValues((prev) => ({
+                    ...prev,
+                    name: suggestedClusterName,
+                  }))
+                }
+              >
+                {suggestedClusterName}
+              </button>
             </p>
           ) : null}
         </div>
-      </div>
-      <p className="text-xs text-gray-500">
-        Leave meeting time empty if the group does not have a fixed time.
-      </p>
 
-      <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Description
+          </label>
+          <textarea
+            value={values.description}
+            onChange={handleChange("description")}
+            placeholder="Group description..."
+            rows={3}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+
+        <div
+          className={
+            panelLayout ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"
+          }
+        >
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Branch <span className="text-red-500">*</span>
+            </label>
+            <ScalableSelect
+              options={[
+                { label: "Select branch", value: "" },
+                ...branchOptions,
+              ]}
+              value={values.branch_id || ""}
+              onChange={(value) =>
+                setValues((prev) => {
+                  const currentCluster = clusters.find(
+                    (cluster) => String(cluster.id) === String(prev.cluster_id),
+                  );
+                  const clusterStillValid =
+                    Boolean(prev.cluster_id) &&
+                    (!clusterBranchId(currentCluster) ||
+                      clusterBranchId(currentCluster) === String(value));
+                  return {
+                    ...prev,
+                    branch_id: value,
+                    cluster_id: clusterStillValid ? prev.cluster_id : "",
+                  };
+                })
+              }
+              placeholder="Select branch"
+              className="w-full"
+              showSearch
+              disabled={branchLocked}
+            />
+            {values.cluster_id ? (
+              <p className="text-xs text-gray-500">
+                Branch is set from the selected cluster.
+              </p>
+            ) : !canChangeBranch ? (
+              <p className="text-xs text-gray-500">
+                Branch is limited to your assignment.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500">
+                Required even when the group has no cluster.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Cluster (Optional)
+            </label>
+            <ScalableSelect
+              options={clusterOptions}
+              value={values.cluster_id || ""}
+              onChange={(value) =>
+                setValues((prev) => {
+                  const nextCluster = clusters.find(
+                    (cluster) => String(cluster.id) === String(value),
+                  );
+                  const prevCluster = clusters.find(
+                    (cluster) => String(cluster.id) === String(prev.cluster_id),
+                  );
+                  const suggested = clusterBibleStudyName(nextCluster);
+                  const previousSuggested = clusterBibleStudyName(prevCluster);
+                  const currentName = prev.name.trim();
+                  const shouldPrefillName =
+                    Boolean(suggested) &&
+                    (!currentName || currentName === previousSuggested);
+
+                  const suggestedCoordinator =
+                    clusterCoordinatorId(nextCluster);
+                  const previousSuggestedCoordinator =
+                    clusterCoordinatorId(prevCluster);
+                  const roster = people.length > 0 ? people : coordinators;
+                  const stillInCluster =
+                    Boolean(value) &&
+                    Boolean(prev.coordinator_id) &&
+                    roster.some(
+                      (person) =>
+                        String(person.id) === String(prev.coordinator_id) &&
+                        personBelongsToCluster(person, String(value)),
+                    );
+                  const shouldPrefillCoordinator =
+                    Boolean(value) &&
+                    Boolean(suggestedCoordinator) &&
+                    (!prev.coordinator_id ||
+                      prev.coordinator_id === previousSuggestedCoordinator ||
+                      !stillInCluster);
+                  const nextCoordinatorId = shouldPrefillCoordinator
+                    ? suggestedCoordinator
+                    : prev.coordinator_id;
+                  const nextBranchId = value
+                    ? clusterBranchId(nextCluster) || prev.branch_id
+                    : prev.branch_id;
+
+                  return {
+                    ...prev,
+                    cluster_id: value,
+                    branch_id: nextBranchId,
+                    meeting_frequency: value
+                      ? "WEEKLY"
+                      : prev.meeting_frequency,
+                    name: shouldPrefillName ? suggested : prev.name,
+                    coordinator_id: nextCoordinatorId,
+                    reporter_ids: nextCoordinatorId
+                      ? (prev.reporter_ids || []).filter(
+                          (id) => id !== nextCoordinatorId,
+                        )
+                      : prev.reporter_ids,
+                    bible_sharer_ids: nextCoordinatorId
+                      ? (prev.bible_sharer_ids || []).filter(
+                          (id) => id !== nextCoordinatorId,
+                        )
+                      : prev.bible_sharer_ids,
+                  };
+                })
+              }
+              placeholder="Select cluster"
+              className="w-full"
+              showSearch
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Coordinator
+            </label>
+            <ScalableSelect
+              options={[{ label: "Not set", value: "" }, ...coordinatorOptions]}
+              value={values.coordinator_id || ""}
+              onChange={(value) =>
+                setValues((prev) => ({
+                  ...prev,
+                  coordinator_id: value,
+                  reporter_ids: (prev.reporter_ids || []).filter(
+                    (id) => id !== value,
+                  ),
+                  bible_sharer_ids: (prev.bible_sharer_ids || []).filter(
+                    (id) => id !== value,
+                  ),
+                }))
+              }
+              placeholder="Select coordinator"
+              className="w-full"
+              showSearch
+            />
+            {values.cluster_id ? (
+              <p className="text-xs text-gray-500">
+                Limited to members of this cluster.
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div
+          className={
+            panelLayout
+              ? "space-y-4"
+              : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+          }
+        >
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Location
+            </label>
+            <input
+              type="text"
+              value={values.location}
+              onChange={handleChange("location")}
+              placeholder="Meeting location"
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Meeting Day
+            </label>
+            <select
+              value={values.meeting_day}
+              onChange={handleChange("meeting_day")}
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {dayOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Meeting Time
+            </label>
+            <input
+              type="time"
+              value={values.meeting_time || ""}
+              onChange={handleChange("meeting_time")}
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Meeting Frequency
+            </label>
+            <select
+              value={values.meeting_frequency}
+              onChange={handleChange("meeting_frequency")}
+              disabled={Boolean(values.cluster_id)}
+              className="w-full rounded-md border border-gray-200 px-3 py-2 min-h-[44px] text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
+            >
+              {MEETING_FREQUENCY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {values.cluster_id ? (
+              <p className="text-xs text-gray-500">
+                Cluster Bible Studies report weekly.
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <p className="text-xs text-gray-500">
+          Leave meeting time empty if the group does not have a fixed time.
+        </p>
+
+        <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
           <p className="text-sm font-medium text-gray-800">
             {isCreate ? "Initial members (optional)" : "Members"}
           </p>
@@ -830,152 +920,187 @@ export default function EvangelismGroupForm({
           )}
         </div>
 
-      <div className="space-y-2">
-        <div className="flex items-start">
-          <input
-            type="checkbox"
-            id="is_active"
-            checked={values.is_active}
-            onChange={handleChange("is_active")}
-            className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded mt-0.5"
-          />
-          <label
-            htmlFor="is_active"
-            className="ml-2 block text-sm text-gray-700 cursor-pointer"
-          >
-            Active
-          </label>
+        <div className="space-y-2">
+          <div className="flex items-start">
+            <input
+              type="checkbox"
+              id="is_active"
+              checked={values.is_active}
+              onChange={handleChange("is_active")}
+              className="h-4 w-4 text-primary focus:ring-ring border-gray-300 rounded mt-0.5"
+            />
+            <label
+              htmlFor="is_active"
+              className="ml-2 block text-sm text-gray-700 cursor-pointer"
+            >
+              Active
+            </label>
+          </div>
         </div>
-      </div>
 
-      <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
-        <p className="text-sm font-medium text-gray-800">
-          Group roles
-        </p>
-        <p className="text-xs text-gray-500">
-          Bible Sharers and reporters must already be members of this
-          evangelism group (add them above first). The coordinator
-          cannot hold either role on this group.
-          {isHqGroup
-            ? " HQ groups can only assign Bible Sharers from the headquarters Bible Sharers ministry roster."
-            : ""}
-        </p>
-        {(
-          [
-            {
-              field: "bible_sharer_ids" as const,
-              label: "Bible Sharers",
-              hint: isHqGroup
-                ? "Must be on the HQ Bible Sharers roster"
-                : "Can facilitate and submit reports",
-              chipClass: "bg-rose-50 text-rose-800 border-rose-200",
-            },
-            {
-              field: "reporter_ids" as const,
-              label: "Reporters",
-              hint: "Can submit reports only; limited to group members",
-              chipClass: "bg-amber-50 text-amber-800 border-amber-200",
-            },
-          ] as const
-        ).map((role) => {
-          const selected = values[role.field] || [];
-          const options = roleCandidateOptions.filter((opt) => {
-            if (selected.includes(opt.value)) return false;
-            if (
-              role.field === "reporter_ids" &&
-              (values.bible_sharer_ids || []).includes(opt.value)
-            ) {
-              return false;
-            }
-            if (
+        <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
+          <p className="text-sm font-medium text-gray-800">Group roles</p>
+          <p className="text-xs text-gray-500">
+            Bible Sharers and reporters must already be members of this
+            evangelism group (add them above first). The coordinator cannot hold
+            either role on this group.
+            {isHqGroup
+              ? " HQ groups can only assign Bible Sharers from the headquarters Bible Sharers ministry roster."
+              : ""}
+          </p>
+          {(
+            [
+              {
+                field: "bible_sharer_ids" as const,
+                label: "Bible Sharers",
+                hint: isHqGroup
+                  ? "Must be on the HQ Bible Sharers roster"
+                  : "Can facilitate and submit reports",
+                chipClass: "bg-rose-50 text-rose-800 border-rose-200",
+              },
+              {
+                field: "reporter_ids" as const,
+                label: "Reporters",
+                hint: "Can submit reports only; limited to group members",
+                chipClass: "bg-amber-50 text-amber-800 border-amber-200",
+              },
+            ] as const
+          ).map((role) => {
+            const selected = values[role.field] || [];
+            const options = roleCandidateOptions.filter((opt) => {
+              if (selected.includes(opt.value)) return false;
+              if (
+                role.field === "reporter_ids" &&
+                (values.bible_sharer_ids || []).includes(opt.value)
+              ) {
+                return false;
+              }
+              if (
+                role.field === "bible_sharer_ids" &&
+                isHqGroup &&
+                !bibleSharerRosterIds.has(opt.value)
+              ) {
+                return false;
+              }
+              return true;
+            });
+            const hqRosterEmpty =
               role.field === "bible_sharer_ids" &&
               isHqGroup &&
-              !bibleSharerRosterIds.has(opt.value)
-            ) {
-              return false;
-            }
-            return true;
-          });
-          const hqRosterEmpty =
-            role.field === "bible_sharer_ids" &&
-            isHqGroup &&
-            roleCandidateIds.size > 0 &&
-            options.length === 0;
-          return (
-            <div key={role.field} className="space-y-2">
-              <p className="text-sm text-gray-700">
-                {role.label}{" "}
-                <span className="text-xs font-normal text-gray-500">
-                  ({selected.length} selected) — {role.hint}
-                </span>
-              </p>
-              <ScalableSelect
-                options={[
-                  { label: `Add ${role.label.toLowerCase()}`, value: "" },
-                  ...options,
-                ]}
-                value=""
-                onChange={(value) => addRoleId(role.field, value)}
-                placeholder={
-                  !groupMembersKnown
-                    ? "Loading members..."
-                    : roleCandidateIds.size === 0
-                    ? "Add members first"
-                    : hqRosterEmpty
-                      ? BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE
-                      : `Add ${role.label.toLowerCase()}`
-                }
-                className="w-full"
-                showSearch
-                disabled={!groupMembersKnown || roleCandidateIds.size === 0}
-              />
-              {hqRosterEmpty && (
-                <p className="text-xs text-gray-500">
-                  {BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE}
+              roleCandidateIds.size > 0 &&
+              options.length === 0;
+            return (
+              <div key={role.field} className="space-y-2">
+                <p className="text-sm text-gray-700">
+                  {role.label}{" "}
+                  <span className="text-xs font-normal text-gray-500">
+                    ({selected.length} selected) — {role.hint}
+                  </span>
                 </p>
-              )}
-              {selected.length > 0 && (
-                <ul className="flex flex-wrap gap-2">
-                  {selected.map((id) => (
-                    <li key={id}>
-                      <span
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm border ${role.chipClass}`}
-                      >
-                        {personLabel(id)}
-                        <button
-                          type="button"
-                          onClick={() => removeRoleId(role.field, id)}
-                          aria-label={`Remove ${personLabel(id)}`}
+                <ScalableSelect
+                  options={[
+                    { label: `Add ${role.label.toLowerCase()}`, value: "" },
+                    ...options,
+                  ]}
+                  value=""
+                  onChange={(value) => addRoleId(role.field, value)}
+                  placeholder={
+                    !groupMembersKnown
+                      ? "Loading members..."
+                      : roleCandidateIds.size === 0
+                        ? "Add members first"
+                        : hqRosterEmpty
+                          ? BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE
+                          : `Add ${role.label.toLowerCase()}`
+                  }
+                  className="w-full"
+                  showSearch
+                  disabled={!groupMembersKnown || roleCandidateIds.size === 0}
+                />
+                {hqRosterEmpty && (
+                  <p className="text-xs text-gray-500">
+                    {BIBLE_SHARERS_ROSTER_EMPTY_MESSAGE}
+                  </p>
+                )}
+                {selected.length > 0 && (
+                  <ul className="flex flex-wrap gap-2">
+                    {selected.map((id) => (
+                      <li key={id}>
+                        <span
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm border ${role.chipClass}`}
                         >
-                          ×
-                        </button>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                          {personLabel(id)}
+                          <button
+                            type="button"
+                            onClick={() => removeRoleId(role.field, id)}
+                            aria-label={`Remove ${personLabel(id)}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-      <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
-        <Button
-          variant="tertiary"
-          className="w-full sm:flex-1 min-h-[44px]"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
-          {panelLayout ? "Back" : "Cancel"}
-        </Button>
-        <Button
-          className="w-full sm:flex-1 min-h-[44px]"
-          disabled={isSubmitting}
-          type="submit"
-        >
-          {isSubmitting ? "Saving..." : submitLabel}
-        </Button>
-      </div>
-    </form>
+        <div className="flex flex-col-reverse sm:flex-row gap-4 pt-4">
+          <Button
+            variant="tertiary"
+            className="w-full sm:flex-1 min-h-[44px]"
+            onClick={onCancel}
+            disabled={isSubmitting || duplicateCheckLoading}
+          >
+            {panelLayout ? "Back" : "Cancel"}
+          </Button>
+          <Button
+            className="w-full sm:flex-1 min-h-[44px]"
+            disabled={isSubmitting || duplicateCheckLoading}
+            type="submit"
+          >
+            {isSubmitting || duplicateCheckLoading
+              ? isSubmitting
+                ? "Saving..."
+                : "Checking..."
+              : submitLabel}
+          </Button>
+        </div>
+      </form>
+
+      <ConfirmationModal
+        isOpen={duplicateNameConfirm.isOpen}
+        onClose={() => setDuplicateNameConfirm({ isOpen: false, matches: [] })}
+        onConfirm={() => {
+          setDuplicateNameConfirm({ isOpen: false, matches: [] });
+          performSubmit();
+        }}
+        title="Possible duplicate"
+        message={
+          <div className="space-y-2">
+            <p>
+              An evangelism group with the same name already exists. Continue
+              anyway only if this is a different group.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto">
+              {duplicateNameConfirm.matches.slice(0, 8).map((group) => (
+                <li key={group.id}>
+                  {describeDuplicateEvangelismGroup(group)}
+                </li>
+              ))}
+              {duplicateNameConfirm.matches.length > 8 && (
+                <li>…and {duplicateNameConfirm.matches.length - 8} more</li>
+              )}
+            </ul>
+          </div>
+        }
+        confirmText={initialData ? "Update anyway" : "Create anyway"}
+        cancelText="Go back"
+        variant="warning"
+        zIndex={80}
+      />
+    </>
   );
 }

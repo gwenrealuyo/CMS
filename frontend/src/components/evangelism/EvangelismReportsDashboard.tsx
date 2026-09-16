@@ -52,13 +52,15 @@ export interface EvangelismReportsDashboardProps {
   groups: EvangelismGroup[];
   clusters: Cluster[];
   branches: Branch[];
-  /** Increment (e.g. Submit Report header) opens the report modal */
+  /** Increment (e.g. Submit Report header) resets edit state for a new submit */
   openSubmitNonce?: number;
   refreshTrigger?: number;
   /** Pre-select group when opening submit from notification deep link */
   presetGroupId?: string | null;
   /** Open view modal for a report id from notification deep link */
   initialViewReportId?: string | null;
+  /** Parent-owned open state so visiting Reports does not replay a stale submit. */
+  externalShowForm?: boolean;
   /** Lets the page keep this dashboard mounted while the submit modal is open. */
   onFormOpenChange?: (open: boolean) => void;
 }
@@ -100,6 +102,7 @@ export default function EvangelismReportsDashboard({
   refreshTrigger = 0,
   presetGroupId = null,
   initialViewReportId = null,
+  externalShowForm,
   onFormOpenChange,
 }: EvangelismReportsDashboardProps) {
   const { user, isSeniorCoordinator } = useAuth();
@@ -156,30 +159,23 @@ export default function EvangelismReportsDashboard({
   );
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
-  const lastNonceRef = useRef(0);
-  const notifiedFormOpenRef = useRef(false);
-  useEffect(() => {
-    if (openSubmitNonce > lastNonceRef.current) {
-      lastNonceRef.current = openSubmitNonce;
-      setEditingReport(null);
-      setShowReportModal(true);
-    }
-  }, [openSubmitNonce]);
+  const lastNonceRef = useRef(openSubmitNonce);
+  const isFormOpen =
+    externalShowForm !== undefined ? externalShowForm : showReportModal;
 
   useEffect(() => {
-    if (showReportModal) {
-      notifiedFormOpenRef.current = true;
-      onFormOpenChange?.(true);
+    if (openSubmitNonce <= lastNonceRef.current) {
       return;
     }
-    if (notifiedFormOpenRef.current) {
-      notifiedFormOpenRef.current = false;
-      onFormOpenChange?.(false);
+    lastNonceRef.current = openSubmitNonce;
+    setEditingReport(null);
+    if (externalShowForm === undefined) {
+      setShowReportModal(true);
     }
-  }, [showReportModal, onFormOpenChange]);
+  }, [openSubmitNonce, externalShowForm]);
 
   useEffect(() => {
-    if (!showReportModal || editingReport) {
+    if (!isFormOpen || editingReport) {
       return;
     }
     if (presetGroupId) {
@@ -188,7 +184,7 @@ export default function EvangelismReportsDashboard({
       return;
     }
     setSelectedGroupForForm(null);
-  }, [showReportModal, presetGroupId, groups, editingReport]);
+  }, [isFormOpen, presetGroupId, groups, editingReport]);
 
   useEffect(() => {
     if (!initialViewReportId) {
@@ -406,12 +402,31 @@ export default function EvangelismReportsDashboard({
     selectedGatheringType,
   ]);
 
-  const closeReportModal = () => {
+  const closeReportModal = useCallback(() => {
     setShowReportModal(false);
     setEditingReport(null);
     setSelectedGroupForForm(null);
     setFormError(null);
-  };
+    onFormOpenChange?.(false);
+  }, [onFormOpenChange]);
+
+  const openReportModal = useCallback(
+    (report?: EvangelismWeeklyReport | null) => {
+      setFormError(null);
+      if (report) {
+        setSelectedGroupForForm(report.evangelism_group);
+        setEditingReport(report);
+      } else {
+        setSelectedGroupForForm(null);
+        setEditingReport(null);
+      }
+      if (externalShowForm === undefined) {
+        setShowReportModal(true);
+      }
+      onFormOpenChange?.(true);
+    },
+    [externalShowForm, onFormOpenChange],
+  );
 
   const handleSubmitForm = async (values: EvangelismWeeklyReportFormValues) => {
     if (!values.evangelism_group_id) return;
@@ -732,11 +747,7 @@ export default function EvangelismReportsDashboard({
           </button>
           <button
             type="button"
-            onClick={() => {
-              setSelectedGroupForForm(row.evangelism_group);
-              setEditingReport(row);
-              setShowReportModal(true);
-            }}
+            onClick={() => openReportModal(row)}
             className="text-primary hover:text-primary p-1 rounded hover:bg-primary/10 min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Edit Report"
           >
@@ -786,6 +797,7 @@ export default function EvangelismReportsDashboard({
     sortDirection,
     handleSortToggle,
     openView,
+    openReportModal,
   ]);
 
   const reportListToolbar = (
@@ -1074,7 +1086,7 @@ export default function EvangelismReportsDashboard({
       )}
 
       <Modal
-        isOpen={showReportModal}
+        isOpen={isFormOpen}
         onClose={closeReportModal}
         title={
           editingReport ? "Edit report" : "Submit report"
@@ -1156,12 +1168,8 @@ export default function EvangelismReportsDashboard({
         onEdit={() => {
           if (!viewingReport) return;
           const rpt = viewingReport;
-          const grp =
-            viewingReport.evangelism_group as EvangelismGroup;
           setViewingReport(null);
-          setSelectedGroupForForm(grp);
-          setEditingReport(rpt);
-          setShowReportModal(true);
+          openReportModal(rpt);
         }}
         onDelete={() => {
           if (!viewingReport) return;

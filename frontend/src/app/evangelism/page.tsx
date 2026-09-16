@@ -2322,6 +2322,7 @@ export default function EvangelismPage() {
               refreshTrigger={reportsListRefresh}
               presetGroupId={reportsPresetGroupId}
               initialViewReportId={reportsViewReportId}
+              externalShowForm={reportsFormOpen}
               onFormOpenChange={handleReportsFormOpenChange}
             />
           </div>
